@@ -1,0 +1,35 @@
+[package]
+name = "mecomp-daemon"
+description = "The RPC daemon for the mecomp music player, contains client and server code."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "mecomp_daemon_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mecomp_daemon"
+path = "src/main.rs"
+
+
+[dependencies]
+anyhow = { version = "1.0" }
+clap = { version = "4.4.17", features = ["derive"] }
+crossbeam = { version = "0.8.4", features = ["crossbeam-channel"] }
+dirs = { version = "5.0.1" }
+env_logger = { version = "0.10.1" }
+image = { version = "0.24.8" }
+log = { version = "0.4.20", features = ["serde"] }
+rand = { version = "0.8.5", features = ["small_rng"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
+strum = { version = "0.25.0", features = ["derive"] }
+surrealdb = { version = "1.1", features = ["kv-speedb"] }
+tarpc = { version = "0.34" }
+toml_edit = { version = "0.21.0", features = ["serde"] }
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
+walkdir = { version = "2.4.0" }
