@@ -73,7 +73,7 @@ build() {
 	done
 
 	finish
-	ls -al --color=always target/release/*mecomp{"-core","-daemon",}
+	ls -al --color=always target/release/mecomp-daemon
 }
 
 # Do everything.

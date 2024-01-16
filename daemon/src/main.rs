@@ -56,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
         })
         // Max 10 channels.
         .buffer_unordered(10)
-        .for_each(|_| async {})
+        .for_each(|()| async {})
         .await;
 
     todo!();

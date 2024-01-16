@@ -4,6 +4,9 @@ description = "Core library for the mecomp project, includes the core schemas, s
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 readme.workspace = true
 license.workspace = true
 

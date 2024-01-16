@@ -15,7 +15,7 @@ pub fn uptime() -> u64 {
 }
 
 //---------------------------------------------------------------------------------------------------- Logger init function
-#[inline(always)]
+#[allow(clippy::module_name_repetitions)]
 /// Initializes the logger.
 ///
 /// This enables console logging on all the internals of `Mecomp`.
@@ -36,16 +36,17 @@ pub fn init_logger(filter: log::LevelFilter) {
     let now = Lazy::force(&INIT_INSTANT);
 
     // If `RUST_LOG` isn't set, override it and disables
-    // all library crate logs except for `festival` & `shukusai`.
+    // all library crate logs except for mecomp and its sub-crates.
     let mut env = String::new();
+    #[allow(clippy::option_if_let_else)]
     match std::env::var("RUST_LOG") {
         Ok(e) => {
             std::env::set_var("RUST_LOG", &e);
             env = e;
         }
         // SOMEDAY:
-        // Support frontend names without *festival*.
-        _ => std::env::set_var("RUST_LOG", format!("off,mecomp={}", filter)),
+        // Support frontend names without *mecomp*.
+        _ => std::env::set_var("RUST_LOG", format!("off,mecomp={filter}")),
     }
 
     env_logger::Builder::new()

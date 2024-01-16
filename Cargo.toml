@@ -12,6 +12,9 @@ authors = [
     "Anthony Rubick <68485672+AnthonyMichaelTDM@users.noreply.github.com>",
 ]
 description = "A Metadata Enhanced Collection Orientated Music Player"
+repository = "https://github.com/AnthonyMichaelTDM/mecomp"
+keywords = ["music", "player", "audio", "mecomp"]
+categories = ["multimedia"]
 readme = "README.md"
 license = "MIT"
 

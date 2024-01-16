@@ -4,9 +4,11 @@
 
 ## Introduction
 
-MECOMP is a local music player that it is designed to solve a very specific problem:
+MECOMP is a local music player inspired by [festival](https://github.com/hinto-janai/festival) that it is designed to solve a very specific problem:
 
-> I have a large collection of music, organizing my music by artist and album is not enough, I want to be able to organize my music by other criteria, such as genre, mood, etc. Typically, I would have to create a playlist for each of these criteria, but that is tedious and time consuming. I want to have automatically curated playlists of similar songs (analogous to genres), dynamically updated playlists of songs that match a certain criteria (basically filters), and be able to create queues of songs that are similar to the current song (think Pandora).
+> I have a large collection of music, organizing my music by artist and album is not enough, I want to be able to organize my music by other criteria, such as genre, mood, etc.
+> Typically, I would have to create a playlist for each of these criteria, but that is tedious and time consuming.
+> I want to have automatically curated playlists of similar songs (analogous to genres), dynamically updated playlists of songs that match a certain criteria (basically filters), and be able to create queues of songs that are similar to the current song (think Pandora).
 > There are some services that let you do most of these, like Spotify, but I want to be able to do this with my *local* music collection and not have to rely on a third party service.
 
 ## Features
