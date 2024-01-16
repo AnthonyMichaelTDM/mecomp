@@ -3,6 +3,7 @@
 
 [workspace]
 members = ["daemon"]
+resolver = "2"
 
 [workspace.package]
 name = "mecomp"
