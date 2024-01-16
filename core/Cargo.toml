@@ -1,6 +1,6 @@
 [package]
-name = "mecomp-daemon"
-description = "The RPC daemon for the mecomp music player, contains client library and server executable."
+name = "mecomp-core"
+description = "Core library for the mecomp project, includes the core schemas, shared utils, and other such things."
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -25,20 +25,6 @@ serde = { workspace = true }
 strum = { workspace = true }
 toml_edit = { workspace = true }
 walkdir = { workspace = true }
-
-# MECOMP dependencies
-mecomp-core = { workspace = true }
-
-# server dependencies
-surrealdb = { version = "1.1", features = ["kv-speedb"] }
-tarpc = { version = "0.34", features = [
-    "tcp",
-    "serde1",
-    "serde-transport",
-    "serde-transport-json",
-    "serde-transport-bincode",
-] }
-tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
 
 
 [lints.rust]

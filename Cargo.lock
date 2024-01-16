@@ -1886,6 +1886,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "mecomp-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "crossbeam",
+ "dirs",
+ "env_logger",
+ "futures",
+ "image",
+ "log",
+ "once_cell",
+ "rand",
+ "serde",
+ "strum",
+ "toml_edit",
+ "walkdir",
+]
+
+[[package]]
 name = "mecomp-daemon"
 version = "0.1.0"
 dependencies = [
@@ -1897,6 +1917,7 @@ dependencies = [
  "futures",
  "image",
  "log",
+ "mecomp-core",
  "once_cell",
  "rand",
  "serde",

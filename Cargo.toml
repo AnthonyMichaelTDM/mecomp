@@ -2,11 +2,10 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = ["daemon"]
+members = ["core", "daemon"]
 resolver = "2"
 
 [workspace.package]
-name = "mecomp"
 version = "0.1.0"
 edition = "2021"
 authors = [
@@ -34,4 +33,33 @@ opt-level = 1
 #opt-level     = 1
 
 [workspace.dependencies]
-# ...
+# shared dependencies
+anyhow = { version = "1.0" }
+clap = { version = "4.4.17", features = ["derive"] }
+crossbeam = { version = "0.8.4", features = ["crossbeam-channel"] }
+dirs = { version = "5.0.1" }
+env_logger = { version = "0.10.1" }
+futures = { version = "0.3.17" }
+image = { version = "0.24.8" }
+log = { version = "0.4.20", features = ["serde"] }
+once_cell = { version = "1.19.0" }
+rand = { version = "0.8.5", features = ["small_rng"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
+strum = { version = "0.25.0", features = ["derive"] }
+toml_edit = { version = "0.21.0", features = ["serde"] }
+walkdir = { version = "2.4.0" }
+
+# MECOMP packages
+mecomp-core = { path = "core" }
+mecomp_daemon = { path = "daemon" }
+
+
+[lints.rust]
+warnings = "deny"
+
+[lints.clippy]
+all = "deny"
+pedantic = "deny"
+nursery = "deny"
+perf = "deny"
+cargo = "deny"

@@ -1,8 +1,6 @@
-use std::{
-    net::{IpAddr, Ipv4Addr},
-    time::Duration,
-};
-
+//----------------------------------------------------------------------------------------- std lib
+use std::net::{IpAddr, Ipv4Addr};
+//--------------------------------------------------------------------------------- other libraries
 use clap::Parser;
 use futures::{future, prelude::*};
 use log::info;
@@ -12,14 +10,14 @@ use tarpc::{
     tokio_serde::formats::Bincode,
 };
 use tokio::{self};
+//-------------------------------------------------------------------------------- MECOMP libraries
+use mecomp_core::logger::init_logger;
+//----------------------------------------------------------------------------------- local modules
+mod definition;
+mod rpc_server;
 
 use crate::definition::Rpc;
-use crate::logger::init_logger;
 use crate::rpc_server::controller::RpcServer;
-
-mod definition;
-mod logger;
-mod rpc_server;
 
 #[derive(Parser)]
 struct Flags {
@@ -41,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), flags.port);
 
     // TODO: Implement daemon
-    let mut listener = tarpc::serde_transport::tcp::listen(&server_addr, Bincode::default).await?;
+    let listener = tarpc::serde_transport::tcp::listen(&server_addr, Bincode::default).await?;
     info!("Listening on {}", listener.local_addr());
     // listener.config_mut()...
     listener

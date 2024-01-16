@@ -1,7 +1,9 @@
-use log::info;
-use once_cell::sync::Lazy;
+//----------------------------------------------------------------------------------------- std lib
 use std::io::Write;
 use std::time::Instant;
+//--------------------------------------------------------------------------------- other libraries
+use log::info;
+use once_cell::sync::Lazy;
 
 // This will get initialized below.
 /// Returns the init [`Instant`]
@@ -11,6 +13,7 @@ pub static INIT_INSTANT: Lazy<Instant> = Lazy::new(Instant::now);
 pub fn uptime() -> u64 {
     INIT_INSTANT.elapsed().as_secs()
 }
+
 //---------------------------------------------------------------------------------------------------- Logger init function
 #[inline(always)]
 /// Initializes the logger.

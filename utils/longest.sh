@@ -14,9 +14,9 @@ set -e
 
 # Use `fd` if found.
 if [[ -f /usr/bin/fd ]]; then
-	FIND=$(fd .*.rs "daemon")
+	FIND=$(fd .*.rs "daemon" "core")
 else
-	FIND=$(find "daemon" -type f -iname *.rs)
+	FIND=$(find "daemon" "core" -type f -iname *.rs)
 fi
 
 # PATH.
