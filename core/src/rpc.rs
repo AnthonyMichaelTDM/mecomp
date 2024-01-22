@@ -3,7 +3,7 @@
 #![allow(clippy::future_not_send)]
 
 #[tarpc::service]
-pub trait Rpc {
+pub trait MusicPlayer {
     // misc
     async fn ping() -> String;
 

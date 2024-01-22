@@ -1901,6 +1901,7 @@ dependencies = [
  "rand",
  "serde",
  "strum",
+ "tarpc",
  "toml_edit",
  "walkdir",
 ]
@@ -3576,9 +3577,9 @@ dependencies = [
 
 [[package]]
 name = "tarpc-plugins"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb0b234b43836d3ee3bcc318eeaf38ec27f28e398cb9d700b62e9e47f2744536"
+checksum = "ad8302bea2fb8a2b01b025d23414b0b4ed32a783b95e5d818c3320a8bc4baada"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3750,7 +3751,6 @@ dependencies = [
  "futures-sink",
  "pin-project",
  "serde",
- "serde_json",
 ]
 
 [[package]]

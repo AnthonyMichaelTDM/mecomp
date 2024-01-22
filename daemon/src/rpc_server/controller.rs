@@ -2,13 +2,13 @@
 use std::net::SocketAddr;
 //--------------------------------------------------------------------------------- other libraries
 use tarpc::context;
-//----------------------------------------------------------------------------------- local modules
-use crate::definition::Rpc;
+//-------------------------------------------------------------------------------- MECOMP libraries
+use mecomp_core::rpc::MusicPlayer;
 
 #[derive(Clone)]
-pub struct RpcServer(pub SocketAddr);
+pub struct MusicPlayerServer(pub SocketAddr);
 
-impl Rpc for RpcServer {
+impl MusicPlayer for MusicPlayerServer {
     async fn ping(self, _: context::Context) -> String {
         "pong".to_string()
     }
