@@ -13,9 +13,11 @@ use tokio::{self};
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{logger::init_logger, rpc::MusicPlayer as _};
 //----------------------------------------------------------------------------------- local modules
-mod rpc_server;
+mod controller;
+mod state;
 
-use crate::rpc_server::controller::MusicPlayerServer;
+use controller::MusicPlayerServer;
+use state::init_database;
 
 #[derive(Parser)]
 struct Flags {
@@ -31,6 +33,7 @@ async fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     init_logger(log::LevelFilter::Info);
+    init_database().await?;
 
     let flags = Flags::parse();
 

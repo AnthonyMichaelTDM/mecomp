@@ -30,6 +30,9 @@ toml_edit = { workspace = true }
 walkdir = { workspace = true }
 tarpc = { workspace = true, optional = true }
 
+# dependencies for the core library
+derive_builder = { version = "0.13.0" }
+
 [features]
 rpc = ["tarpc"]
 
