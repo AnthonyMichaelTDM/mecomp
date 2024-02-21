@@ -36,7 +36,7 @@ tarpc = { workspace = true }
 mecomp-core = { workspace = true, features = ["rpc"] }
 
 # server dependencies
-surrealdb = { version = "1.1", features = ["kv-speedb"] }
+surrealdb = { version = "1.2", features = ["kv-speedb"] }
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
 
 [lints.rust]
