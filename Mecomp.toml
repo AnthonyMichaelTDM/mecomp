@@ -1,0 +1,5 @@
+# Example Settings File
+
+rpc_port = 6600
+db_path = "/tmp/mecomp_db"
+library_path = "~/Music"

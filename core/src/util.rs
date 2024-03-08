@@ -1,8 +1,4 @@
-use std::sync::Arc;
-
-pub mod album;
-pub mod artist;
-pub mod song;
+//! Utility types and functions.
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum OneOrMany<T> {
