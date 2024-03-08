@@ -5,10 +5,9 @@ use std::sync::Arc;
 use readable::run::Runtime;
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::Thing;
-//-------------------------------------------------------------------------------- MECOMP libraries
-use mecomp_core::util::OneOrMany;
 //----------------------------------------------------------------------------------- local modules
-use super::album::AlbumId;
+use super::{album::AlbumId, artist::ArtistId};
+use crate::util::OneOrMany;
 
 pub type SongId = Thing;
 
@@ -18,11 +17,13 @@ pub const TABLE_NAME: &str = "song";
 /// This struct holds all the metadata about a particular [`Song`].
 pub struct Song {
     // / The unique identifier for this [`Song`].
-    // pub id: Option<SongId>,
+    pub id: Option<SongId>,
     /// Title of the [`Song`].
     pub title: Arc<str>,
     /// Artist of the [`Song`]. (Can be multiple)
-    pub artist: OneOrMany<Arc<str>>,
+    pub artist_ids: OneOrMany<ArtistId>,
+    /// Artist of the [`Song`]. (Can be multiple)
+    pub artists: OneOrMany<Arc<str>>,
     /// Key to the [`Album`].
     pub album: AlbumId,
     /// album title
@@ -46,4 +47,27 @@ pub struct Song {
 
     /// The [`PathBuf`] this [`Song`] is located at.
     pub path: PathBuf,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SongBrief {
+    pub id: SongId,
+    pub title: Arc<str>,
+    pub artists: OneOrMany<Arc<str>>,
+    pub album: Arc<str>,
+    pub duration: Runtime,
+    pub path: PathBuf,
+}
+
+impl From<Song> for SongBrief {
+    fn from(song: Song) -> Self {
+        Self {
+            id: song.id.expect("Song has no id"),
+            title: song.title,
+            artists: song.artists,
+            album: song.album_title,
+            duration: song.duration,
+            path: song.path,
+        }
+    }
 }

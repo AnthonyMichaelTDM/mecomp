@@ -46,12 +46,13 @@ env_logger = { version = "0.10.2" }
 futures = { version = "0.3.17" }
 image = { version = "0.24.8" }
 log = { version = "0.4.20", features = ["serde"] }
-nutype = { version = "0.4.0" }
+nutype = { version = "0.4.0", features = ["serde"] }
 once_cell = { version = "1.19.0" }
 rand = { version = "0.8.5", features = ["small_rng"] }
 readable = { version = "0.16.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive", "rc"] }
 strum = { version = "0.26.1", features = ["derive"] }
+tap = { version = "1.0.1" }
 toml_edit = { version = "0.22.6", features = ["serde"] }
 thiserror = { version = "1.0.25" }
 walkdir = { version = "2.4.0" }

@@ -2145,6 +2145,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "audiotags",
+ "bincode 1.3.3",
  "clap",
  "config",
  "crossbeam",
@@ -2188,6 +2189,7 @@ dependencies = [
  "serde",
  "strum",
  "surrealdb",
+ "tap",
  "tarpc",
  "thiserror",
  "toml_edit 0.22.6",

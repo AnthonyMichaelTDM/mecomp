@@ -1,4 +1,4 @@
-use mecomp_storage::db::errors::DatabaseError;
+use mecomp_storage::errors::Error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -10,8 +10,8 @@ pub enum LibraryError {
     Config(String),
 }
 
-impl From<DatabaseError> for LibraryError {
-    fn from(e: DatabaseError) -> Self {
+impl From<Error> for LibraryError {
+    fn from(e: Error) -> Self {
         LibraryError::Database(e.to_string())
     }
 }

@@ -33,6 +33,8 @@ toml_edit = { workspace = true }
 thiserror = { workspace = true }
 walkdir = { workspace = true }
 tarpc = { workspace = true }
+tap = { workspace = true }
+
 
 # server dependencies
 surrealdb = { version = "1.1", features = ["kv-speedb"] }
