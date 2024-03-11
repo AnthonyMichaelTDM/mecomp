@@ -2,4 +2,5 @@
 
 rpc_port = 6600
 db_path = "/tmp/mecomp_db"
-library_path = "~/Music"
+library_path = ["~/Music"]
+artist_separator = ", "

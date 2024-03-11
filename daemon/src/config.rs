@@ -26,7 +26,12 @@ pub struct DaemonSettings {
     /// The path to the database.
     pub db_path: PathBuf,
     /// The path to the music library.
-    pub library_path: PathBuf,
+    pub library_paths: Vec<PathBuf>,
+    /// Sepators for artist names in song metadata.
+    /// For example, "Foo, Bar, Baz" would be split into ["Foo", "Bar", "Baz"]. if the separator is ", ".
+    /// If the separator is not found, the entire string is considered as a single artist.
+    /// If unset, will not split artists.
+    pub artist_separator: Option<&'static str>,
 }
 
 impl DaemonSettings {
