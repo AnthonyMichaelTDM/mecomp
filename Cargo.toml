@@ -44,7 +44,8 @@ crossbeam = { version = "0.8.4", features = ["crossbeam-channel"] }
 dirs = { version = "5.0.1" }
 env_logger = { version = "0.10.2" }
 futures = { version = "0.3.17" }
-image = { version = "0.24.8" }
+image = { version = "0.25.0" }
+lazy_static = { version = "1.4.0" }
 log = { version = "0.4.20", features = ["serde"] }
 nutype = { version = "0.4.0", features = ["serde"] }
 once_cell = { version = "1.19.0" }

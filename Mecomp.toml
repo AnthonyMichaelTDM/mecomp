@@ -1,6 +1,18 @@
 # Example Settings File
 
+# The port to listen on for RPC requests. (default: 6600, the default port for MPD)
 rpc_port = 6600
+# The path to the database.
 db_path = "/tmp/mecomp_db"
+# The root paths of the music library.
 library_path = ["~/Music"]
+# Sepators for artist names in song metadata.
+# For example, "Foo, Bar, Baz" would be split into ["Foo", "Bar", "Baz"]. if the separator is ", ".
+# If the separator is not found, the entire string is considered as a single artist.
+# If unset, will not split artists.
 artist_separator = ", "
+# how conflicting metadata should be resolved
+# "merge" - merge the metadata
+# "overwrite" - overwrite the metadata with new metadata
+# "skip" - skip the file (keep old metadata)
+conflict_resolution = "merge"

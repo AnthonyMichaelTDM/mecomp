@@ -83,6 +83,31 @@ impl<T> OneOrMany<T> {
             OneOrMany::None => None,
         }
     }
+
+    pub fn is_none(&self) -> bool {
+        match self {
+            OneOrMany::None => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_one(&self) -> bool {
+        match self {
+            OneOrMany::One(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_many(&self) -> bool {
+        match self {
+            OneOrMany::Many(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_some(&self) -> bool {
+        self.is_one() || self.is_many()
+    }
 }
 
 pub struct OneOrManyIter<'a, T> {
@@ -116,6 +141,24 @@ impl<T> From<T> for OneOrMany<T> {
     }
 }
 
+impl<T> From<Option<T>> for OneOrMany<T> {
+    fn from(t: Option<T>) -> Self {
+        match t {
+            Some(t) => OneOrMany::One(t),
+            None => OneOrMany::None,
+        }
+    }
+}
+
+impl<T> From<Option<OneOrMany<T>>> for OneOrMany<T> {
+    fn from(t: Option<OneOrMany<T>>) -> Self {
+        match t {
+            Some(t) => t,
+            None => OneOrMany::None,
+        }
+    }
+}
+
 impl<T: Clone> From<&[T]> for OneOrMany<T> {
     fn from(t: &[T]) -> Self {
         if t.len() == 1 {
@@ -134,4 +177,22 @@ impl<T: Clone> From<Vec<T>> for OneOrMany<T> {
             OneOrMany::Many(t)
         }
     }
+}
+
+impl<T: std::clone::Clone> FromIterator<T> for OneOrMany<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let iter = iter.into_iter();
+        let mut result: OneOrMany<T> = OneOrMany::None;
+        for item in iter {
+            result.push(item);
+        }
+        result
+    }
+}
+
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub enum MetadataConflictResolution {
+    Merge,
+    Overwrite,
+    Skip,
 }

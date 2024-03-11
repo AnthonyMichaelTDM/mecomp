@@ -22,6 +22,7 @@ dirs = { workspace = true }
 env_logger = { workspace = true }
 futures = { workspace = true }
 image = { workspace = true }
+lazy_static = { workspace = true }
 log = { workspace = true }
 nutype = { workspace = true }
 once_cell = { workspace = true }

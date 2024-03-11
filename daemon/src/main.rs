@@ -11,7 +11,10 @@ use tarpc::{
 use tokio::{self};
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{logger::init_logger, rpc::MusicPlayer as _};
-use mecomp_daemon::{config::DaemonSettings, controller::MusicPlayerServer};
+use mecomp_daemon::{
+    config::{DaemonSettings, SETTINGS},
+    controller::MusicPlayerServer,
+};
 use mecomp_storage::db::init_database;
 
 async fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
@@ -21,10 +24,9 @@ async fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     init_logger(log::LevelFilter::Info);
-    let settings = DaemonSettings::init()?;
-    init_database(settings.db_path).await?;
+    init_database(SETTINGS.db_path).await?;
 
-    let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.rpc_port);
+    let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), SETTINGS.rpc_port);
 
     // TODO: Implement daemon
     let listener = tarpc::serde_transport::tcp::listen(&server_addr, Bincode::default).await?;
