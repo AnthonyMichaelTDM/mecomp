@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use readable::run::Runtime;
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::Thing;
+use surrealdb::sql::{Id, Thing};
 
 use super::{album::AlbumId, song::SongId};
 
@@ -15,7 +15,7 @@ pub const TABLE_NAME: &str = "artist";
 /// An ['Artist'] is a collection of ['Album']s.
 pub struct Artist {
     /// the unique identifier for this ['Artist'].
-    pub id: Option<ArtistId>,
+    pub id: ArtistId,
 
     /// The [`Artist`]'s name.
     pub name: Arc<str>,
@@ -32,6 +32,12 @@ pub struct Artist {
     ///
     /// The order is [`Album`] release order, then [`Song`] track order.
     pub songs: Box<[SongId]>,
+}
+
+impl Artist {
+    pub fn generate_id() -> ArtistId {
+        Thing::from((TABLE_NAME, Id::ulid()))
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

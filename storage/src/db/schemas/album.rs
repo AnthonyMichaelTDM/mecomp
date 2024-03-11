@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use readable::date::Date;
+use readable::run::Runtime;
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::Thing;
+use surrealdb::sql::{Id, Thing};
 
 use crate::util::OneOrMany;
 
@@ -17,17 +17,17 @@ pub const TABLE_NAME: &str = "album";
 /// An [`Album`] is a collection of [`Song`]s owned by an [`Artist`].
 pub struct Album {
     /// The unique identifier for this [`Album`].
-    pub id: Option<AlbumId>,
+    pub id: AlbumId,
     /// Title of the [`Album`].
     pub title: Arc<str>,
     /// Ids of the [`Artist`] of this [`Album`] (Can be multiple)
     pub artist_id: OneOrMany<ArtistId>,
     /// Artist of the [`Album`]. (Can be multiple)
     pub artist: OneOrMany<Arc<str>>,
-    /// Human-readable release date of this [`Album`].
-    pub release: Date,
+    /// Release year of this [`Album`].
+    pub release: Option<i32>,
     /// Total runtime of this [`Album`].
-    pub runtime: f64,
+    pub runtime: Runtime,
     /// [`Song`] count of this [`Album`].
     pub song_count: usize,
     // SOMEDAY:
@@ -52,13 +52,19 @@ pub struct Album {
     pub genre: Option<OneOrMany<Arc<str>>>,
 }
 
+impl Album {
+    pub fn generate_id() -> AlbumId {
+        Thing::from((TABLE_NAME, Id::ulid()))
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct AlbumBrief {
     pub id: AlbumId,
     pub title: Arc<str>,
     pub artist: OneOrMany<Arc<str>>,
-    pub release: Date,
-    pub runtime: f64,
+    pub release: Option<i32>,
+    pub runtime: Runtime,
     pub song_count: usize,
     pub discs: u32,
     pub genre: Option<OneOrMany<Arc<str>>>,
@@ -67,7 +73,7 @@ pub struct AlbumBrief {
 impl From<Album> for AlbumBrief {
     fn from(album: Album) -> Self {
         Self {
-            id: album.id.expect("Album has no id"),
+            id: album.id,
             title: album.title,
             artist: album.artist,
             release: album.release,

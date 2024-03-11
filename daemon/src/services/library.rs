@@ -13,7 +13,7 @@ pub async fn rescan() -> Result<(), Error> {
             if !path.exists() {
                 // remove the song from the library
                 warn!("Song {} no longer exists, deleting", path.to_string_lossy());
-                Song::delete(song.id.expect("song missing id")).await?;
+                Song::delete(song.id).await?;
             } else {
                 // check if the metadata of the file is the same as the metadata in the database
 

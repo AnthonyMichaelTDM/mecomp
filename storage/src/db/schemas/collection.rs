@@ -13,7 +13,7 @@ pub const TABLE_NAME: &str = "collection";
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Collection {
     /// the unique identifier for this [`Collection`].
-    pub id: Option<CollectionId>,
+    pub id: CollectionId,
 
     /// Total runtime.
     pub runtime: Runtime,
@@ -32,7 +32,7 @@ pub struct CollectionBrief {
 impl From<Collection> for CollectionBrief {
     fn from(collection: Collection) -> Self {
         Self {
-            id: collection.id.expect("Collection has no id"),
+            id: collection.id,
             runtime: collection.runtime,
             songs: collection.songs.len(),
         }

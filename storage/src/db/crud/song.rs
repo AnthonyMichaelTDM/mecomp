@@ -34,8 +34,8 @@ impl Song {
         };
 
         // remove the song from the artist's list of songs
-        for artist_id in song.artist_ids {
-            Artist::remove_song(artist_id, id.clone()).await?;
+        for artist_id in song.artist_id.iter() {
+            Artist::remove_song(artist_id.clone(), id.clone()).await?;
         }
 
         // remove the song from the album's list of songs
@@ -44,16 +44,14 @@ impl Song {
         // remove the song from playlists
         for playlist in Playlist::read_all().await? {
             if playlist.songs.contains(&id) {
-                Playlist::remove_song(playlist.id.expect("playlist missing id"), id.clone())
-                    .await?;
+                Playlist::remove_song(playlist.id, id.clone()).await?;
             }
         }
 
         // remove the song from collections
         for collection in Collection::read_all().await? {
             if collection.songs.contains(&id) {
-                Collection::remove_song(collection.id.expect("collection missing id"), id.clone())
-                    .await?;
+                Collection::remove_song(collection.id, id.clone()).await?;
             }
         }
 

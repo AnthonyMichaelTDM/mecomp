@@ -15,7 +15,7 @@ pub const TABLE_NAME: &str = "playlist";
 /// A [`Playlist`] is a collection of [`Song`]s.
 pub struct Playlist {
     /// the unique identifier for this [`Playlist`].
-    pub id: Option<PlaylistId>,
+    pub id: PlaylistId,
 
     /// The [`Artist`]'s name.
     pub name: Arc<str>,
@@ -38,7 +38,7 @@ pub struct PlaylistBrief {
 impl From<Playlist> for PlaylistBrief {
     fn from(playlist: Playlist) -> Self {
         Self {
-            id: playlist.id.expect("Playlist has no id"),
+            id: playlist.id,
             name: playlist.name,
             runtime: playlist.runtime,
             songs: playlist.songs.len(),
