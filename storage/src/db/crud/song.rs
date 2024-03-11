@@ -3,6 +3,7 @@
 use crate::{
     db::{
         schemas::{
+            album::Album,
             artist::Artist,
             song::{Song, SongId, TABLE_NAME},
         },
@@ -31,11 +32,11 @@ impl Song {
 
         // remove the song from the artist's list of songs
         for artist_id in song.artist_ids {
-            let mut artist = Artist::read(artist_id).await?;
-            if let Some(artist) = &mut artist {
-                artist.remove_song(id.clone()).await?;
-            }
+            Artist::remove_song(artist_id, id.clone()).await?;
         }
+
+        // remove the song from the album's list of songs
+        Album::remove_song(song.album_id, id.clone()).await?;
 
         let _: Option<Song> = DB.delete((TABLE_NAME, id)).await?;
         Ok(())

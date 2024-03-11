@@ -25,9 +25,9 @@ pub struct Song {
     /// Artist of the [`Song`]. (Can be multiple)
     pub artists: OneOrMany<Arc<str>>,
     /// Key to the [`Album`].
-    pub album: AlbumId,
+    pub album_id: AlbumId,
     /// album title
-    pub album_title: Arc<str>,
+    pub album: Arc<str>,
     /// Genre of the [`Song`]. (Can be multiple)
     pub genre: Option<OneOrMany<Arc<str>>>,
 
@@ -65,7 +65,7 @@ impl From<Song> for SongBrief {
             id: song.id.expect("Song has no id"),
             title: song.title,
             artists: song.artists,
-            album: song.album_title,
+            album: song.album,
             duration: song.duration,
             path: song.path,
         }

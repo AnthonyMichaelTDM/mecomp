@@ -10,7 +10,7 @@ pub type ArtistId = Thing;
 
 pub const TABLE_NAME: &str = "artist";
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 /// This struct holds all the metadata about a particular ['Artist'].
 /// An ['Artist'] is a collection of ['Album']s.
 pub struct Artist {
@@ -26,12 +26,12 @@ pub struct Artist {
     // SOMEDAY:
     // This should be a Box<[AlbumKey]>.
     /// Keys to the associated [`Album`]\(s\).
-    pub albums: Vec<AlbumId>,
+    pub albums: Box<[AlbumId]>,
 
     /// Keys to every [`Song`] by this [`Artist`].
     ///
     /// The order is [`Album`] release order, then [`Song`] track order.
-    pub songs: Vec<SongId>,
+    pub songs: Box<[SongId]>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

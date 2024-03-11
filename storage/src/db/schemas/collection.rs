@@ -10,7 +10,7 @@ pub type CollectionId = Thing;
 
 pub const TABLE_NAME: &str = "collection";
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Collection {
     /// the unique identifier for this [`Collection`].
     pub id: Option<CollectionId>,

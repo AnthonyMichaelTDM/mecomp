@@ -10,7 +10,7 @@ pub type PlaylistId = Thing;
 
 pub const TABLE_NAME: &str = "playlist";
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 /// This struct holds all the metadata about a particular [`Playlist`].
 /// A [`Playlist`] is a collection of [`Song`]s.
 pub struct Playlist {

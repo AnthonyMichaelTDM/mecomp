@@ -95,13 +95,13 @@ pub trait MusicPlayer {
 
     // Search (fuzzy keys)
     /// returns a list of artists, albums, and songs matching the given search query.
-    async fn search(query: String) -> Vec<SearchResult>;
+    async fn search(query: String) -> Box<[SearchResult]>;
     /// returns a list of artists matching the given search query.
-    async fn search_artist(query: String) -> Vec<Artist>;
+    async fn search_artist(query: String) -> Box<[Artist]>;
     /// returns a list of albums matching the given search query.
-    async fn search_album(query: String) -> Vec<Album>;
+    async fn search_album(query: String) -> Box<[Album]>;
     /// returns a list of songs matching the given search query.
-    async fn search_song(query: String) -> Vec<Song>;
+    async fn search_song(query: String) -> Box<[Song]>;
 
     // Playback control.
     /// toggles playback (play/pause).
@@ -180,7 +180,7 @@ pub trait MusicPlayer {
 
     // Playlists.
     /// Returns brief information about the users playlists.
-    async fn playlist_list() -> Vec<PlaylistBrief>;
+    async fn playlist_list() -> Box<[PlaylistBrief]>;
     /// create a new playlist.
     async fn playlist_new(name: String) -> PlaylistId;
     /// remove a playlist.
@@ -205,7 +205,7 @@ pub trait MusicPlayer {
     // Auto Curration commands.
     // (collections, radios, smart playlists, etc.)
     /// Collections: Return brief information about the users auto curration collections.
-    async fn collection_list() -> Vec<CollectionBrief>;
+    async fn collection_list() -> Box<[CollectionBrief]>;
     /// Collections: Recluster the users library, creating new collections.
     async fn collection_recluster() -> ();
     /// Collections: get a collection by its ID.
@@ -213,9 +213,9 @@ pub trait MusicPlayer {
     /// Collections: freeze a collection (convert it to a playlist).
     async fn collection_freeze(id: CollectionId, name: String) -> PlaylistId;
     /// Radio: get the `n` most similar songs to the given song.
-    async fn radio_get_similar_songs(song: SongId, n: usize) -> Vec<SongId>;
+    async fn radio_get_similar_songs(song: SongId, n: usize) -> Box<[SongId]>;
     /// Radio: get the `n` most similar artists to the given artist.
-    async fn radio_get_similar_artist(artist: ArtistId, n: usize) -> Vec<ArtistId>;
+    async fn radio_get_similar_artist(artist: ArtistId, n: usize) -> Box<[ArtistId]>;
     /// Radio: get the `n` most similar albums to the given album.
-    async fn radio_get_similar_album(album: AlbumId, n: usize) -> Vec<AlbumId>;
+    async fn radio_get_similar_album(album: AlbumId, n: usize) -> Box<[AlbumId]>;
 }

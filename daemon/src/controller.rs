@@ -172,22 +172,22 @@ impl MusicPlayer for MusicPlayerServer {
     }
 
     #[doc = r" returns a list of artists, albums, and songs matching the given search query."]
-    async fn search(self, _context: Context, _query: String) -> Vec<SearchResult> {
+    async fn search(self, _context: Context, _query: String) -> Box<[SearchResult]> {
         todo!()
     }
 
     #[doc = r" returns a list of artists matching the given search query."]
-    async fn search_artist(self, _context: Context, _query: String) -> Vec<Artist> {
+    async fn search_artist(self, _context: Context, _query: String) -> Box<[Artist]> {
         todo!()
     }
 
     #[doc = r" returns a list of albums matching the given search query."]
-    async fn search_album(self, _context: Context, _query: String) -> Vec<Album> {
+    async fn search_album(self, _context: Context, _query: String) -> Box<[Album]> {
         todo!()
     }
 
     #[doc = r" returns a list of songs matching the given search query."]
-    async fn search_song(self, _context: Context, _query: String) -> Vec<Song> {
+    async fn search_song(self, _context: Context, _query: String) -> Box<[Song]> {
         todo!()
     }
 
@@ -348,7 +348,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
 
     #[doc = r" Returns brief information about the users playlists."]
-    async fn playlist_list(self, _context: Context) -> Vec<PlaylistBrief> {
+    async fn playlist_list(self, _context: Context) -> Box<[PlaylistBrief]> {
         todo!()
     }
 
@@ -420,7 +420,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
 
     #[doc = r" Collections: Return brief information about the users auto curration collections."]
-    async fn collection_list(self, _context: Context) -> Vec<CollectionBrief> {
+    async fn collection_list(self, _context: Context) -> Box<[CollectionBrief]> {
         todo!()
     }
 
@@ -450,7 +450,7 @@ impl MusicPlayer for MusicPlayerServer {
         _context: Context,
         _song: SongId,
         _n: usize,
-    ) -> Vec<SongId> {
+    ) -> Box<[SongId]> {
         todo!()
     }
 
@@ -460,7 +460,7 @@ impl MusicPlayer for MusicPlayerServer {
         _context: Context,
         _artist: ArtistId,
         _n: usize,
-    ) -> Vec<ArtistId> {
+    ) -> Box<[ArtistId]> {
         todo!()
     }
 
@@ -470,7 +470,7 @@ impl MusicPlayer for MusicPlayerServer {
         _context: Context,
         _album: AlbumId,
         _n: usize,
-    ) -> Vec<AlbumId> {
+    ) -> Box<[AlbumId]> {
         todo!()
     }
 }

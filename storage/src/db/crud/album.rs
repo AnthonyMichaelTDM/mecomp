@@ -19,24 +19,22 @@ impl Album {
         Ok(DB.select((TABLE_NAME, id)).await?)
     }
 
-    pub async fn remove_song(&self, song_id: SongId) -> Result<(), Error> {
-        let Some(album_id) = self.id.clone() else {
-            return Err(Error::NoId);
-        };
+    pub async fn remove_song(id: AlbumId, song_id: SongId) -> Result<(), Error> {
+        let mut album = Album::read(id.clone()).await?.ok_or(Error::NotFound)?;
 
-        let mut songs = self.songs.clone();
-        songs.retain(|x| *x != song_id);
-        let album = Album {
-            songs,
-            ..self.clone()
-        };
+        album.songs = album
+            .songs
+            .iter()
+            .filter(|x| **x != song_id)
+            .cloned()
+            .collect();
 
-        let result: Option<Album> = DB.update((TABLE_NAME, album_id)).content(album).await?;
+        let result = DB
+            .update((TABLE_NAME, id))
+            .content(album)
+            .await?
+            .ok_or(Error::NotFound);
 
-        if result.is_none() {
-            return Err(Error::NotFound);
-        }
-
-        Ok(())
+        result
     }
 }

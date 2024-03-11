@@ -12,7 +12,7 @@ pub type AlbumId = Thing;
 
 pub const TABLE_NAME: &str = "album";
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 /// This struct holds all the metadata about a particular [`Album`].
 /// An [`Album`] is a collection of [`Song`]s owned by an [`Artist`].
 pub struct Album {
@@ -44,7 +44,7 @@ pub struct Album {
     // So, doing `my_album.songs.iter()` will always
     // result in the correct `Song` order for `my_album`.
     /// The [`Id`]s of the [`Song`]s in this [`Album`].
-    pub songs: Vec<SongId>,
+    pub songs: Box<[SongId]>,
     /// How many discs are in this `Album`?
     /// (Most will only have 1).
     pub discs: u32,

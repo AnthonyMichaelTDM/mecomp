@@ -19,24 +19,19 @@ impl Artist {
         Ok(DB.select((TABLE_NAME, id)).await?)
     }
 
-    pub async fn remove_song(&self, song_id: SongId) -> Result<(), Error> {
-        let Some(artist_id) = self.id.clone() else {
-            return Err(Error::NoId);
-        };
+    pub async fn remove_song(id: ArtistId, song_id: SongId) -> Result<(), Error> {
+        let mut artist = Artist::read(id.clone()).await?.ok_or(Error::NotFound)?;
 
-        let mut songs = self.songs.clone();
-        songs.retain(|x| *x != song_id);
-        let artist = Artist {
-            songs,
-            ..self.clone()
-        };
+        artist.songs = artist
+            .songs
+            .iter()
+            .filter(|x| **x != song_id)
+            .cloned()
+            .collect();
 
-        let result: Option<Artist> = DB.update((TABLE_NAME, artist_id)).content(artist).await?;
-
-        if result.is_none() {
-            return Err(Error::NotFound);
-        }
-
-        Ok(())
+        DB.update((TABLE_NAME, id))
+            .content(artist)
+            .await?
+            .ok_or(Error::NotFound)
     }
 }
