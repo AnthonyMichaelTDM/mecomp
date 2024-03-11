@@ -1,6 +1,6 @@
 //! Utility types and functions.
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum OneOrMany<T> {
     One(T),
     Many(Vec<T>),
