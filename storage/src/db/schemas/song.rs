@@ -65,6 +65,252 @@ impl Song {
     pub fn generate_id() -> SongId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
+
+    /// Create a new [`Song`] from a file path.
+    /// This function will read the metadata from the file and create a new [`Song`] from it.
+    /// If the file does not exist, or if the file is not a valid audio file, this function will return an error.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to the file.
+    /// * `artist_name_separator` - The separator used to separate multiple artists in the metadata.
+    /// * `genre_separator` - The separator used to separate multiple genres in the metadata.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the file does not exist, or if the file is not a valid audio file.
+    ///
+    /// # Side Effects
+    ///
+    /// This function will create a new [`Song`], [`Artist`], and [`Album`] if they do not exist in the database.
+    /// This function will also add the new [`Song`] to the [`Artist`] and the [`Album`].
+    /// This function will also update the [`Artist`] and the [`Album`] in the database.
+    pub async fn try_load_from_path(
+        path: PathBuf,
+        artist_name_separator: Option<&'static str>,
+        genre_separator: Option<&'static str>,
+    ) -> Result<Self, Error> {
+        // check if the file exists
+        if !path.exists() || !path.is_file() {
+            return Err(SongIOError::FileNotFound(path).into());
+        }
+
+        // get metadata from the file
+        let tags = audiotags::Tag::default()
+            .with_config(if let Some(sep) = artist_name_separator {
+                Config::default()
+                    .sep_artist(sep)
+                    .parse_multiple_artists(true)
+            } else {
+                Config::default()
+            })
+            .read_from_path(&path)
+            .map_err(|e| SongIOError::AudiotagError(e))?;
+        let title: Arc<str> = tags
+            .title()
+            .map(|x| x.into())
+            .unwrap_or_else(|| path.file_stem().unwrap().to_string_lossy())
+            .into();
+        let artist: OneOrMany<Arc<str>> = tags
+            .artists()
+            .map(|artists| {
+                if artists.len() == 1 {
+                    OneOrMany::One(artists[0].into())
+                } else {
+                    OneOrMany::Many(artists.into_iter().map(Into::into).collect())
+                }
+            })
+            .unwrap_or(OneOrMany::One("Unknown Artist".into()));
+        let album_name = tags.album_title().unwrap_or("Unknown Album");
+        let album_artist: OneOrMany<Arc<str>> = tags
+            .album_artists()
+            .map(|artists| {
+                if artists.len() == 1 {
+                    OneOrMany::One(artists[0].into())
+                } else {
+                    OneOrMany::Many(artists.into_iter().map(Into::into).collect())
+                }
+            })
+            .unwrap_or_else(|| OneOrMany::One(artist.get(0).unwrap().clone()));
+        let release_year = tags.year();
+
+        // for each artist, check if the artist exists in the database and get the id, if they don't then create a new artist and get the id
+        let mut artist_ids = Vec::with_capacity(artist.len());
+        for (i, artist) in artist.iter().enumerate() {
+            if let Some(artist) = Artist::read_by_name(artist.as_ref()).await? {
+                artist_ids[i] = artist.id;
+            } else {
+                let artist_id = Artist::create(Artist {
+                    id: Artist::generate_id(),
+                    name: artist.clone(),
+                    songs: vec![].into_boxed_slice(),
+                    albums: vec![].into_boxed_slice(),
+                    runtime: 0.into(),
+                })
+                .await?
+                .unwrap();
+                artist_ids[i] = artist_id;
+            }
+        }
+
+        // check if the album artist exists, if they don't then create a new artist and get the id
+        let mut album_artist_ids = Vec::with_capacity(artist.len());
+        for (i, artist) in artist.iter().enumerate() {
+            if let Some(artist) = Artist::read_by_name(artist.as_ref()).await? {
+                album_artist_ids[i] = artist.id;
+            } else {
+                let artist_id = Artist::create(Artist {
+                    id: Artist::generate_id(),
+                    name: artist.clone(),
+                    songs: vec![].into_boxed_slice(),
+                    albums: vec![].into_boxed_slice(),
+                    runtime: 0.into(),
+                })
+                .await?
+                .unwrap();
+                album_artist_ids[i] = artist_id;
+            }
+        }
+
+        // check if the album artist(s) have the album.
+        // if they don't then create a new album, assign it to the artist.
+        // get the id of the album
+        let mut album_id = None;
+        for artist_id in artist_ids.iter() {
+            let artist = Artist::read(artist_id.clone()).await?.unwrap();
+
+            // try to find the album in the artist's albums
+            let mut artist_has_album = false;
+            for id in artist.albums.iter() {
+                let album = Album::read(id.clone()).await?.unwrap();
+                if album.title.as_ref() == album_name {
+                    artist_has_album = true;
+                    if album_id.is_none() {
+                        album_id = Some(album.id);
+                    }
+                    break;
+                }
+            }
+
+            // if we didn't find the album, create a new album (if we didn't find the album earlier) and assign it to the artist
+            if !artist_has_album {
+                if album_id.is_none() {
+                    album_id = Album::create(Album {
+                        id: Album::generate_id(),
+                        title: album_name.into(),
+                        artist_id: album_artist_ids.clone().into(),
+                        artist: album_artist.clone(),
+                        release: release_year,
+                        runtime: 0.into(),
+                        song_count: 0,
+                        songs: vec![].into_boxed_slice(),
+                        discs: 1,
+                        genre: None,
+                    })
+                    .await?;
+                }
+
+                let updated_artist = Artist {
+                    albums: artist
+                        .albums
+                        .iter()
+                        .cloned()
+                        .chain(std::iter::once(album_id.clone().unwrap()))
+                        .collect(),
+                    ..artist
+                };
+                Artist::update(artist_id.clone(), updated_artist).await?;
+            }
+        }
+        let album_id = album_id.expect("Album not found or created, shouldn't happen");
+
+        // create a new song
+        let song = Self {
+            id: Self::generate_id(),
+            title,
+            artist,
+            artist_id: artist_ids.clone().into(),
+            album_artist,
+            album_artist_id: album_artist_ids.clone().into(),
+            album: album_name.into(),
+            album_id: album_id.clone(),
+            genre: tags.genre().map(|genre| match (genre_separator, genre) {
+                (Some(sep), genre) if genre.contains(sep) => {
+                    OneOrMany::Many(genre.split(sep).map(Into::into).collect())
+                }
+                (_, genre) => OneOrMany::One(genre.into()),
+            }),
+            duration: tags
+                .duration()
+                .map(|x| x.into())
+                .ok_or(SongIOError::DurationNotFound)?,
+            extension: path
+                .extension()
+                .expect("File without extension")
+                .to_string_lossy()
+                .into(),
+            track: tags.track_number(),
+            disc: tags.disc_number(),
+            path,
+        };
+        // add that song to the database
+        let song_id = Self::create(song.clone()).await?.unwrap();
+
+        // add the song to the album artists and artists (if it's not already there)
+        for artist_id in artist_ids.iter().chain(album_artist_ids.iter()) {
+            let artist = Artist::read(artist_id.clone()).await?.unwrap();
+            if !artist.songs.contains(&song_id) {
+                Artist::update(
+                    artist_id.clone(),
+                    Artist {
+                        songs: artist
+                            .songs
+                            .iter()
+                            .cloned()
+                            .chain(std::iter::once(song_id.clone()))
+                            .collect(),
+                        runtime: artist.runtime + song.duration,
+                        ..artist
+                    },
+                )
+                .await?;
+            }
+        }
+
+        // add the song to the album
+        let album = Album::read(album_id.clone()).await?.unwrap();
+        if !album.songs.contains(&song_id) {
+            Album::update(
+                album_id.clone(),
+                Album {
+                    songs: album
+                        .songs
+                        .iter()
+                        .cloned()
+                        .chain(std::iter::once(song_id.clone()))
+                        .collect(),
+                    runtime: album.runtime + song.duration,
+                    song_count: album.song_count + 1,
+                    genre: {
+                        // add all the genres of the song to the album, if the album doesn't have that genre
+                        let mut genres = album.genre.unwrap_or_default();
+                        if let Some(song_genres) = song.genre.as_ref() {
+                            for genre in song_genres.iter() {
+                                if !genres.contains(genre) {
+                                    genres.push(genre.clone());
+                                }
+                            }
+                        }
+                        Some(genres)
+                    },
+                    ..album
+                },
+            )
+            .await?;
+        }
+
+        Ok(song)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
