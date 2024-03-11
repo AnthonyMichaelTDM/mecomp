@@ -51,6 +51,8 @@ pub struct Song {
     pub track: Option<u16>,
     /// The disc number of this [`Song`].
     pub disc: Option<u16>,
+    /// the year the song was released
+    pub release_year: Option<i32>,
 
     // /// The `MIME` type of this [`Song`].
     // pub mime: Arc<str>,
@@ -85,58 +87,15 @@ impl Song {
     /// This function will create a new [`Song`], [`Artist`], and [`Album`] if they do not exist in the database.
     /// This function will also add the new [`Song`] to the [`Artist`] and the [`Album`].
     /// This function will also update the [`Artist`] and the [`Album`] in the database.
-    pub async fn try_load_from_path(
-        path: PathBuf,
-        artist_name_separator: Option<&'static str>,
-        genre_separator: Option<&'static str>,
-    ) -> Result<Self, Error> {
+    pub async fn try_load(metadata: SongMetadata) -> Result<Self, Error> {
         // check if the file exists
-        if !path.exists() || !path.is_file() {
-            return Err(SongIOError::FileNotFound(path).into());
+        if !metadata.song_exists() {
+            return Err(SongIOError::FileNotFound(metadata.path).into());
         }
 
-        // get metadata from the file
-        let tags = audiotags::Tag::default()
-            .with_config(if let Some(sep) = artist_name_separator {
-                Config::default()
-                    .sep_artist(sep)
-                    .parse_multiple_artists(true)
-            } else {
-                Config::default()
-            })
-            .read_from_path(&path)
-            .map_err(|e| SongIOError::AudiotagError(e))?;
-        let title: Arc<str> = tags
-            .title()
-            .map(|x| x.into())
-            .unwrap_or_else(|| path.file_stem().unwrap().to_string_lossy())
-            .into();
-        let artist: OneOrMany<Arc<str>> = tags
-            .artists()
-            .map(|artists| {
-                if artists.len() == 1 {
-                    OneOrMany::One(artists[0].into())
-                } else {
-                    OneOrMany::Many(artists.into_iter().map(Into::into).collect())
-                }
-            })
-            .unwrap_or(OneOrMany::One("Unknown Artist".into()));
-        let album_name = tags.album_title().unwrap_or("Unknown Album");
-        let album_artist: OneOrMany<Arc<str>> = tags
-            .album_artists()
-            .map(|artists| {
-                if artists.len() == 1 {
-                    OneOrMany::One(artists[0].into())
-                } else {
-                    OneOrMany::Many(artists.into_iter().map(Into::into).collect())
-                }
-            })
-            .unwrap_or_else(|| OneOrMany::One(artist.get(0).unwrap().clone()));
-        let release_year = tags.year();
-
         // for each artist, check if the artist exists in the database and get the id, if they don't then create a new artist and get the id
-        let mut artist_ids = Vec::with_capacity(artist.len());
-        for (i, artist) in artist.iter().enumerate() {
+        let mut artist_ids = Vec::with_capacity(metadata.artist.len());
+        for (i, artist) in metadata.artist.iter().enumerate() {
             if let Some(artist) = Artist::read_by_name(artist.as_ref()).await? {
                 artist_ids[i] = artist.id;
             } else {
@@ -154,8 +113,8 @@ impl Song {
         }
 
         // check if the album artist exists, if they don't then create a new artist and get the id
-        let mut album_artist_ids = Vec::with_capacity(artist.len());
-        for (i, artist) in artist.iter().enumerate() {
+        let mut album_artist_ids = Vec::with_capacity(metadata.artist.len());
+        for (i, artist) in metadata.artist.iter().enumerate() {
             if let Some(artist) = Artist::read_by_name(artist.as_ref()).await? {
                 album_artist_ids[i] = artist.id;
             } else {
@@ -183,7 +142,7 @@ impl Song {
             let mut artist_has_album = false;
             for id in artist.albums.iter() {
                 let album = Album::read(id.clone()).await?.unwrap();
-                if album.title.as_ref() == album_name {
+                if album.title.as_ref() == metadata.album.as_ref() {
                     artist_has_album = true;
                     if album_id.is_none() {
                         album_id = Some(album.id);
@@ -197,10 +156,10 @@ impl Song {
                 if album_id.is_none() {
                     album_id = Album::create(Album {
                         id: Album::generate_id(),
-                        title: album_name.into(),
+                        title: metadata.album.clone(),
                         artist_id: album_artist_ids.clone().into(),
-                        artist: album_artist.clone(),
-                        release: release_year,
+                        artist: metadata.album_artist.clone(),
+                        release: metadata.release_year,
                         runtime: 0.into(),
                         song_count: 0,
                         songs: vec![].into_boxed_slice(),
@@ -227,31 +186,20 @@ impl Song {
         // create a new song
         let song = Self {
             id: Self::generate_id(),
-            title,
-            artist,
+            title: metadata.title,
+            artist: metadata.artist,
             artist_id: artist_ids.clone().into(),
-            album_artist,
+            album_artist: metadata.album_artist,
             album_artist_id: album_artist_ids.clone().into(),
-            album: album_name.into(),
+            album: metadata.album,
             album_id: album_id.clone(),
-            genre: tags.genre().map(|genre| match (genre_separator, genre) {
-                (Some(sep), genre) if genre.contains(sep) => {
-                    OneOrMany::Many(genre.split(sep).map(Into::into).collect())
-                }
-                (_, genre) => OneOrMany::One(genre.into()),
-            }),
-            duration: tags
-                .duration()
-                .map(|x| x.into())
-                .ok_or(SongIOError::DurationNotFound)?,
-            extension: path
-                .extension()
-                .expect("File without extension")
-                .to_string_lossy()
-                .into(),
-            track: tags.track_number(),
-            disc: tags.disc_number(),
-            path,
+            genre: metadata.genre,
+            release_year: metadata.release_year,
+            duration: metadata.duration,
+            extension: metadata.extension,
+            track: metadata.track,
+            disc: metadata.disc,
+            path: metadata.path,
         };
         // add that song to the database
         let song_id = Self::create(song.clone()).await?.unwrap();
@@ -320,6 +268,7 @@ pub struct SongBrief {
     pub artist: OneOrMany<Arc<str>>,
     pub album: Arc<str>,
     pub album_artist: OneOrMany<Arc<str>>,
+    pub release_year: Option<i32>,
     pub duration: Runtime,
     pub path: PathBuf,
 }
@@ -332,8 +281,118 @@ impl From<Song> for SongBrief {
             artist: song.artist,
             album: song.album,
             album_artist: song.album_artist,
+            release_year: song.release_year,
             duration: song.duration,
             path: song.path,
         }
+    }
+}
+
+pub struct SongMetadata {
+    pub title: Arc<str>,
+    pub artist: OneOrMany<Arc<str>>,
+    pub album: Arc<str>,
+    pub album_artist: OneOrMany<Arc<str>>,
+    pub genre: Option<OneOrMany<Arc<str>>>,
+    pub duration: Runtime,
+    pub release_year: Option<i32>,
+    pub track: Option<u16>,
+    pub disc: Option<u16>,
+    pub extension: Arc<str>,
+    pub path: PathBuf,
+}
+
+impl From<Song> for SongMetadata {
+    fn from(song: Song) -> Self {
+        Self {
+            title: song.title,
+            artist: song.artist,
+            album: song.album,
+            album_artist: song.album_artist,
+            genre: song.genre,
+            duration: song.duration,
+            track: song.track,
+            disc: song.disc,
+            release_year: song.release_year,
+            extension: song.extension,
+            path: song.path,
+        }
+    }
+}
+
+impl SongMetadata {
+    pub fn song_exists(&self) -> bool {
+        self.path.exists() && self.path.is_file()
+    }
+
+    pub fn load_from_path(
+        path: PathBuf,
+        artist_name_separator: Option<&'static str>,
+        genre_separator: Option<&'static str>,
+    ) -> Result<Self, SongIOError> {
+        // check if the file exists
+        if !path.exists() || !path.is_file() {
+            return Err(SongIOError::FileNotFound(path).into());
+        }
+        // get metadata from the file
+        let tags = audiotags::Tag::default()
+            .with_config(if let Some(sep) = artist_name_separator {
+                Config::default()
+                    .sep_artist(sep)
+                    .parse_multiple_artists(true)
+            } else {
+                Config::default()
+            })
+            .read_from_path(&path)
+            .map_err(|e| SongIOError::AudiotagError(e))?;
+        let artist: OneOrMany<Arc<str>> = tags
+            .artists()
+            .map(|artists| {
+                if artists.len() == 1 {
+                    OneOrMany::One(artists[0].into())
+                } else {
+                    OneOrMany::Many(artists.into_iter().map(Into::into).collect())
+                }
+            })
+            .unwrap_or(OneOrMany::One("Unknown Artist".into()));
+
+        Ok(Self {
+            title: tags
+                .title()
+                .map(|x| x.into())
+                .unwrap_or_else(|| path.file_stem().unwrap().to_string_lossy())
+                .into(),
+            album: tags.album_title().unwrap_or("Unknown Album").into(),
+            album_artist: tags
+                .album_artists()
+                .map(|artists| {
+                    if artists.len() == 1 {
+                        OneOrMany::One(artists[0].into())
+                    } else {
+                        OneOrMany::Many(artists.into_iter().map(Into::into).collect())
+                    }
+                })
+                .unwrap_or_else(|| OneOrMany::One(artist.get(0).unwrap().clone())),
+            artist,
+            genre: tags.genre().map(|genre| match (genre_separator, genre) {
+                (Some(sep), genre) if genre.contains(sep) => {
+                    OneOrMany::Many(genre.split(sep).map(Into::into).collect())
+                }
+                (_, genre) => OneOrMany::One(genre.into()),
+            }),
+            duration: tags
+                .duration()
+                .map(|x| x.into())
+                .ok_or(SongIOError::DurationNotFound)?,
+            track: tags.track_number(),
+            disc: tags.disc_number(),
+            release_year: tags.year(),
+            extension: path
+                .extension()
+                .expect("File without extension")
+                .to_string_lossy()
+                .into(),
+            path,
+        })
     }
 }
