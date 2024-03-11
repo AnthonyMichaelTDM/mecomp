@@ -15,12 +15,26 @@ use crate::{
 };
 
 impl Song {
+    pub async fn create(song: Song) -> Result<Option<SongId>, Error> {
+        let id = DB
+            .create((TABLE_NAME, song.id.clone()))
+            .content(song)
+            .await?
+            .map(|x: Song| x.id);
+        Ok(id)
+    }
+
     pub async fn read_all() -> Result<Vec<Song>, Error> {
         Ok(DB.select(TABLE_NAME).await?)
     }
 
     pub async fn read(id: SongId) -> Result<Option<Song>, Error> {
         Ok(DB.select((TABLE_NAME, id)).await?)
+    }
+
+    pub async fn update(id: SongId, song: Song) -> Result<(), Error> {
+        let result = DB.update((TABLE_NAME, id)).content(song).await?;
+        result.ok_or(Error::NotFound)
     }
 
     /// Delete a song from the database,
