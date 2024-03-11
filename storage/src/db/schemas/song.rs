@@ -95,9 +95,9 @@ impl Song {
 
         // for each artist, check if the artist exists in the database and get the id, if they don't then create a new artist and get the id
         let mut artist_ids = Vec::with_capacity(metadata.artist.len());
-        for (i, artist) in metadata.artist.iter().enumerate() {
+        for artist in metadata.artist.iter() {
             if let Some(artist) = Artist::read_by_name(artist.as_ref()).await? {
-                artist_ids[i] = artist.id;
+                artist_ids.push(artist.id);
             } else {
                 let artist_id = Artist::create(Artist {
                     id: Artist::generate_id(),
@@ -108,15 +108,15 @@ impl Song {
                 })
                 .await?
                 .unwrap();
-                artist_ids[i] = artist_id;
+                artist_ids.push(artist_id);
             }
         }
 
         // check if the album artist exists, if they don't then create a new artist and get the id
         let mut album_artist_ids = Vec::with_capacity(metadata.artist.len());
-        for (i, artist) in metadata.artist.iter().enumerate() {
+        for artist in metadata.artist.iter() {
             if let Some(artist) = Artist::read_by_name(artist.as_ref()).await? {
-                album_artist_ids[i] = artist.id;
+                album_artist_ids.push(artist.id);
             } else {
                 let artist_id = Artist::create(Artist {
                     id: Artist::generate_id(),
@@ -127,7 +127,7 @@ impl Song {
                 })
                 .await?
                 .unwrap();
-                album_artist_ids[i] = artist_id;
+                album_artist_ids.push(artist_id);
             }
         }
 
