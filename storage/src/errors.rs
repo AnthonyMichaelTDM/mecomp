@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -8,4 +10,20 @@ pub enum Error {
     NoId,
     #[error("Item not found.")]
     NotFound,
+    #[error("Song IO error: {0}")]
+    SongIOError(#[from] SongIOError),
+}
+
+#[derive(Error, Debug)]
+pub enum SongIOError {
+    #[error("IO error: {0}")]
+    FsError(#[from] std::io::Error),
+    #[error("Audiotag error: {0}")]
+    AudiotagError(#[from] audiotags::Error),
+    #[error("File not found: {0}")]
+    FileNotFound(PathBuf),
+    #[error("Duration not found")]
+    DurationNotFound,
+    #[error("Song already exists in the database")]
+    SongExists,
 }
