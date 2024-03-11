@@ -1,4 +1,4 @@
-//! CRUD operations for the song table
+//! CRUD operations for the album table
 use crate::{
     db::{
         schemas::{
