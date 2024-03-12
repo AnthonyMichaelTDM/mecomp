@@ -15,9 +15,9 @@ MECOMP is a local music player inspired by [festival](https://github.com/hinto-j
 
 (this acts as a TODO list for now)
 
-- [ ] Scan music collection from a directory (and it's subdirectories)
+- [x] Scan music collection from a directory (and it's subdirectories)
 - [ ] handle song and album art properly
-- [ ] maintain a persistent state of the music collection (henceforth referred to as "Library" or "Music Library") that allows users to create playlists, track play counts, "like" songs, etc.
+- [x] maintain a persistent state of the music collection (henceforth referred to as "Library" or "Music Library") that allows users to create playlists, track play counts, "like" songs, etc.
   this library will not update dynamically (i.e. if a file is added/removed from the music collection), but will have a "rescan" feature that will update the library without losing any of the user's data (play counts, likes, playlists, etc.)
 - [ ] allow users to create playlists
 - [ ] allow users to "like" songs
@@ -34,11 +34,11 @@ MECOMP is a local music player inspired by [festival](https://github.com/hinto-j
   - audio features are extracted by methods inspired by [bliss-rs](https://github.com/Polochon-street/bliss-rs), these are the same features we use for clustering
 - [ ] suggest songs to add to a playlist based on the current playlist (the average of the audio features of the songs in the playlist)
 - [ ] if a song is missing important metadata, and there is an internet connection, attempt to fetch the metadata from the [MusicBrainz API](https://musicbrainz.org/doc/MusicBrainz_API).
-- [ ] properly handle compilation albums (i.e. albums with multiple artists)
+- [x] properly handle compilation albums (i.e. albums with multiple artists)
   - do this by simply showing the album multiple times, once for each artist. This is how iTunes handles it, and I think it's the best way to do it.
-- [ ] properly handle songs with multiple artists (i.e. collaborations) (this is different from compilation albums)
+- [x] properly handle songs with multiple artists (i.e. collaborations) (this is different from compilation albums)
   - mark the song as being by multiple artists, but only show it for the artist(s) that are identified by the "album artist" tag in the metadata (if it exists)\
-- [ ] properly handle songs with multiple genres (i.e. "Rock; Metal")
+- [x] properly handle songs with multiple genres (i.e. "Rock; Metal")
   - show the song for each genre
 
 ## Architecture
