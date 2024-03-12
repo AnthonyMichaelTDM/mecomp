@@ -50,8 +50,9 @@ impl Default for DaemonSettings {
     fn default() -> Self {
         Self {
             rpc_port: 6600,
-            db_path: PathBuf::from("/tmp/mecomp_db"),
-            library_paths: vec![PathBuf::from("~/Music/")].into_boxed_slice(),
+            db_path: shellexpand::tilde("/tmp/mecomp_db").into_owned().into(),
+            library_paths: vec![shellexpand::tilde("~/Music/").into_owned().into()]
+                .into_boxed_slice(),
             artist_separator: None,
             genre_separator: None,
             conflict_resolution: MetadataConflictResolution::Merge,
@@ -69,6 +70,12 @@ impl DaemonSettings {
             .build()?;
 
         let mut settings: Self = s.try_deserialize()?;
+
+        for path in settings.library_paths.iter_mut() {
+            *path = shellexpand::tilde(&path.to_string_lossy())
+                .into_owned()
+                .into();
+        }
 
         if let Some(port) = flags.port {
             settings.rpc_port = port;
