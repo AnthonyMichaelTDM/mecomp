@@ -26,4 +26,6 @@ pub enum SongIOError {
     DurationNotFound,
     #[error("Song already exists in the database")]
     SongExists,
+    #[error("couldn't read duration from metadata")]
+    DurationReadError,
 }

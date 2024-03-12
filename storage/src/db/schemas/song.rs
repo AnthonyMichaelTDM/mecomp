@@ -2,6 +2,7 @@
 use std::sync::Arc;
 use std::{collections::HashSet, path::PathBuf};
 //--------------------------------------------------------------------------------- other libraries
+use metadata::media_file::MediaFileMetadata;
 use readable::run::Runtime;
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Id, Thing};
@@ -435,6 +436,7 @@ impl SongMetadata {
         let artist: OneOrMany<Arc<str>> = tags
             .artist()
             .map(|a| {
+                let a = a.replace('\0', "");
                 if let Some(sep) = artist_name_separator {
                     if a.contains(&sep) {
                         OneOrMany::Many(a.split(&sep).map(Into::into).collect())
@@ -450,13 +452,18 @@ impl SongMetadata {
         Ok(Self {
             title: tags
                 .title()
-                .map(|x| x.into())
+                .map(|x| x.replace('\0', "").into())
                 .unwrap_or_else(|| path.file_stem().unwrap().to_string_lossy())
                 .into(),
-            album: tags.album_title().unwrap_or("Unknown Album").into(),
+            album: tags
+                .album_title()
+                .map(|x| x.replace('\0', ""))
+                .unwrap_or("Unknown Album".into())
+                .into(),
             album_artist: tags
                 .album_artist()
                 .map(|a| {
+                    let a = a.replace('\0', "");
                     if let Some(sep) = artist_name_separator {
                         if a.contains(&sep) {
                             OneOrMany::Many(a.split(&sep).map(Into::into).collect())
@@ -472,16 +479,17 @@ impl SongMetadata {
             genre: tags
                 .genre()
                 .map(|genre| match (genre_separator, genre) {
-                    (Some(sep), genre) if genre.contains(sep) => {
-                        OneOrMany::Many(genre.split(sep).map(Into::into).collect())
-                    }
+                    (Some(sep), genre) if genre.contains(sep) => OneOrMany::Many(
+                        genre.replace('\0', "").split(sep).map(Into::into).collect(),
+                    ),
                     (_, genre) => OneOrMany::One(genre.into()),
                 })
                 .into(),
-            duration: tags
-                .duration()
-                .map(|x| x.into())
-                .ok_or(SongIOError::DurationNotFound)?,
+            duration: MediaFileMetadata::new(&path)
+                .map_err(|_| SongIOError::DurationReadError)
+                .map(|x| x._duration)?
+                .ok_or(SongIOError::DurationNotFound)?
+                .into(),
             track: tags.track_number(),
             disc: tags.disc_number(),
             release_year: tags.year(),
