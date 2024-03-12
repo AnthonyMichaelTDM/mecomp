@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------------------- std lib
 use audiotags::Config;
-use std::path::PathBuf;
 use std::sync::Arc;
+use std::{collections::HashSet, path::PathBuf};
 //--------------------------------------------------------------------------------- other libraries
 use readable::run::Runtime;
 use serde::{Deserialize, Serialize};
@@ -41,7 +41,7 @@ pub struct Song {
     /// album title
     pub album: Arc<str>,
     /// Genre of the [`Song`]. (Can be multiple)
-    pub genre: Option<OneOrMany<Arc<str>>>,
+    pub genre: OneOrMany<Arc<str>>,
 
     /// Total runtime of this [`Song`].
     pub duration: Runtime,
@@ -164,7 +164,7 @@ impl Song {
                         song_count: 0,
                         songs: vec![].into_boxed_slice(),
                         discs: 1,
-                        genre: None,
+                        genre: OneOrMany::None,
                     })
                     .await?;
                 }
@@ -241,15 +241,14 @@ impl Song {
                     song_count: album.song_count + 1,
                     genre: {
                         // add all the genres of the song to the album, if the album doesn't have that genre
-                        let mut genres = album.genre.unwrap_or_default();
-                        if let Some(song_genres) = song.genre.as_ref() {
-                            for genre in song_genres.iter() {
-                                if !genres.contains(genre) {
-                                    genres.push(genre.clone());
-                                }
+                        let mut genres = album.genre;
+                        for genre in song.genre.iter() {
+                            if !genres.contains(genre) {
+                                genres.push(genre.clone());
                             }
                         }
-                        Some(genres)
+
+                        genres
                     },
                     ..album
                 },
@@ -288,18 +287,37 @@ impl From<Song> for SongBrief {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct SongMetadata {
     pub title: Arc<str>,
     pub artist: OneOrMany<Arc<str>>,
     pub album: Arc<str>,
     pub album_artist: OneOrMany<Arc<str>>,
-    pub genre: Option<OneOrMany<Arc<str>>>,
+    pub genre: OneOrMany<Arc<str>>,
     pub duration: Runtime,
     pub release_year: Option<i32>,
     pub track: Option<u16>,
     pub disc: Option<u16>,
     pub extension: Arc<str>,
     pub path: PathBuf,
+}
+
+impl From<&Song> for SongMetadata {
+    fn from(song: &Song) -> Self {
+        Self {
+            title: song.title.clone(),
+            artist: song.artist.clone(),
+            album: song.album.clone(),
+            album_artist: song.album_artist.clone(),
+            genre: song.genre.clone(),
+            duration: song.duration,
+            track: song.track,
+            disc: song.disc,
+            release_year: song.release_year,
+            extension: song.extension.clone(),
+            path: song.path.clone(),
+        }
+    }
 }
 
 impl From<Song> for SongMetadata {
@@ -321,7 +339,7 @@ impl From<Song> for SongMetadata {
 }
 
 impl SongMetadata {
-    pub fn song_exists(&self) -> bool {
+    pub fn path_exists(&self) -> bool {
         self.path.exists() && self.path.is_file()
     }
 
@@ -374,12 +392,15 @@ impl SongMetadata {
                 })
                 .unwrap_or_else(|| OneOrMany::One(artist.get(0).unwrap().clone())),
             artist,
-            genre: tags.genre().map(|genre| match (genre_separator, genre) {
-                (Some(sep), genre) if genre.contains(sep) => {
-                    OneOrMany::Many(genre.split(sep).map(Into::into).collect())
-                }
-                (_, genre) => OneOrMany::One(genre.into()),
-            }),
+            genre: tags
+                .genre()
+                .map(|genre| match (genre_separator, genre) {
+                    (Some(sep), genre) if genre.contains(sep) => {
+                        OneOrMany::Many(genre.split(sep).map(Into::into).collect())
+                    }
+                    (_, genre) => OneOrMany::One(genre.into()),
+                })
+                .into(),
             duration: tags
                 .duration()
                 .map(|x| x.into())

@@ -108,6 +108,14 @@ impl<T> OneOrMany<T> {
     pub fn is_some(&self) -> bool {
         self.is_one() || self.is_many()
     }
+
+    pub fn as_slice(&self) -> &[T] {
+        match self {
+            OneOrMany::One(t) => std::slice::from_ref(t),
+            OneOrMany::Many(t) => t,
+            OneOrMany::None => &[],
+        }
+    }
 }
 
 pub struct OneOrManyIter<'a, T> {

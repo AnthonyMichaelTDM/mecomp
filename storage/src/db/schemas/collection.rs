@@ -19,7 +19,7 @@ pub struct Collection {
     pub runtime: Runtime,
 
     /// Keys to every [`Song`] in this [`Collection`].
-    pub songs: Vec<SongId>,
+    pub songs: Box<[SongId]>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

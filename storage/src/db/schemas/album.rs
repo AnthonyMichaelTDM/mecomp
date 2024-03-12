@@ -49,7 +49,7 @@ pub struct Album {
     /// (Most will only have 1).
     pub discs: u32,
     /// This [`Album`]'s genre.
-    pub genre: Option<OneOrMany<Arc<str>>>,
+    pub genre: OneOrMany<Arc<str>>,
 }
 
 impl Album {
@@ -67,7 +67,7 @@ pub struct AlbumBrief {
     pub runtime: Runtime,
     pub song_count: usize,
     pub discs: u32,
-    pub genre: Option<OneOrMany<Arc<str>>>,
+    pub genre: OneOrMany<Arc<str>>,
 }
 
 impl From<Album> for AlbumBrief {
