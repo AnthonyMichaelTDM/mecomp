@@ -84,10 +84,12 @@ impl Album {
     }
 
     pub async fn update(id: AlbumId, album: Album) -> Result<(), Error> {
-        DB.update((TABLE_NAME, id))
+        let _: Album = DB
+            .update((TABLE_NAME, id))
             .content(album)
             .await?
-            .ok_or(Error::NotFound)
+            .ok_or(Error::NotFound)?;
+        Ok(())
     }
 
     pub async fn add_songs(id: AlbumId, song_id: &[SongId]) -> Result<(), Error> {
@@ -95,10 +97,12 @@ impl Album {
 
         album.songs = album.songs.iter().chain(song_id.iter()).cloned().collect();
 
-        DB.update((TABLE_NAME, id))
+        let _: Album = DB
+            .update((TABLE_NAME, id))
             .content(album)
             .await?
-            .ok_or(Error::NotFound)
+            .ok_or(Error::NotFound)?;
+        Ok(())
     }
 
     pub async fn remove_songs(id: AlbumId, song_ids: &[SongId]) -> Result<(), Error> {
@@ -111,10 +115,12 @@ impl Album {
             .cloned()
             .collect();
 
-        DB.update((TABLE_NAME, id))
+        let _: Album = DB
+            .update((TABLE_NAME, id))
             .content(album)
             .await?
-            .ok_or(Error::NotFound)
+            .ok_or(Error::NotFound)?;
+        Ok(())
     }
 
     /// goes through all the songs in the album and removes any that either don't exist in the database, or don't belong to this album

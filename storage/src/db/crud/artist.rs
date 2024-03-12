@@ -64,8 +64,12 @@ impl Artist {
     }
 
     pub async fn update(id: ArtistId, artist: Artist) -> Result<(), Error> {
-        let result = DB.update((TABLE_NAME, id)).content(artist).await?;
-        result.ok_or(Error::NotFound)
+        let _: Artist = DB
+            .update((TABLE_NAME, id))
+            .content(artist)
+            .await?
+            .ok_or(Error::NotFound)?;
+        Ok(())
     }
 
     pub async fn add_album(id: ArtistId, album_id: AlbumId) -> Result<(), Error> {
@@ -89,10 +93,12 @@ impl Artist {
             .chain(Some(album_id))
             .collect();
 
-        DB.update((TABLE_NAME, id))
+        let _: Artist = DB
+            .update((TABLE_NAME, id))
             .content(artist)
             .await?
-            .ok_or(Error::NotFound)
+            .ok_or(Error::NotFound)?;
+        Ok(())
     }
 
     pub async fn remove_songs(id: ArtistId, song_ids: &[SongId]) -> Result<(), Error> {
@@ -105,10 +111,12 @@ impl Artist {
             .cloned()
             .collect();
 
-        DB.update((TABLE_NAME, id))
+        let _: Artist = DB
+            .update((TABLE_NAME, id))
             .content(artist)
             .await?
-            .ok_or(Error::NotFound)
+            .ok_or(Error::NotFound)?;
+        Ok(())
     }
 
     /// goes through all the songs in the artist and removes any that don't exist in the database

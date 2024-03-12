@@ -29,10 +29,12 @@ impl Collection {
             .cloned()
             .collect();
 
-        DB.update((TABLE_NAME, id))
+        let _: Collection = DB
+            .update((TABLE_NAME, id))
             .content(collection)
             .await?
-            .ok_or(Error::NotFound)
+            .ok_or(Error::NotFound)?;
+        Ok(())
     }
 
     /// goes through all the songs in the collection and removes any that don't exist in the database

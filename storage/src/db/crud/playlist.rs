@@ -45,10 +45,12 @@ impl Playlist {
             .cloned()
             .collect();
 
-        DB.update((TABLE_NAME, id))
+        let _: Playlist = DB
+            .update((TABLE_NAME, id))
             .content(playlist)
             .await?
-            .ok_or(Error::NotFound)
+            .ok_or(Error::NotFound)?;
+        Ok(())
     }
 
     /// goes through all the songs in the playlist and removes any that don't exist in the database

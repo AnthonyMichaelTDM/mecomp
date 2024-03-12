@@ -45,10 +45,12 @@ impl Song {
     }
 
     pub async fn update(id: SongId, song: Song) -> Result<(), Error> {
-        DB.update((TABLE_NAME, id))
+        let _: Song = DB
+            .update((TABLE_NAME, id))
             .content(song)
             .await?
-            .ok_or(Error::NotFound)
+            .ok_or(Error::NotFound)?;
+        Ok(())
     }
 
     /// Update the metadata of a song
