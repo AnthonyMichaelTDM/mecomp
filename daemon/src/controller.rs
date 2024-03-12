@@ -1,4 +1,5 @@
 //----------------------------------------------------------------------------------------- std lib
+use log::info;
 use std::{net::SocketAddr, ops::Range};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
@@ -43,7 +44,8 @@ impl MusicPlayer for MusicPlayerServer {
 
     #[doc = r" Returns brief information about the music library."]
     async fn library_brief(self, _context: Context) -> LibraryBrief {
-        todo!()
+        info!("Creating library brief");
+        services::library::brief().await.unwrap()
     }
 
     #[doc = r" Returns full information about the music library. (all songs, artists, albums, etc.)"]
