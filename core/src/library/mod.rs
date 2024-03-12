@@ -3,6 +3,7 @@ use mecomp_storage::db::schemas::{
 };
 use serde::{Deserialize, Serialize};
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct LibraryBrief {
     pub artists: usize,
@@ -12,6 +13,7 @@ pub struct LibraryBrief {
     pub collections: usize,
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct LibraryFull {
     pub artists: Box<[Artist]>,
@@ -21,6 +23,7 @@ pub struct LibraryFull {
     pub collections: Box<[Collection]>,
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct LibraryHealth {
     pub artists: usize,

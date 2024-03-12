@@ -18,6 +18,13 @@ use mecomp_storage::{
     util::MetadataConflictResolution,
 };
 
+/// Index the library.
+///
+/// # Errors
+///
+/// This function will return an error if there is an error reading from the database.
+/// or if there is an error reading from the file system.
+/// or if there is an error writing to the database.
 pub async fn rescan(
     paths: &[PathBuf],
     artist_name_separator: Option<&str>,
@@ -31,11 +38,7 @@ pub async fn rescan(
     // for each song, check if the file still exists
     for song in songs {
         let path = song.path.clone();
-        if !path.exists() {
-            // remove the song from the library
-            warn!("Song {} no longer exists, deleting", path.to_string_lossy());
-            Song::delete(song.id).await?;
-        } else {
+        if path.exists() {
             // check if the metadata of the file is the same as the metadata in the database
             match SongMetadata::load_from_path(path.clone(), artist_name_separator, genre_separator)
             {
@@ -75,6 +78,10 @@ pub async fn rescan(
             }
             // now, add the path to the list of paths to skip so that we don't index the song again
             paths_to_skip.insert(path);
+        } else {
+            // remove the song from the library
+            warn!("Song {} no longer exists, deleting", path.to_string_lossy());
+            Song::delete(song.id).await?;
         }
     }
     // now, index all the songs in the library that haven't been indexed yet
@@ -136,6 +143,10 @@ pub async fn rescan(
 }
 
 /// Get a brief overview of the library.
+///
+/// # Errors
+///
+/// This function will return an error if there is an error reading from the database.
 pub async fn brief() -> Result<LibraryBrief, Error> {
     Ok(LibraryBrief {
         artists: Artist::read_all().await?.len(),
@@ -147,6 +158,10 @@ pub async fn brief() -> Result<LibraryBrief, Error> {
 }
 
 /// Get the full library.
+///
+/// # Errors
+///
+/// This function will return an error if there is an error reading from the database.
 pub async fn full() -> Result<LibraryFull, Error> {
     Ok(LibraryFull {
         artists: Artist::read_all().await?.into(),

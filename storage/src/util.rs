@@ -2,17 +2,12 @@
 
 use std::clone::Clone;
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default)]
 pub enum OneOrMany<T> {
     One(T),
     Many(Vec<T>),
+    #[default]
     None,
-}
-
-impl<T> Default for OneOrMany<T> {
-    fn default() -> Self {
-        OneOrMany::None
-    }
 }
 
 impl<T> OneOrMany<T> {
@@ -22,6 +17,10 @@ impl<T> OneOrMany<T> {
             OneOrMany::Many(t) => t.len(),
             OneOrMany::None => 0,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn get(&self, index: usize) -> Option<&T> {
@@ -85,24 +84,15 @@ impl<T> OneOrMany<T> {
     }
 
     pub fn is_none(&self) -> bool {
-        match self {
-            OneOrMany::None => true,
-            _ => false,
-        }
+        matches!(self, OneOrMany::None)
     }
 
     pub fn is_one(&self) -> bool {
-        match self {
-            OneOrMany::One(_) => true,
-            _ => false,
-        }
+        matches!(self, OneOrMany::One(_))
     }
 
     pub fn is_many(&self) -> bool {
-        match self {
-            OneOrMany::Many(_) => true,
-            _ => false,
-        }
+        matches!(self, OneOrMany::Many(_))
     }
 
     pub fn is_some(&self) -> bool {

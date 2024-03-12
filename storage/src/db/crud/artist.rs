@@ -1,7 +1,7 @@
 //! CRUD operations for the artist table
 use std::sync::Arc;
 
-use readable::run::Runtime;
+
 
 use crate::{
     db::{
@@ -78,7 +78,7 @@ impl Artist {
             .await?
             .ok_or(Error::NotFound)?;
 
-        artist.runtime = Runtime::from(artist.runtime + album.runtime);
+        artist.runtime = artist.runtime + album.runtime;
         artist.songs = artist
             .songs
             .iter()

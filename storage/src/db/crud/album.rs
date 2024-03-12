@@ -31,9 +31,7 @@ impl Album {
         if let Some(album) = Album::read_all()
             .await?
             .iter()
-            .filter(|x| x.title.as_ref() == title)
-            .filter(|x| x.artist.iter().all(|y| album_artists.contains(y)))
-            .next()
+            .filter(|x| x.title.as_ref() == title).find(|x| x.artist.iter().all(|y| album_artists.contains(y)))
         {
             Ok(Some(album.id.clone()))
         } else {

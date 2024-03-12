@@ -72,7 +72,20 @@ impl Song {
         // - remove the song from the old artist's list of songs
         // - add the song to the new artist's list of songs
         // - repair the old artists
-        if old_song.artist != new_song.artist {}
+        if old_song.artist != new_song.artist {
+            let artist_id = Artist::create_or_read_by_names(new_song.artist.as_slice()).await?;
+
+            new_song.artist_id = artist_id.into();
+
+            Song::update(id.clone(), new_song.clone()).await?;
+
+            for artist_id in old_song.artist_id.iter() {
+                info!("Repairing artist {}", artist_id);
+                if Artist::repair(artist_id.clone()).await? {
+                    info!("Artist {} was deleted after repair", artist_id);
+                }
+            }
+        }
 
         // if the album name has changed, we need to:
         // - update the new song's album_id

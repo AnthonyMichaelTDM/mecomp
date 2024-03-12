@@ -11,8 +11,15 @@ pub struct Queue {
     repeat_mode: RepeatMode,
 }
 
+impl Default for Queue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Queue {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             songs: Vec::new(),
             current_index: 0,
@@ -26,9 +33,7 @@ impl Queue {
 
     pub fn remove_song(&mut self, index: usize) {
         // TODO: if index is current_index, update current_index
-        if index < self.current_index {
-            self.current_index -= 1;
-        } else if index == self.current_index && self.current_index != 0 {
+        if index < self.current_index || (index == self.current_index && self.current_index != 0) {
             self.current_index -= 1;
         }
         self.songs.remove(index);
@@ -40,6 +45,7 @@ impl Queue {
         self.current_index = 0;
     }
 
+    #[must_use]
     pub fn current_song(&self) -> Option<&Song> {
         self.songs.get(self.current_index)
     }
@@ -57,12 +63,11 @@ impl Queue {
             RepeatMode::Once => {
                 if self.current_index + 1 < self.songs.len() {
                     self.current_index += 1;
-                    self.songs.get(self.current_index)
                 } else {
                     self.current_index = 0;
                     self.repeat_mode = RepeatMode::None;
-                    self.songs.get(self.current_index)
                 }
+                self.songs.get(self.current_index)
             }
             RepeatMode::Continuous => {
                 self.current_index = (self.current_index + 1) % self.songs.len();

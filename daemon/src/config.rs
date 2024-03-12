@@ -61,6 +61,16 @@ impl Default for DaemonSettings {
 }
 
 impl DaemonSettings {
+    /// Load settings from the config file and environment variables.
+    ///
+    /// The config file is located at the path specified by the `--config` flag.
+    ///
+    /// The environment variables are prefixed with `MECOMP_`.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the config file is not found or if the config file is
+    /// invalid.
     pub fn init() -> Result<Self, ConfigError> {
         let flags = Flags::parse();
 

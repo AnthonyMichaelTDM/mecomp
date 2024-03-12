@@ -8,7 +8,7 @@ use once_cell::sync::Lazy;
 use surrealdb::engine::local::{Db, SpeeDb};
 use surrealdb::Surreal;
 
-pub(crate) static DB: Lazy<Surreal<Db>> = Lazy::new(|| Surreal::init());
+pub(crate) static DB: Lazy<Surreal<Db>> = Lazy::new(Surreal::init);
 
 pub async fn init_database(path: PathBuf) -> surrealdb::Result<()> {
     DB.connect::<SpeeDb>(path).await?;

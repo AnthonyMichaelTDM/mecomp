@@ -273,7 +273,7 @@ impl From<&Song> for SongBrief {
             album: song.album.clone(),
             album_artist: song.album_artist.clone(),
             release_year: song.release_year,
-            duration: song.duration.clone(),
+            duration: song.duration,
             path: song.path.clone(),
         }
     }
@@ -425,10 +425,10 @@ impl SongMetadata {
             album: album.clone(),
             album_artist: album_artist.clone(),
             genre: genre.clone(),
-            duration: duration.clone(),
-            track: track.clone(),
-            disc: disc.clone(),
-            release_year: release_year.clone(),
+            duration: *duration,
+            track: *track,
+            disc: *disc,
+            release_year: *release_year,
             extension: extension.clone(),
             path: path.clone(),
             ..song.clone()
@@ -442,18 +442,18 @@ impl SongMetadata {
     ) -> Result<Self, SongIOError> {
         // check if the file exists
         if !path.exists() || !path.is_file() {
-            return Err(SongIOError::FileNotFound(path).into());
+            return Err(SongIOError::FileNotFound(path));
         }
         // get metadata from the file
         let tags = audiotags::Tag::default()
             .read_from_path(&path)
-            .map_err(|e| SongIOError::AudiotagError(e))?;
+            .map_err(SongIOError::AudiotagError)?;
         let artist: OneOrMany<Arc<str>> = tags
             .artist()
             .map(|a| {
                 let a = a.replace('\0', "");
                 if let Some(sep) = artist_name_separator {
-                    if a.contains(&sep) {
+                    if a.contains(sep) {
                         OneOrMany::Many(a.split(&sep).map(Into::into).collect())
                     } else {
                         OneOrMany::One(a.into())
@@ -480,7 +480,7 @@ impl SongMetadata {
                 .map(|a| {
                     let a = a.replace('\0', "");
                     if let Some(sep) = artist_name_separator {
-                        if a.contains(&sep) {
+                        if a.contains(sep) {
                             OneOrMany::Many(a.split(&sep).map(Into::into).collect())
                         } else {
                             OneOrMany::One(a.into())
