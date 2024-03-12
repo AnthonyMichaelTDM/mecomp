@@ -2340,6 +2340,7 @@ dependencies = [
  "serde",
  "strum",
  "surrealdb",
+ "tap",
  "tarpc",
  "tokio",
  "toml_edit 0.22.6",

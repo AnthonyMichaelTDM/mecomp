@@ -19,7 +19,7 @@ use mecomp_storage::db::schemas::{
     song::{Song, SongBrief, SongId},
 };
 
-use crate::services;
+use crate::{config::SETTINGS, services};
 
 #[derive(Clone)]
 pub struct MusicPlayerServer(pub SocketAddr);
@@ -31,9 +31,14 @@ impl MusicPlayer for MusicPlayerServer {
 
     #[doc = r" Rescans the music library."]
     async fn library_rescan(self, _: Context) -> Result<(), LibraryError> {
-        services::library::rescan()
-            .await
-            .map_err(|e| LibraryError::from(e))
+        services::library::rescan(
+            &SETTINGS.library_paths,
+            SETTINGS.artist_separator.as_deref(),
+            SETTINGS.genre_separator.as_deref(),
+            SETTINGS.conflict_resolution,
+        )
+        .await
+        .map_err(|e| LibraryError::from(e))
     }
 
     #[doc = r" Returns brief information about the music library."]

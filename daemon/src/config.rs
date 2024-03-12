@@ -6,7 +6,9 @@
 use clap::Parser;
 use config::{Config, ConfigError, Environment, File};
 use lazy_static::lazy_static;
+use log::{info, warn};
 use serde::Deserialize;
+use tap::TapFallible;
 
 use std::{path::PathBuf, sync::Arc};
 
@@ -30,13 +32,13 @@ pub struct DaemonSettings {
     /// The path to the database.
     pub db_path: PathBuf,
     /// The root paths of the music library.
-    pub library_paths: Vec<PathBuf>,
+    pub library_paths: Box<[PathBuf]>,
     /// Sepators for artist names in song metadata.
     /// For example, "Foo, Bar, Baz" would be split into ["Foo", "Bar", "Baz"]. if the separator is ", ".
     /// If the separator is not found, the entire string is considered as a single artist.
     /// If unset, will not split artists.
-    pub artist_separator: Option<&'static str>,
-    pub genre_separator: Option<&'static str>,
+    pub artist_separator: Option<String>,
+    pub genre_separator: Option<String>,
     /// how conflicting metadata should be resolved
     /// "merge" - merge the metadata
     /// "overwrite" - overwrite the metadata with new metadata
@@ -49,7 +51,7 @@ impl Default for DaemonSettings {
         Self {
             rpc_port: 6600,
             db_path: PathBuf::from("/tmp/mecomp_db"),
-            library_paths: vec![PathBuf::from("~/Music")],
+            library_paths: vec![PathBuf::from("~/Music/")].into_boxed_slice(),
             artist_separator: None,
             genre_separator: None,
             conflict_resolution: MetadataConflictResolution::Merge,
@@ -77,6 +79,10 @@ impl DaemonSettings {
 }
 
 lazy_static! {
-    pub static ref SETTINGS: Arc<DaemonSettings> =
-        Arc::new(DaemonSettings::init().unwrap_or_default());
+    pub static ref SETTINGS: Arc<DaemonSettings> = Arc::new(
+        DaemonSettings::init()
+            .tap_err(|e| warn!("Error Loading Settings: {e:?}"))
+            .tap_ok(|x| info!("Loaded settings: {x:?}"))
+            .unwrap_or_default()
+    );
 }
