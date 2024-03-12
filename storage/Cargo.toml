@@ -14,25 +14,15 @@ license.workspace = true
 
 [dependencies]
 # shared dependencies
-anyhow = { workspace = true }
 audiotags = { workspace = true }
-clap = { workspace = true }
-crossbeam = { workspace = true }
-dirs = { workspace = true }
-env_logger = { workspace = true }
 futures = { workspace = true }
-image = { workspace = true }
 log = { workspace = true }
-nutype = { workspace = true }
 once_cell = { workspace = true }
 rand = { workspace = true }
 readable = { workspace = true }
 serde = { workspace = true }
-strum = { workspace = true }
-toml_edit = { workspace = true }
 thiserror = { workspace = true }
 walkdir = { workspace = true }
-tarpc = { workspace = true }
 tap = { workspace = true }
 
 

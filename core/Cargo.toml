@@ -15,19 +15,14 @@ license.workspace = true
 [dependencies]
 # shared dependencies
 anyhow = { workspace = true }
-clap = { workspace = true }
-crossbeam = { workspace = true }
-dirs = { workspace = true }
 env_logger = { workspace = true }
 futures = { workspace = true }
-image = { workspace = true }
 log = { workspace = true }
 nutype = { workspace = true }
 once_cell = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 strum = { workspace = true }
-toml_edit = { workspace = true }
 thiserror = { workspace = true }
 walkdir = { workspace = true }
 tarpc = { workspace = true, optional = true }
@@ -35,8 +30,6 @@ tarpc = { workspace = true, optional = true }
 # MECOMP dependencies
 mecomp-storage = { workspace = true }
 
-# dependencies for the core library
-derive_builder = { version = "0.20.0" }
 
 [features]
 rpc = ["tarpc"]
