@@ -1,5 +1,4 @@
 //----------------------------------------------------------------------------------------- std lib
-use audiotags::Config;
 use std::sync::Arc;
 use std::{collections::HashSet, path::PathBuf};
 //--------------------------------------------------------------------------------- other libraries
@@ -68,9 +67,7 @@ impl Song {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
 
-    /// Create a new [`Song`] from a file path.
-    /// This function will read the metadata from the file and create a new [`Song`] from it.
-    /// If the file does not exist, or if the file is not a valid audio file, this function will return an error.
+    /// Create a new [`Song`] from song metadata and load it into the database.
     ///
     /// # Arguments
     ///
@@ -87,46 +84,24 @@ impl Song {
     /// This function will create a new [`Song`], [`Artist`], and [`Album`] if they do not exist in the database.
     /// This function will also add the new [`Song`] to the [`Artist`] and the [`Album`].
     /// This function will also update the [`Artist`] and the [`Album`] in the database.
-    pub async fn try_load(metadata: SongMetadata) -> Result<Self, Error> {
+    pub async fn try_load_into_db(metadata: SongMetadata) -> Result<Self, Error> {
         // check if the file exists
-        if !metadata.song_exists() {
+        if !metadata.path_exists() {
             return Err(SongIOError::FileNotFound(metadata.path).into());
         }
 
         // for each artist, check if the artist exists in the database and get the id, if they don't then create a new artist and get the id
         let mut artist_ids = Vec::with_capacity(metadata.artist.len());
         for artist in metadata.artist.iter() {
-            if let Some(artist) = Artist::read_by_name(artist.as_ref()).await? {
-                artist_ids.push(artist.id);
-            } else {
-                let artist_id = Artist::create(Artist {
-                    id: Artist::generate_id(),
-                    name: artist.clone(),
-                    songs: vec![].into_boxed_slice(),
-                    albums: vec![].into_boxed_slice(),
-                    runtime: 0.into(),
-                })
-                .await?
-                .unwrap();
+            if let Some(artist_id) = Artist::create_or_read_by_name(artist.as_ref()).await? {
                 artist_ids.push(artist_id);
             }
         }
 
         // check if the album artist exists, if they don't then create a new artist and get the id
         let mut album_artist_ids = Vec::with_capacity(metadata.artist.len());
-        for artist in metadata.artist.iter() {
-            if let Some(artist) = Artist::read_by_name(artist.as_ref()).await? {
-                album_artist_ids.push(artist.id);
-            } else {
-                let artist_id = Artist::create(Artist {
-                    id: Artist::generate_id(),
-                    name: artist.clone(),
-                    songs: vec![].into_boxed_slice(),
-                    albums: vec![].into_boxed_slice(),
-                    runtime: 0.into(),
-                })
-                .await?
-                .unwrap();
+        for artist in metadata.album_artist.iter() {
+            if let Some(artist_id) = Artist::create_or_read_by_name(artist.as_ref()).await? {
                 album_artist_ids.push(artist_id);
             }
         }
@@ -135,7 +110,7 @@ impl Song {
         // if they don't then create a new album, assign it to the artist.
         // get the id of the album
         let mut album_id = None;
-        for artist_id in artist_ids.iter() {
+        for artist_id in album_artist_ids.iter() {
             let artist = Artist::read(artist_id.clone()).await?.unwrap();
 
             // try to find the album in the artist's albums
@@ -166,7 +141,8 @@ impl Song {
                         discs: 1,
                         genre: OneOrMany::None,
                     })
-                    .await?;
+                    .await?
+                    .map(|x| x.id);
                 }
 
                 let updated_artist = Artist {
@@ -343,10 +319,110 @@ impl SongMetadata {
         self.path.exists() && self.path.is_file()
     }
 
+    /// Check if the metadata of this song is likely the same song as the metadata of the other song.
+    ///
+    /// doesn't check for exact equality (use `==` for that),
+    /// but is for checking if the song is the same song even if the metadata has been updated.
+    pub fn is_same_song(&self, other: &Self) -> bool {
+        // the title is the same
+        self.title == other.title
+            // the artist is the same
+            && self.artist == other.artist
+            // the album is the same
+            && self.album == other.album
+            // the duration is the same
+            && self.duration == other.duration
+            // the genre is the same, or the genre is not in self but is in other
+            && (self.genre == other.genre || self.genre.is_none() && other.genre.is_some())
+            // the track is the same, or the track is not in self but is in other
+            && (self.track == other.track || self.track.is_none() && other.track.is_some())
+            // the disc is the same, or the disc is not in self but is in other
+            && (self.disc == other.disc || self.disc.is_none() && other.disc.is_some())
+            // the release year is the same, or the release year is not in self but is in other
+            && (self.release_year == other.release_year
+                || self.release_year.is_none() && other.release_year.is_some())
+    }
+
+    /// Merge the metadata of two songs.
+    /// This function will merge the metadata of two songs into a new song metadata.
+    ///
+    /// for fields that can't be merged (like the title, album, or duration), the metadata of `self` will be used.
+    ///
+    /// Therefore, you should check that the songs are the same song before merging (use `is_same_song`).
+    pub fn merge(base: &Self, other: &Self) -> Self {
+        Self {
+            title: base.title.clone(),
+            // merge the artists, if the artist is in `self` and not in `other`, then add it to the merged metadata
+            artist: {
+                base.artist
+                    .iter()
+                    .chain(other.artist.iter())
+                    .cloned()
+                    .collect::<HashSet<_>>() // remove duplicates
+                    .into_iter()
+                    .collect()
+            },
+            album: base.album.clone(),
+            album_artist: base
+                .album_artist
+                .iter()
+                .chain(other.album_artist.iter())
+                .cloned()
+                .collect::<HashSet<_>>() // remove duplicates
+                .into_iter()
+                .collect(),
+            genre: base
+                .genre
+                .iter()
+                .chain(other.genre.iter())
+                .cloned()
+                .collect::<HashSet<Arc<str>>>()
+                .into_iter()
+                .collect(),
+            duration: base.duration,
+            track: base.track.or(other.track),
+            disc: base.disc.or(other.disc),
+            release_year: base.release_year.or(other.release_year),
+            extension: base.extension.clone(),
+            path: base.path.clone(),
+        }
+    }
+
+    /// create a new song with `base` values overridden by `self`'s metadata when applicable (DOES NOT UPDATE THE DATABASE)
+    pub fn merge_with_song(&self, song: &Song) -> Song {
+        let SongMetadata {
+            title,
+            artist,
+            album,
+            album_artist,
+            genre,
+            duration,
+            track,
+            disc,
+            release_year,
+            extension,
+            path,
+        } = self;
+        Song {
+            title: title.clone(),
+            artist: artist.clone(),
+            album: album.clone(),
+            album_artist: album_artist.clone(),
+            genre: genre.clone(),
+            duration: duration.clone(),
+            track: track.clone(),
+            disc: disc.clone(),
+            release_year: release_year.clone(),
+            extension: extension.clone(),
+            path: path.clone(),
+            ..song.clone()
+        }
+    }
+
     pub fn load_from_path(
         path: PathBuf,
-        artist_name_separator: Option<&'static str>,
-        genre_separator: Option<&'static str>,
+        artist_name_separator: Option<&str>,
+        genre_separator: Option<&str>,
     ) -> Result<Self, SongIOError> {
         // check if the file exists
         if !path.exists() || !path.is_file() {
@@ -354,22 +430,19 @@ impl SongMetadata {
         }
         // get metadata from the file
         let tags = audiotags::Tag::default()
-            .with_config(if let Some(sep) = artist_name_separator {
-                Config::default()
-                    .sep_artist(sep)
-                    .parse_multiple_artists(true)
-            } else {
-                Config::default()
-            })
             .read_from_path(&path)
             .map_err(|e| SongIOError::AudiotagError(e))?;
         let artist: OneOrMany<Arc<str>> = tags
-            .artists()
-            .map(|artists| {
-                if artists.len() == 1 {
-                    OneOrMany::One(artists[0].into())
+            .artist()
+            .map(|a| {
+                if let Some(sep) = artist_name_separator {
+                    if a.contains(&sep) {
+                        OneOrMany::Many(a.split(&sep).map(Into::into).collect())
+                    } else {
+                        OneOrMany::One(a.into())
+                    }
                 } else {
-                    OneOrMany::Many(artists.into_iter().map(Into::into).collect())
+                    OneOrMany::One(a.into())
                 }
             })
             .unwrap_or(OneOrMany::One("Unknown Artist".into()));
@@ -382,12 +455,16 @@ impl SongMetadata {
                 .into(),
             album: tags.album_title().unwrap_or("Unknown Album").into(),
             album_artist: tags
-                .album_artists()
-                .map(|artists| {
-                    if artists.len() == 1 {
-                        OneOrMany::One(artists[0].into())
+                .album_artist()
+                .map(|a| {
+                    if let Some(sep) = artist_name_separator {
+                        if a.contains(&sep) {
+                            OneOrMany::Many(a.split(&sep).map(Into::into).collect())
+                        } else {
+                            OneOrMany::One(a.into())
+                        }
                     } else {
-                        OneOrMany::Many(artists.into_iter().map(Into::into).collect())
+                        OneOrMany::One(a.into())
                     }
                 })
                 .unwrap_or_else(|| OneOrMany::One(artist.get(0).unwrap().clone())),
