@@ -1,7 +1,7 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use log::{debug, info, warn};
-use mecomp_core::library::LibraryBrief;
+use mecomp_core::library::{LibraryBrief, LibraryFull};
 use tap::TapFallible;
 // use tokio::runtime::Handle;
 use walkdir::WalkDir;
@@ -10,6 +10,7 @@ use mecomp_storage::{
     db::schemas::{
         album::Album,
         artist::Artist,
+        collection::Collection,
         playlist::Playlist,
         song::{Song, SongMetadata},
     },
@@ -23,7 +24,6 @@ pub async fn rescan(
     genre_separator: Option<&'static str>,
     conflict_resolution_mode: MetadataConflictResolution,
 ) -> Result<(), Error> {
-    info!("Rescanning library");
     // get all the songs in the current library
     let songs = Song::read_all().await?;
     let mut paths_to_skip = HashSet::new(); // use a hashset because hashing is faster than linear search, especially for large libraries
@@ -135,11 +135,24 @@ pub async fn rescan(
     Ok(())
 }
 
+/// Get a brief overview of the library.
 pub async fn brief() -> Result<LibraryBrief, Error> {
     Ok(LibraryBrief {
         artists: Artist::read_all().await?.len(),
         albums: Album::read_all().await?.len(),
         songs: Song::read_all().await?.len(),
         playlists: Playlist::read_all().await?.len(),
+        collections: Collection::read_all().await?.len(),
+    })
+}
+
+/// Get the full library.
+pub async fn full() -> Result<LibraryFull, Error> {
+    Ok(LibraryFull {
+        artists: Artist::read_all().await?.into(),
+        albums: Album::read_all().await?.into(),
+        songs: Song::read_all().await?.into(),
+        playlists: Playlist::read_all().await?.into(),
+        collections: Collection::read_all().await?.into(),
     })
 }

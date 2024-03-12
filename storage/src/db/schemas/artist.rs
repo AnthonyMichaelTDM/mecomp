@@ -48,3 +48,27 @@ pub struct ArtistBrief {
     pub albums: usize,
     pub songs: usize,
 }
+
+impl From<Artist> for ArtistBrief {
+    fn from(artist: Artist) -> Self {
+        Self {
+            id: artist.id,
+            name: artist.name,
+            runtime: artist.runtime,
+            albums: artist.albums.len(),
+            songs: artist.songs.len(),
+        }
+    }
+}
+
+impl From<&Artist> for ArtistBrief {
+    fn from(artist: &Artist) -> Self {
+        Self {
+            id: artist.id.clone(),
+            name: artist.name.clone(),
+            runtime: artist.runtime,
+            albums: artist.albums.len(),
+            songs: artist.songs.len(),
+        }
+    }
+}

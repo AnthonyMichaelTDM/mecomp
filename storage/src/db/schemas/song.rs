@@ -264,6 +264,21 @@ impl From<Song> for SongBrief {
     }
 }
 
+impl From<&Song> for SongBrief {
+    fn from(song: &Song) -> Self {
+        Self {
+            id: song.id.clone(),
+            title: song.title.clone(),
+            artist: song.artist.clone(),
+            album: song.album.clone(),
+            album_artist: song.album_artist.clone(),
+            release_year: song.release_year,
+            duration: song.duration.clone(),
+            path: song.path.clone(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct SongMetadata {
     pub title: Arc<str>,

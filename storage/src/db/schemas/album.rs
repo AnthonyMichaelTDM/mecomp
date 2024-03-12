@@ -84,3 +84,18 @@ impl From<Album> for AlbumBrief {
         }
     }
 }
+
+impl From<&Album> for AlbumBrief {
+    fn from(album: &Album) -> Self {
+        Self {
+            id: album.id.clone(),
+            title: album.title.clone(),
+            artist: album.artist.clone(),
+            release: album.release,
+            runtime: album.runtime,
+            song_count: album.song_count,
+            discs: album.discs,
+            genre: album.genre.clone(),
+        }
+    }
+}

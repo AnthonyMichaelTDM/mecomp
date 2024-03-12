@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use readable::run::Runtime;
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::Thing;
+use surrealdb::sql::{Id, Thing};
 
 use super::song::SongId;
 
@@ -27,6 +27,12 @@ pub struct Playlist {
     pub songs: Box<[SongId]>,
 }
 
+impl Playlist {
+    pub fn generate_id() -> PlaylistId {
+        Thing::from((TABLE_NAME, Id::ulid()))
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PlaylistBrief {
     pub id: PlaylistId,
@@ -40,6 +46,17 @@ impl From<Playlist> for PlaylistBrief {
         Self {
             id: playlist.id,
             name: playlist.name,
+            runtime: playlist.runtime,
+            songs: playlist.songs.len(),
+        }
+    }
+}
+
+impl From<&Playlist> for PlaylistBrief {
+    fn from(playlist: &Playlist) -> Self {
+        Self {
+            id: playlist.id.clone(),
+            name: playlist.name.clone(),
             runtime: playlist.runtime,
             songs: playlist.songs.len(),
         }

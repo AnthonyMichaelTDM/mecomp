@@ -1,15 +1,16 @@
 use nutype::nutype;
 use serde::{Deserialize, Serialize};
+use strum::Display;
 
 use crate::queue::Queue;
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Display, Deserialize, Serialize)]
 pub enum SeekType {
     Absolute,
     Relative,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Display, Deserialize, Serialize)]
 pub enum RepeatMode {
     None,
     Once,

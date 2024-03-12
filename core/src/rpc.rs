@@ -29,21 +29,21 @@ pub trait MusicPlayer {
     /// Rescans the music library.
     async fn library_rescan() -> Result<(), LibraryError>;
     /// Returns brief information about the music library.
-    async fn library_brief() -> LibraryBrief;
+    async fn library_brief() -> Result<LibraryBrief, LibraryError>;
     /// Returns full information about the music library. (all songs, artists, albums, etc.)
-    async fn library_full() -> LibraryFull;
+    async fn library_full() -> Result<LibraryFull, LibraryError>;
     /// Returns brief information about the music library's artists.
-    async fn library_artists_brief() -> Box<[ArtistBrief]>;
+    async fn library_artists_brief() -> Result<Box<[ArtistBrief]>, LibraryError>;
     /// Returns full information about the music library's artists.
-    async fn library_artists_full() -> Box<[Artist]>;
+    async fn library_artists_full() -> Result<Box<[Artist]>, LibraryError>;
     /// Returns brief information about the music library's albums.
-    async fn library_albums_brief() -> Box<[AlbumBrief]>;
+    async fn library_albums_brief() -> Result<Box<[AlbumBrief]>, LibraryError>;
     /// Returns full information about the music library's albums.
-    async fn library_albums_full() -> Box<[Album]>;
+    async fn library_albums_full() -> Result<Box<[Album]>, LibraryError>;
     /// Returns brief information about the music library's songs.
-    async fn library_songs_brief() -> Box<[SongBrief]>;
+    async fn library_songs_brief() -> Result<Box<[SongBrief]>, LibraryError>;
     /// Returns full information about the music library's songs.
-    async fn library_songs_full() -> Box<[Song]>;
+    async fn library_songs_full() -> Result<Box<[Song]>, LibraryError>;
     /// Returns information about the health of the music library (are there any missing files, etc.)
     async fn library_health() -> LibraryHealth;
 
@@ -186,7 +186,7 @@ pub trait MusicPlayer {
     /// remove a playlist.
     async fn playlist_remove(name: String) -> bool;
     /// clone a playlist.
-    /// (creates a new playlist with the same name and contents as the given playlist.)
+    /// (creates a new playlist with the same name (append "copy") and contents as the given playlist.)
     async fn playlist_clone(name: String) -> ();
     /// get the id of a playlist.
     async fn playlist_get_id(name: String) -> Option<PlaylistId>;

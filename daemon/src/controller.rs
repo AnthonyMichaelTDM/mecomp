@@ -1,8 +1,10 @@
 //----------------------------------------------------------------------------------------- std lib
-use log::info;
 use std::{net::SocketAddr, ops::Range};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
+use log::{info, warn};
+use rand::seq::SliceRandom;
+use tap::TapFallible;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
     errors::LibraryError,
@@ -30,358 +32,432 @@ impl MusicPlayer for MusicPlayerServer {
         "pong".to_string()
     }
 
-    #[doc = r" Rescans the music library."]
+    /// Rescans the music library.
     async fn library_rescan(self, _: Context) -> Result<(), LibraryError> {
-        services::library::rescan(
+        info!("Rescanning library");
+        Ok(services::library::rescan(
             &SETTINGS.library_paths,
             SETTINGS.artist_separator.as_deref(),
             SETTINGS.genre_separator.as_deref(),
             SETTINGS.conflict_resolution,
         )
         .await
-        .map_err(|e| LibraryError::from(e))
+        .tap_err(|e| warn!("Error in library_rescan: {e}"))?)
     }
-
-    #[doc = r" Returns brief information about the music library."]
-    async fn library_brief(self, _context: Context) -> LibraryBrief {
+    /// Returns brief information about the music library.
+    async fn library_brief(self, _context: Context) -> Result<LibraryBrief, LibraryError> {
         info!("Creating library brief");
-        services::library::brief().await.unwrap()
+        Ok(services::library::brief()
+            .await
+            .tap_err(|e| warn!("Error in library_brief: {e}"))?)
     }
-
-    #[doc = r" Returns full information about the music library. (all songs, artists, albums, etc.)"]
-    async fn library_full(self, _context: Context) -> LibraryFull {
-        todo!()
+    /// Returns full information about the music library. (all songs, artists, albums, etc.)
+    async fn library_full(self, _context: Context) -> Result<LibraryFull, LibraryError> {
+        info!("Creating library full");
+        Ok(services::library::full()
+            .await
+            .tap_err(|e| warn!("Error in library_full: {e}"))?)
     }
-
-    #[doc = r" Returns brief information about the music library's artists."]
-    async fn library_artists_brief(self, _context: Context) -> Box<[ArtistBrief]> {
-        todo!()
+    /// Returns brief information about the music library's artists.
+    async fn library_artists_brief(
+        self,
+        _context: Context,
+    ) -> Result<Box<[ArtistBrief]>, LibraryError> {
+        info!("Creating library artists brief");
+        Ok(Artist::read_all()
+            .await
+            .tap_err(|e| warn!("Error in library_artists_brief: {e}"))?
+            .iter()
+            .map(|a| a.into())
+            .collect())
     }
-
-    #[doc = r" Returns full information about the music library's artists."]
-    async fn library_artists_full(self, _context: Context) -> Box<[Artist]> {
-        todo!()
+    /// Returns full information about the music library's artists.
+    async fn library_artists_full(self, _context: Context) -> Result<Box<[Artist]>, LibraryError> {
+        info!("Creating library artists full");
+        Ok(Artist::read_all()
+            .await
+            .map(|artists| artists.into_boxed_slice())
+            .tap_err(|e| warn!("Error in library_artists_brief: {e}"))?)
     }
-
-    #[doc = r" Returns brief information about the music library's albums."]
-    async fn library_albums_brief(self, _context: Context) -> Box<[AlbumBrief]> {
-        todo!()
+    /// Returns brief information about the music library's albums.
+    async fn library_albums_brief(
+        self,
+        _context: Context,
+    ) -> Result<Box<[AlbumBrief]>, LibraryError> {
+        info!("Creating library albums brief");
+        Ok(Album::read_all()
+            .await
+            .tap_err(|e| warn!("Error in library_albums_brief: {e}"))?
+            .iter()
+            .map(|a| a.into())
+            .collect())
     }
-
-    #[doc = r" Returns full information about the music library's albums."]
-    async fn library_albums_full(self, _context: Context) -> Box<[Album]> {
-        todo!()
+    /// Returns full information about the music library's albums.
+    async fn library_albums_full(self, _context: Context) -> Result<Box<[Album]>, LibraryError> {
+        info!("Creating library albums full");
+        Ok(Album::read_all()
+            .await
+            .map(|albums| albums.into_boxed_slice())
+            .tap_err(|e| warn!("Error in library_albums_full: {e}"))?)
     }
-
-    #[doc = r" Returns brief information about the music library's songs."]
-    async fn library_songs_brief(self, _context: Context) -> Box<[SongBrief]> {
-        todo!()
+    /// Returns brief information about the music library's songs.
+    async fn library_songs_brief(
+        self,
+        _context: Context,
+    ) -> Result<Box<[SongBrief]>, LibraryError> {
+        info!("Creating library songs brief");
+        Ok(Song::read_all()
+            .await
+            .tap_err(|e| warn!("Error in library_songs_brief: {e}"))?
+            .iter()
+            .map(|s| s.into())
+            .collect())
     }
-
-    #[doc = r" Returns full information about the music library's songs."]
-    async fn library_songs_full(self, _context: Context) -> Box<[Song]> {
-        todo!()
+    /// Returns full information about the music library's songs.
+    async fn library_songs_full(self, _context: Context) -> Result<Box<[Song]>, LibraryError> {
+        info!("Creating library songs full");
+        Ok(Song::read_all()
+            .await
+            .map(|songs| songs.into_boxed_slice())
+            .tap_err(|e| warn!("Error in library_songs_full: {e}"))?)
     }
-
-    #[doc = r" Returns information about the health of the music library (are there any missing files, etc.)"]
+    /// Returns information about the health of the music library (are there any missing files, etc.)
     async fn library_health(self, _context: Context) -> LibraryHealth {
+        info!("Creating library health");
         todo!()
     }
-
-    #[doc = r" Get a song by its ID."]
-    async fn library_song_get(self, _context: Context, _id: SongId) -> Option<Song> {
-        todo!()
+    /// Get a song by its ID.
+    async fn library_song_get(self, _context: Context, id: SongId) -> Option<Song> {
+        info!("Getting song by ID: {}", id);
+        Song::read(id)
+            .await
+            .tap_err(|e| warn!("Error in library_song_get: {e}"))
+            .ok()
+            .flatten()
+    }
+    /// Get an album by its ID.
+    async fn library_album_get(self, _context: Context, id: AlbumId) -> Option<Album> {
+        info!("Getting album by ID: {}", id);
+        Album::read(id)
+            .await
+            .tap_err(|e| warn!("Error in library_album_get: {e}"))
+            .ok()
+            .flatten()
+    }
+    /// Get an artist by its ID.
+    async fn library_artist_get(self, _context: Context, id: ArtistId) -> Option<Artist> {
+        info!("Getting artist by ID: {}", id);
+        Artist::read(id)
+            .await
+            .tap_err(|e| warn!("Error in library_artist_get: {e}"))
+            .ok()
+            .flatten()
+    }
+    /// Get a playlist by its ID.
+    async fn library_playlist_get(self, _context: Context, id: PlaylistId) -> Option<Playlist> {
+        info!("Getting playlist by ID: {}", id);
+        Playlist::read(id)
+            .await
+            .tap_err(|e| warn!("Error in library_playlist_get: {e}"))
+            .ok()
+            .flatten()
     }
 
-    #[doc = r" Get an album by its ID."]
-    async fn library_album_get(self, _context: Context, _id: AlbumId) -> Option<Album> {
-        todo!()
-    }
-
-    #[doc = r" Get an artist by its ID."]
-    async fn library_artist_get(self, _context: Context, _id: ArtistId) -> Option<Artist> {
-        todo!()
-    }
-
-    #[doc = r" Get a playlist by its ID."]
-    async fn library_playlist_get(self, _context: Context, _id: PlaylistId) -> Option<Playlist> {
-        todo!()
-    }
-
-    #[doc = r" tells the daemon to shutdown."]
+    /// tells the daemon to shutdown.
     async fn daemon_shutdown(self, _context: Context) -> () {
+        info!("Shutting down daemon");
         todo!()
     }
 
-    #[doc = r" returns full information about the current state of the audio player (queue, current song, etc.)"]
+    /// returns full information about the current state of the audio player (queue, current song, etc.)
     async fn state_audio(self, _context: Context) -> StateAudio {
+        info!("Getting state of audio player");
         todo!()
     }
-
-    #[doc = r" returns information about the current queue."]
+    /// returns information about the current queue.
     async fn state_queue(self, _context: Context) -> Queue {
+        info!("Getting state of queue");
         todo!()
     }
-
-    #[doc = r" is the player currently playing?"]
+    /// is the player currently playing?
     async fn state_playing(self, _context: Context) -> bool {
+        info!("Getting state of playing");
         todo!()
     }
-
-    #[doc = r" what repeat mode is the player in?"]
+    /// what repeat mode is the player in?
     async fn state_repeat(self, _context: Context) -> RepeatMode {
+        info!("Getting state of repeat");
         todo!()
     }
-
-    #[doc = r" returns the current volume."]
+    /// returns the current volume.
     async fn state_volume(self, _context: Context) -> Percent {
+        info!("Getting state of volume");
         todo!()
     }
-
-    #[doc = r" returns the current volume mute state."]
+    /// returns the current volume mute state.
     async fn state_volume_muted(self, _context: Context) -> bool {
+        info!("Getting state of volume muted");
         todo!()
     }
-
-    #[doc = r" returns information about the runtime of the current song (seek position and duration)"]
+    /// returns information about the runtime of the current song (seek position and duration)
     async fn state_runtime(self, _context: Context) -> StateRuntime {
+        info!("Getting state of runtime");
         todo!()
     }
-
-    #[doc = r" returns the current artist."]
+    /// returns the current artist.
     async fn current_artist(self, _context: Context) -> Option<Artist> {
+        info!("Getting current artist");
         todo!()
     }
-
-    #[doc = r" returns the current album."]
+    /// returns the current album.
     async fn current_album(self, _context: Context) -> Option<Album> {
+        info!("Getting current album");
         todo!()
     }
-
-    #[doc = r" returns the current song."]
+    /// returns the current song.
     async fn current_song(self, _context: Context) -> Option<Song> {
+        info!("Getting current song");
         todo!()
     }
 
-    #[doc = r" returns a random artist."]
+    /// returns a random artist.
     async fn rand_artist(self, _context: Context) -> Option<Artist> {
-        todo!()
+        info!("Getting random artist");
+        Artist::read_all()
+            .await
+            .tap_err(|e| warn!("Error in rand_artist: {e}"))
+            .ok()
+            .map(|artists| artists.choose(&mut rand::thread_rng()).cloned())
+            .flatten()
     }
-
-    #[doc = r" returns a random album."]
+    /// returns a random album.
     async fn rand_album(self, _context: Context) -> Option<Album> {
-        todo!()
+        info!("Getting random album");
+        Album::read_all()
+            .await
+            .tap_err(|e| warn!("Error in rand_album: {e}"))
+            .ok()
+            .map(|albums| albums.choose(&mut rand::thread_rng()).cloned())
+            .flatten()
     }
-
-    #[doc = r" returns a random song."]
+    /// returns a random song.
     async fn rand_song(self, _context: Context) -> Option<Song> {
-        todo!()
+        info!("Getting random song");
+        Song::read_all()
+            .await
+            .tap_err(|e| warn!("Error in rand_song: {e}"))
+            .ok()
+            .map(|songs| songs.choose(&mut rand::thread_rng()).cloned())
+            .flatten()
     }
 
-    #[doc = r" returns a list of artists, albums, and songs matching the given search query."]
+    /// returns a list of artists, albums, and songs matching the given search query.
     async fn search(self, _context: Context, _query: String) -> Box<[SearchResult]> {
+        info!("Searching for: {}", _query);
         todo!()
     }
-
-    #[doc = r" returns a list of artists matching the given search query."]
+    /// returns a list of artists matching the given search query.
     async fn search_artist(self, _context: Context, _query: String) -> Box<[Artist]> {
+        info!("Searching for artist: {}", _query);
         todo!()
     }
-
-    #[doc = r" returns a list of albums matching the given search query."]
+    /// returns a list of albums matching the given search query.
     async fn search_album(self, _context: Context, _query: String) -> Box<[Album]> {
+        info!("Searching for album: {}", _query);
         todo!()
     }
-
-    #[doc = r" returns a list of songs matching the given search query."]
+    /// returns a list of songs matching the given search query.
     async fn search_song(self, _context: Context, _query: String) -> Box<[Song]> {
+        info!("Searching for song: {}", _query);
         todo!()
     }
 
-    #[doc = r" toggles playback (play/pause)."]
+    /// toggles playback (play/pause).
     async fn playback_toggle(self, _context: Context) -> () {
+        info!("Toggling playback");
         todo!()
     }
-
-    #[doc = r" start playback (unpause)."]
+    /// start playback (unpause).
     async fn playback_play(self, _context: Context) -> () {
+        info!("Starting playback");
         todo!()
     }
-
-    #[doc = r" pause playback."]
+    /// pause playback.
     async fn playback_pause(self, _context: Context) -> () {
+        info!("Pausing playback");
         todo!()
     }
-
-    #[doc = r" set the current song to be the next song in the queue."]
+    /// set the current song to be the next song in the queue.
     async fn playback_next(self, _context: Context) -> () {
+        info!("Playing next song");
         todo!()
     }
-
-    #[doc = r" skip forward by the given amount of songs"]
+    /// skip forward by the given amount of songs
     async fn playback_skip(self, _context: Context, _amount: usize) -> () {
+        info!("Skipping forward by {} songs", _amount);
         todo!()
     }
-
-    #[doc = r" go back to the previous song."]
-    #[doc = r" (if the current song is more than `threshold` seconds in, it will restart the current song instead)"]
+    /// go back to the previous song.
+    /// (if the current song is more than `threshold` seconds in, it will restart the current song instead)
     async fn playback_previous(self, _context: Context, _threshold: Option<usize>) -> () {
+        info!("Playing previous song");
         todo!()
     }
-
-    #[doc = r" go backwards by the given amount of songs."]
-    async fn playback_back(self, _context: Context, _amountt: usize) -> () {
+    /// go backwards by the given amount of songs.
+    async fn playback_back(self, _context: Context, amount: usize) -> () {
+        info!("Going back by {} songs", amount);
         todo!()
     }
-
-    #[doc = r" stop playback."]
-    #[doc = r" (clears the queue and stops playback)"]
+    /// stop playback.
+    /// (clears the queue and stops playback)
     async fn playback_stop(self, _context: Context) -> () {
+        info!("Stopping playback");
         todo!()
     }
-
-    #[doc = r" clear the queue."]
+    /// clear the queue.
     async fn playback_clear(self, _context: Context) -> () {
+        info!("Clearing queue");
         todo!()
     }
-
-    #[doc = r" seek forwards, backwards, or to an absolute second in the current song."]
-    async fn playback_seek(self, _context: Context, _seek: SeekType, _seconds: u64) -> () {
+    /// seek forwards, backwards, or to an absolute second in the current song.
+    async fn playback_seek(self, _context: Context, seek: SeekType, seconds: u64) -> () {
+        info!("Seeking {} seconds ({})", seconds, seek);
         todo!()
     }
-
-    #[doc = r" set the repeat mode."]
+    /// set the repeat mode.
     async fn playback_repeat(self, _context: Context, mode: RepeatMode) -> () {
-        let _ = mode;
+        info!("Setting repeat mode to: {}", mode);
         todo!()
     }
-
-    #[doc = r" Shuffle the current queue, then start playing from the 1st Song in the queue."]
+    /// Shuffle the current queue, then start playing from the 1st Song in the queue.
     async fn playback_shuffle(self, _context: Context) -> () {
+        info!("Shuffling queue");
         todo!()
     }
-
-    #[doc = r" set the volume to the given value (0-100)."]
-    #[doc = r" (if the value is greater than 100, it will be clamped to 100.)"]
+    /// set the volume to the given value (0-100).
+    /// (if the value is greater than 100, it will be clamped to 100.)
     async fn playback_volume(self, _context: Context, _volume: u8) -> () {
+        info!("Setting volume to: {}", _volume);
         todo!()
     }
-
-    #[doc = r" increase the volume by the given amount (0-100)."]
-    #[doc = r" (volume will be clamped to 100.)"]
+    /// increase the volume by the given amount (0-100).
+    /// (volume will be clamped to 100.)
     async fn playback_volume_up(self, _context: Context, _amount: u8) -> () {
+        info!("Increasing volume by: {}", _amount);
         todo!()
     }
-
-    #[doc = r" decrease the volume by the given amount (0-100)."]
-    #[doc = r" (volume will be clamped to 0.)"]
+    /// decrease the volume by the given amount (0-100).
+    /// (volume will be clamped to 0.)
     async fn playback_volume_down(self, _context: Context, _amount: u8) -> () {
+        info!("Decreasing volume by: {}", _amount);
         todo!()
     }
-
-    #[doc = r" toggle the volume mute."]
+    /// toggle the volume mute.
     async fn playback_volume_toggle_mute(self, _context: Context) -> () {
+        info!("Toggling volume mute");
         todo!()
     }
-
-    #[doc = r" mute the volume."]
+    /// mute the volume.
     async fn playback_mute(self, _context: Context) -> () {
+        info!("Muting volume");
         todo!()
     }
-
-    #[doc = r" unmute the volume."]
+    /// unmute the volume.
     async fn playback_unmute(self, _context: Context) -> () {
+        info!("Unmuting volume");
         todo!()
     }
 
-    #[doc = r" add a song to the queue."]
-    #[doc = r" (if the queue is empty, it will start playing the song.)"]
+    /// add a song to the queue.
+    /// (if the queue is empty, it will start playing the song.)
     async fn queue_add_song(self, _context: Context, _song: SongId) -> () {
+        info!("Adding song to queue: {}", _song);
         todo!()
     }
-
-    #[doc = r" add an album to the queue."]
-    #[doc = r" (if the queue is empty, it will start playing the album.)"]
+    /// add an album to the queue.
+    /// (if the queue is empty, it will start playing the album.)
     async fn queue_add_album(self, _context: Context, _album: AlbumId) -> () {
+        info!("Adding album to queue: {}", _album);
         todo!()
     }
-
-    #[doc = r" add an artist to the queue."]
-    #[doc = r" (if the queue is empty, it will start playing the artist.)"]
+    /// add an artist to the queue.
+    /// (if the queue is empty, it will start playing the artist.)
     async fn queue_add_artist(self, _context: Context, _artist: ArtistId) -> () {
+        info!("Adding artist to queue: {}", _artist);
         todo!()
     }
-
-    #[doc = r" add a playlist to the queue."]
-    #[doc = r" (if the queue is empty, it will start playing the playlist.)"]
+    /// add a playlist to the queue.
+    /// (if the queue is empty, it will start playing the playlist.)
     async fn queue_add_playlist(self, _context: Context, _playlist: PlaylistId) -> () {
+        info!("Adding playlist to queue: {}", _playlist);
         todo!()
     }
-
-    #[doc = r" add a collection to the queue."]
-    #[doc = r" (if the queue is empty, it will start playing the collection.)"]
+    /// add a collection to the queue.
+    /// (if the queue is empty, it will start playing the collection.)
     async fn queue_add_collection(self, _context: Context, _collection: CollectionId) -> () {
+        info!("Adding collection to queue: {}", _collection);
         todo!()
     }
-
-    #[doc = r" add a random song to the queue."]
-    #[doc = r" (if the queue is empty, it will start playing the song.)"]
+    /// add a random song to the queue.
+    /// (if the queue is empty, it will start playing the song.)
     async fn queue_add_rand_song(self, _context: Context) -> () {
+        info!("Adding random song to queue");
         todo!()
     }
-
-    #[doc = r" add a random album to the queue."]
-    #[doc = r" (if the queue is empty, it will start playing the album.)"]
+    /// add a random album to the queue.
+    /// (if the queue is empty, it will start playing the album.)
     async fn queue_add_rand_album(self, _context: Context) -> () {
+        info!("Adding random album to queue");
         todo!()
     }
-
-    #[doc = r" add a random artist to the queue."]
-    #[doc = r" (if the queue is empty, it will start playing the artist.)"]
+    /// add a random artist to the queue.
+    /// (if the queue is empty, it will start playing the artist.)
     async fn queue_add_rand_artist(self, _context: Context) -> () {
+        info!("Adding random artist to queue");
         todo!()
     }
-
-    #[doc = r" set the current song to a queue index."]
-    #[doc = r" if the index is out of bounds, it will be clamped to the nearest valid index."]
+    /// set the current song to a queue index.
+    /// if the index is out of bounds, it will be clamped to the nearest valid index.
     async fn queue_set_index(self, _context: Context, _index: usize) -> () {
+        info!("Setting queue index to: {}", _index);
         todo!()
     }
-
-    #[doc = r" remove a range of songs from the queue."]
-    #[doc = r" if the range is out of bounds, it will be clamped to the nearest valid range."]
+    /// remove a range of songs from the queue.
+    /// if the range is out of bounds, it will be clamped to the nearest valid range.
     async fn queue_remove_range(self, _context: Context, _range: Range<usize>) -> () {
+        info!("Removing queue range: {:?}", _range);
         todo!()
     }
 
-    #[doc = r" Returns brief information about the users playlists."]
+    /// Returns brief information about the users playlists.
     async fn playlist_list(self, _context: Context) -> Box<[PlaylistBrief]> {
-        todo!()
+        info!("Listing playlists");
+        Playlist::read_all()
+            .await
+            .tap_err(|e| warn!("Error in playlist_list: {e}"))
+            .ok()
+            .map(|playlists| playlists.iter().map(|p| p.into()).collect())
+            .unwrap_or_default()
     }
-
-    #[doc = r" create a new playlist."]
+    /// create a new playlist.
     async fn playlist_new(self, _context: Context, _name: String) -> PlaylistId {
         todo!()
     }
-
-    #[doc = r" remove a playlist."]
+    /// remove a playlist.
     async fn playlist_remove(self, _context: Context, _name: String) -> bool {
         todo!()
     }
-
-    #[doc = r" clone a playlist."]
-    #[doc = r" (creates a new playlist with the same name and contents as the given playlist.)"]
+    /// clone a playlist.
+    /// (creates a new playlist with the same name (append "copy") and contents as the given playlist.)
     async fn playlist_clone(self, _context: Context, _name: String) -> () {
         todo!()
     }
-
-    #[doc = r" get the id of a playlist."]
+    /// get the id of a playlist.
     async fn playlist_get_id(self, _context: Context, _name: String) -> Option<PlaylistId> {
         todo!()
     }
-
-    #[doc = r" remove a song from a playlist."]
-    #[doc = r" if the song is not in the playlist, this will do nothing."]
+    /// remove a song from a playlist.
+    /// if the song is not in the playlist, this will do nothing.
     async fn playlist_remove_song(
         self,
         _context: Context,
@@ -390,8 +466,7 @@ impl MusicPlayer for MusicPlayerServer {
     ) -> () {
         todo!()
     }
-
-    #[doc = r" Add an artist to a playlist."]
+    /// Add an artist to a playlist.
     async fn playlist_add_artist(
         self,
         _context: Context,
@@ -400,8 +475,7 @@ impl MusicPlayer for MusicPlayerServer {
     ) -> () {
         todo!()
     }
-
-    #[doc = r" Add an album to a playlist."]
+    /// Add an album to a playlist.
     async fn playlist_add_album(
         self,
         _context: Context,
@@ -410,8 +484,7 @@ impl MusicPlayer for MusicPlayerServer {
     ) -> () {
         todo!()
     }
-
-    #[doc = r" Add a song to a playlist."]
+    /// Add a song to a playlist.
     async fn playlist_add_song(
         self,
         _context: Context,
@@ -420,28 +493,30 @@ impl MusicPlayer for MusicPlayerServer {
     ) -> () {
         todo!()
     }
-
-    #[doc = r" Get a playlist by its ID."]
+    /// Get a playlist by its ID.
     async fn playlist_get(self, _context: Context, _id: PlaylistId) -> Option<Playlist> {
         todo!()
     }
 
-    #[doc = r" Collections: Return brief information about the users auto curration collections."]
+    /// Collections: Return brief information about the users auto curration collections.
     async fn collection_list(self, _context: Context) -> Box<[CollectionBrief]> {
-        todo!()
+        info!("Listing collections");
+        Collection::read_all()
+            .await
+            .tap_err(|e| warn!("Error in collection_list: {e}"))
+            .ok()
+            .map(|collections| collections.iter().map(|c| c.into()).collect())
+            .unwrap_or_default()
     }
-
-    #[doc = r" Collections: Recluster the users library, creating new collections."]
+    /// Collections: Recluster the users library, creating new collections.
     async fn collection_recluster(self, _context: Context) -> () {
         todo!()
     }
-
-    #[doc = r" Collections: get a collection by its ID."]
+    /// Collections: get a collection by its ID.
     async fn collection_get(self, _context: Context, _id: CollectionId) -> Option<Collection> {
         todo!()
     }
-
-    #[doc = r" Collections: freeze a collection (convert it to a playlist)."]
+    /// Collections: freeze a collection (convert it to a playlist).
     async fn collection_freeze(
         self,
         _context: Context,
@@ -451,7 +526,7 @@ impl MusicPlayer for MusicPlayerServer {
         todo!()
     }
 
-    #[doc = r" Radio: get the `n` most similar songs to the given song."]
+    /// Radio: get the `n` most similar songs to the given song.
     async fn radio_get_similar_songs(
         self,
         _context: Context,
@@ -460,8 +535,7 @@ impl MusicPlayer for MusicPlayerServer {
     ) -> Box<[SongId]> {
         todo!()
     }
-
-    #[doc = r" Radio: get the `n` most similar artists to the given artist."]
+    /// Radio: get the `n` most similar artists to the given artist.
     async fn radio_get_similar_artist(
         self,
         _context: Context,
@@ -470,8 +544,7 @@ impl MusicPlayer for MusicPlayerServer {
     ) -> Box<[ArtistId]> {
         todo!()
     }
-
-    #[doc = r" Radio: get the `n` most similar albums to the given album."]
+    /// Radio: get the `n` most similar albums to the given album.
     async fn radio_get_similar_album(
         self,
         _context: Context,

@@ -2,7 +2,7 @@
 
 use readable::run::Runtime;
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::Thing;
+use surrealdb::sql::{Id, Thing};
 
 use super::song::SongId;
 
@@ -22,6 +22,12 @@ pub struct Collection {
     pub songs: Box<[SongId]>,
 }
 
+impl Collection {
+    pub fn generate_id() -> CollectionId {
+        Thing::from((TABLE_NAME, Id::ulid()))
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CollectionBrief {
     pub id: CollectionId,
@@ -33,6 +39,16 @@ impl From<Collection> for CollectionBrief {
     fn from(collection: Collection) -> Self {
         Self {
             id: collection.id,
+            runtime: collection.runtime,
+            songs: collection.songs.len(),
+        }
+    }
+}
+
+impl From<&Collection> for CollectionBrief {
+    fn from(collection: &Collection) -> Self {
+        Self {
+            id: collection.id.clone(),
             runtime: collection.runtime,
             songs: collection.songs.len(),
         }

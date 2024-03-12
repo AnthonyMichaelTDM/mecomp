@@ -1,4 +1,6 @@
-use mecomp_storage::db::schemas::{album::Album, artist::Artist, playlist::Playlist, song::Song};
+use mecomp_storage::db::schemas::{
+    album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7,6 +9,7 @@ pub struct LibraryBrief {
     pub albums: usize,
     pub songs: usize,
     pub playlists: usize,
+    pub collections: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -15,6 +18,7 @@ pub struct LibraryFull {
     pub albums: Box<[Album]>,
     pub songs: Box<[Song]>,
     pub playlists: Box<[Playlist]>,
+    pub collections: Box<[Collection]>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
