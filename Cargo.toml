@@ -51,6 +51,9 @@ nutype = { version = "0.4.0", features = ["serde"] }
 once_cell = { version = "1.19.0" }
 rand = { version = "0.8.5", features = ["small_rng"] }
 readable = { version = "0.16.0", features = ["full"] }
+rodio = { rodio = { git = "https://github.com/AnthonyMichaelTDM/rodio", features = [
+    "symphonia-all",
+] } }
 serde = { version = "1.0", features = ["derive", "rc"] }
 strum = { version = "0.26.1", features = ["derive"] }
 tap = { version = "1.0.1" }
