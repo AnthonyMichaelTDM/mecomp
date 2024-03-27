@@ -15,7 +15,6 @@ license.workspace = true
 [dependencies]
 # shared dependencies
 audiotags = { workspace = true }
-futures = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 rand = { workspace = true }
@@ -23,12 +22,6 @@ readable = { workspace = true }
 serde = { workspace = true }
 surrealdb = { workspace = true }
 thiserror = { workspace = true }
-walkdir = { workspace = true }
-tap = { workspace = true }
-
-
-# server dependencies
-
 
 # other dependencies
 metadata = { version = "0.1.8" }

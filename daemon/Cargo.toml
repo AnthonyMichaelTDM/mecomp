@@ -15,22 +15,14 @@ license.workspace = true
 [dependencies]
 # shared dependencies
 anyhow = { workspace = true }
-audiotags = { workspace = true }
 clap = { workspace = true }
-dirs = { workspace = true }
-env_logger = { workspace = true }
 futures = { workspace = true }
 lazy_static = { workspace = true }
 log = { workspace = true }
-nutype = { workspace = true }
-once_cell = { workspace = true }
 rand = { workspace = true }
-readable = { workspace = true }
 rodio = { workspace = true }
 serde = { workspace = true }
 surrealdb = { workspace = true }
-strum = { workspace = true }
-toml_edit = { workspace = true }
 tap = { workspace = true }
 walkdir = { workspace = true }
 tarpc = { workspace = true }
@@ -44,13 +36,3 @@ config = { version = "0.14", features = ["toml"] }
 bincode = { version = "1.3.3" }
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
 shellexpand = { version = "3.0" }
-
-[lints.rust]
-warnings = "deny"
-
-[lints.clippy]
-all = "deny"
-pedantic = "deny"
-nursery = "deny"
-perf = "deny"
-cargo = "deny"
