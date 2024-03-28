@@ -157,6 +157,7 @@ pub fn init_tracing() -> impl tracing::Subscriber {
 }
 
 pub fn shutdown_tracing() {
+    #[cfg(feature = "otel_tracing")]
     opentelemetry::global::shutdown_tracer_provider();
 }
 

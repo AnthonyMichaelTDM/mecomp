@@ -67,7 +67,11 @@ MECOMP-GUI is a graphical user interface for MECOMP, it provides a more user fri
 
 MECOMP uses open-telemetry for tracing, and is designed to integrate with a jaeger instance for distributed tracing.
 
-this can be disabled by disabling the `otel_tracing` feature.
+this can be enabled by enabling the `otel_tracing` feature.
+
+```sh
+cargo run --features otel_tracing
+```
 
 ### Jaeger
 
@@ -80,6 +84,10 @@ to run a jaeger instance, you can use the official docker image, for convenience
 ### Flame Graph
 
 to create a flame graph of the daemon, compile it with the `flame` feature enabled, and run the daemon as you normally would.
+
+```sh
+cargo run --features flame
+```
 
 this will create a file called `tracing.folded` in the current directory, which can be used to create a flame graph with [inferno](https://github.com/jonhoo/inferno):
 
