@@ -12,7 +12,7 @@ use tarpc::{
 use tokio;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
-    logger::{init_logger, init_tracing, shutdown_tracing},
+    logger::{init_logger, init_tracing},
     rpc::{MusicPlayer as _, MusicPlayerClient},
 };
 use mecomp_storage::db::init_database;
@@ -40,9 +40,9 @@ pub async fn start_daemon(
     log_level: log::LevelFilter,
     settings: &DaemonSettings,
 ) -> anyhow::Result<()> {
-    tracing::subscriber::set_global_default(init_tracing())?;
     init_logger(log_level);
     init_database(settings.db_path.clone()).await?;
+    tracing::subscriber::set_global_default(init_tracing())?;
 
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.rpc_port);
 
@@ -68,7 +68,9 @@ pub async fn start_daemon(
         .for_each(|()| async {})
         .await;
 
-    todo!();
+    return Ok(());
+
+    // todo!();
 }
 
 pub async fn init_client(rpc_port: u16) -> anyhow::Result<MusicPlayerClient> {

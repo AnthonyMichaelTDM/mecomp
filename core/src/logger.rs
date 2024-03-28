@@ -10,8 +10,7 @@ use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig as _;
 #[cfg(feature = "otel_tracing")]
 use opentelemetry_sdk::Resource;
-#[cfg(feature = "otel_tracing")]
-use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt as _};
+use tracing_subscriber::layer::SubscriberExt as _;
 
 // This will get initialized below.
 /// Returns the init [`Instant`]
@@ -117,10 +116,10 @@ pub fn init_logger(filter: log::LevelFilter) {
     }
 }
 
-#[cfg(feature = "otel_tracing")]
 pub fn init_tracing() -> impl tracing::Subscriber {
+    #[cfg(feature = "otel_tracing")]
     std::env::set_var("OTEL_BSP_MAX_EXPORT_BATCH_SIZE", "12");
-
+    #[cfg(feature = "otel_tracing")]
     let tracer = opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_exporter(
@@ -129,26 +128,30 @@ pub fn init_tracing() -> impl tracing::Subscriber {
                 .with_endpoint("http://localhost:4317"),
         )
         .with_trace_config(
-            opentelemetry_sdk::trace::config().with_resource(Resource::new(vec![KeyValue::new(
-                opentelemetry_semantic_conventions::resource::SERVICE_NAME.as_ref(),
-                "mecomp-daemon",
-            )])),
+            opentelemetry_sdk::trace::config()
+                .with_resource(Resource::new(vec![KeyValue::new(
+                    opentelemetry_semantic_conventions::resource::SERVICE_NAME.as_ref(),
+                    "mecomp-daemon",
+                )]))
+                .with_id_generator(opentelemetry_sdk::trace::RandomIdGenerator::default())
+                .with_sampler(opentelemetry_sdk::trace::Sampler::AlwaysOn),
         )
         .install_batch(opentelemetry_sdk::runtime::Tokio)
         .expect("Failed to create tracing layer");
 
-    let subscriber = tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::from_default_env())
-        .with(
-            tracing_subscriber::fmt::layer()
-                .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-                .with_line_number(true)
-                .with_file(true)
-                .with_thread_ids(true)
-                .with_thread_names(true)
-                .with_level(true),
-        )
-        .with(tracing_opentelemetry::layer().with_tracer(tracer));
+    let subscriber = tracing_subscriber::registry().with(
+        tracing_subscriber::EnvFilter::builder()
+            .parse("off,mecomp=trace")
+            .unwrap(),
+    );
+
+    #[cfg(feature = "otel_tracing")]
+    let subscriber = subscriber.with(tracing_opentelemetry::layer().with_tracer(tracer));
+
+    #[cfg(feature = "flame")]
+    let (flame_layer, _guard) = tracing_flame::FlameLayer::with_file("tracing.folded").unwrap();
+    #[cfg(feature = "flame")]
+    let subscriber = subscriber.with(flame_layer);
 
     subscriber
 }

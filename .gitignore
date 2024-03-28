@@ -1,2 +1,5 @@
 /target
 /.vscode
+tracing-flamegraph.svg
+tracing.folded
+tracing-flamechart.svg

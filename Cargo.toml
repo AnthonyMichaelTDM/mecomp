@@ -28,7 +28,11 @@ opt-level = 3
 [profile.dev]
 lto = false
 strip = "none"
-opt-level = 1
+opt-level = 0
+
+[profile.dev.build-override]
+opt-level = 3
+
 
 #[profile.test]
 #lto           = false
@@ -64,28 +68,25 @@ tarpc = { version = "0.34", features = [
     "serde-transport-bincode",
 ] }
 tracing = { version = "0.1.40" }
-tracing-subscriber = { version = "0.3.18", features = [
-    "env-filter",
-    "ansi",
-    "time",
-] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing-opentelemetry = { version = "0.23.0" }
 opentelemetry = { version = "0.22.0" }
 opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio"] }
 opentelemetry-otlp = { version = "0.15.0" }
 opentelemetry-semantic-conventions = { version = "0.14.0" }
+tracing-flame = { version = "0.2.0" }
 
 # MECOMP packages
 mecomp-core = { path = "core" }
 mecomp-daemon = { path = "daemon" }
 mecomp-storage = { path = "storage" }
 
-[lints.rust]
-warnings = "deny"
+# [lints.rust]
+# warnings = "deny"
 
-[lints.clippy]
-all = "deny"
-pedantic = "deny"
-nursery = "deny"
-perf = "deny"
-cargo = "deny"
+# [lints.clippy]
+# all = "deny"
+# pedantic = "deny"
+# nursery = "deny"
+# perf = "deny"
+# cargo = "deny"

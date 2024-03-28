@@ -24,8 +24,9 @@ strum = { workspace = true }
 thiserror = { workspace = true }
 tarpc = { workspace = true, optional = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true }
 tracing-opentelemetry = { workspace = true, optional = true }
+tracing-flame = { workspace = true, optional = true }
 opentelemetry = { workspace = true, optional = true }
 opentelemetry_sdk = { workspace = true, optional = true }
 opentelemetry-otlp = { workspace = true, optional = true }
@@ -38,10 +39,10 @@ mecomp-storage = { workspace = true }
 [features]
 rpc = ["tarpc"]
 otel_tracing = [
-    "tracing-subscriber",
     "tracing-opentelemetry",
     "opentelemetry",
     "opentelemetry_sdk",
     "opentelemetry-semantic-conventions",
     "opentelemetry-otlp",
 ]
+flame = ["tracing-flame"]

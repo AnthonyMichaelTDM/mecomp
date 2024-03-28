@@ -62,3 +62,23 @@ MECOMP-TUI is a terminal user interface for MECOMP, it provides a more user frie
 #### MECOMP-GUI
 
 MECOMP-GUI is a graphical user interface for MECOMP, it provides a more user friendly way to interact with the daemon.
+
+## Flame Graph
+
+to create a flame graph of the daemon, compile it with the `flame` feature enabled, and run the daemon as you normally would.
+
+this will create a file called `tracing.folded` in the current directory, which can be used to create a flame graph with [inferno](https://github.com/jonhoo/inferno):
+
+```sh
+cargo install inferno
+```
+
+then run:
+
+```sh
+# flamegraph
+cat tracing.folded | inferno-flamegraph > tracing-flamegraph.svg
+
+# flamechart
+cat tracing.folded | inferno-flamegraph --flamechart > tracing-flamechart.svg
+```
