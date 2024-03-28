@@ -63,7 +63,21 @@ MECOMP-TUI is a terminal user interface for MECOMP, it provides a more user frie
 
 MECOMP-GUI is a graphical user interface for MECOMP, it provides a more user friendly way to interact with the daemon.
 
-## Flame Graph
+## Tracings
+
+MECOMP uses open-telemetry for tracing, and is designed to integrate with a jaeger instance for distributed tracing.
+
+this can be disabled by disabling the `otel_tracing` feature.
+
+### Jaeger
+
+to run a jaeger instance, you can use the official docker image, for convenience there is a script that will run a jaeger instance in a docker container:
+
+```sh
+./scripts/start_jaeger_container.sh
+```
+
+### Flame Graph
 
 to create a flame graph of the daemon, compile it with the `flame` feature enabled, and run the daemon as you normally would.
 

@@ -9,7 +9,7 @@
 set -e
 
 # `cd` to root.
-[[ $PWD == */mecomp/utils ]] && cd ..
+[[ $PWD == */mecomp/scripts ]] && cd ..
 [[ $PWD == */mecomp ]]
 
 # Use `fd` if found.

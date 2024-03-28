@@ -44,20 +44,11 @@ pub async fn start_daemon(
     init_database(settings.db_path.clone()).await?;
     tracing::subscriber::set_global_default(init_tracing())?;
 
-    services::library::rescan(
-        &settings.library_paths,
-        settings.artist_separator.as_deref(),
-        settings.genre_separator.as_deref(),
-        settings.conflict_resolution,
-    )
-    .await?;
-
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.rpc_port);
 
-    // TODO: Implement daemon
-    let listener = tarpc::serde_transport::tcp::listen(&server_addr, Bincode::default).await?;
+    let mut listener = tarpc::serde_transport::tcp::listen(&server_addr, Bincode::default).await?;
     info!("Listening on {}", listener.local_addr());
-    // listener.config_mut()...
+    listener.config_mut().max_frame_length(usize::MAX);
     listener
         // Ignore accept errors.
         .filter_map(|r| future::ready(r.ok()))

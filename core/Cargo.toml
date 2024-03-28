@@ -12,16 +12,20 @@ license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+
 [dependencies]
 # shared dependencies
 env_logger = { workspace = true }
 log = { workspace = true }
+lazy_static = { workspace = true }
 nutype = { workspace = true }
 once_cell = { workspace = true }
 rand = { workspace = true }
+rodio = { workspace = true }
 serde = { workspace = true }
 strum = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 tarpc = { workspace = true, optional = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -34,6 +38,11 @@ opentelemetry-semantic-conventions = { workspace = true, optional = true }
 
 # MECOMP dependencies
 mecomp-storage = { workspace = true }
+
+[dev-dependencies]
+# shared dev dependencies
+pretty_assertions = { workspace = true }
+rtest = { workspace = true }
 
 
 [features]

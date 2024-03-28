@@ -60,6 +60,7 @@ strum = { version = "0.26.1", features = ["derive"] }
 surrealdb = { version = "1.2.2", features = ["kv-speedb"] }
 tap = { version = "1.0.1" }
 thiserror = { version = "1.0.25" }
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
 walkdir = { version = "2.4.0" }
 tarpc = { version = "0.34", features = [
     "tcp",
@@ -67,7 +68,7 @@ tarpc = { version = "0.34", features = [
     "serde-transport",
     "serde-transport-bincode",
 ] }
-tracing = { version = "0.1.40" }
+tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing-opentelemetry = { version = "0.23.0" }
 opentelemetry = { version = "0.22.0" }
@@ -80,6 +81,10 @@ tracing-flame = { version = "0.2.0" }
 mecomp-core = { path = "core" }
 mecomp-daemon = { path = "daemon" }
 mecomp-storage = { path = "storage" }
+
+# shared dev dependencies
+pretty_assertions = { version = "1.4.0" }
+rtest = { version = "0.1.4" }
 
 # [lints.rust]
 # warnings = "deny"

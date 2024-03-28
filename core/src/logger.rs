@@ -86,7 +86,7 @@ pub fn init_logger(filter: log::LevelFilter) {
                 // Longest PATH in the repo: `daemon/src/services/library.rs`   - `30` characters
                 // Longest file in the repo: `daemon/src/controller.rs`         - `3` digits
                 //
-                // Use `utils/longest.sh` to find this.
+                // Use `scripts/longest.sh` to find this.
                 //
                 //      Longest PATH ---|        |--- Longest file
                 //                      |        |
@@ -117,6 +117,12 @@ pub fn init_logger(filter: log::LevelFilter) {
 }
 
 pub fn init_tracing() -> impl tracing::Subscriber {
+    let subscriber = tracing_subscriber::registry().with(
+        tracing_subscriber::EnvFilter::builder()
+            .parse("off,mecomp=trace")
+            .unwrap(),
+    );
+
     #[cfg(feature = "otel_tracing")]
     std::env::set_var("OTEL_BSP_MAX_EXPORT_BATCH_SIZE", "12");
     #[cfg(feature = "otel_tracing")]
@@ -138,12 +144,6 @@ pub fn init_tracing() -> impl tracing::Subscriber {
         )
         .install_batch(opentelemetry_sdk::runtime::Tokio)
         .expect("Failed to create tracing layer");
-
-    let subscriber = tracing_subscriber::registry().with(
-        tracing_subscriber::EnvFilter::builder()
-            .parse("off,mecomp=trace")
-            .unwrap(),
-    );
 
     #[cfg(feature = "otel_tracing")]
     let subscriber = subscriber.with(tracing_opentelemetry::layer().with_tracer(tracer));
