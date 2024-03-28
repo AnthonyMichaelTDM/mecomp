@@ -51,13 +51,16 @@ impl Queue {
     }
 
     pub fn next_song(&mut self) -> Option<&Song> {
+        // check if the queue is empty before incrementing the index
+        if self.songs.is_empty() {
+            return None;
+        }
+
+        // now, increment the index depending on the repeat mode
         match self.repeat_mode {
             RepeatMode::None => {
                 if self.current_index + 1 < self.songs.len() {
                     self.current_index += 1;
-                    self.songs.get(self.current_index)
-                } else {
-                    None
                 }
             }
             RepeatMode::Once => {
@@ -67,13 +70,14 @@ impl Queue {
                     self.current_index = 0;
                     self.repeat_mode = RepeatMode::None;
                 }
-                self.songs.get(self.current_index)
             }
             RepeatMode::Continuous => {
                 self.current_index = (self.current_index + 1) % self.songs.len();
-                self.songs.get(self.current_index)
             }
         }
+
+        // return the current song
+        self.songs.get(self.current_index)
     }
 
     pub fn previous_song(&mut self) -> Option<&Song> {
