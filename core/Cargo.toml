@@ -42,9 +42,10 @@ mecomp-storage = { workspace = true }
 [dev-dependencies]
 # shared dev dependencies
 pretty_assertions = { workspace = true }
-rtest = { workspace = true }
+rstest = { workspace = true }
 tempfile = { workspace = true }
 audiotags = { workspace = true }
+proptest = { workspace = true }
 
 [features]
 rpc = ["tarpc"]

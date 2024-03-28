@@ -84,8 +84,9 @@ mecomp-storage = { path = "storage" }
 
 # shared dev dependencies
 pretty_assertions = { version = "1.4.0" }
-rtest = { version = "0.1.4" }
+rstest = { version = "0.18.2" }
 tempfile = { version = "3.10.1" }
+proptest = { version = "1.4.0" }
 
 # [lints.rust]
 # warnings = "deny"
