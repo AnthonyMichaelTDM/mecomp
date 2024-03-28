@@ -7,12 +7,14 @@ use rand::seq::SliceRandom;
 use tap::TapFallible;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
+    audio::queue::Queue,
     errors::LibraryError,
-    library::{LibraryBrief, LibraryFull, LibraryHealth},
-    playback::{Percent, RepeatMode, SeekType, StateAudio, StateRuntime},
-    queue::Queue,
     rpc::MusicPlayer,
     search::SearchResult,
+    state::{
+        library::{LibraryBrief, LibraryFull, LibraryHealth},
+        Percent, RepeatMode, SeekType, StateAudio, StateRuntime,
+    },
 };
 use mecomp_storage::db::schemas::{
     album::{Album, AlbumBrief, AlbumId},

@@ -13,11 +13,13 @@ use mecomp_storage::db::schemas::{
 };
 
 use crate::{
+    audio::queue::Queue,
     errors::LibraryError,
-    library::{LibraryBrief, LibraryFull, LibraryHealth},
-    playback::{Percent, RepeatMode, SeekType, StateAudio, StateRuntime},
-    queue::Queue,
     search::SearchResult,
+    state::{
+        library::{LibraryBrief, LibraryFull, LibraryHealth},
+        Percent, RepeatMode, SeekType, StateAudio, StateRuntime,
+    },
 };
 
 #[tarpc::service]

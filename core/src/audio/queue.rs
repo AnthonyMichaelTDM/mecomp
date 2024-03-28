@@ -1,7 +1,7 @@
 use rand::{prelude::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 
-use crate::playback::RepeatMode;
+use crate::state::RepeatMode;
 use mecomp_storage::db::schemas::song::Song;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

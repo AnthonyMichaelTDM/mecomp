@@ -1,7 +1,7 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use log::{debug, info, warn};
-use mecomp_core::library::{LibraryBrief, LibraryFull};
+use mecomp_core::state::library::{LibraryBrief, LibraryFull};
 use tap::TapFallible;
 use tracing::instrument;
 // use tokio::runtime::Handle;
