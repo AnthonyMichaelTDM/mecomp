@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use log::info;
+use tracing::instrument;
 
 use crate::{
     db::{
@@ -19,6 +20,7 @@ use crate::{
 };
 
 impl Song {
+    #[instrument]
     pub async fn create(song: Song) -> Result<Option<SongId>, Error> {
         let id = DB
             .create((TABLE_NAME, song.id.clone()))
@@ -28,14 +30,17 @@ impl Song {
         Ok(id)
     }
 
+    #[instrument]
     pub async fn read_all() -> Result<Vec<Song>, Error> {
         Ok(DB.select(TABLE_NAME).await?)
     }
 
+    #[instrument]
     pub async fn read(id: SongId) -> Result<Option<Song>, Error> {
         Ok(DB.select((TABLE_NAME, id)).await?)
     }
 
+    #[instrument]
     pub async fn read_by_path(path: PathBuf) -> Result<Option<Song>, Error> {
         Ok(DB
             .select(TABLE_NAME)
@@ -44,6 +49,7 @@ impl Song {
             .find(|x: &Song| x.path == path))
     }
 
+    #[instrument]
     pub async fn update(id: SongId, song: Song) -> Result<(), Error> {
         let _: Song = DB
             .update((TABLE_NAME, id))
@@ -61,6 +67,7 @@ impl Song {
     /// the song's artist_id, album_id, and album_artist_id will be updated to match the names of the album, album artists, and artists.
     ///
     /// If there are no albums or artists with the same name as the song's metadata, they will be created.
+    #[instrument]
     pub async fn update_and_repair(id: SongId, new_song: Song) -> Result<(), Error> {
         let old_song = Song::read(id.clone()).await?.ok_or(Error::NotFound)?;
         let mut new_song = new_song;
@@ -129,6 +136,7 @@ impl Song {
     /// - go through the artist and album tables and remove references to it from there.
     /// - remove the song from playlists.
     /// - remove the song from collections.
+    #[instrument]
     pub async fn delete(id: SongId) -> Result<(), Error> {
         let Some(song) = Song::read(id.clone()).await? else {
             return Ok(());

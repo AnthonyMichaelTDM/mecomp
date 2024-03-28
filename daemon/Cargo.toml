@@ -22,13 +22,13 @@ log = { workspace = true }
 rand = { workspace = true }
 rodio = { workspace = true }
 serde = { workspace = true }
-surrealdb = { workspace = true }
 tap = { workspace = true }
 walkdir = { workspace = true }
 tarpc = { workspace = true }
+tracing = { workspace = true }
 
 # MECOMP dependencies
-mecomp-core = { workspace = true, features = ["rpc"] }
+mecomp-core = { workspace = true, features = ["rpc", "otel_tracing"] }
 mecomp-storage = { workspace = true }
 
 # server dependencies

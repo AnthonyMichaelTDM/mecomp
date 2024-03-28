@@ -4,6 +4,14 @@ use std::time::Instant;
 //--------------------------------------------------------------------------------- other libraries
 use log::info;
 use once_cell::sync::Lazy;
+#[cfg(feature = "otel_tracing")]
+use opentelemetry::KeyValue;
+#[cfg(feature = "otel_tracing")]
+use opentelemetry_otlp::WithExportConfig as _;
+#[cfg(feature = "otel_tracing")]
+use opentelemetry_sdk::Resource;
+#[cfg(feature = "otel_tracing")]
+use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt as _};
 
 // This will get initialized below.
 /// Returns the init [`Instant`]
@@ -108,3 +116,83 @@ pub fn init_logger(filter: log::LevelFilter) {
         info!("Log Level (RUST_LOG) ... {}", env);
     }
 }
+
+#[cfg(feature = "otel_tracing")]
+pub fn init_tracing() -> impl tracing::Subscriber {
+    std::env::set_var("OTEL_BSP_MAX_EXPORT_BATCH_SIZE", "12");
+
+    let tracer = opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_exporter(
+            opentelemetry_otlp::new_exporter()
+                .tonic()
+                .with_endpoint("http://localhost:4317"),
+        )
+        .with_trace_config(
+            opentelemetry_sdk::trace::config().with_resource(Resource::new(vec![KeyValue::new(
+                opentelemetry_semantic_conventions::resource::SERVICE_NAME.as_ref(),
+                "mecomp-daemon",
+            )])),
+        )
+        .install_batch(opentelemetry_sdk::runtime::Tokio)
+        .expect("Failed to create tracing layer");
+
+    let subscriber = tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+                .with_line_number(true)
+                .with_file(true)
+                .with_thread_ids(true)
+                .with_thread_names(true)
+                .with_level(true),
+        )
+        .with(tracing_opentelemetry::layer().with_tracer(tracer));
+
+    subscriber
+}
+
+pub fn shutdown_tracing() {
+    opentelemetry::global::shutdown_tracer_provider();
+}
+
+// #[cfg(feature = "otel_tracing")]
+// fn tracing_default(filter: tracing::Level) -> impl tracing::Subscriber {
+//     // If `RUST_LOG` isn't set, override it and disables
+//     // all library crate logs except for mecomp and its sub-crates.
+//     let mut env = String::new();
+//     #[allow(clippy::option_if_let_else)]
+//     match std::env::var("RUST_LOG") {
+//         Ok(e) => {
+//             std::env::set_var("RUST_LOG", &e);
+//             env = e;
+//         }
+//         // SOMEDAY:
+//         // Support frontend names without *mecomp*.
+//         _ => std::env::set_var("RUST_LOG", format!("off,mecomp={filter}")),
+//     }
+
+//     let subscriber = tracing_subscriber::fmt()
+//         // configure formatting settings
+//         .with_ansi(true)
+//         .with_env_filter(EnvFilter::from_default_env())
+//         .with_level(true)
+//         .with_thread_ids(true)
+//         .with_thread_names(true)
+//         .with_file(true)
+//         .with_line_number(true)
+//         .with_timer(tracing_subscriber::fmt::time::uptime())
+//         .with_span_events(FmtSpan::CLOSE)
+//         .compact()
+//         // build the subscriber
+//         .finish();
+
+//     if env.is_empty() {
+//         info!("Log Level (Flag) ... {}", filter);
+//     } else {
+//         info!("Log Level (RUST_LOG) ... {}", env);
+//     }
+
+//     return subscriber;
+// }

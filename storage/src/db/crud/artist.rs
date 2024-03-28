@@ -1,7 +1,7 @@
 //! CRUD operations for the artist table
 use std::sync::Arc;
 
-
+use tracing::instrument;
 
 use crate::{
     db::{
@@ -16,6 +16,7 @@ use crate::{
 };
 
 impl Artist {
+    #[instrument]
     pub async fn create(artist: Artist) -> Result<Option<ArtistId>, Error> {
         let id = DB
             .create((TABLE_NAME, artist.id.clone()))
@@ -25,6 +26,7 @@ impl Artist {
         Ok(id)
     }
 
+    #[instrument]
     pub async fn create_or_read_by_name(name: &str) -> Result<Option<ArtistId>, Error> {
         if let Some(artist) = DB
             .select(TABLE_NAME)
@@ -45,6 +47,7 @@ impl Artist {
         }
     }
 
+    #[instrument]
     pub async fn create_or_read_by_names(names: &[Arc<str>]) -> Result<Vec<ArtistId>, Error> {
         let mut ids = Vec::with_capacity(names.len());
         for name in names {
@@ -55,14 +58,17 @@ impl Artist {
         Ok(ids)
     }
 
+    #[instrument]
     pub async fn read_all() -> Result<Vec<Artist>, Error> {
         Ok(DB.select(TABLE_NAME).await?)
     }
 
+    #[instrument]
     pub async fn read(id: ArtistId) -> Result<Option<Artist>, Error> {
         Ok(DB.select((TABLE_NAME, id)).await?)
     }
 
+    #[instrument]
     pub async fn update(id: ArtistId, artist: Artist) -> Result<(), Error> {
         let _: Artist = DB
             .update((TABLE_NAME, id))
@@ -72,6 +78,7 @@ impl Artist {
         Ok(())
     }
 
+    #[instrument]
     pub async fn add_album(id: ArtistId, album_id: AlbumId) -> Result<(), Error> {
         let mut artist = Artist::read(id.clone()).await?.ok_or(Error::NotFound)?;
         let album = Album::read(album_id.clone())
@@ -101,6 +108,7 @@ impl Artist {
         Ok(())
     }
 
+    #[instrument]
     pub async fn remove_songs(id: ArtistId, song_ids: &[SongId]) -> Result<(), Error> {
         let mut artist = Artist::read(id.clone()).await?.ok_or(Error::NotFound)?;
 
@@ -129,6 +137,7 @@ impl Artist {
     /// # Returns
     ///
     /// * `bool` - whether the artist was removed or not (if it has no songs or albums, it should be removed)
+    #[instrument]
     pub async fn repair(id: ArtistId) -> Result<bool, Error> {
         let mut artist = Artist::read(id.clone()).await?.ok_or(Error::NotFound)?;
 

@@ -2,6 +2,7 @@
 use std::sync::Arc;
 
 use log::warn;
+use tracing::instrument;
 
 use crate::{
     db::{
@@ -17,6 +18,7 @@ use crate::{
 };
 
 impl Album {
+    #[instrument()]
     pub async fn create(album: Album) -> Result<Option<Album>, Error> {
         Ok(DB
             .create((TABLE_NAME, album.id.clone()))
@@ -24,6 +26,7 @@ impl Album {
             .await?)
     }
 
+    #[instrument()]
     pub async fn read_or_create_by_name_and_album_artist(
         title: &str,
         album_artists: &[Arc<str>],
@@ -31,7 +34,8 @@ impl Album {
         if let Some(album) = Album::read_all()
             .await?
             .iter()
-            .filter(|x| x.title.as_ref() == title).find(|x| x.artist.iter().all(|y| album_artists.contains(y)))
+            .filter(|x| x.title.as_ref() == title)
+            .find(|x| x.artist.iter().all(|y| album_artists.contains(y)))
         {
             Ok(Some(album.id.clone()))
         } else {
@@ -64,14 +68,17 @@ impl Album {
         }
     }
 
+    #[instrument()]
     pub async fn read_all() -> Result<Vec<Album>, Error> {
         Ok(DB.select(TABLE_NAME).await?)
     }
 
+    #[instrument()]
     pub async fn read(id: AlbumId) -> Result<Option<Album>, Error> {
         Ok(DB.select((TABLE_NAME, id)).await?)
     }
 
+    #[instrument()]
     pub async fn read_by_name(name: &str) -> Result<Vec<Album>, Error> {
         Ok(DB
             .select(TABLE_NAME)
@@ -81,6 +88,7 @@ impl Album {
             .collect::<Vec<_>>())
     }
 
+    #[instrument()]
     pub async fn update(id: AlbumId, album: Album) -> Result<(), Error> {
         let _: Album = DB
             .update((TABLE_NAME, id))
@@ -90,6 +98,7 @@ impl Album {
         Ok(())
     }
 
+    #[instrument()]
     pub async fn add_songs(id: AlbumId, song_id: &[SongId]) -> Result<(), Error> {
         let mut album = Album::read(id.clone()).await?.ok_or(Error::NotFound)?;
 
@@ -103,6 +112,7 @@ impl Album {
         Ok(())
     }
 
+    #[instrument()]
     pub async fn remove_songs(id: AlbumId, song_ids: &[SongId]) -> Result<(), Error> {
         let mut album = Album::read(id.clone()).await?.ok_or(Error::NotFound)?;
 
@@ -130,6 +140,7 @@ impl Album {
     /// # Returns
     ///
     /// Returns a boolean indicating if the album was removed (if it has no songs left in it)
+    #[instrument()]
     pub async fn repair(id: AlbumId) -> Result<bool, Error> {
         let mut album = Album::read(id.clone()).await?.ok_or(Error::NotFound)?;
 

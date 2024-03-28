@@ -22,6 +22,8 @@ readable = { workspace = true }
 serde = { workspace = true }
 surrealdb = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
+
 
 # other dependencies
 metadata = { version = "0.1.8" }

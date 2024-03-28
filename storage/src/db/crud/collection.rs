@@ -1,4 +1,6 @@
 //! CRUD operations for the collection table
+use tracing::instrument;
+
 use crate::{
     db::{
         schemas::{
@@ -11,14 +13,17 @@ use crate::{
 };
 
 impl Collection {
+    #[instrument]
     pub async fn read_all() -> Result<Vec<Collection>, Error> {
         Ok(DB.select(TABLE_NAME).await?)
     }
 
+    #[instrument]
     pub async fn read(id: CollectionId) -> Result<Option<Collection>, Error> {
         Ok(DB.select((TABLE_NAME, id)).await?)
     }
 
+    #[instrument]
     pub async fn remove_songs(id: CollectionId, song_ids: &[SongId]) -> Result<(), Error> {
         let mut collection = Collection::read(id.clone()).await?.ok_or(Error::NotFound)?;
 
@@ -49,6 +54,7 @@ impl Collection {
     ///
     /// * `bool` - Whether the collection was repaired or not
     ///
+    #[instrument]
     pub async fn repair(id: CollectionId) -> Result<bool, Error> {
         let mut collection = Collection::read(id.clone()).await?.ok_or(Error::NotFound)?;
 

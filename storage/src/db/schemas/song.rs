@@ -6,6 +6,7 @@ use metadata::media_file::MediaFileMetadata;
 use readable::run::Runtime;
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Id, Thing};
+use tracing::instrument;
 //----------------------------------------------------------------------------------- local modules
 use super::{
     album::{Album, AlbumId},
@@ -85,6 +86,7 @@ impl Song {
     /// This function will create a new [`Song`], [`Artist`], and [`Album`] if they do not exist in the database.
     /// This function will also add the new [`Song`] to the [`Artist`] and the [`Album`].
     /// This function will also update the [`Artist`] and the [`Album`] in the database.
+    #[instrument(skip(metadata))]
     pub async fn try_load_into_db(metadata: SongMetadata) -> Result<Self, Error> {
         // check if the file exists
         if !metadata.path_exists() {
@@ -365,6 +367,7 @@ impl SongMetadata {
     /// for fields that can't be merged (like the title, album, or duration), the metadata of `self` will be used.
     ///
     /// Therefore, you should check that the songs are the same song before merging (use `is_same_song`).
+    #[instrument()]
     pub fn merge(base: &Self, other: &Self) -> Self {
         Self {
             title: base.title.clone(),
@@ -405,6 +408,7 @@ impl SongMetadata {
     }
 
     /// create a new song with `base` values overridden by `self`'s metadata when applicable (DOES NOT UPDATE THE DATABASE)
+    #[instrument()]
     pub fn merge_with_song(&self, song: &Song) -> Song {
         let SongMetadata {
             title,
@@ -435,6 +439,7 @@ impl SongMetadata {
         }
     }
 
+    #[instrument()]
     pub fn load_from_path(
         path: PathBuf,
         artist_name_separator: Option<&str>,

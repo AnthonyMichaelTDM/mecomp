@@ -3,6 +3,7 @@ use std::{collections::HashSet, path::PathBuf};
 use log::{debug, info, warn};
 use mecomp_core::library::{LibraryBrief, LibraryFull};
 use tap::TapFallible;
+use tracing::instrument;
 // use tokio::runtime::Handle;
 use walkdir::WalkDir;
 
@@ -25,10 +26,11 @@ use mecomp_storage::{
 /// This function will return an error if there is an error reading from the database.
 /// or if there is an error reading from the file system.
 /// or if there is an error writing to the database.
+#[instrument]
 pub async fn rescan(
     paths: &[PathBuf],
     artist_name_separator: Option<&str>,
-    genre_separator: Option<&'static str>,
+    genre_separator: Option<&str>,
     conflict_resolution_mode: MetadataConflictResolution,
 ) -> Result<(), Error> {
     // get all the songs in the current library
@@ -147,6 +149,7 @@ pub async fn rescan(
 /// # Errors
 ///
 /// This function will return an error if there is an error reading from the database.
+#[instrument]
 pub async fn brief() -> Result<LibraryBrief, Error> {
     Ok(LibraryBrief {
         artists: Artist::read_all().await?.len(),
@@ -162,6 +165,7 @@ pub async fn brief() -> Result<LibraryBrief, Error> {
 /// # Errors
 ///
 /// This function will return an error if there is an error reading from the database.
+#[instrument]
 pub async fn full() -> Result<LibraryFull, Error> {
     Ok(LibraryFull {
         artists: Artist::read_all().await?.into(),

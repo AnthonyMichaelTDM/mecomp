@@ -28,12 +28,12 @@ use crate::{config::SETTINGS, services};
 pub struct MusicPlayerServer(pub SocketAddr);
 
 impl MusicPlayer for MusicPlayerServer {
-    async fn ping(self, _: Context) -> String {
+    async fn ping(self, _context: Context) -> String {
         "pong".to_string()
     }
 
     /// Rescans the music library.
-    async fn library_rescan(self, _: Context) -> Result<(), LibraryError> {
+    async fn library_rescan(self, _context: Context) -> Result<(), LibraryError> {
         info!("Rescanning library");
         Ok(services::library::rescan(
             &SETTINGS.library_paths,

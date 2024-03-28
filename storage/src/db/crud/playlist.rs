@@ -1,4 +1,6 @@
 //! CRUD operations for the playlist table
+use tracing::instrument;
+
 use crate::{
     db::{
         schemas::{
@@ -11,14 +13,17 @@ use crate::{
 };
 
 impl Playlist {
+    #[instrument]
     pub async fn read_all() -> Result<Vec<Playlist>, Error> {
         Ok(DB.select(TABLE_NAME).await?)
     }
 
+    #[instrument]
     pub async fn read(id: PlaylistId) -> Result<Option<Playlist>, Error> {
         Ok(DB.select((TABLE_NAME, id)).await?)
     }
 
+    #[instrument]
     pub async fn add_songs(id: PlaylistId, song_ids: &[SongId]) -> Result<(), Error> {
         let mut playlist = Playlist::read(id.clone()).await?.ok_or(Error::NotFound)?;
 
@@ -35,6 +40,7 @@ impl Playlist {
             .ok_or(Error::NotFound)
     }
 
+    #[instrument]
     pub async fn remove_songs(id: PlaylistId, song_ids: &[SongId]) -> Result<(), Error> {
         let mut playlist = Playlist::read(id.clone()).await?.ok_or(Error::NotFound)?;
 
@@ -62,6 +68,7 @@ impl Playlist {
     /// # Returns
     ///
     /// true if the playlist is empty after the repair, false otherwise
+    #[instrument]
     pub async fn repair(id: PlaylistId) -> Result<bool, Error> {
         let mut playlist = Playlist::read(id.clone()).await?.ok_or(Error::NotFound)?;
 

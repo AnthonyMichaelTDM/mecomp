@@ -12,7 +12,7 @@ use tarpc::{
 use tokio;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
-    logger::init_logger,
+    logger::{init_logger, init_tracing, shutdown_tracing},
     rpc::{MusicPlayer as _, MusicPlayerClient},
 };
 use mecomp_storage::db::init_database;
@@ -26,8 +26,8 @@ pub mod controller;
 pub mod errors;
 pub mod services;
 
-use config::DaemonSettings;
-use controller::MusicPlayerServer;
+use crate::config::DaemonSettings;
+use crate::controller::MusicPlayerServer;
 
 /// Run the daemon
 ///
@@ -40,6 +40,7 @@ pub async fn start_daemon(
     log_level: log::LevelFilter,
     settings: &DaemonSettings,
 ) -> anyhow::Result<()> {
+    tracing::subscriber::set_global_default(init_tracing())?;
     init_logger(log_level);
     init_database(settings.db_path.clone()).await?;
 
