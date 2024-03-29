@@ -7,6 +7,7 @@ use tracing::instrument;
 
 use crate::{
     db::{
+        db,
         schemas::{
             album::Album,
             artist::Artist,
@@ -14,7 +15,6 @@ use crate::{
             playlist::Playlist,
             song::{Song, SongId, TABLE_NAME},
         },
-        DB,
     },
     errors::Error,
 };
@@ -22,7 +22,8 @@ use crate::{
 impl Song {
     #[instrument]
     pub async fn create(song: Song) -> Result<Option<SongId>, Error> {
-        let id = DB
+        let id = db()
+            .await
             .create((TABLE_NAME, song.id.clone()))
             .content(song)
             .await?
@@ -32,17 +33,18 @@ impl Song {
 
     #[instrument]
     pub async fn read_all() -> Result<Vec<Song>, Error> {
-        Ok(DB.select(TABLE_NAME).await?)
+        Ok(db().await.select(TABLE_NAME).await?)
     }
 
     #[instrument]
     pub async fn read(id: SongId) -> Result<Option<Song>, Error> {
-        Ok(DB.select((TABLE_NAME, id)).await?)
+        Ok(db().await.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
     pub async fn read_by_path(path: PathBuf) -> Result<Option<Song>, Error> {
-        Ok(DB
+        Ok(db()
+            .await
             .select(TABLE_NAME)
             .await?
             .into_iter()
@@ -51,7 +53,8 @@ impl Song {
 
     #[instrument]
     pub async fn update(id: SongId, song: Song) -> Result<(), Error> {
-        let _: Song = DB
+        let _: Song = db()
+            .await
             .update((TABLE_NAME, id))
             .content(song)
             .await?
@@ -164,7 +167,7 @@ impl Song {
             }
         }
 
-        let _: Option<Song> = DB.delete((TABLE_NAME, id)).await?;
+        let _: Option<Song> = db().await.delete((TABLE_NAME, id)).await?;
         Ok(())
     }
 }

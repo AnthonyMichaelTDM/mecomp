@@ -23,6 +23,8 @@ serde = { workspace = true }
 surrealdb = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+tokio = { workspace = true }
+tempfile = { workspace = true }
 
 
 # other dependencies

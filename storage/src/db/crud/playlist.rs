@@ -3,11 +3,11 @@ use tracing::instrument;
 
 use crate::{
     db::{
+        db,
         schemas::{
             playlist::{Playlist, PlaylistId, TABLE_NAME},
             song::{Song, SongId},
         },
-        DB,
     },
     errors::Error,
 };
@@ -15,12 +15,12 @@ use crate::{
 impl Playlist {
     #[instrument]
     pub async fn read_all() -> Result<Vec<Playlist>, Error> {
-        Ok(DB.select(TABLE_NAME).await?)
+        Ok(db().await.select(TABLE_NAME).await?)
     }
 
     #[instrument]
     pub async fn read(id: PlaylistId) -> Result<Option<Playlist>, Error> {
-        Ok(DB.select((TABLE_NAME, id)).await?)
+        Ok(db().await.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
@@ -34,7 +34,8 @@ impl Playlist {
             .cloned()
             .collect();
 
-        DB.update((TABLE_NAME, id))
+        db().await
+            .update((TABLE_NAME, id))
             .content(playlist)
             .await?
             .ok_or(Error::NotFound)
@@ -51,7 +52,8 @@ impl Playlist {
             .cloned()
             .collect();
 
-        let _: Playlist = DB
+        let _: Playlist = db()
+            .await
             .update((TABLE_NAME, id))
             .content(playlist)
             .await?
@@ -81,7 +83,8 @@ impl Playlist {
 
         playlist.songs = new_songs.into_boxed_slice();
 
-        let result: Result<Playlist, _> = DB
+        let result: Result<Playlist, _> = db()
+            .await
             .update((TABLE_NAME, id))
             .content(playlist)
             .await?

@@ -2376,6 +2376,7 @@ dependencies = [
 name = "mecomp-core"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "audiotags",
  "env_logger 0.10.2",
  "lazy_static",
@@ -2440,7 +2441,9 @@ dependencies = [
  "readable",
  "serde",
  "surrealdb",
+ "tempfile",
  "thiserror",
+ "tokio",
  "tracing",
 ]
 

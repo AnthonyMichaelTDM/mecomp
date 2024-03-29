@@ -41,6 +41,7 @@ mecomp-storage = { workspace = true }
 
 [dev-dependencies]
 # shared dev dependencies
+anyhow = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }
