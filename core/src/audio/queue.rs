@@ -177,13 +177,12 @@ impl Queue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{arb_repeat_mode, RepeatMode};
+    use crate::state::RepeatMode;
     use crate::test_utils::{
         arb_song_case, arb_vec, bar_sc, baz_sc, create_song, foo_sc, init, SongCase,
     };
 
     use pretty_assertions::assert_eq;
-    use proptest::prelude::*;
     use rstest::*;
 
     #[test]
@@ -256,93 +255,137 @@ mod tests {
         Ok(())
     }
 
-    proptest! {
-        #[test]
-        fn test_next_song_rp_none(
-            songs in arb_vec(arb_song_case(), 2usize..5),
-            skip in 1usize..10,
-        )  {
-            tokio::runtime::Runtime::new().unwrap().block_on(async move {
-                init().await.map_err(|e| TestCaseError::fail(format!("{e:?}")))?;
-                let mut queue =  Queue::new();
-                let len = songs.len();
-                for sc in songs.into_iter() {
-                    queue.add_song(create_song(sc).await.map_err(|e| TestCaseError::fail(format!("{e:?}")))?);
-                }
-                queue.set_repeat_mode(RepeatMode::None);
+    #[rstest]
+    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 7 )] // skip more than the number of songs
+    #[case( arb_vec(&arb_song_case(), 4..=5 )(), 3 )] // skip less than the number of songs
+    #[case( arb_vec(&arb_song_case(), 5..=5 )(), 5 )] // skip all songs
+    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 1 )] // skip one
+    #[tokio::test]
+    async fn test_next_song_rp_none(
+        #[case] songs: Vec<SongCase>,
+        #[case] skip: usize,
+    ) -> anyhow::Result<()> {
+        init().await?;
+        let mut queue = Queue::new();
+        let len = songs.len();
+        for sc in songs.into_iter() {
+            queue.add_song(create_song(sc).await?);
+        }
+        queue.set_repeat_mode(RepeatMode::None);
 
-                for _ in 0..skip {
-                    let _ = queue.next_song();
-                }
-
-                if skip < len {
-                    prop_assert_eq!(queue.current_song(), queue.get(skip));
-                } else {
-                    prop_assert_eq!(queue.current_song(), queue.songs.last());
-                }
-
-                Ok(())
-            })?;
+        for _ in 0..skip {
+            let _ = queue.next_song();
         }
 
-        #[test]
-        fn test_next_song_rp_once(
-            songs in arb_vec(arb_song_case(), 2usize..5),
-            skip in 1usize..10,
-        )  {
-            tokio::runtime::Runtime::new().unwrap().block_on(async move {
-                init().await.map_err(|e| TestCaseError::fail(format!("{e:?}")))?;
-                let mut queue =  Queue::new();
-                let len = songs.len();
-                for sc in songs.into_iter() {
-                    queue.add_song(create_song(sc).await.map_err(|e| TestCaseError::fail(format!("{e:?}")))?);
-                }
-                queue.set_repeat_mode(RepeatMode::Once);
-
-                for _ in 0..skip {
-                    let _ = queue.next_song();
-                }
-
-                if skip / len <= 1 {
-                    prop_assert_eq!(queue.current_song(), queue.get(skip % len));
-                } else {
-                    prop_assert_eq!(queue.current_song(), queue.songs.last());
-                }
-
-                Ok(())
-            })?;
+        if skip < len {
+            assert_eq!(
+                queue.current_song(),
+                queue.get(skip - 1),
+                "len: {len}, skip: {skip}, current_index: {current_index}",
+                current_index = queue.current_index.unwrap_or_default()
+            );
+        } else {
+            assert_eq!(
+                queue.current_song(),
+                queue.songs.last(),
+                "len: {len}, skip: {skip}, current_index: {current_index}",
+                current_index = queue.current_index.unwrap_or_default()
+            );
         }
 
-        #[test]
-        fn test_next_song_rp_continuous(
-            songs in arb_vec(arb_song_case(), 2usize..5),
-            skip in 1usize..15,
-        )  {
-            tokio::runtime::Runtime::new().unwrap().block_on(async move {
-                init().await.map_err(|e| TestCaseError::fail(format!("{e:?}")))?;
-                let mut queue =  Queue::new();
-                let len = songs.len();
-                for sc in songs.into_iter() {
-                    queue.add_song(create_song(sc).await.map_err(|e| TestCaseError::fail(format!("{e:?}")))?);
-                }
-                queue.set_repeat_mode(RepeatMode::Continuous);
+        Ok(())
+    }
 
-                for _ in 0..skip {
-                    let _ = queue.next_song();
-                }
+    #[rstest]
+    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 7 )] // skip more than the number of songs
+    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 11 )] // skip more than twice the number of songs
+    #[case( arb_vec(&arb_song_case(), 5..=5 )(), 5 )] // skip all songs
+    #[case( arb_vec(&arb_song_case(), 4..=5 )(), 3 )] // skip less than the number of songs
+    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 1 )] // skip one
+    #[tokio::test]
+    async fn test_next_song_rp_once(
+        #[case] songs: Vec<SongCase>,
+        #[case] skip: usize,
+    ) -> anyhow::Result<()> {
+        init().await?;
+        let mut queue = Queue::new();
+        let len = songs.len();
+        for sc in songs.into_iter() {
+            queue.add_song(create_song(sc).await?);
+        }
+        queue.set_repeat_mode(RepeatMode::Once);
 
-                prop_assert_eq!(queue.current_song(), queue.get(skip % len));
-
-                Ok(())
-            })?;
+        for _ in 0..skip {
+            let _ = queue.next_song();
         }
 
-
-        #[test]
-        fn test_set_repeat_mode(repeat_mode in arb_repeat_mode()) {
-            let mut queue = Queue::new();
-            queue.set_repeat_mode(repeat_mode);
-            prop_assert_eq!(queue.repeat_mode, repeat_mode);
+        if skip / len == 0 {
+            assert_eq!(
+                queue.current_song(),
+                queue.get(skip - 1),
+                "len: {len}, skip: {skip}, current_index: {current_index}",
+                current_index = queue.current_index.unwrap_or_default()
+            );
+        } else if skip / len == 1 {
+            assert_eq!(
+                queue.current_song(),
+                queue.get(skip - 1 - len),
+                "len: {len}, skip: {skip}, current_index: {current_index}",
+                current_index = queue.current_index.unwrap_or_default()
+            );
+        } else {
+            assert_eq!(
+                queue.current_song(),
+                queue.songs.last(),
+                "len: {len}, skip: {skip}, current_index: {current_index}",
+                current_index = queue.current_index.unwrap_or_default()
+            );
         }
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 7 )] // skip more than the number of songs
+    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 11 )] // skip more than twice the number of songs
+    #[case( arb_vec(&arb_song_case(), 5..=5 )(), 5 )] // skip all songs
+    #[case( arb_vec(&arb_song_case(), 4..=5 )(), 3 )] // skip less than the number of songs
+    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 1 )] // skip one
+    #[tokio::test]
+    async fn test_next_song_rp_continuous(
+        #[case] songs: Vec<SongCase>,
+        #[case] skip: usize,
+    ) -> anyhow::Result<()> {
+        init().await?;
+        let mut queue = Queue::new();
+        let len = songs.len();
+        for sc in songs.into_iter() {
+            queue.add_song(create_song(sc).await?);
+        }
+        queue.set_repeat_mode(RepeatMode::Continuous);
+
+        for _ in 0..skip {
+            let _ = queue.next_song();
+        }
+
+        assert_eq!(
+            queue.current_song(),
+            queue.get((skip - 1) % len),
+            "len: {len}, skip: {skip}, current_index: {current_index}",
+            current_index = queue.current_index.unwrap_or_default()
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[case(RepeatMode::None)]
+    #[case(RepeatMode::Once)]
+    #[case(RepeatMode::Continuous)]
+    #[test]
+    fn test_set_repeat_mode(#[case] repeat_mode: RepeatMode) {
+        let mut queue = Queue::new();
+        queue.set_repeat_mode(repeat_mode);
+        assert_eq!(queue.repeat_mode, repeat_mode);
     }
 }
