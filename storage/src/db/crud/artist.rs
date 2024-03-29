@@ -19,7 +19,7 @@ impl Artist {
     #[instrument]
     pub async fn create(artist: Artist) -> Result<Option<Artist>, Error> {
         Ok(db()
-            .await
+            .await?
             .create((TABLE_NAME, artist.id.clone()))
             .content(artist)
             .await?)
@@ -28,7 +28,7 @@ impl Artist {
     #[instrument]
     pub async fn create_or_read_by_name(name: &str) -> Result<Option<Artist>, Error> {
         if let Some(artist) = db()
-            .await
+            .await?
             .select(TABLE_NAME)
             .await?
             .into_iter()
@@ -60,18 +60,18 @@ impl Artist {
 
     #[instrument]
     pub async fn read_all() -> Result<Vec<Artist>, Error> {
-        Ok(db().await.select(TABLE_NAME).await?)
+        Ok(db().await?.select(TABLE_NAME).await?)
     }
 
     #[instrument]
     pub async fn read(id: ArtistId) -> Result<Option<Artist>, Error> {
-        Ok(db().await.select((TABLE_NAME, id)).await?)
+        Ok(db().await?.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
     pub async fn update(id: ArtistId, artist: Artist) -> Result<(), Error> {
         let _: Artist = db()
-            .await
+            .await?
             .update((TABLE_NAME, id))
             .content(artist)
             .await?
@@ -102,7 +102,7 @@ impl Artist {
             .collect();
 
         let _: Artist = db()
-            .await
+            .await?
             .update((TABLE_NAME, id))
             .content(artist)
             .await?
@@ -122,7 +122,7 @@ impl Artist {
             .collect();
 
         let _: Artist = db()
-            .await
+            .await?
             .update((TABLE_NAME, id))
             .content(artist)
             .await?
@@ -163,14 +163,14 @@ impl Artist {
         artist.albums = new_albums.into_boxed_slice();
 
         let result: Result<Artist, _> = db()
-            .await
+            .await?
             .update((TABLE_NAME, id.clone()))
             .content(artist)
             .await?
             .ok_or(Error::NotFound);
 
         if result.map(|x| x.songs.is_empty() && x.albums.is_empty())? {
-            let _: Option<Artist> = db().await.delete((TABLE_NAME, id)).await?;
+            let _: Option<Artist> = db().await?.delete((TABLE_NAME, id)).await?;
             Ok(true)
         } else {
             Ok(false)

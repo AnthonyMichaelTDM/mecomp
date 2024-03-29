@@ -21,7 +21,7 @@ impl Album {
     #[instrument()]
     pub async fn create(album: Album) -> Result<Option<Album>, Error> {
         Ok(db()
-            .await
+            .await?
             .create((TABLE_NAME, album.id.clone()))
             .content(album)
             .await?)
@@ -75,18 +75,18 @@ impl Album {
 
     #[instrument()]
     pub async fn read_all() -> Result<Vec<Album>, Error> {
-        Ok(db().await.select(TABLE_NAME).await?)
+        Ok(db().await?.select(TABLE_NAME).await?)
     }
 
     #[instrument()]
     pub async fn read(id: AlbumId) -> Result<Option<Album>, Error> {
-        Ok(db().await.select((TABLE_NAME, id)).await?)
+        Ok(db().await?.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument()]
     pub async fn read_by_name(name: &str) -> Result<Vec<Album>, Error> {
         Ok(db()
-            .await
+            .await?
             .select(TABLE_NAME)
             .await?
             .into_iter()
@@ -97,7 +97,7 @@ impl Album {
     #[instrument()]
     pub async fn update(id: AlbumId, album: Album) -> Result<(), Error> {
         let _: Album = db()
-            .await
+            .await?
             .update((TABLE_NAME, id))
             .content(album)
             .await?
@@ -112,7 +112,7 @@ impl Album {
         album.songs = album.songs.iter().chain(song_id.iter()).cloned().collect();
 
         let _: Album = db()
-            .await
+            .await?
             .update((TABLE_NAME, id))
             .content(album)
             .await?
@@ -132,7 +132,7 @@ impl Album {
             .collect();
 
         let _: Album = db()
-            .await
+            .await?
             .update((TABLE_NAME, id))
             .content(album)
             .await?
@@ -189,14 +189,14 @@ impl Album {
         album.songs = new_songs.into_boxed_slice();
 
         let result: Result<Album, _> = db()
-            .await
+            .await?
             .update((TABLE_NAME, id.clone()))
             .content(album.clone())
             .await?
             .ok_or(Error::NotFound);
 
         if result.map(|x| x.songs.is_empty())? {
-            let _: Option<Album> = db().await.delete((TABLE_NAME, id)).await?;
+            let _: Option<Album> = db().await?.delete((TABLE_NAME, id)).await?;
             // repair the album artists
             for artist_id in album.artist_id.iter() {
                 Artist::repair(artist_id.clone()).await?;

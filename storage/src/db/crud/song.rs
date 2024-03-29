@@ -23,7 +23,7 @@ impl Song {
     #[instrument]
     pub async fn create(song: Song) -> Result<Option<SongId>, Error> {
         let id = db()
-            .await
+            .await?
             .create((TABLE_NAME, song.id.clone()))
             .content(song)
             .await?
@@ -33,18 +33,18 @@ impl Song {
 
     #[instrument]
     pub async fn read_all() -> Result<Vec<Song>, Error> {
-        Ok(db().await.select(TABLE_NAME).await?)
+        Ok(db().await?.select(TABLE_NAME).await?)
     }
 
     #[instrument]
     pub async fn read(id: SongId) -> Result<Option<Song>, Error> {
-        Ok(db().await.select((TABLE_NAME, id)).await?)
+        Ok(db().await?.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
     pub async fn read_by_path(path: PathBuf) -> Result<Option<Song>, Error> {
         Ok(db()
-            .await
+            .await?
             .select(TABLE_NAME)
             .await?
             .into_iter()
@@ -54,7 +54,7 @@ impl Song {
     #[instrument]
     pub async fn update(id: SongId, song: Song) -> Result<(), Error> {
         let _: Song = db()
-            .await
+            .await?
             .update((TABLE_NAME, id))
             .content(song)
             .await?
@@ -167,7 +167,7 @@ impl Song {
             }
         }
 
-        let _: Option<Song> = db().await.delete((TABLE_NAME, id)).await?;
+        let _: Option<Song> = db().await?.delete((TABLE_NAME, id)).await?;
         Ok(())
     }
 }

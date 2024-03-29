@@ -15,12 +15,12 @@ use crate::{
 impl Collection {
     #[instrument]
     pub async fn read_all() -> Result<Vec<Collection>, Error> {
-        Ok(db().await.select(TABLE_NAME).await?)
+        Ok(db().await?.select(TABLE_NAME).await?)
     }
 
     #[instrument]
     pub async fn read(id: CollectionId) -> Result<Option<Collection>, Error> {
-        Ok(db().await.select((TABLE_NAME, id)).await?)
+        Ok(db().await?.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
@@ -35,7 +35,7 @@ impl Collection {
             .collect();
 
         let _: Collection = db()
-            .await
+            .await?
             .update((TABLE_NAME, id))
             .content(collection)
             .await?
@@ -69,7 +69,7 @@ impl Collection {
         collection.songs = new_songs.into_boxed_slice();
 
         let result: Result<Collection, _> = db()
-            .await
+            .await?
             .update((TABLE_NAME, id))
             .content(collection)
             .await?
