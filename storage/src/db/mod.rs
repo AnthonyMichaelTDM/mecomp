@@ -1,7 +1,7 @@
 pub mod crud;
 pub mod schemas;
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use log::info;
 use once_cell::sync::{Lazy, OnceCell};
@@ -11,7 +11,7 @@ use surrealdb::Surreal;
 static INIT: OnceCell<Option<()>> = OnceCell::new();
 pub(crate) static DB: Lazy<Surreal<Db>> = Lazy::new(Surreal::init);
 
-pub async fn init_database(path: PathBuf) -> surrealdb::Result<()> {
+pub async fn init_database(path: &Path) -> surrealdb::Result<()> {
     let previously_initialized = INIT.get().is_some();
 
     if !previously_initialized {

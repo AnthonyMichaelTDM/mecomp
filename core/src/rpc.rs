@@ -14,7 +14,7 @@ use mecomp_storage::db::schemas::{
 
 use crate::{
     audio::queue::Queue,
-    errors::LibraryError,
+    errors::SerializableLibraryError,
     search::SearchResult,
     state::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
@@ -29,23 +29,23 @@ pub trait MusicPlayer {
 
     // Music library.
     /// Rescans the music library.
-    async fn library_rescan() -> Result<(), LibraryError>;
+    async fn library_rescan() -> Result<(), SerializableLibraryError>;
     /// Returns brief information about the music library.
-    async fn library_brief() -> Result<LibraryBrief, LibraryError>;
+    async fn library_brief() -> Result<LibraryBrief, SerializableLibraryError>;
     /// Returns full information about the music library. (all songs, artists, albums, etc.)
-    async fn library_full() -> Result<LibraryFull, LibraryError>;
+    async fn library_full() -> Result<LibraryFull, SerializableLibraryError>;
     /// Returns brief information about the music library's artists.
-    async fn library_artists_brief() -> Result<Box<[ArtistBrief]>, LibraryError>;
+    async fn library_artists_brief() -> Result<Box<[ArtistBrief]>, SerializableLibraryError>;
     /// Returns full information about the music library's artists.
-    async fn library_artists_full() -> Result<Box<[Artist]>, LibraryError>;
+    async fn library_artists_full() -> Result<Box<[Artist]>, SerializableLibraryError>;
     /// Returns brief information about the music library's albums.
-    async fn library_albums_brief() -> Result<Box<[AlbumBrief]>, LibraryError>;
+    async fn library_albums_brief() -> Result<Box<[AlbumBrief]>, SerializableLibraryError>;
     /// Returns full information about the music library's albums.
-    async fn library_albums_full() -> Result<Box<[Album]>, LibraryError>;
+    async fn library_albums_full() -> Result<Box<[Album]>, SerializableLibraryError>;
     /// Returns brief information about the music library's songs.
-    async fn library_songs_brief() -> Result<Box<[SongBrief]>, LibraryError>;
+    async fn library_songs_brief() -> Result<Box<[SongBrief]>, SerializableLibraryError>;
     /// Returns full information about the music library's songs.
-    async fn library_songs_full() -> Result<Box<[Song]>, LibraryError>;
+    async fn library_songs_full() -> Result<Box<[Song]>, SerializableLibraryError>;
     /// Returns information about the health of the music library (are there any missing files, etc.)
     async fn library_health() -> LibraryHealth;
 
@@ -151,28 +151,29 @@ pub trait MusicPlayer {
     // Queue control.
     /// add a song to the queue.
     /// (if the queue is empty, it will start playing the song.)
-    async fn queue_add_song(song: SongId) -> ();
+    async fn queue_add_song(song: SongId) -> Result<(), SerializableLibraryError>;
     /// add an album to the queue.
     /// (if the queue is empty, it will start playing the album.)
-    async fn queue_add_album(album: AlbumId) -> ();
+    async fn queue_add_album(album: AlbumId) -> Result<(), SerializableLibraryError>;
     /// add an artist to the queue.
     /// (if the queue is empty, it will start playing the artist.)
-    async fn queue_add_artist(artist: ArtistId) -> ();
+    async fn queue_add_artist(artist: ArtistId) -> Result<(), SerializableLibraryError>;
     /// add a playlist to the queue.
     /// (if the queue is empty, it will start playing the playlist.)
-    async fn queue_add_playlist(playlist: PlaylistId) -> ();
+    async fn queue_add_playlist(playlist: PlaylistId) -> Result<(), SerializableLibraryError>;
     /// add a collection to the queue.
     /// (if the queue is empty, it will start playing the collection.)
-    async fn queue_add_collection(collection: CollectionId) -> ();
+    async fn queue_add_collection(collection: CollectionId)
+        -> Result<(), SerializableLibraryError>;
     /// add a random song to the queue.
     /// (if the queue is empty, it will start playing the song.)
-    async fn queue_add_rand_song() -> ();
+    async fn queue_add_rand_song() -> Result<(), SerializableLibraryError>;
     /// add a random album to the queue.
     /// (if the queue is empty, it will start playing the album.)
-    async fn queue_add_rand_album() -> ();
+    async fn queue_add_rand_album() -> Result<(), SerializableLibraryError>;
     /// add a random artist to the queue.
     /// (if the queue is empty, it will start playing the artist.)
-    async fn queue_add_rand_artist() -> ();
+    async fn queue_add_rand_artist() -> Result<(), SerializableLibraryError>;
     /// set the current song to a queue index.
     /// if the index is out of bounds, it will be clamped to the nearest valid index.
     async fn queue_set_index(index: usize) -> ();
