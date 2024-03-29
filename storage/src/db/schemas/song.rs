@@ -21,7 +21,7 @@ pub type SongId = Thing;
 
 pub const TABLE_NAME: &str = "song";
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 /// This struct holds all the metadata about a particular [`Song`].
 pub struct Song {
     // / The unique identifier for this [`Song`].

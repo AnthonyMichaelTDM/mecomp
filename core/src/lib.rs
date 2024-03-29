@@ -5,3 +5,5 @@ pub mod logger;
 pub mod rpc;
 pub mod search;
 pub mod state;
+#[cfg(test)]
+pub mod test_utils;
