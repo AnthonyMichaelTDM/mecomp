@@ -41,7 +41,7 @@ pub async fn start_daemon(
     settings: &DaemonSettings,
 ) -> anyhow::Result<()> {
     init_logger(log_level);
-    init_database(&settings.db_path).await?;
+    init_database(settings.db_path.clone()).await?;
     tracing::subscriber::set_global_default(init_tracing())?;
 
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.rpc_port);
