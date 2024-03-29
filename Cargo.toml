@@ -46,7 +46,7 @@ audiotags = { version = "0.5.0" }
 clap = { version = "4.4.17", features = ["derive"] }
 # crossbeam = { version = "0.8.4", features = ["crossbeam-channel"] }
 env_logger = { version = "0.10.2" }
-futures = { version = "0.3.17" }
+futures = { version = "0.3.30" }
 # image = { version = "0.25.0" }
 lazy_static = { version = "1.4.0" }
 log = { version = "0.4.20", features = ["serde"] }
@@ -56,12 +56,12 @@ rand = { version = "0.8.5", features = ["small_rng"] }
 readable = { version = "0.16.0", features = ["full"] }
 rodio = { path = "external/rodio", features = ["symphonia-all"] }
 serde = { version = "1.0", features = ["derive", "rc"] }
-strum = { version = "0.26.1", features = ["derive"] }
-surrealdb = { version = "1.2.2", features = ["kv-speedb"] }
+strum = { version = "0.26.2", features = ["derive"] }
+surrealdb = { version = "1.3.1", features = ["kv-speedb"] }
 tap = { version = "1.0.1" }
-thiserror = { version = "1.0.25" }
-tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
-walkdir = { version = "2.4.0" }
+thiserror = { version = "1.0.58" }
+tokio = { version = "1.37", features = ["rt-multi-thread", "macros"] }
+walkdir = { version = "2.5.0" }
 tarpc = { version = "0.34", features = [
     "tcp",
     "serde1",
