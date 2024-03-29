@@ -1,7 +1,9 @@
+use std::ops::RangeInclusive;
+
 use audiotags;
 use lazy_static::lazy_static;
 use mecomp_storage::db::schemas::song::{Song, SongMetadata};
-use proptest::prelude::*;
+use rand::seq::IteratorRandom;
 use tempfile;
 use tokio::sync::Mutex;
 
@@ -120,36 +122,48 @@ pub fn baz_sc() -> SongCase {
     SongCase::new(2, vec![1], vec![1, 0], 1, 2)
 }
 
-prop_compose! {
-    pub fn arb_song_case() (
-        song in 0..=10u8,
-        artists in arb_vec(any::<u8>(), 1..10),
-        album_artists in arb_vec(any::<u8>(), 1..10),
-        album in 0..=10u8, genre in 0..=10u8
-    ) -> SongCase {
-        SongCase::new(song, artists, album_artists, album, genre)
+pub fn arb_song_case() -> impl Fn() -> SongCase {
+    || {
+        let rng = &mut rand::thread_rng();
+
+        SongCase::new(
+            (0..=10u8).choose(rng).unwrap_or_default(),
+            arb_vec(&rand::random::<u8>, 1..=10)(),
+            arb_vec(&rand::random::<u8>, 1..=10)(),
+            (0..=10u8).choose(rng).unwrap_or_default(),
+            (0..=10u8).choose(rng).unwrap_or_default(),
+        )
     }
 }
 
 pub fn arb_vec_and_index<T>(
-    item_strategy: impl Strategy<Value = T>,
-    range: std::ops::Range<usize>,
-) -> impl Strategy<Value = (Vec<T>, usize)>
+    item_strategy: &impl Fn() -> T,
+    range: RangeInclusive<usize>,
+) -> impl Fn() -> (Vec<T>, usize) + '_
 where
-    T: Clone + std::fmt::Debug,
+    T: Clone + std::fmt::Debug + Sized,
 {
-    prop::collection::vec(item_strategy, range).prop_flat_map(|vec| {
-        let len = vec.len();
-        (Just(vec), 0..len)
-    })
+    move || {
+        let vec = arb_vec(item_strategy, range.clone())();
+        let index = (0..vec.len())
+            .choose(&mut rand::thread_rng())
+            .unwrap_or_default();
+        (vec, index)
+    }
 }
 
 pub fn arb_vec<T>(
-    item_strategy: impl Strategy<Value = T>,
-    range: std::ops::Range<usize>,
-) -> impl Strategy<Value = Vec<T>>
+    item_strategy: &impl Fn() -> T,
+    range: RangeInclusive<usize>,
+) -> impl Fn() -> Vec<T> + '_
 where
-    T: Clone + std::fmt::Debug,
+    T: Clone + std::fmt::Debug + Sized,
 {
-    prop::collection::vec(item_strategy, range)
+    move || {
+        let size = range
+            .clone()
+            .choose(&mut rand::thread_rng())
+            .unwrap_or_default();
+        Vec::from_iter(std::iter::repeat_with(|| item_strategy()).take(size))
+    }
 }

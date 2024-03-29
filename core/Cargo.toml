@@ -46,9 +46,9 @@ pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }
 audiotags = { workspace = true }
-proptest = { workspace = true }
 
 [features]
+default = []
 rpc = ["tarpc"]
 otel_tracing = [
     "tracing-opentelemetry",

@@ -45,31 +45,3 @@ pub struct StateAudio {
 }
 
 
-
-#[cfg(test)]
-use proptest::prelude::*;
-
-#[cfg(test)]
-pub fn arb_repeat_mode()  -> impl Strategy<Value = RepeatMode> {
-    prop_oneof![
-        Just(RepeatMode::None),
-        Just(RepeatMode::Once),
-        Just(RepeatMode::Continuous),
-    ]
-}
-
-#[cfg(test)]
-pub fn arb_seek_type()  -> impl Strategy<Value = SeekType> {
-    prop_oneof![
-        Just(SeekType::Absolute),
-        Just(SeekType::Relative),
-    ]
-}
-
-
-#[cfg(test)]
-prop_compose! {
-    pub fn arb_percent()(n in 0.0f32..=100.0) -> Percent {
-        Percent::new(n).unwrap()
-    }
-}

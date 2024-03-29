@@ -86,7 +86,6 @@ mecomp-storage = { path = "storage" }
 pretty_assertions = { version = "1.4.0" }
 rstest = { version = "0.18.2" }
 tempfile = { version = "3.10.1" }
-proptest = { version = "1.4.0" }
 
 # [lints.rust]
 # warnings = "deny"
