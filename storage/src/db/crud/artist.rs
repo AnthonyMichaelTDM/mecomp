@@ -17,24 +17,22 @@ use crate::{
 
 impl Artist {
     #[instrument]
-    pub async fn create(artist: Artist) -> Result<Option<ArtistId>, Error> {
-        let id = DB
+    pub async fn create(artist: Artist) -> Result<Option<Artist>, Error> {
+        Ok(DB
             .create((TABLE_NAME, artist.id.clone()))
             .content(artist)
-            .await?
-            .map(|x: Artist| x.id);
-        Ok(id)
+            .await?)
     }
 
     #[instrument]
-    pub async fn create_or_read_by_name(name: &str) -> Result<Option<ArtistId>, Error> {
+    pub async fn create_or_read_by_name(name: &str) -> Result<Option<Artist>, Error> {
         if let Some(artist) = DB
             .select(TABLE_NAME)
             .await?
             .into_iter()
             .find(|x: &Artist| x.name.as_ref() == name)
         {
-            Ok(Some(artist.id))
+            Ok(Some(artist))
         } else {
             Artist::create(Artist {
                 id: Artist::generate_id(),
@@ -48,14 +46,14 @@ impl Artist {
     }
 
     #[instrument]
-    pub async fn create_or_read_by_names(names: &[Arc<str>]) -> Result<Vec<ArtistId>, Error> {
-        let mut ids = Vec::with_capacity(names.len());
+    pub async fn create_or_read_by_names(names: &[Arc<str>]) -> Result<Vec<Artist>, Error> {
+        let mut artists = Vec::with_capacity(names.len());
         for name in names {
             if let Some(id) = Artist::create_or_read_by_name(name).await? {
-                ids.push(id);
+                artists.push(id);
             }
         }
-        Ok(ids)
+        Ok(artists)
     }
 
     #[instrument]

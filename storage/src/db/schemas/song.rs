@@ -73,9 +73,7 @@ impl Song {
     ///
     /// # Arguments
     ///
-    /// * `path` - The path to the file.
-    /// * `artist_name_separator` - The separator used to separate multiple artists in the metadata.
-    /// * `genre_separator` - The separator used to separate multiple genres in the metadata.
+    /// * `metadata` - The metadata of the song.
     ///
     /// # Errors
     ///
@@ -94,84 +92,92 @@ impl Song {
         }
 
         // for each artist, check if the artist exists in the database and get the id, if they don't then create a new artist and get the id
-        let mut artist_ids = Vec::with_capacity(metadata.artist.len());
+        let mut artists = Vec::with_capacity(metadata.artist.len());
         for artist in metadata.artist.iter() {
-            if let Some(artist_id) = Artist::create_or_read_by_name(artist.as_ref()).await? {
-                artist_ids.push(artist_id);
+            if let Some(artist) = Artist::create_or_read_by_name(artist.as_ref()).await? {
+                artists.push(artist);
             }
         }
 
         // check if the album artist exists, if they don't then create a new artist and get the id
-        let mut album_artist_ids = Vec::with_capacity(metadata.artist.len());
+        let mut album_artists = Vec::with_capacity(metadata.artist.len());
         for artist in metadata.album_artist.iter() {
-            if let Some(artist_id) = Artist::create_or_read_by_name(artist.as_ref()).await? {
-                album_artist_ids.push(artist_id);
+            if let Some(artist) = Artist::create_or_read_by_name(artist.as_ref()).await? {
+                album_artists.push(artist);
             }
         }
 
         // check if the album artist(s) have the album.
         // if they don't then create a new album, assign it to the artist.
         // get the id of the album
-        let mut album_id = None;
-        for artist_id in album_artist_ids.iter() {
-            let artist = Artist::read(artist_id.clone()).await?.unwrap();
-
+        let mut album = None;
+        for artist in album_artists.iter() {
             // try to find the album in the artist's albums
             let mut artist_has_album = false;
             for id in artist.albums.iter() {
-                let album = Album::read(id.clone()).await?.unwrap();
-                if album.title.as_ref() == metadata.album.as_ref() {
+                let artist_album = Album::read(id.clone()).await?.unwrap();
+                if artist_album.title.as_ref() == metadata.album.as_ref() {
                     artist_has_album = true;
-                    if album_id.is_none() {
-                        album_id = Some(album.id);
+                    if album.is_none() {
+                        album = Some(artist_album);
                     }
                     break;
                 }
             }
 
-            // if we didn't find the album, create a new album (if we didn't find the album earlier) and assign it to the artist
-            if !artist_has_album {
-                if album_id.is_none() {
-                    album_id = Album::create(Album {
-                        id: Album::generate_id(),
-                        title: metadata.album.clone(),
-                        artist_id: album_artist_ids.clone().into(),
-                        artist: metadata.album_artist.clone(),
-                        release: metadata.release_year,
-                        runtime: 0.into(),
-                        song_count: 0,
-                        songs: vec![].into_boxed_slice(),
-                        discs: 1,
-                        genre: OneOrMany::None,
-                    })
-                    .await?
-                    .map(|x| x.id);
-                }
-
-                let updated_artist = Artist {
-                    albums: artist
-                        .albums
-                        .iter()
-                        .cloned()
-                        .chain(std::iter::once(album_id.clone().unwrap()))
-                        .collect(),
-                    ..artist
-                };
-                Artist::update(artist_id.clone(), updated_artist).await?;
+            // if we found the album, continue
+            if artist_has_album {
+                continue;
             }
+            // if we didn't find the album, create a new album (if we haven't already)
+            if let None = album {
+                album = Album::create(Album {
+                    id: Album::generate_id(),
+                    title: metadata.album.clone(),
+                    artist_id: album_artists.iter().cloned().map(|x| x.id).collect(),
+                    artist: metadata.album_artist.clone(),
+                    release: metadata.release_year,
+                    runtime: 0.into(),
+                    song_count: 0,
+                    songs: vec![].into_boxed_slice(),
+                    discs: 1,
+                    genre: OneOrMany::None,
+                })
+                .await?;
+            };
+
+            let updated_artist = Artist {
+                albums: artist
+                    .albums
+                    .iter()
+                    .cloned()
+                    .chain(std::iter::once(
+                        album
+                            .clone()
+                            .ok_or_else(|| {
+                                Error::DbError(surrealdb::Error::Api(surrealdb::error::Api::Query(
+                                    "Failed to create album".into(),
+                                )))
+                            })?
+                            .id,
+                    ))
+                    .collect(),
+                ..artist.clone()
+            };
+            Artist::update(artist.id.clone(), updated_artist).await?;
         }
-        let album_id = album_id.expect("Album not found or created, shouldn't happen");
+        let album = album.expect("Album not found or created, shouldn't happen");
 
         // create a new song
         let song = Self {
             id: Self::generate_id(),
             title: metadata.title,
             artist: metadata.artist,
-            artist_id: artist_ids.clone().into(),
+            artist_id: artists.iter().cloned().map(|x| x.id).collect(),
             album_artist: metadata.album_artist,
-            album_artist_id: album_artist_ids.clone().into(),
+            album_artist_id: album_artists.iter().cloned().map(|x| x.id).collect(),
             album: metadata.album,
-            album_id: album_id.clone(),
+            album_id: album.id.clone(),
             genre: metadata.genre,
             release_year: metadata.release_year,
             duration: metadata.duration,
@@ -184,11 +190,11 @@ impl Song {
         let song_id = Self::create(song.clone()).await?.unwrap();
 
         // add the song to the album artists and artists (if it's not already there)
-        for artist_id in artist_ids.iter().chain(album_artist_ids.iter()) {
-            let artist = Artist::read(artist_id.clone()).await?.unwrap();
+        for artist in artists.iter().chain(album_artists.iter()) {
+            let artist = Artist::read(artist.id.clone()).await?.unwrap();
             if !artist.songs.contains(&song_id) {
                 Artist::update(
-                    artist_id.clone(),
+                    artist.id.clone(),
                     Artist {
                         songs: artist
                             .songs
@@ -205,10 +211,9 @@ impl Song {
         }
 
         // add the song to the album
-        let album = Album::read(album_id.clone()).await?.unwrap();
         if !album.songs.contains(&song_id) {
             Album::update(
-                album_id.clone(),
+                album.id.clone(),
                 Album {
                     songs: album
                         .songs
@@ -439,6 +444,14 @@ impl SongMetadata {
         }
     }
 
+    /// Load a [`SongMetadata`] from a file path.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to the file.
+    /// * `artist_name_separator` - The separator used to separate multiple artists in the metadata.
+    /// * `genre_separator` - The separator used to separate multiple genres in the metadata.
+    ///
     #[instrument()]
     pub fn load_from_path(
         path: PathBuf,

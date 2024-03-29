@@ -80,9 +80,9 @@ impl Song {
         // - add the song to the new artist's list of songs
         // - repair the old artists
         if old_song.artist != new_song.artist {
-            let artist_id = Artist::create_or_read_by_names(new_song.artist.as_slice()).await?;
+            let artists = Artist::create_or_read_by_names(new_song.artist.as_slice()).await?;
 
-            new_song.artist_id = artist_id.into();
+            new_song.artist_id = artists.into_iter().map(|x| x.id).collect();
 
             Song::update(id.clone(), new_song.clone()).await?;
 
@@ -113,10 +113,10 @@ impl Song {
             Album::repair(old_song.album_id).await?;
         }
         if old_song.album_artist != new_song.album_artist {
-            let album_artist_id =
+            let album_artists =
                 Artist::create_or_read_by_names(new_song.album_artist.as_slice()).await?;
 
-            new_song.album_artist_id = album_artist_id.into();
+            new_song.album_artist_id = album_artists.into_iter().map(|x| x.id).collect();
 
             Song::update(id.clone(), new_song.clone()).await?;
 

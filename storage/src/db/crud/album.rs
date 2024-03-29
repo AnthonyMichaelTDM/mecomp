@@ -45,7 +45,11 @@ impl Album {
                 artist: album_artists.iter().cloned().collect(),
                 songs: vec![].into_boxed_slice(),
                 runtime: 0.into(),
-                artist_id: Artist::create_or_read_by_names(album_artists).await?.into(),
+                artist_id: Artist::create_or_read_by_names(album_artists)
+                    .await?
+                    .into_iter()
+                    .map(|x| x.id)
+                    .collect(),
                 release: None,
                 song_count: 0,
                 discs: 1,
