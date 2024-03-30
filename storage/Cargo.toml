@@ -18,7 +18,6 @@ audiotags = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 rand = { workspace = true }
-readable = { workspace = true }
 serde = { workspace = true }
 surrealdb = { workspace = true }
 thiserror = { workspace = true }

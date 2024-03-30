@@ -1,6 +1,5 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use readable::run::Runtime;
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Id, Thing};
 
@@ -27,7 +26,7 @@ pub struct Album {
     /// Release year of this [`Album`].
     pub release: Option<i32>,
     /// Total runtime of this [`Album`].
-    pub runtime: Runtime,
+    pub runtime: Duration,
     /// [`Song`] count of this [`Album`].
     pub song_count: usize,
     // SOMEDAY:
@@ -64,7 +63,7 @@ pub struct AlbumBrief {
     pub title: Arc<str>,
     pub artist: OneOrMany<Arc<str>>,
     pub release: Option<i32>,
-    pub runtime: Runtime,
+    pub runtime: Duration,
     pub song_count: usize,
     pub discs: u32,
     pub genre: OneOrMany<Arc<str>>,

@@ -1,9 +1,9 @@
 //----------------------------------------------------------------------------------------- std lib
 use std::sync::Arc;
+use std::time::Duration;
 use std::{collections::HashSet, path::PathBuf};
 //--------------------------------------------------------------------------------- other libraries
 use metadata::media_file::MediaFileMetadata;
-use readable::run::Runtime;
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Id, Thing};
 use tracing::instrument;
@@ -45,7 +45,7 @@ pub struct Song {
     pub genre: OneOrMany<Arc<str>>,
 
     /// Total runtime of this [`Song`].
-    pub duration: Runtime,
+    pub duration: Duration,
     // /// Sample rate of this [`Song`].
     // pub sample_rate: u32,
     /// The track number of this [`Song`].
@@ -252,7 +252,7 @@ pub struct SongBrief {
     pub album: Arc<str>,
     pub album_artist: OneOrMany<Arc<str>>,
     pub release_year: Option<i32>,
-    pub duration: Runtime,
+    pub duration: Duration,
     pub path: PathBuf,
 }
 
@@ -293,7 +293,7 @@ pub struct SongMetadata {
     pub album: Arc<str>,
     pub album_artist: OneOrMany<Arc<str>>,
     pub genre: OneOrMany<Arc<str>>,
-    pub duration: Runtime,
+    pub duration: Duration,
     pub release_year: Option<i32>,
     pub track: Option<u16>,
     pub disc: Option<u16>,

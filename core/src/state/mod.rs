@@ -1,4 +1,7 @@
 pub mod library;
+use std::time::Duration;
+
+use mecomp_storage::db::schemas::song::Song;
 use nutype::nutype;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString, EnumIter};
@@ -29,17 +32,15 @@ pub struct Percent(f32);
 pub struct StateRuntime {
     pub seek_position: f64,
     pub seek_percent: Percent,
-    pub duration: f64,
-    pub volume: Percent,
+    pub duration: Duration,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct StateAudio {
-    pub queue: Queue,
+    pub queue: Box<[Song]>,
     pub repeat_mode: RepeatMode,
-    pub shuffle: bool,
-    pub runtime: StateRuntime,
-    pub playing: bool,
+    pub runtime: Option<StateRuntime>,
+    pub paused: bool,
     pub muted: bool,
     pub volume: Percent,
 }

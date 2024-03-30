@@ -1,6 +1,5 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use readable::run::Runtime;
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Id, Thing};
 
@@ -21,7 +20,7 @@ pub struct Artist {
     pub name: Arc<str>,
 
     /// Total runtime.
-    pub runtime: Runtime,
+    pub runtime: Duration,
 
     // SOMEDAY:
     // This should be a Box<[AlbumKey]>.
@@ -44,7 +43,7 @@ impl Artist {
 pub struct ArtistBrief {
     pub id: ArtistId,
     pub name: Arc<str>,
-    pub runtime: Runtime,
+    pub runtime: Duration,
     pub albums: usize,
     pub songs: usize,
 }

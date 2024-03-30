@@ -1,6 +1,7 @@
 //! A collection is an auto currated list of similar songs.
 
-use readable::run::Runtime;
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Id, Thing};
 
@@ -16,7 +17,7 @@ pub struct Collection {
     pub id: CollectionId,
 
     /// Total runtime.
-    pub runtime: Runtime,
+    pub runtime: Duration,
 
     /// Keys to every [`Song`] in this [`Collection`].
     pub songs: Box<[SongId]>,
@@ -31,7 +32,7 @@ impl Collection {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CollectionBrief {
     pub id: CollectionId,
-    pub runtime: Runtime,
+    pub runtime: Duration,
     pub songs: usize,
 }
 
