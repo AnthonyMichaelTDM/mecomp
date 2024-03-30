@@ -13,6 +13,7 @@ use crate::{
         },
     },
     errors::Error,
+    util::OneOrMany,
 };
 
 impl Artist {
@@ -66,6 +67,17 @@ impl Artist {
     #[instrument]
     pub async fn read(id: ArtistId) -> Result<Option<Artist>, Error> {
         Ok(db().await?.select((TABLE_NAME, id)).await?)
+    }
+
+    #[instrument]
+    pub async fn read_one_or_many(ids: OneOrMany<ArtistId>) -> Result<OneOrMany<Artist>, Error> {
+        Ok(db()
+            .await?
+            .select(TABLE_NAME)
+            .await?
+            .into_iter()
+            .filter(|x: &Artist| ids.contains(&x.id))
+            .collect::<OneOrMany<_>>())
     }
 
     #[instrument]
