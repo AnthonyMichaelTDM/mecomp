@@ -44,6 +44,7 @@ mecomp-storage = { workspace = true }
 anyhow = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
+rstest_reuse = { workspace = true }
 tempfile = { workspace = true }
 audiotags = { workspace = true }
 # mecomp-storage = { workspace = true, features = ["mock"] }
@@ -59,3 +60,4 @@ otel_tracing = [
     "opentelemetry-otlp",
 ]
 flame = ["tracing-flame"]
+verbose_tracing = []

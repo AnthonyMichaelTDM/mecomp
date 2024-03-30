@@ -179,11 +179,13 @@ mod tests {
     use super::*;
     use crate::state::RepeatMode;
     use crate::test_utils::{
-        arb_song_case, arb_vec, bar_sc, baz_sc, create_song, foo_sc, init, SongCase,
+        arb_song_case, arb_vec, bar_sc, baz_sc, create_song, foo_sc, init, SongCase, TIMEOUT,
     };
 
     use pretty_assertions::assert_eq;
     use rstest::*;
+    use rstest_reuse;
+    use rstest_reuse::{apply, template};
 
     #[test]
     fn test_new_queue() {
@@ -255,16 +257,20 @@ mod tests {
         Ok(())
     }
 
+    #[template]
     #[rstest]
-    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 7 )] // skip more than the number of songs
-    #[case( arb_vec(&arb_song_case(), 4..=5 )(), 3 )] // skip less than the number of songs
-    #[case( arb_vec(&arb_song_case(), 5..=5 )(), 5 )] // skip all songs
-    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 1 )] // skip one
+    #[case::more_than_len( arb_vec(&arb_song_case(), 4..=5 )(), 7 )]
+    #[case::way_more_than_len( arb_vec(&arb_song_case(), 3..=5 )(), 11 )]
+    #[case::skip_len( arb_vec(&arb_song_case(), 5..=5 )(), 5 )]
+    #[case::skip_len_twice( arb_vec(&arb_song_case(), 5..=5 )(), 10 )]
+    #[case::less_than_len( arb_vec(&arb_song_case(), 4..=5 )(), 3 )]
+    #[case::skip_one( arb_vec(&arb_song_case(), 2..=5 )(), 1 )]
+    #[timeout(TIMEOUT)]
+    pub fn next_song_test_template(#[case] songs: Vec<SongCase>, #[case] skip: usize) {}
+
+    #[apply(next_song_test_template)]
     #[tokio::test]
-    async fn test_next_song_rp_none(
-        #[case] songs: Vec<SongCase>,
-        #[case] skip: usize,
-    ) -> anyhow::Result<()> {
+    async fn test_next_song_rp_none(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
         init().await?;
         let mut queue = Queue::new();
         let len = songs.len();
@@ -296,17 +302,9 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
-    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 7 )] // skip more than the number of songs
-    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 11 )] // skip more than twice the number of songs
-    #[case( arb_vec(&arb_song_case(), 5..=5 )(), 5 )] // skip all songs
-    #[case( arb_vec(&arb_song_case(), 4..=5 )(), 3 )] // skip less than the number of songs
-    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 1 )] // skip one
+    #[apply(next_song_test_template)]
     #[tokio::test]
-    async fn test_next_song_rp_once(
-        #[case] songs: Vec<SongCase>,
-        #[case] skip: usize,
-    ) -> anyhow::Result<()> {
+    async fn test_next_song_rp_once(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
         init().await?;
         let mut queue = Queue::new();
         let len = songs.len();
@@ -319,14 +317,16 @@ mod tests {
             let _ = queue.next_song();
         }
 
-        if skip / len == 0 {
+        if skip <= len {
+            // if we haven't reached the end of the queue
             assert_eq!(
                 queue.current_song(),
                 queue.get(skip - 1),
                 "len: {len}, skip: {skip}, current_index: {current_index}",
                 current_index = queue.current_index.unwrap_or_default()
             );
-        } else if skip / len == 1 {
+        } else if skip <= 2 * len {
+            // if we reached the end of the queue, looped back, and didn't reach the end again
             assert_eq!(
                 queue.current_song(),
                 queue.get(skip - 1 - len),
@@ -334,6 +334,7 @@ mod tests {
                 current_index = queue.current_index.unwrap_or_default()
             );
         } else {
+            // if we reached the end of the queue, looped back, and reached the end again
             assert_eq!(
                 queue.current_song(),
                 queue.songs.last(),
@@ -345,17 +346,9 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
-    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 7 )] // skip more than the number of songs
-    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 11 )] // skip more than twice the number of songs
-    #[case( arb_vec(&arb_song_case(), 5..=5 )(), 5 )] // skip all songs
-    #[case( arb_vec(&arb_song_case(), 4..=5 )(), 3 )] // skip less than the number of songs
-    #[case( arb_vec(&arb_song_case(), 2..=5 )(), 1 )] // skip one
+    #[apply(next_song_test_template)]
     #[tokio::test]
-    async fn test_next_song_rp_continuous(
-        #[case] songs: Vec<SongCase>,
-        #[case] skip: usize,
-    ) -> anyhow::Result<()> {
+    async fn test_next_song_rp_continuous(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
         init().await?;
         let mut queue = Queue::new();
         let len = songs.len();

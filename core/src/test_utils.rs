@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use std::{ops::RangeInclusive, time::Duration};
 
 use audiotags;
 use lazy_static::lazy_static;
@@ -13,6 +13,8 @@ lazy_static! {
     static ref TEMP_MUSIC_DIR: tempfile::TempDir = tempfile::tempdir().unwrap();
     static ref INIT: Mutex<Option<()>> = Mutex::new(None);
 }
+
+pub const TIMEOUT: std::time::Duration = Duration::from_secs(30);
 
 pub async fn init() -> anyhow::Result<()> {
     let mut init = INIT.lock().await;
@@ -59,7 +61,7 @@ pub async fn create_song(
     tags.add_album_artist(
         &album_artists
             .iter()
-            .map(|a| format!("Album Artist {}", a))
+            .map(|a| format!("Artist {}", a))
             .collect::<Vec<_>>()
             .join(ARTIST_NAME_SEPARATOR),
     );
