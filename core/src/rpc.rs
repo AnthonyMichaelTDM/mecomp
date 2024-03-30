@@ -4,16 +4,18 @@
 
 use std::ops::Range;
 
-use mecomp_storage::db::schemas::{
-    album::{Album, AlbumBrief, AlbumId},
-    artist::{Artist, ArtistBrief, ArtistId},
-    collection::{Collection, CollectionBrief, CollectionId},
-    playlist::{Playlist, PlaylistBrief, PlaylistId},
-    song::{Song, SongBrief, SongId},
+use mecomp_storage::{
+    db::schemas::{
+        album::{Album, AlbumBrief, AlbumId},
+        artist::{Artist, ArtistBrief, ArtistId},
+        collection::{Collection, CollectionBrief, CollectionId},
+        playlist::{Playlist, PlaylistBrief, PlaylistId},
+        song::{Song, SongBrief, SongId},
+    },
+    util::OneOrMany,
 };
 
 use crate::{
-    audio::queue::Queue,
     errors::SerializableLibraryError,
     search::SearchResult,
     state::{
@@ -65,23 +67,25 @@ pub trait MusicPlayer {
 
     // State retrieval.
     /// returns full information about the current state of the audio player (queue, current song, etc.)
-    async fn state_audio() -> StateAudio;
+    async fn state_audio() -> Option<StateAudio>;
     /// returns information about the current queue.
-    async fn state_queue() -> Queue;
+    async fn state_queue() -> Option<Box<[Song]>>;
+    /// returns the current queue position.
+    async fn state_queue_position() -> Option<usize>;
     /// is the player currently playing?
-    async fn state_playing() -> bool;
+    async fn state_paused() -> bool;
     /// what repeat mode is the player in?
-    async fn state_repeat() -> RepeatMode;
+    async fn state_repeat() -> Option<RepeatMode>;
     /// returns the current volume.
-    async fn state_volume() -> Percent;
+    async fn state_volume() -> Option<Percent>;
     /// returns the current volume mute state.
     async fn state_volume_muted() -> bool;
     /// returns information about the runtime of the current song (seek position and duration)
-    async fn state_runtime() -> StateRuntime;
+    async fn state_runtime() -> Option<StateRuntime>;
 
     // Current (audio state)
     /// returns the current artist.
-    async fn current_artist() -> Option<Artist>;
+    async fn current_artist() -> Option<OneOrMany<Artist>>;
     /// returns the current album.
     async fn current_album() -> Option<Album>;
     /// returns the current song.
@@ -134,13 +138,13 @@ pub trait MusicPlayer {
     async fn playback_shuffle() -> ();
     /// set the volume to the given value (0-100).
     /// (if the value is greater than 100, it will be clamped to 100.)
-    async fn playback_volume(volume: u8) -> ();
+    async fn playback_volume(volume: Percent) -> ();
     /// increase the volume by the given amount (0-100).
     /// (volume will be clamped to 100.)
-    async fn playback_volume_up(amount: u8) -> ();
+    async fn playback_volume_up(amount: Percent) -> ();
     /// decrease the volume by the given amount (0-100).
     /// (volume will be clamped to 0.)
-    async fn playback_volume_down(amount: u8) -> ();
+    async fn playback_volume_down(amount: Percent) -> ();
     /// toggle the volume mute.
     async fn playback_volume_toggle_mute() -> ();
     /// mute the volume.

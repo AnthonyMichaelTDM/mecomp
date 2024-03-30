@@ -19,14 +19,17 @@ use crate::{
     errors::LibraryError,
     state::{RepeatMode, StateAudio, StateRuntime},
 };
-use mecomp_storage::db::schemas::song::Song;
+use mecomp_storage::{
+    db::schemas::{album::Album, artist::Artist, song::Song},
+    util::OneOrMany,
+};
 
 use self::queue::Queue;
 
 lazy_static! {
     pub static ref AUDIO_KERNEL: Arc<AudioKernelSender> = {
         let (tx, rx) = std::sync::mpsc::channel();
-        tokio::spawn(async move {
+        tokio::spawn(async {
             let kernel = AudioKernel::new();
             kernel.spawn(rx);
         });
@@ -34,7 +37,7 @@ lazy_static! {
     };
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum AudioCommand {
     Play,
     Pause,
@@ -46,6 +49,7 @@ pub enum AudioCommand {
     Previous(Option<usize>),
     // PlaySource(Box<dyn Source<Item = f32> + Send>),
     AddSongToQueue(Song),
+    SetRepeatMode(RepeatMode),
     Exit,
     /// used to report information about the state of the audio kernel
     ReportStatus(tokio::sync::oneshot::Sender<StateAudio>),
@@ -62,6 +66,7 @@ impl PartialEq for AudioCommand {
             (AudioCommand::Skip(a), AudioCommand::Skip(b)) => a == b,
             (AudioCommand::Previous(a), AudioCommand::Previous(b)) => a == b,
             (AudioCommand::AddSongToQueue(a), AudioCommand::AddSongToQueue(b)) => a == b,
+            (AudioCommand::SetRepeatMode(a), AudioCommand::SetRepeatMode(b)) => a == b,
             (AudioCommand::Exit, AudioCommand::Exit) => true,
             (AudioCommand::ReportStatus(_), AudioCommand::ReportStatus(_)) => true,
             _ => false,
@@ -111,39 +116,82 @@ impl AudioKernel {
     /// this function should be called in a detached thread to keep the audio kernel running,
     /// this function will block until the `Exit` command is received
     pub fn spawn(self, rx: Receiver<AudioCommand>) {
-        loop {
-            let command = rx.recv().unwrap();
-            match command {
-                AudioCommand::Play => self.play(),
-                AudioCommand::Pause => self.pause(),
-                AudioCommand::TogglePlayback => self.toggle_playback(),
-                AudioCommand::ClearPlayer => self.clear_player(),
-                AudioCommand::Clear => self.clear(),
-                AudioCommand::Skip(n) => self.skip(n),
-                AudioCommand::Previous(_threshold) => todo!(),
-                //AudioCommand::PlaySource(source) => self.append_to_player(source),
-                AudioCommand::AddSongToQueue(song) => self.add_song_to_queue(song),
-                AudioCommand::Exit => break,
-                AudioCommand::ReportStatus(tx) => {
-                    let state = StateAudio {
-                        queue: self.queue.borrow().queued_songs(),
-                        repeat_mode: self.queue.borrow().get_repeat_mode(),
-                        runtime: self.queue.borrow().current_song().map(|song| StateRuntime {
-                            seek_position: todo!("determine how much of a Source has been played"),
-                            seek_percent: todo!("determine how much of a Source has been played"),
-                            duration: song.duration,
-                        }),
-                        paused: self.player.is_paused(),
-                        muted: todo!("implement volume control"),
-                        volume: todo!("implement volume control"),
-                    };
-                    if let Err(e) = tx.send(state) {
-                        // report and ignore errors
-                        error!("Audio kernel failed to report it's state: {}", e);
+        async fn run(kernel: AudioKernel, rx: Receiver<AudioCommand>) {
+            loop {
+                let command = rx.recv().unwrap();
+                match command {
+                    AudioCommand::Play => kernel.play(),
+                    AudioCommand::Pause => kernel.pause(),
+                    AudioCommand::TogglePlayback => kernel.toggle_playback(),
+                    AudioCommand::ClearPlayer => kernel.clear_player(),
+                    AudioCommand::Clear => kernel.clear(),
+                    AudioCommand::Skip(n) => kernel.skip(n),
+                    AudioCommand::Previous(_threshold) => todo!(),
+                    //AudioCommand::PlaySource(source) => kernel.append_to_player(source),
+                    AudioCommand::AddSongToQueue(song) => kernel.add_song_to_queue(song),
+                    AudioCommand::SetRepeatMode(mode) => {
+                        kernel.queue.borrow_mut().set_repeat_mode(mode)
+                    }
+                    AudioCommand::Exit => break,
+                    AudioCommand::ReportStatus(tx) => {
+                        let current_song = kernel.queue.borrow().current_song().cloned();
+
+                        let (current_album, current_artist) = tokio::join!(
+                            async {
+                                if let Some(id) = current_song.as_ref().map(|s| s.album_id.clone())
+                                {
+                                    Album::read(id).await
+                                } else {
+                                    Ok(None)
+                                }
+                            },
+                            async {
+                                if let Some(id) = current_song.as_ref().map(|s| s.artist_id.clone())
+                                {
+                                    Artist::read_one_or_many(id).await
+                                } else {
+                                    Ok(OneOrMany::None)
+                                }
+                            }
+                        );
+
+                        let state = StateAudio {
+                            queue: kernel.queue.borrow().queued_songs(),
+                            queue_position: kernel.queue.borrow().current_index(),
+                            current_song: current_song,
+                            repeat_mode: kernel.queue.borrow().get_repeat_mode(),
+                            runtime: kernel.queue.borrow().current_song().map(|song| {
+                                StateRuntime {
+                                    duration: song.duration,
+                                    seek_position: todo!(
+                                        "determine how much of a Source has been played"
+                                    ),
+                                    seek_percent: todo!(
+                                        "determine how much of a Source has been played"
+                                    ),
+                                }
+                            }),
+                            paused: kernel.player.is_paused(),
+                            muted: todo!("implement volume control"),
+                            volume: todo!("implement volume control"),
+                            current_album: current_album.ok().flatten(),
+                            current_artist: current_artist.ok().into(),
+                        };
+
+                        if let Err(_) = tx.send(state) {
+                            // report and ignore errors
+                            error!("Audio kernel failed to report its state");
+                        }
                     }
                 }
             }
         }
+
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(run(self, rx));
     }
 
     fn play(&self) {

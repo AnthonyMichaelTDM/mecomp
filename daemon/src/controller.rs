@@ -7,7 +7,7 @@ use rand::seq::SliceRandom;
 use tap::TapFallible;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
-    audio::{queue::Queue, AudioCommand, AUDIO_KERNEL},
+    audio::{AudioCommand, AUDIO_KERNEL},
     errors::SerializableLibraryError,
     rpc::MusicPlayer,
     search::SearchResult,
@@ -25,6 +25,7 @@ use mecomp_storage::{
         song::{Song, SongBrief, SongId},
     },
     errors::Error::{self, NotFound},
+    util::OneOrMany,
 };
 use tracing::{instrument, Instrument};
 
@@ -210,54 +211,149 @@ impl MusicPlayer for MusicPlayerServer {
     }
 
     /// returns full information about the current state of the audio player (queue, current song, etc.)
-    async fn state_audio(self, _context: Context) -> StateAudio {
+    #[instrument]
+    async fn state_audio(self, _context: Context) -> Option<StateAudio> {
         info!("Getting state of audio player");
-        todo!()
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+
+        rx.await
+            .tap_err(|e| warn!("Error in state_audio: {e}"))
+            .ok()
     }
     /// returns information about the current queue.
-    async fn state_queue(self, _context: Context) -> Queue {
+    #[instrument]
+    async fn state_queue(self, _context: Context) -> Option<Box<[Song]>> {
         info!("Getting state of queue");
-        todo!()
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+
+        rx.await
+            .tap_err(|e| warn!("Error in state_queue: {e}"))
+            .ok()
+            .map(|state| state.queue)
     }
-    /// is the player currently playing?
-    async fn state_playing(self, _context: Context) -> bool {
+    /// returns the current queue position.
+    #[instrument]
+    async fn state_queue_position(self, _context: Context) -> Option<usize> {
+        info!("Getting state of queue position");
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+
+        rx.await
+            .tap_err(|e| warn!("Error in state_queue_position: {e}"))
+            .ok()
+            .and_then(|state| state.queue_position)
+    }
+    /// is the player currently paused?
+    #[instrument]
+    async fn state_paused(self, _context: Context) -> bool {
         info!("Getting state of playing");
-        todo!()
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+
+        rx.await
+            .tap_err(|e| warn!("Error in state_playing: {e}"))
+            .ok()
+            .map(|state| state.paused)
+            .unwrap_or_default()
     }
     /// what repeat mode is the player in?
-    async fn state_repeat(self, _context: Context) -> RepeatMode {
+    #[instrument]
+    async fn state_repeat(self, _context: Context) -> Option<RepeatMode> {
         info!("Getting state of repeat");
-        todo!()
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+
+        rx.await
+            .tap_err(|e| warn!("Error in state_repeat: {e}"))
+            .ok()
+            .map(|state| state.repeat_mode)
     }
     /// returns the current volume.
-    async fn state_volume(self, _context: Context) -> Percent {
+    #[instrument]
+    async fn state_volume(self, _context: Context) -> Option<Percent> {
         info!("Getting state of volume");
-        todo!()
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+
+        rx.await
+            .tap_err(|e| warn!("Error in state_volume: {e}"))
+            .ok()
+            .map(|state| state.volume)
     }
     /// returns the current volume mute state.
+    #[instrument]
     async fn state_volume_muted(self, _context: Context) -> bool {
         info!("Getting state of volume muted");
-        todo!()
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+
+        rx.await
+            .tap_err(|e| warn!("Error in state_volume_muted: {e}"))
+            .ok()
+            .map(|state| state.muted)
+            .unwrap_or_default()
     }
     /// returns information about the runtime of the current song (seek position and duration)
-    async fn state_runtime(self, _context: Context) -> StateRuntime {
+    #[instrument]
+    async fn state_runtime(self, _context: Context) -> Option<StateRuntime> {
         info!("Getting state of runtime");
-        todo!()
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+
+        rx.await
+            .tap_err(|e| warn!("Error in state_runtime: {e}"))
+            .ok()
+            .and_then(|state| state.runtime)
     }
+
     /// returns the current artist.
-    async fn current_artist(self, _context: Context) -> Option<Artist> {
+    #[instrument]
+    async fn current_artist(self, _context: Context) -> Option<OneOrMany<Artist>> {
         info!("Getting current artist");
-        todo!()
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+
+        rx.await
+            .tap_err(|e| warn!("Error in current_artist: {e}"))
+            .ok()
+            .map(|state| state.current_artist)
     }
     /// returns the current album.
+    #[instrument]
     async fn current_album(self, _context: Context) -> Option<Album> {
         info!("Getting current album");
-        todo!()
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+
+        rx.await
+            .tap_err(|e| warn!("Error in current_album: {e}"))
+            .ok()
+            .and_then(|state| state.current_album)
     }
     /// returns the current song.
+    #[instrument]
     async fn current_song(self, _context: Context) -> Option<Song> {
         info!("Getting current song");
-        todo!()
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+
+        rx.await
+            .tap_err(|e| warn!("Error in current_song: {e}"))
+            .ok()
+            .and_then(|state| state.current_song)
     }
 
     /// returns a random artist.
@@ -413,9 +509,17 @@ impl MusicPlayer for MusicPlayerServer {
         todo!()
     }
     /// set the repeat mode.
+    #[instrument]
     async fn playback_repeat(self, _context: Context, mode: RepeatMode) {
         info!("Setting repeat mode to: {}", mode);
-        todo!()
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::SetRepeatMode(mode));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
     /// Shuffle the current queue, then start playing from the 1st Song in the queue.
     async fn playback_shuffle(self, _context: Context) {
@@ -424,19 +528,19 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// set the volume to the given value (0-100).
     /// (if the value is greater than 100, it will be clamped to 100.)
-    async fn playback_volume(self, _context: Context, volume: u8) {
+    async fn playback_volume(self, _context: Context, volume: Percent) {
         info!("Setting volume to: {}", volume);
         todo!()
     }
     /// increase the volume by the given amount (0-100).
     /// (volume will be clamped to 100.)
-    async fn playback_volume_up(self, _context: Context, amount: u8) {
+    async fn playback_volume_up(self, _context: Context, amount: Percent) {
         info!("Increasing volume by: {}", amount);
         todo!()
     }
     /// decrease the volume by the given amount (0-100).
     /// (volume will be clamped to 0.)
-    async fn playback_volume_down(self, _context: Context, amount: u8) {
+    async fn playback_volume_down(self, _context: Context, amount: Percent) {
         info!("Decreasing volume by: {}", amount);
         todo!()
     }
