@@ -148,6 +148,10 @@ impl Queue {
         self.repeat_mode = repeat_mode;
     }
 
+    pub fn get_repeat_mode(&self) -> RepeatMode {
+        self.repeat_mode
+    }
+
     pub fn shuffle(&mut self) {
         // shuffle
         self.songs.shuffle(&mut thread_rng());
@@ -171,6 +175,14 @@ impl Queue {
 
     pub fn is_empty(&self) -> bool {
         self.songs.is_empty()
+    }
+
+    pub fn current_index(&self) -> Option<usize> {
+        self.current_index
+    }
+
+    pub fn queued_songs(&self) -> Box<[Song]> {
+        self.songs.clone().into_boxed_slice()
     }
 }
 

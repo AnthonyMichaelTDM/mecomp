@@ -15,7 +15,10 @@ use log::error;
 use rodio::{Decoder, Source};
 use tracing::instrument;
 
-use crate::errors::LibraryError;
+use crate::{
+    errors::LibraryError,
+    state::{RepeatMode, StateAudio, StateRuntime},
+};
 use mecomp_storage::db::schemas::song::Song;
 
 use self::queue::Queue;
@@ -31,7 +34,7 @@ lazy_static! {
     };
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum AudioCommand {
     Play,
     Pause,
@@ -44,6 +47,26 @@ pub enum AudioCommand {
     // PlaySource(Box<dyn Source<Item = f32> + Send>),
     AddSongToQueue(Song),
     Exit,
+    /// used to report information about the state of the audio kernel
+    ReportStatus(tokio::sync::oneshot::Sender<StateAudio>),
+}
+
+impl PartialEq for AudioCommand {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (AudioCommand::Play, AudioCommand::Play) => true,
+            (AudioCommand::Pause, AudioCommand::Pause) => true,
+            (AudioCommand::TogglePlayback, AudioCommand::TogglePlayback) => true,
+            (AudioCommand::ClearPlayer, AudioCommand::ClearPlayer) => true,
+            (AudioCommand::Clear, AudioCommand::Clear) => true,
+            (AudioCommand::Skip(a), AudioCommand::Skip(b)) => a == b,
+            (AudioCommand::Previous(a), AudioCommand::Previous(b)) => a == b,
+            (AudioCommand::AddSongToQueue(a), AudioCommand::AddSongToQueue(b)) => a == b,
+            (AudioCommand::Exit, AudioCommand::Exit) => true,
+            (AudioCommand::ReportStatus(_), AudioCommand::ReportStatus(_)) => true,
+            _ => false,
+        }
+    }
 }
 
 pub struct AudioKernelSender {
@@ -101,6 +124,24 @@ impl AudioKernel {
                 //AudioCommand::PlaySource(source) => self.append_to_player(source),
                 AudioCommand::AddSongToQueue(song) => self.add_song_to_queue(song),
                 AudioCommand::Exit => break,
+                AudioCommand::ReportStatus(tx) => {
+                    let state = StateAudio {
+                        queue: self.queue.borrow().queued_songs(),
+                        repeat_mode: self.queue.borrow().get_repeat_mode(),
+                        runtime: self.queue.borrow().current_song().map(|song| StateRuntime {
+                            seek_position: todo!("determine how much of a Source has been played"),
+                            seek_percent: todo!("determine how much of a Source has been played"),
+                            duration: song.duration,
+                        }),
+                        paused: self.player.is_paused(),
+                        muted: todo!("implement volume control"),
+                        volume: todo!("implement volume control"),
+                    };
+                    if let Err(e) = tx.send(state) {
+                        // report and ignore errors
+                        error!("Audio kernel failed to report it's state: {}", e);
+                    }
+                }
             }
         }
     }
