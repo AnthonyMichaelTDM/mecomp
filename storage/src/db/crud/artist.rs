@@ -1,5 +1,5 @@
 //! CRUD operations for the artist table
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use tracing::instrument;
 
@@ -41,7 +41,7 @@ impl Artist {
                 name: name.into(),
                 songs: vec![].into_boxed_slice(),
                 albums: vec![].into_boxed_slice(),
-                runtime: 0.into(),
+                runtime: Duration::from_secs(0),
             })
             .await
         }

@@ -137,7 +137,7 @@ impl Song {
                     artist_id: album_artists.iter().cloned().map(|x| x.id).collect(),
                     artist: metadata.album_artist.clone(),
                     release: metadata.release_year,
-                    runtime: 0.into(),
+                    runtime: Duration::from_secs(0),
                     song_count: 0,
                     songs: vec![].into_boxed_slice(),
                     discs: 1,
@@ -520,9 +520,8 @@ impl SongMetadata {
                 .into(),
             duration: MediaFileMetadata::new(&path)
                 .map_err(|_| SongIOError::DurationReadError)
-                .map(|x| x._duration)?
-                .ok_or(SongIOError::DurationNotFound)?
-                .into(),
+                .map(|x| x._duration.map(Duration::from_secs_f64))?
+                .ok_or(SongIOError::DurationNotFound)?,
             track: tags.track_number(),
             disc: tags.disc_number(),
             release_year: tags.year(),

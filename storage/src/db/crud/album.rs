@@ -1,5 +1,5 @@
 //! CRUD operations for the album table
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use log::warn;
 use tracing::instrument;
@@ -45,7 +45,7 @@ impl Album {
                 title: title.into(),
                 artist: album_artists.iter().cloned().collect(),
                 songs: vec![].into_boxed_slice(),
-                runtime: 0.into(),
+                runtime: Duration::from_secs(0),
                 artist_id: Artist::create_or_read_by_names(album_artists)
                     .await?
                     .into_iter()
