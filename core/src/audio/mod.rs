@@ -31,7 +31,7 @@ lazy_static! {
     };
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AudioCommand {
     Play,
     Pause,
@@ -179,5 +179,57 @@ impl AudioKernel {
 
     fn queue(&self) -> RefMut<Queue> {
         self.queue.borrow_mut()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::{fixture, rstest};
+
+    use super::*;
+    use std::sync::mpsc;
+
+    #[fixture]
+    fn audio_kernel() -> AudioKernel {
+        AudioKernel::new()
+    }
+
+    #[fixture]
+    fn sound() -> impl Source<Item = f32> + Send + 'static {
+        rodio::source::SineWave::new(440.0)
+    }
+
+    #[rstest]
+    fn test_audio_kernel_play_pause(
+        audio_kernel: AudioKernel,
+        sound: impl Source<Item = f32> + Send + 'static,
+    ) {
+        audio_kernel.player.append(sound);
+        audio_kernel.play();
+        assert!(!audio_kernel.player.is_paused());
+        audio_kernel.pause();
+        assert!(audio_kernel.player.is_paused());
+    }
+
+    #[rstest]
+    fn test_audio_kernel_toggle_playback(
+        audio_kernel: AudioKernel,
+        sound: impl Source<Item = f32> + Send + 'static,
+    ) {
+        audio_kernel.player.append(sound);
+        audio_kernel.play();
+        assert!(!audio_kernel.player.is_paused());
+        audio_kernel.toggle_playback();
+        assert!(audio_kernel.player.is_paused());
+        audio_kernel.toggle_playback();
+        assert!(!audio_kernel.player.is_paused());
+    }
+
+    #[test]
+    fn test_audio_kernel_sender_send() {
+        let (tx, rx) = mpsc::channel();
+        let sender = AudioKernelSender { tx };
+        sender.send(AudioCommand::Play);
+        assert_eq!(rx.recv().unwrap(), AudioCommand::Play);
     }
 }
