@@ -277,6 +277,7 @@ mod tests {
 
     use super::*;
     use std::sync::mpsc;
+    use std::time::Duration;
 
     #[fixture]
     fn audio_kernel() -> AudioKernel {
@@ -320,5 +321,23 @@ mod tests {
         let sender = AudioKernelSender { tx };
         sender.send(AudioCommand::Play);
         assert_eq!(rx.recv().unwrap(), AudioCommand::Play);
+    }
+
+    #[rstest]
+    #[timeout(Duration::from_secs(3))] // if the test takes longer than 3 seconds, this is a failure
+    fn test_audio_player_kernel_spawn_and_exit() {
+        let (tx, rx) = mpsc::channel();
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        rt.spawn(async {
+            let kernel = AudioKernel::new();
+            kernel.spawn(rx);
+        });
+
+        let sender = AudioKernelSender { tx };
+        sender.send(AudioCommand::Exit);
     }
 }
