@@ -35,7 +35,7 @@ help() {
 
 # Clippy.
 clippy() {
-	for i in {mecomp-core,mecomp-daemon,mecomp-storage}; do
+	for i in {mecomp-core,mecomp-daemon,mecomp-storage,surrealqlx}; do
 		title "Clippy [${i}]"
 		if cargo clippy -r -p ${i} --no-deps; then
 			ok "Clippy [${i}] OK"
@@ -48,7 +48,7 @@ clippy() {
 
 # Test.
 test() {
-	for i in {mecomp-daemon,mecomp-core,mecomp-storage}; do
+	for i in {mecomp-daemon,mecomp-core,mecomp-storage,surrealqlx}; do
 		title "Test [${i}]"
 		if cargo test -r -p ${i}; then
 			ok "Test [${i}] OK"
@@ -63,7 +63,7 @@ test() {
 
 # Build.
 build() {
-	for i in {mecomp-daemon,mecomp-core,mecomp-storage}; do
+	for i in {mecomp-daemon,mecomp-core,mecomp-storage,surrealqlx}; do
 		title "Build [${i}]"
 		if cargo build -r -p ${i}; then
 			ok "Build [${i}] OK"

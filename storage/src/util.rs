@@ -3,6 +3,7 @@
 use std::clone::Clone;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default)]
+#[serde(untagged)]
 pub enum OneOrMany<T> {
     One(T),
     Many(Vec<T>),

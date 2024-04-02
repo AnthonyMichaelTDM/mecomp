@@ -1,0 +1,25 @@
+[package]
+name = "surrealqlx-macros"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Macros for surrealqlx"
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+proc-macro = true
+doctest = false
+
+[dependencies]
+proc-macro2 = "1.0.79"
+quote = { version = "1.0.35", features = ["proc-macro"] }
+syn = { version = "2.0.57", features = ["parsing", "proc-macro"] }
+
+[dev-dependencies]
+macrotest = "1.0.11"

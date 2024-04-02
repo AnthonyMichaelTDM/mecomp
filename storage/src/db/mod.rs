@@ -6,6 +6,7 @@ use std::{ops::Deref, path::PathBuf};
 use log::info;
 use once_cell::sync::Lazy;
 use surrealdb::{engine::local::Db, Surreal};
+use surrealqlx::register_tables;
 use tempfile::TempDir;
 use tokio::sync::{OnceCell, SetError};
 
@@ -15,7 +16,7 @@ static DB: Lazy<Surreal<Db>> = Lazy::new(|| {
     });
     Surreal::init()
 });
-static DB_DIR: Lazy<OnceCell<PathBuf>> = Lazy::new(OnceCell::new);
+static DB_DIR: OnceCell<PathBuf> = OnceCell::const_new();
 
 static TEMP_DB_DIR: Lazy<TempDir> =
     Lazy::new(|| tempfile::tempdir().expect("Failed to create temporary directory"));
@@ -30,11 +31,21 @@ async fn setup() -> surrealdb::Result<()> {
     DB.connect( DB_DIR
         .get().cloned()
         .unwrap_or_else(|| {
-            log::warn!("DB_DIR not set, defaulting to a temporary directory, this is likely a bug because `init_database` should be called before `db`");
+            log::warn!("DB_DIR not set, defaulting to a temporary directory `{}`, this is likely a bug because `init_database` should be called before `db`", TEMP_DB_DIR.path().display());
             TEMP_DB_DIR.path()
             .to_path_buf()
         })).await?;
     DB.use_ns("mecomp").use_db("music").await?;
+
+    register_tables!(
+        DB.deref(),
+        schemas::album::Album,
+        schemas::artist::Artist,
+        schemas::song::Song,
+        schemas::collection::Collection,
+        schemas::playlist::Playlist
+    )?;
+
     Ok(())
 }
 

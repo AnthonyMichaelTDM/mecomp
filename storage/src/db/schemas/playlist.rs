@@ -2,6 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Id, Thing};
+use surrealqlx::Table;
 
 use super::song::SongId;
 
@@ -9,20 +10,25 @@ pub type PlaylistId = Thing;
 
 pub const TABLE_NAME: &str = "playlist";
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 /// This struct holds all the metadata about a particular [`Playlist`].
 /// A [`Playlist`] is a collection of [`Song`]s.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Table)]
+#[Table("playlist")]
 pub struct Playlist {
     /// the unique identifier for this [`Playlist`].
+    #[field(dt = "record")]
     pub id: PlaylistId,
 
     /// The [`Artist`]'s name.
+    #[field(dt = "string")]
     pub name: Arc<str>,
 
     /// Total runtime.
+    #[field(dt = "duration")]
     pub runtime: Duration,
 
     /// Keys to every [`Song`] in this [`Playlist`].
+    #[field(dt = "set<record>")]
     pub songs: Box<[SongId]>,
 }
 

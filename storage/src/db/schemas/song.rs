@@ -6,6 +6,7 @@ use std::{collections::HashSet, path::PathBuf};
 use metadata::media_file::MediaFileMetadata;
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Id, Thing};
+use surrealqlx::Table;
 use tracing::instrument;
 //----------------------------------------------------------------------------------- local modules
 use super::{
@@ -21,46 +22,62 @@ pub type SongId = Thing;
 
 pub const TABLE_NAME: &str = "song";
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 /// This struct holds all the metadata about a particular [`Song`].
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, Table)]
+#[Table("song")]
 pub struct Song {
     // / The unique identifier for this [`Song`].
+    #[field(dt = "record")]
     pub id: SongId,
     /// Title of the [`Song`].
+    #[field(dt = "string")]
     pub title: Arc<str>,
     /// Artist of the [`Song`]. (Can be multiple)
+    #[field(dt = "option<set<record> | record>")]
     pub artist_id: OneOrMany<ArtistId>,
     /// Artist of the [`Song`]. (Can be multiple)
+    #[field(dt = "option<set<string> | string>")]
     pub artist: OneOrMany<Arc<str>>,
     /// album artist, if not found then defaults to first artist
+    #[field(dt = "option<set<string> | string>")]
     pub album_artist: OneOrMany<Arc<str>>,
     /// album artist id
+    #[field(dt = "option<set<record> | record>")]
     pub album_artist_id: OneOrMany<ArtistId>,
 
     /// Key to the [`Album`].
+    #[field(dt = "record")]
     pub album_id: AlbumId,
     /// album title
+    #[field(dt = "string")]
     pub album: Arc<str>,
     /// Genre of the [`Song`]. (Can be multiple)
+    #[field(dt = "option<set<string> | string>")]
     pub genre: OneOrMany<Arc<str>>,
 
     /// Total runtime of this [`Song`].
+    #[field(dt = "duration")]
     pub duration: Duration,
     // /// Sample rate of this [`Song`].
     // pub sample_rate: u32,
     /// The track number of this [`Song`].
+    #[field(dt = "option<int>")]
     pub track: Option<u16>,
     /// The disc number of this [`Song`].
+    #[field(dt = "option<int>")]
     pub disc: Option<u16>,
     /// the year the song was released
+    #[field(dt = "option<int>")]
     pub release_year: Option<i32>,
 
     // /// The `MIME` type of this [`Song`].
     // pub mime: Arc<str>,
     /// The file extension of this [`Song`].
+    #[field(dt = "string")]
     pub extension: Arc<str>,
 
     /// The [`PathBuf`] this [`Song`] is located at.
+    #[field(dt = "string")]
     pub path: PathBuf,
 }
 

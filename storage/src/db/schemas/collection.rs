@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Id, Thing};
+use surrealqlx::Table;
 
 use super::song::SongId;
 
@@ -11,15 +12,19 @@ pub type CollectionId = Thing;
 
 pub const TABLE_NAME: &str = "collection";
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Table)]
+#[Table("collection")]
 pub struct Collection {
     /// the unique identifier for this [`Collection`].
+    #[field(dt = "record")]
     pub id: CollectionId,
 
     /// Total runtime.
+    #[field(dt = "duration")]
     pub runtime: Duration,
 
     /// Keys to every [`Song`] in this [`Collection`].
+    #[field(dt = "set<record>")]
     pub songs: Box<[SongId]>,
 }
 

@@ -20,6 +20,7 @@ once_cell = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 surrealdb = { workspace = true }
+surrealqlx = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
