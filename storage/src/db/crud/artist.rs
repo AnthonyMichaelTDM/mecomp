@@ -98,7 +98,7 @@ impl Artist {
             .await?
             .ok_or(Error::NotFound)?;
 
-        artist.runtime = artist.runtime + album.runtime;
+        artist.runtime += album.runtime;
         artist.songs = artist
             .songs
             .iter()

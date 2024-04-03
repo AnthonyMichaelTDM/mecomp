@@ -8,7 +8,7 @@ pub trait Table {
         db: &Surreal<C>,
     ) -> impl std::future::Future<Output = Result<()>> + Send {
         async {
-            let _: _ = db.query(Self::TABLE_SCHEMA_QUERY).await?;
+            let _ = db.query(Self::TABLE_SCHEMA_QUERY).await?;
             Ok(())
         }
     }

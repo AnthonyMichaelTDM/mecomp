@@ -147,7 +147,7 @@ impl Song {
                 continue;
             }
             // if we didn't find the album, create a new album (if we haven't already)
-            if let None = album {
+            if album.is_none() {
                 album = Album::create(Album {
                     id: Album::generate_id(),
                     title: metadata.album.clone(),

@@ -72,7 +72,7 @@ impl Queue {
         }
         if self.current_index.is_none() {
             self.current_index = Some(0);
-            return self.songs.get(0);
+            return self.songs.first();
         }
 
         let mut current_index = self.current_index.unwrap_or(0);

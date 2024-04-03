@@ -66,11 +66,7 @@ fn parse_table_name(input: &DeriveInput) -> syn::Result<String> {
         .ok_or_else(|| {
             syn::Error::new_spanned(input, "Table attribute must be specified for the struct")
         })
-        .and_then(|attr| {
-            attr.parse_args::<syn::LitStr>()
-                .map(|lit| lit.value())
-                .map_err(|err| err)
-        })?;
+        .and_then(|attr| attr.parse_args::<syn::LitStr>().map(|lit| lit.value()))?;
     Ok(table_name)
 }
 

@@ -100,7 +100,7 @@ pub async fn rescan(
         })
         .flat_map(|x| WalkDir::new(x).into_iter())
         .filter_map(|x| x.tap_err(|e| warn!("Error reading path: {}", e)).ok())
-        .filter_map(|x| x.file_type().is_file().then(|| x))
+        .filter_map(|x| x.file_type().is_file().then_some(x))
     {
         if visited_paths.contains(path.path()) {
             continue;

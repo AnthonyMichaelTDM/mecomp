@@ -27,7 +27,7 @@ pub struct Percent(f32);
 
 impl Display for Percent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:.2}%", self)
+        write!(f, "{:.2}%", self.into_inner())
     }
 }
 

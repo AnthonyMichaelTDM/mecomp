@@ -158,7 +158,7 @@ impl AudioKernel {
                         let state = StateAudio {
                             queue: kernel.queue.borrow().queued_songs(),
                             queue_position: kernel.queue.borrow().current_index(),
-                            current_song: current_song,
+                            current_song,
                             repeat_mode: kernel.queue.borrow().get_repeat_mode(),
                             runtime: kernel.queue.borrow().current_song().map(|song| {
                                 StateRuntime {
@@ -178,7 +178,7 @@ impl AudioKernel {
                             current_artist: current_artist.ok().into(),
                         };
 
-                        if let Err(_) = tx.send(state) {
+                        if tx.send(state).is_err() {
                             // report and ignore errors
                             error!("Audio kernel failed to report its state");
                         }

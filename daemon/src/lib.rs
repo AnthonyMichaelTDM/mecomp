@@ -1,7 +1,6 @@
 //----------------------------------------------------------------------------------------- std lib
 use std::net::{IpAddr, Ipv4Addr};
 //--------------------------------------------------------------------------------- other libraries
-use anyhow;
 use futures::{future, prelude::*};
 use log::info;
 use tarpc::{
@@ -9,7 +8,6 @@ use tarpc::{
     server::{incoming::Incoming as _, BaseChannel, Channel as _},
     tokio_serde::formats::Bincode,
 };
-use tokio;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
     logger::{init_logger, init_tracing},
@@ -67,9 +65,7 @@ pub async fn start_daemon(
         .for_each(|()| async {})
         .await;
 
-    return Ok(());
-
-    // todo!();
+    Ok(())
 }
 
 pub async fn init_client(rpc_port: u16) -> anyhow::Result<MusicPlayerClient> {
