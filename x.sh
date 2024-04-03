@@ -63,7 +63,7 @@ test() {
 
 # Build.
 build() {
-	for i in {mecomp-daemon,mecomp-core,mecomp-storage,surrealqlx}; do
+	for i in {mecomp-workspace-hack,mecomp-daemon,mecomp-core,mecomp-storage,surrealqlx}; do
 		title "Build [${i}]"
 		if cargo build -r -p ${i}; then
 			ok "Build [${i}] OK"

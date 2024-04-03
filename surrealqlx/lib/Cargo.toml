@@ -18,4 +18,5 @@ macros = ["surrealqlx-macros"]
 [dependencies]
 surrealdb.workspace = true
 surrealqlx-macros = { path = "../macros", optional = true }
+mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
 # tracing.workspace = true

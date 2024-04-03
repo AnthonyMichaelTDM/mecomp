@@ -38,6 +38,7 @@ opentelemetry-semantic-conventions = { workspace = true, optional = true }
 
 # MECOMP dependencies
 mecomp-storage = { workspace = true }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
 # shared dev dependencies

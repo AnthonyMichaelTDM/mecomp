@@ -855,7 +855,7 @@ dependencies = [
  "anstream",
  "anstyle",
  "clap_lex",
- "strsim 0.11.0",
+ "strsim 0.11.1",
 ]
 
 [[package]]
@@ -2353,6 +2353,7 @@ dependencies = [
  "lazy_static",
  "log",
  "mecomp-storage",
+ "mecomp-workspace-hack",
  "nutype",
  "once_cell",
  "opentelemetry 0.22.0",
@@ -2389,6 +2390,7 @@ dependencies = [
  "log",
  "mecomp-core",
  "mecomp-storage",
+ "mecomp-workspace-hack",
  "rand",
  "rodio",
  "serde",
@@ -2406,6 +2408,7 @@ version = "0.1.0"
 dependencies = [
  "audiotags",
  "log",
+ "mecomp-workspace-hack",
  "metadata",
  "once_cell",
  "rand",
@@ -2416,6 +2419,48 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "mecomp-workspace-hack"
+version = "0.1.0"
+dependencies = [
+ "ahash 0.8.11",
+ "arrayvec",
+ "bitflags 2.5.0",
+ "crossbeam-utils",
+ "either",
+ "futures-channel",
+ "futures-executor",
+ "futures-sink",
+ "futures-util",
+ "getrandom",
+ "hashbrown 0.14.3",
+ "indexmap 2.2.6",
+ "itertools 0.11.0",
+ "lalrpop-util",
+ "libc",
+ "log",
+ "memchr",
+ "nom",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "regex",
+ "regex-automata 0.4.6",
+ "regex-syntax 0.8.3",
+ "semver",
+ "serde",
+ "serde_json",
+ "syn 1.0.109",
+ "syn 2.0.57",
+ "tiny-keccak",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-core",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -4310,9 +4355,9 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "strsim"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ee073c9e4cd00e28217186dbe12796d692868f432bf2e97ee73bed0c56dfa01"
+checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "strum"
@@ -4483,6 +4528,7 @@ dependencies = [
 name = "surrealqlx"
 version = "0.1.0"
 dependencies = [
+ "mecomp-workspace-hack",
  "surrealdb",
  "surrealqlx-macros",
 ]
@@ -4492,6 +4538,7 @@ name = "surrealqlx-macros"
 version = "0.1.0"
 dependencies = [
  "macrotest",
+ "mecomp-workspace-hack",
  "proc-macro2",
  "quote",
  "syn 2.0.57",

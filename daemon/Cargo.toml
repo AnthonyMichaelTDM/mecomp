@@ -36,6 +36,7 @@ mecomp-storage = { workspace = true }
 config = { version = "0.14", features = ["toml"] }
 bincode = { version = "1.3.3" }
 shellexpand = { version = "3.0" }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [features]
 default = []

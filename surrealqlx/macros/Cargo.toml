@@ -20,6 +20,7 @@ doctest = false
 proc-macro2 = "1.0.79"
 quote = { version = "1.0.35", features = ["proc-macro"] }
 syn = { version = "2.0.57", features = ["parsing", "proc-macro"] }
+mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
 
 [dev-dependencies]
 macrotest = "1.0.11"
