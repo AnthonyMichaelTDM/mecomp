@@ -2,6 +2,16 @@ pub mod traits;
 #[cfg(feature = "macros")]
 pub use surrealqlx_macros::*;
 
+/// Macro to register a table in the database,
+/// syntax:
+/// ```ignore
+/// register_tables!(
+///     DB, // your `Surreal<_>` database connection
+///     Table1, // your tables...
+///     Table2,
+///     ...
+/// ).await?;
+/// ```
 #[cfg(feature = "macros")]
 #[macro_export]
 macro_rules! register_tables {
