@@ -2,13 +2,11 @@
 extern crate surrealqlx_macros;
 #[Table("users")]
 struct User {
-    #[field(skip)]
-    id: i32,
-    #[field(dt = "string")]
+    #[field("string")]
     name: String,
-    #[field(dt = "int")]
+    #[field("int")]
     age: i32,
-    #[field(dt = "array<int>")]
+    #[field("array<int>")]
     favorite_numbers: Vec<i32>,
 }
 impl ::surrealqlx::traits::Table for User {

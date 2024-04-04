@@ -4,12 +4,10 @@ extern crate surrealqlx_macros;
 #[derive(Table)]
 #[Table("users")]
 struct User {
-    #[field(dt = "number")]
-    id: i32,
     #[field(dt = "string")]
     name: String,
-    #[field(dt = "number<int>")]
+    #[field(dt = "int")]
     age: i32,
-    #[field(dt = "array<number>")]
+    #[field(dt = "array<int>")]
     favorite_numbers: Vec<i32>,
 }

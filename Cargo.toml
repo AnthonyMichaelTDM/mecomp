@@ -2,7 +2,14 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = ["core", "daemon", "mecomp-workspace-hack", "storage", "surrealqlx/lib", "surrealqlx/macros"]
+members = [
+    "core",
+    "daemon",
+    "mecomp-workspace-hack",
+    "storage",
+    "surrealqlx/lib",
+    "surrealqlx/macros",
+]
 exclude = ["external", "target", "assets", "scripts"]
 resolver = "2"
 
