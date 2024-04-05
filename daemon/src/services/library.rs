@@ -61,11 +61,7 @@ pub async fn rescan(
                             }
                         };
                         // if the file has been modified, update the song's metadata
-                        Song::update_and_repair(
-                            song.id.clone(),
-                            new_metadata.merge_with_song(&song),
-                        )
-                        .await?;
+                        Song::update(song.id.clone(), new_metadata.merge_with_song(&song)).await?;
                     }
                 }
                 Err(e) => {

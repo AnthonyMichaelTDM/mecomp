@@ -386,36 +386,43 @@ impl SongMetadata {
         }
     }
 
-    /// create a new song with `base` values overridden by `self`'s metadata when applicable (DOES NOT UPDATE THE DATABASE)
+    /// create a changeset from the difference between `self` and `song`
     #[instrument()]
-    pub fn merge_with_song(&self, song: &Song) -> Song {
-        let SongMetadata {
-            title,
-            artist,
-            album,
-            album_artist,
-            genre,
-            duration,
-            track,
-            disc,
-            release_year,
-            extension,
-            path,
-        } = self;
-        Song {
-            title: title.clone(),
-            artist: artist.clone(),
-            album: album.clone(),
-            album_artist: album_artist.clone(),
-            genre: genre.clone(),
-            duration: *duration,
-            track: *track,
-            disc: *disc,
-            release_year: *release_year,
-            extension: extension.clone(),
-            path: path.clone(),
-            ..song.clone()
+    pub fn merge_with_song(&self, song: &Song) -> SongChangeSet {
+        let mut changeset = SongChangeSet::default();
+
+        if self.title != song.title {
+            changeset.title = Some(self.title.clone());
         }
+        if self.artist != song.artist {
+            changeset.artist = Some(self.artist.clone());
+        }
+        if self.album_artist != song.album_artist {
+            changeset.album_artist = Some(self.album_artist.clone());
+        }
+        if self.genre != song.genre {
+            changeset.genre = Some(self.genre.clone());
+        }
+        if self.duration != song.duration {
+            changeset.duration = Some(self.duration);
+        }
+        if self.track != song.track {
+            changeset.track = Some(self.track);
+        }
+        if self.disc != song.disc {
+            changeset.disc = Some(self.disc);
+        }
+        if self.release_year != song.release_year {
+            changeset.release_year = Some(self.release_year);
+        }
+        if self.extension != song.extension {
+            changeset.extension = Some(self.extension.clone());
+        }
+        if self.path != song.path {
+            changeset.path = Some(self.path.clone());
+        }
+
+        changeset
     }
 
     /// Load a [`SongMetadata`] from a file path.

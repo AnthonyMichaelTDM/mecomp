@@ -14,6 +14,7 @@ use crate::{
         },
     },
     errors::Error,
+    util::OneOrMany,
 };
 
 impl Song {
@@ -46,6 +47,40 @@ impl Song {
             .bind(("path", path))
             .await?
             .take(0)?)
+    }
+
+    #[instrument]
+    pub async fn read_album(id: SongId) -> Result<Option<Album>, Error> {
+        Ok(db()
+            .await?
+            .query("SELECT <-album_to_song<-album FROM $id")
+            .bind(("id", id))
+            .await?
+            .take(0)?)
+    }
+
+    #[instrument]
+    pub async fn read_artist(id: SongId) -> Result<OneOrMany<Artist>, Error> {
+        let res: Vec<Artist> = db()
+            .await?
+            .query("SELECT <-artist_to_song<-artist FROM $id")
+            .bind(("id", id))
+            .await?
+            .take(0)?;
+
+        Ok(res.into())
+    }
+
+    #[instrument]
+    pub async fn read_album_artist(id: SongId) -> Result<OneOrMany<Artist>, Error> {
+        let res: Vec<Artist> = db()
+            .await?
+            .query("SELECT <-album_to_song<-album<-artist_to_album<-artist FROM $id")
+            .bind(("id", id))
+            .await?
+            .take(0)?;
+
+        Ok(res.into())
     }
 
     /// Update the information about a song, repairs relations if necessary

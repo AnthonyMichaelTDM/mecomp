@@ -31,6 +31,7 @@ static DB: Lazy<Surreal<Db>> = Lazy::new(|| {
 
 static DB_DIR: OnceCell<PathBuf> = OnceCell::const_new();
 
+#[allow(dead_code)]
 static TEMP_DB_DIR: Lazy<TempDir> =
     Lazy::new(|| tempfile::tempdir().expect("Failed to create temporary directory"));
 
@@ -40,6 +41,7 @@ pub async fn db() -> surrealdb::Result<&'static Surreal<Db>> {
     Ok(DB.deref())
 }
 
+#[allow(dead_code)]
 async fn setup() -> surrealdb::Result<()> {
     DB.connect( DB_DIR
         .get().cloned()

@@ -138,17 +138,15 @@ impl AudioKernel {
 
                         let (current_album, current_artist) = tokio::join!(
                             async {
-                                if let Some(id) = current_song.as_ref().map(|s| s.album_id.clone())
-                                {
-                                    Album::read(id).await
+                                if let Some(song) = current_song.as_ref() {
+                                    Song::read_album(song.id.clone()).await
                                 } else {
                                     Ok(None)
                                 }
                             },
                             async {
-                                if let Some(id) = current_song.as_ref().map(|s| s.artist_id.clone())
-                                {
-                                    Artist::read_one_or_many(id).await
+                                if let Some(song) = current_song.as_ref() {
+                                    Song::read_artist(song.id.clone()).await.map(Into::into)
                                 } else {
                                     Ok(OneOrMany::None)
                                 }
