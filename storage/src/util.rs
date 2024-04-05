@@ -195,3 +195,95 @@ pub enum MetadataConflictResolution {
     Overwrite,
     Skip,
 }
+
+#[cfg(test)]
+mod test_one_or_many {
+    use crate::db::db;
+
+    use super::OneOrMany;
+
+    use pretty_assertions::assert_eq;
+    use serde::{Deserialize, Serialize};
+    use surrealdb::sql::{Id, Thing};
+    use surrealqlx::{register_tables, Table};
+
+    #[derive(Serialize, Deserialize, Table, PartialEq, Eq, Debug)]
+    #[Table("one_or_many_test_table")]
+    struct TestStruct {
+        #[field("option<array<int> | int>")]
+        #[serde(default)]
+        foo: OneOrMany<usize>,
+    }
+
+    #[tokio::test]
+    async fn test_read_write_none() -> anyhow::Result<()> {
+        register_tables!(db().await?, TestStruct)?;
+
+        let thing = Thing::from(("one_or_many_test_table", Id::ulid()));
+
+        // store a None varient into the database
+        let create: TestStruct = db()
+            .await?
+            .create(thing.clone())
+            .content(TestStruct {
+                foo: OneOrMany::None,
+            })
+            .await?
+            .unwrap();
+
+        // read a None variant from the database
+        let read: TestStruct = db().await?.select(thing).await?.unwrap();
+
+        assert_eq!(create, read);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_read_write_one() -> anyhow::Result<()> {
+        register_tables!(db().await?, TestStruct)?;
+
+        let thing = Thing::from(("one_or_many_test_table", Id::ulid()));
+
+        // store a None varient into the database
+        let create: TestStruct = db()
+            .await?
+            .create(thing.clone())
+            .content(TestStruct {
+                foo: OneOrMany::One(3),
+            })
+            .await?
+            .unwrap();
+
+        // read a None variant from the database
+        let read: TestStruct = db().await?.select(thing).await?.unwrap();
+
+        assert_eq!(create, read);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_read_write_many() -> anyhow::Result<()> {
+        register_tables!(db().await?, TestStruct)?;
+
+        let thing = Thing::from(("one_or_many_test_table", Id::ulid()));
+
+        // store a None varient into the database
+        let create: TestStruct = db()
+            .await?
+            .create(thing.clone())
+            .content(TestStruct {
+                foo: OneOrMany::Many(vec![1, 2, 3]),
+            })
+            .await?
+            .unwrap();
+
+        // read a None variant from the database
+        let read: TestStruct = db().await?.select(thing).await?.unwrap();
+
+        assert_eq!(create, read);
+
+        Ok(())
+    }
+}

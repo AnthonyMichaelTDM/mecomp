@@ -30,3 +30,8 @@ tempfile = { workspace = true }
 # other dependencies
 metadata = { version = "0.1.8" }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+pretty_assertions = { workspace = true }
+surrealdb = { workspace = true, features = ["kv-speedb", "kv-mem"] }

@@ -30,19 +30,23 @@ pub struct Song {
     #[field(dt = "record")]
     pub id: SongId,
     /// Title of the [`Song`].
-    #[field(dt = "string")]
+    #[field(dt = "string", index())]
     pub title: Arc<str>,
     /// Artist of the [`Song`]. (Can be multiple)
     #[field(dt = "option<set<record> | record>")]
+    #[serde(default)]
     pub artist_id: OneOrMany<ArtistId>,
     /// Artist of the [`Song`]. (Can be multiple)
     #[field(dt = "option<set<string> | string>")]
+    #[serde(default)]
     pub artist: OneOrMany<Arc<str>>,
     /// album artist, if not found then defaults to first artist
     #[field(dt = "option<set<string> | string>")]
+    #[serde(default)]
     pub album_artist: OneOrMany<Arc<str>>,
     /// album artist id
     #[field(dt = "option<set<record> | record>")]
+    #[serde(default)]
     pub album_artist_id: OneOrMany<ArtistId>,
 
     /// Key to the [`Album`].
@@ -53,6 +57,7 @@ pub struct Song {
     pub album: Arc<str>,
     /// Genre of the [`Song`]. (Can be multiple)
     #[field(dt = "option<set<string> | string>")]
+    #[serde(default)]
     pub genre: OneOrMany<Arc<str>>,
 
     /// Total runtime of this [`Song`].
@@ -62,12 +67,15 @@ pub struct Song {
     // pub sample_rate: u32,
     /// The track number of this [`Song`].
     #[field(dt = "option<int>")]
+    #[serde(default)]
     pub track: Option<u16>,
     /// The disc number of this [`Song`].
     #[field(dt = "option<int>")]
+    #[serde(default)]
     pub disc: Option<u16>,
     /// the year the song was released
     #[field(dt = "option<int>")]
+    #[serde(default)]
     pub release_year: Option<i32>,
 
     // /// The `MIME` type of this [`Song`].
@@ -77,7 +85,7 @@ pub struct Song {
     pub extension: Arc<str>,
 
     /// The [`PathBuf`] this [`Song`] is located at.
-    #[field(dt = "string")]
+    #[field(dt = "string", index(unique))]
     pub path: PathBuf,
 }
 

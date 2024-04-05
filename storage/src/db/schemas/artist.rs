@@ -20,7 +20,7 @@ pub struct Artist {
     pub id: ArtistId,
 
     /// The [`Artist`]'s name.
-    #[field(dt = "string")]
+    #[field(dt = "string", index(unique))]
     pub name: Arc<str>,
 
     /// Total runtime.

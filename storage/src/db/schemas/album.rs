@@ -21,16 +21,19 @@ pub struct Album {
     #[field(dt = "record")]
     pub id: AlbumId,
     /// Title of the [`Album`].
-    #[field(dt = "string")]
+    #[field(dt = "string", index())]
     pub title: Arc<str>,
     /// Ids of the [`Artist`] of this [`Album`] (Can be multiple)
-    #[field(dt = "set<record> | record")]
+    #[field(dt = "option<set<record> | record>")]
+    #[serde(default)]
     pub artist_id: OneOrMany<ArtistId>,
     /// Artist of the [`Album`]. (Can be multiple)
     #[field(dt = "option<set<string> | string>")]
+    #[serde(default)]
     pub artist: OneOrMany<Arc<str>>,
     /// Release year of this [`Album`].
     #[field(dt = "option<int>")]
+    #[serde(default)]
     pub release: Option<i32>,
     /// Total runtime of this [`Album`].
     #[field(dt = "duration")]
@@ -59,7 +62,8 @@ pub struct Album {
     #[field(dt = "int")]
     pub discs: u32,
     /// This [`Album`]'s genre.
-    #[field(dt = "set<string> | string")]
+    #[field(dt = "option<set<string> | string>")]
+    #[serde(default)]
     pub genre: OneOrMany<Arc<str>>,
 }
 

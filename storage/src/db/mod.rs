@@ -11,10 +11,11 @@ use tempfile::TempDir;
 use tokio::sync::{OnceCell, SetError};
 
 static DB: Lazy<Surreal<Db>> = Lazy::new(|| {
+    let db = Surreal::init();
     tokio::spawn(async {
         setup().await.unwrap();
     });
-    Surreal::init()
+    db
 });
 static DB_DIR: OnceCell<PathBuf> = OnceCell::const_new();
 
@@ -53,4 +54,33 @@ pub async fn init_database(path: PathBuf) -> Result<(), SetError<PathBuf>> {
     DB_DIR.set(path)?;
     info!("Primed database path");
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::schemas::{
+        album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song,
+    };
+    use super::*;
+
+    use surrealdb::engine::local::Mem;
+    use surrealqlx::traits::Table;
+
+    #[tokio::test]
+    async fn test_register_tables() -> anyhow::Result<()> {
+        // use an in-memory db for testing
+        let db = Surreal::new::<Mem>(()).await?;
+        db.use_ns("test").use_db("test").await?;
+
+        // first we init all the table to ensure that the queries made by the macro work without error
+        <Album as Table>::init_table(&db).await?;
+        <Artist as Table>::init_table(&db).await?;
+        <Song as Table>::init_table(&db).await?;
+        <Collection as Table>::init_table(&db).await?;
+        <Playlist as Table>::init_table(&db).await?;
+        // then we try initializing one of the tables again to ensure that initialization won't mess with existing tables/data
+        <Album as Table>::init_table(&db).await?;
+
+        Ok(())
+    }
 }
