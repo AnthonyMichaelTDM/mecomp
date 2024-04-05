@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse::Parse, parse_macro_input, punctuated::Punctuated, Data, DeriveInput};
@@ -17,20 +19,67 @@ use syn::{parse::Parse, parse_macro_input, punctuated::Punctuated, Data, DeriveI
 // the macro will also implement the Table trait for the struct
 
 #[derive(Default)]
+struct VectorIndexAnnotation {
+    dim: Option<usize>,
+}
+
+impl VectorIndexAnnotation {
+    fn parse(args: &Punctuated<syn::Expr, syn::token::Comma>) -> syn::Result<Self> {
+        let mut vectorindex = Self::default();
+        for arg in args.iter() {
+            match arg {
+                syn::Expr::Assign(assign)
+                    if assign.left.to_token_stream().to_string().eq("dim") =>
+                {
+                    if let syn::Expr::Lit(lit) = &*assign.right {
+                        if let syn::Lit::Int(int) = &lit.lit {
+                            vectorindex.dim = Some(int.base10_parse()?);
+                            continue;
+                        }
+                    }
+                    return Err(syn::Error::new_spanned(assign, "Unsupported right operand, `dim` expects an integer literal representing the number of dimensions in the vector"));
+                }
+                syn::Expr::Lit(lit) => {
+                    match &lit.lit {
+                        syn::Lit::Int(int) => vectorindex.dim = Some(int.base10_parse()?),
+                        _ => return Err(syn::Error::new_spanned(lit, "`dim` expects an integer literal representing the number of dimensions in the vector")),
+                    }
+                }
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        arg,
+                        "Unsupported expression syntax",
+                    ))
+                }
+            }
+        }
+
+        if vectorindex.dim.is_none() {
+            return Err(syn::Error::new_spanned(
+                args,
+                "vector atribute without dimension set",
+            ));
+        }
+
+        Ok(vectorindex)
+    }
+}
+
+#[derive(Default)]
 struct IndexAnnotation {
     unique: bool,
-    vector_dim: Option<usize>,
+    vector: VectorIndexAnnotation,
 }
 
 impl IndexAnnotation {
     fn to_query_string(&self, table_name: &str, field_name: &str) -> String {
-        format!("DEFINE INDEX IF NOT EXISTS {table_name}_{field_name}_index ON {table_name} FIELDS {field_name}{};\n",
+        format!("DEFINE INDEX {table_name}_{field_name}_index ON {table_name} FIELDS {field_name}{};",
             {
                 let mut extra = String::new();
                 if self.unique {
                     extra.push_str(" UNIQUE");
                 }
-                if let Some(vector_dim) = self.vector_dim {
+                if let Some(vector_dim) = self.vector.dim {
                     extra.push_str(format!(" MTREE DIMENSION {vector_dim}").as_str());
                 }
 
@@ -38,20 +87,12 @@ impl IndexAnnotation {
             }
         )
     }
-    fn parse(args: Punctuated<syn::Expr, syn::token::Comma>) -> syn::Result<Self> {
+    fn parse(args: &Punctuated<syn::Expr, syn::token::Comma>) -> syn::Result<Self> {
         let mut index = Self::default();
-        for arg in args {
+        for arg in args.iter() {
             match arg {
-                syn::Expr::Assign(ref assign)
-                    if assign.left.to_token_stream().to_string().eq("dim") =>
-                {
-                    if let syn::Expr::Lit(lit) = &*assign.right {
-                        if let syn::Lit::Int(int) = &lit.lit {
-                            index.vector_dim = Some(int.base10_parse()?);
-                            continue;
-                        }
-                    }
-                    return Err(syn::Error::new_spanned(assign, "Unsupported right operand, `dim` expects an integer literal representing the number of dimensions in the vector"));
+                syn::Expr::Call(call) if call.func.to_token_stream().to_string().eq("vector") => {
+                    index.vector = VectorIndexAnnotation::parse(&call.args)?;
                 }
                 syn::Expr::Path(path) if path.to_token_stream().to_string().eq("unique") => {
                     index.unique = true;
@@ -87,20 +128,61 @@ impl Parse for FieldAnnotation {
         let mut index = None;
 
         while !input.is_empty() {
-            // is this a string literal param? (i.e., the type)
-            // `#[field("foobar")]`
-            if let Ok(dt) = input.parse::<syn::LitStr>() {
-                type_ = Some(dt);
-
-                // parse over next `,`
-                if input.parse::<syn::Token![,]>().is_err() {
-                    break;
+            match input.parse::<syn::Expr>()? {
+                syn::Expr::Assign(assign) => match assign.left.to_token_stream().to_string().as_str() {
+                    "dt" => match *assign.right {
+                        syn::Expr::Lit(lit)=>match lit.lit {
+                            syn::Lit::Str(strlit) => type_=Some(strlit),
+                            l => return Err(syn::Error::new_spanned(l, "unexpected literal, the `dt` attribute expects a string literal")),
+                        },
+                        rhs => return Err(syn::Error::new_spanned(rhs,"unexpected expression, the `dt` attribute expects a string literal")),
+                    }
+                    _ => 
+                    return Err(syn::Error::new_spanned(
+                        assign.left,
+                        "Unknown field attribute",
+                    ))
+                },
+                syn::Expr::Call(call) => match call.func.to_token_stream().to_string().as_str() {
+                    "index" => {
+                        index = Some(IndexAnnotation::parse(call.args.borrow())?);
+                    }
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            call.func,
+                            "Unknown field attribute",
+                        ))
+                    }
+                },
+                syn::Expr::Lit(lit) => match lit.lit {
+                    syn::Lit::Str(strlit) => type_=Some(strlit),
+                    l => return Err(syn::Error::new_spanned(l, "unexpected literal")),
+                },
+                syn::Expr::Path(path) => match path.to_token_stream().to_string().as_str() {
+                    "skip" => {
+                        skip = true;
+                        break;
+                    }
+                    s => {
+                        // if it is neither `skip` nor `type`, try to parse a litstr as the type or return an error
+                        return Err(syn::Error::new_spanned(
+                            path,
+                            format!(
+                                "Unknown field attribute, expected `skip` or `dt`, found `{s}`"
+                            ),
+                        ));
+                    }
                 }
+                expr => return Err(syn::Error::new_spanned(expr, "Unexpected expression syntax found, attribute parameters should be in the forms: `foo`, `\"foo\"`, `foo = ...`, or `foo(...)`")),
             }
 
-            // is this an ident param
-            // `#[field(skip)]`
-            if let Ok(ident) = input.parse::<syn::Ident>() {
+            if let Ok(dt) = input.parse::<syn::LitStr>() {
+                // is this a string literal param? (i.e., the type)
+                // `#[field("foobar")]`
+                type_ = Some(dt);
+            } else if let Ok(ident) = input.parse::<syn::Ident>() {
+                // is this an ident param
+                // `#[field(skip)]`
                 match ident.to_string().as_str() {
                     "skip" => {
                         skip = true;
@@ -110,31 +192,22 @@ impl Parse for FieldAnnotation {
                         input.parse::<syn::Token![=]>()?;
                         type_ = Some(input.parse::<syn::LitStr>()?);
                     }
-                    "index" => {
-                        // default index type
-                        index = Some(IndexAnnotation::default());
-                    }
-                    _ => {
+                    s => {
                         // if it is neither `skip` nor `type`, try to parse a litstr as the type or return an error
                         return Err(syn::Error::new_spanned(
                             ident,
-                            "Unknown field attribute, expected `skip`, `dt`, or `index`",
+                            format!(
+                                "Unknown field attribute, expected `skip` or `dt`, found `{s}`"
+                            ),
                         ));
                     }
                 }
-
-                // parse over next `,`
-                if input.parse::<syn::Token![,]>().is_err() {
-                    break;
-                }
-            }
-
-            // is this in call expression syntax?
-            // `#[field(index(unique, vector(dim: 7))]`
-            if let Ok(expr_call) = input.parse::<syn::ExprCall>() {
+            } else if let Ok(expr_call) = input.parse::<syn::ExprCall>() {
+                // is this in call expression syntax?
+                // `#[field(index(unique, vector(dim= 7))]`
                 match expr_call.func.to_token_stream().to_string().as_str() {
                     "index" => {
-                        index = Some(IndexAnnotation::parse(expr_call.args)?);
+                        index = Some(IndexAnnotation::parse(expr_call.args.borrow())?);
                     }
                     _ => {
                         return Err(syn::Error::new_spanned(
@@ -143,12 +216,9 @@ impl Parse for FieldAnnotation {
                         ))
                     }
                 }
-
-                // parse over next `,`
-                if input.parse::<syn::Token![,]>().is_err() {
-                    break;
-                }
             }
+
+            let _ = input.parse::<syn::Token![,]>();
         }
 
         Ok(Self { skip, type_, index })
@@ -192,8 +262,10 @@ fn parse_struct_fields(input: &DeriveInput) -> syn::Result<impl Iterator<Item = 
 fn create_table_field_queries<'a>(
     fields: impl Iterator<Item = &'a syn::Field>,
     table_name: &str,
-) -> syn::Result<String> {
-    let mut table_field_queries = String::new();
+) -> syn::Result<(Vec<String>,Vec<String>)> {
+    let mut table_field_queries = Vec::new();
+
+    let mut index_queries = Vec::new();
 
     for field in fields {
         let Some(field_name) = field.ident.as_ref() else {
@@ -266,17 +338,17 @@ fn create_table_field_queries<'a>(
             ));
         }
 
-        table_field_queries.push_str(&format!(
-            "DEFINE FIELD IF NOT EXISTS {} ON {} TYPE {};\n{}",
-            field_name,
-            table_name,
-            field_type,
-            field_index.map_or_else(String::new, |index| index
-                .to_query_string(table_name, field_name.to_string().as_str()))
+        table_field_queries.push(format!(
+            "DEFINE FIELD {} ON {} TYPE {};",
+            field_name, table_name, field_type,
         ));
+
+        if let Some(index) = field_index {
+            index_queries.push(index.to_query_string(table_name, &field_name.to_string()));
+        }
     }
 
-    Ok(table_field_queries)
+    Ok((table_field_queries, index_queries))
 }
 
 #[proc_macro_derive(Table, attributes(Table, field))]
@@ -300,24 +372,45 @@ pub fn table_macro(input: TokenStream) -> TokenStream {
         }
     };
 
-    let table_field_queries = match create_table_field_queries(struct_fields, &table_name) {
+    let (table_field_queries, index_queries) = match create_table_field_queries(struct_fields, &table_name) {
         Ok(queries) => queries,
         Err(err) => {
             return err.to_compile_error().into();
         }
     };
 
-    let surrealql_query = format!(
-        "BEGIN TRANSACTION;\n DEFINE TABLE IF NOT EXISTS {table_name} SCHEMAFULL;\n{table_field_queries}\nCOMMIT TRANSACTION;"
-    )
-    .into_token_stream();
+    let table_query = format!("DEFINE TABLE {table_name} SCHEMAFULL;");
+
+    let table_field_queries = table_field_queries.iter().map(|q| quote! {.query(#q)});
+    let index_queries = index_queries.iter().map(|q| quote! {.query(#q)});
 
     // Build the output, possibly using the input
     let expanded = quote! {
         // The generated impl goes here
         impl ::surrealqlx::traits::Table for #struct_name {
             const TABLE_NAME: &'static str = #table_name;
-            const TABLE_SCHEMA_QUERY: &'static str = #surrealql_query;
+
+
+            fn init_table<C: ::surrealdb::Connection>(
+                db: &::surrealdb::Surreal<C>,
+            ) -> impl ::std::future::Future<Output = ::surrealdb::Result<()>> + Send {
+                async {
+                    let _ = db.query("BEGIN;")
+                        .query(#table_query)
+                        .query("COMMIT;")
+                        .query("BEGIN;")
+                        #(
+                            #table_field_queries
+                        )*
+                        .query("COMMIT;")
+                        .query("BEGIN;")
+                        #(
+                            #index_queries
+                        )*
+                        .query("COMMIT;").await?;
+                    Ok(())
+                }
+            }
         }
     };
 

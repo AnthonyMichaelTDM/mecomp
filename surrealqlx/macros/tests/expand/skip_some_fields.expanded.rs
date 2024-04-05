@@ -13,5 +13,23 @@ struct User {
 }
 impl ::surrealqlx::traits::Table for User {
     const TABLE_NAME: &'static str = "users";
-    const TABLE_SCHEMA_QUERY: &'static str = "BEGIN TRANSACTION;\n DEFINE TABLE IF NOT EXISTS users SCHEMAFULL;\nDEFINE FIELD IF NOT EXISTS name ON users TYPE string;\nDEFINE FIELD IF NOT EXISTS age ON users TYPE int;\nDEFINE FIELD IF NOT EXISTS favorite_numbers ON users TYPE array<int>;\n\nCOMMIT TRANSACTION;";
+    fn init_table<C: ::surrealdb::Connection>(
+        db: &::surrealdb::Surreal<C>,
+    ) -> impl ::std::future::Future<Output = ::surrealdb::Result<()>> + Send {
+        async {
+            let _ = db
+                .query("BEGIN;")
+                .query("DEFINE TABLE users SCHEMAFULL;")
+                .query("COMMIT;")
+                .query("BEGIN;")
+                .query("DEFINE FIELD name ON users TYPE string;")
+                .query("DEFINE FIELD age ON users TYPE int;")
+                .query("DEFINE FIELD favorite_numbers ON users TYPE array<int>;")
+                .query("COMMIT;")
+                .query("BEGIN;")
+                .query("COMMIT;")
+                .await?;
+            Ok(())
+        }
+    }
 }
