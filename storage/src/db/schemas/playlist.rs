@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Id, Thing};
 use surrealqlx::Table;
 
-use super::song::SongId;
-
 pub type PlaylistId = Thing;
 
 pub const TABLE_NAME: &str = "playlist";
@@ -19,7 +17,7 @@ pub struct Playlist {
     #[field(dt = "record")]
     pub id: PlaylistId,
 
-    /// The [`Artist`]'s name.
+    /// The [`Playlist`]'s name.
     #[field(dt = "string")]
     pub name: Arc<str>,
 
@@ -27,15 +25,21 @@ pub struct Playlist {
     #[field(dt = "duration")]
     pub runtime: Duration,
 
-    /// Keys to every [`Song`] in this [`Playlist`].
-    #[field(dt = "set<record>")]
-    pub songs: Box<[SongId]>,
+    /// the number of songs this playlist has.
+    #[field(dt = "int")]
+    pub song_count: usize,
 }
 
 impl Playlist {
     pub fn generate_id() -> PlaylistId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct PlaylistChangeSet {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<Arc<str>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -52,7 +56,7 @@ impl From<Playlist> for PlaylistBrief {
             id: playlist.id,
             name: playlist.name,
             runtime: playlist.runtime,
-            songs: playlist.songs.len(),
+            songs: playlist.song_count,
         }
     }
 }
@@ -63,7 +67,7 @@ impl From<&Playlist> for PlaylistBrief {
             id: playlist.id.clone(),
             name: playlist.name.clone(),
             runtime: playlist.runtime,
-            songs: playlist.songs.len(),
+            songs: playlist.song_count,
         }
     }
 }

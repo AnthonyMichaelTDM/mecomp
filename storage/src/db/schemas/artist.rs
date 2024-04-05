@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Id, Thing};
 use surrealqlx::Table;
 
-use super::{album::AlbumId, song::SongId};
-
 pub type ArtistId = Thing;
 
 pub const TABLE_NAME: &str = "artist";
@@ -27,23 +25,33 @@ pub struct Artist {
     #[field(dt = "duration")]
     pub runtime: Duration,
 
-    // SOMEDAY:
-    // This should be a Box<[AlbumKey]>.
-    /// Keys to the associated [`Album`]\(s\).
-    #[field(dt = "set<record>")]
-    pub albums: Box<[AlbumId]>,
+    /// the number of albums this artist has.
+    #[field(dt = "int")]
+    pub album_count: usize,
 
-    /// Keys to every [`Song`] by this [`Artist`].
-    ///
-    /// The order is [`Album`] release order, then [`Song`] track order.
-    #[field(dt = "set<record>")]
-    pub songs: Box<[SongId]>,
+    /// the number of songs this artist has.
+    #[field(dt = "int")]
+    pub song_count: usize,
 }
 
 impl Artist {
     pub fn generate_id() -> ArtistId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
+}
+
+/// This struct holds all the metadata about a particular ['Artist'].
+/// An ['Artist'] is a collection of ['Album']s.
+#[derive(Debug, Default, Serialize)]
+pub struct ArtistChangeSet {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<Arc<str>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<Duration>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub album_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub song_count: Option<usize>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -61,8 +69,8 @@ impl From<Artist> for ArtistBrief {
             id: artist.id,
             name: artist.name,
             runtime: artist.runtime,
-            albums: artist.albums.len(),
-            songs: artist.songs.len(),
+            albums: artist.album_count,
+            songs: artist.song_count,
         }
     }
 }
@@ -73,8 +81,8 @@ impl From<&Artist> for ArtistBrief {
             id: artist.id.clone(),
             name: artist.name.clone(),
             runtime: artist.runtime,
-            albums: artist.albums.len(),
-            songs: artist.songs.len(),
+            albums: artist.album_count,
+            songs: artist.song_count,
         }
     }
 }

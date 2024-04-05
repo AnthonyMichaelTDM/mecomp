@@ -6,7 +6,7 @@ use crate::{
         db,
         schemas::{
             playlist::{Playlist, PlaylistId, TABLE_NAME},
-            song::{Song, SongId},
+            song::SongId,
         },
     },
     errors::Error,
@@ -25,71 +25,37 @@ impl Playlist {
 
     #[instrument]
     pub async fn add_songs(id: PlaylistId, song_ids: &[SongId]) -> Result<(), Error> {
-        let mut playlist = Playlist::read(id.clone()).await?.ok_or(Error::NotFound)?;
-
-        playlist.songs = playlist
-            .songs
-            .iter()
-            .chain(song_ids.iter())
-            .cloned()
-            .collect();
-
         db().await?
-            .update((TABLE_NAME, id))
-            .content(playlist)
-            .await?
-            .ok_or(Error::NotFound)
+            .query("RELATE $id->playlist_to_song->$songs")
+            .query("UPDATE $id SET song_count += array::len($songs), runtime += math::sum(SELECT runtime FROM $songs)")
+            .bind(("id", id))
+            .bind(("songs", song_ids))
+            .await?;
+        Ok(())
     }
 
     #[instrument]
     pub async fn remove_songs(id: PlaylistId, song_ids: &[SongId]) -> Result<(), Error> {
-        let mut playlist = Playlist::read(id.clone()).await?.ok_or(Error::NotFound)?;
-
-        playlist.songs = playlist
-            .songs
-            .iter()
-            .filter(|x| !song_ids.contains(x))
-            .cloned()
-            .collect();
-
-        let _: Playlist = db()
-            .await?
-            .update((TABLE_NAME, id))
-            .content(playlist)
-            .await?
-            .ok_or(Error::NotFound)?;
+        db().await?
+            .query("UNRELATE $id->playlist_to_song->$songs")
+            .query("UPDATE $id SET song_count -= array::len($songs), runtime -= math::sum(SELECT runtime FROM $songs)")
+            .bind(("id", id))
+            .bind(("songs", song_ids))
+            .await?;
         Ok(())
     }
 
-    /// goes through all the songs in the playlist and removes any that don't exist in the database
+    /// updates the song_count and runtime of the playlist
     ///
     /// # Arguments
     ///
     /// * `id` - the id of the playlist to repair
-    ///
-    /// # Returns
-    ///
-    /// true if the playlist is empty after the repair, false otherwise
     #[instrument]
-    pub async fn repair(id: PlaylistId) -> Result<bool, Error> {
-        let mut playlist = Playlist::read(id.clone()).await?.ok_or(Error::NotFound)?;
-
-        let mut new_songs = Vec::with_capacity(playlist.songs.len());
-        for song_id in playlist.songs.iter() {
-            if Song::read(song_id.clone()).await?.is_some() {
-                new_songs.push(song_id.clone());
-            }
-        }
-
-        playlist.songs = new_songs.into_boxed_slice();
-
-        let result: Result<Playlist, _> = db()
-            .await?
-            .update((TABLE_NAME, id))
-            .content(playlist)
-            .await?
-            .ok_or(Error::NotFound);
-
-        result.map(|x| x.songs.is_empty())
+    pub async fn repair(id: PlaylistId) -> Result<(), Error> {
+        db().await?
+            .query("UPDATE $id SET song_count = array::len(SELECT ->playlist_to_song FROM ONLY $id), runtime = math::sum(SELECT runtime FROM (SELECT ->playlist_to_song FROM ONLY $id))")
+            .bind(("id", id))
+            .await?;
+        Ok(())
     }
 }

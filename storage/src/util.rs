@@ -178,6 +178,16 @@ impl<T: Clone> From<Vec<T>> for OneOrMany<T> {
     }
 }
 
+impl<T> From<OneOrMany<T>> for Vec<T> {
+    fn from(value: OneOrMany<T>) -> Self {
+        match value {
+            OneOrMany::One(one) => vec![one],
+            OneOrMany::Many(many) => many,
+            OneOrMany::None => vec![],
+        }
+    }
+}
+
 impl<T: std::clone::Clone> FromIterator<T> for OneOrMany<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let iter = iter.into_iter();

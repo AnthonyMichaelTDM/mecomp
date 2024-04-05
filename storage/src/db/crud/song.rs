@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-use log::info;
 use tracing::instrument;
 
 use crate::{
@@ -11,9 +10,7 @@ use crate::{
         schemas::{
             album::Album,
             artist::Artist,
-            collection::Collection,
-            playlist::Playlist,
-            song::{Song, SongId, TABLE_NAME},
+            song::{Song, SongChangeSet, SongId, TABLE_NAME},
         },
     },
     errors::Error,
@@ -45,91 +42,90 @@ impl Song {
     pub async fn read_by_path(path: PathBuf) -> Result<Option<Song>, Error> {
         Ok(db()
             .await?
-            .select(TABLE_NAME)
+            .query("SELECT * FROM song WHERE path = $path LIMIT 1")
+            .bind(("path", path))
             .await?
-            .into_iter()
-            .find(|x: &Song| x.path == path))
+            .take(0)?)
     }
 
+    /// Update the information about a song, repairs relations if necessary
+    ///
+    /// repairs relations if:
+    /// - the artist name(s) have changed
+    /// - the album name has changed
+    /// - the album artist name(s) have changed
+    /// - TODO: The duration has changed
     #[instrument]
-    pub async fn update(id: SongId, song: Song) -> Result<(), Error> {
-        let _: Song = db()
-            .await?
-            .update((TABLE_NAME, id))
-            .content(song)
-            .await?
-            .ok_or(Error::NotFound)?;
-        Ok(())
-    }
+    pub async fn update(id: SongId, changes: SongChangeSet) -> Result<(), Error> {
+        if changes.album.is_some() || changes.album_artist.is_some() {
+            let old_album: Option<Album> = db()
+                .await?
+                .query("SELECT <-album_to_song<-album FROM $id")
+                .bind(("id", id.clone()))
+                .await?
+                .take(0)?;
+            let old_album = old_album.ok_or(Error::NotFound)?;
 
-    /// Update the metadata of a song
-    ///
-    /// Also repairs references to the song in the artist and album tables if the song's artist_id, album_id, or album_artist_id have changed.
-    ///
-    /// When repairing, uses the names of the album, album artists, and artists as the source of truth, so if the song's metadata has changed,
-    /// the song's artist_id, album_id, and album_artist_id will be updated to match the names of the album, album artists, and artists.
-    ///
-    /// If there are no albums or artists with the same name as the song's metadata, they will be created.
-    #[instrument]
-    pub async fn update_and_repair(id: SongId, new_song: Song) -> Result<(), Error> {
-        let old_song = Song::read(id.clone()).await?.ok_or(Error::NotFound)?;
-        let mut new_song = new_song;
-
-        Song::update(id.clone(), new_song.clone()).await?;
-
-        // if the artist name(s) have changed, we need to:
-        // - update the new song's artist_id
-        // - remove the song from the old artist's list of songs
-        // - add the song to the new artist's list of songs
-        // - repair the old artists
-        if old_song.artist != new_song.artist {
-            let artists = Artist::create_or_read_by_names(new_song.artist.as_slice()).await?;
-
-            new_song.artist_id = artists.into_iter().map(|x| x.id).collect();
-
-            Song::update(id.clone(), new_song.clone()).await?;
-
-            for artist_id in old_song.artist_id.iter() {
-                info!("Repairing artist {}", artist_id);
-                if Artist::repair(artist_id.clone()).await? {
-                    info!("Artist {} was deleted after repair", artist_id);
+            // find/create the new album
+            let new_album = match (&changes.album, &changes.album_artist) {
+                (Some(album), Some(album_artist)) => {
+                    Album::read_or_create_by_name_and_album_artist(
+                        &album,
+                        &Vec::from(album_artist.to_owned()),
+                    )
+                    .await?
                 }
+                (Some(album), None) => {
+                    Album::read_or_create_by_name_and_album_artist(
+                        &album,
+                        &Vec::from(old_album.artist),
+                    )
+                    .await?
+                }
+                (None, Some(album_artist)) => {
+                    // find/create the new album
+                    Album::read_or_create_by_name_and_album_artist(
+                        &old_album.title,
+                        &Vec::from(album_artist.to_owned()),
+                    )
+                    .await?
+                }
+                (None, None) => unreachable!(),
+            }
+            .ok_or(Error::NotFound)?;
+
+            // remove song from the old album
+            Album::remove_songs(old_album.id, &[id.clone()]).await?;
+
+            // add song to the new album
+            Album::add_songs(new_album, &[id.clone()]).await?;
+        }
+
+        if let Some(artist) = &changes.artist {
+            let old_artist: Vec<Artist> = db()
+                .await?
+                .query("SELECT <-artist_to_song<-artist FROM $id")
+                .bind(("id", id.clone()))
+                .await?
+                .take(0)?;
+            // find/create artists with the new names
+            let new_artist = Artist::create_or_read_by_names(&Vec::from(artist.clone())).await?;
+
+            // remove song from the old artists
+            for artist in old_artist.into_iter() {
+                Artist::remove_songs(artist.id, &[id.clone()]).await?;
+            }
+            // add song to the new artists
+            for artist in new_artist.into_iter() {
+                Artist::add_songs(artist.id, &[id.clone()]).await?;
             }
         }
 
-        // if the album name has changed, we need to:
-        // - update the new song's album_id
-        // - remove the song from the old album's list of songs
-        // - add the song to the new album's list of songs
-        // - repair the old album
-        // this should also repair the album artists
-        if old_song.album != new_song.album {
-            let album_id = Album::read_or_create_by_name_and_album_artist(
-                new_song.album.as_ref(),
-                new_song.album_artist.as_slice(),
-            )
-            .await?
-            .ok_or(Error::NotFound)?;
-            new_song.album_id = album_id;
-            Song::update(id.clone(), new_song.clone()).await?;
-
-            Album::repair(old_song.album_id).await?;
-        }
-        if old_song.album_artist != new_song.album_artist {
-            let album_artists =
-                Artist::create_or_read_by_names(new_song.album_artist.as_slice()).await?;
-
-            new_song.album_artist_id = album_artists.into_iter().map(|x| x.id).collect();
-
-            Song::update(id.clone(), new_song.clone()).await?;
-
-            for album_artist_id in old_song.album_artist_id.iter() {
-                info!("Repairing album artist {}", album_artist_id);
-                if Artist::repair(album_artist_id.clone()).await? {
-                    info!("Album artist {} was deleted after repair", album_artist_id);
-                }
-            }
-        }
+        db().await?
+            .query(format!("UPDATE type::record($id) MERGE $changes"))
+            .bind(("id", &id))
+            .bind(("changes", &changes))
+            .await?;
 
         Ok(())
     }
@@ -141,32 +137,6 @@ impl Song {
     /// - remove the song from collections.
     #[instrument]
     pub async fn delete(id: SongId) -> Result<(), Error> {
-        let Some(song) = Song::read(id.clone()).await? else {
-            return Ok(());
-        };
-
-        // remove the song from the artist's list of songs
-        for artist_id in song.artist_id.iter() {
-            Artist::remove_songs(artist_id.clone(), &[id.clone()]).await?;
-        }
-
-        // remove the song from the album's list of songs
-        Album::remove_songs(song.album_id, &[id.clone()]).await?;
-
-        // remove the song from playlists
-        for playlist in Playlist::read_all().await? {
-            if playlist.songs.contains(&id) {
-                Playlist::remove_songs(playlist.id, &[id.clone()]).await?;
-            }
-        }
-
-        // remove the song from collections
-        for collection in Collection::read_all().await? {
-            if collection.songs.contains(&id) {
-                Collection::remove_songs(collection.id, &[id.clone()]).await?;
-            }
-        }
-
         let _: Option<Song> = db().await?.delete((TABLE_NAME, id)).await?;
         Ok(())
     }

@@ -5,11 +5,14 @@ use std::{ops::Deref, path::PathBuf};
 
 use log::info;
 use once_cell::sync::Lazy;
+#[cfg(test)]
+use surrealdb::engine::local::Mem;
 use surrealdb::{engine::local::Db, Surreal};
 use surrealqlx::register_tables;
 use tempfile::TempDir;
 use tokio::sync::{OnceCell, SetError};
 
+#[cfg(not(test))]
 static DB: Lazy<Surreal<Db>> = Lazy::new(|| {
     let db = Surreal::init();
     tokio::spawn(async {
@@ -17,6 +20,15 @@ static DB: Lazy<Surreal<Db>> = Lazy::new(|| {
     });
     db
 });
+#[cfg(test)]
+static DB: Lazy<Surreal<Db>> = Lazy::new(|| {
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        let db = Surreal::new::<Mem>(()).await.unwrap();
+        db.use_ns("test").use_db("test").await.unwrap();
+        db
+    })
+});
+
 static DB_DIR: OnceCell<PathBuf> = OnceCell::const_new();
 
 static TEMP_DB_DIR: Lazy<TempDir> =

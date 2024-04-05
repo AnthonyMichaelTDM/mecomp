@@ -6,8 +6,6 @@ use surrealqlx::Table;
 
 use crate::util::OneOrMany;
 
-use super::{artist::ArtistId, song::SongId};
-
 pub type AlbumId = Thing;
 
 pub const TABLE_NAME: &str = "album";
@@ -23,10 +21,6 @@ pub struct Album {
     /// Title of the [`Album`].
     #[field(dt = "string", index())]
     pub title: Arc<str>,
-    /// Ids of the [`Artist`] of this [`Album`] (Can be multiple)
-    #[field(dt = "option<set<record> | record>")]
-    #[serde(default)]
-    pub artist_id: OneOrMany<ArtistId>,
     /// Artist of the [`Album`]. (Can be multiple)
     #[field(dt = "option<set<string> | string>")]
     #[serde(default)]
@@ -41,22 +35,6 @@ pub struct Album {
     /// [`Song`] count of this [`Album`].
     #[field(dt = "int")]
     pub song_count: usize,
-    // SOMEDAY:
-    // This should be sorted based
-    // off incrementing disc and track numbers, e.g:
-    //
-    // DISC 1:
-    //   - 1. ...
-    //   - 2. ...
-    // DISC 2:
-    //   - 1. ...
-    //   - 2. ...
-    //
-    // So, doing `my_album.songs.iter()` will always
-    // result in the correct `Song` order for `my_album`.
-    /// The [`Id`]s of the [`Song`]s in this [`Album`].
-    #[field(dt = "set<record>")]
-    pub songs: Box<[SongId]>,
     /// How many discs are in this `Album`?
     /// (Most will only have 1).
     #[field(dt = "int")]
@@ -71,6 +49,24 @@ impl Album {
     pub fn generate_id() -> AlbumId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct AlbumChangeSet {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<Arc<str>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artist: Option<OneOrMany<Arc<str>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release: Option<Option<i32>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<Duration>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub song_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub discs: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub genre: Option<OneOrMany<Arc<str>>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

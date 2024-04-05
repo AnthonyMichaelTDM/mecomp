@@ -6,8 +6,6 @@ use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Id, Thing};
 use surrealqlx::Table;
 
-use super::song::SongId;
-
 pub type CollectionId = Thing;
 
 pub const TABLE_NAME: &str = "collection";
@@ -23,9 +21,9 @@ pub struct Collection {
     #[field(dt = "duration")]
     pub runtime: Duration,
 
-    /// Keys to every [`Song`] in this [`Collection`].
-    #[field(dt = "set<record>")]
-    pub songs: Box<[SongId]>,
+    /// the number of songs this collection has.
+    #[field(dt = "int")]
+    pub song_count: usize,
 }
 
 impl Collection {
@@ -46,7 +44,7 @@ impl From<Collection> for CollectionBrief {
         Self {
             id: collection.id,
             runtime: collection.runtime,
-            songs: collection.songs.len(),
+            songs: collection.song_count,
         }
     }
 }
@@ -56,7 +54,7 @@ impl From<&Collection> for CollectionBrief {
         Self {
             id: collection.id.clone(),
             runtime: collection.runtime,
-            songs: collection.songs.len(),
+            songs: collection.song_count,
         }
     }
 }
