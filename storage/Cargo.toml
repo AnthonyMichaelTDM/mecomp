@@ -35,3 +35,4 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 anyhow = { workspace = true }
 pretty_assertions = { workspace = true }
 surrealdb = { workspace = true, features = ["kv-speedb", "kv-mem"] }
+rstest = { workspace = true }
