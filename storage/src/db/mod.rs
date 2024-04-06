@@ -12,21 +12,12 @@ use surrealqlx::register_tables;
 use tempfile::TempDir;
 use tokio::sync::{OnceCell, SetError};
 
-#[cfg(not(test))]
 static DB: Lazy<Surreal<Db>> = Lazy::new(|| {
     let db = Surreal::init();
     tokio::spawn(async {
         setup().await.unwrap();
     });
     db
-});
-#[cfg(test)]
-static DB: Lazy<Surreal<Db>> = Lazy::new(|| {
-    tokio::runtime::Runtime::new().unwrap().block_on(async {
-        let db = Surreal::new::<Mem>(()).await.unwrap();
-        db.use_ns("test").use_db("test").await.unwrap();
-        db
-    })
 });
 
 static DB_DIR: OnceCell<PathBuf> = OnceCell::const_new();
@@ -41,7 +32,7 @@ pub async fn db() -> surrealdb::Result<&'static Surreal<Db>> {
     Ok(DB.deref())
 }
 
-#[allow(dead_code)]
+#[cfg(not(test))]
 async fn setup() -> surrealdb::Result<()> {
     DB.connect( DB_DIR
         .get().cloned()
@@ -54,6 +45,22 @@ async fn setup() -> surrealdb::Result<()> {
 
     register_tables!(
         DB.deref(),
+        schemas::album::Album,
+        schemas::artist::Artist,
+        schemas::song::Song,
+        schemas::collection::Collection,
+        schemas::playlist::Playlist
+    )?;
+
+    Ok(())
+}
+#[cfg(test)]
+async fn setup() -> surrealdb::Result<()> {
+    DB.connect::<Mem>(()).await?;
+    DB.use_ns("test").use_db("test").await?;
+
+    register_tables!(
+        &DB,
         schemas::album::Album,
         schemas::artist::Artist,
         schemas::song::Song,
