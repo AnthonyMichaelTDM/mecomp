@@ -160,7 +160,7 @@ impl AudioKernel {
                             repeat_mode: kernel.queue.borrow().get_repeat_mode(),
                             runtime: kernel.queue.borrow().current_song().map(|song| {
                                 StateRuntime {
-                                    duration: song.duration,
+                                    duration: song.duration.into(),
                                     seek_position: todo!(
                                         "determine how much of a Source has been played"
                                     ),

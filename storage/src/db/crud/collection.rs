@@ -37,8 +37,8 @@ impl Collection {
     #[instrument]
     pub async fn remove_songs(id: CollectionId, song_ids: &[SongId]) -> Result<(), Error> {
         db().await?
-            .query("UNRELATE $id->collection_to_song->$songs")
-            .query("UPDATE $id SET song_count -= array::len($songs)")
+            .query("DELETE $id->collection_to_song WHERE out IN $songs")
+            .query("UPDATE $id SET song_count -= array::len($songs), runtime-=math::sum((SELECT duration FROM $song))")
             .bind(("id", id))
             .bind(("songs", song_ids))
             .await?;

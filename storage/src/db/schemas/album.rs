@@ -1,7 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::{Id, Thing};
+use surrealdb::sql::{Duration, Id, Thing};
 use surrealqlx::Table;
 
 use crate::util::OneOrMany;
@@ -75,7 +75,7 @@ pub struct AlbumBrief {
     pub title: Arc<str>,
     pub artist: OneOrMany<Arc<str>>,
     pub release: Option<i32>,
-    pub runtime: Duration,
+    pub runtime: std::time::Duration,
     pub song_count: usize,
     pub discs: u32,
     pub genre: OneOrMany<Arc<str>>,
@@ -88,7 +88,7 @@ impl From<Album> for AlbumBrief {
             title: album.title,
             artist: album.artist,
             release: album.release,
-            runtime: album.runtime,
+            runtime: album.runtime.into(),
             song_count: album.song_count,
             discs: album.discs,
             genre: album.genre,
@@ -103,7 +103,7 @@ impl From<&Album> for AlbumBrief {
             title: album.title.clone(),
             artist: album.artist.clone(),
             release: album.release,
-            runtime: album.runtime,
+            runtime: album.runtime.into(),
             song_count: album.song_count,
             discs: album.discs,
             genre: album.genre.clone(),

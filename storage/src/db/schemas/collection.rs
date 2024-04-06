@@ -1,9 +1,7 @@
 //! A collection is an auto currated list of similar songs.
 
-use std::time::Duration;
-
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::{Id, Thing};
+use surrealdb::sql::{Duration, Id, Thing};
 use surrealqlx::Table;
 
 pub type CollectionId = Thing;
@@ -35,7 +33,7 @@ impl Collection {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CollectionBrief {
     pub id: CollectionId,
-    pub runtime: Duration,
+    pub runtime: std::time::Duration,
     pub songs: usize,
 }
 
@@ -43,7 +41,7 @@ impl From<Collection> for CollectionBrief {
     fn from(collection: Collection) -> Self {
         Self {
             id: collection.id,
-            runtime: collection.runtime,
+            runtime: collection.runtime.into(),
             songs: collection.song_count,
         }
     }
@@ -53,7 +51,7 @@ impl From<&Collection> for CollectionBrief {
     fn from(collection: &Collection) -> Self {
         Self {
             id: collection.id.clone(),
-            runtime: collection.runtime,
+            runtime: collection.runtime.into(),
             songs: collection.song_count,
         }
     }

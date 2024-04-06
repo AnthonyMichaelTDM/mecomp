@@ -1,7 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::{Id, Thing};
+use surrealdb::sql::{Duration, Id, Thing};
 use surrealqlx::Table;
 
 pub type ArtistId = Thing;
@@ -58,7 +58,7 @@ pub struct ArtistChangeSet {
 pub struct ArtistBrief {
     pub id: ArtistId,
     pub name: Arc<str>,
-    pub runtime: Duration,
+    pub runtime: std::time::Duration,
     pub albums: usize,
     pub songs: usize,
 }
@@ -68,7 +68,7 @@ impl From<Artist> for ArtistBrief {
         Self {
             id: artist.id,
             name: artist.name,
-            runtime: artist.runtime,
+            runtime: artist.runtime.into(),
             albums: artist.album_count,
             songs: artist.song_count,
         }
@@ -80,7 +80,7 @@ impl From<&Artist> for ArtistBrief {
         Self {
             id: artist.id.clone(),
             name: artist.name.clone(),
-            runtime: artist.runtime,
+            runtime: artist.runtime.into(),
             albums: artist.album_count,
             songs: artist.song_count,
         }

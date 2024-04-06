@@ -1,6 +1,7 @@
 //! CRUD operations for the artist table
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
+use surrealdb::sql::Duration;
 use tracing::instrument;
 
 use crate::{
@@ -27,7 +28,7 @@ impl Artist {
     }
 
     #[instrument]
-    pub async fn create_or_read_by_name(name: &str) -> Result<Option<Artist>, Error> {
+    pub async fn read_or_create_by_name(name: &str) -> Result<Option<Artist>, Error> {
         if let Some(artist) = Artist::read_by_name(name).await? {
             Ok(Some(artist))
         } else {
@@ -43,10 +44,10 @@ impl Artist {
     }
 
     #[instrument]
-    pub async fn create_or_read_by_names(names: &[Arc<str>]) -> Result<Vec<Artist>, Error> {
+    pub async fn read_or_create_by_names(names: OneOrMany<Arc<str>>) -> Result<Vec<Artist>, Error> {
         let mut artists = Vec::with_capacity(names.len());
-        for name in names {
-            if let Some(id) = Artist::create_or_read_by_name(name).await? {
+        for name in names.iter() {
+            if let Some(id) = Artist::read_or_create_by_name(name).await? {
                 artists.push(id);
             }
         }
@@ -56,7 +57,7 @@ impl Artist {
     pub async fn read_by_name(name: &str) -> Result<Option<Artist>, Error> {
         Ok(db()
             .await?
-            .query("SELECT * FROM ONLY artist WHERE name = $name")
+            .query("SELECT * FROM artist WHERE name = $name LIMIT 1")
             .bind(("name", name))
             .await?
             .take(0)?)
@@ -125,11 +126,11 @@ impl Artist {
     pub async fn add_album(id: ArtistId, album_id: AlbumId) -> Result<(), Error> {
         db().await?
             // relate this artist to the album
-            .query("RELATE $id->artist_to_album->type::record($album)")
+            .query("RELATE $id->artist_to_album->$album;")
             // relate this artist to the songs in the album
-            .query("RELATE $id->artist_to_song->(SELECT ->album_to_song<-album FROM $album)")
+            .query("RELATE $id->artist_to_song->(SELECT ->album_to_song<-album FROM $album);")
             // update runtime, and song/album count
-            .query("UPDATE $id SET album_count += 1, runtime += (SELECT runtime FROM $album LIMIT 1), songs += (SELECT song_count FROM $album LIMIT 1)")
+            .query("UPDATE $id SET album_count += 1, runtime += (SELECT runtime FROM $album LIMIT 1)[0], songs += (SELECT song_count FROM $album LIMIT 1)[0];")
             .bind(("id", &id))
             .bind(("album", &album_id))
             .await?;
@@ -141,7 +142,7 @@ impl Artist {
     pub async fn add_album_to_artists(ids: &[ArtistId], album_id: AlbumId) -> Result<(), Error> {
         db().await?
             // relate this artist to the album
-            .query("RELATE $ids->artist_to_album->type::record($album)")
+            .query("RELATE $ids->artist_to_album->$album")
             // update runtime, and song/album count
             .query("UPDATE $ids SET album_count += 1, runtime += (SELECT runtime FROM $album LIMIT 1), songs += (SELECT song_count FROM $album LIMIT 1)")
             .bind(("ids", &ids))
@@ -172,7 +173,7 @@ impl Artist {
                 .await?
                 .query("DELETE $artist->album_to_song WHERE out=$song")
                 .query(
-                    "UPDATE $artist SET song_count-=1, runtime-=(SELECT runtime FROM ONLY $song)",
+                    "UPDATE $artist SET song_count-=1, runtime-=(SELECT runtime FROM ONLY $song LIMIT 1)",
                 )
                 .bind(("artist", &id))
                 .bind(("song", song))
@@ -181,7 +182,7 @@ impl Artist {
         Ok(())
     }
 
-    /// updates the album count, song count, and runtime of the artist
+    /// updates the album count, song count, and runtime of the artist, removes the artist if they have no songs or albums
     ///
     /// # Arguments
     ///
@@ -194,13 +195,13 @@ impl Artist {
     pub async fn repair(id: ArtistId) -> Result<bool, Error> {
         let album_count: Option<usize> = db()
             .await?
-            .query("RETURN array::len(SELECT ->artist_to_album FROM ONLY $artist)")
+            .query("RETURN array::len(SELECT ->artist_to_album FROM $artist)")
             .bind(("artist", id.clone()))
             .await?
             .take(0)?;
 
         let songs: Vec<Song> = db().await?
-            .query("RETURN array::union((SELECT ->artist_to_song FROM ONLY $artist), (SELECT ->album_to_song<-album FROM artist_to_album<-$artist))")
+            .query("RETURN array::union((SELECT ->artist_to_song FROM $artist), (SELECT ->album_to_song<-album FROM artist_to_album<-$artist))")
             .bind(("artist", id.clone())).await?.take(0)?;
 
         if album_count.is_none() && songs.is_empty() {
@@ -210,7 +211,7 @@ impl Artist {
             let mut runtime = Duration::from_secs(0);
             let mut song_count = 0;
             for song in songs {
-                runtime += song.duration;
+                runtime = runtime + song.duration;
                 song_count += 1;
             }
 

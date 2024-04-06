@@ -104,16 +104,13 @@ impl Song {
             // find/create the new album
             let new_album = match (&changes.album, &changes.album_artist) {
                 (Some(album), Some(album_artist)) => {
-                    Album::read_or_create_by_name_and_album_artist(
-                        &album,
-                        &Vec::from(album_artist.to_owned()),
-                    )
-                    .await?
+                    Album::read_or_create_by_name_and_album_artist(&album, album_artist.to_owned())
+                        .await?
                 }
                 (Some(album), None) => {
                     Album::read_or_create_by_name_and_album_artist(
                         &album,
-                        &Vec::from(old_album.artist),
+                        old_album.artist.to_owned(),
                     )
                     .await?
                 }
@@ -121,7 +118,7 @@ impl Song {
                     // find/create the new album
                     Album::read_or_create_by_name_and_album_artist(
                         &old_album.title,
-                        &Vec::from(album_artist.to_owned()),
+                        album_artist.to_owned(),
                     )
                     .await?
                 }
@@ -133,7 +130,7 @@ impl Song {
             Album::remove_songs(old_album.id, &[id.clone()]).await?;
 
             // add song to the new album
-            Album::add_songs(new_album, &[id.clone()]).await?;
+            Album::add_songs(new_album.id, &[id.clone()]).await?;
         }
 
         if let Some(artist) = &changes.artist {
@@ -144,7 +141,7 @@ impl Song {
                 .await?
                 .take(0)?;
             // find/create artists with the new names
-            let new_artist = Artist::create_or_read_by_names(&Vec::from(artist.clone())).await?;
+            let new_artist = Artist::read_or_create_by_names(artist.clone()).await?;
 
             // remove song from the old artists
             for artist in old_artist.into_iter() {

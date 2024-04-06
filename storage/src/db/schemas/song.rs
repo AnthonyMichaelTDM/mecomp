@@ -1,11 +1,10 @@
 //----------------------------------------------------------------------------------------- std lib
 use std::sync::Arc;
-use std::time::Duration;
 use std::{collections::HashSet, path::PathBuf};
 //--------------------------------------------------------------------------------- other libraries
 use metadata::media_file::MediaFileMetadata;
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::{Id, Thing};
+use surrealdb::sql::{Duration, Id, Thing};
 use surrealqlx::Table;
 use tracing::instrument;
 //----------------------------------------------------------------------------------- local modules
@@ -104,7 +103,7 @@ impl Song {
         // for each artist, check if the artist exists in the database and get the id, if they don't then create a new artist and get the id
         let mut artists = Vec::with_capacity(metadata.artist.len());
         for artist in metadata.artist.iter() {
-            if let Some(artist) = Artist::create_or_read_by_name(artist.as_ref()).await? {
+            if let Some(artist) = Artist::read_or_create_by_name(artist.as_ref()).await? {
                 artists.push(artist);
             }
         }
@@ -112,7 +111,7 @@ impl Song {
         // check if the album artist exists, if they don't then create a new artist and get the id
         let mut album_artist_ids = Vec::with_capacity(metadata.artist.len());
         for artist in metadata.album_artist.iter() {
-            if let Some(artist) = Artist::create_or_read_by_name(artist.as_ref()).await? {
+            if let Some(artist) = Artist::read_or_create_by_name(artist.as_ref()).await? {
                 album_artist_ids.push(artist.id);
             }
         }
@@ -226,7 +225,7 @@ pub struct SongBrief {
     pub album: Arc<str>,
     pub album_artist: OneOrMany<Arc<str>>,
     pub release_year: Option<i32>,
-    pub duration: Duration,
+    pub duration: std::time::Duration,
     pub path: PathBuf,
 }
 
@@ -239,7 +238,7 @@ impl From<Song> for SongBrief {
             album: song.album,
             album_artist: song.album_artist,
             release_year: song.release_year,
-            duration: song.duration,
+            duration: song.duration.into(),
             path: song.path,
         }
     }
@@ -254,7 +253,7 @@ impl From<&Song> for SongBrief {
             album: song.album.clone(),
             album_artist: song.album_artist.clone(),
             release_year: song.release_year,
-            duration: song.duration,
+            duration: song.duration.into(),
             path: song.path.clone(),
         }
     }
@@ -501,7 +500,10 @@ impl SongMetadata {
                 .into(),
             duration: MediaFileMetadata::new(&path)
                 .map_err(|_| SongIOError::DurationReadError)
-                .map(|x| x._duration.map(Duration::from_secs_f64))?
+                .map(|x| {
+                    x._duration
+                        .map(|d| Duration::from(std::time::Duration::from_secs_f64(d)))
+                })?
                 .ok_or(SongIOError::DurationNotFound)?,
             track: tags.track_number(),
             disc: tags.disc_number(),
