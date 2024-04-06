@@ -160,7 +160,9 @@ impl<T> From<Option<OneOrMany<T>>> for OneOrMany<T> {
 
 impl<T: Clone> From<&[T]> for OneOrMany<T> {
     fn from(t: &[T]) -> Self {
-        if t.len() == 1 {
+        if t.is_empty() {
+            OneOrMany::None
+        } else if t.len() == 1 {
             OneOrMany::One(t[0].clone())
         } else {
             OneOrMany::Many(t.into())
@@ -170,10 +172,12 @@ impl<T: Clone> From<&[T]> for OneOrMany<T> {
 
 impl<T: Clone> From<Vec<T>> for OneOrMany<T> {
     fn from(t: Vec<T>) -> Self {
-        if t.len() == 1 {
+        if t.is_empty() {
+            OneOrMany::None
+        } else if t.len() == 1 {
             OneOrMany::One(t[0].clone())
         } else {
-            OneOrMany::Many(t)
+            OneOrMany::Many(t.into())
         }
     }
 }
