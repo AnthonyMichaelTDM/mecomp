@@ -2,6 +2,8 @@
 
 use std::clone::Clone;
 
+use surrealdb::opt::QueryResult;
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default)]
 #[serde(untagged)]
 pub enum OneOrMany<T> {
@@ -200,6 +202,27 @@ impl<T: std::clone::Clone> FromIterator<T> for OneOrMany<T> {
             result.push(item);
         }
         result
+    }
+}
+
+impl<T> QueryResult<OneOrMany<T>> for usize
+where
+    T: serde::Serialize + for<'a> serde::Deserialize<'a> + Clone,
+{
+    /// we can't access the interior `results` field of `response` because it's private, so we can't
+    /// implement this trait directly.
+    /// Instead, we'll implement use the impl's for `QueryResult` for `Vec<T>` and `Option<T>` to
+    /// implement this trait for `OneOrMany<T>`.
+    fn query_result(self, response: &mut surrealdb::Response) -> surrealdb::Result<OneOrMany<T>> {
+        let vec: surrealdb::Result<Vec<T>> = self.query_result(response);
+
+        match vec {
+            Ok(vec) => Ok(vec.into()),
+            Err(_) => {
+                let one: Option<T> = self.query_result(response)?;
+                Ok(one.into())
+            }
+        }
     }
 }
 
