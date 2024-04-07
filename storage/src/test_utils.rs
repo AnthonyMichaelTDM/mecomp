@@ -37,7 +37,7 @@ pub async fn create_song(
             .into(),
         album: Arc::from(format!("Album {album} {ulid}").as_str()),
         genre: OneOrMany::One(Arc::from(format!("Genre {genre} {ulid}").as_str())),
-        duration: Duration::from_secs(120),
+        runtime: Duration::from_secs(120),
         track: None,
         disc: None,
         release_year: None,

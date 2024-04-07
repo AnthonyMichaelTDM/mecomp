@@ -46,7 +46,7 @@ pub struct Song {
 
     /// Total runtime of this [`Song`].
     #[field(dt = "duration")]
-    pub duration: Duration,
+    pub runtime: Duration,
     // /// Sample rate of this [`Song`].
     // pub sample_rate: u32,
     /// The track number of this [`Song`].
@@ -167,7 +167,7 @@ impl Song {
             album: metadata.album,
             genre: metadata.genre,
             release_year: metadata.release_year,
-            duration: metadata.duration,
+            runtime: metadata.runtime,
             extension: metadata.extension,
             track: metadata.track,
             disc: metadata.disc,
@@ -204,7 +204,7 @@ pub struct SongChangeSet {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub genre: Option<OneOrMany<Arc<str>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub duration: Option<Duration>,
+    pub runtime: Option<Duration>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<Option<u16>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -238,7 +238,7 @@ impl From<Song> for SongBrief {
             album: song.album,
             album_artist: song.album_artist,
             release_year: song.release_year,
-            duration: song.duration.into(),
+            duration: song.runtime.into(),
             path: song.path,
         }
     }
@@ -253,7 +253,7 @@ impl From<&Song> for SongBrief {
             album: song.album.clone(),
             album_artist: song.album_artist.clone(),
             release_year: song.release_year,
-            duration: song.duration.into(),
+            duration: song.runtime.into(),
             path: song.path.clone(),
         }
     }
@@ -266,7 +266,7 @@ pub struct SongMetadata {
     pub album: Arc<str>,
     pub album_artist: OneOrMany<Arc<str>>,
     pub genre: OneOrMany<Arc<str>>,
-    pub duration: Duration,
+    pub runtime: Duration,
     pub release_year: Option<i32>,
     pub track: Option<u16>,
     pub disc: Option<u16>,
@@ -282,7 +282,7 @@ impl From<&Song> for SongMetadata {
             album: song.album.clone(),
             album_artist: song.album_artist.clone(),
             genre: song.genre.clone(),
-            duration: song.duration,
+            runtime: song.runtime,
             track: song.track,
             disc: song.disc,
             release_year: song.release_year,
@@ -300,7 +300,7 @@ impl From<Song> for SongMetadata {
             album: song.album,
             album_artist: song.album_artist,
             genre: song.genre,
-            duration: song.duration,
+            runtime: song.runtime,
             track: song.track,
             disc: song.disc,
             release_year: song.release_year,
@@ -327,7 +327,7 @@ impl SongMetadata {
             // the album is the same
             && self.album == other.album
             // the duration is the same
-            && self.duration == other.duration
+            && self.runtime == other.runtime
             // the genre is the same, or the genre is not in self but is in other
             && (self.genre == other.genre || self.genre.is_none() && other.genre.is_some())
             // the track is the same, or the track is not in self but is in other
@@ -376,7 +376,7 @@ impl SongMetadata {
                 .collect::<HashSet<Arc<str>>>()
                 .into_iter()
                 .collect(),
-            duration: base.duration,
+            runtime: base.runtime,
             track: base.track.or(other.track),
             disc: base.disc.or(other.disc),
             release_year: base.release_year.or(other.release_year),
@@ -402,8 +402,8 @@ impl SongMetadata {
         if self.genre != song.genre {
             changeset.genre = Some(self.genre.clone());
         }
-        if self.duration != song.duration {
-            changeset.duration = Some(self.duration);
+        if self.runtime != song.runtime {
+            changeset.runtime = Some(self.runtime);
         }
         if self.track != song.track {
             changeset.track = Some(self.track);
@@ -498,7 +498,7 @@ impl SongMetadata {
                     (_, genre) => OneOrMany::One(genre.into()),
                 })
                 .into(),
-            duration: MediaFileMetadata::new(&path)
+            runtime: MediaFileMetadata::new(&path)
                 .map_err(|_| SongIOError::DurationReadError)
                 .map(|x| {
                     x._duration
