@@ -105,9 +105,8 @@ impl Artist {
     }
 
     #[instrument]
-    pub async fn update(id: ArtistId, changes: ArtistChangeSet) -> Result<(), Error> {
-        let _: Option<Artist> = db().await?.update((TABLE_NAME, id)).merge(changes).await?;
-        Ok(())
+    pub async fn update(id: ArtistId, changes: ArtistChangeSet) -> Result<Option<Artist>, Error> {
+        Ok(db().await?.update((TABLE_NAME, id)).merge(changes).await?)
     }
 
     #[instrument]
@@ -331,12 +330,13 @@ mod tests {
             ..Default::default()
         };
 
-        Artist::update(artist.id.clone(), changes).await?;
-
+        let updated = Artist::update(artist.id.clone(), changes).await?;
         let read = Artist::read(artist.id.clone())
             .await?
             .ok_or(anyhow!("Failed to read artist"))?;
+
         assert_eq!(read.name, format!("New Name {ulid}").into());
+        assert_eq!(Some(read), updated);
         Ok(())
     }
 

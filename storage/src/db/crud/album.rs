@@ -54,10 +54,8 @@ impl Album {
     }
 
     #[instrument()]
-    pub async fn update(id: AlbumId, changes: AlbumChangeSet) -> Result<(), Error> {
-        let _: Option<Album> = db().await?.update((TABLE_NAME, id)).merge(changes).await?;
-
-        Ok(())
+    pub async fn update(id: AlbumId, changes: AlbumChangeSet) -> Result<Option<Album>, Error> {
+        Ok(db().await?.update((TABLE_NAME, id)).merge(changes).await?)
     }
 
     #[instrument()]
@@ -263,12 +261,13 @@ mod tests {
             ..Default::default()
         };
 
-        Album::update(album.id.clone(), changes).await?;
-
+        let updated = Album::update(album.id.clone(), changes).await?;
         let read = Album::read(album.id.clone())
             .await?
             .ok_or(anyhow!("Failed to read album"))?;
+
         assert_eq!(read.title, format!("New Title {ulid}").into());
+        assert_eq!(Some(read), updated);
         Ok(())
     }
 
