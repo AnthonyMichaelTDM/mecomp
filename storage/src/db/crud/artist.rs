@@ -111,6 +111,11 @@ impl Artist {
     }
 
     #[instrument]
+    pub async fn delete(id: ArtistId) -> Result<Option<Artist>, Error> {
+        Ok(db().await?.delete((TABLE_NAME, id)).await?)
+    }
+
+    #[instrument]
     pub async fn read_albums(id: ArtistId) -> Result<Vec<Album>, Error> {
         Ok(db()
             .await?
@@ -332,6 +337,24 @@ mod tests {
             .await?
             .ok_or(anyhow!("Failed to read artist"))?;
         assert_eq!(read.name, format!("New Name {ulid}").into());
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_delete(ulid: String) -> Result<()> {
+        let ulid = &ulid;
+        let artist = create_artist(ulid);
+
+        let _ = Artist::create(artist.clone())
+            .await?
+            .ok_or(anyhow!("Failed to create artist"))?;
+
+        let deleted = Artist::delete(artist.id.clone()).await?;
+        let read = Artist::read(artist.id.clone()).await?;
+
+        assert_eq!(deleted, Some(artist));
+        assert_eq!(read, None);
         Ok(())
     }
 

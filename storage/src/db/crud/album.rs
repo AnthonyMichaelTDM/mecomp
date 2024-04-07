@@ -38,9 +38,8 @@ impl Album {
     }
 
     #[instrument]
-    pub async fn delete(id: AlbumId) -> Result<(), Error> {
-        let _: Option<Album> = db().await?.delete((TABLE_NAME, id)).await?;
-        Ok(())
+    pub async fn delete(id: AlbumId) -> Result<Option<Album>, Error> {
+        Ok(db().await?.delete((TABLE_NAME, id)).await?)
     }
 
     #[instrument()]
@@ -283,9 +282,10 @@ mod tests {
             .await?
             .ok_or(anyhow!("Failed to create album"))?;
 
-        Album::delete(album.id.clone()).await?;
-
+        let deleted = Album::delete(album.id.clone()).await?;
         let read = Album::read(album.id.clone()).await?;
+
+        assert_eq!(Some(album), deleted);
         assert_eq!(read, None);
         Ok(())
     }
