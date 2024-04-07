@@ -19,14 +19,12 @@ use crate::{
 
 impl Song {
     #[instrument]
-    pub async fn create(song: Song) -> Result<Option<SongId>, Error> {
-        let id = db()
+    pub async fn create(song: Song) -> Result<Option<Song>, Error> {
+        Ok(db()
             .await?
             .create((TABLE_NAME, song.id.clone()))
             .content(song)
-            .await?
-            .map(|x: Song| x.id);
-        Ok(id)
+            .await?)
     }
 
     #[instrument]

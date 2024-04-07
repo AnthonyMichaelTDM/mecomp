@@ -174,7 +174,7 @@ impl Song {
             path: metadata.path,
         };
         // add that song to the database
-        let song_id = Self::create(song.clone()).await?.unwrap();
+        let song_id = Self::create(song.clone()).await?.unwrap().id;
 
         // add the song to the artists, if it's not already there
         for artist in artists.iter() {
