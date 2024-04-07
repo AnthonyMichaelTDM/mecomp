@@ -40,8 +40,6 @@ impl Artist {
     }
 }
 
-/// This struct holds all the metadata about a particular ['Artist'].
-/// An ['Artist'] is a collection of ['Album']s.
 #[derive(Debug, Default, Serialize)]
 pub struct ArtistChangeSet {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -54,6 +52,8 @@ pub struct ArtistChangeSet {
     pub song_count: Option<usize>,
 }
 
+/// This struct holds all the metadata about a particular ['Artist'].
+/// An ['Artist'] is a collection of ['Album']s.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ArtistBrief {
     pub id: ArtistId,
