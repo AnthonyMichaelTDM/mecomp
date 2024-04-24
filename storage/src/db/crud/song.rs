@@ -152,7 +152,7 @@ impl Song {
         }
 
         db().await?
-            .query(format!("UPDATE type::record($id) MERGE $changes"))
+            .query(format!("UPDATE $id MERGE $changes"))
             .bind(("id", &id))
             .bind(("changes", &changes))
             .await?;

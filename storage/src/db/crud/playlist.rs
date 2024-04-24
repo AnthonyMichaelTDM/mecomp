@@ -53,7 +53,7 @@ impl Playlist {
     #[instrument]
     pub async fn repair(id: PlaylistId) -> Result<(), Error> {
         db().await?
-            .query("UPDATE $id SET song_count = array::len(SELECT ->playlist_to_song FROM ONLY $id), runtime = math::sum(SELECT runtime FROM (SELECT ->playlist_to_song FROM ONLY $id))")
+            .query("UPDATE $id SET song_count = array::len(SELECT ->playlist_to_song->song FROM ONLY $id), runtime = math::sum(SELECT runtime FROM (SELECT ->playlist_to_song->song FROM ONLY $id))")
             .bind(("id", id))
             .await?;
         Ok(())
