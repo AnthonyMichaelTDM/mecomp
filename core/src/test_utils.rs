@@ -169,3 +169,33 @@ where
         Vec::from_iter(std::iter::repeat_with(|| item_strategy()).take(size))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[tokio::test]
+    async fn test_create_song() {
+        init().await.unwrap();
+        // Create a test case
+        let song_case = SongCase::new(0, vec![0], vec![0], 0, 0);
+
+        // Call the create_song function
+        let result = create_song(song_case).await;
+
+        // Assert that the result is Ok
+        if let Err(e) = result {
+            panic!("Error creating song: {:?}", e);
+        }
+
+        // Get the Song from the result
+        let song = result.unwrap();
+
+        // Assert that we can get the song from the database
+        let song_from_db = Song::read(song.id.clone()).await.unwrap().unwrap();
+
+        // Assert that the song from the database is the same as the song we created
+        assert_eq!(song, song_from_db);
+    }
+}
