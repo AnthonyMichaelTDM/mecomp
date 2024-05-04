@@ -36,3 +36,4 @@ anyhow = { workspace = true }
 pretty_assertions = { workspace = true }
 surrealdb = { workspace = true, features = ["kv-speedb", "kv-mem"] }
 rstest = { workspace = true }
+lazy_static = { workspace = true }

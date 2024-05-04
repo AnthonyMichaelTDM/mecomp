@@ -17,9 +17,9 @@ proc-macro = true
 doctest = false
 
 [dependencies]
-proc-macro2 = "1.0.79"
-quote = { version = "1.0.35", features = ["proc-macro"] }
-syn = { version = "2.0.57", features = ["parsing", "proc-macro"] }
+proc-macro2 = "1.0"
+quote = { version = "1.0", features = ["proc-macro"] }
+syn = { version = "2.0", features = ["parsing", "proc-macro"] }
 mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
 
 [dev-dependencies]
