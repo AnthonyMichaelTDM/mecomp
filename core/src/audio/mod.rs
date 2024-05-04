@@ -234,7 +234,7 @@ impl AudioKernel {
             binding.add_song(song);
         }
         // if the player is empty, start playback
-        if self.player.is_empty() {
+        if self.player.empty() {
             if let Some(song) = self.get_next_song() {
                 if let Err(e) = self.append_song_to_player(&song) {
                     error!("Failed to append song to player: {}", e);
