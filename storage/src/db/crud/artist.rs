@@ -21,7 +21,7 @@ impl Artist {
     #[instrument]
     pub async fn create(artist: Artist) -> Result<Option<Artist>, Error> {
         Ok(db()
-            .await?
+            .await
             .create((TABLE_NAME, artist.id.clone()))
             .content(artist)
             .await?)
@@ -29,7 +29,7 @@ impl Artist {
 
     #[instrument]
     pub async fn read_or_create_by_name(name: &str) -> Result<Option<Artist>, Error> {
-        if let Some(artist) = Artist::read_by_name(name).await? {
+        if let Ok(Some(artist)) = Artist::read_by_name(name).await {
             Ok(Some(artist))
         } else {
             Artist::create(Artist {
@@ -57,7 +57,7 @@ impl Artist {
     #[instrument]
     pub async fn read_by_name(name: &str) -> Result<Option<Artist>, Error> {
         Ok(db()
-            .await?
+            .await
             .query("SELECT * FROM artist WHERE name = $name LIMIT 1")
             .bind(("name", name))
             .await?
@@ -68,7 +68,7 @@ impl Artist {
     pub async fn read_by_names(names: &[Arc<str>]) -> Result<Vec<Artist>, Error> {
         // select artists records whose `name` field is in $names
         Ok(db()
-            .await?
+            .await
             .query("SELECT * FROM artist WHERE name IN $names")
             .bind(("names", names))
             .await?
@@ -77,12 +77,12 @@ impl Artist {
 
     #[instrument]
     pub async fn read_all() -> Result<Vec<Artist>, Error> {
-        Ok(db().await?.select(TABLE_NAME).await?)
+        Ok(db().await.select(TABLE_NAME).await?)
     }
 
     #[instrument]
     pub async fn read(id: ArtistId) -> Result<Option<Artist>, Error> {
-        Ok(db().await?.select((TABLE_NAME, id)).await?)
+        Ok(db().await.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
@@ -97,7 +97,7 @@ impl Artist {
     #[instrument]
     pub async fn read_many(ids: Vec<ArtistId>) -> Result<Vec<Artist>, Error> {
         Ok(db()
-            .await?
+            .await
             .query("SELECT * FROM $ids")
             .bind(("ids", ids))
             .await?
@@ -106,18 +106,18 @@ impl Artist {
 
     #[instrument]
     pub async fn update(id: ArtistId, changes: ArtistChangeSet) -> Result<Option<Artist>, Error> {
-        Ok(db().await?.update((TABLE_NAME, id)).merge(changes).await?)
+        Ok(db().await.update((TABLE_NAME, id)).merge(changes).await?)
     }
 
     #[instrument]
     pub async fn delete(id: ArtistId) -> Result<Option<Artist>, Error> {
-        Ok(db().await?.delete((TABLE_NAME, id)).await?)
+        Ok(db().await.delete((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
     pub async fn read_albums(id: ArtistId) -> Result<Vec<Album>, Error> {
         Ok(db()
-            .await?
+            .await
             .query("SELECT * FROM $id->artist_to_album->album")
             .bind(("id", id))
             .await?
@@ -126,7 +126,7 @@ impl Artist {
 
     #[instrument]
     pub async fn add_album(id: ArtistId, album_id: AlbumId) -> Result<(), Error> {
-        db().await?
+        db().await
             // relate this artist to the album
             .query("RELATE $id->artist_to_album->$album;")
             // relate this artist to the songs in the album
@@ -141,7 +141,7 @@ impl Artist {
 
     #[instrument]
     pub async fn add_album_to_artists(ids: &[ArtistId], album_id: AlbumId) -> Result<(), Error> {
-        db().await?
+        db().await
             // relate this artist to the album
             .query("RELATE $ids->artist_to_album->$album")
             .bind(("ids", &ids))
@@ -156,7 +156,7 @@ impl Artist {
     #[instrument]
     /// gets all the songs associated with an artist, either directly or through an album
     pub async fn add_songs(id: ArtistId, songs: &[SongId]) -> Result<(), Error> {
-        db().await?
+        db().await
             // relate this artist to these songs
             .query("RELATE $id->artist_to_song->$songs")
             .bind(("id", &id))
@@ -168,7 +168,7 @@ impl Artist {
 
     #[instrument]
     pub async fn remove_songs(id: ArtistId, song_ids: &[SongId]) -> Result<(), Error> {
-        db().await?
+        db().await
             .query("DELETE $artist->artist_to_song WHERE out IN $songs")
             .bind(("artist", &id))
             .bind(("songs", song_ids))
@@ -179,7 +179,7 @@ impl Artist {
 
     #[instrument]
     pub async fn read_songs(id: ArtistId) -> Result<Vec<Song>, Error> {
-        Ok(db().await?
+        Ok(db().await
             .query("RETURN array::union((SELECT * FROM $artist->artist_to_song->song), (SELECT * FROM $artist->artist_to_album->album->album_to_song->song))")
             .bind(("artist", id)).await?.take(0)?)
     }

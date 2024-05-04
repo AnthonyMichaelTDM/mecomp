@@ -26,10 +26,10 @@ static DB_DIR: OnceCell<PathBuf> = OnceCell::const_new();
 static TEMP_DB_DIR: Lazy<TempDir> =
     Lazy::new(|| tempfile::tempdir().expect("Failed to create temporary directory"));
 
-pub async fn db() -> surrealdb::Result<&'static Surreal<Db>> {
+pub async fn db() -> &'static Surreal<Db> {
     DB.wait_for(surrealdb::opt::WaitFor::Connection).await;
     DB.wait_for(surrealdb::opt::WaitFor::Database).await;
-    Ok(DB.deref())
+    DB.deref()
 }
 
 #[cfg(not(test))]

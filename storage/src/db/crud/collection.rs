@@ -16,7 +16,7 @@ impl Collection {
     #[instrument]
     pub async fn create(collection: Collection) -> Result<Option<Collection>, Error> {
         Ok(db()
-            .await?
+            .await
             .create((TABLE_NAME, collection.id.clone()))
             .content(collection)
             .await?)
@@ -24,12 +24,12 @@ impl Collection {
 
     #[instrument]
     pub async fn read_all() -> Result<Vec<Collection>, Error> {
-        Ok(db().await?.select(TABLE_NAME).await?)
+        Ok(db().await.select(TABLE_NAME).await?)
     }
 
     #[instrument]
     pub async fn read(id: CollectionId) -> Result<Option<Collection>, Error> {
-        Ok(db().await?.select((TABLE_NAME, id)).await?)
+        Ok(db().await.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
@@ -37,17 +37,17 @@ impl Collection {
         id: CollectionId,
         changes: CollectionChangeSet,
     ) -> Result<Option<Collection>, Error> {
-        Ok(db().await?.update((TABLE_NAME, id)).merge(changes).await?)
+        Ok(db().await.update((TABLE_NAME, id)).merge(changes).await?)
     }
 
     #[instrument]
     pub async fn delete(id: CollectionId) -> Result<Option<Collection>, Error> {
-        Ok(db().await?.delete((TABLE_NAME, id)).await?)
+        Ok(db().await.delete((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
     pub async fn add_songs(id: CollectionId, song_ids: &[SongId]) -> Result<(), Error> {
-        db().await?
+        db().await
             .query("RELATE $id->collection_to_song->$songs")
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
@@ -59,7 +59,7 @@ impl Collection {
     #[instrument]
     pub async fn read_songs(id: CollectionId) -> Result<Vec<Song>, Error> {
         Ok(db()
-            .await?
+            .await
             .query("SELECT * FROM $id->collection_to_song->song")
             .bind(("id", id))
             .await?
@@ -68,7 +68,7 @@ impl Collection {
 
     #[instrument]
     pub async fn remove_songs(id: CollectionId, song_ids: &[SongId]) -> Result<(), Error> {
-        db().await?
+        db().await
             .query("DELETE $id->collection_to_song WHERE out IN $songs")
             .query("UPDATE $id SET song_count -= array::len($songs), runtime-=math::sum((SELECT runtime FROM $song))")
             .bind(("id", id.clone()))
@@ -91,7 +91,7 @@ impl Collection {
     pub async fn repair(id: CollectionId) -> Result<bool, Error> {
         let songs = Collection::read_songs(id.clone()).await?;
 
-        db().await?
+        db().await
             .query("UPDATE $id SET song_count=$songs, runtime=$runtime")
             .bind(("id", id))
             .bind(("songs", songs.len()))

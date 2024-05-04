@@ -21,7 +21,7 @@ impl Album {
     #[instrument()]
     pub async fn create(album: Album) -> Result<Option<Album>, Error> {
         Ok(db()
-            .await?
+            .await
             .create((TABLE_NAME, album.id.clone()))
             .content(album)
             .await?)
@@ -29,23 +29,23 @@ impl Album {
 
     #[instrument()]
     pub async fn read_all() -> Result<Vec<Album>, Error> {
-        Ok(db().await?.select(TABLE_NAME).await?)
+        Ok(db().await.select(TABLE_NAME).await?)
     }
 
     #[instrument()]
     pub async fn read(id: AlbumId) -> Result<Option<Album>, Error> {
-        Ok(db().await?.select((TABLE_NAME, id)).await?)
+        Ok(db().await.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
     pub async fn delete(id: AlbumId) -> Result<Option<Album>, Error> {
-        Ok(db().await?.delete((TABLE_NAME, id)).await?)
+        Ok(db().await.delete((TABLE_NAME, id)).await?)
     }
 
     #[instrument()]
     pub async fn read_by_name(name: &str) -> Result<Vec<Album>, Error> {
         Ok(db()
-            .await?
+            .await
             .query("SELECT * FROM album WHERE title=$name")
             .bind(("table", TABLE_NAME))
             .bind(("name", name))
@@ -55,7 +55,7 @@ impl Album {
 
     #[instrument()]
     pub async fn update(id: AlbumId, changes: AlbumChangeSet) -> Result<Option<Album>, Error> {
-        Ok(db().await?.update((TABLE_NAME, id)).merge(changes).await?)
+        Ok(db().await.update((TABLE_NAME, id)).merge(changes).await?)
     }
 
     #[instrument()]
@@ -68,7 +68,7 @@ impl Album {
         }
 
         Ok(db()
-            .await?
+            .await
             .query("SELECT * FROM album WHERE title=$title AND artist=$artist")
             .bind(("table", TABLE_NAME))
             .bind(("title", title))
@@ -82,10 +82,8 @@ impl Album {
         title: &str,
         album_artists: OneOrMany<Arc<str>>,
     ) -> Result<Option<Album>, Error> {
-        if let Some(album) = Album::read_by_name_and_album_artist(title, album_artists.clone())
-            .await?
-            .into_iter()
-            .next()
+        if let Ok(Some(album)) =
+            Album::read_by_name_and_album_artist(title, album_artists.clone()).await
         {
             Ok(Some(album))
         } else {
@@ -124,7 +122,7 @@ impl Album {
 
     #[instrument()]
     pub async fn add_songs(id: AlbumId, song_ids: &[SongId]) -> Result<(), Error> {
-        db().await?
+        db().await
             .query("RELATE $album->album_to_song->$songs")
             .bind(("album", &id))
             .bind(("songs", song_ids))
@@ -138,7 +136,7 @@ impl Album {
     #[instrument()]
     pub async fn read_songs(id: AlbumId) -> Result<Vec<Song>, Error> {
         Ok(db()
-            .await?
+            .await
             .query("SELECT * FROM $album->album_to_song.out")
             .bind(("album", &id))
             .await?
@@ -147,7 +145,7 @@ impl Album {
 
     #[instrument()]
     pub async fn remove_songs(id: AlbumId, song_ids: &[SongId]) -> Result<(), Error> {
-        db().await?
+        db().await
             .query("DELETE $album->album_to_song WHERE out IN $songs")
             .bind(("album", &id))
             .bind(("songs", song_ids))
@@ -159,7 +157,7 @@ impl Album {
     #[instrument]
     pub async fn read_artist(id: AlbumId) -> Result<OneOrMany<Artist>, Error> {
         Ok(db()
-            .await?
+            .await
             .query("SELECT * FROM $id<-artist_to_album<-artist")
             .bind(("id", id))
             .await?

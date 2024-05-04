@@ -21,7 +21,7 @@ impl Song {
     #[instrument]
     pub async fn create(song: Song) -> Result<Option<Song>, Error> {
         Ok(db()
-            .await?
+            .await
             .create((TABLE_NAME, song.id.clone()))
             .content(song)
             .await?)
@@ -29,18 +29,18 @@ impl Song {
 
     #[instrument]
     pub async fn read_all() -> Result<Vec<Song>, Error> {
-        Ok(db().await?.select(TABLE_NAME).await?)
+        Ok(db().await.select(TABLE_NAME).await?)
     }
 
     #[instrument]
     pub async fn read(id: SongId) -> Result<Option<Song>, Error> {
-        Ok(db().await?.select((TABLE_NAME, id)).await?)
+        Ok(db().await.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
     pub async fn read_by_path(path: PathBuf) -> Result<Option<Song>, Error> {
         Ok(db()
-            .await?
+            .await
             .query("SELECT * FROM song WHERE path = $path LIMIT 1")
             .bind(("path", path))
             .await?
@@ -50,7 +50,7 @@ impl Song {
     #[instrument]
     pub async fn read_album(id: SongId) -> Result<Option<Album>, Error> {
         Ok(db()
-            .await?
+            .await
             .query("SELECT <-album_to_song<-album FROM $id")
             .bind(("id", id))
             .await?
@@ -60,7 +60,7 @@ impl Song {
     #[instrument]
     pub async fn read_artist(id: SongId) -> Result<OneOrMany<Artist>, Error> {
         let res: Vec<Artist> = db()
-            .await?
+            .await
             .query("SELECT <-artist_to_song<-artist FROM $id")
             .bind(("id", id))
             .await?
@@ -72,7 +72,7 @@ impl Song {
     #[instrument]
     pub async fn read_album_artist(id: SongId) -> Result<OneOrMany<Artist>, Error> {
         let res: Vec<Artist> = db()
-            .await?
+            .await
             .query("SELECT <-album_to_song<-album<-artist_to_album<-artist FROM $id")
             .bind(("id", id))
             .await?
@@ -92,7 +92,7 @@ impl Song {
     pub async fn update(id: SongId, changes: SongChangeSet) -> Result<(), Error> {
         if changes.album.is_some() || changes.album_artist.is_some() {
             let old_album: Option<Album> = db()
-                .await?
+                .await
                 .query("SELECT <-album_to_song<-album FROM $id")
                 .bind(("id", id.clone()))
                 .await?
@@ -133,7 +133,7 @@ impl Song {
 
         if let Some(artist) = &changes.artist {
             let old_artist: Vec<Artist> = db()
-                .await?
+                .await
                 .query("SELECT <-artist_to_song<-artist FROM $id")
                 .bind(("id", id.clone()))
                 .await?
@@ -151,7 +151,7 @@ impl Song {
             }
         }
 
-        db().await?
+        db().await
             .query(format!("UPDATE $id MERGE $changes"))
             .bind(("id", &id))
             .bind(("changes", &changes))
@@ -167,7 +167,7 @@ impl Song {
     /// - remove the song from collections.
     #[instrument]
     pub async fn delete(id: SongId) -> Result<(), Error> {
-        let _: Option<Song> = db().await?.delete((TABLE_NAME, id)).await?;
+        let _: Option<Song> = db().await.delete((TABLE_NAME, id)).await?;
         Ok(())
     }
 }
