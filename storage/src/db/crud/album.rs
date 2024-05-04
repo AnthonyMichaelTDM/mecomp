@@ -77,6 +77,9 @@ impl Album {
             .take(0)?)
     }
 
+    /// Read or create an album by name and album artist
+    ///
+    /// If the album does not exist, it will be created and added to the artists
     #[instrument()]
     pub async fn read_or_create_by_name_and_album_artist(
         title: &str,

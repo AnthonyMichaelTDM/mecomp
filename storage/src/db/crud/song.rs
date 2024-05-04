@@ -51,7 +51,7 @@ impl Song {
     pub async fn read_album(id: SongId) -> Result<Option<Album>, Error> {
         Ok(db()
             .await
-            .query("SELECT <-album_to_song<-album FROM $id")
+            .query("SELECT * FROM $id<-album_to_song.in")
             .bind(("id", id))
             .await?
             .take(0)?)
@@ -61,7 +61,7 @@ impl Song {
     pub async fn read_artist(id: SongId) -> Result<OneOrMany<Artist>, Error> {
         let res: Vec<Artist> = db()
             .await
-            .query("SELECT <-artist_to_song<-artist FROM $id")
+            .query("SELECT * FROM $id<-artist_to_song.in")
             .bind(("id", id))
             .await?
             .take(0)?;
@@ -73,7 +73,7 @@ impl Song {
     pub async fn read_album_artist(id: SongId) -> Result<OneOrMany<Artist>, Error> {
         let res: Vec<Artist> = db()
             .await
-            .query("SELECT <-album_to_song<-album<-artist_to_album<-artist FROM $id")
+            .query("SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in")
             .bind(("id", id))
             .await?
             .take(0)?;
@@ -91,12 +91,7 @@ impl Song {
     #[instrument]
     pub async fn update(id: SongId, changes: SongChangeSet) -> Result<(), Error> {
         if changes.album.is_some() || changes.album_artist.is_some() {
-            let old_album: Option<Album> = db()
-                .await
-                .query("SELECT <-album_to_song<-album FROM $id")
-                .bind(("id", id.clone()))
-                .await?
-                .take(0)?;
+            let old_album: Option<Album> = Song::read_album(id.clone()).await?;
             let old_album = old_album.ok_or(Error::NotFound)?;
 
             // find/create the new album
@@ -132,18 +127,13 @@ impl Song {
         }
 
         if let Some(artist) = &changes.artist {
-            let old_artist: Vec<Artist> = db()
-                .await
-                .query("SELECT <-artist_to_song<-artist FROM $id")
-                .bind(("id", id.clone()))
-                .await?
-                .take(0)?;
+            let old_artist: OneOrMany<Artist> = Song::read_artist(id.clone()).await?.into();
             // find/create artists with the new names
             let new_artist = Artist::read_or_create_by_names(artist.clone()).await?;
 
             // remove song from the old artists
-            for artist in old_artist.into_iter() {
-                Artist::remove_songs(artist.id, &[id.clone()]).await?;
+            for artist in old_artist.iter() {
+                Artist::remove_songs(artist.id.to_owned(), &[id.clone()]).await?;
             }
             // add song to the new artists
             for artist in new_artist.into_iter() {
@@ -168,6 +158,302 @@ impl Song {
     #[instrument]
     pub async fn delete(id: SongId) -> Result<(), Error> {
         let _: Option<Song> = db().await.delete((TABLE_NAME, id)).await?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test_utils::ulid;
+
+    use anyhow::{anyhow, Result};
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+    use surrealdb::sql::Duration;
+
+    fn create_song(ulid: &str) -> Song {
+        Song {
+            id: Song::generate_id(),
+            title: format!("Test Song {ulid}").into(),
+            artist: vec![format!("Test Artist {ulid}").into()].into(),
+            album_artist: vec![format!("Test Artist {ulid}").into()].into(),
+            album: format!("Test Album {ulid}").into(),
+            genre: OneOrMany::One(format!("Test Genre {ulid}").into()),
+            runtime: Duration::from_secs(120),
+            track: None,
+            disc: None,
+            release_year: None,
+            extension: "mp3".into(),
+            path: format!("song_{ulid}.mp3").into(),
+        }
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_create(ulid: String) -> Result<()> {
+        let ulid = &ulid;
+        let song = create_song(ulid);
+
+        let created = Song::create(song.clone()).await?;
+        assert_eq!(created, Some(song));
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_read_all(ulid: String) -> Result<()> {
+        let ulid = &ulid;
+        let song = create_song(ulid);
+
+        Song::create(song.clone()).await?;
+        let songs = Song::read_all().await?;
+        assert!(!songs.is_empty());
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_read(ulid: String) -> Result<()> {
+        let ulid = &ulid;
+        let song = create_song(ulid);
+
+        Song::create(song.clone()).await?;
+        let read = Song::read(song.id.clone())
+            .await?
+            .ok_or(anyhow!("Song not found"))?;
+        assert_eq!(read, song);
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_read_by_path(ulid: String) -> Result<()> {
+        let ulid = &ulid;
+        let song = create_song(ulid);
+
+        Song::create(song.clone()).await?;
+        let read = Song::read_by_path(song.path.clone())
+            .await?
+            .ok_or(anyhow!("Song not found"))?;
+        assert_eq!(read, song);
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_read_album(ulid: String) -> Result<()> {
+        let ulid = &ulid;
+        let song = create_song(ulid);
+
+        Song::create(song.clone()).await?;
+
+        let album = Album::read_or_create_by_name_and_album_artist(&song.album, song.album_artist)
+            .await?
+            .ok_or(anyhow!("Album not found/created"))?;
+        Album::add_songs(album.id.clone(), &[song.id.clone()]).await?;
+        let album = Album::read(album.id)
+            .await?
+            .ok_or(anyhow!("Album not found"))?;
+        assert_eq!(Some(album), Song::read_album(song.id.clone()).await?);
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_read_artist(ulid: String) -> Result<()> {
+        let ulid = &ulid;
+        let song = create_song(ulid);
+
+        Song::create(song.clone()).await?;
+
+        let artist = Artist::read_or_create_by_name(song.artist.clone().first().unwrap())
+            .await?
+            .ok_or(anyhow!("Artist not found/created"))?;
+        Artist::add_songs(artist.id.clone(), &[song.id.clone()]).await?;
+        let artist = Artist::read(artist.id)
+            .await?
+            .ok_or(anyhow!("Artist not found"))?;
+        assert_eq!(
+            OneOrMany::One(artist),
+            Song::read_artist(song.id.clone()).await?
+        );
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_read_album_artist(ulid: String) -> Result<()> {
+        let ulid = &ulid;
+        let song = create_song(ulid);
+
+        Song::create(song.clone()).await?;
+
+        let artist = Artist::read_or_create_by_name(song.album_artist.clone().first().unwrap())
+            .await?
+            .ok_or(anyhow!("Album Artist not found/created"))?;
+        let album = Album::read_or_create_by_name_and_album_artist(&song.album, song.album_artist)
+            .await?
+            .ok_or(anyhow!("Album not found/created"))?;
+        Album::add_songs(album.id.clone(), &[song.id.clone()]).await?;
+        let artist = Artist::read(artist.id.clone())
+            .await?
+            .ok_or(anyhow!("Artist not found"))?;
+        assert_eq!(
+            OneOrMany::One(artist),
+            Song::read_album_artist(song.id.clone()).await?
+        );
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_update_no_repair(ulid: String) -> Result<()> {
+        let ulid = &ulid;
+        let song = create_song(ulid);
+
+        Song::create(song.clone()).await?;
+
+        // test updating things that don't require relation repair
+        let changes = SongChangeSet {
+            title: Some(format!("Updated Title {ulid}").into()),
+            runtime: Some(Duration::from_secs(10)),
+            track: Some(Some(2)),
+            disc: Some(Some(2)),
+            genre: Some(OneOrMany::One("Updated Genre".into())),
+            release_year: Some(Some(2021)),
+            extension: Some("flac".into()),
+            ..Default::default()
+        };
+        Song::update(song.id.clone(), changes.clone()).await?;
+
+        let updated = Song::read(song.id.clone())
+            .await?
+            .ok_or(anyhow!("Song not found"))?;
+
+        assert_eq!(updated.title, changes.title.unwrap());
+        assert_eq!(updated.runtime, changes.runtime.unwrap());
+        assert_eq!(updated.track, changes.track.unwrap());
+        assert_eq!(updated.disc, changes.disc.unwrap());
+        assert_eq!(updated.genre, changes.genre.unwrap());
+        assert_eq!(updated.release_year, changes.release_year.unwrap());
+        assert_eq!(updated.extension, changes.extension.unwrap());
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_update_artist(ulid: String) -> Result<()> {
+        let ulid = &ulid;
+        let song = create_song(ulid);
+
+        Song::create(song.clone()).await?;
+
+        // note, we need the artist to actually exist in the db and be associated with the song
+        let artist = Artist::read_or_create_by_name(&song.artist.first().unwrap())
+            .await?
+            .ok_or(anyhow!("Artist not found/created"))?;
+        Artist::add_songs(artist.id, &[song.id.clone()]).await?;
+
+        let changes = SongChangeSet {
+            artist: Some(OneOrMany::One(format!("Updated Artist {ulid}").into())),
+            ..Default::default()
+        };
+        Song::update(song.id.clone(), changes.clone()).await?;
+        let updated = Song::read(song.id.clone())
+            .await?
+            .ok_or(anyhow!("Song not found"))?;
+        assert_eq!(updated.artist, changes.artist.clone().unwrap());
+
+        // since the new artist didn't exist before, it should have been created
+        let new_artist: OneOrMany<_> = Artist::read_or_create_by_names(changes.artist.unwrap())
+            .await?
+            .into();
+        assert_eq!(new_artist, Song::read_artist(song.id.clone()).await?);
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_update_album_artist(ulid: String) -> Result<()> {
+        let ulid = &ulid;
+        let song = create_song(ulid);
+
+        Song::create(song.clone()).await?;
+
+        // note, we need the artist to actually exist in the db and be associated with the song
+        let artist = Artist::read_or_create_by_name(&song.album_artist.first().unwrap())
+            .await?
+            .ok_or(anyhow!("Album Artist not found/created"))?;
+        // the album must also exist, and be associated with the song and artist
+        let album = Album::read_or_create_by_name_and_album_artist(&song.album, song.album_artist)
+            .await?
+            .ok_or(anyhow!("Album not found/created"))?;
+        Album::add_songs(album.id.clone(), &[song.id.clone()]).await?;
+        Artist::add_album(artist.id, album.id.clone()).await?;
+
+        let changes = SongChangeSet {
+            album_artist: Some(OneOrMany::One(
+                format!("Updated Album Artist {ulid}").into(),
+            )),
+            ..Default::default()
+        };
+        Song::update(song.id.clone(), changes.clone()).await?;
+        let updated = Song::read(song.id.clone())
+            .await?
+            .ok_or(anyhow!("Song not found"))?;
+        assert_eq!(
+            updated.album_artist,
+            changes.album_artist.clone().unwrap().into()
+        );
+
+        // since the new artist didn't exist before, it should have been created
+        let new_artist: OneOrMany<_> =
+            Artist::read_or_create_by_names(changes.album_artist.unwrap())
+                .await?
+                .into();
+        assert_eq!(new_artist, Song::read_album_artist(song.id.clone()).await?);
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_update_album(ulid: String) -> Result<()> {
+        let ulid = &ulid;
+        let song = create_song(ulid);
+
+        Song::create(song.clone()).await?;
+
+        // note, we need the artist to actually exist in the db and be associated with the song
+        let album_artist = Artist::read_or_create_by_name(&song.album_artist.first().unwrap())
+            .await?
+            .ok_or(anyhow!("Album Artist not found/created"))?;
+        // the album must also exist, and be associated with the song and artist
+        let album =
+            Album::read_or_create_by_name_and_album_artist(&song.album, song.album_artist.clone())
+                .await?
+                .ok_or(anyhow!("Album not found/created"))?;
+        Album::add_songs(album.id.clone(), &[song.id.clone()]).await?;
+        Artist::add_album(album_artist.id, album.id.clone()).await?;
+
+        let changes = SongChangeSet {
+            album: Some(format!("Updated Album {ulid}").into()),
+            ..Default::default()
+        };
+        Song::update(song.id.clone(), changes.clone()).await?;
+        let updated = Song::read(song.id.clone())
+            .await?
+            .ok_or(anyhow!("Song not found"))?;
+        assert_eq!(updated.album, changes.album.clone().unwrap());
+
+        // since the new album didn't exist before, it should have been created
+        let new_album = Album::read_or_create_by_name_and_album_artist(
+            &changes.album.unwrap(),
+            song.album_artist.clone(),
+        )
+        .await?;
+        assert_eq!(new_album, Song::read_album(song.id.clone()).await?);
+        assert!(new_album.is_some());
         Ok(())
     }
 }

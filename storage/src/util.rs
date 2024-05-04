@@ -40,6 +40,10 @@ impl<T> OneOrMany<T> {
         }
     }
 
+    pub fn first(&self) -> Option<&T> {
+        self.get(0)
+    }
+
     pub fn iter(&self) -> OneOrManyIter<T> {
         OneOrManyIter {
             inner: self,
@@ -172,12 +176,12 @@ impl<T: Clone> From<&[T]> for OneOrMany<T> {
     }
 }
 
-impl<T: Clone> From<Vec<T>> for OneOrMany<T> {
+impl<T> From<Vec<T>> for OneOrMany<T> {
     fn from(t: Vec<T>) -> Self {
         if t.is_empty() {
             OneOrMany::None
         } else if t.len() == 1 {
-            OneOrMany::One(t[0].clone())
+            OneOrMany::One(t.into_iter().next().unwrap())
         } else {
             OneOrMany::Many(t.into())
         }

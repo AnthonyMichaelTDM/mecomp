@@ -14,6 +14,8 @@ pub enum Error {
     NotFound,
     #[error("Song IO error: {0}")]
     SongIOError(#[from] SongIOError),
+    #[error("Item not created.")]
+    NotCreated,
 }
 
 #[derive(Error, Debug)]
