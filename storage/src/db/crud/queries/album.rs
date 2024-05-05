@@ -1,4 +1,4 @@
-use crate::db::schemas::album::TABLE_NAME;
+use crate::db::schemas;
 use surrealdb::sql::{
     statements::{DeleteStatement, RelateStatement, SelectStatement},
     Cond, Dir, Expression, Fields, Graph, Ident, Idiom, Operator, Param, Part, Table, Tables,
@@ -14,7 +14,9 @@ use surrealdb::sql::{
 pub fn read_by_name() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
-        what: Values(vec![Value::Table(Table(TABLE_NAME.to_string()))]),
+        what: Values(vec![Value::Table(Table(
+            schemas::album::TABLE_NAME.to_string(),
+        ))]),
         cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
             l: Value::Idiom(Idiom(vec![Ident("title".into()).into()])),
             o: Operator::Equal,
@@ -33,7 +35,9 @@ pub fn read_by_name() -> SelectStatement {
 pub fn read_by_name_and_album_artist() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
-        what: Values(vec![Value::Table(Table(TABLE_NAME.to_string()))]),
+        what: Values(vec![Value::Table(Table(
+            schemas::album::TABLE_NAME.to_string(),
+        ))]),
         cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
             l: Value::Expression(Box::new(Expression::Binary {
                 l: Value::Idiom(Idiom(vec![Ident("title".into()).into()])),
@@ -139,7 +143,7 @@ pub fn read_artist_of_album() -> SelectStatement {
             }),
             Part::Graph(Graph {
                 dir: Dir::In,
-                what: Tables(vec![Table("artist".into())]),
+                what: Tables(vec![Table(schemas::artist::TABLE_NAME.into())]),
                 expr: Fields::all(),
                 ..Default::default()
             }),

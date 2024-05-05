@@ -1,4 +1,5 @@
-use crate::db::schemas::artist::TABLE_NAME;
+use crate::db::schemas;
+
 use surrealdb::sql::{
     statements::{DeleteStatement, OutputStatement, RelateStatement, SelectStatement},
     Cond, Dir, Expression, Fields, Graph, Ident, Idiom, Limit, Operator, Param, Part, Subquery,
@@ -14,7 +15,9 @@ use surrealdb::sql::{
 pub fn read_by_name() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
-        what: Values(vec![Value::Table(Table(TABLE_NAME.to_string()))]),
+        what: Values(vec![Value::Table(Table(
+            schemas::artist::TABLE_NAME.to_string(),
+        ))]),
         cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
             l: Value::Idiom(Idiom(vec![Ident("name".into()).into()])),
             o: Operator::Equal,
@@ -34,7 +37,9 @@ pub fn read_by_name() -> SelectStatement {
 pub fn read_by_names() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
-        what: Values(vec![Value::Table(Table(TABLE_NAME.to_string()))]),
+        what: Values(vec![Value::Table(Table(
+            schemas::artist::TABLE_NAME.into(),
+        ))]),
         cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
             l: Value::Idiom(Idiom(vec![Ident("name".into()).into()])),
             o: Operator::Inside,
@@ -77,7 +82,7 @@ pub fn read_albums_by_artist() -> SelectStatement {
             }),
             Part::Graph(Graph {
                 dir: Dir::Out,
-                what: Tables(vec![Table("album".into())]),
+                what: Tables(vec![Table(schemas::album::TABLE_NAME.into())]),
                 expr: Fields::all(),
                 ..Default::default()
             }),
@@ -180,7 +185,7 @@ pub fn read_songs_by_artist() -> OutputStatement {
                         }),
                         Part::Graph(Graph {
                             dir: Dir::Out,
-                            what: Tables(vec![Table("song".into())]),
+                            what: Tables(vec![Table(schemas::song::TABLE_NAME.into())]),
                             expr: Fields::all(),
                             ..Default::default()
                         }),
@@ -199,7 +204,7 @@ pub fn read_songs_by_artist() -> OutputStatement {
                         }),
                         Part::Graph(Graph {
                             dir: Dir::Out,
-                            what: Tables(vec![Table("album".into())]),
+                            what: Tables(vec![Table(schemas::album::TABLE_NAME.into())]),
                             expr: Fields::all(),
                             ..Default::default()
                         }),
@@ -211,7 +216,7 @@ pub fn read_songs_by_artist() -> OutputStatement {
                         }),
                         Part::Graph(Graph {
                             dir: Dir::Out,
-                            what: Tables(vec![Table("song".into())]),
+                            what: Tables(vec![Table(schemas::song::TABLE_NAME.into())]),
                             expr: Fields::all(),
                             ..Default::default()
                         }),
