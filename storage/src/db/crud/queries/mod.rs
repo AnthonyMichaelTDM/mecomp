@@ -1,5 +1,6 @@
 pub mod album;
 pub mod artist;
+pub mod collection;
 
 #[cfg(test)]
 macro_rules! query_test {
@@ -89,5 +90,30 @@ mod artist_tests {
     query_test!(
         artist::read_songs_by_artist,
         "RETURN array::union((SELECT * FROM $artist->artist_to_song->song), (SELECT * FROM $artist->artist_to_album->album->album_to_song->song))"
+    );
+}
+
+#[cfg(test)]
+mod collection_tests {
+    use super::*;
+
+    query_test!(
+        collection::relate_collection_to_songs,
+        "RELATE $id->collection_to_song->$songs"
+    );
+
+    query_test!(
+        collection::read_songs_in_collection,
+        "SELECT * FROM $id->collection_to_song.out"
+    );
+
+    query_test!(
+        collection::remove_songs_from_collection,
+        "DELETE $id->collection_to_song WHERE out IN $songs"
+    );
+
+    query_test!(
+        collection::repair,
+        "UPDATE $id SET song_count=$songs, runtime=$runtime"
     );
 }
