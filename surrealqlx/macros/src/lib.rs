@@ -390,7 +390,7 @@ pub fn table_macro(input: TokenStream) -> TokenStream {
         impl ::surrealqlx::traits::Table for #struct_name {
             const TABLE_NAME: &'static str = #table_name;
 
-
+            #[allow(manual_async_fn)]
             fn init_table<C: ::surrealdb::Connection>(
                 db: &::surrealdb::Surreal<C>,
             ) -> impl ::std::future::Future<Output = ::surrealdb::Result<()>> + Send {

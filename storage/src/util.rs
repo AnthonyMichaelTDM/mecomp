@@ -183,7 +183,7 @@ impl<T> From<Vec<T>> for OneOrMany<T> {
         } else if t.len() == 1 {
             OneOrMany::One(t.into_iter().next().unwrap())
         } else {
-            OneOrMany::Many(t.into())
+            OneOrMany::Many(t)
         }
     }
 }

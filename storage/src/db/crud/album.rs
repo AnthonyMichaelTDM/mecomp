@@ -99,12 +99,12 @@ impl Album {
         album_artists: OneOrMany<Arc<str>>,
     ) -> Result<Option<Album>, Error> {
         if let Ok(Some(album)) =
-            Album::read_by_name_and_album_artist(&db, title, album_artists.clone()).await
+            Album::read_by_name_and_album_artist(db, title, album_artists.clone()).await
         {
             Ok(Some(album))
         } else {
             match Album::create(
-                &db,
+                db,
                 Album {
                     id: Album::generate_id(),
                     title: title.into(),
@@ -121,8 +121,8 @@ impl Album {
                 Some(album) => {
                     // we created a new album made by some artists, so we need to update those artists
                     Artist::add_album_to_artists(
-                        &db,
-                        &Artist::read_or_create_by_names(&db, album_artists)
+                        db,
+                        &Artist::read_or_create_by_names(db, album_artists)
                             .await?
                             .into_iter()
                             .map(|a| a.id)
@@ -151,7 +151,7 @@ impl Album {
             .bind(("songs", song_ids))
             .await?;
 
-        Album::repair(&db, id).await?;
+        Album::repair(db, id).await?;
 
         Ok(())
     }
@@ -178,7 +178,7 @@ impl Album {
             .bind(("album", &id))
             .bind(("songs", song_ids))
             .await?;
-        Album::repair(&db, id).await?;
+        Album::repair(db, id).await?;
         Ok(())
     }
 
@@ -206,10 +206,10 @@ impl Album {
     #[instrument()]
     pub async fn repair<C: Connection>(db: &Surreal<C>, id: AlbumId) -> Result<bool, Error> {
         // remove or update the album and return
-        let songs = Album::read_songs(&db, id.clone()).await?;
+        let songs = Album::read_songs(db, id.clone()).await?;
 
         Album::update(
-            &db,
+            db,
             id,
             AlbumChangeSet {
                 song_count: Some(songs.len()),
@@ -351,7 +351,7 @@ mod tests {
             .ok_or(anyhow!("Failed to create album"))?;
 
         let read = Album::read_all(&db).await?;
-        assert!(read.len() > 0);
+        assert!(!read.is_empty());
         Ok(())
     }
 

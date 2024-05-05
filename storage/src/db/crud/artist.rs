@@ -31,11 +31,11 @@ impl Artist {
         db: &Surreal<C>,
         name: &str,
     ) -> Result<Option<Artist>, Error> {
-        if let Ok(Some(artist)) = Artist::read_by_name(&db, name).await {
+        if let Ok(Some(artist)) = Artist::read_by_name(db, name).await {
             Ok(Some(artist))
         } else {
             Artist::create(
-                &db,
+                db,
                 Artist {
                     id: Artist::generate_id(),
                     name: name.into(),
@@ -55,7 +55,7 @@ impl Artist {
     ) -> Result<Vec<Artist>, Error> {
         let mut artists = Vec::with_capacity(names.len());
         for name in names.iter() {
-            if let Some(id) = Artist::read_or_create_by_name(&db, name).await? {
+            if let Some(id) = Artist::read_or_create_by_name(db, name).await? {
                 artists.push(id);
             }
         }
@@ -106,8 +106,8 @@ impl Artist {
         ids: OneOrMany<ArtistId>,
     ) -> Result<OneOrMany<Artist>, Error> {
         match ids {
-            OneOrMany::One(id) => Ok(Artist::read(&db, id).await?.into()),
-            OneOrMany::Many(ids) => Artist::read_many(&db, ids).await.map(|v| v.into()),
+            OneOrMany::One(id) => Ok(Artist::read(db, id).await?.into()),
+            OneOrMany::Many(ids) => Artist::read_many(db, ids).await.map(|v| v.into()),
             OneOrMany::None => Ok(OneOrMany::None),
         }
     }
@@ -168,7 +168,7 @@ impl Artist {
             .bind(("album", &album_id))
             .await?;
         // update runtime, and song/album count
-        Artist::repair(&db, id.clone()).await?;
+        Artist::repair(db, id.clone()).await?;
         Ok(())
     }
 
@@ -185,7 +185,7 @@ impl Artist {
             .bind(("album", &album_id))
             .await?;
         for id in ids {
-            Artist::repair(&db, id.clone()).await?;
+            Artist::repair(db, id.clone()).await?;
         }
         Ok(())
     }
@@ -203,7 +203,7 @@ impl Artist {
             .bind(("id", &id))
             .bind(("songs", songs))
             .await?;
-        Artist::repair(&db, id.clone()).await?;
+        Artist::repair(db, id.clone()).await?;
         Ok(())
     }
 
@@ -217,7 +217,7 @@ impl Artist {
             .bind(("artist", &id))
             .bind(("songs", song_ids))
             .await?;
-        Artist::repair(&db, id.clone()).await?;
+        Artist::repair(db, id.clone()).await?;
         Ok(())
     }
 
@@ -242,11 +242,11 @@ impl Artist {
     /// * `bool` - whether the artist should be removed or not (if it has no songs or albums, it should be removed)
     #[instrument]
     pub async fn repair<C: Connection>(db: &Surreal<C>, id: ArtistId) -> Result<bool, Error> {
-        let albums: Vec<Album> = Artist::read_albums(&db, id.clone()).await?;
-        let songs: Vec<Song> = Artist::read_songs(&db, id.clone()).await?;
+        let albums: Vec<Album> = Artist::read_albums(db, id.clone()).await?;
+        let songs: Vec<Song> = Artist::read_songs(db, id.clone()).await?;
 
         Artist::update(
-            &db,
+            db,
             id.clone(),
             ArtistChangeSet {
                 album_count: Some(albums.len()),
@@ -527,7 +527,7 @@ mod tests {
             .ok_or(anyhow!("Failed to create artist"))?;
 
         let read = Artist::read_all(&db).await?;
-        assert!(read.len() > 0);
+        assert!(!read.is_empty());
         Ok(())
     }
 

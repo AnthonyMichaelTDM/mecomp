@@ -126,7 +126,7 @@ where
             .clone()
             .choose(&mut rand::thread_rng())
             .unwrap_or_default();
-        Vec::from_iter(std::iter::repeat_with(|| item_strategy()).take(size))
+        Vec::from_iter(std::iter::repeat_with(item_strategy).take(size))
     }
 }
 

@@ -105,16 +105,16 @@ impl Song {
         }
 
         // for each artist, check if the artist exists in the database and get the id, if they don't then create a new artist and get the id
-        let artists = Artist::read_or_create_by_names(&db, metadata.artist.clone()).await?;
+        let artists = Artist::read_or_create_by_names(db, metadata.artist.clone()).await?;
 
         // check if the album artist exists, if they don't then create a new artist and get the id
-        Artist::read_or_create_by_names(&db, metadata.album_artist.clone()).await?;
+        Artist::read_or_create_by_names(db, metadata.album_artist.clone()).await?;
 
         // read or create the album
         // if an album doesn't exist with the given title and album artists,
         // will create a new album with the given title and album artists
         let album = Album::read_or_create_by_name_and_album_artist(
-            &db,
+            db,
             &metadata.album,
             metadata.album_artist.clone(),
         )
@@ -137,15 +137,15 @@ impl Song {
             path: metadata.path,
         };
         // add that song to the database
-        let song_id = Self::create(&db, song.clone()).await?.unwrap().id;
+        let song_id = Self::create(db, song.clone()).await?.unwrap().id;
 
         // add the song to the artists, if it's not already there (which it won't be)
         for artist in artists.iter() {
-            Artist::add_songs(&db, artist.id.clone(), &[song_id.clone()]).await?;
+            Artist::add_songs(db, artist.id.clone(), &[song_id.clone()]).await?;
         }
 
         // add the song to the album, if it's not already there (which it won't be)
-        Album::add_songs(&db, album.id.clone(), &[song_id.clone()]).await?;
+        Album::add_songs(db, album.id.clone(), &[song_id.clone()]).await?;
 
         Ok(song)
     }

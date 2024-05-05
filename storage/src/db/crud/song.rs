@@ -100,23 +100,23 @@ impl Song {
         changes: SongChangeSet,
     ) -> Result<(), Error> {
         if changes.album.is_some() || changes.album_artist.is_some() {
-            let old_album: Option<Album> = Song::read_album(&db, id.clone()).await?;
+            let old_album: Option<Album> = Song::read_album(db, id.clone()).await?;
             let old_album = old_album.ok_or(Error::NotFound)?;
 
             // find/create the new album
             let new_album = match (&changes.album, &changes.album_artist) {
                 (Some(album), Some(album_artist)) => {
                     Album::read_or_create_by_name_and_album_artist(
-                        &db,
-                        &album,
+                        db,
+                        album,
                         album_artist.to_owned(),
                     )
                     .await?
                 }
                 (Some(album), None) => {
                     Album::read_or_create_by_name_and_album_artist(
-                        &db,
-                        &album,
+                        db,
+                        album,
                         old_album.artist.to_owned(),
                     )
                     .await?
@@ -124,7 +124,7 @@ impl Song {
                 (None, Some(album_artist)) => {
                     // find/create the new album
                     Album::read_or_create_by_name_and_album_artist(
-                        &db,
+                        db,
                         &old_album.title,
                         album_artist.to_owned(),
                     )
@@ -135,28 +135,28 @@ impl Song {
             .ok_or(Error::NotFound)?;
 
             // remove song from the old album
-            Album::remove_songs(&db, old_album.id, &[id.clone()]).await?;
+            Album::remove_songs(db, old_album.id, &[id.clone()]).await?;
 
             // add song to the new album
-            Album::add_songs(&db, new_album.id, &[id.clone()]).await?;
+            Album::add_songs(db, new_album.id, &[id.clone()]).await?;
         }
 
         if let Some(artist) = &changes.artist {
-            let old_artist: OneOrMany<Artist> = Song::read_artist(&db, id.clone()).await?.into();
+            let old_artist: OneOrMany<Artist> = Song::read_artist(db, id.clone()).await?;
             // find/create artists with the new names
-            let new_artist = Artist::read_or_create_by_names(&db, artist.clone()).await?;
+            let new_artist = Artist::read_or_create_by_names(db, artist.clone()).await?;
 
             // remove song from the old artists
             for artist in old_artist.iter() {
-                Artist::remove_songs(&db, artist.id.to_owned(), &[id.clone()]).await?;
+                Artist::remove_songs(db, artist.id.to_owned(), &[id.clone()]).await?;
             }
             // add song to the new artists
             for artist in new_artist.into_iter() {
-                Artist::add_songs(&db, artist.id, &[id.clone()]).await?;
+                Artist::add_songs(db, artist.id, &[id.clone()]).await?;
             }
         }
 
-        db.query(format!("UPDATE $id MERGE $changes"))
+        db.query("UPDATE $id MERGE $changes")
             .bind(("id", &id))
             .bind(("changes", &changes))
             .await?;
@@ -376,7 +376,7 @@ mod test {
         Song::create(&db, song.clone()).await?;
 
         // note, we need the artist to actually exist in the db and be associated with the song
-        let artist = Artist::read_or_create_by_name(&db, &song.artist.first().unwrap())
+        let artist = Artist::read_or_create_by_name(&db, song.artist.first().unwrap())
             .await?
             .ok_or(anyhow!("Artist not found/created"))?;
         Artist::add_songs(&db, artist.id, &[song.id.clone()]).await?;
@@ -410,7 +410,7 @@ mod test {
         Song::create(&db, song.clone()).await?;
 
         // note, we need the artist to actually exist in the db and be associated with the song
-        let artist = Artist::read_or_create_by_name(&db, &song.album_artist.first().unwrap())
+        let artist = Artist::read_or_create_by_name(&db, song.album_artist.first().unwrap())
             .await?
             .ok_or(anyhow!("Album Artist not found/created"))?;
         // the album must also exist, and be associated with the song and artist
@@ -433,7 +433,7 @@ mod test {
             .ok_or(anyhow!("Song not found"))?;
         assert_eq!(
             updated.album_artist,
-            changes.album_artist.clone().unwrap().into()
+            changes.album_artist.clone().unwrap()
         );
 
         // since the new artist didn't exist before, it should have been created
@@ -458,7 +458,7 @@ mod test {
         Song::create(&db, song.clone()).await?;
 
         // note, we need the artist to actually exist in the db and be associated with the song
-        let album_artist = Artist::read_or_create_by_name(&db, &song.album_artist.first().unwrap())
+        let album_artist = Artist::read_or_create_by_name(&db, song.album_artist.first().unwrap())
             .await?
             .ok_or(anyhow!("Album Artist not found/created"))?;
         // the album must also exist, and be associated with the song and artist

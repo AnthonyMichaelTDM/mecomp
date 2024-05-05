@@ -62,7 +62,7 @@ impl Collection {
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-        Collection::repair(&db, id).await?;
+        Collection::repair(db, id).await?;
         Ok(())
     }
 
@@ -90,7 +90,7 @@ impl Collection {
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-        Collection::repair(&db, id).await?;
+        Collection::repair(db, id).await?;
         Ok(())
     }
 
@@ -105,7 +105,7 @@ impl Collection {
     /// * `bool` - True if the collection is empty
     #[instrument]
     pub async fn repair<C: Connection>(db: &Surreal<C>, id: CollectionId) -> Result<bool, Error> {
-        let songs = Collection::read_songs(&db, id.clone()).await?;
+        let songs = Collection::read_songs(db, id.clone()).await?;
 
         db.query("UPDATE $id SET song_count=$songs, runtime=$runtime")
             .bind(("id", id))
@@ -160,7 +160,7 @@ mod tests {
         let collection = create_collection(&ulid);
         Collection::create(&db, collection.clone()).await?;
         let result = Collection::read_all(&db).await?;
-        assert!(result.len() > 0);
+        assert!(!result.is_empty());
         Ok(())
     }
 
