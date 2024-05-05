@@ -39,6 +39,7 @@ pub struct MusicPlayerServer {
 }
 
 impl MusicPlayerServer {
+    #[must_use]
     pub fn new(addr: SocketAddr, db: Arc<Surreal<Db>>) -> Self {
         Self { addr, db }
     }
@@ -270,8 +271,7 @@ impl MusicPlayer for MusicPlayerServer {
         rx.await
             .tap_err(|e| warn!("Error in state_playing: {e}"))
             .ok()
-            .map(|state| state.paused)
-            .unwrap_or_default()
+            .is_some_and(|state| state.paused)
     }
     /// what repeat mode is the player in?
     #[instrument]
@@ -310,8 +310,7 @@ impl MusicPlayer for MusicPlayerServer {
         rx.await
             .tap_err(|e| warn!("Error in state_volume_muted: {e}"))
             .ok()
-            .map(|state| state.muted)
-            .unwrap_or_default()
+            .is_some_and(|state| state.muted)
     }
     /// returns information about the runtime of the current song (seek position and duration)
     #[instrument]

@@ -42,7 +42,7 @@ pub async fn start_daemon(
     settings: &DaemonSettings,
 ) -> anyhow::Result<()> {
     init_logger(log_level);
-    set_database_path(settings.db_path.clone()).await?;
+    set_database_path(settings.db_path.clone())?;
     let db = Arc::new(mecomp_storage::db::init_database().await?);
     tracing::subscriber::set_global_default(init_tracing())?;
 

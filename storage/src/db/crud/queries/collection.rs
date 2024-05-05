@@ -10,6 +10,7 @@ use surrealdb::sql::{
 /// ```sql, ignore
 /// RELATE $id->collection_to_song->$songs
 /// ```
+#[must_use]
 pub fn relate_collection_to_songs() -> RelateStatement {
     RelateStatement {
         from: Value::Param(Param(Ident("id".into()))),
@@ -25,6 +26,7 @@ pub fn relate_collection_to_songs() -> RelateStatement {
 /// ```sql, ignore
 /// SELECT * FROM $id->collection_to_song.out
 /// ```
+#[must_use]
 pub fn read_songs_in_collection() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
@@ -48,6 +50,7 @@ pub fn read_songs_in_collection() -> SelectStatement {
 /// ```sql, ignore
 /// DELETE $id->collection_to_song WHERE out IN $songs
 /// ```
+#[must_use]
 pub fn remove_songs_from_collection() -> DeleteStatement {
     DeleteStatement {
         what: Values(vec![Value::Idiom(Idiom(vec![
@@ -70,12 +73,13 @@ pub fn remove_songs_from_collection() -> DeleteStatement {
 
 /// Query to "repair" a collection.
 ///
-/// This query updates the song_count and runtime of the collection.
+/// This query updates the `song_count` and runtime of the collection.
 ///
 /// Compiles to:
 /// ```sql, ignore
 /// UPDATE $id SET song_count=$songs, runtime=$runtime
 /// ```
+#[must_use]
 pub fn repair() -> UpdateStatement {
     UpdateStatement {
         what: Values(vec![Value::Param(Param(Ident("id".into())))]),

@@ -26,6 +26,7 @@ pub async fn init() -> anyhow::Result<()> {
     tracing::subscriber::set_global_default(init_tracing())?;
 
     init.replace(());
+    drop(init);
 
     Ok(())
 }
@@ -56,23 +57,23 @@ pub async fn create_song<C: Connection>(
     tags.add_artist(
         &artists
             .iter()
-            .map(|a| format!("Artist {}", a))
+            .map(|a| format!("Artist {a}"))
             .collect::<Vec<_>>()
             .join(ARTIST_NAME_SEPARATOR),
     );
     tags.add_album_artist(
         &album_artists
             .iter()
-            .map(|a| format!("Artist {}", a))
+            .map(|a| format!("Artist {a}"))
             .collect::<Vec<_>>()
             .join(ARTIST_NAME_SEPARATOR),
     );
 
-    tags.set_album_title(&format!("Album {}", album));
+    tags.set_album_title(&format!("Album {album}"));
 
-    tags.set_title(&format!("Song {}", song));
+    tags.set_title(&format!("Song {song}"));
 
-    tags.set_genre(&format!("Genre {}", genre));
+    tags.set_genre(&format!("Genre {genre}"));
 
     let new_path =
         TEMP_MUSIC_DIR
@@ -87,7 +88,7 @@ pub async fn create_song<C: Connection>(
     let song_metadata = SongMetadata::load_from_path(new_path, Some(ARTIST_NAME_SEPARATOR), None)?;
 
     // now, we need to create a Song from the SongMetadata
-    Ok(Song::try_load_into_db(&db, song_metadata).await?)
+    Ok(Song::try_load_into_db(db, song_metadata).await?)
 }
 
 #[derive(Debug, Clone)]
@@ -100,6 +101,7 @@ pub struct SongCase {
 }
 
 impl SongCase {
+    #[must_use]
     pub fn new(song: u8, artists: Vec<u8>, album_artists: Vec<u8>, album: u8, genre: u8) -> Self {
         Self {
             song,
@@ -168,7 +170,7 @@ where
             .clone()
             .choose(&mut rand::thread_rng())
             .unwrap_or_default();
-        Vec::from_iter(std::iter::repeat_with(|| item_strategy()).take(size))
+        Vec::from_iter(std::iter::repeat_with(item_strategy).take(size))
     }
 }
 
@@ -190,7 +192,7 @@ mod tests {
 
         // Assert that the result is Ok
         if let Err(e) = result {
-            panic!("Error creating song: {:?}", e);
+            panic!("Error creating song: {e:?}");
         }
 
         // Get the Song from the result

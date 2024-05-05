@@ -12,6 +12,7 @@ use surrealdb::sql::{
 /// ```sql, ignore
 /// SELECT * FROM artist WHERE name = $name LIMIT 1
 /// ```
+#[must_use]
 pub fn read_by_name() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
@@ -34,6 +35,7 @@ pub fn read_by_name() -> SelectStatement {
 /// ```sql, ignore
 /// SELECT * FROM artist WHERE name IN $names
 /// ```
+#[must_use]
 pub fn read_by_names() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
@@ -55,6 +57,7 @@ pub fn read_by_names() -> SelectStatement {
 /// ```sql, ignore
 /// SELECT * FROM $ids
 /// ```
+#[must_use]
 pub fn read_many() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
@@ -69,6 +72,7 @@ pub fn read_many() -> SelectStatement {
 /// ```sql, ignore
 /// SELECT * FROM $id->artist_to_album->album
 /// ```
+#[must_use]
 pub fn read_albums_by_artist() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
@@ -97,6 +101,7 @@ pub fn read_albums_by_artist() -> SelectStatement {
 /// ```sql, ignore
 /// RELATE $id->artist_to_album->$album
 /// ```
+#[must_use]
 pub fn relate_artist_to_album() -> RelateStatement {
     RelateStatement {
         from: Value::Param(Param(Ident("id".into()))),
@@ -112,6 +117,7 @@ pub fn relate_artist_to_album() -> RelateStatement {
 /// ```sql, ignore
 /// RELATE $ids->artist_to_album->$album
 /// ```
+#[must_use]
 pub fn relate_artists_to_album() -> RelateStatement {
     RelateStatement {
         from: Value::Param(Param(Ident("ids".into()))),
@@ -127,6 +133,7 @@ pub fn relate_artists_to_album() -> RelateStatement {
 /// ```sql, ignore
 /// RELATE $id->artist_to_song->$songs
 /// ```
+#[must_use]
 pub fn relate_artist_to_songs() -> RelateStatement {
     RelateStatement {
         from: Value::Param(Param(Ident("id".into()))),
@@ -142,6 +149,7 @@ pub fn relate_artist_to_songs() -> RelateStatement {
 /// ```sql, ignore
 /// DELETE $artist->artist_to_song WHERE out IN $songs
 /// ```
+#[must_use]
 pub fn remove_songs_from_artist() -> DeleteStatement {
     DeleteStatement {
         what: Values(vec![Value::Idiom(Idiom(vec![
@@ -168,6 +176,7 @@ pub fn remove_songs_from_artist() -> DeleteStatement {
 /// ```sql, ignore
 /// RETURN array::union((SELECT * FROM $artist->artist_to_song->song), (SELECT * FROM $artist->artist_to_album->album->album_to_song->song))
 /// ```
+#[must_use]
 pub fn read_songs_by_artist() -> OutputStatement {
     OutputStatement {
         what: Value::Function(Box::new(surrealdb::sql::Function::Normal(

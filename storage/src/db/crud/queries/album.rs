@@ -11,6 +11,7 @@ use surrealdb::sql::{
 /// ```sql, ignore
 /// SELECT * FROM album WHERE title=$name
 /// ```
+#[must_use]
 pub fn read_by_name() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
@@ -32,6 +33,7 @@ pub fn read_by_name() -> SelectStatement {
 /// ```sql, ignore
 /// SELECT * FROM album WHERE title=$title AND artist=$artist
 /// ```
+#[must_use]
 pub fn read_by_name_and_album_artist() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
@@ -62,6 +64,7 @@ pub fn read_by_name_and_album_artist() -> SelectStatement {
 /// ```sql, ignore
 /// RELATE $album->album_to_song->$songs
 /// ```
+#[must_use]
 pub fn relate_album_to_songs() -> RelateStatement {
     RelateStatement {
         from: Value::Param(Param(Ident("album".into()))),
@@ -78,6 +81,7 @@ pub fn relate_album_to_songs() -> RelateStatement {
 /// ```sql, ignore
 /// SELECT * FROM $album->album_to_song.out
 /// ```
+#[must_use]
 pub fn read_songs_in_album() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
@@ -102,6 +106,7 @@ pub fn read_songs_in_album() -> SelectStatement {
 /// ```sql, ignore
 /// DELETE $album->album_to_song WHERE out IN $songs
 /// ```
+#[must_use]
 pub fn remove_songs_from_album() -> DeleteStatement {
     DeleteStatement {
         what: Values(vec![Value::Idiom(Idiom(vec![
@@ -129,6 +134,7 @@ pub fn remove_songs_from_album() -> DeleteStatement {
 /// ```sql, ignore
 /// SELECT * FROM $id<-artist_to_album<-artist
 /// ```
+#[must_use]
 pub fn read_artist_of_album() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),

@@ -16,9 +16,9 @@ pub enum OneOrMany<T> {
 impl<T> OneOrMany<T> {
     pub fn len(&self) -> usize {
         match self {
-            OneOrMany::One(_) => 1,
-            OneOrMany::Many(t) => t.len(),
-            OneOrMany::None => 0,
+            Self::One(_) => 1,
+            Self::Many(t) => t.len(),
+            Self::None => 0,
         }
     }
 
@@ -28,15 +28,15 @@ impl<T> OneOrMany<T> {
 
     pub fn get(&self, index: usize) -> Option<&T> {
         match self {
-            OneOrMany::One(t) => {
+            Self::One(t) => {
                 if index == 0 {
                     Some(t)
                 } else {
                     None
                 }
             }
-            OneOrMany::Many(t) => t.get(index),
-            OneOrMany::None => None,
+            Self::Many(t) => t.get(index),
+            Self::None => None,
         }
     }
 
@@ -44,7 +44,7 @@ impl<T> OneOrMany<T> {
         self.get(0)
     }
 
-    pub fn iter(&self) -> OneOrManyIter<T> {
+    pub const fn iter(&self) -> OneOrManyIter<T> {
         OneOrManyIter {
             inner: self,
             index: 0,
@@ -56,9 +56,9 @@ impl<T> OneOrMany<T> {
         T: PartialEq,
     {
         match self {
-            OneOrMany::One(t) => t == genre,
-            OneOrMany::Many(t) => t.contains(genre),
-            OneOrMany::None => false,
+            Self::One(t) => t == genre,
+            Self::Many(t) => t.contains(genre),
+            Self::None => false,
         }
     }
 
@@ -67,11 +67,11 @@ impl<T> OneOrMany<T> {
         T: Clone,
     {
         match self {
-            OneOrMany::One(t) => {
-                *self = OneOrMany::Many(vec![t.clone(), new]);
+            Self::One(t) => {
+                *self = Self::Many(vec![t.clone(), new]);
             }
-            OneOrMany::Many(t) => t.push(new),
-            OneOrMany::None => *self = OneOrMany::One(new),
+            Self::Many(t) => t.push(new),
+            Self::None => *self = Self::One(new),
         }
     }
 
@@ -80,37 +80,37 @@ impl<T> OneOrMany<T> {
         T: Clone,
     {
         match self {
-            OneOrMany::One(t) => {
+            Self::One(t) => {
                 let old = t.clone();
-                *self = OneOrMany::None;
+                *self = Self::None;
                 Some(old)
             }
-            OneOrMany::Many(t) => t.pop(),
-            OneOrMany::None => None,
+            Self::Many(t) => t.pop(),
+            Self::None => None,
         }
     }
 
-    pub fn is_none(&self) -> bool {
-        matches!(self, OneOrMany::None)
+    pub const fn is_none(&self) -> bool {
+        matches!(self, Self::None)
     }
 
-    pub fn is_one(&self) -> bool {
-        matches!(self, OneOrMany::One(_))
+    pub const fn is_one(&self) -> bool {
+        matches!(self, Self::One(_))
     }
 
-    pub fn is_many(&self) -> bool {
-        matches!(self, OneOrMany::Many(_))
+    pub const fn is_many(&self) -> bool {
+        matches!(self, Self::Many(_))
     }
 
-    pub fn is_some(&self) -> bool {
+    pub const fn is_some(&self) -> bool {
         self.is_one() || self.is_many()
     }
 
     pub fn as_slice(&self) -> &[T] {
         match self {
-            OneOrMany::One(t) => std::slice::from_ref(t),
-            OneOrMany::Many(t) => t,
-            OneOrMany::None => &[],
+            Self::One(t) => std::slice::from_ref(t),
+            Self::Many(t) => t,
+            Self::None => &[],
         }
     }
 }
@@ -142,48 +142,43 @@ impl<'a, T> Iterator for OneOrManyIter<'a, T> {
 
 impl<T> From<T> for OneOrMany<T> {
     fn from(t: T) -> Self {
-        OneOrMany::One(t)
+        Self::One(t)
     }
 }
 
 impl<T> From<Option<T>> for OneOrMany<T> {
     fn from(t: Option<T>) -> Self {
-        match t {
-            Some(t) => OneOrMany::One(t),
-            None => OneOrMany::None,
-        }
+        t.map_or_else(|| Self::None, |t| Self::One(t))
     }
 }
 
-impl<T> From<Option<OneOrMany<T>>> for OneOrMany<T> {
-    fn from(t: Option<OneOrMany<T>>) -> Self {
-        match t {
-            Some(t) => t,
-            None => OneOrMany::None,
-        }
+impl<T> From<Option<Self>> for OneOrMany<T> {
+    fn from(t: Option<Self>) -> Self {
+        t.map_or_else(|| Self::None, |t| t)
     }
 }
 
 impl<T: Clone> From<&[T]> for OneOrMany<T> {
     fn from(t: &[T]) -> Self {
         if t.is_empty() {
-            OneOrMany::None
+            Self::None
         } else if t.len() == 1 {
-            OneOrMany::One(t[0].clone())
+            Self::One(t[0].clone())
         } else {
-            OneOrMany::Many(t.into())
+            Self::Many(t.into())
         }
     }
 }
 
+#[allow(clippy::fallible_impl_from)] // we check the length so it's fine
 impl<T> From<Vec<T>> for OneOrMany<T> {
     fn from(t: Vec<T>) -> Self {
         if t.is_empty() {
-            OneOrMany::None
+            Self::None
         } else if t.len() == 1 {
-            OneOrMany::One(t.into_iter().next().unwrap())
+            Self::One(t.into_iter().next().unwrap())
         } else {
-            OneOrMany::Many(t)
+            Self::Many(t)
         }
     }
 }
@@ -200,8 +195,8 @@ impl<T> From<OneOrMany<T>> for Vec<T> {
 
 impl<T: std::clone::Clone> FromIterator<T> for OneOrMany<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let iter = iter.into_iter();
-        let mut result: OneOrMany<T> = OneOrMany::None;
+        let iter: <I as IntoIterator>::IntoIter = iter.into_iter();
+        let mut result: Self = Self::None;
         for item in iter {
             result.push(item);
         }
@@ -220,12 +215,11 @@ where
     fn query_result(self, response: &mut surrealdb::Response) -> surrealdb::Result<OneOrMany<T>> {
         let vec: surrealdb::Result<Vec<T>> = self.query_result(response);
 
-        match vec {
-            Ok(vec) => Ok(vec.into()),
-            Err(_) => {
-                let one: Option<T> = self.query_result(response)?;
-                Ok(one.into())
-            }
+        if let Ok(vec) = vec {
+            Ok(vec.into())
+        } else {
+            let one: Option<T> = self.query_result(response)?;
+            Ok(one.into())
         }
     }
 }

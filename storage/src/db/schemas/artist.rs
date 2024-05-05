@@ -10,7 +10,7 @@ pub const TABLE_NAME: &str = "artist";
 
 /// This struct holds all the metadata about a particular ['Artist'].
 /// An ['Artist'] is a collection of ['Album']s.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Table)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Table)]
 #[Table("artist")]
 pub struct Artist {
     /// the unique identifier for this ['Artist'].
@@ -35,6 +35,7 @@ pub struct Artist {
 }
 
 impl Artist {
+    #[must_use]
     pub fn generate_id() -> ArtistId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }

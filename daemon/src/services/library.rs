@@ -36,7 +36,7 @@ pub async fn rescan<C: Connection>(
     conflict_resolution_mode: MetadataConflictResolution,
 ) -> Result<(), Error> {
     // get all the songs in the current library
-    let songs = Song::read_all(&db).await?;
+    let songs = Song::read_all(db).await?;
     let mut paths_to_skip = HashSet::new(); // use a hashset because hashing is faster than linear search, especially for large libraries
 
     // for each song, check if the file still exists
@@ -63,7 +63,7 @@ pub async fn rescan<C: Connection>(
                             }
                         };
                         // if the file has been modified, update the song's metadata
-                        Song::update(&db, song.id.clone(), new_metadata.merge_with_song(&song))
+                        Song::update(db, song.id.clone(), new_metadata.merge_with_song(&song))
                             .await?;
                     }
                 }
@@ -74,7 +74,7 @@ pub async fn rescan<C: Connection>(
                         e
                     );
                     info!("assuming the file isn't a song or doesn't exist anymore, removing from library");
-                    Song::delete(&db, song.id).await?;
+                    Song::delete(db, song.id).await?;
                 }
             }
             // now, add the path to the list of paths to skip so that we don't index the song again
@@ -82,7 +82,7 @@ pub async fn rescan<C: Connection>(
         } else {
             // remove the song from the library
             warn!("Song {} no longer exists, deleting", path.to_string_lossy());
-            Song::delete(&db, song.id).await?;
+            Song::delete(db, song.id).await?;
         }
     }
     // now, index all the songs in the library that haven't been indexed yet
@@ -113,7 +113,7 @@ pub async fn rescan<C: Connection>(
             artist_name_separator,
             genre_separator,
         ) {
-            Ok(metadata) => match Song::try_load_into_db(&db, metadata).await {
+            Ok(metadata) => match Song::try_load_into_db(db, metadata).await {
                 Ok(_) => {
                     debug!("Indexed {}", path.path().to_string_lossy());
                 }
@@ -132,7 +132,7 @@ pub async fn rescan<C: Connection>(
     }
 
     info!("Library rescan complete");
-    info!("Library brief: {:?}", brief(&db).await?);
+    info!("Library brief: {:?}", brief(db).await?);
 
     Ok(())
 }
@@ -145,11 +145,11 @@ pub async fn rescan<C: Connection>(
 #[instrument]
 pub async fn brief<C: Connection>(db: &Surreal<C>) -> Result<LibraryBrief, Error> {
     Ok(LibraryBrief {
-        artists: Artist::read_all(&db).await?.len(),
-        albums: Album::read_all(&db).await?.len(),
-        songs: Song::read_all(&db).await?.len(),
-        playlists: Playlist::read_all(&db).await?.len(),
-        collections: Collection::read_all(&db).await?.len(),
+        artists: Artist::read_all(db).await?.len(),
+        albums: Album::read_all(db).await?.len(),
+        songs: Song::read_all(db).await?.len(),
+        playlists: Playlist::read_all(db).await?.len(),
+        collections: Collection::read_all(db).await?.len(),
     })
 }
 
@@ -161,10 +161,10 @@ pub async fn brief<C: Connection>(db: &Surreal<C>) -> Result<LibraryBrief, Error
 #[instrument]
 pub async fn full<C: Connection>(db: &Surreal<C>) -> Result<LibraryFull, Error> {
     Ok(LibraryFull {
-        artists: Artist::read_all(&db).await?.into(),
-        albums: Album::read_all(&db).await?.into(),
-        songs: Song::read_all(&db).await?.into(),
-        playlists: Playlist::read_all(&db).await?.into(),
-        collections: Collection::read_all(&db).await?.into(),
+        artists: Artist::read_all(db).await?.into(),
+        albums: Album::read_all(db).await?.into(),
+        songs: Song::read_all(db).await?.into(),
+        playlists: Playlist::read_all(db).await?.into(),
+        collections: Collection::read_all(db).await?.into(),
     })
 }

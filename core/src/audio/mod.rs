@@ -19,10 +19,7 @@ use crate::{
     errors::LibraryError,
     state::{RepeatMode, StateAudio, StateRuntime},
 };
-use mecomp_storage::{
-    db::schemas::{album::Album, artist::Artist, song::Song},
-    util::OneOrMany,
-};
+use mecomp_storage::{db::schemas::song::Song, util::OneOrMany};
 
 use self::queue::Queue;
 
@@ -58,17 +55,16 @@ pub enum AudioCommand {
 impl PartialEq for AudioCommand {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (AudioCommand::Play, AudioCommand::Play) => true,
-            (AudioCommand::Pause, AudioCommand::Pause) => true,
-            (AudioCommand::TogglePlayback, AudioCommand::TogglePlayback) => true,
-            (AudioCommand::ClearPlayer, AudioCommand::ClearPlayer) => true,
-            (AudioCommand::Clear, AudioCommand::Clear) => true,
-            (AudioCommand::Skip(a), AudioCommand::Skip(b)) => a == b,
-            (AudioCommand::Previous(a), AudioCommand::Previous(b)) => a == b,
-            (AudioCommand::AddSongToQueue(a), AudioCommand::AddSongToQueue(b)) => a == b,
-            (AudioCommand::SetRepeatMode(a), AudioCommand::SetRepeatMode(b)) => a == b,
-            (AudioCommand::Exit, AudioCommand::Exit) => true,
-            (AudioCommand::ReportStatus(_), AudioCommand::ReportStatus(_)) => true,
+            (Self::Play, Self::Play)
+            | (Self::Pause, Self::Pause)
+            | (Self::TogglePlayback, Self::TogglePlayback)
+            | (Self::ClearPlayer, Self::ClearPlayer)
+            | (Self::Clear, Self::Clear) => true,
+            (Self::Skip(a), Self::Skip(b)) => a == b,
+            (Self::Previous(a), Self::Previous(b)) => a == b,
+            (Self::AddSongToQueue(a), Self::AddSongToQueue(b)) => a == b,
+            (Self::SetRepeatMode(a), Self::SetRepeatMode(b)) => a == b,
+            (Self::Exit, Self::Exit) | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
             _ => false,
         }
     }
@@ -116,7 +112,7 @@ impl AudioKernel {
     /// this function should be called in a detached thread to keep the audio kernel running,
     /// this function will block until the `Exit` command is received
     pub fn spawn(self, rx: Receiver<AudioCommand>) {
-        async fn run(kernel: AudioKernel, rx: Receiver<AudioCommand>) {
+        async fn run(kernel: &AudioKernel, rx: Receiver<AudioCommand>) {
             let db = mecomp_storage::db::init_database().await.unwrap();
 
             loop {
@@ -132,7 +128,7 @@ impl AudioKernel {
                     //AudioCommand::PlaySource(source) => kernel.append_to_player(source),
                     AudioCommand::AddSongToQueue(song) => kernel.add_song_to_queue(song),
                     AudioCommand::SetRepeatMode(mode) => {
-                        kernel.queue.borrow_mut().set_repeat_mode(mode)
+                        kernel.queue.borrow_mut().set_repeat_mode(mode);
                     }
                     AudioCommand::Exit => break,
                     AudioCommand::ReportStatus(tx) => {
@@ -193,7 +189,7 @@ impl AudioKernel {
             .enable_all()
             .build()
             .unwrap()
-            .block_on(run(self, rx));
+            .block_on(run(&self, rx));
     }
 
     fn play(&self) {

@@ -73,6 +73,7 @@ pub struct SongCase {
 }
 
 impl SongCase {
+    #[must_use]
     pub fn new(song: u8, artists: Vec<u8>, album_artists: Vec<u8>, album: u8, genre: u8) -> Self {
         Self {
             song,

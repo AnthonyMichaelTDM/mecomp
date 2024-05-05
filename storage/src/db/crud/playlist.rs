@@ -12,7 +12,7 @@ use crate::{
 
 impl Playlist {
     #[instrument]
-    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Playlist>, Error> {
+    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Self>, Error> {
         Ok(db.select(TABLE_NAME).await?)
     }
 
@@ -20,7 +20,7 @@ impl Playlist {
     pub async fn read<C: Connection>(
         db: &Surreal<C>,
         id: PlaylistId,
-    ) -> Result<Option<Playlist>, Error> {
+    ) -> Result<Option<Self>, Error> {
         Ok(db.select((TABLE_NAME, id)).await?)
     }
 

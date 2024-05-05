@@ -20,7 +20,7 @@ pub type SongId = Thing;
 pub const TABLE_NAME: &str = "song";
 
 /// This struct holds all the metadata about a particular [`Song`].
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, Table)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Table)]
 #[Table("song")]
 pub struct Song {
     // / The unique identifier for this [`Song`].
@@ -75,6 +75,7 @@ pub struct Song {
 }
 
 impl Song {
+    #[must_use]
     pub fn generate_id() -> SongId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
@@ -140,7 +141,7 @@ impl Song {
         let song_id = Self::create(db, song.clone()).await?.unwrap().id;
 
         // add the song to the artists, if it's not already there (which it won't be)
-        for artist in artists.iter() {
+        for artist in &artists {
             Artist::add_songs(db, artist.id.clone(), &[song_id.clone()]).await?;
         }
 
@@ -219,7 +220,7 @@ impl From<&Song> for SongBrief {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct SongMetadata {
     pub title: Arc<str>,
     pub artist: OneOrMany<Arc<str>>,
@@ -271,6 +272,7 @@ impl From<Song> for SongMetadata {
 }
 
 impl SongMetadata {
+    #[must_use]
     pub fn path_exists(&self) -> bool {
         self.path.exists() && self.path.is_file()
     }
@@ -279,6 +281,8 @@ impl SongMetadata {
     ///
     /// doesn't check for exact equality (use `==` for that),
     /// but is for checking if the song is the same song even if the metadata has been updated.
+    #[must_use]
+    #[allow(clippy::suspicious_operation_groupings)]
     pub fn is_same_song(&self, other: &Self) -> bool {
         // the title is the same
         self.title == other.title
@@ -289,14 +293,14 @@ impl SongMetadata {
             // the duration is the same
             && self.runtime == other.runtime
             // the genre is the same, or the genre is not in self but is in other
-            && (self.genre == other.genre || self.genre.is_none() && other.genre.is_some())
+            && (self.genre == other.genre || (self.genre.is_none() && other.genre.is_some()))
             // the track is the same, or the track is not in self but is in other
-            && (self.track == other.track || self.track.is_none() && other.track.is_some())
+            && (self.track == other.track || (self.track.is_none() && other.track.is_some()))
             // the disc is the same, or the disc is not in self but is in other
-            && (self.disc == other.disc || self.disc.is_none() && other.disc.is_some())
+            && (self.disc == other.disc || (self.disc.is_none() && other.disc.is_some()))
             // the release year is the same, or the release year is not in self but is in other
             && (self.release_year == other.release_year
-                || self.release_year.is_none() && other.release_year.is_some())
+                || (self.release_year.is_none() && other.release_year.is_some()))
     }
 
     /// Merge the metadata of two songs.
@@ -406,32 +410,32 @@ impl SongMetadata {
         let tags = audiotags::Tag::default()
             .read_from_path(&path)
             .map_err(SongIOError::AudiotagError)?;
-        let artist: OneOrMany<Arc<str>> = tags
-            .artist()
-            .map(|a| {
-                let a = a.replace('\0', "");
-                if let Some(sep) = artist_name_separator {
-                    if a.contains(sep) {
-                        OneOrMany::Many(a.split(&sep).map(Into::into).collect())
+        let artist: OneOrMany<Arc<str>> =
+            tags.artist()
+                .map_or(OneOrMany::One("Unknown Artist".into()), |a| {
+                    let a = a.replace('\0', "");
+                    if let Some(sep) = artist_name_separator {
+                        if a.contains(sep) {
+                            OneOrMany::Many(a.split(&sep).map(Into::into).collect())
+                        } else {
+                            OneOrMany::One(a.into())
+                        }
                     } else {
                         OneOrMany::One(a.into())
                     }
-                } else {
-                    OneOrMany::One(a.into())
-                }
-            })
-            .unwrap_or(OneOrMany::One("Unknown Artist".into()));
+                });
 
         Ok(Self {
             title: tags
                 .title()
-                .map(|x| x.replace('\0', "").into())
-                .unwrap_or_else(|| path.file_stem().unwrap().to_string_lossy())
+                .map_or_else(
+                    || path.file_stem().unwrap().to_string_lossy(),
+                    |x| x.replace('\0', "").into(),
+                )
                 .into(),
             album: tags
                 .album_title()
-                .map(|x| x.replace('\0', ""))
-                .unwrap_or("Unknown Album".into())
+                .map_or("Unknown Album".into(), |x| x.replace('\0', ""))
                 .into(),
             album_artist: tags
                 .album_artist()
@@ -502,7 +506,7 @@ mod tests {
 
         // Assert that the function returns a valid Song object
         if let Err(e) = result {
-            panic!("Error: {:?}", e);
+            panic!("Error: {e:?}");
         }
         let song = result.unwrap();
 

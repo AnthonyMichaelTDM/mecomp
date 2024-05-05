@@ -17,7 +17,7 @@ use crate::{
 
 impl Song {
     #[instrument]
-    pub async fn create<C: Connection>(db: &Surreal<C>, song: Song) -> Result<Option<Song>, Error> {
+    pub async fn create<C: Connection>(db: &Surreal<C>, song: Self) -> Result<Option<Self>, Error> {
         Ok(db
             .create((TABLE_NAME, song.id.clone()))
             .content(song)
@@ -25,12 +25,12 @@ impl Song {
     }
 
     #[instrument]
-    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Song>, Error> {
+    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Self>, Error> {
         Ok(db.select(TABLE_NAME).await?)
     }
 
     #[instrument]
-    pub async fn read<C: Connection>(db: &Surreal<C>, id: SongId) -> Result<Option<Song>, Error> {
+    pub async fn read<C: Connection>(db: &Surreal<C>, id: SongId) -> Result<Option<Self>, Error> {
         Ok(db.select((TABLE_NAME, id)).await?)
     }
 
@@ -38,7 +38,7 @@ impl Song {
     pub async fn read_by_path<C: Connection>(
         db: &Surreal<C>,
         path: PathBuf,
-    ) -> Result<Option<Song>, Error> {
+    ) -> Result<Option<Self>, Error> {
         Ok(db
             .query("SELECT * FROM song WHERE path = $path LIMIT 1")
             .bind(("path", path))
@@ -100,7 +100,7 @@ impl Song {
         changes: SongChangeSet,
     ) -> Result<(), Error> {
         if changes.album.is_some() || changes.album_artist.is_some() {
-            let old_album: Option<Album> = Song::read_album(db, id.clone()).await?;
+            let old_album: Option<Album> = Self::read_album(db, id.clone()).await?;
             let old_album = old_album.ok_or(Error::NotFound)?;
 
             // find/create the new album
@@ -117,7 +117,7 @@ impl Song {
                     Album::read_or_create_by_name_and_album_artist(
                         db,
                         album,
-                        old_album.artist.to_owned(),
+                        old_album.artist.clone(),
                     )
                     .await?
                 }
@@ -142,16 +142,16 @@ impl Song {
         }
 
         if let Some(artist) = &changes.artist {
-            let old_artist: OneOrMany<Artist> = Song::read_artist(db, id.clone()).await?;
+            let old_artist: OneOrMany<Artist> = Self::read_artist(db, id.clone()).await?;
             // find/create artists with the new names
             let new_artist = Artist::read_or_create_by_names(db, artist.clone()).await?;
 
             // remove song from the old artists
             for artist in old_artist.iter() {
-                Artist::remove_songs(db, artist.id.to_owned(), &[id.clone()]).await?;
+                Artist::remove_songs(db, artist.id.clone(), &[id.clone()]).await?;
             }
             // add song to the new artists
-            for artist in new_artist.into_iter() {
+            for artist in new_artist {
                 Artist::add_songs(db, artist.id, &[id.clone()]).await?;
             }
         }
@@ -171,7 +171,7 @@ impl Song {
     /// - remove the song from collections.
     #[instrument]
     pub async fn delete<C: Connection>(db: &Surreal<C>, id: SongId) -> Result<(), Error> {
-        let _: Option<Song> = db.delete((TABLE_NAME, id)).await?;
+        let _: Option<Self> = db.delete((TABLE_NAME, id)).await?;
         Ok(())
     }
 }
@@ -238,7 +238,7 @@ mod test {
         Song::create(&db, song.clone()).await?;
         let read = Song::read(&db, song.id.clone())
             .await?
-            .ok_or(anyhow!("Song not found"))?;
+            .ok_or_else(|| anyhow!("Song not found"))?;
         assert_eq!(read, song);
         Ok(())
     }
@@ -253,7 +253,7 @@ mod test {
         Song::create(&db, song.clone()).await?;
         let read = Song::read_by_path(&db, song.path.clone())
             .await?
-            .ok_or(anyhow!("Song not found"))?;
+            .ok_or_else(|| anyhow!("Song not found"))?;
         assert_eq!(read, song);
         Ok(())
     }
@@ -270,11 +270,11 @@ mod test {
         let album =
             Album::read_or_create_by_name_and_album_artist(&db, &song.album, song.album_artist)
                 .await?
-                .ok_or(anyhow!("Album not found/created"))?;
+                .ok_or_else(|| anyhow!("Album not found/created"))?;
         Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
         let album = Album::read(&db, album.id)
             .await?
-            .ok_or(anyhow!("Album not found"))?;
+            .ok_or_else(|| anyhow!("Album not found"))?;
         assert_eq!(Some(album), Song::read_album(&db, song.id.clone()).await?);
         Ok(())
     }
@@ -290,11 +290,11 @@ mod test {
 
         let artist = Artist::read_or_create_by_name(&db, song.artist.clone().first().unwrap())
             .await?
-            .ok_or(anyhow!("Artist not found/created"))?;
+            .ok_or_else(|| anyhow!("Artist not found/created"))?;
         Artist::add_songs(&db, artist.id.clone(), &[song.id.clone()]).await?;
         let artist = Artist::read(&db, artist.id)
             .await?
-            .ok_or(anyhow!("Artist not found"))?;
+            .ok_or_else(|| anyhow!("Artist not found"))?;
         assert_eq!(
             OneOrMany::One(artist),
             Song::read_artist(&db, song.id.clone()).await?
@@ -314,15 +314,15 @@ mod test {
         let artist =
             Artist::read_or_create_by_name(&db, song.album_artist.clone().first().unwrap())
                 .await?
-                .ok_or(anyhow!("Album Artist not found/created"))?;
+                .ok_or_else(|| anyhow!("Album Artist not found/created"))?;
         let album =
             Album::read_or_create_by_name_and_album_artist(&db, &song.album, song.album_artist)
                 .await?
-                .ok_or(anyhow!("Album not found/created"))?;
+                .ok_or_else(|| anyhow!("Album not found/created"))?;
         Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
         let artist = Artist::read(&db, artist.id.clone())
             .await?
-            .ok_or(anyhow!("Artist not found"))?;
+            .ok_or_else(|| anyhow!("Artist not found"))?;
         assert_eq!(
             OneOrMany::One(artist),
             Song::read_album_artist(&db, song.id.clone()).await?
@@ -354,7 +354,7 @@ mod test {
 
         let updated = Song::read(&db, song.id.clone())
             .await?
-            .ok_or(anyhow!("Song not found"))?;
+            .ok_or_else(|| anyhow!("Song not found"))?;
 
         assert_eq!(updated.title, changes.title.unwrap());
         assert_eq!(updated.runtime, changes.runtime.unwrap());
@@ -378,7 +378,7 @@ mod test {
         // note, we need the artist to actually exist in the db and be associated with the song
         let artist = Artist::read_or_create_by_name(&db, song.artist.first().unwrap())
             .await?
-            .ok_or(anyhow!("Artist not found/created"))?;
+            .ok_or_else(|| anyhow!("Artist not found/created"))?;
         Artist::add_songs(&db, artist.id, &[song.id.clone()]).await?;
 
         let changes = SongChangeSet {
@@ -388,7 +388,7 @@ mod test {
         Song::update(&db, song.id.clone(), changes.clone()).await?;
         let updated = Song::read(&db, song.id.clone())
             .await?
-            .ok_or(anyhow!("Song not found"))?;
+            .ok_or_else(|| anyhow!("Song not found"))?;
         assert_eq!(updated.artist, changes.artist.clone().unwrap());
 
         // since the new artist didn't exist before, it should have been created
@@ -412,12 +412,12 @@ mod test {
         // note, we need the artist to actually exist in the db and be associated with the song
         let artist = Artist::read_or_create_by_name(&db, song.album_artist.first().unwrap())
             .await?
-            .ok_or(anyhow!("Album Artist not found/created"))?;
+            .ok_or_else(|| anyhow!("Album Artist not found/created"))?;
         // the album must also exist, and be associated with the song and artist
         let album =
             Album::read_or_create_by_name_and_album_artist(&db, &song.album, song.album_artist)
                 .await?
-                .ok_or(anyhow!("Album not found/created"))?;
+                .ok_or_else(|| anyhow!("Album not found/created"))?;
         Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
         Artist::add_album(&db, artist.id, album.id.clone()).await?;
 
@@ -430,11 +430,8 @@ mod test {
         Song::update(&db, song.id.clone(), changes.clone()).await?;
         let updated = Song::read(&db, song.id.clone())
             .await?
-            .ok_or(anyhow!("Song not found"))?;
-        assert_eq!(
-            updated.album_artist,
-            changes.album_artist.clone().unwrap()
-        );
+            .ok_or_else(|| anyhow!("Song not found"))?;
+        assert_eq!(updated.album_artist, changes.album_artist.clone().unwrap());
 
         // since the new artist didn't exist before, it should have been created
         let new_artist: OneOrMany<_> =
@@ -460,7 +457,7 @@ mod test {
         // note, we need the artist to actually exist in the db and be associated with the song
         let album_artist = Artist::read_or_create_by_name(&db, song.album_artist.first().unwrap())
             .await?
-            .ok_or(anyhow!("Album Artist not found/created"))?;
+            .ok_or_else(|| anyhow!("Album Artist not found/created"))?;
         // the album must also exist, and be associated with the song and artist
         let album = Album::read_or_create_by_name_and_album_artist(
             &db,
@@ -468,7 +465,7 @@ mod test {
             song.album_artist.clone(),
         )
         .await?
-        .ok_or(anyhow!("Album not found/created"))?;
+        .ok_or_else(|| anyhow!("Album not found/created"))?;
         Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
         Artist::add_album(&db, album_artist.id, album.id.clone()).await?;
 
@@ -479,7 +476,7 @@ mod test {
         Song::update(&db, song.id.clone(), changes.clone()).await?;
         let updated = Song::read(&db, song.id.clone())
             .await?
-            .ok_or(anyhow!("Song not found"))?;
+            .ok_or_else(|| anyhow!("Song not found"))?;
         assert_eq!(updated.album, changes.album.clone().unwrap());
 
         // since the new album didn't exist before, it should have been created

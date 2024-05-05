@@ -10,7 +10,7 @@ pub type CollectionId = Thing;
 
 pub const TABLE_NAME: &str = "collection";
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Table)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Table)]
 #[Table("collection")]
 pub struct Collection {
     /// the unique identifier for this [`Collection`].
@@ -31,6 +31,7 @@ pub struct Collection {
 }
 
 impl Collection {
+    #[must_use]
     pub fn generate_id() -> CollectionId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }

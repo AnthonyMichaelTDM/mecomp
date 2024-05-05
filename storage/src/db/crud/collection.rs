@@ -18,8 +18,8 @@ impl Collection {
     #[instrument]
     pub async fn create<C: Connection>(
         db: &Surreal<C>,
-        collection: Collection,
-    ) -> Result<Option<Collection>, Error> {
+        collection: Self,
+    ) -> Result<Option<Self>, Error> {
         Ok(db
             .create((TABLE_NAME, collection.id.clone()))
             .content(collection)
@@ -27,7 +27,7 @@ impl Collection {
     }
 
     #[instrument]
-    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Collection>, Error> {
+    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Self>, Error> {
         Ok(db.select(TABLE_NAME).await?)
     }
 
@@ -35,7 +35,7 @@ impl Collection {
     pub async fn read<C: Connection>(
         db: &Surreal<C>,
         id: CollectionId,
-    ) -> Result<Option<Collection>, Error> {
+    ) -> Result<Option<Self>, Error> {
         Ok(db.select((TABLE_NAME, id)).await?)
     }
 
@@ -44,7 +44,7 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
         changes: CollectionChangeSet,
-    ) -> Result<Option<Collection>, Error> {
+    ) -> Result<Option<Self>, Error> {
         Ok(db.update((TABLE_NAME, id)).merge(changes).await?)
     }
 
@@ -52,7 +52,7 @@ impl Collection {
     pub async fn delete<C: Connection>(
         db: &Surreal<C>,
         id: CollectionId,
-    ) -> Result<Option<Collection>, Error> {
+    ) -> Result<Option<Self>, Error> {
         Ok(db.delete((TABLE_NAME, id)).await?)
     }
 
@@ -66,7 +66,7 @@ impl Collection {
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-        Collection::repair(db, id).await?;
+        Self::repair(db, id).await?;
         Ok(())
     }
 
@@ -92,7 +92,7 @@ impl Collection {
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-        Collection::repair(db, id).await?;
+        Self::repair(db, id).await?;
         Ok(())
     }
 
@@ -107,7 +107,7 @@ impl Collection {
     /// * `bool` - True if the collection is empty
     #[instrument]
     pub async fn repair<C: Connection>(db: &Surreal<C>, id: CollectionId) -> Result<bool, Error> {
-        let songs = Collection::read_songs(db, id.clone()).await?;
+        let songs = Self::read_songs(db, id.clone()).await?;
 
         db.query(repair())
             .bind(("id", id))
@@ -191,7 +191,7 @@ mod tests {
         let updated = Collection::update(&db, collection.id.clone(), changes).await?;
         let read = Collection::read(&db, collection.id.clone())
             .await?
-            .ok_or(anyhow!("Collection not found"))?;
+            .ok_or_else(|| anyhow!("Collection not found"))?;
 
         assert_eq!(read.name, format!("Updated Name {ulid}").into());
         assert_eq!(Some(read), updated);
@@ -238,7 +238,7 @@ mod tests {
 
         let read = Collection::read(&db, collection.id.clone())
             .await?
-            .ok_or(anyhow!("Collection not found"))?;
+            .ok_or_else(|| anyhow!("Collection not found"))?;
         assert_eq!(read.song_count, 1);
         assert_eq!(read.runtime, Duration::from_secs(5));
 
@@ -275,7 +275,7 @@ mod tests {
 
         let read = Collection::read(&db, collection.id.clone())
             .await?
-            .ok_or(anyhow!("Collection not found"))?;
+            .ok_or_else(|| anyhow!("Collection not found"))?;
         assert_eq!(read.song_count, 0);
         assert_eq!(read.runtime, Duration::from_secs(0));
 

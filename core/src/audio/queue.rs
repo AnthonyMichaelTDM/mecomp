@@ -59,10 +59,7 @@ impl Queue {
 
     #[must_use]
     pub fn current_song(&self) -> Option<&Song> {
-        match self.current_index {
-            Some(index) => self.songs.get(index),
-            None => None,
-        }
+        self.current_index.and_then(|index| self.songs.get(index))
     }
 
     pub fn next_song(&mut self) -> Option<&Song> {
@@ -148,7 +145,8 @@ impl Queue {
         self.repeat_mode = repeat_mode;
     }
 
-    pub fn get_repeat_mode(&self) -> RepeatMode {
+    #[must_use]
+    pub const fn get_repeat_mode(&self) -> RepeatMode {
         self.repeat_mode
     }
 
@@ -165,22 +163,27 @@ impl Queue {
         }
     }
 
+    #[must_use]
     pub fn get(&self, index: usize) -> Option<&Song> {
         self.songs.get(index)
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.songs.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.songs.is_empty()
     }
 
-    pub fn current_index(&self) -> Option<usize> {
+    #[must_use]
+    pub const fn current_index(&self) -> Option<usize> {
         self.current_index
     }
 
+    #[must_use]
     pub fn queued_songs(&self) -> Box<[Song]> {
         self.songs.clone().into_boxed_slice()
     }
@@ -243,7 +246,7 @@ mod tests {
         init().await?;
         let mut queue = Queue::new();
         let song = create_song(&db, song).await?;
-        queue.add_song(song.clone());
+        queue.add_song(song);
         queue.remove_song(0);
         assert_eq!(queue.songs.len(), 0);
 
@@ -292,7 +295,7 @@ mod tests {
         init().await?;
         let mut queue = Queue::new();
         let len = songs.len();
-        for sc in songs.into_iter() {
+        for sc in songs {
             queue.add_song(create_song(&db, sc).await?);
         }
         queue.set_repeat_mode(RepeatMode::None);
@@ -327,7 +330,7 @@ mod tests {
         init().await?;
         let mut queue = Queue::new();
         let len = songs.len();
-        for sc in songs.into_iter() {
+        for sc in songs {
             queue.add_song(create_song(&db, sc).await?);
         }
         queue.set_repeat_mode(RepeatMode::Once);
@@ -372,7 +375,7 @@ mod tests {
         init().await?;
         let mut queue = Queue::new();
         let len = songs.len();
-        for sc in songs.into_iter() {
+        for sc in songs {
             queue.add_song(create_song(&db, sc).await?);
         }
         queue.set_repeat_mode(RepeatMode::Continuous);

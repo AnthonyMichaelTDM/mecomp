@@ -26,7 +26,7 @@ struct VectorIndexAnnotation {
 impl VectorIndexAnnotation {
     fn parse(args: &Punctuated<syn::Expr, syn::token::Comma>) -> syn::Result<Self> {
         let mut vectorindex = Self::default();
-        for arg in args.iter() {
+        for arg in args {
             match arg {
                 syn::Expr::Assign(assign)
                     if assign.left.to_token_stream().to_string().eq("dim") =>
@@ -89,7 +89,7 @@ impl IndexAnnotation {
     }
     fn parse(args: &Punctuated<syn::Expr, syn::token::Comma>) -> syn::Result<Self> {
         let mut index = Self::default();
-        for arg in args.iter() {
+        for arg in args {
             match arg {
                 syn::Expr::Call(call) if call.func.to_token_stream().to_string().eq("vector") => {
                     index.vector = VectorIndexAnnotation::parse(&call.args)?;
@@ -339,8 +339,7 @@ fn create_table_field_queries<'a>(
         }
 
         table_field_queries.push(format!(
-            "DEFINE FIELD {} ON {} TYPE {};",
-            field_name, table_name, field_type,
+            "DEFINE FIELD {field_name} ON {table_name} TYPE {field_type};",
         ));
 
         if let Some(index) = field_index {

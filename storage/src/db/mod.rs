@@ -18,7 +18,7 @@ static DB_DIR: OnceCell<PathBuf> = OnceCell::const_new();
 static TEMP_DB_DIR: Lazy<TempDir> =
     Lazy::new(|| tempfile::tempdir().expect("Failed to create temporary directory"));
 
-pub async fn set_database_path(path: PathBuf) -> Result<(), SetError<PathBuf>> {
+pub fn set_database_path(path: PathBuf) -> Result<(), SetError<PathBuf>> {
     DB_DIR.set(path)?;
     info!("Primed database path");
     Ok(())
