@@ -14,6 +14,12 @@ use crate::{
     util::OneOrMany,
 };
 
+use super::queries::artist::{
+    read_albums_by_artist, read_by_name, read_by_names, read_many, read_songs_by_artist,
+    relate_artist_to_album, relate_artist_to_songs, relate_artists_to_album,
+    remove_songs_from_artist,
+};
+
 impl Artist {
     #[instrument]
     pub async fn create<C: Connection>(
@@ -68,7 +74,7 @@ impl Artist {
         name: &str,
     ) -> Result<Option<Artist>, Error> {
         Ok(db
-            .query("SELECT * FROM artist WHERE name = $name LIMIT 1")
+            .query(read_by_name())
             .bind(("name", name))
             .await?
             .take(0)?)
@@ -81,7 +87,7 @@ impl Artist {
     ) -> Result<Vec<Artist>, Error> {
         // select artists records whose `name` field is in $names
         Ok(db
-            .query("SELECT * FROM artist WHERE name IN $names")
+            .query(read_by_names())
             .bind(("names", names))
             .await?
             .take(0)?)
@@ -117,11 +123,7 @@ impl Artist {
         db: &Surreal<C>,
         ids: Vec<ArtistId>,
     ) -> Result<Vec<Artist>, Error> {
-        Ok(db
-            .query("SELECT * FROM $ids")
-            .bind(("ids", ids))
-            .await?
-            .take(0)?)
+        Ok(db.query(read_many()).bind(("ids", ids)).await?.take(0)?)
     }
 
     #[instrument]
@@ -147,7 +149,7 @@ impl Artist {
         id: ArtistId,
     ) -> Result<Vec<Album>, Error> {
         Ok(db
-            .query("SELECT * FROM $id->artist_to_album->album")
+            .query(read_albums_by_artist())
             .bind(("id", id))
             .await?
             .take(0)?)
@@ -161,9 +163,9 @@ impl Artist {
     ) -> Result<(), Error> {
         db
             // relate this artist to the album
-            .query("RELATE $id->artist_to_album->$album;")
+            .query(relate_artist_to_album())
             // relate this artist to the songs in the album
-            // .query("RELATE $id->artist_to_song->(SELECT ->album_to_song<-album FROM $album);")
+            // .query("RELATE $id->artist_to_song->(SELECT ->album_to_song<-album FROM $album)")
             .bind(("id", &id))
             .bind(("album", &album_id))
             .await?;
@@ -180,7 +182,7 @@ impl Artist {
     ) -> Result<(), Error> {
         db
             // relate this artist to the album
-            .query("RELATE $ids->artist_to_album->$album")
+            .query(relate_artists_to_album())
             .bind(("ids", &ids))
             .bind(("album", &album_id))
             .await?;
@@ -199,7 +201,7 @@ impl Artist {
     ) -> Result<(), Error> {
         db
             // relate this artist to these songs
-            .query("RELATE $id->artist_to_song->$songs")
+            .query(relate_artist_to_songs())
             .bind(("id", &id))
             .bind(("songs", songs))
             .await?;
@@ -213,7 +215,7 @@ impl Artist {
         id: ArtistId,
         song_ids: &[SongId],
     ) -> Result<(), Error> {
-        db.query("DELETE $artist->artist_to_song WHERE out IN $songs")
+        db.query(remove_songs_from_artist())
             .bind(("artist", &id))
             .bind(("songs", song_ids))
             .await?;
@@ -227,8 +229,10 @@ impl Artist {
         id: ArtistId,
     ) -> Result<Vec<Song>, Error> {
         Ok(db
-            .query("RETURN array::union((SELECT * FROM $artist->artist_to_song->song), (SELECT * FROM $artist->artist_to_album->album->album_to_song->song))")
-            .bind(("artist", id)).await?.take(0)?)
+            .query(read_songs_by_artist())
+            .bind(("artist", id))
+            .await?
+            .take(0)?)
     }
 
     /// updates the album count, song count, and runtime of the artist
@@ -762,6 +766,75 @@ mod tests {
         assert_eq!(read.runtime, Duration::from_secs(0));
         assert_eq!(read.song_count, 0);
 
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_read_songs(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
+        let ulid = &ulid;
+        let artist = create_artist(ulid);
+        let album = Album {
+            id: Album::generate_id(),
+            title: format!("Test Album {ulid}").into(),
+            artist: OneOrMany::One(artist.name.clone()),
+            song_count: 4,
+            runtime: Duration::from_secs(5),
+            release: None,
+            discs: 1,
+            genre: OneOrMany::None,
+        };
+        let song = Song {
+            id: Song::generate_id(),
+            title: format!("Test Song {ulid}").into(),
+            artist: OneOrMany::One(artist.name.clone()),
+            album: format!("Test Album {ulid}").into(),
+            runtime: Duration::from_secs(5),
+            track: Some(1),
+            disc: Some(1),
+            genre: OneOrMany::None,
+            album_artist: OneOrMany::One(artist.name.clone()),
+            release_year: None,
+            extension: "mp3".into(),
+            path: PathBuf::from(format!("song_1_{}_{ulid}", rand::random::<usize>())),
+        };
+        let song2 = Song {
+            id: Song::generate_id(),
+            title: format!("Test Song 2 {ulid}").into(),
+            artist: OneOrMany::One(artist.name.clone()),
+            album: format!("Test Album {ulid}").into(),
+            runtime: Duration::from_secs(5),
+            track: Some(2),
+            disc: Some(1),
+            genre: OneOrMany::None,
+            album_artist: OneOrMany::One(artist.name.clone()),
+            release_year: None,
+            extension: "mp3".into(),
+            path: PathBuf::from(format!("song_2_{}_{ulid}", rand::random::<usize>())),
+        };
+
+        let _ = Artist::create(&db, artist.clone())
+            .await?
+            .ok_or(anyhow!("Failed to create artist"))?;
+        let _ = Album::create(&db, album.clone())
+            .await?
+            .ok_or(anyhow!("Failed to create album"))?;
+        let _ = Song::create(&db, song.clone())
+            .await?
+            .ok_or(anyhow!("Failed to create song"))?;
+        let _ = Song::create(&db, song2.clone())
+            .await?
+            .ok_or(anyhow!("Failed to create song"))?;
+
+        Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
+        Artist::add_album(&db, artist.id.clone(), album.id.clone()).await?;
+        Artist::add_songs(&db, artist.id.clone(), &[song2.id.clone()]).await?;
+
+        let read = Artist::read_songs(&db, artist.id.clone()).await?;
+        assert_eq!(read.len(), 2);
+        assert_eq!(read[0], song2);
+        assert_eq!(read[1], song);
         Ok(())
     }
 }
