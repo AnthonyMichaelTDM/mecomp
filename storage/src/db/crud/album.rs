@@ -15,6 +15,11 @@ use crate::{
     util::OneOrMany,
 };
 
+use super::queries::album::{
+    read_artist_of_album, read_by_name, read_by_name_and_album_artist, read_songs_in_album,
+    relate_album_to_songs, remove_songs_from_album,
+};
+
 impl Album {
     #[instrument()]
     pub async fn create<C: Connection>(
@@ -51,8 +56,7 @@ impl Album {
         name: &str,
     ) -> Result<Vec<Album>, Error> {
         Ok(db
-            .query("SELECT * FROM album WHERE title=$name")
-            .bind(("table", TABLE_NAME))
+            .query(read_by_name())
             .bind(("name", name))
             .await?
             .take(0)?)
@@ -78,8 +82,7 @@ impl Album {
         }
 
         Ok(db
-            .query("SELECT * FROM album WHERE title=$title AND artist=$artist")
-            .bind(("table", TABLE_NAME))
+            .query(read_by_name_and_album_artist())
             .bind(("title", title))
             .bind(("artist", album_artists))
             .await?
@@ -143,7 +146,7 @@ impl Album {
         id: AlbumId,
         song_ids: &[SongId],
     ) -> Result<(), Error> {
-        db.query("RELATE $album->album_to_song->$songs")
+        db.query(relate_album_to_songs())
             .bind(("album", &id))
             .bind(("songs", song_ids))
             .await?;
@@ -159,7 +162,7 @@ impl Album {
         id: AlbumId,
     ) -> Result<Vec<Song>, Error> {
         Ok(db
-            .query("SELECT * FROM $album->album_to_song.out")
+            .query(read_songs_in_album())
             .bind(("album", &id))
             .await?
             .take(0)?)
@@ -171,7 +174,7 @@ impl Album {
         id: AlbumId,
         song_ids: &[SongId],
     ) -> Result<(), Error> {
-        db.query("DELETE $album->album_to_song WHERE out IN $songs")
+        db.query(remove_songs_from_album())
             .bind(("album", &id))
             .bind(("songs", song_ids))
             .await?;
@@ -185,7 +188,7 @@ impl Album {
         id: AlbumId,
     ) -> Result<OneOrMany<Artist>, Error> {
         Ok(db
-            .query("SELECT * FROM $id<-artist_to_album<-artist")
+            .query(read_artist_of_album())
             .bind(("id", id))
             .await?
             .take(0)?)
