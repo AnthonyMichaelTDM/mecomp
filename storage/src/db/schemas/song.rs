@@ -5,6 +5,7 @@ use std::{collections::HashSet, path::PathBuf};
 use metadata::media_file::MediaFileMetadata;
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Duration, Id, Thing};
+use surrealdb::{Connection, Surreal};
 use surrealqlx::Table;
 use tracing::instrument;
 //----------------------------------------------------------------------------------- local modules
@@ -94,22 +95,26 @@ impl Song {
     /// This function will also add the new [`Song`] to the [`Artist`] and the [`Album`].
     /// This function will also update the [`Artist`] and the [`Album`] in the database.
     #[instrument(skip(metadata))]
-    pub async fn try_load_into_db(metadata: SongMetadata) -> Result<Self, Error> {
+    pub async fn try_load_into_db<C: Connection>(
+        db: &Surreal<C>,
+        metadata: SongMetadata,
+    ) -> Result<Self, Error> {
         // check if the file exists
         if !metadata.path_exists() {
             return Err(SongIOError::FileNotFound(metadata.path).into());
         }
 
         // for each artist, check if the artist exists in the database and get the id, if they don't then create a new artist and get the id
-        let artists = Artist::read_or_create_by_names(metadata.artist.clone()).await?;
+        let artists = Artist::read_or_create_by_names(&db, metadata.artist.clone()).await?;
 
         // check if the album artist exists, if they don't then create a new artist and get the id
-        Artist::read_or_create_by_names(metadata.album_artist.clone()).await?;
+        Artist::read_or_create_by_names(&db, metadata.album_artist.clone()).await?;
 
         // read or create the album
         // if an album doesn't exist with the given title and album artists,
         // will create a new album with the given title and album artists
         let album = Album::read_or_create_by_name_and_album_artist(
+            &db,
             &metadata.album,
             metadata.album_artist.clone(),
         )
@@ -132,15 +137,15 @@ impl Song {
             path: metadata.path,
         };
         // add that song to the database
-        let song_id = Self::create(song.clone()).await?.unwrap().id;
+        let song_id = Self::create(&db, song.clone()).await?.unwrap().id;
 
         // add the song to the artists, if it's not already there (which it won't be)
         for artist in artists.iter() {
-            Artist::add_songs(artist.id.clone(), &[song_id.clone()]).await?;
+            Artist::add_songs(&db, artist.id.clone(), &[song_id.clone()]).await?;
         }
 
         // add the song to the album, if it's not already there (which it won't be)
-        Album::add_songs(album.id.clone(), &[song_id.clone()]).await?;
+        Album::add_songs(&db, album.id.clone(), &[song_id.clone()]).await?;
 
         Ok(song)
     }
@@ -477,7 +482,10 @@ impl SongMetadata {
 mod tests {
     use super::*;
     use crate::{
-        db::schemas::{album::Album, artist::Artist},
+        db::{
+            init_test_database,
+            schemas::{album::Album, artist::Artist},
+        },
         test_utils::{arb_song_case, song_metadata_from_case, ulid},
     };
 
@@ -485,11 +493,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_load_into_db() {
+        let db = init_test_database().await.unwrap();
         // Create a mock SongMetadata object for testing
         let metadata = song_metadata_from_case(arb_song_case()(), &ulid()).unwrap();
 
         // Call the try_load_into_db function
-        let result = Song::try_load_into_db(metadata.clone()).await;
+        let result = Song::try_load_into_db(&db, metadata.clone()).await;
 
         // Assert that the function returns a valid Song object
         if let Err(e) = result {
@@ -511,23 +520,23 @@ mod tests {
         assert_eq!(song.path, metadata.path);
 
         // Assert that the artists and album have been created in the database
-        let artists = Song::read_artist(song.id.clone()).await.unwrap();
+        let artists = Song::read_artist(&db, song.id.clone()).await.unwrap();
         assert_eq!(artists.len(), metadata.artist.len()); // 2 artists + 1 album artist
 
-        let album = Song::read_album(song.id.clone()).await;
+        let album = Song::read_album(&db, song.id.clone()).await;
         assert_eq!(album.is_ok(), true);
         let album = album.unwrap();
         assert_eq!(album.is_some(), true);
         let album = album.unwrap();
 
         // Assert that the song has been associated with the artists and album correctly
-        let artist_songs = Artist::read_songs(artists.get(0).unwrap().id.clone())
+        let artist_songs = Artist::read_songs(&db, artists.get(0).unwrap().id.clone())
             .await
             .unwrap();
         assert_eq!(artist_songs.len(), 1);
         assert_eq!(artist_songs[0].id, song.id);
 
-        let album_songs = Album::read_songs(album.id.clone()).await.unwrap();
+        let album_songs = Album::read_songs(&db, album.id.clone()).await.unwrap();
         assert_eq!(album_songs.len(), 1);
         assert_eq!(album_songs[0].id, song.id);
     }

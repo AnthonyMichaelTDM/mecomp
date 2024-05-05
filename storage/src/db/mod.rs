@@ -1,50 +1,42 @@
 pub mod crud;
 pub mod schemas;
 
-use std::{ops::Deref, path::PathBuf};
+use std::path::PathBuf;
 
 use log::info;
 use once_cell::sync::Lazy;
-#[cfg(test)]
 use surrealdb::engine::local::Mem;
-use surrealdb::{engine::local::Db, Surreal};
+use surrealdb::{
+    engine::local::{Db, SpeeDb},
+    Surreal,
+};
 use surrealqlx::register_tables;
 use tempfile::TempDir;
 use tokio::sync::{OnceCell, SetError};
 
-static DB: Lazy<Surreal<Db>> = Lazy::new(|| {
-    let db = Surreal::init();
-    tokio::spawn(async {
-        setup().await.unwrap();
-    });
-    db
-});
-
 static DB_DIR: OnceCell<PathBuf> = OnceCell::const_new();
-
-#[allow(dead_code)]
 static TEMP_DB_DIR: Lazy<TempDir> =
     Lazy::new(|| tempfile::tempdir().expect("Failed to create temporary directory"));
 
-pub async fn db() -> &'static Surreal<Db> {
-    DB.wait_for(surrealdb::opt::WaitFor::Connection).await;
-    DB.wait_for(surrealdb::opt::WaitFor::Database).await;
-    DB.deref()
+pub async fn set_database_path(path: PathBuf) -> Result<(), SetError<PathBuf>> {
+    DB_DIR.set(path)?;
+    info!("Primed database path");
+    Ok(())
 }
 
-#[cfg(not(test))]
-async fn setup() -> surrealdb::Result<()> {
-    DB.connect( DB_DIR
+pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
+    let db = Surreal::new::<SpeeDb>(DB_DIR
         .get().cloned()
         .unwrap_or_else(|| {
             log::warn!("DB_DIR not set, defaulting to a temporary directory `{}`, this is likely a bug because `init_database` should be called before `db`", TEMP_DB_DIR.path().display());
             TEMP_DB_DIR.path()
             .to_path_buf()
         })).await?;
-    DB.use_ns("mecomp").use_db("music").await?;
+
+    db.use_ns("mecomp").use_db("music").await?;
 
     register_tables!(
-        DB.deref(),
+        &db,
         schemas::album::Album,
         schemas::artist::Artist,
         schemas::song::Song,
@@ -52,15 +44,15 @@ async fn setup() -> surrealdb::Result<()> {
         schemas::playlist::Playlist
     )?;
 
-    Ok(())
+    Ok(db)
 }
-#[cfg(test)]
-async fn setup() -> surrealdb::Result<()> {
-    DB.connect::<Mem>(()).await?;
-    DB.use_ns("test").use_db("test").await?;
+
+pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
+    let db = Surreal::new::<Mem>(()).await?;
+    db.use_ns("test").use_db("test").await?;
 
     register_tables!(
-        &DB,
+        &db,
         schemas::album::Album,
         schemas::artist::Artist,
         schemas::song::Song,
@@ -68,13 +60,7 @@ async fn setup() -> surrealdb::Result<()> {
         schemas::playlist::Playlist
     )?;
 
-    Ok(())
-}
-
-pub async fn init_database(path: PathBuf) -> Result<(), SetError<PathBuf>> {
-    DB_DIR.set(path)?;
-    info!("Primed database path");
-    Ok(())
+    Ok(db)
 }
 
 #[cfg(test)]

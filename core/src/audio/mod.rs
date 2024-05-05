@@ -117,6 +117,8 @@ impl AudioKernel {
     /// this function will block until the `Exit` command is received
     pub fn spawn(self, rx: Receiver<AudioCommand>) {
         async fn run(kernel: AudioKernel, rx: Receiver<AudioCommand>) {
+            let db = mecomp_storage::db::init_database().await.unwrap();
+
             loop {
                 let command = rx.recv().unwrap();
                 match command {
@@ -139,14 +141,16 @@ impl AudioKernel {
                         let (current_album, current_artist) = tokio::join!(
                             async {
                                 if let Some(song) = current_song.as_ref() {
-                                    Song::read_album(song.id.clone()).await
+                                    Song::read_album(&db, song.id.clone()).await
                                 } else {
                                     Ok(None)
                                 }
                             },
                             async {
                                 if let Some(song) = current_song.as_ref() {
-                                    Song::read_artist(song.id.clone()).await.map(Into::into)
+                                    Song::read_artist(&db, song.id.clone())
+                                        .await
+                                        .map(Into::into)
                                 } else {
                                     Ok(OneOrMany::None)
                                 }

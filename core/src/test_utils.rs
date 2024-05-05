@@ -4,6 +4,7 @@ use audiotags;
 use lazy_static::lazy_static;
 use mecomp_storage::db::schemas::song::{Song, SongMetadata};
 use rand::seq::IteratorRandom;
+use surrealdb::{Connection, Surreal};
 use tempfile;
 use tokio::sync::Mutex;
 
@@ -31,7 +32,8 @@ pub async fn init() -> anyhow::Result<()> {
 
 const ARTIST_NAME_SEPARATOR: &str = ", ";
 
-pub async fn create_song(
+pub async fn create_song<C: Connection>(
+    db: &Surreal<C>,
     SongCase {
         song,
         artists,
@@ -85,7 +87,7 @@ pub async fn create_song(
     let song_metadata = SongMetadata::load_from_path(new_path, Some(ARTIST_NAME_SEPARATOR), None)?;
 
     // now, we need to create a Song from the SongMetadata
-    Ok(Song::try_load_into_db(song_metadata).await?)
+    Ok(Song::try_load_into_db(&db, song_metadata).await?)
 }
 
 #[derive(Debug, Clone)]
@@ -173,16 +175,18 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mecomp_storage::db::init_test_database;
     use pretty_assertions::assert_eq;
 
     #[tokio::test]
     async fn test_create_song() {
         init().await.unwrap();
+        let db = init_test_database().await.unwrap();
         // Create a test case
         let song_case = SongCase::new(0, vec![0], vec![0], 0, 0);
 
         // Call the create_song function
-        let result = create_song(song_case).await;
+        let result = create_song(&db, song_case).await;
 
         // Assert that the result is Ok
         if let Err(e) = result {
@@ -193,7 +197,7 @@ mod tests {
         let song = result.unwrap();
 
         // Assert that we can get the song from the database
-        let song_from_db = Song::read(song.id.clone()).await.unwrap().unwrap();
+        let song_from_db = Song::read(&db, song.id.clone()).await.unwrap().unwrap();
 
         // Assert that the song from the database is the same as the song we created
         assert_eq!(song, song_from_db);

@@ -4,7 +4,10 @@ use anyhow::Result;
 use lazy_static::lazy_static;
 use rand::seq::IteratorRandom;
 use rstest::fixture;
-use surrealdb::sql::{Duration, Id};
+use surrealdb::{
+    sql::{Duration, Id},
+    Connection, Surreal,
+};
 
 lazy_static! {
     static ref TEMP_MUSIC_DIR: tempfile::TempDir = tempfile::tempdir().unwrap();
@@ -15,7 +18,8 @@ use crate::{
     util::OneOrMany,
 };
 
-pub async fn create_song(
+pub async fn create_song<C: Connection>(
+    db: &Surreal<C>,
     SongCase {
         song,
         artists,
@@ -54,8 +58,8 @@ pub async fn create_song(
         ))?,
     };
 
-    Song::create(song.clone()).await?;
-    Song::update(song.id.clone(), overrides).await?;
+    Song::create(db, song.clone()).await?;
+    Song::update(db, song.id.clone(), overrides).await?;
     Ok(song)
 }
 

@@ -194,6 +194,8 @@ mod tests {
         arb_song_case, arb_vec, bar_sc, baz_sc, create_song, foo_sc, init, SongCase, TIMEOUT,
     };
 
+    use mecomp_storage::db::init_test_database;
+
     use pretty_assertions::assert_eq;
     use rstest::*;
     use rstest_reuse;
@@ -219,9 +221,10 @@ mod tests {
     #[case(baz_sc())]
     #[tokio::test]
     async fn test_add_song(#[case] song: SongCase) -> anyhow::Result<()> {
+        let db = init_test_database().await.unwrap();
         init().await?;
         let mut queue = Queue::new();
-        let song = create_song(song).await?;
+        let song = create_song(&db, song).await?;
         queue.add_song(song.clone());
         assert_eq!(queue.len(), 1);
         assert_eq!(queue.songs[0], song);
@@ -236,9 +239,10 @@ mod tests {
     #[case(baz_sc())]
     #[tokio::test]
     async fn test_remove_song(#[case] song: SongCase) -> anyhow::Result<()> {
+        let db = init_test_database().await.unwrap();
         init().await?;
         let mut queue = Queue::new();
-        let song = create_song(song).await?;
+        let song = create_song(&db, song).await?;
         queue.add_song(song.clone());
         queue.remove_song(0);
         assert_eq!(queue.songs.len(), 0);
@@ -255,10 +259,11 @@ mod tests {
         #[case] song1: SongCase,
         #[case] song2: SongCase,
     ) -> anyhow::Result<()> {
+        let db = init_test_database().await.unwrap();
         init().await?;
         let mut queue = Queue::new();
-        let song1 = create_song(song1).await?;
-        let song2 = create_song(song2).await?;
+        let song1 = create_song(&db, song1).await?;
+        let song2 = create_song(&db, song2).await?;
         queue.add_song(song1.clone());
         queue.add_song(song2.clone());
         assert_eq!(queue.next_song(), Some(&song1));
@@ -283,11 +288,12 @@ mod tests {
     #[apply(next_song_test_template)]
     #[tokio::test]
     async fn test_next_song_rp_none(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
+        let db = init_test_database().await.unwrap();
         init().await?;
         let mut queue = Queue::new();
         let len = songs.len();
         for sc in songs.into_iter() {
-            queue.add_song(create_song(sc).await?);
+            queue.add_song(create_song(&db, sc).await?);
         }
         queue.set_repeat_mode(RepeatMode::None);
 
@@ -317,11 +323,12 @@ mod tests {
     #[apply(next_song_test_template)]
     #[tokio::test]
     async fn test_next_song_rp_once(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
+        let db = init_test_database().await.unwrap();
         init().await?;
         let mut queue = Queue::new();
         let len = songs.len();
         for sc in songs.into_iter() {
-            queue.add_song(create_song(sc).await?);
+            queue.add_song(create_song(&db, sc).await?);
         }
         queue.set_repeat_mode(RepeatMode::Once);
 
@@ -361,11 +368,12 @@ mod tests {
     #[apply(next_song_test_template)]
     #[tokio::test]
     async fn test_next_song_rp_continuous(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
+        let db = init_test_database().await.unwrap();
         init().await?;
         let mut queue = Queue::new();
         let len = songs.len();
         for sc in songs.into_iter() {
-            queue.add_song(create_song(sc).await?);
+            queue.add_song(create_song(&db, sc).await?);
         }
         queue.set_repeat_mode(RepeatMode::Continuous);
 

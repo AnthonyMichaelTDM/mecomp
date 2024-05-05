@@ -239,7 +239,7 @@ pub enum MetadataConflictResolution {
 
 #[cfg(test)]
 mod test_one_or_many {
-    use crate::db::db;
+    use crate::db::init_test_database;
 
     use super::OneOrMany;
 
@@ -258,13 +258,13 @@ mod test_one_or_many {
 
     #[tokio::test]
     async fn test_read_write_none() -> anyhow::Result<()> {
-        register_tables!(db().await, TestStruct)?;
+        let db = init_test_database().await?;
+        register_tables!(&db, TestStruct)?;
 
         let thing = Thing::from(("one_or_many_test_table", Id::ulid()));
 
         // store a None varient into the database
-        let create: TestStruct = db()
-            .await
+        let create: TestStruct = db
             .create(thing.clone())
             .content(TestStruct {
                 foo: OneOrMany::None,
@@ -273,7 +273,7 @@ mod test_one_or_many {
             .unwrap();
 
         // read a None variant from the database
-        let read: TestStruct = db().await.select(thing).await?.unwrap();
+        let read: TestStruct = db.select(thing).await?.unwrap();
 
         assert_eq!(create, read);
 
@@ -282,13 +282,13 @@ mod test_one_or_many {
 
     #[tokio::test]
     async fn test_read_write_one() -> anyhow::Result<()> {
-        register_tables!(db().await, TestStruct)?;
+        let db = init_test_database().await?;
+        register_tables!(&db, TestStruct)?;
 
         let thing = Thing::from(("one_or_many_test_table", Id::ulid()));
 
         // store a None varient into the database
-        let create: TestStruct = db()
-            .await
+        let create: TestStruct = db
             .create(thing.clone())
             .content(TestStruct {
                 foo: OneOrMany::One(3),
@@ -297,7 +297,7 @@ mod test_one_or_many {
             .unwrap();
 
         // read a None variant from the database
-        let read: TestStruct = db().await.select(thing).await?.unwrap();
+        let read: TestStruct = db.select(thing).await?.unwrap();
 
         assert_eq!(create, read);
 
@@ -306,13 +306,13 @@ mod test_one_or_many {
 
     #[tokio::test]
     async fn test_read_write_many() -> anyhow::Result<()> {
-        register_tables!(db().await, TestStruct)?;
+        let db = init_test_database().await?;
+        register_tables!(&db, TestStruct)?;
 
         let thing = Thing::from(("one_or_many_test_table", Id::ulid()));
 
         // store a None varient into the database
-        let create: TestStruct = db()
-            .await
+        let create: TestStruct = db
             .create(thing.clone())
             .content(TestStruct {
                 foo: OneOrMany::Many(vec![1, 2, 3]),
@@ -321,7 +321,7 @@ mod test_one_or_many {
             .unwrap();
 
         // read a None variant from the database
-        let read: TestStruct = db().await.select(thing).await?.unwrap();
+        let read: TestStruct = db.select(thing).await?.unwrap();
 
         assert_eq!(create, read);
 

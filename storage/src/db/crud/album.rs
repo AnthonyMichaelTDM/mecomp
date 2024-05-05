@@ -2,16 +2,14 @@
 use std::sync::Arc;
 
 use log::warn;
+use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
-    db::{
-        db,
-        schemas::{
-            album::{Album, AlbumChangeSet, AlbumId, TABLE_NAME},
-            artist::Artist,
-            song::{Song, SongId},
-        },
+    db::schemas::{
+        album::{Album, AlbumChangeSet, AlbumId, TABLE_NAME},
+        artist::Artist,
+        song::{Song, SongId},
     },
     errors::Error,
     util::OneOrMany,
@@ -19,33 +17,40 @@ use crate::{
 
 impl Album {
     #[instrument()]
-    pub async fn create(album: Album) -> Result<Option<Album>, Error> {
-        Ok(db()
-            .await
+    pub async fn create<C: Connection>(
+        db: &Surreal<C>,
+        album: Album,
+    ) -> Result<Option<Album>, Error> {
+        Ok(db
             .create((TABLE_NAME, album.id.clone()))
             .content(album)
             .await?)
     }
 
     #[instrument()]
-    pub async fn read_all() -> Result<Vec<Album>, Error> {
-        Ok(db().await.select(TABLE_NAME).await?)
+    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Album>, Error> {
+        Ok(db.select(TABLE_NAME).await?)
     }
 
     #[instrument()]
-    pub async fn read(id: AlbumId) -> Result<Option<Album>, Error> {
-        Ok(db().await.select((TABLE_NAME, id)).await?)
+    pub async fn read<C: Connection>(db: &Surreal<C>, id: AlbumId) -> Result<Option<Album>, Error> {
+        Ok(db.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
-    pub async fn delete(id: AlbumId) -> Result<Option<Album>, Error> {
-        Ok(db().await.delete((TABLE_NAME, id)).await?)
+    pub async fn delete<C: Connection>(
+        db: &Surreal<C>,
+        id: AlbumId,
+    ) -> Result<Option<Album>, Error> {
+        Ok(db.delete((TABLE_NAME, id)).await?)
     }
 
     #[instrument()]
-    pub async fn read_by_name(name: &str) -> Result<Vec<Album>, Error> {
-        Ok(db()
-            .await
+    pub async fn read_by_name<C: Connection>(
+        db: &Surreal<C>,
+        name: &str,
+    ) -> Result<Vec<Album>, Error> {
+        Ok(db
             .query("SELECT * FROM album WHERE title=$name")
             .bind(("table", TABLE_NAME))
             .bind(("name", name))
@@ -54,12 +59,17 @@ impl Album {
     }
 
     #[instrument()]
-    pub async fn update(id: AlbumId, changes: AlbumChangeSet) -> Result<Option<Album>, Error> {
-        Ok(db().await.update((TABLE_NAME, id)).merge(changes).await?)
+    pub async fn update<C: Connection>(
+        db: &Surreal<C>,
+        id: AlbumId,
+        changes: AlbumChangeSet,
+    ) -> Result<Option<Album>, Error> {
+        Ok(db.update((TABLE_NAME, id)).merge(changes).await?)
     }
 
     #[instrument()]
-    pub async fn read_by_name_and_album_artist(
+    pub async fn read_by_name_and_album_artist<C: Connection>(
+        db: &Surreal<C>,
         title: &str,
         album_artists: OneOrMany<Arc<str>>,
     ) -> Result<Option<Album>, Error> {
@@ -67,8 +77,7 @@ impl Album {
             return Ok(None);
         }
 
-        Ok(db()
-            .await
+        Ok(db
             .query("SELECT * FROM album WHERE title=$title AND artist=$artist")
             .bind(("table", TABLE_NAME))
             .bind(("title", title))
@@ -81,31 +90,36 @@ impl Album {
     ///
     /// If the album does not exist, it will be created and added to the artists
     #[instrument()]
-    pub async fn read_or_create_by_name_and_album_artist(
+    pub async fn read_or_create_by_name_and_album_artist<C: Connection>(
+        db: &Surreal<C>,
         title: &str,
         album_artists: OneOrMany<Arc<str>>,
     ) -> Result<Option<Album>, Error> {
         if let Ok(Some(album)) =
-            Album::read_by_name_and_album_artist(title, album_artists.clone()).await
+            Album::read_by_name_and_album_artist(&db, title, album_artists.clone()).await
         {
             Ok(Some(album))
         } else {
-            match Album::create(Album {
-                id: Album::generate_id(),
-                title: title.into(),
-                artist: album_artists.clone(),
-                runtime: surrealdb::sql::Duration::from_secs(0),
-                release: None,
-                song_count: 0,
-                discs: 1,
-                genre: OneOrMany::None,
-            })
+            match Album::create(
+                &db,
+                Album {
+                    id: Album::generate_id(),
+                    title: title.into(),
+                    artist: album_artists.clone(),
+                    runtime: surrealdb::sql::Duration::from_secs(0),
+                    release: None,
+                    song_count: 0,
+                    discs: 1,
+                    genre: OneOrMany::None,
+                },
+            )
             .await?
             {
                 Some(album) => {
                     // we created a new album made by some artists, so we need to update those artists
                     Artist::add_album_to_artists(
-                        &Artist::read_or_create_by_names(album_artists)
+                        &db,
+                        &Artist::read_or_create_by_names(&db, album_artists)
                             .await?
                             .into_iter()
                             .map(|a| a.id)
@@ -124,22 +138,27 @@ impl Album {
     }
 
     #[instrument()]
-    pub async fn add_songs(id: AlbumId, song_ids: &[SongId]) -> Result<(), Error> {
-        db().await
-            .query("RELATE $album->album_to_song->$songs")
+    pub async fn add_songs<C: Connection>(
+        db: &Surreal<C>,
+        id: AlbumId,
+        song_ids: &[SongId],
+    ) -> Result<(), Error> {
+        db.query("RELATE $album->album_to_song->$songs")
             .bind(("album", &id))
             .bind(("songs", song_ids))
             .await?;
 
-        Album::repair(id).await?;
+        Album::repair(&db, id).await?;
 
         Ok(())
     }
 
     #[instrument()]
-    pub async fn read_songs(id: AlbumId) -> Result<Vec<Song>, Error> {
-        Ok(db()
-            .await
+    pub async fn read_songs<C: Connection>(
+        db: &Surreal<C>,
+        id: AlbumId,
+    ) -> Result<Vec<Song>, Error> {
+        Ok(db
             .query("SELECT * FROM $album->album_to_song.out")
             .bind(("album", &id))
             .await?
@@ -147,20 +166,25 @@ impl Album {
     }
 
     #[instrument()]
-    pub async fn remove_songs(id: AlbumId, song_ids: &[SongId]) -> Result<(), Error> {
-        db().await
-            .query("DELETE $album->album_to_song WHERE out IN $songs")
+    pub async fn remove_songs<C: Connection>(
+        db: &Surreal<C>,
+        id: AlbumId,
+        song_ids: &[SongId],
+    ) -> Result<(), Error> {
+        db.query("DELETE $album->album_to_song WHERE out IN $songs")
             .bind(("album", &id))
             .bind(("songs", song_ids))
             .await?;
-        Album::repair(id).await?;
+        Album::repair(&db, id).await?;
         Ok(())
     }
 
     #[instrument]
-    pub async fn read_artist(id: AlbumId) -> Result<OneOrMany<Artist>, Error> {
-        Ok(db()
-            .await
+    pub async fn read_artist<C: Connection>(
+        db: &Surreal<C>,
+        id: AlbumId,
+    ) -> Result<OneOrMany<Artist>, Error> {
+        Ok(db
             .query("SELECT * FROM $id<-artist_to_album<-artist")
             .bind(("id", id))
             .await?
@@ -177,11 +201,12 @@ impl Album {
     ///
     /// Returns a boolean indicating if the album should be removed (if it has no songs left in it)
     #[instrument()]
-    pub async fn repair(id: AlbumId) -> Result<bool, Error> {
+    pub async fn repair<C: Connection>(db: &Surreal<C>, id: AlbumId) -> Result<bool, Error> {
         // remove or update the album and return
-        let songs = Album::read_songs(id.clone()).await?;
+        let songs = Album::read_songs(&db, id.clone()).await?;
 
         Album::update(
+            &db,
             id,
             AlbumChangeSet {
                 song_count: Some(songs.len()),
@@ -198,7 +223,7 @@ impl Album {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::ulid;
+    use crate::{db::init_test_database, test_utils::ulid};
 
     use anyhow::{anyhow, Result};
     use pretty_assertions::assert_eq;
@@ -221,10 +246,11 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_create() -> Result<()> {
+        let db = init_test_database().await?;
         let ulid = &ulid();
         let album = create_album(ulid);
 
-        let created = Album::create(album.clone()).await?;
+        let created = Album::create(&db, album.clone()).await?;
         assert_eq!(Some(album), created);
         Ok(())
     }
@@ -232,14 +258,15 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_read(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
         let ulid = &ulid;
         let album = create_album(ulid);
 
-        let created = Album::create(album.clone())
+        let created = Album::create(&db, album.clone())
             .await?
             .ok_or(anyhow!("Failed to create album"))?;
 
-        let read = Album::read(album.id.clone())
+        let read = Album::read(&db, album.id.clone())
             .await?
             .ok_or(anyhow!("Failed to read album"))?;
         assert_eq!(album, read);
@@ -250,10 +277,11 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_update(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
         let ulid = &ulid;
         let album = create_album(ulid);
 
-        let _ = Album::create(album.clone())
+        let _ = Album::create(&db, album.clone())
             .await?
             .ok_or(anyhow!("Failed to create album"))?;
 
@@ -262,8 +290,8 @@ mod tests {
             ..Default::default()
         };
 
-        let updated = Album::update(album.id.clone(), changes).await?;
-        let read = Album::read(album.id.clone())
+        let updated = Album::update(&db, album.id.clone(), changes).await?;
+        let read = Album::read(&db, album.id.clone())
             .await?
             .ok_or(anyhow!("Failed to read album"))?;
 
@@ -275,15 +303,16 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_delete(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
         let ulid = &ulid;
         let album = create_album(ulid);
 
-        let _ = Album::create(album.clone())
+        let _ = Album::create(&db, album.clone())
             .await?
             .ok_or(anyhow!("Failed to create album"))?;
 
-        let deleted = Album::delete(album.id.clone()).await?;
-        let read = Album::read(album.id.clone()).await?;
+        let deleted = Album::delete(&db, album.id.clone()).await?;
+        let read = Album::read(&db, album.id.clone()).await?;
 
         assert_eq!(Some(album), deleted);
         assert_eq!(read, None);
@@ -293,14 +322,15 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_read_by_name(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
         let ulid = &ulid;
         let album = create_album(ulid);
 
-        let _ = Album::create(album.clone())
+        let _ = Album::create(&db, album.clone())
             .await?
             .ok_or(anyhow!("Failed to create album"))?;
 
-        let read = Album::read_by_name(&format!("Test Album {ulid}")).await?;
+        let read = Album::read_by_name(&db, &format!("Test Album {ulid}")).await?;
         assert_eq!(read.len(), 1);
         assert_eq!(read[0], album);
         Ok(())
@@ -309,14 +339,15 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_read_all(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
         let ulid = &ulid;
         let album = create_album(ulid);
 
-        let _ = Album::create(album.clone())
+        let _ = Album::create(&db, album.clone())
             .await?
             .ok_or(anyhow!("Failed to create album"))?;
 
-        let read = Album::read_all().await?;
+        let read = Album::read_all(&db).await?;
         assert!(read.len() > 0);
         Ok(())
     }
@@ -324,27 +355,32 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_read_by_name_and_album_artist(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
         let ulid = &ulid;
 
-        let artist = Artist::create(Artist {
-            id: Artist::generate_id(),
-            name: format!("Test Artist {ulid}").into(),
-            runtime: Duration::from_secs(0),
-            album_count: 0,
-            song_count: 0,
-        })
+        let artist = Artist::create(
+            &db,
+            Artist {
+                id: Artist::generate_id(),
+                name: format!("Test Artist {ulid}").into(),
+                runtime: Duration::from_secs(0),
+                album_count: 0,
+                song_count: 0,
+            },
+        )
         .await?
         .ok_or(anyhow!("Failed to create artist"))?;
 
         let album = create_album(ulid);
 
-        let _ = Album::create(album.clone())
+        let _ = Album::create(&db, album.clone())
             .await?
             .ok_or(anyhow!("Failed to create album"))?;
 
-        Artist::add_album(artist.id, album.id.clone()).await?;
+        Artist::add_album(&db, artist.id, album.id.clone()).await?;
 
         let read = Album::read_by_name_and_album_artist(
+            &db,
             &format!("Test Album {ulid}"),
             vec![format!("Test Artist {ulid}").into()].into(),
         )
@@ -357,15 +393,19 @@ mod tests {
     #[tokio::test]
     // the test above tests the read branch of this, so here we test the create branch
     async fn test_read_or_create_by_name_and_album_artist(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
         let ulid = &ulid;
 
-        let artist = Artist::create(Artist {
-            id: Artist::generate_id(),
-            name: format!("Test Artist {ulid}").into(),
-            runtime: Duration::from_secs(0),
-            album_count: 0,
-            song_count: 0,
-        })
+        let artist = Artist::create(
+            &db,
+            Artist {
+                id: Artist::generate_id(),
+                name: format!("Test Artist {ulid}").into(),
+                runtime: Duration::from_secs(0),
+                album_count: 0,
+                song_count: 0,
+            },
+        )
         .await?
         .ok_or(anyhow!("Failed to create artist"))?;
 
@@ -381,6 +421,7 @@ mod tests {
         };
 
         let read = Album::read_or_create_by_name_and_album_artist(
+            &db,
             &format!("Test Album {ulid}"),
             vec![artist.name.clone()].into(),
         )
@@ -401,6 +442,7 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_add_songs(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
         let ulid = &ulid;
 
         let album = create_album(ulid);
@@ -419,16 +461,16 @@ mod tests {
             path: format!("song_{ulid}.mp3").into(),
         };
 
-        let album = Album::create(album)
+        let album = Album::create(&db, album)
             .await?
             .ok_or(anyhow!("Failed to create album"))?;
-        let song = Song::create(song)
+        let song = Song::create(&db, song)
             .await?
             .ok_or(anyhow!("Failed to create song"))?;
 
-        Album::add_songs(album.id.clone(), &[song.id.clone()]).await?;
+        Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
 
-        let read = Album::read(album.id.clone())
+        let read = Album::read(&db, album.id.clone())
             .await?
             .ok_or(anyhow!("Failed to read album"))?;
         assert_eq!(read.song_count, 1);
@@ -438,6 +480,7 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_read_songs(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
         let ulid = &ulid;
 
         let album = create_album(ulid);
@@ -456,16 +499,16 @@ mod tests {
             path: format!("song_{ulid}.mp3").into(),
         };
 
-        let _ = Album::create(album.clone())
+        let _ = Album::create(&db, album.clone())
             .await?
             .ok_or(anyhow!("Failed to create album"))?;
-        let _ = Song::create(song.clone())
+        let _ = Song::create(&db, song.clone())
             .await?
             .ok_or(anyhow!("Failed to create song"))?;
 
-        Album::add_songs(album.id.clone(), &[song.id.clone()]).await?;
+        Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
 
-        let read = Album::read_songs(album.id.clone()).await?;
+        let read = Album::read_songs(&db, album.id.clone()).await?;
         assert_eq!(read.len(), 1);
         assert_eq!(read[0], song);
         Ok(())
@@ -474,6 +517,7 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_remove_songs(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
         let ulid = &ulid;
 
         let album = create_album(ulid);
@@ -492,17 +536,17 @@ mod tests {
             path: format!("song_{ulid}.mp3").into(),
         };
 
-        let _ = Album::create(album.clone())
+        let _ = Album::create(&db, album.clone())
             .await?
             .ok_or(anyhow!("Failed to create album"))?;
-        let _ = Song::create(song.clone())
+        let _ = Song::create(&db, song.clone())
             .await?
             .ok_or(anyhow!("Failed to create song"))?;
 
-        Album::add_songs(album.id.clone(), &[song.id.clone()]).await?;
-        Album::remove_songs(album.id.clone(), &[song.id.clone()]).await?;
+        Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
+        Album::remove_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
 
-        let read = Album::read_songs(album.id.clone()).await?;
+        let read = Album::read_songs(&db, album.id.clone()).await?;
         assert_eq!(read.len(), 0);
         Ok(())
     }
@@ -510,30 +554,34 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_read_artist(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
         let ulid = &ulid;
 
-        let artist = Artist::create(Artist {
-            id: Artist::generate_id(),
-            name: format!("Test Artist {ulid}").into(),
-            runtime: Duration::from_secs(0),
-            album_count: 0,
-            song_count: 0,
-        })
+        let artist = Artist::create(
+            &db,
+            Artist {
+                id: Artist::generate_id(),
+                name: format!("Test Artist {ulid}").into(),
+                runtime: Duration::from_secs(0),
+                album_count: 0,
+                song_count: 0,
+            },
+        )
         .await?
         .ok_or(anyhow!("Failed to create artist"))?;
 
         let album = create_album(ulid);
 
-        let _ = Album::create(album.clone())
+        let _ = Album::create(&db, album.clone())
             .await?
             .ok_or(anyhow!("Failed to create album"))?;
 
-        Artist::add_album(artist.id.clone(), album.id.clone()).await?;
-        let artist = Artist::read(artist.id.clone())
+        Artist::add_album(&db, artist.id.clone(), album.id.clone()).await?;
+        let artist = Artist::read(&db, artist.id.clone())
             .await?
             .ok_or(anyhow!("Failed to read artist"))?;
 
-        let read = Album::read_artist(album.id.clone()).await?;
+        let read = Album::read_artist(&db, album.id.clone()).await?;
         assert_eq!(read.len(), 1);
         assert_eq!(read.get(0), Some(&artist));
         Ok(())

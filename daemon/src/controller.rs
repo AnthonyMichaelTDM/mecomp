@@ -1,5 +1,6 @@
 //----------------------------------------------------------------------------------------- std lib
-use std::{net::SocketAddr, ops::Range};
+use std::{net::SocketAddr, ops::Range, sync::Arc};
+use surrealdb::{engine::local::Db, Surreal};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
 use log::{info, warn};
@@ -32,7 +33,16 @@ use tracing::{instrument, Instrument};
 use crate::{config::SETTINGS, services};
 
 #[derive(Clone, Debug)]
-pub struct MusicPlayerServer(pub SocketAddr);
+pub struct MusicPlayerServer {
+    pub addr: SocketAddr,
+    db: Arc<Surreal<Db>>,
+}
+
+impl MusicPlayerServer {
+    pub fn new(addr: SocketAddr, db: Arc<Surreal<Db>>) -> Self {
+        Self { addr, db }
+    }
+}
 
 impl MusicPlayer for MusicPlayerServer {
     #[instrument]
@@ -45,6 +55,7 @@ impl MusicPlayer for MusicPlayerServer {
     async fn library_rescan(self, _context: Context) -> Result<(), SerializableLibraryError> {
         info!("Rescanning library");
         Ok(services::library::rescan(
+            &self.db,
             &SETTINGS.library_paths,
             SETTINGS.artist_separator.as_deref(),
             SETTINGS.genre_separator.as_deref(),
@@ -60,7 +71,7 @@ impl MusicPlayer for MusicPlayerServer {
         _context: Context,
     ) -> Result<LibraryBrief, SerializableLibraryError> {
         info!("Creating library brief");
-        Ok(services::library::brief()
+        Ok(services::library::brief(&self.db)
             .await
             .tap_err(|e| warn!("Error in library_brief: {e}"))?)
     }
@@ -71,7 +82,7 @@ impl MusicPlayer for MusicPlayerServer {
         _context: Context,
     ) -> Result<LibraryFull, SerializableLibraryError> {
         info!("Creating library full");
-        Ok(services::library::full()
+        Ok(services::library::full(&self.db)
             .await
             .tap_err(|e| warn!("Error in library_full: {e}"))?)
     }
@@ -82,7 +93,7 @@ impl MusicPlayer for MusicPlayerServer {
         _context: Context,
     ) -> Result<Box<[ArtistBrief]>, SerializableLibraryError> {
         info!("Creating library artists brief");
-        Ok(Artist::read_all()
+        Ok(Artist::read_all(&self.db)
             .await
             .tap_err(|e| warn!("Error in library_artists_brief: {e}"))?
             .iter()
@@ -96,7 +107,7 @@ impl MusicPlayer for MusicPlayerServer {
         _context: Context,
     ) -> Result<Box<[Artist]>, SerializableLibraryError> {
         info!("Creating library artists full");
-        Ok(Artist::read_all()
+        Ok(Artist::read_all(&self.db)
             .await
             .map(std::vec::Vec::into_boxed_slice)
             .tap_err(|e| warn!("Error in library_artists_brief: {e}"))?)
@@ -108,7 +119,7 @@ impl MusicPlayer for MusicPlayerServer {
         _context: Context,
     ) -> Result<Box<[AlbumBrief]>, SerializableLibraryError> {
         info!("Creating library albums brief");
-        Ok(Album::read_all()
+        Ok(Album::read_all(&self.db)
             .await
             .tap_err(|e| warn!("Error in library_albums_brief: {e}"))?
             .iter()
@@ -122,7 +133,7 @@ impl MusicPlayer for MusicPlayerServer {
         _context: Context,
     ) -> Result<Box<[Album]>, SerializableLibraryError> {
         info!("Creating library albums full");
-        Ok(Album::read_all()
+        Ok(Album::read_all(&self.db)
             .await
             .map(std::vec::Vec::into_boxed_slice)
             .tap_err(|e| warn!("Error in library_albums_full: {e}"))?)
@@ -134,7 +145,7 @@ impl MusicPlayer for MusicPlayerServer {
         _context: Context,
     ) -> Result<Box<[SongBrief]>, SerializableLibraryError> {
         info!("Creating library songs brief");
-        Ok(Song::read_all()
+        Ok(Song::read_all(&self.db)
             .await
             .tap_err(|e| warn!("Error in library_songs_brief: {e}"))?
             .iter()
@@ -148,7 +159,7 @@ impl MusicPlayer for MusicPlayerServer {
         _context: Context,
     ) -> Result<Box<[Song]>, SerializableLibraryError> {
         info!("Creating library songs full");
-        Ok(Song::read_all()
+        Ok(Song::read_all(&self.db)
             .await
             .map(std::vec::Vec::into_boxed_slice)
             .tap_err(|e| warn!("Error in library_songs_full: {e}"))?)
@@ -162,7 +173,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_song_get(self, _context: Context, id: SongId) -> Option<Song> {
         info!("Getting song by ID: {}", id);
-        Song::read(id)
+        Song::read(&self.db, id)
             .await
             .tap_err(|e| warn!("Error in library_song_get: {e}"))
             .ok()
@@ -172,7 +183,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_album_get(self, _context: Context, id: AlbumId) -> Option<Album> {
         info!("Getting album by ID: {}", id);
-        Album::read(id)
+        Album::read(&self.db, id)
             .await
             .tap_err(|e| warn!("Error in library_album_get: {e}"))
             .ok()
@@ -182,7 +193,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_artist_get(self, _context: Context, id: ArtistId) -> Option<Artist> {
         info!("Getting artist by ID: {}", id);
-        Artist::read(id)
+        Artist::read(&self.db, id)
             .await
             .tap_err(|e| warn!("Error in library_artist_get: {e}"))
             .ok()
@@ -192,7 +203,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_playlist_get(self, _context: Context, id: PlaylistId) -> Option<Playlist> {
         info!("Getting playlist by ID: {}", id);
-        Playlist::read(id)
+        Playlist::read(&self.db, id)
             .await
             .tap_err(|e| warn!("Error in library_playlist_get: {e}"))
             .ok()
@@ -360,7 +371,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn rand_artist(self, _context: Context) -> Option<Artist> {
         info!("Getting random artist");
-        Artist::read_all()
+        Artist::read_all(&self.db)
             .await
             .tap_err(|e| warn!("Error in rand_artist: {e}"))
             .ok()
@@ -370,7 +381,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn rand_album(self, _context: Context) -> Option<Album> {
         info!("Getting random album");
-        Album::read_all()
+        Album::read_all(&self.db)
             .await
             .tap_err(|e| warn!("Error in rand_album: {e}"))
             .ok()
@@ -380,7 +391,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn rand_song(self, _context: Context) -> Option<Song> {
         info!("Getting random song");
-        Song::read_all()
+        Song::read_all(&self.db)
             .await
             .tap_err(|e| warn!("Error in rand_song: {e}"))
             .ok()
@@ -569,7 +580,7 @@ impl MusicPlayer for MusicPlayerServer {
         song: SongId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Adding song to queue: {}", song);
-        let Some(song) = Song::read(song).await? else {
+        let Some(song) = Song::read(&self.db, song).await? else {
             return Err(Error::NotFound.into());
         };
 
@@ -629,7 +640,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn queue_add_rand_song(self, _context: Context) -> Result<(), SerializableLibraryError> {
         info!("Adding random song to queue");
-        let song = Song::read_all()
+        let song = Song::read_all(&self.db)
             .await
             .tap_err(|e| warn!("Error in rand_song: {e}"))
             .ok()
@@ -679,7 +690,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn playlist_list(self, _context: Context) -> Box<[PlaylistBrief]> {
         info!("Listing playlists");
-        Playlist::read_all()
+        Playlist::read_all(&self.db)
             .await
             .tap_err(|e| warn!("Error in playlist_list: {e}"))
             .ok()
@@ -738,7 +749,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn collection_list(self, _context: Context) -> Box<[CollectionBrief]> {
         info!("Listing collections");
-        Collection::read_all()
+        Collection::read_all(&self.db)
             .await
             .tap_err(|e| warn!("Error in collection_list: {e}"))
             .ok()

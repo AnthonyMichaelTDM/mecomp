@@ -6,7 +6,7 @@ pub use surrealqlx_macros::*;
 /// syntax:
 /// ```ignore
 /// register_tables!(
-///     DB, // your `Surreal<_>` database connection
+///     &db, // your `Surreal<_>` database connection
 ///     Table1, // your tables...
 ///     Table2,
 ///     ...

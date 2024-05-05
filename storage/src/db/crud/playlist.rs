@@ -1,31 +1,36 @@
 //! CRUD operations for the playlist table
+use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
-    db::{
-        db,
-        schemas::{
-            playlist::{Playlist, PlaylistId, TABLE_NAME},
-            song::SongId,
-        },
+    db::schemas::{
+        playlist::{Playlist, PlaylistId, TABLE_NAME},
+        song::SongId,
     },
     errors::Error,
 };
 
 impl Playlist {
     #[instrument]
-    pub async fn read_all() -> Result<Vec<Playlist>, Error> {
-        Ok(db().await.select(TABLE_NAME).await?)
+    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Playlist>, Error> {
+        Ok(db.select(TABLE_NAME).await?)
     }
 
     #[instrument]
-    pub async fn read(id: PlaylistId) -> Result<Option<Playlist>, Error> {
-        Ok(db().await.select((TABLE_NAME, id)).await?)
+    pub async fn read<C: Connection>(
+        db: &Surreal<C>,
+        id: PlaylistId,
+    ) -> Result<Option<Playlist>, Error> {
+        Ok(db.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
-    pub async fn add_songs(id: PlaylistId, song_ids: &[SongId]) -> Result<(), Error> {
-        db().await
+    pub async fn add_songs<C: Connection>(
+        db: &Surreal<C>,
+        id: PlaylistId,
+        song_ids: &[SongId],
+    ) -> Result<(), Error> {
+        db
             .query("RELATE $id->playlist_to_song->$songs")
             .query("UPDATE $id SET song_count += array::len($songs), runtime += math::sum(SELECT runtime FROM $songs)")
             .bind(("id", id))
@@ -35,8 +40,12 @@ impl Playlist {
     }
 
     #[instrument]
-    pub async fn remove_songs(id: PlaylistId, song_ids: &[SongId]) -> Result<(), Error> {
-        db().await
+    pub async fn remove_songs<C: Connection>(
+        db: &Surreal<C>,
+        id: PlaylistId,
+        song_ids: &[SongId],
+    ) -> Result<(), Error> {
+        db
             .query("UNRELATE $id->playlist_to_song->$songs")
             .query("UPDATE $id SET song_count -= array::len($songs), runtime -= math::sum(SELECT runtime FROM $songs)")
             .bind(("id", id))
@@ -51,8 +60,8 @@ impl Playlist {
     ///
     /// * `id` - the id of the playlist to repair
     #[instrument]
-    pub async fn repair(id: PlaylistId) -> Result<(), Error> {
-        db().await
+    pub async fn repair<C: Connection>(db: &Surreal<C>, id: PlaylistId) -> Result<(), Error> {
+        db
             .query("UPDATE $id SET song_count = array::len(SELECT ->playlist_to_song->song FROM ONLY $id), runtime = math::sum(SELECT runtime FROM (SELECT ->playlist_to_song->song FROM ONLY $id))")
             .bind(("id", id))
             .await?;
