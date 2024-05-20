@@ -15,6 +15,7 @@ struct User {
 }
 impl ::surrealqlx::traits::Table for User {
     const TABLE_NAME: &'static str = "users";
+    #[allow(manual_async_fn)]
     fn init_table<C: ::surrealdb::Connection>(
         db: &::surrealdb::Surreal<C>,
     ) -> impl ::std::future::Future<Output = ::surrealdb::Result<()>> + Send {

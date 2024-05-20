@@ -38,6 +38,7 @@ pub struct Album {
 }
 impl ::surrealqlx::traits::Table for Album {
     const TABLE_NAME: &'static str = "album";
+    #[allow(manual_async_fn)]
     fn init_table<C: ::surrealdb::Connection>(
         db: &::surrealdb::Surreal<C>,
     ) -> impl ::std::future::Future<Output = ::surrealdb::Result<()>> + Send {
