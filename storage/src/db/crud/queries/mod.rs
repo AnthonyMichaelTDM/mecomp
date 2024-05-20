@@ -1,6 +1,7 @@
 pub mod album;
 pub mod artist;
 pub mod collection;
+pub mod playlist;
 
 #[cfg(test)]
 macro_rules! query_test {
@@ -114,6 +115,31 @@ mod collection_tests {
 
     query_test!(
         collection::repair,
+        "UPDATE $id SET song_count=$songs, runtime=$runtime"
+    );
+}
+
+#[cfg(test)]
+mod playlist_tests {
+    use super::*;
+
+    query_test!(
+        playlist::relate_playlist_to_songs,
+        "RELATE $id->playlist_to_song->$songs"
+    );
+
+    query_test!(
+        playlist::read_songs_in_playlist,
+        "SELECT * FROM $id->playlist_to_song.out"
+    );
+
+    query_test!(
+        playlist::remove_songs_from_playlist,
+        "DELETE $id->playlist_to_song WHERE out IN $songs"
+    );
+
+    query_test!(
+        playlist::repair,
         "UPDATE $id SET song_count=$songs, runtime=$runtime"
     );
 }
