@@ -1,0 +1,22 @@
+[package]
+name = "surrealqlx"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Some traits and macros to make it easier to work with surrealdb"
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+macros = ["surrealqlx-macros"]
+
+[dependencies]
+surrealdb.workspace = true
+surrealqlx-macros = { path = "../macros", optional = true }
+mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
+# tracing.workspace = true

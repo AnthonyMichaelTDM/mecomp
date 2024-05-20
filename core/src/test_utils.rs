@@ -4,6 +4,7 @@ use audiotags;
 use lazy_static::lazy_static;
 use mecomp_storage::db::schemas::song::{Song, SongMetadata};
 use rand::seq::IteratorRandom;
+use surrealdb::{Connection, Surreal};
 use tempfile;
 use tokio::sync::Mutex;
 
@@ -25,13 +26,15 @@ pub async fn init() -> anyhow::Result<()> {
     tracing::subscriber::set_global_default(init_tracing())?;
 
     init.replace(());
+    drop(init);
 
     Ok(())
 }
 
 const ARTIST_NAME_SEPARATOR: &str = ", ";
 
-pub async fn create_song(
+pub async fn create_song<C: Connection>(
+    db: &Surreal<C>,
     SongCase {
         song,
         artists,
@@ -54,23 +57,23 @@ pub async fn create_song(
     tags.add_artist(
         &artists
             .iter()
-            .map(|a| format!("Artist {}", a))
+            .map(|a| format!("Artist {a}"))
             .collect::<Vec<_>>()
             .join(ARTIST_NAME_SEPARATOR),
     );
     tags.add_album_artist(
         &album_artists
             .iter()
-            .map(|a| format!("Artist {}", a))
+            .map(|a| format!("Artist {a}"))
             .collect::<Vec<_>>()
             .join(ARTIST_NAME_SEPARATOR),
     );
 
-    tags.set_album_title(&format!("Album {}", album));
+    tags.set_album_title(&format!("Album {album}"));
 
-    tags.set_title(&format!("Song {}", song));
+    tags.set_title(&format!("Song {song}"));
 
-    tags.set_genre(&format!("Genre {}", genre));
+    tags.set_genre(&format!("Genre {genre}"));
 
     let new_path =
         TEMP_MUSIC_DIR
@@ -85,7 +88,7 @@ pub async fn create_song(
     let song_metadata = SongMetadata::load_from_path(new_path, Some(ARTIST_NAME_SEPARATOR), None)?;
 
     // now, we need to create a Song from the SongMetadata
-    Ok(Song::try_load_into_db(song_metadata).await?)
+    Ok(Song::try_load_into_db(db, song_metadata).await?)
 }
 
 #[derive(Debug, Clone)]
@@ -98,6 +101,7 @@ pub struct SongCase {
 }
 
 impl SongCase {
+    #[must_use]
     pub fn new(song: u8, artists: Vec<u8>, album_artists: Vec<u8>, album: u8, genre: u8) -> Self {
         Self {
             song,
@@ -166,6 +170,38 @@ where
             .clone()
             .choose(&mut rand::thread_rng())
             .unwrap_or_default();
-        Vec::from_iter(std::iter::repeat_with(|| item_strategy()).take(size))
+        Vec::from_iter(std::iter::repeat_with(item_strategy).take(size))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mecomp_storage::db::init_test_database;
+    use pretty_assertions::assert_eq;
+
+    #[tokio::test]
+    async fn test_create_song() {
+        init().await.unwrap();
+        let db = init_test_database().await.unwrap();
+        // Create a test case
+        let song_case = SongCase::new(0, vec![0], vec![0], 0, 0);
+
+        // Call the create_song function
+        let result = create_song(&db, song_case).await;
+
+        // Assert that the result is Ok
+        if let Err(e) = result {
+            panic!("Error creating song: {e:?}");
+        }
+
+        // Get the Song from the result
+        let song = result.unwrap();
+
+        // Assert that we can get the song from the database
+        let song_from_db = Song::read(&db, song.id.clone()).await.unwrap().unwrap();
+
+        // Assert that the song from the database is the same as the song we created
+        assert_eq!(song, song_from_db);
     }
 }

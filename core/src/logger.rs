@@ -119,6 +119,7 @@ pub fn init_logger(filter: log::LevelFilter) {
     }
 }
 
+#[must_use]
 pub fn init_tracing() -> impl tracing::Subscriber {
     let subscriber = tracing_subscriber::registry();
 
@@ -170,6 +171,7 @@ pub fn init_tracing() -> impl tracing::Subscriber {
     subscriber
 }
 
+#[allow(clippy::missing_const_for_fn)]
 pub fn shutdown_tracing() {
     #[cfg(feature = "otel_tracing")]
     opentelemetry::global::shutdown_tracer_provider();

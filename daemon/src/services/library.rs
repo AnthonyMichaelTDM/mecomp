@@ -2,6 +2,7 @@ use std::{collections::HashSet, path::PathBuf};
 
 use log::{debug, info, warn};
 use mecomp_core::state::library::{LibraryBrief, LibraryFull};
+use surrealdb::{Connection, Surreal};
 use tap::TapFallible;
 use tracing::instrument;
 // use tokio::runtime::Handle;
@@ -27,14 +28,15 @@ use mecomp_storage::{
 /// or if there is an error reading from the file system.
 /// or if there is an error writing to the database.
 #[instrument]
-pub async fn rescan(
+pub async fn rescan<C: Connection>(
+    db: &Surreal<C>,
     paths: &[PathBuf],
     artist_name_separator: Option<&str>,
     genre_separator: Option<&str>,
     conflict_resolution_mode: MetadataConflictResolution,
 ) -> Result<(), Error> {
     // get all the songs in the current library
-    let songs = Song::read_all().await?;
+    let songs = Song::read_all(db).await?;
     let mut paths_to_skip = HashSet::new(); // use a hashset because hashing is faster than linear search, especially for large libraries
 
     // for each song, check if the file still exists
@@ -61,11 +63,8 @@ pub async fn rescan(
                             }
                         };
                         // if the file has been modified, update the song's metadata
-                        Song::update_and_repair(
-                            song.id.clone(),
-                            new_metadata.merge_with_song(&song),
-                        )
-                        .await?;
+                        Song::update(db, song.id.clone(), new_metadata.merge_with_song(&song))
+                            .await?;
                     }
                 }
                 Err(e) => {
@@ -75,7 +74,7 @@ pub async fn rescan(
                         e
                     );
                     info!("assuming the file isn't a song or doesn't exist anymore, removing from library");
-                    Song::delete(song.id).await?;
+                    Song::delete(db, song.id).await?;
                 }
             }
             // now, add the path to the list of paths to skip so that we don't index the song again
@@ -83,7 +82,7 @@ pub async fn rescan(
         } else {
             // remove the song from the library
             warn!("Song {} no longer exists, deleting", path.to_string_lossy());
-            Song::delete(song.id).await?;
+            Song::delete(db, song.id).await?;
         }
     }
     // now, index all the songs in the library that haven't been indexed yet
@@ -100,7 +99,7 @@ pub async fn rescan(
         })
         .flat_map(|x| WalkDir::new(x).into_iter())
         .filter_map(|x| x.tap_err(|e| warn!("Error reading path: {}", e)).ok())
-        .filter_map(|x| x.file_type().is_file().then(|| x))
+        .filter_map(|x| x.file_type().is_file().then_some(x))
     {
         if visited_paths.contains(path.path()) {
             continue;
@@ -114,7 +113,7 @@ pub async fn rescan(
             artist_name_separator,
             genre_separator,
         ) {
-            Ok(metadata) => match Song::try_load_into_db(metadata).await {
+            Ok(metadata) => match Song::try_load_into_db(db, metadata).await {
                 Ok(_) => {
                     debug!("Indexed {}", path.path().to_string_lossy());
                 }
@@ -133,7 +132,7 @@ pub async fn rescan(
     }
 
     info!("Library rescan complete");
-    info!("Library brief: {:?}", brief().await?);
+    info!("Library brief: {:?}", brief(db).await?);
 
     Ok(())
 }
@@ -144,13 +143,13 @@ pub async fn rescan(
 ///
 /// This function will return an error if there is an error reading from the database.
 #[instrument]
-pub async fn brief() -> Result<LibraryBrief, Error> {
+pub async fn brief<C: Connection>(db: &Surreal<C>) -> Result<LibraryBrief, Error> {
     Ok(LibraryBrief {
-        artists: Artist::read_all().await?.len(),
-        albums: Album::read_all().await?.len(),
-        songs: Song::read_all().await?.len(),
-        playlists: Playlist::read_all().await?.len(),
-        collections: Collection::read_all().await?.len(),
+        artists: Artist::read_all(db).await?.len(),
+        albums: Album::read_all(db).await?.len(),
+        songs: Song::read_all(db).await?.len(),
+        playlists: Playlist::read_all(db).await?.len(),
+        collections: Collection::read_all(db).await?.len(),
     })
 }
 
@@ -160,12 +159,12 @@ pub async fn brief() -> Result<LibraryBrief, Error> {
 ///
 /// This function will return an error if there is an error reading from the database.
 #[instrument]
-pub async fn full() -> Result<LibraryFull, Error> {
+pub async fn full<C: Connection>(db: &Surreal<C>) -> Result<LibraryFull, Error> {
     Ok(LibraryFull {
-        artists: Artist::read_all().await?.into(),
-        albums: Album::read_all().await?.into(),
-        songs: Song::read_all().await?.into(),
-        playlists: Playlist::read_all().await?.into(),
-        collections: Collection::read_all().await?.into(),
+        artists: Artist::read_all(db).await?.into(),
+        albums: Album::read_all(db).await?.into(),
+        songs: Song::read_all(db).await?.into(),
+        playlists: Playlist::read_all(db).await?.into(),
+        collections: Collection::read_all(db).await?.into(),
     })
 }

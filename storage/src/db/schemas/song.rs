@@ -1,17 +1,15 @@
 //----------------------------------------------------------------------------------------- std lib
 use std::sync::Arc;
-use std::time::Duration;
 use std::{collections::HashSet, path::PathBuf};
 //--------------------------------------------------------------------------------- other libraries
 use metadata::media_file::MediaFileMetadata;
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::{Id, Thing};
+use surrealdb::sql::{Duration, Id, Thing};
+use surrealdb::{Connection, Surreal};
+use surrealqlx::Table;
 use tracing::instrument;
 //----------------------------------------------------------------------------------- local modules
-use super::{
-    album::{Album, AlbumId},
-    artist::{Artist, ArtistId},
-};
+use super::{album::Album, artist::Artist};
 use crate::{
     errors::{Error, SongIOError},
     util::OneOrMany,
@@ -21,50 +19,63 @@ pub type SongId = Thing;
 
 pub const TABLE_NAME: &str = "song";
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 /// This struct holds all the metadata about a particular [`Song`].
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Table)]
+#[Table("song")]
 pub struct Song {
     // / The unique identifier for this [`Song`].
+    #[field(dt = "record")]
     pub id: SongId,
     /// Title of the [`Song`].
+    #[field(dt = "string", index())]
     pub title: Arc<str>,
     /// Artist of the [`Song`]. (Can be multiple)
-    pub artist_id: OneOrMany<ArtistId>,
-    /// Artist of the [`Song`]. (Can be multiple)
+    #[field(dt = "option<set<string> | string>")]
+    #[serde(default)]
     pub artist: OneOrMany<Arc<str>>,
     /// album artist, if not found then defaults to first artist
+    #[field(dt = "option<set<string> | string>")]
+    #[serde(default)]
     pub album_artist: OneOrMany<Arc<str>>,
-    /// album artist id
-    pub album_artist_id: OneOrMany<ArtistId>,
-
-    /// Key to the [`Album`].
-    pub album_id: AlbumId,
     /// album title
+    #[field(dt = "string")]
     pub album: Arc<str>,
     /// Genre of the [`Song`]. (Can be multiple)
+    #[field(dt = "option<set<string> | string>")]
+    #[serde(default)]
     pub genre: OneOrMany<Arc<str>>,
 
     /// Total runtime of this [`Song`].
-    pub duration: Duration,
+    #[field(dt = "duration")]
+    pub runtime: Duration,
     // /// Sample rate of this [`Song`].
     // pub sample_rate: u32,
     /// The track number of this [`Song`].
+    #[field(dt = "option<int>")]
+    #[serde(default)]
     pub track: Option<u16>,
     /// The disc number of this [`Song`].
+    #[field(dt = "option<int>")]
+    #[serde(default)]
     pub disc: Option<u16>,
     /// the year the song was released
+    #[field(dt = "option<int>")]
+    #[serde(default)]
     pub release_year: Option<i32>,
 
     // /// The `MIME` type of this [`Song`].
     // pub mime: Arc<str>,
     /// The file extension of this [`Song`].
+    #[field(dt = "string")]
     pub extension: Arc<str>,
 
     /// The [`PathBuf`] this [`Song`] is located at.
+    #[field(dt = "string", index(unique))]
     pub path: PathBuf,
 }
 
 impl Song {
+    #[must_use]
     pub fn generate_id() -> SongId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
@@ -85,163 +96,86 @@ impl Song {
     /// This function will also add the new [`Song`] to the [`Artist`] and the [`Album`].
     /// This function will also update the [`Artist`] and the [`Album`] in the database.
     #[instrument(skip(metadata))]
-    pub async fn try_load_into_db(metadata: SongMetadata) -> Result<Self, Error> {
+    pub async fn try_load_into_db<C: Connection>(
+        db: &Surreal<C>,
+        metadata: SongMetadata,
+    ) -> Result<Self, Error> {
         // check if the file exists
         if !metadata.path_exists() {
             return Err(SongIOError::FileNotFound(metadata.path).into());
         }
 
         // for each artist, check if the artist exists in the database and get the id, if they don't then create a new artist and get the id
-        let mut artists = Vec::with_capacity(metadata.artist.len());
-        for artist in metadata.artist.iter() {
-            if let Some(artist) = Artist::create_or_read_by_name(artist.as_ref()).await? {
-                artists.push(artist);
-            }
-        }
+        let artists = Artist::read_or_create_by_names(db, metadata.artist.clone()).await?;
 
         // check if the album artist exists, if they don't then create a new artist and get the id
-        let mut album_artists = Vec::with_capacity(metadata.artist.len());
-        for artist in metadata.album_artist.iter() {
-            if let Some(artist) = Artist::create_or_read_by_name(artist.as_ref()).await? {
-                album_artists.push(artist);
-            }
-        }
+        Artist::read_or_create_by_names(db, metadata.album_artist.clone()).await?;
 
-        // check if the album artist(s) have the album.
-        // if they don't then create a new album, assign it to the artist.
-        // get the id of the album
-        let mut album = None;
-        for artist in album_artists.iter() {
-            // try to find the album in the artist's albums
-            let mut artist_has_album = false;
-            for id in artist.albums.iter() {
-                let artist_album = Album::read(id.clone()).await?.unwrap();
-                if artist_album.title.as_ref() == metadata.album.as_ref() {
-                    artist_has_album = true;
-                    if album.is_none() {
-                        album = Some(artist_album);
-                    }
-                    break;
-                }
-            }
-
-            // if we found the album, continue
-            if artist_has_album {
-                continue;
-            }
-            // if we didn't find the album, create a new album (if we haven't already)
-            if let None = album {
-                album = Album::create(Album {
-                    id: Album::generate_id(),
-                    title: metadata.album.clone(),
-                    artist_id: album_artists.iter().cloned().map(|x| x.id).collect(),
-                    artist: metadata.album_artist.clone(),
-                    release: metadata.release_year,
-                    runtime: Duration::from_secs(0),
-                    song_count: 0,
-                    songs: vec![].into_boxed_slice(),
-                    discs: 1,
-                    genre: OneOrMany::None,
-                })
-                .await?;
-            };
-
-            let updated_artist = Artist {
-                albums: artist
-                    .albums
-                    .iter()
-                    .cloned()
-                    .chain(std::iter::once(
-                        album
-                            .clone()
-                            .ok_or_else(|| {
-                                Error::DbError(surrealdb::Error::Api(surrealdb::error::Api::Query(
-                                    "Failed to create album".into(),
-                                )))
-                            })?
-                            .id,
-                    ))
-                    .collect(),
-                ..artist.clone()
-            };
-            Artist::update(artist.id.clone(), updated_artist).await?;
-        }
-        let album = album.expect("Album not found or created, shouldn't happen");
+        // read or create the album
+        // if an album doesn't exist with the given title and album artists,
+        // will create a new album with the given title and album artists
+        let album = Album::read_or_create_by_name_and_album_artist(
+            db,
+            &metadata.album,
+            metadata.album_artist.clone(),
+        )
+        .await?
+        .ok_or(Error::NotCreated)?;
 
         // create a new song
         let song = Self {
             id: Self::generate_id(),
             title: metadata.title,
             artist: metadata.artist,
-            artist_id: artists.iter().cloned().map(|x| x.id).collect(),
             album_artist: metadata.album_artist,
-            album_artist_id: album_artists.iter().cloned().map(|x| x.id).collect(),
             album: metadata.album,
-            album_id: album.id.clone(),
             genre: metadata.genre,
             release_year: metadata.release_year,
-            duration: metadata.duration,
+            runtime: metadata.runtime,
             extension: metadata.extension,
             track: metadata.track,
             disc: metadata.disc,
             path: metadata.path,
         };
         // add that song to the database
-        let song_id = Self::create(song.clone()).await?.unwrap();
+        let song_id = Self::create(db, song.clone()).await?.unwrap().id;
 
-        // add the song to the album artists and artists (if it's not already there)
-        for artist in artists.iter().chain(album_artists.iter()) {
-            let artist = Artist::read(artist.id.clone()).await?.unwrap();
-            if !artist.songs.contains(&song_id) {
-                Artist::update(
-                    artist.id.clone(),
-                    Artist {
-                        songs: artist
-                            .songs
-                            .iter()
-                            .cloned()
-                            .chain(std::iter::once(song_id.clone()))
-                            .collect(),
-                        runtime: artist.runtime + song.duration,
-                        ..artist
-                    },
-                )
-                .await?;
-            }
+        // add the song to the artists, if it's not already there (which it won't be)
+        for artist in &artists {
+            Artist::add_songs(db, artist.id.clone(), &[song_id.clone()]).await?;
         }
 
-        // add the song to the album
-        if !album.songs.contains(&song_id) {
-            Album::update(
-                album.id.clone(),
-                Album {
-                    songs: album
-                        .songs
-                        .iter()
-                        .cloned()
-                        .chain(std::iter::once(song_id.clone()))
-                        .collect(),
-                    runtime: album.runtime + song.duration,
-                    song_count: album.song_count + 1,
-                    genre: {
-                        // add all the genres of the song to the album, if the album doesn't have that genre
-                        let mut genres = album.genre;
-                        for genre in song.genre.iter() {
-                            if !genres.contains(genre) {
-                                genres.push(genre.clone());
-                            }
-                        }
-
-                        genres
-                    },
-                    ..album
-                },
-            )
-            .await?;
-        }
+        // add the song to the album, if it's not already there (which it won't be)
+        Album::add_songs(db, album.id.clone(), &[song_id.clone()]).await?;
 
         Ok(song)
     }
+}
+
+#[derive(Debug, Default, Serialize, Clone)]
+pub struct SongChangeSet {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<Arc<str>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artist: Option<OneOrMany<Arc<str>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub album_artist: Option<OneOrMany<Arc<str>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub album: Option<Arc<str>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub genre: Option<OneOrMany<Arc<str>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<Duration>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub track: Option<Option<u16>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disc: Option<Option<u16>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release_year: Option<Option<i32>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extension: Option<Arc<str>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -252,7 +186,7 @@ pub struct SongBrief {
     pub album: Arc<str>,
     pub album_artist: OneOrMany<Arc<str>>,
     pub release_year: Option<i32>,
-    pub duration: Duration,
+    pub duration: std::time::Duration,
     pub path: PathBuf,
 }
 
@@ -265,7 +199,7 @@ impl From<Song> for SongBrief {
             album: song.album,
             album_artist: song.album_artist,
             release_year: song.release_year,
-            duration: song.duration,
+            duration: song.runtime.into(),
             path: song.path,
         }
     }
@@ -280,20 +214,20 @@ impl From<&Song> for SongBrief {
             album: song.album.clone(),
             album_artist: song.album_artist.clone(),
             release_year: song.release_year,
-            duration: song.duration,
+            duration: song.runtime.into(),
             path: song.path.clone(),
         }
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct SongMetadata {
     pub title: Arc<str>,
     pub artist: OneOrMany<Arc<str>>,
     pub album: Arc<str>,
     pub album_artist: OneOrMany<Arc<str>>,
     pub genre: OneOrMany<Arc<str>>,
-    pub duration: Duration,
+    pub runtime: Duration,
     pub release_year: Option<i32>,
     pub track: Option<u16>,
     pub disc: Option<u16>,
@@ -309,7 +243,7 @@ impl From<&Song> for SongMetadata {
             album: song.album.clone(),
             album_artist: song.album_artist.clone(),
             genre: song.genre.clone(),
-            duration: song.duration,
+            runtime: song.runtime,
             track: song.track,
             disc: song.disc,
             release_year: song.release_year,
@@ -327,7 +261,7 @@ impl From<Song> for SongMetadata {
             album: song.album,
             album_artist: song.album_artist,
             genre: song.genre,
-            duration: song.duration,
+            runtime: song.runtime,
             track: song.track,
             disc: song.disc,
             release_year: song.release_year,
@@ -338,6 +272,7 @@ impl From<Song> for SongMetadata {
 }
 
 impl SongMetadata {
+    #[must_use]
     pub fn path_exists(&self) -> bool {
         self.path.exists() && self.path.is_file()
     }
@@ -346,6 +281,8 @@ impl SongMetadata {
     ///
     /// doesn't check for exact equality (use `==` for that),
     /// but is for checking if the song is the same song even if the metadata has been updated.
+    #[must_use]
+    #[allow(clippy::suspicious_operation_groupings)]
     pub fn is_same_song(&self, other: &Self) -> bool {
         // the title is the same
         self.title == other.title
@@ -354,16 +291,16 @@ impl SongMetadata {
             // the album is the same
             && self.album == other.album
             // the duration is the same
-            && self.duration == other.duration
+            && self.runtime == other.runtime
             // the genre is the same, or the genre is not in self but is in other
-            && (self.genre == other.genre || self.genre.is_none() && other.genre.is_some())
+            && (self.genre == other.genre || (self.genre.is_none() && other.genre.is_some()))
             // the track is the same, or the track is not in self but is in other
-            && (self.track == other.track || self.track.is_none() && other.track.is_some())
+            && (self.track == other.track || (self.track.is_none() && other.track.is_some()))
             // the disc is the same, or the disc is not in self but is in other
-            && (self.disc == other.disc || self.disc.is_none() && other.disc.is_some())
+            && (self.disc == other.disc || (self.disc.is_none() && other.disc.is_some()))
             // the release year is the same, or the release year is not in self but is in other
             && (self.release_year == other.release_year
-                || self.release_year.is_none() && other.release_year.is_some())
+                || (self.release_year.is_none() && other.release_year.is_some()))
     }
 
     /// Merge the metadata of two songs.
@@ -403,7 +340,7 @@ impl SongMetadata {
                 .collect::<HashSet<Arc<str>>>()
                 .into_iter()
                 .collect(),
-            duration: base.duration,
+            runtime: base.runtime,
             track: base.track.or(other.track),
             disc: base.disc.or(other.disc),
             release_year: base.release_year.or(other.release_year),
@@ -412,36 +349,43 @@ impl SongMetadata {
         }
     }
 
-    /// create a new song with `base` values overridden by `self`'s metadata when applicable (DOES NOT UPDATE THE DATABASE)
+    /// create a changeset from the difference between `self` and `song`
     #[instrument()]
-    pub fn merge_with_song(&self, song: &Song) -> Song {
-        let SongMetadata {
-            title,
-            artist,
-            album,
-            album_artist,
-            genre,
-            duration,
-            track,
-            disc,
-            release_year,
-            extension,
-            path,
-        } = self;
-        Song {
-            title: title.clone(),
-            artist: artist.clone(),
-            album: album.clone(),
-            album_artist: album_artist.clone(),
-            genre: genre.clone(),
-            duration: *duration,
-            track: *track,
-            disc: *disc,
-            release_year: *release_year,
-            extension: extension.clone(),
-            path: path.clone(),
-            ..song.clone()
+    pub fn merge_with_song(&self, song: &Song) -> SongChangeSet {
+        let mut changeset = SongChangeSet::default();
+
+        if self.title != song.title {
+            changeset.title = Some(self.title.clone());
         }
+        if self.artist != song.artist {
+            changeset.artist = Some(self.artist.clone());
+        }
+        if self.album_artist != song.album_artist {
+            changeset.album_artist = Some(self.album_artist.clone());
+        }
+        if self.genre != song.genre {
+            changeset.genre = Some(self.genre.clone());
+        }
+        if self.runtime != song.runtime {
+            changeset.runtime = Some(self.runtime);
+        }
+        if self.track != song.track {
+            changeset.track = Some(self.track);
+        }
+        if self.disc != song.disc {
+            changeset.disc = Some(self.disc);
+        }
+        if self.release_year != song.release_year {
+            changeset.release_year = Some(self.release_year);
+        }
+        if self.extension != song.extension {
+            changeset.extension = Some(self.extension.clone());
+        }
+        if self.path != song.path {
+            changeset.path = Some(self.path.clone());
+        }
+
+        changeset
     }
 
     /// Load a [`SongMetadata`] from a file path.
@@ -466,32 +410,32 @@ impl SongMetadata {
         let tags = audiotags::Tag::default()
             .read_from_path(&path)
             .map_err(SongIOError::AudiotagError)?;
-        let artist: OneOrMany<Arc<str>> = tags
-            .artist()
-            .map(|a| {
-                let a = a.replace('\0', "");
-                if let Some(sep) = artist_name_separator {
-                    if a.contains(sep) {
-                        OneOrMany::Many(a.split(&sep).map(Into::into).collect())
+        let artist: OneOrMany<Arc<str>> =
+            tags.artist()
+                .map_or(OneOrMany::One("Unknown Artist".into()), |a| {
+                    let a = a.replace('\0', "");
+                    if let Some(sep) = artist_name_separator {
+                        if a.contains(sep) {
+                            OneOrMany::Many(a.split(&sep).map(Into::into).collect())
+                        } else {
+                            OneOrMany::One(a.into())
+                        }
                     } else {
                         OneOrMany::One(a.into())
                     }
-                } else {
-                    OneOrMany::One(a.into())
-                }
-            })
-            .unwrap_or(OneOrMany::One("Unknown Artist".into()));
+                });
 
         Ok(Self {
             title: tags
                 .title()
-                .map(|x| x.replace('\0', "").into())
-                .unwrap_or_else(|| path.file_stem().unwrap().to_string_lossy())
+                .map_or_else(
+                    || path.file_stem().unwrap().to_string_lossy(),
+                    |x| x.replace('\0', "").into(),
+                )
                 .into(),
             album: tags
                 .album_title()
-                .map(|x| x.replace('\0', ""))
-                .unwrap_or("Unknown Album".into())
+                .map_or("Unknown Album".into(), |x| x.replace('\0', ""))
                 .into(),
             album_artist: tags
                 .album_artist()
@@ -518,9 +462,12 @@ impl SongMetadata {
                     (_, genre) => OneOrMany::One(genre.into()),
                 })
                 .into(),
-            duration: MediaFileMetadata::new(&path)
+            runtime: MediaFileMetadata::new(&path)
                 .map_err(|_| SongIOError::DurationReadError)
-                .map(|x| x._duration.map(Duration::from_secs_f64))?
+                .map(|x| {
+                    x._duration
+                        .map(|d| Duration::from(std::time::Duration::from_secs_f64(d)))
+                })?
                 .ok_or(SongIOError::DurationNotFound)?,
             track: tags.track_number(),
             disc: tags.disc_number(),
@@ -532,5 +479,69 @@ impl SongMetadata {
                 .into(),
             path,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        db::{
+            init_test_database,
+            schemas::{album::Album, artist::Artist},
+        },
+        test_utils::{arb_song_case, song_metadata_from_case, ulid},
+    };
+
+    use pretty_assertions::assert_eq;
+
+    #[tokio::test]
+    async fn test_try_load_into_db() {
+        let db = init_test_database().await.unwrap();
+        // Create a mock SongMetadata object for testing
+        let metadata = song_metadata_from_case(arb_song_case()(), &ulid()).unwrap();
+
+        // Call the try_load_into_db function
+        let result = Song::try_load_into_db(&db, metadata.clone()).await;
+
+        // Assert that the function returns a valid Song object
+        if let Err(e) = result {
+            panic!("Error: {e:?}");
+        }
+        let song = result.unwrap();
+
+        // Assert that the song has been loaded into the database correctly
+        assert_eq!(song.title, metadata.title);
+        assert_eq!(song.artist.len(), metadata.artist.len());
+        assert_eq!(song.album_artist.len(), metadata.album_artist.len());
+        assert_eq!(song.album, metadata.album);
+        assert_eq!(song.genre.len(), metadata.genre.len());
+        assert_eq!(song.runtime, metadata.runtime);
+        assert_eq!(song.track, metadata.track);
+        assert_eq!(song.disc, metadata.disc);
+        assert_eq!(song.release_year, metadata.release_year);
+        assert_eq!(song.extension, metadata.extension);
+        assert_eq!(song.path, metadata.path);
+
+        // Assert that the artists and album have been created in the database
+        let artists = Song::read_artist(&db, song.id.clone()).await.unwrap();
+        assert_eq!(artists.len(), metadata.artist.len()); // 2 artists + 1 album artist
+
+        let album = Song::read_album(&db, song.id.clone()).await;
+        assert_eq!(album.is_ok(), true);
+        let album = album.unwrap();
+        assert_eq!(album.is_some(), true);
+        let album = album.unwrap();
+
+        // Assert that the song has been associated with the artists and album correctly
+        let artist_songs = Artist::read_songs(&db, artists.get(0).unwrap().id.clone())
+            .await
+            .unwrap();
+        assert_eq!(artist_songs.len(), 1);
+        assert_eq!(artist_songs[0].id, song.id);
+
+        let album_songs = Album::read_songs(&db, album.id.clone()).await.unwrap();
+        assert_eq!(album_songs.len(), 1);
+        assert_eq!(album_songs[0].id, song.id);
     }
 }

@@ -1,18 +1,25 @@
 pub mod library;
-use std::{ fmt::Display, time::Duration};
+use std::{fmt::Display, time::Duration};
 
-use mecomp_storage::{db::schemas::{album::Album, artist::Artist, song::Song}, util::OneOrMany};
+use mecomp_storage::{
+    db::schemas::{album::Album, artist::Artist, song::Song},
+    util::OneOrMany,
+};
 use nutype::nutype;
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumString, EnumIter};
+use strum::{Display, EnumIter, EnumString};
 
-#[derive(Clone, Copy, Debug, Display, PartialEq, Eq, Deserialize, Serialize, EnumIter, EnumString)]
+#[derive(
+    Clone, Copy, Debug, Display, PartialEq, Eq, Deserialize, Serialize, EnumIter, EnumString,
+)]
 pub enum SeekType {
     Absolute,
     Relative,
 }
 
-#[derive(Clone, Copy, Debug, Display, PartialEq, Eq, Deserialize, Serialize, EnumIter, EnumString)]
+#[derive(
+    Clone, Copy, Debug, Display, PartialEq, Eq, Deserialize, Serialize, EnumIter, EnumString,
+)]
 pub enum RepeatMode {
     None,
     Once,
@@ -20,17 +27,16 @@ pub enum RepeatMode {
 }
 
 #[nutype(
-    validate(predicate = |n| n.is_finite() && *n >= 0.0 && *n <= 100.0), 
+    validate(predicate = |n| n.is_finite() && *n >= 0.0 && *n <= 100.0),
     derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)
 )]
 pub struct Percent(f32);
 
 impl Display for Percent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:.2}%", self)
+        write!(f, "{:.2}%", self.into_inner())
     }
 }
-
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct StateRuntime {
@@ -52,5 +58,3 @@ pub struct StateAudio {
     pub muted: bool,
     pub volume: Percent,
 }
-
-

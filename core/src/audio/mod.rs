@@ -19,10 +19,7 @@ use crate::{
     errors::LibraryError,
     state::{RepeatMode, StateAudio, StateRuntime},
 };
-use mecomp_storage::{
-    db::schemas::{album::Album, artist::Artist, song::Song},
-    util::OneOrMany,
-};
+use mecomp_storage::{db::schemas::song::Song, util::OneOrMany};
 
 use self::queue::Queue;
 
@@ -58,17 +55,16 @@ pub enum AudioCommand {
 impl PartialEq for AudioCommand {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (AudioCommand::Play, AudioCommand::Play) => true,
-            (AudioCommand::Pause, AudioCommand::Pause) => true,
-            (AudioCommand::TogglePlayback, AudioCommand::TogglePlayback) => true,
-            (AudioCommand::ClearPlayer, AudioCommand::ClearPlayer) => true,
-            (AudioCommand::Clear, AudioCommand::Clear) => true,
-            (AudioCommand::Skip(a), AudioCommand::Skip(b)) => a == b,
-            (AudioCommand::Previous(a), AudioCommand::Previous(b)) => a == b,
-            (AudioCommand::AddSongToQueue(a), AudioCommand::AddSongToQueue(b)) => a == b,
-            (AudioCommand::SetRepeatMode(a), AudioCommand::SetRepeatMode(b)) => a == b,
-            (AudioCommand::Exit, AudioCommand::Exit) => true,
-            (AudioCommand::ReportStatus(_), AudioCommand::ReportStatus(_)) => true,
+            (Self::Play, Self::Play)
+            | (Self::Pause, Self::Pause)
+            | (Self::TogglePlayback, Self::TogglePlayback)
+            | (Self::ClearPlayer, Self::ClearPlayer)
+            | (Self::Clear, Self::Clear) => true,
+            (Self::Skip(a), Self::Skip(b)) => a == b,
+            (Self::Previous(a), Self::Previous(b)) => a == b,
+            (Self::AddSongToQueue(a), Self::AddSongToQueue(b)) => a == b,
+            (Self::SetRepeatMode(a), Self::SetRepeatMode(b)) => a == b,
+            (Self::Exit, Self::Exit) | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
             _ => false,
         }
     }
@@ -116,7 +112,9 @@ impl AudioKernel {
     /// this function should be called in a detached thread to keep the audio kernel running,
     /// this function will block until the `Exit` command is received
     pub fn spawn(self, rx: Receiver<AudioCommand>) {
-        async fn run(kernel: AudioKernel, rx: Receiver<AudioCommand>) {
+        async fn run(kernel: &AudioKernel, rx: Receiver<AudioCommand>) {
+            let db = mecomp_storage::db::init_database().await.unwrap();
+
             loop {
                 let command = rx.recv().unwrap();
                 match command {
@@ -130,7 +128,7 @@ impl AudioKernel {
                     //AudioCommand::PlaySource(source) => kernel.append_to_player(source),
                     AudioCommand::AddSongToQueue(song) => kernel.add_song_to_queue(song),
                     AudioCommand::SetRepeatMode(mode) => {
-                        kernel.queue.borrow_mut().set_repeat_mode(mode)
+                        kernel.queue.borrow_mut().set_repeat_mode(mode);
                     }
                     AudioCommand::Exit => break,
                     AudioCommand::ReportStatus(tx) => {
@@ -138,17 +136,17 @@ impl AudioKernel {
 
                         let (current_album, current_artist) = tokio::join!(
                             async {
-                                if let Some(id) = current_song.as_ref().map(|s| s.album_id.clone())
-                                {
-                                    Album::read(id).await
+                                if let Some(song) = current_song.as_ref() {
+                                    Song::read_album(&db, song.id.clone()).await
                                 } else {
                                     Ok(None)
                                 }
                             },
                             async {
-                                if let Some(id) = current_song.as_ref().map(|s| s.artist_id.clone())
-                                {
-                                    Artist::read_one_or_many(id).await
+                                if let Some(song) = current_song.as_ref() {
+                                    Song::read_artist(&db, song.id.clone())
+                                        .await
+                                        .map(Into::into)
                                 } else {
                                     Ok(OneOrMany::None)
                                 }
@@ -158,11 +156,11 @@ impl AudioKernel {
                         let state = StateAudio {
                             queue: kernel.queue.borrow().queued_songs(),
                             queue_position: kernel.queue.borrow().current_index(),
-                            current_song: current_song,
+                            current_song,
                             repeat_mode: kernel.queue.borrow().get_repeat_mode(),
                             runtime: kernel.queue.borrow().current_song().map(|song| {
                                 StateRuntime {
-                                    duration: song.duration,
+                                    duration: song.runtime.into(),
                                     seek_position: todo!(
                                         "determine how much of a Source has been played"
                                     ),
@@ -178,7 +176,7 @@ impl AudioKernel {
                             current_artist: current_artist.ok().into(),
                         };
 
-                        if let Err(_) = tx.send(state) {
+                        if tx.send(state).is_err() {
                             // report and ignore errors
                             error!("Audio kernel failed to report its state");
                         }
@@ -191,7 +189,7 @@ impl AudioKernel {
             .enable_all()
             .build()
             .unwrap()
-            .block_on(run(self, rx));
+            .block_on(run(&self, rx));
     }
 
     fn play(&self) {
@@ -236,7 +234,7 @@ impl AudioKernel {
             binding.add_song(song);
         }
         // if the player is empty, start playback
-        if self.player.is_empty() {
+        if self.player.empty() {
             if let Some(song) = self.get_next_song() {
                 if let Err(e) = self.append_song_to_player(&song) {
                     error!("Failed to append song to player: {}", e);

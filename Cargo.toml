@@ -2,7 +2,15 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = ["core", "daemon", "storage"]
+members = [
+    "core",
+    "daemon",
+    "mecomp-workspace-hack",
+    "storage",
+    "surrealqlx/lib",
+    "surrealqlx/macros",
+]
+exclude = ["external", "target", "assets", "scripts"]
 resolver = "2"
 
 [workspace.package]
@@ -53,10 +61,12 @@ log = { version = "0.4.20", features = ["serde"] }
 nutype = { version = "0.4.0", features = ["serde"] }
 once_cell = { version = "1.19.0" }
 rand = { version = "0.8.5", features = ["small_rng"] }
-rodio = { path = "external/rodio", features = ["symphonia-all"] }
+rodio = { git = "https://github.com/RustAudio/rodio.git", features = [
+    "symphonia-all",
+] }
 serde = { version = "1.0", features = ["derive", "rc"] }
 strum = { version = "0.26.2", features = ["derive"] }
-surrealdb = { version = "1.3.1", features = ["kv-speedb"] }
+surrealdb = { version = "1.4.2", features = ["kv-speedb"] }
 tap = { version = "1.0.1" }
 thiserror = { version = "1.0.58" }
 tokio = { version = "1.37", features = ["rt-multi-thread", "macros"] }
@@ -80,10 +90,11 @@ tracing-flame = { version = "0.2.0" }
 mecomp-core = { path = "core" }
 mecomp-daemon = { path = "daemon" }
 mecomp-storage = { path = "storage" }
+surrealqlx = { path = "surrealqlx/lib", features = ["macros"] }
 
 # shared dev dependencies
 pretty_assertions = { version = "1.4.0" }
-rstest = { version = "0.18.2" }
+rstest = { version = "0.19" }
 rstest_reuse = { version = "0.6.0" }
 tempfile = { version = "3.10.1" }
 
