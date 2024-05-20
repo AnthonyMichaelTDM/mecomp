@@ -205,7 +205,9 @@ mod tests {
         let collection = create_collection(&ulid);
         Collection::create(&db, collection.clone()).await?;
         let result = Collection::delete(&db, collection.id.clone()).await?;
-        assert_eq!(result, Some(collection));
+        assert_eq!(result, Some(collection.clone()));
+        let result = Collection::read(&db, collection.id).await?;
+        assert_eq!(result, None);
         Ok(())
     }
 

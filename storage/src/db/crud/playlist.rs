@@ -4,13 +4,28 @@ use tracing::instrument;
 
 use crate::{
     db::schemas::{
-        playlist::{Playlist, PlaylistId, TABLE_NAME},
-        song::SongId,
+        playlist::{Playlist, PlaylistChangeSet, PlaylistId, TABLE_NAME},
+        song::{Song, SongId},
     },
     errors::Error,
 };
 
+use super::queries::playlist::{
+    read_songs_in_playlist, relate_playlist_to_songs, remove_songs_from_playlist, repair,
+};
+
 impl Playlist {
+    #[instrument]
+    pub async fn create<C: Connection>(
+        db: &Surreal<C>,
+        playlist: Self,
+    ) -> Result<Option<Self>, Error> {
+        Ok(db
+            .create((TABLE_NAME, playlist.id.clone()))
+            .content(playlist)
+            .await?)
+    }
+
     #[instrument]
     pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Self>, Error> {
         Ok(db.select(TABLE_NAME).await?)
@@ -25,18 +40,46 @@ impl Playlist {
     }
 
     #[instrument]
+    pub async fn update<C: Connection>(
+        db: &Surreal<C>,
+        id: PlaylistId,
+        changes: PlaylistChangeSet,
+    ) -> Result<Option<Self>, Error> {
+        Ok(db.update((TABLE_NAME, id)).merge(changes).await?)
+    }
+
+    #[instrument]
+    pub async fn delete<C: Connection>(
+        db: &Surreal<C>,
+        id: PlaylistId,
+    ) -> Result<Option<Self>, Error> {
+        Ok(db.delete((TABLE_NAME, id)).await?)
+    }
+
+    #[instrument]
     pub async fn add_songs<C: Connection>(
         db: &Surreal<C>,
         id: PlaylistId,
         song_ids: &[SongId],
     ) -> Result<(), Error> {
-        db
-            .query("RELATE $id->playlist_to_song->$songs")
-            .query("UPDATE $id SET song_count += array::len($songs), runtime += math::sum(SELECT runtime FROM $songs)")
-            .bind(("id", id))
+        db.query(relate_playlist_to_songs())
+            .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
+        Self::repair(db, id).await?;
         Ok(())
+    }
+
+    #[instrument]
+    pub async fn read_songs<C: Connection>(
+        db: &Surreal<C>,
+        id: PlaylistId,
+    ) -> Result<Vec<Song>, Error> {
+        Ok(db
+            .query(read_songs_in_playlist())
+            .bind(("id", id))
+            .await?
+            .take(0)?)
     }
 
     #[instrument]
@@ -45,12 +88,11 @@ impl Playlist {
         id: PlaylistId,
         song_ids: &[SongId],
     ) -> Result<(), Error> {
-        db
-            .query("UNRELATE $id->playlist_to_song->$songs")
-            .query("UPDATE $id SET song_count -= array::len($songs), runtime -= math::sum(SELECT runtime FROM $songs)")
-            .bind(("id", id))
+        db.query(remove_songs_from_playlist())
+            .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
+        Self::repair(db, id).await?;
         Ok(())
     }
 
@@ -60,11 +102,181 @@ impl Playlist {
     ///
     /// * `id` - the id of the playlist to repair
     #[instrument]
-    pub async fn repair<C: Connection>(db: &Surreal<C>, id: PlaylistId) -> Result<(), Error> {
-        db
-            .query("UPDATE $id SET song_count = array::len(SELECT ->playlist_to_song->song FROM ONLY $id), runtime = math::sum(SELECT runtime FROM (SELECT ->playlist_to_song->song FROM ONLY $id))")
+    pub async fn repair<C: Connection>(db: &Surreal<C>, id: PlaylistId) -> Result<bool, Error> {
+        let songs = Self::read_songs(db, id.clone()).await?;
+
+        db.query(repair())
             .bind(("id", id))
+            .bind(("songs", songs.len()))
+            .bind((
+                "runtime",
+                songs
+                    .iter()
+                    .map(|song| song.runtime)
+                    .sum::<surrealdb::sql::Duration>(),
+            ))
             .await?;
+
+        Ok(songs.is_empty())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+    use crate::{db::init_test_database, test_utils::ulid, util::OneOrMany};
+
+    use anyhow::{anyhow, Result};
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+    use surrealdb::sql::Duration;
+
+    fn create_playlist(ulid: &str) -> Playlist {
+        Playlist {
+            id: Playlist::generate_id(),
+            name: format!("Test Playlist {ulid}").into(),
+            song_count: 0,
+            runtime: Duration::from_secs(0),
+        }
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_create(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
+        let playlist = create_playlist(&ulid);
+        let result = Playlist::create(&db, playlist.clone()).await?;
+        assert_eq!(result, Some(playlist));
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_read_all(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
+        let playlist = create_playlist(&ulid);
+        Playlist::create(&db, playlist.clone()).await?;
+        let result = Playlist::read_all(&db).await?;
+        assert!(!result.is_empty());
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_read(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
+        let playlist = create_playlist(&ulid);
+        Playlist::create(&db, playlist.clone()).await?;
+        let result = Playlist::read(&db, playlist.id.clone()).await?;
+        assert_eq!(result, Some(playlist));
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_update(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
+        let playlist = create_playlist(&ulid);
+        Playlist::create(&db, playlist.clone()).await?;
+        let changes = PlaylistChangeSet {
+            name: Some(format!("Updated Name {ulid}").into()),
+        };
+
+        let updated = Playlist::update(&db, playlist.id.clone(), changes).await?;
+        let read = Playlist::read(&db, playlist.id.clone())
+            .await?
+            .ok_or_else(|| anyhow!("Playlist not found"))?;
+
+        assert_eq!(read.name, format!("Updated Name {ulid}").into());
+        assert_eq!(Some(read), updated);
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_delete(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
+        let playlist = create_playlist(&ulid);
+        Playlist::create(&db, playlist.clone()).await?;
+        let result = Playlist::delete(&db, playlist.id.clone()).await?;
+        assert_eq!(result, Some(playlist.clone()));
+        let result = Playlist::read(&db, playlist.id).await?;
+        assert_eq!(result, None);
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_add_songs(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
+        let playlist = create_playlist(&ulid);
+        Playlist::create(&db, playlist.clone()).await?;
+        let song = Song {
+            id: Song::generate_id(),
+            title: format!("Test Song {ulid}").into(),
+            artist: OneOrMany::One(format!("Test Album {ulid}").into()),
+            album: format!("Test Album {ulid}").into(),
+            runtime: Duration::from_secs(5),
+            track: Some(1),
+            disc: Some(1),
+            genre: OneOrMany::None,
+            album_artist: OneOrMany::One(format!("Test Album {ulid}").into()),
+            release_year: None,
+            extension: "mp3".into(),
+            path: PathBuf::from(format!("song_1_{}_{ulid}", rand::random::<usize>())),
+        };
+        Song::create(&db, song.clone()).await?;
+
+        Playlist::add_songs(&db, playlist.id.clone(), &[song.id.clone()]).await?;
+
+        let result = Playlist::read_songs(&db, playlist.id.clone()).await?;
+        assert_eq!(result, vec![song]);
+
+        let read = Playlist::read(&db, playlist.id.clone())
+            .await?
+            .ok_or_else(|| anyhow!("Playlist not found"))?;
+        assert_eq!(read.song_count, 1);
+        assert_eq!(read.runtime, Duration::from_secs(5));
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_remove_songs(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
+        let playlist = create_playlist(&ulid);
+        Playlist::create(&db, playlist.clone()).await?;
+        let song = Song {
+            id: Song::generate_id(),
+            title: format!("Test Song {ulid}").into(),
+            artist: OneOrMany::One(format!("Test Album {ulid}").into()),
+            album: format!("Test Album {ulid}").into(),
+            runtime: Duration::from_secs(5),
+            track: Some(1),
+            disc: Some(1),
+            genre: OneOrMany::None,
+            album_artist: OneOrMany::One(format!("Test Album {ulid}").into()),
+            release_year: None,
+            extension: "mp3".into(),
+            path: PathBuf::from(format!("song_1_{}_{ulid}", rand::random::<usize>())),
+        };
+        Song::create(&db, song.clone()).await?;
+
+        Playlist::add_songs(&db, playlist.id.clone(), &[song.id.clone()]).await?;
+        Playlist::remove_songs(&db, playlist.id.clone(), &[song.id.clone()]).await?;
+
+        let result = Playlist::read_songs(&db, playlist.id.clone()).await?;
+        assert_eq!(result, vec![]);
+
+        let read = Playlist::read(&db, playlist.id.clone())
+            .await?
+            .ok_or_else(|| anyhow!("Playlist not found"))?;
+        assert_eq!(read.song_count, 0);
+        assert_eq!(read.runtime, Duration::from_secs(0));
+
         Ok(())
     }
 }
