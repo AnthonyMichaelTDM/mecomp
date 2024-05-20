@@ -73,7 +73,8 @@ struct IndexAnnotation {
 
 impl IndexAnnotation {
     fn to_query_string(&self, table_name: &str, field_name: &str) -> String {
-        format!("DEFINE INDEX {table_name}_{field_name}_index ON {table_name} FIELDS {field_name}{};",
+        format!(
+            "DEFINE INDEX {table_name}_{field_name}_index ON {table_name} FIELDS {field_name}{};",
             {
                 let mut extra = String::new();
                 if self.unique {
@@ -137,7 +138,7 @@ impl Parse for FieldAnnotation {
                         },
                         rhs => return Err(syn::Error::new_spanned(rhs,"unexpected expression, the `dt` attribute expects a string literal")),
                     }
-                    _ => 
+                    _ =>
                     return Err(syn::Error::new_spanned(
                         assign.left,
                         "Unknown field attribute",
@@ -262,7 +263,7 @@ fn parse_struct_fields(input: &DeriveInput) -> syn::Result<impl Iterator<Item = 
 fn create_table_field_queries<'a>(
     fields: impl Iterator<Item = &'a syn::Field>,
     table_name: &str,
-) -> syn::Result<(Vec<String>,Vec<String>)> {
+) -> syn::Result<(Vec<String>, Vec<String>)> {
     let mut table_field_queries = Vec::new();
 
     let mut index_queries = Vec::new();
@@ -371,12 +372,13 @@ pub fn table_macro(input: TokenStream) -> TokenStream {
         }
     };
 
-    let (table_field_queries, index_queries) = match create_table_field_queries(struct_fields, &table_name) {
-        Ok(queries) => queries,
-        Err(err) => {
-            return err.to_compile_error().into();
-        }
-    };
+    let (table_field_queries, index_queries) =
+        match create_table_field_queries(struct_fields, &table_name) {
+            Ok(queries) => queries,
+            Err(err) => {
+                return err.to_compile_error().into();
+            }
+        };
 
     let table_query = format!("DEFINE TABLE {table_name} SCHEMAFULL;");
 
