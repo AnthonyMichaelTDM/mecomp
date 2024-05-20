@@ -51,15 +51,15 @@ opt-level = 3
 # shared dependencies
 anyhow = { version = "1.0" }
 audiotags = { version = "0.5.0" }
-clap = { version = "4.4.17", features = ["derive"] }
+clap = { version = "4.5", features = ["derive"] }
 # crossbeam = { version = "0.8.4", features = ["crossbeam-channel"] }
 env_logger = { version = "0.10.2" }
 futures = { version = "0.3.30" }
 # image = { version = "0.25.0" }
-lazy_static = { version = "1.4.0" }
-log = { version = "0.4.20", features = ["serde"] }
-nutype = { version = "0.4.0", features = ["serde"] }
-once_cell = { version = "1.19.0" }
+lazy_static = { version = "1.4" }
+log = { version = "0.4.21", features = ["serde"] }
+nutype = { version = "0.4.2", features = ["serde"] }
+once_cell = { version = "1.19" }
 rand = { version = "0.8.5", features = ["small_rng"] }
 rodio = { git = "https://github.com/RustAudio/rodio.git", features = [
     "symphonia-all",
@@ -67,11 +67,11 @@ rodio = { git = "https://github.com/RustAudio/rodio.git", features = [
 serde = { version = "1.0", features = ["derive", "rc"] }
 strum = { version = "0.26.2", features = ["derive"] }
 surrealdb = { version = "1.4.2", features = ["kv-speedb"] }
-tap = { version = "1.0.1" }
-thiserror = { version = "1.0.58" }
+tap = { version = "1.0" }
+thiserror = { version = "1.0" }
 tokio = { version = "1.37", features = ["rt-multi-thread", "macros"] }
-walkdir = { version = "2.5.0" }
-tarpc = { version = "0.34", features = [
+walkdir = { version = "2.5" }
+tarpc = { version = "0.34.0", features = [
     "tcp",
     "serde1",
     "serde-transport",
@@ -93,10 +93,10 @@ mecomp-storage = { path = "storage" }
 surrealqlx = { path = "surrealqlx/lib", features = ["macros"] }
 
 # shared dev dependencies
-pretty_assertions = { version = "1.4.0" }
-rstest = { version = "0.19" }
+pretty_assertions = { version = "1.4" }
+rstest = { version = "0.19.0" }
 rstest_reuse = { version = "0.6.0" }
-tempfile = { version = "3.10.1" }
+tempfile = { version = "3.10" }
 
 # [lints.rust]
 # warnings = "deny"
