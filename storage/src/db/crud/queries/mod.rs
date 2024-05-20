@@ -2,6 +2,7 @@ pub mod album;
 pub mod artist;
 pub mod collection;
 pub mod playlist;
+pub mod song;
 
 #[cfg(test)]
 macro_rules! query_test {
@@ -141,5 +142,27 @@ mod playlist_tests {
     query_test!(
         playlist::repair,
         "UPDATE $id SET song_count=$songs, runtime=$runtime"
+    );
+}
+
+#[cfg(test)]
+mod song_tests {
+    use super::*;
+
+    query_test!(
+        song::read_song_by_path,
+        "SELECT * FROM song WHERE path = $path LIMIT 1"
+    );
+    query_test!(
+        song::read_album_of_song,
+        "SELECT * FROM $id<-album_to_song.in"
+    );
+    query_test!(
+        song::read_artist_of_song,
+        "SELECT * FROM $id<-artist_to_song.in"
+    );
+    query_test!(
+        song::read_album_artist_of_song,
+        "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in"
     );
 }

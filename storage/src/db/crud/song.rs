@@ -15,6 +15,10 @@ use crate::{
     util::OneOrMany,
 };
 
+use super::queries::song::{
+    read_album_artist_of_song, read_album_of_song, read_artist_of_song, read_song_by_path,
+};
+
 impl Song {
     #[instrument]
     pub async fn create<C: Connection>(db: &Surreal<C>, song: Self) -> Result<Option<Self>, Error> {
@@ -40,7 +44,7 @@ impl Song {
         path: PathBuf,
     ) -> Result<Option<Self>, Error> {
         Ok(db
-            .query("SELECT * FROM song WHERE path = $path LIMIT 1")
+            .query(read_song_by_path())
             .bind(("path", path))
             .await?
             .take(0)?)
@@ -52,7 +56,7 @@ impl Song {
         id: SongId,
     ) -> Result<Option<Album>, Error> {
         Ok(db
-            .query("SELECT * FROM $id<-album_to_song.in")
+            .query(read_album_of_song())
             .bind(("id", id))
             .await?
             .take(0)?)
@@ -64,7 +68,7 @@ impl Song {
         id: SongId,
     ) -> Result<OneOrMany<Artist>, Error> {
         let res: Vec<Artist> = db
-            .query("SELECT * FROM $id<-artist_to_song.in")
+            .query(read_artist_of_song())
             .bind(("id", id))
             .await?
             .take(0)?;
@@ -78,7 +82,7 @@ impl Song {
         id: SongId,
     ) -> Result<OneOrMany<Artist>, Error> {
         let res: Vec<Artist> = db
-            .query("SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in")
+            .query(read_album_artist_of_song())
             .bind(("id", id))
             .await?
             .take(0)?;
@@ -98,7 +102,7 @@ impl Song {
         db: &Surreal<C>,
         id: SongId,
         changes: SongChangeSet,
-    ) -> Result<(), Error> {
+    ) -> Result<Option<Self>, Error> {
         if changes.album.is_some() || changes.album_artist.is_some() {
             let old_album: Option<Album> = Self::read_album(db, id.clone()).await?;
             let old_album = old_album.ok_or(Error::NotFound)?;
@@ -156,12 +160,7 @@ impl Song {
             }
         }
 
-        db.query("UPDATE $id MERGE $changes")
-            .bind(("id", &id))
-            .bind(("changes", &changes))
-            .await?;
-
-        Ok(())
+        Ok(db.update((TABLE_NAME, id.clone())).merge(changes).await?)
     }
 
     /// Delete a song from the database,
@@ -170,9 +169,8 @@ impl Song {
     /// - remove the song from playlists.
     /// - remove the song from collections.
     #[instrument]
-    pub async fn delete<C: Connection>(db: &Surreal<C>, id: SongId) -> Result<(), Error> {
-        let _: Option<Self> = db.delete((TABLE_NAME, id)).await?;
-        Ok(())
+    pub async fn delete<C: Connection>(db: &Surreal<C>, id: SongId) -> Result<Option<Self>, Error> {
+        Ok(db.delete((TABLE_NAME, id)).await?)
     }
 }
 
@@ -350,9 +348,7 @@ mod test {
             extension: Some("flac".into()),
             ..Default::default()
         };
-        Song::update(&db, song.id.clone(), changes.clone()).await?;
-
-        let updated = Song::read(&db, song.id.clone())
+        let updated = Song::update(&db, song.id.clone(), changes.clone())
             .await?
             .ok_or_else(|| anyhow!("Song not found"))?;
 
@@ -385,8 +381,8 @@ mod test {
             artist: Some(OneOrMany::One(format!("Updated Artist {ulid}").into())),
             ..Default::default()
         };
-        Song::update(&db, song.id.clone(), changes.clone()).await?;
-        let updated = Song::read(&db, song.id.clone())
+
+        let updated = Song::update(&db, song.id.clone(), changes.clone())
             .await?
             .ok_or_else(|| anyhow!("Song not found"))?;
         assert_eq!(updated.artist, changes.artist.clone().unwrap());
@@ -427,8 +423,7 @@ mod test {
             )),
             ..Default::default()
         };
-        Song::update(&db, song.id.clone(), changes.clone()).await?;
-        let updated = Song::read(&db, song.id.clone())
+        let updated = Song::update(&db, song.id.clone(), changes.clone())
             .await?
             .ok_or_else(|| anyhow!("Song not found"))?;
         assert_eq!(updated.album_artist, changes.album_artist.clone().unwrap());
@@ -473,8 +468,7 @@ mod test {
             album: Some(format!("Updated Album {ulid}").into()),
             ..Default::default()
         };
-        Song::update(&db, song.id.clone(), changes.clone()).await?;
-        let updated = Song::read(&db, song.id.clone())
+        let updated = Song::update(&db, song.id.clone(), changes.clone())
             .await?
             .ok_or_else(|| anyhow!("Song not found"))?;
         assert_eq!(updated.album, changes.album.clone().unwrap());
