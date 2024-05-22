@@ -261,6 +261,10 @@ impl AudioKernel {
     }
 
     fn skip_forward(&self, n: usize) {
+        let mut paused = false;
+        if self.player.is_paused() {
+            paused = true;
+        }
         self.clear_player();
 
         let mut binding = self.queue();
@@ -270,10 +274,23 @@ impl AudioKernel {
             if let Err(e) = self.append_song_to_player(song) {
                 error!("Failed to append song to player: {}", e);
             }
+
+            if !paused
+                // and we have not just finished the queue 
+                // (this makes it so if we hit the end of the queue on RepeatMode::None, we don't start playing again)
+                && !(binding.get_repeat_mode().is_none()
+                    && binding.current_index().is_none())
+            {
+                self.play();
+            }
         }
     }
 
     fn skip_backward(&self, n: usize) {
+        let mut paused = false;
+        if self.player.is_paused() {
+            paused = true;
+        }
         self.clear_player();
 
         let mut binding = self.queue();
@@ -282,6 +299,9 @@ impl AudioKernel {
         if let Some(song) = next_song {
             if let Err(e) = self.append_song_to_player(song) {
                 error!("Failed to append song to player: {}", e);
+            }
+            if !paused {
+                self.play();
             }
         }
     }
@@ -473,23 +493,27 @@ mod tests {
         sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
         sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
         sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
+        // songs were added to an empty queue, so the first song should start playing
         let state = get_state(sender.clone());
         assert_eq!(state.queue_position, Some(0));
         assert!(!state.paused);
 
         sender.send(AudioCommand::SkipForward(1));
+        // the second song should start playing
         let state = get_state(sender.clone());
         assert_eq!(state.queue_position, Some(1));
         assert!(!state.paused);
 
         sender.send(AudioCommand::SkipForward(1));
+        // the third song should start playing
         let state = get_state(sender.clone());
         assert_eq!(state.queue_position, Some(2));
         assert!(!state.paused);
 
         sender.send(AudioCommand::SkipForward(1));
+        // we were at the end of the queue and tried to skip forward, so the player should be paused and the queue position should be None
         let state = get_state(sender.clone());
-        assert_eq!(state.queue_position, Some(2));
+        assert_eq!(state.queue_position, None);
         assert!(state.paused);
 
         sender.send(AudioCommand::Exit);

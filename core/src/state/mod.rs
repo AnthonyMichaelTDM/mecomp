@@ -21,9 +21,26 @@ pub enum SeekType {
     Clone, Copy, Debug, Display, PartialEq, Eq, Deserialize, Serialize, EnumIter, EnumString,
 )]
 pub enum RepeatMode {
+    /// No repeat: after the queue is finished the player stops
     None,
+    /// Repeat Once: after going through the queue once, the player goes back to RepeatMode::None and continues
     Once,
+    /// Repeat Continuously: after going through the queue, the player goes back to the beginning and continues
     Continuous,
+}
+
+impl RepeatMode {
+    pub const fn is_none(&self) -> bool {
+        matches!(self, RepeatMode::None)
+    }
+
+    pub const fn is_once(&self) -> bool {
+        matches!(self, RepeatMode::Once)
+    }
+
+    pub const fn is_continuous(&self) -> bool {
+        matches!(self, RepeatMode::Continuous)
+    }
 }
 
 #[nutype(

@@ -82,9 +82,10 @@ impl Queue {
             Some(current_index) => {
                 match self.repeat_mode {
                     RepeatMode::None => {
-                        // set the current index to the last song
-                        self.current_index = Some(self.songs.len() - 1);
-                        self.songs.last()
+                        // if we reach this point, then skipping would put us at the end of the queue,
+                        // so let's just stop playback
+                        self.current_index = None;
+                        None
                     }
                     RepeatMode::Once => {
                         // if we reach this point, then skipping would put us past the end of the queue,
@@ -125,7 +126,10 @@ impl Queue {
                 self.current_index = Some(current_index - n);
                 self.current_index.and_then(|index| self.songs.get(index))
             }
-            _ => None,
+            _ => {
+                self.current_index = None;
+                None
+            }
         }
     }
 
@@ -290,7 +294,7 @@ mod tests {
 
         queue.skip_forward(skip);
 
-        if skip < len {
+        if skip <= len {
             assert_eq!(
                 queue.current_song(),
                 queue.get(skip - 1),
@@ -300,7 +304,7 @@ mod tests {
         } else {
             assert_eq!(
                 queue.current_song(),
-                queue.songs.last(),
+                None,
                 "len: {len}, skip: {skip}, current_index: {current_index}",
                 current_index = queue.current_index.unwrap_or_default()
             );
@@ -343,7 +347,7 @@ mod tests {
             // if we reached the end of the queue, looped back, and reached the end again
             assert_eq!(
                 queue.current_song(),
-                queue.songs.last(),
+                None,
                 "len: {len}, skip: {skip}, current_index: {current_index}",
                 current_index = queue.current_index.unwrap_or_default()
             );
