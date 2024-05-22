@@ -26,6 +26,7 @@ jobs:
   rust-clippy-analyze:
     name: Run rust-clippy analyzing
     runs-on: ubuntu-latest
+    container: jrottenberg/ffmpeg:6.1-ubuntu
     permissions:
       contents: read
       security-events: write
@@ -34,11 +35,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up mold linker
-        uses: rui314/setup-mold@v1
+      # - name: Set up mold linker
+      #   uses: rui314/setup-mold@v1
 
-      - name: Setup FFmpeg
-        uses: federicocarboni/setup-ffmpeg@v3.1
+      - name: Install dependencies
+        run: |
+          apt update
+          apt install -y --no-install-recommends clang curl pkg-config
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af #@v1
