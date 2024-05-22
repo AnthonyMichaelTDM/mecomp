@@ -221,7 +221,7 @@ impl AudioKernel {
         self.clear_player();
 
         let mut binding = self.queue();
-        let next_song = binding.skip_song(n);
+        let next_song = binding.skip_forward(n);
 
         if let Some(song) = next_song {
             self.append_song_to_player(song).unwrap();

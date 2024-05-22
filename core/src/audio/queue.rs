@@ -63,11 +63,13 @@ impl Queue {
 
     #[inline]
     pub fn next_song(&mut self) -> Option<&Song> {
-        self.skip_song(1)
+        self.skip_forward(1)
     }
 
-    /// Skip n songs
-    pub fn skip_song(&mut self, n: usize) -> Option<&Song> {
+    /// Skip forward n songs in the queue.
+    ///
+    /// progresses the current index by n, following the repeat mode rules.
+    pub fn skip_forward(&mut self, n: usize) -> Option<&Song> {
         match self.current_index {
             Some(current_index) if current_index + n < self.songs.len() => {
                 self.current_index = Some(current_index + n);
@@ -91,7 +93,7 @@ impl Queue {
                         if (current_index + n) / self.songs.len() > 0 {
                             self.current_index = Some(0);
                             self.repeat_mode = RepeatMode::None;
-                            self.skip_song((current_index + n) - self.songs.len())
+                            self.skip_forward((current_index + n) - self.songs.len())
                         } else {
                             self.current_index = Some(self.songs.len() - 1);
                             self.songs.last()
@@ -114,7 +116,7 @@ impl Queue {
                 }
 
                 self.current_index = Some(0);
-                self.skip_song(n - 1)
+                self.skip_forward(n - 1)
             }
         }
     }
@@ -288,7 +290,7 @@ mod tests {
         }
         queue.set_repeat_mode(RepeatMode::None);
 
-        queue.skip_song(skip);
+        queue.skip_forward(skip);
 
         if skip < len {
             assert_eq!(
@@ -321,7 +323,7 @@ mod tests {
         }
         queue.set_repeat_mode(RepeatMode::Once);
 
-        queue.skip_song(skip);
+        queue.skip_forward(skip);
 
         if skip <= len {
             // if we haven't reached the end of the queue
@@ -364,7 +366,7 @@ mod tests {
         }
         queue.set_repeat_mode(RepeatMode::Continuous);
 
-        queue.skip_song(skip);
+        queue.skip_forward(skip);
 
         assert_eq!(
             queue.current_song(),
