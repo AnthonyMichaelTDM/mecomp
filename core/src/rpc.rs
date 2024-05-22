@@ -118,17 +118,15 @@ pub trait MusicPlayer {
     async fn playback_pause() -> ();
     /// set the current song to be the next song in the queue.
     async fn playback_next() -> ();
+    /// restart the current song.
+    async fn playback_restart() -> ();
     /// skip forward by the given amount of songs
-    async fn playback_skip(amount: usize) -> ();
-    /// go back to the previous song.
-    /// (if the current song is more than `threshold` seconds in, it will restart the current song instead)
-    async fn playback_previous(threshold: Option<usize>) -> ();
+    async fn playback_skip_forward(amount: usize) -> ();
     /// go backwards by the given amount of songs.
-    async fn playback_back(amount: usize) -> ();
-    /// stop playback.
-    /// (clears the queue and stops playback)
-    async fn playback_stop() -> ();
-    /// clear the queue.
+    async fn playback_skip_backward(amount: usize) -> ();
+    /// only clear the player (i.e. stop playback)
+    async fn playback_clear_player() -> ();
+    /// clears the queue and stops playback.
     async fn playback_clear() -> ();
     /// seek forwards, backwards, or to an absolute second in the current song.
     async fn playback_seek(seek: SeekType, seconds: u64) -> ();

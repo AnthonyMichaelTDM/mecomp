@@ -39,11 +39,13 @@ pub enum AudioCommand {
     Play,
     Pause,
     TogglePlayback,
+    RestartSong,
     /// only clear the player (i.e. stop playback)
     ClearPlayer,
     Clear,
-    Skip(usize),
-    Previous(Option<usize>),
+    SkipForward(usize),
+    SkipBackward(usize),
+    ShuffleQueue,
     // PlaySource(Box<dyn Source<Item = f32> + Send>),
     AddSongToQueue(Song),
     SetRepeatMode(RepeatMode),
@@ -59,9 +61,11 @@ impl PartialEq for AudioCommand {
             | (Self::Pause, Self::Pause)
             | (Self::TogglePlayback, Self::TogglePlayback)
             | (Self::ClearPlayer, Self::ClearPlayer)
-            | (Self::Clear, Self::Clear) => true,
-            (Self::Skip(a), Self::Skip(b)) => a == b,
-            (Self::Previous(a), Self::Previous(b)) => a == b,
+            | (Self::Clear, Self::Clear)
+            | (Self::RestartSong, Self::RestartSong)
+            | (Self::ShuffleQueue, Self::ShuffleQueue) => true,
+            (Self::SkipForward(a), Self::SkipForward(b))
+            | (Self::SkipBackward(a), Self::SkipBackward(b)) => a == b,
             (Self::AddSongToQueue(a), Self::AddSongToQueue(b)) => a == b,
             (Self::SetRepeatMode(a), Self::SetRepeatMode(b)) => a == b,
             (Self::Exit, Self::Exit) | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
@@ -121,10 +125,12 @@ impl AudioKernel {
                     AudioCommand::Play => kernel.play(),
                     AudioCommand::Pause => kernel.pause(),
                     AudioCommand::TogglePlayback => kernel.toggle_playback(),
+                    AudioCommand::RestartSong => kernel.restart_song(),
                     AudioCommand::ClearPlayer => kernel.clear_player(),
                     AudioCommand::Clear => kernel.clear(),
-                    AudioCommand::Skip(n) => kernel.skip(n),
-                    AudioCommand::Previous(_threshold) => todo!(),
+                    AudioCommand::SkipForward(n) => kernel.skip_forward(n),
+                    AudioCommand::SkipBackward(n) => kernel.skip_backward(n),
+                    AudioCommand::ShuffleQueue => kernel.queue.borrow_mut().shuffle(),
                     //AudioCommand::PlaySource(source) => kernel.append_to_player(source),
                     AudioCommand::AddSongToQueue(song) => kernel.add_song_to_queue(song),
                     AudioCommand::SetRepeatMode(mode) => {
@@ -208,6 +214,16 @@ impl AudioKernel {
         }
     }
 
+    fn restart_song(&self) {
+        self.clear_player();
+
+        if let Some(song) = self.queue.borrow().current_song() {
+            if let Err(e) = self.append_song_to_player(song) {
+                error!("Failed to append song to player: {}", e);
+            }
+        }
+    }
+
     fn clear_player(&self) {
         self.player.clear();
     }
@@ -217,14 +233,29 @@ impl AudioKernel {
         self.queue.borrow_mut().clear();
     }
 
-    fn skip(&self, n: usize) {
+    fn skip_forward(&self, n: usize) {
         self.clear_player();
 
         let mut binding = self.queue();
         let next_song = binding.skip_forward(n);
 
         if let Some(song) = next_song {
-            self.append_song_to_player(song).unwrap();
+            if let Err(e) = self.append_song_to_player(song) {
+                error!("Failed to append song to player: {}", e);
+            }
+        }
+    }
+
+    fn skip_backward(&self, n: usize) {
+        self.clear_player();
+
+        let mut binding = self.queue();
+        let next_song = binding.skip_backward(n);
+
+        if let Some(song) = next_song {
+            if let Err(e) = self.append_song_to_player(song) {
+                error!("Failed to append song to player: {}", e);
+            }
         }
     }
 

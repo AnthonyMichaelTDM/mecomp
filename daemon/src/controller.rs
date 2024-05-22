@@ -463,7 +463,20 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Playing next song");
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::Skip(1));
+                AUDIO_KERNEL.send(AudioCommand::SkipForward(1));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
+    }
+    /// restart the current song.
+    #[instrument]
+    async fn playback_restart(self, _context: Context) {
+        info!("Restarting current song");
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::RestartSong);
             }
             .in_current_span(),
         )
@@ -472,25 +485,11 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// skip forward by the given amount of songs
     #[instrument]
-    async fn playback_skip(self, _context: Context, amount: usize) {
+    async fn playback_skip_forward(self, _context: Context, amount: usize) {
         info!("Skipping forward by {} songs", amount);
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::Skip(amount));
-            }
-            .in_current_span(),
-        )
-        .await
-        .unwrap();
-    }
-    /// go back to the previous song.
-    /// (if the current song is more than `threshold` seconds in, it will restart the current song instead)
-    #[instrument]
-    async fn playback_previous(self, _context: Context, threshold: Option<usize>) {
-        info!("Playing previous song");
-        tokio::spawn(
-            async move {
-                AUDIO_KERNEL.send(AudioCommand::Previous(threshold));
+                AUDIO_KERNEL.send(AudioCommand::SkipForward(amount));
             }
             .in_current_span(),
         )
@@ -498,20 +497,41 @@ impl MusicPlayer for MusicPlayerServer {
         .unwrap();
     }
     /// go backwards by the given amount of songs.
-    async fn playback_back(self, _context: Context, amount: usize) {
+    async fn playback_skip_backward(self, _context: Context, amount: usize) {
         info!("Going back by {} songs", amount);
-        todo!()
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::SkipBackward(amount));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
     /// stop playback.
     /// (clears the queue and stops playback)
-    async fn playback_stop(self, _context: Context) {
+    async fn playback_clear_player(self, _context: Context) {
         info!("Stopping playback");
-        todo!()
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::ClearPlayer);
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
     /// clear the queue.
     async fn playback_clear(self, _context: Context) {
-        info!("Clearing queue");
-        todo!()
+        info!("Clearing queue and stopping playback");
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::Clear);
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
     /// seek forwards, backwards, or to an absolute second in the current song.
     async fn playback_seek(self, _context: Context, seek: SeekType, seconds: u64) {
@@ -534,7 +554,14 @@ impl MusicPlayer for MusicPlayerServer {
     /// Shuffle the current queue, then start playing from the 1st Song in the queue.
     async fn playback_shuffle(self, _context: Context) {
         info!("Shuffling queue");
-        todo!()
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::ShuffleQueue);
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
     /// set the volume to the given value (0-100).
     /// (if the value is greater than 100, it will be clamped to 100.)
