@@ -37,6 +37,9 @@ jobs:
       - name: Set up mold linker
         uses: rui314/setup-mold@v1
 
+      - name: Setup FFmpeg
+        uses: federicocarboni/setup-ffmpeg@v3.1
+
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af #@v1
         with:
