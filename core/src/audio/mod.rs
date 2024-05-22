@@ -96,7 +96,10 @@ pub struct AudioKernelSender {
 impl AudioKernelSender {
     #[instrument(skip(self))]
     pub fn send(&self, command: AudioCommand) {
-        self.tx.send(command).unwrap();
+        if let Err(e) = self.tx.send(command) {
+            error!("Failed to send command to audio kernel: {}", e);
+            panic!("Failed to send command to audio kernel: {}", e);
+        }
     }
 }
 
