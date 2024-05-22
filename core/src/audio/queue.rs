@@ -102,32 +102,54 @@ impl Queue {
 
     /// Skip n songs
     pub fn skip_song(&mut self, n: usize) -> Option<&Song> {
-        // if we can skip n songs without reaching the end of the queue
         match self.current_index {
             Some(current_index) if current_index + n < self.songs.len() => {
                 self.current_index = Some(current_index + n);
                 self.current_index.and_then(|index| self.songs.get(index))
             }
-            _ => match self.repeat_mode {
-                RepeatMode::None => {
-                    if self.current_index == Some(self.songs.len() - 1) {
-                        return None;
+            Some(current_index) => {
+                match self.repeat_mode {
+                    RepeatMode::None => {
+                        // if we're already at the end of the queue
+                        if current_index == self.songs.len() - 1 {
+                            return None;
+                        }
+                        // otherwise, set the current index to the last song
+                        self.current_index = Some(self.songs.len() - 1);
+                        self.songs.last()
                     }
-                    self.current_index = Some(self.songs.len() - 1);
-                    self.current_index.and_then(|index| self.songs.get(index))
+                    RepeatMode::Once => {
+                        // if we reach this point, then skipping would put us past the end of the queue,
+                        // so let's emutate looping back to the first song and then skipping n - len songs
+                        // and if that skip would put us past the end again, then stop at the end and return the last song
+                        if (current_index + n) / self.songs.len() > 0 {
+                            self.current_index = Some(0);
+                            self.repeat_mode = RepeatMode::None;
+                            self.skip_song((current_index + n) - self.songs.len())
+                        } else {
+                            self.current_index = Some(self.songs.len() - 1);
+                            self.songs.last()
+                        }
+                    }
+                    RepeatMode::Continuous => {
+                        // if we reach this point, then skipping would put us past the end of the queue,
+                        // so let's emulate looping over the songs as many times as needed, then skipping the remaining songs
+                        self.current_index = Some((current_index + n) % self.songs.len());
+                        self.current_index.and_then(|index| self.songs.get(index))
+                    }
                 }
-                RepeatMode::Once => {
-                    self.current_index = Some(0);
-                    self.repeat_mode = RepeatMode::None;
-                    self.current_index.and_then(|index| self.songs.get(index))
+            }
+            None => {
+                if self.songs.is_empty() {
+                    return None;
                 }
-                RepeatMode::Continuous => {
-                    self.current_index = self
-                        .current_index
-                        .map(|index| (index + n) % self.songs.len());
-                    self.current_index.and_then(|index| self.songs.get(index))
+                if n == 0 {
+                    return None;
                 }
-            },
+
+                self.current_index = Some(0);
+                self.skip_song(n - 1)
+            }
         }
     }
 
