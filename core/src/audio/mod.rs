@@ -293,7 +293,11 @@ impl AudioKernel {
         }
         // if the player is empty, start playback
         if self.player.empty() {
-            if let Some(song) = self.get_next_song() {
+            let current_index = self.queue.borrow().current_index();
+
+            if let Some(song) =
+                current_index.map_or_else(|| self.get_next_song(), |_| self.get_current_song())
+            {
                 if let Err(e) = self.append_song_to_player(&song) {
                     error!("Failed to append song to player: {}", e);
                 }
@@ -309,7 +313,11 @@ impl AudioKernel {
         }
         // if the player is empty, start playback
         if self.player.empty() {
-            if let Some(song) = self.get_next_song() {
+            let current_index = self.queue.borrow().current_index();
+
+            if let Some(song) =
+                current_index.map_or_else(|| self.get_next_song(), |_| self.get_current_song())
+            {
                 if let Err(e) = self.append_song_to_player(&song) {
                     error!("Failed to append song to player: {}", e);
                 }
@@ -318,8 +326,13 @@ impl AudioKernel {
         }
     }
 
+    fn get_current_song(&self) -> Option<Song> {
+        let binding = self.queue.borrow();
+        binding.current_song().cloned()
+    }
+
     fn get_next_song(&self) -> Option<Song> {
-        let mut binding = self.queue();
+        let mut binding = self.queue.borrow_mut();
         binding.next_song().cloned()
     }
 
