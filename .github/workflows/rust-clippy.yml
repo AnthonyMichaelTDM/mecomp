@@ -19,7 +19,7 @@ env:
   RUST_BACKTRACE: "full"
 
 concurrency:
-  group: CI-${{ github.ref }}
+  group: CodeQL-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
