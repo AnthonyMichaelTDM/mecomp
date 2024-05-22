@@ -30,6 +30,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up mold linker
+        uses: rui314/setup-mold@v1
+
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af #@v1
         with:
@@ -37,6 +40,14 @@ jobs:
           toolchain: stable
           components: clippy
           override: true
+
+      - name: Initialize Cache
+        uses: actions/cache@v4.0.2
+        with:
+          path: |
+           ./target
+           ~/.cargo
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
