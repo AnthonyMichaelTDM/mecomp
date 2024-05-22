@@ -1,0 +1,67 @@
+# This checks formatting, runs tests, and builds the project.
+
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "full"
+
+concurrency:
+  group: CI-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Run format separately.
+  #
+  # This will fast-cancel other CI early if this fails.
+  #
+  # `cargo fmt` checks _all_ code, regardless of the OS
+  # or any `#[cfg]`'s, so this only needs to run on Linux.
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Format
+        run: cargo fmt --check --all
+
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up mold linker
+        uses: rui314/setup-mold@v1
+
+      - name: Setup FFmpeg
+        uses: federicocarboni/setup-ffmpeg@v3.1
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Initialize Cache
+        uses: actions/cache@v4.0.2
+        with:
+          path: |
+            ./target
+            ~/.cargo
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests
+        run: cargo test --all-features
+
+      - name: Build
+        run: cargo check --all-features
