@@ -1,3 +1,0 @@
-[submodule "external/rodio"]
-	path = external/rodio
-	url = git@github.com:AnthonyMichaelTDM/rodio.git
