@@ -43,7 +43,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt update
-          apt install -y --no-install-recommends clang curl pkg-config alsa wget
+          apt install -y --no-install-recommends clang curl pkg-config libasound2-dev wget
 
       # - name: Set up mold linker
       #   uses: rui314/setup-mold@v1
