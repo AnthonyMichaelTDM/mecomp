@@ -57,7 +57,7 @@ impl VectorIndexAnnotation {
         if vectorindex.dim.is_none() {
             return Err(syn::Error::new_spanned(
                 args,
-                "vector atribute without dimension set",
+                "vector attribute without dimension set",
             ));
         }
 

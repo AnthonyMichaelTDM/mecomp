@@ -257,7 +257,7 @@ mod test_one_or_many {
 
         let thing = Thing::from(("one_or_many_test_table", Id::ulid()));
 
-        // store a None varient into the database
+        // store a None variant into the database
         let create: TestStruct = db
             .create(thing.clone())
             .content(TestStruct {
@@ -281,7 +281,7 @@ mod test_one_or_many {
 
         let thing = Thing::from(("one_or_many_test_table", Id::ulid()));
 
-        // store a None varient into the database
+        // store a None variant into the database
         let create: TestStruct = db
             .create(thing.clone())
             .content(TestStruct {
@@ -305,7 +305,7 @@ mod test_one_or_many {
 
         let thing = Thing::from(("one_or_many_test_table", Id::ulid()));
 
-        // store a None varient into the database
+        // store a None variant into the database
         let create: TestStruct = db
             .create(thing.clone())
             .content(TestStruct {
