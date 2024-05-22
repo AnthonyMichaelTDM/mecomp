@@ -82,26 +82,16 @@ impl Queue {
             Some(current_index) => {
                 match self.repeat_mode {
                     RepeatMode::None => {
-                        // if we're already at the end of the queue
-                        if current_index == self.songs.len() - 1 {
-                            return None;
-                        }
-                        // otherwise, set the current index to the last song
+                        // set the current index to the last song
                         self.current_index = Some(self.songs.len() - 1);
                         self.songs.last()
                     }
                     RepeatMode::Once => {
                         // if we reach this point, then skipping would put us past the end of the queue,
                         // so let's emutate looping back to the first song and then skipping n - len songs
-                        // and if that skip would put us past the end again, then stop at the end and return the last song
-                        if (current_index + n) / self.songs.len() > 0 {
-                            self.current_index = Some(0);
-                            self.repeat_mode = RepeatMode::None;
-                            self.skip_forward((current_index + n) - self.songs.len())
-                        } else {
-                            self.current_index = Some(self.songs.len() - 1);
-                            self.songs.last()
-                        }
+                        self.current_index = Some(0);
+                        self.repeat_mode = RepeatMode::None;
+                        self.skip_forward((current_index + n) - self.songs.len())
                     }
                     RepeatMode::Continuous => {
                         // if we reach this point, then skipping would put us past the end of the queue,
