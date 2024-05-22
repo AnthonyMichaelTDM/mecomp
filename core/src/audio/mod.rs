@@ -119,6 +119,7 @@ impl AudioKernel {
         let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
 
         let player = rodio::Sink::try_new(&stream_handle).unwrap();
+        player.pause();
         let queue = Queue::new();
 
         Self {
