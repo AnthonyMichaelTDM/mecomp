@@ -122,10 +122,14 @@ impl Queue {
     }
 
     pub fn previous_song(&mut self) -> Option<&Song> {
+        self.skip_backward(1)
+    }
+
+    pub fn skip_backward(&mut self, n: usize) -> Option<&Song> {
         match self.current_index {
-            Some(current_index) if current_index > 0 => {
-                self.current_index = Some(current_index - 1);
-                self.songs.get(current_index - 1)
+            Some(current_index) if current_index >= n => {
+                self.current_index = Some(current_index - n);
+                self.current_index.and_then(|index| self.songs.get(index))
             }
             _ => None,
         }
