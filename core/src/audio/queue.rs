@@ -52,7 +52,6 @@ impl Queue {
     }
 
     pub fn clear(&mut self) {
-        // TODO: stop playback
         self.songs.clear();
         self.current_index = None;
     }
@@ -62,42 +61,9 @@ impl Queue {
         self.current_index.and_then(|index| self.songs.get(index))
     }
 
+    #[inline]
     pub fn next_song(&mut self) -> Option<&Song> {
-        // check if the queue is empty before incrementing the index
-        if self.songs.is_empty() {
-            return None;
-        }
-        if self.current_index.is_none() {
-            self.current_index = Some(0);
-            return self.songs.first();
-        }
-
-        let mut current_index = self.current_index.unwrap_or(0);
-
-        // now, increment the index depending on the repeat mode
-        match self.repeat_mode {
-            RepeatMode::None => {
-                if current_index < self.songs.len() - 1 {
-                    current_index += 1;
-                }
-            }
-            RepeatMode::Once => {
-                if current_index < self.songs.len() - 1 {
-                    current_index += 1;
-                } else {
-                    current_index = 0;
-                    self.repeat_mode = RepeatMode::None;
-                }
-            }
-            RepeatMode::Continuous => {
-                current_index = (current_index + 1) % self.songs.len();
-            }
-        }
-
-        self.current_index = Some(current_index);
-
-        // return the current song
-        self.songs.get(current_index)
+        self.skip_song(1)
     }
 
     /// Skip n songs
@@ -308,11 +274,11 @@ mod tests {
     #[case::less_than_len( arb_vec(&arb_song_case(), 4..=5 )(), 3 )]
     #[case::skip_one( arb_vec(&arb_song_case(), 2..=5 )(), 1 )]
     #[timeout(TIMEOUT)]
-    pub fn next_song_test_template(#[case] songs: Vec<SongCase>, #[case] skip: usize) {}
+    pub fn skip_song_test_template(#[case] songs: Vec<SongCase>, #[case] skip: usize) {}
 
-    #[apply(next_song_test_template)]
+    #[apply(skip_song_test_template)]
     #[tokio::test]
-    async fn test_next_song_rp_none(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
+    async fn test_skip_song_rp_none(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
         let db = init_test_database().await.unwrap();
         init().await?;
         let mut queue = Queue::new();
@@ -322,9 +288,7 @@ mod tests {
         }
         queue.set_repeat_mode(RepeatMode::None);
 
-        for _ in 0..skip {
-            let _ = queue.next_song();
-        }
+        queue.skip_song(skip);
 
         if skip < len {
             assert_eq!(
@@ -345,9 +309,9 @@ mod tests {
         Ok(())
     }
 
-    #[apply(next_song_test_template)]
+    #[apply(skip_song_test_template)]
     #[tokio::test]
-    async fn test_next_song_rp_once(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
+    async fn test_skip_song_rp_once(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
         let db = init_test_database().await.unwrap();
         init().await?;
         let mut queue = Queue::new();
@@ -357,9 +321,7 @@ mod tests {
         }
         queue.set_repeat_mode(RepeatMode::Once);
 
-        for _ in 0..skip {
-            let _ = queue.next_song();
-        }
+        queue.skip_song(skip);
 
         if skip <= len {
             // if we haven't reached the end of the queue
@@ -390,7 +352,7 @@ mod tests {
         Ok(())
     }
 
-    #[apply(next_song_test_template)]
+    #[apply(skip_song_test_template)]
     #[tokio::test]
     async fn test_next_song_rp_continuous(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
         let db = init_test_database().await.unwrap();
@@ -402,9 +364,7 @@ mod tests {
         }
         queue.set_repeat_mode(RepeatMode::Continuous);
 
-        for _ in 0..skip {
-            let _ = queue.next_song();
-        }
+        queue.skip_song(skip);
 
         assert_eq!(
             queue.current_song(),
