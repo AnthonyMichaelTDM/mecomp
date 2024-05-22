@@ -89,6 +89,7 @@ impl PartialEq for AudioCommand {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct AudioKernelSender {
     tx: Sender<AudioCommand>,
 }
@@ -196,12 +197,8 @@ impl AudioKernel {
                             runtime: kernel.queue.borrow().current_song().map(|song| {
                                 StateRuntime {
                                     duration: song.runtime.into(),
-                                    seek_position: todo!(
-                                        "determine how much of a Source has been played"
-                                    ),
-                                    seek_percent: todo!(
-                                        "determine how much of a Source has been played"
-                                    ),
+                                    seek_position: 0.0, // TODO: determine how much of a Source has been played
+                                    seek_percent: Percent::new(0.0).unwrap(), // TODO: determine how much of a Source has been played
                                 }
                             }),
                             paused: kernel.player.is_paused(),
@@ -383,15 +380,37 @@ impl AudioKernel {
 
 #[cfg(test)]
 mod tests {
+    use mecomp_storage::db::init_test_database;
     use rstest::{fixture, rstest};
+
+    use crate::test_utils::{arb_song_case, create_song};
 
     use super::*;
     use std::sync::mpsc;
+    use std::thread;
     use std::time::Duration;
 
     #[fixture]
     fn audio_kernel() -> AudioKernel {
         AudioKernel::new()
+    }
+
+    fn audio_kernel_sender() -> AudioKernelSender {
+        let (tx, rx) = mpsc::channel();
+
+        thread::spawn(move || {
+            let kernel = AudioKernel::new();
+            kernel.spawn(rx);
+        });
+
+        AudioKernelSender { tx }
+    }
+
+    fn get_state(sender: AudioKernelSender) -> StateAudio {
+        let (tx, rx) = tokio::sync::oneshot::channel::<StateAudio>();
+        let state_handle = thread::spawn(move || rx.blocking_recv().unwrap());
+        sender.send(AudioCommand::ReportStatus(tx));
+        state_handle.join().unwrap()
     }
 
     #[fixture]
@@ -423,6 +442,44 @@ mod tests {
         assert!(audio_kernel.player.is_paused());
         audio_kernel.toggle_playback();
         assert!(!audio_kernel.player.is_paused());
+    }
+
+    #[rstest]
+    #[timeout(Duration::from_secs(3))] // if the test takes longer than 3 seconds, this is a failure
+    #[tokio::test]
+    async fn test_audio_kernel_skip_forward() {
+        let sender = audio_kernel_sender();
+
+        let db = init_test_database().await.unwrap();
+        let song = create_song(&db, arb_song_case()()).await.unwrap();
+
+        let state = get_state(sender.clone());
+        assert_eq!(state.queue_position, None);
+        assert!(state.paused);
+
+        sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
+        sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
+        sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
+        let state = get_state(sender.clone());
+        assert_eq!(state.queue_position, Some(0));
+        assert!(!state.paused);
+
+        sender.send(AudioCommand::SkipForward(1));
+        let state = get_state(sender.clone());
+        assert_eq!(state.queue_position, Some(1));
+        assert!(!state.paused);
+
+        sender.send(AudioCommand::SkipForward(1));
+        let state = get_state(sender.clone());
+        assert_eq!(state.queue_position, Some(2));
+        assert!(!state.paused);
+
+        sender.send(AudioCommand::SkipForward(1));
+        let state = get_state(sender.clone());
+        assert_eq!(state.queue_position, Some(2));
+        assert!(state.paused);
+
+        sender.send(AudioCommand::Exit);
     }
 
     #[test]
