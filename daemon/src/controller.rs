@@ -612,7 +612,7 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::AddSongToQueue(song));
+                AUDIO_KERNEL.send(AudioCommand::AddToQueue(OneOrMany::One(song)));
             }
             .in_current_span(),
         )
@@ -629,7 +629,19 @@ impl MusicPlayer for MusicPlayerServer {
         album: AlbumId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Adding album to queue: {}", album);
-        todo!()
+
+        let songs = Album::read_songs(&self.db, album).await?;
+
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::AddToQueue(songs.into()));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
+
+        Ok(())
     }
     /// add an artist to the queue.
     /// (if the queue is empty, it will start playing the artist.)
@@ -639,7 +651,19 @@ impl MusicPlayer for MusicPlayerServer {
         artist: ArtistId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Adding artist to queue: {}", artist);
-        todo!()
+
+        let songs = Artist::read_songs(&self.db, artist).await?;
+
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::AddToQueue(songs.into()));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
+
+        Ok(())
     }
     /// add a playlist to the queue.
     /// (if the queue is empty, it will start playing the playlist.)
@@ -649,7 +673,19 @@ impl MusicPlayer for MusicPlayerServer {
         playlist: PlaylistId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Adding playlist to queue: {}", playlist);
-        todo!()
+
+        let songs = Playlist::read_songs(&self.db, playlist).await?;
+
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::AddToQueue(songs.into()));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
+
+        Ok(())
     }
     /// add a collection to the queue.
     /// (if the queue is empty, it will start playing the collection.)
@@ -659,7 +695,19 @@ impl MusicPlayer for MusicPlayerServer {
         collection: CollectionId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Adding collection to queue: {}", collection);
-        todo!()
+
+        let songs = Collection::read_songs(&self.db, collection).await?;
+
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::AddToQueue(songs.into()));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
+
+        Ok(())
     }
     /// add a random song to the queue.
     /// (if the queue is empty, it will start playing the song.)
@@ -675,7 +723,7 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::AddSongToQueue(song));
+                AUDIO_KERNEL.send(AudioCommand::AddToQueue(OneOrMany::One(song)));
             }
             .in_current_span(),
         )

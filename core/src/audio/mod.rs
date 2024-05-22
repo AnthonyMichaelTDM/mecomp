@@ -47,7 +47,7 @@ pub enum AudioCommand {
     SkipBackward(usize),
     ShuffleQueue,
     // PlaySource(Box<dyn Source<Item = f32> + Send>),
-    AddSongToQueue(Song),
+    AddToQueue(OneOrMany<Song>),
     SetRepeatMode(RepeatMode),
     Exit,
     /// used to report information about the state of the audio kernel
@@ -66,7 +66,7 @@ impl PartialEq for AudioCommand {
             | (Self::ShuffleQueue, Self::ShuffleQueue) => true,
             (Self::SkipForward(a), Self::SkipForward(b))
             | (Self::SkipBackward(a), Self::SkipBackward(b)) => a == b,
-            (Self::AddSongToQueue(a), Self::AddSongToQueue(b)) => a == b,
+            (Self::AddToQueue(a), Self::AddToQueue(b)) => a == b,
             (Self::SetRepeatMode(a), Self::SetRepeatMode(b)) => a == b,
             (Self::Exit, Self::Exit) | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
             _ => false,
@@ -132,7 +132,13 @@ impl AudioKernel {
                     AudioCommand::SkipBackward(n) => kernel.skip_backward(n),
                     AudioCommand::ShuffleQueue => kernel.queue.borrow_mut().shuffle(),
                     //AudioCommand::PlaySource(source) => kernel.append_to_player(source),
-                    AudioCommand::AddSongToQueue(song) => kernel.add_song_to_queue(song),
+                    AudioCommand::AddToQueue(OneOrMany::None) => {}
+                    AudioCommand::AddToQueue(OneOrMany::One(song)) => {
+                        kernel.add_song_to_queue(song)
+                    }
+                    AudioCommand::AddToQueue(OneOrMany::Many(songs)) => {
+                        kernel.add_songs_to_queue(songs)
+                    }
                     AudioCommand::SetRepeatMode(mode) => {
                         kernel.queue.borrow_mut().set_repeat_mode(mode);
                     }
@@ -263,6 +269,22 @@ impl AudioKernel {
         {
             let mut binding = self.queue();
             binding.add_song(song);
+        }
+        // if the player is empty, start playback
+        if self.player.empty() {
+            if let Some(song) = self.get_next_song() {
+                if let Err(e) = self.append_song_to_player(&song) {
+                    error!("Failed to append song to player: {}", e);
+                }
+                self.play();
+            }
+        }
+    }
+
+    fn add_songs_to_queue(&self, songs: Vec<Song>) {
+        {
+            let mut binding = self.queue();
+            binding.add_songs(songs);
         }
         // if the player is empty, start playback
         if self.player.empty() {

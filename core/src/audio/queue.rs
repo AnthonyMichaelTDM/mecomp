@@ -31,6 +31,10 @@ impl Queue {
         self.songs.push(song);
     }
 
+    pub fn add_songs(&mut self, songs: Vec<Song>) {
+        self.songs.extend(songs);
+    }
+
     pub fn remove_song(&mut self, index: usize) {
         if index >= self.len() {
             return;
