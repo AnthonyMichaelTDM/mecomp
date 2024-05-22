@@ -20,7 +20,7 @@ use crate::{
     search::SearchResult,
     state::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
-        Percent, RepeatMode, SeekType, StateAudio, StateRuntime,
+        RepeatMode, SeekType, StateAudio, StateRuntime,
     },
 };
 
@@ -77,7 +77,7 @@ pub trait MusicPlayer {
     /// what repeat mode is the player in?
     async fn state_repeat() -> Option<RepeatMode>;
     /// returns the current volume.
-    async fn state_volume() -> Option<Percent>;
+    async fn state_volume() -> Option<f32>;
     /// returns the current volume mute state.
     async fn state_volume_muted() -> bool;
     /// returns information about the runtime of the current song (seek position and duration)
@@ -134,15 +134,13 @@ pub trait MusicPlayer {
     async fn playback_repeat(mode: RepeatMode) -> ();
     /// Shuffle the current queue, then start playing from the 1st Song in the queue.
     async fn playback_shuffle() -> ();
-    /// set the volume to the given value (0-100).
-    /// (if the value is greater than 100, it will be clamped to 100.)
-    async fn playback_volume(volume: Percent) -> ();
-    /// increase the volume by the given amount (0-100).
-    /// (volume will be clamped to 100.)
-    async fn playback_volume_up(amount: Percent) -> ();
-    /// decrease the volume by the given amount (0-100).
-    /// (volume will be clamped to 0.)
-    async fn playback_volume_down(amount: Percent) -> ();
+    /// set the volume to the given value
+    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will multiply each sample by this value.
+    async fn playback_volume(volume: f32) -> ();
+    /// increase the volume by the given amount
+    async fn playback_volume_up(amount: f32) -> ();
+    /// decrease the volume by the given amount
+    async fn playback_volume_down(amount: f32) -> ();
     /// toggle the volume mute.
     async fn playback_volume_toggle_mute() -> ();
     /// mute the volume.

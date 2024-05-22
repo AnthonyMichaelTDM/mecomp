@@ -5,6 +5,7 @@ use std::{
     fs::File,
     io::BufReader,
     sync::{
+        atomic::AtomicBool,
         mpsc::{Receiver, Sender},
         Arc,
     },
@@ -17,7 +18,7 @@ use tracing::instrument;
 
 use crate::{
     errors::LibraryError,
-    state::{RepeatMode, StateAudio, StateRuntime},
+    state::{Percent, RepeatMode, StateAudio, StateRuntime},
 };
 use mecomp_storage::{db::schemas::song::Song, util::OneOrMany};
 
@@ -34,6 +35,18 @@ lazy_static! {
     };
 }
 
+/// Volume commands
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum VolumeCommand {
+    Up(f32),
+    Down(f32),
+    Set(f32),
+    Mute,
+    Unmute,
+    ToggleMute,
+}
+
+/// Commands that can be sent to the audio kernel
 #[derive(Debug)]
 pub enum AudioCommand {
     Play,
@@ -46,12 +59,13 @@ pub enum AudioCommand {
     SkipForward(usize),
     SkipBackward(usize),
     ShuffleQueue,
-    // PlaySource(Box<dyn Source<Item = f32> + Send>),
     AddToQueue(OneOrMany<Song>),
     SetRepeatMode(RepeatMode),
     Exit,
     /// used to report information about the state of the audio kernel
     ReportStatus(tokio::sync::oneshot::Sender<StateAudio>),
+    /// volume control commands
+    Volume(VolumeCommand),
 }
 
 impl PartialEq for AudioCommand {
@@ -69,6 +83,7 @@ impl PartialEq for AudioCommand {
             (Self::AddToQueue(a), Self::AddToQueue(b)) => a == b,
             (Self::SetRepeatMode(a), Self::SetRepeatMode(b)) => a == b,
             (Self::Exit, Self::Exit) | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
+            (Self::Volume(a), Self::Volume(b)) => a == b,
             _ => false,
         }
     }
@@ -92,6 +107,9 @@ pub struct AudioKernel {
     _stream_handle: rodio::OutputStreamHandle,
     player: rodio::Sink,
     queue: RefCell<Queue>,
+    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will multiply each sample by this value.
+    volume: RefCell<f32>,
+    muted: AtomicBool,
 }
 
 impl AudioKernel {
@@ -108,6 +126,8 @@ impl AudioKernel {
             _stream_handle: stream_handle,
             player,
             queue: RefCell::new(queue),
+            volume: RefCell::new(1.0),
+            muted: AtomicBool::new(false),
         }
     }
 
@@ -131,7 +151,6 @@ impl AudioKernel {
                     AudioCommand::SkipForward(n) => kernel.skip_forward(n),
                     AudioCommand::SkipBackward(n) => kernel.skip_backward(n),
                     AudioCommand::ShuffleQueue => kernel.queue.borrow_mut().shuffle(),
-                    //AudioCommand::PlaySource(source) => kernel.append_to_player(source),
                     AudioCommand::AddToQueue(OneOrMany::None) => {}
                     AudioCommand::AddToQueue(OneOrMany::One(song)) => {
                         kernel.add_song_to_queue(song)
@@ -182,8 +201,8 @@ impl AudioKernel {
                                 }
                             }),
                             paused: kernel.player.is_paused(),
-                            muted: todo!("implement volume control"),
-                            volume: todo!("implement volume control"),
+                            muted: kernel.muted.load(std::sync::atomic::Ordering::Relaxed),
+                            volume: *kernel.volume.borrow(),
                             current_album: current_album.ok().flatten(),
                             current_artist: current_artist.ok().into(),
                         };
@@ -193,6 +212,7 @@ impl AudioKernel {
                             error!("Audio kernel failed to report its state");
                         }
                     }
+                    AudioCommand::Volume(command) => kernel.volume_control(command),
                 }
             }
         }
@@ -319,6 +339,41 @@ impl AudioKernel {
 
     fn queue(&self) -> RefMut<Queue> {
         self.queue.borrow_mut()
+    }
+
+    fn volume_control(&self, command: VolumeCommand) {
+        match command {
+            VolumeCommand::Up(percent) => {
+                *self.volume.borrow_mut() += percent;
+            }
+            VolumeCommand::Down(percent) => {
+                *self.volume.borrow_mut() -= percent;
+            }
+            VolumeCommand::Set(percent) => {
+                *self.volume.borrow_mut() = percent;
+            }
+            VolumeCommand::Mute => {
+                self.muted.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+            VolumeCommand::Unmute => {
+                self.muted
+                    .store(false, std::sync::atomic::Ordering::Relaxed);
+            }
+            VolumeCommand::ToggleMute => {
+                if self.muted.load(std::sync::atomic::Ordering::Relaxed) {
+                    self.muted
+                        .store(false, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    self.muted.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+            }
+        }
+
+        if self.muted.load(std::sync::atomic::Ordering::Relaxed) {
+            self.player.set_volume(0.0);
+        } else {
+            self.player.set_volume(self.volume.borrow().to_owned());
+        }
     }
 }
 

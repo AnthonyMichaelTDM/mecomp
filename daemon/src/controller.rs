@@ -8,13 +8,13 @@ use rand::seq::SliceRandom;
 use tap::TapFallible;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
-    audio::{AudioCommand, AUDIO_KERNEL},
+    audio::{AudioCommand, VolumeCommand, AUDIO_KERNEL},
     errors::SerializableLibraryError,
     rpc::MusicPlayer,
     search::SearchResult,
     state::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
-        Percent, RepeatMode, SeekType, StateAudio, StateRuntime,
+        RepeatMode, SeekType, StateAudio, StateRuntime,
     },
 };
 use mecomp_storage::{
@@ -288,7 +288,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns the current volume.
     #[instrument]
-    async fn state_volume(self, _context: Context) -> Option<Percent> {
+    async fn state_volume(self, _context: Context) -> Option<f32> {
         info!("Getting state of volume");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -563,38 +563,78 @@ impl MusicPlayer for MusicPlayerServer {
         .await
         .unwrap();
     }
-    /// set the volume to the given value (0-100).
-    /// (if the value is greater than 100, it will be clamped to 100.)
-    async fn playback_volume(self, _context: Context, volume: Percent) {
+    /// set the volume to the given value
+    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will multiply each sample by this value.
+    async fn playback_volume(self, _context: Context, volume: f32) {
         info!("Setting volume to: {}", volume);
-        todo!()
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::Volume(VolumeCommand::Set(volume)));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
-    /// increase the volume by the given amount (0-100).
-    /// (volume will be clamped to 100.)
-    async fn playback_volume_up(self, _context: Context, amount: Percent) {
+    /// increase the volume by the given amount
+    async fn playback_volume_up(self, _context: Context, amount: f32) {
         info!("Increasing volume by: {}", amount);
-        todo!()
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::Volume(VolumeCommand::Up(amount)));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
-    /// decrease the volume by the given amount (0-100).
-    /// (volume will be clamped to 0.)
-    async fn playback_volume_down(self, _context: Context, amount: Percent) {
+    /// decrease the volume by the given amount
+    async fn playback_volume_down(self, _context: Context, amount: f32) {
         info!("Decreasing volume by: {}", amount);
-        todo!()
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::Volume(VolumeCommand::Down(amount)));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
     /// toggle the volume mute.
     async fn playback_volume_toggle_mute(self, _context: Context) {
         info!("Toggling volume mute");
-        todo!()
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::Volume(VolumeCommand::ToggleMute));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
     /// mute the volume.
     async fn playback_mute(self, _context: Context) {
         info!("Muting volume");
-        todo!()
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::Volume(VolumeCommand::Mute));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
     /// unmute the volume.
     async fn playback_unmute(self, _context: Context) {
         info!("Unmuting volume");
-        todo!()
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::Volume(VolumeCommand::Unmute));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
 
     /// add a song to the queue.

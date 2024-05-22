@@ -56,5 +56,5 @@ pub struct StateAudio {
     pub runtime: Option<StateRuntime>,
     pub paused: bool,
     pub muted: bool,
-    pub volume: Percent,
+    pub volume: f32,
 }
