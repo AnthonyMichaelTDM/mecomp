@@ -36,7 +36,16 @@ use crate::controller::MusicPlayerServer;
 ///
 /// # Arguments
 ///
+/// * `log_level` - The log level to use.
 /// * `settings` - The settings to use.
+///
+/// # Errors
+///
+/// If the daemon cannot be started, an error is returned.
+///
+/// # Panics
+///
+/// Panics if the peer address of the underlying TCP transport cannot be determined.
 pub async fn start_daemon(
     log_level: log::LevelFilter,
     settings: &DaemonSettings,
@@ -73,6 +82,11 @@ pub async fn start_daemon(
     Ok(())
 }
 
+/// Initialize the client
+///
+/// # Errors
+///
+/// If the client cannot be initialized, an error is returned.
 pub async fn init_client(rpc_port: u16) -> anyhow::Result<MusicPlayerClient> {
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), rpc_port);
 

@@ -47,13 +47,13 @@ impl MusicPlayerServer {
 
 impl MusicPlayer for MusicPlayerServer {
     #[instrument]
-    async fn ping(self, _context: Context) -> String {
+    async fn ping(self, context: Context) -> String {
         "pong".to_string()
     }
 
     /// Rescans the music library.
     #[instrument]
-    async fn library_rescan(self, _context: Context) -> Result<(), SerializableLibraryError> {
+    async fn library_rescan(self, context: Context) -> Result<(), SerializableLibraryError> {
         info!("Rescanning library");
         Ok(services::library::rescan(
             &self.db,
@@ -69,7 +69,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_brief(
         self,
-        _context: Context,
+        context: Context,
     ) -> Result<LibraryBrief, SerializableLibraryError> {
         info!("Creating library brief");
         Ok(services::library::brief(&self.db)
@@ -78,10 +78,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// Returns full information about the music library. (all songs, artists, albums, etc.)
     #[instrument]
-    async fn library_full(
-        self,
-        _context: Context,
-    ) -> Result<LibraryFull, SerializableLibraryError> {
+    async fn library_full(self, context: Context) -> Result<LibraryFull, SerializableLibraryError> {
         info!("Creating library full");
         Ok(services::library::full(&self.db)
             .await
@@ -91,7 +88,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_artists_brief(
         self,
-        _context: Context,
+        context: Context,
     ) -> Result<Box<[ArtistBrief]>, SerializableLibraryError> {
         info!("Creating library artists brief");
         Ok(Artist::read_all(&self.db)
@@ -105,7 +102,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_artists_full(
         self,
-        _context: Context,
+        context: Context,
     ) -> Result<Box<[Artist]>, SerializableLibraryError> {
         info!("Creating library artists full");
         Ok(Artist::read_all(&self.db)
@@ -117,7 +114,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_albums_brief(
         self,
-        _context: Context,
+        context: Context,
     ) -> Result<Box<[AlbumBrief]>, SerializableLibraryError> {
         info!("Creating library albums brief");
         Ok(Album::read_all(&self.db)
@@ -131,7 +128,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_albums_full(
         self,
-        _context: Context,
+        context: Context,
     ) -> Result<Box<[Album]>, SerializableLibraryError> {
         info!("Creating library albums full");
         Ok(Album::read_all(&self.db)
@@ -143,7 +140,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_songs_brief(
         self,
-        _context: Context,
+        context: Context,
     ) -> Result<Box<[SongBrief]>, SerializableLibraryError> {
         info!("Creating library songs brief");
         Ok(Song::read_all(&self.db)
@@ -157,7 +154,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_songs_full(
         self,
-        _context: Context,
+        context: Context,
     ) -> Result<Box<[Song]>, SerializableLibraryError> {
         info!("Creating library songs full");
         Ok(Song::read_all(&self.db)
@@ -166,13 +163,14 @@ impl MusicPlayer for MusicPlayerServer {
             .tap_err(|e| warn!("Error in library_songs_full: {e}"))?)
     }
     /// Returns information about the health of the music library (are there any missing files, etc.)
-    async fn library_health(self, _context: Context) -> LibraryHealth {
+    #[instrument]
+    async fn library_health(self, context: Context) -> LibraryHealth {
         info!("Creating library health");
         todo!()
     }
     /// Get a song by its ID.
     #[instrument]
-    async fn library_song_get(self, _context: Context, id: SongId) -> Option<Song> {
+    async fn library_song_get(self, context: Context, id: SongId) -> Option<Song> {
         info!("Getting song by ID: {}", id);
         Song::read(&self.db, id)
             .await
@@ -182,7 +180,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// Get an album by its ID.
     #[instrument]
-    async fn library_album_get(self, _context: Context, id: AlbumId) -> Option<Album> {
+    async fn library_album_get(self, context: Context, id: AlbumId) -> Option<Album> {
         info!("Getting album by ID: {}", id);
         Album::read(&self.db, id)
             .await
@@ -192,7 +190,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// Get an artist by its ID.
     #[instrument]
-    async fn library_artist_get(self, _context: Context, id: ArtistId) -> Option<Artist> {
+    async fn library_artist_get(self, context: Context, id: ArtistId) -> Option<Artist> {
         info!("Getting artist by ID: {}", id);
         Artist::read(&self.db, id)
             .await
@@ -202,7 +200,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// Get a playlist by its ID.
     #[instrument]
-    async fn library_playlist_get(self, _context: Context, id: PlaylistId) -> Option<Playlist> {
+    async fn library_playlist_get(self, context: Context, id: PlaylistId) -> Option<Playlist> {
         info!("Getting playlist by ID: {}", id);
         Playlist::read(&self.db, id)
             .await
@@ -213,7 +211,7 @@ impl MusicPlayer for MusicPlayerServer {
 
     /// tells the daemon to shutdown.
     #[instrument]
-    async fn daemon_shutdown(self, _context: Context) {
+    async fn daemon_shutdown(self, context: Context) {
         std::thread::spawn(|| {
             std::thread::sleep(std::time::Duration::from_secs(1));
             AUDIO_KERNEL.send(AudioCommand::Exit);
@@ -224,7 +222,7 @@ impl MusicPlayer for MusicPlayerServer {
 
     /// returns full information about the current state of the audio player (queue, current song, etc.)
     #[instrument]
-    async fn state_audio(self, _context: Context) -> Option<StateAudio> {
+    async fn state_audio(self, context: Context) -> Option<StateAudio> {
         info!("Getting state of audio player");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -236,7 +234,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns information about the current queue.
     #[instrument]
-    async fn state_queue(self, _context: Context) -> Option<Box<[Song]>> {
+    async fn state_queue(self, context: Context) -> Option<Box<[Song]>> {
         info!("Getting state of queue");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -249,7 +247,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns the current queue position.
     #[instrument]
-    async fn state_queue_position(self, _context: Context) -> Option<usize> {
+    async fn state_queue_position(self, context: Context) -> Option<usize> {
         info!("Getting state of queue position");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -262,7 +260,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// is the player currently paused?
     #[instrument]
-    async fn state_paused(self, _context: Context) -> bool {
+    async fn state_paused(self, context: Context) -> bool {
         info!("Getting state of playing");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -275,7 +273,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// what repeat mode is the player in?
     #[instrument]
-    async fn state_repeat(self, _context: Context) -> Option<RepeatMode> {
+    async fn state_repeat(self, context: Context) -> Option<RepeatMode> {
         info!("Getting state of repeat");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -288,7 +286,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns the current volume.
     #[instrument]
-    async fn state_volume(self, _context: Context) -> Option<f32> {
+    async fn state_volume(self, context: Context) -> Option<f32> {
         info!("Getting state of volume");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -301,7 +299,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns the current volume mute state.
     #[instrument]
-    async fn state_volume_muted(self, _context: Context) -> bool {
+    async fn state_volume_muted(self, context: Context) -> bool {
         info!("Getting state of volume muted");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -314,7 +312,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns information about the runtime of the current song (seek position and duration)
     #[instrument]
-    async fn state_runtime(self, _context: Context) -> Option<StateRuntime> {
+    async fn state_runtime(self, context: Context) -> Option<StateRuntime> {
         info!("Getting state of runtime");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -328,7 +326,7 @@ impl MusicPlayer for MusicPlayerServer {
 
     /// returns the current artist.
     #[instrument]
-    async fn current_artist(self, _context: Context) -> Option<OneOrMany<Artist>> {
+    async fn current_artist(self, context: Context) -> Option<OneOrMany<Artist>> {
         info!("Getting current artist");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -350,7 +348,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns the current album.
     #[instrument]
-    async fn current_album(self, _context: Context) -> Option<Album> {
+    async fn current_album(self, context: Context) -> Option<Album> {
         info!("Getting current album");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -373,7 +371,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns the current song.
     #[instrument]
-    async fn current_song(self, _context: Context) -> Option<Song> {
+    async fn current_song(self, context: Context) -> Option<Song> {
         info!("Getting current song");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -387,7 +385,7 @@ impl MusicPlayer for MusicPlayerServer {
 
     /// returns a random artist.
     #[instrument]
-    async fn rand_artist(self, _context: Context) -> Option<Artist> {
+    async fn rand_artist(self, context: Context) -> Option<Artist> {
         info!("Getting random artist");
         Artist::read_all(&self.db)
             .await
@@ -397,7 +395,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns a random album.
     #[instrument]
-    async fn rand_album(self, _context: Context) -> Option<Album> {
+    async fn rand_album(self, context: Context) -> Option<Album> {
         info!("Getting random album");
         Album::read_all(&self.db)
             .await
@@ -407,7 +405,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns a random song.
     #[instrument]
-    async fn rand_song(self, _context: Context) -> Option<Song> {
+    async fn rand_song(self, context: Context) -> Option<Song> {
         info!("Getting random song");
         Song::read_all(&self.db)
             .await
@@ -417,29 +415,33 @@ impl MusicPlayer for MusicPlayerServer {
     }
 
     /// returns a list of artists, albums, and songs matching the given search query.
-    async fn search(self, _context: Context, query: String) -> Box<[SearchResult]> {
+    #[instrument]
+    async fn search(self, context: Context, query: String) -> Box<[SearchResult]> {
         info!("Searching for: {}", query);
         todo!()
     }
     /// returns a list of artists matching the given search query.
-    async fn search_artist(self, _context: Context, query: String) -> Box<[Artist]> {
+    #[instrument]
+    async fn search_artist(self, context: Context, query: String) -> Box<[Artist]> {
         info!("Searching for artist: {}", query);
         todo!()
     }
     /// returns a list of albums matching the given search query.
-    async fn search_album(self, _context: Context, query: String) -> Box<[Album]> {
+    #[instrument]
+    async fn search_album(self, context: Context, query: String) -> Box<[Album]> {
         info!("Searching for album: {}", query);
         todo!()
     }
     /// returns a list of songs matching the given search query.
-    async fn search_song(self, _context: Context, query: String) -> Box<[Song]> {
+    #[instrument]
+    async fn search_song(self, context: Context, query: String) -> Box<[Song]> {
         info!("Searching for song: {}", query);
         todo!()
     }
 
     /// toggles playback (play/pause).
     #[instrument]
-    async fn playback_toggle(self, _context: Context) {
+    async fn playback_toggle(self, context: Context) {
         info!("Toggling playback");
         tokio::spawn(
             async move {
@@ -452,7 +454,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// start playback (unpause).
     #[instrument]
-    async fn playback_play(self, _context: Context) {
+    async fn playback_play(self, context: Context) {
         info!("Starting playback");
         tokio::spawn(
             async move {
@@ -465,7 +467,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// pause playback.
     #[instrument]
-    async fn playback_pause(self, _context: Context) {
+    async fn playback_pause(self, context: Context) {
         info!("Pausing playback");
         tokio::spawn(
             async move {
@@ -478,7 +480,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// set the current song to be the next song in the queue.
     #[instrument]
-    async fn playback_next(self, _context: Context) {
+    async fn playback_next(self, context: Context) {
         info!("Playing next song");
         tokio::spawn(
             async move {
@@ -491,7 +493,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// restart the current song.
     #[instrument]
-    async fn playback_restart(self, _context: Context) {
+    async fn playback_restart(self, context: Context) {
         info!("Restarting current song");
         tokio::spawn(
             async move {
@@ -504,7 +506,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// skip forward by the given amount of songs
     #[instrument]
-    async fn playback_skip_forward(self, _context: Context, amount: usize) {
+    async fn playback_skip_forward(self, context: Context, amount: usize) {
         info!("Skipping forward by {} songs", amount);
         tokio::spawn(
             async move {
@@ -516,7 +518,8 @@ impl MusicPlayer for MusicPlayerServer {
         .unwrap();
     }
     /// go backwards by the given amount of songs.
-    async fn playback_skip_backward(self, _context: Context, amount: usize) {
+    #[instrument]
+    async fn playback_skip_backward(self, context: Context, amount: usize) {
         info!("Going back by {} songs", amount);
         tokio::spawn(
             async move {
@@ -529,7 +532,8 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// stop playback.
     /// (clears the queue and stops playback)
-    async fn playback_clear_player(self, _context: Context) {
+    #[instrument]
+    async fn playback_clear_player(self, context: Context) {
         info!("Stopping playback");
         tokio::spawn(
             async move {
@@ -541,7 +545,8 @@ impl MusicPlayer for MusicPlayerServer {
         .unwrap();
     }
     /// clear the queue.
-    async fn playback_clear(self, _context: Context) {
+    #[instrument]
+    async fn playback_clear(self, context: Context) {
         info!("Clearing queue and stopping playback");
         tokio::spawn(
             async move {
@@ -553,13 +558,14 @@ impl MusicPlayer for MusicPlayerServer {
         .unwrap();
     }
     /// seek forwards, backwards, or to an absolute second in the current song.
-    async fn playback_seek(self, _context: Context, seek: SeekType, seconds: u64) {
+    #[instrument]
+    async fn playback_seek(self, context: Context, seek: SeekType, seconds: u64) {
         info!("Seeking {} seconds ({})", seconds, seek);
         todo!()
     }
     /// set the repeat mode.
     #[instrument]
-    async fn playback_repeat(self, _context: Context, mode: RepeatMode) {
+    async fn playback_repeat(self, context: Context, mode: RepeatMode) {
         info!("Setting repeat mode to: {}", mode);
         tokio::spawn(
             async move {
@@ -571,7 +577,8 @@ impl MusicPlayer for MusicPlayerServer {
         .unwrap();
     }
     /// Shuffle the current queue, then start playing from the 1st Song in the queue.
-    async fn playback_shuffle(self, _context: Context) {
+    #[instrument]
+    async fn playback_shuffle(self, context: Context) {
         info!("Shuffling queue");
         tokio::spawn(
             async move {
@@ -584,7 +591,8 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// set the volume to the given value
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will multiply each sample by this value.
-    async fn playback_volume(self, _context: Context, volume: f32) {
+    #[instrument]
+    async fn playback_volume(self, context: Context, volume: f32) {
         info!("Setting volume to: {}", volume);
         tokio::spawn(
             async move {
@@ -596,7 +604,8 @@ impl MusicPlayer for MusicPlayerServer {
         .unwrap();
     }
     /// increase the volume by the given amount
-    async fn playback_volume_up(self, _context: Context, amount: f32) {
+    #[instrument]
+    async fn playback_volume_up(self, context: Context, amount: f32) {
         info!("Increasing volume by: {}", amount);
         tokio::spawn(
             async move {
@@ -608,7 +617,8 @@ impl MusicPlayer for MusicPlayerServer {
         .unwrap();
     }
     /// decrease the volume by the given amount
-    async fn playback_volume_down(self, _context: Context, amount: f32) {
+    #[instrument]
+    async fn playback_volume_down(self, context: Context, amount: f32) {
         info!("Decreasing volume by: {}", amount);
         tokio::spawn(
             async move {
@@ -620,7 +630,8 @@ impl MusicPlayer for MusicPlayerServer {
         .unwrap();
     }
     /// toggle the volume mute.
-    async fn playback_volume_toggle_mute(self, _context: Context) {
+    #[instrument]
+    async fn playback_volume_toggle_mute(self, context: Context) {
         info!("Toggling volume mute");
         tokio::spawn(
             async move {
@@ -632,7 +643,8 @@ impl MusicPlayer for MusicPlayerServer {
         .unwrap();
     }
     /// mute the volume.
-    async fn playback_mute(self, _context: Context) {
+    #[instrument]
+    async fn playback_mute(self, context: Context) {
         info!("Muting volume");
         tokio::spawn(
             async move {
@@ -644,7 +656,8 @@ impl MusicPlayer for MusicPlayerServer {
         .unwrap();
     }
     /// unmute the volume.
-    async fn playback_unmute(self, _context: Context) {
+    #[instrument]
+    async fn playback_unmute(self, context: Context) {
         info!("Unmuting volume");
         tokio::spawn(
             async move {
@@ -661,7 +674,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn queue_add_song(
         self,
-        _context: Context,
+        context: Context,
         song: SongId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Adding song to queue: {}", song);
@@ -682,9 +695,10 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// add an album to the queue.
     /// (if the queue is empty, it will start playing the album.)
+    #[instrument]
     async fn queue_add_album(
         self,
-        _context: Context,
+        context: Context,
         album: AlbumId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Adding album to queue: {}", album);
@@ -704,9 +718,10 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// add an artist to the queue.
     /// (if the queue is empty, it will start playing the artist.)
+    #[instrument]
     async fn queue_add_artist(
         self,
-        _context: Context,
+        context: Context,
         artist: ArtistId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Adding artist to queue: {}", artist);
@@ -726,9 +741,10 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// add a playlist to the queue.
     /// (if the queue is empty, it will start playing the playlist.)
+    #[instrument]
     async fn queue_add_playlist(
         self,
-        _context: Context,
+        context: Context,
         playlist: PlaylistId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Adding playlist to queue: {}", playlist);
@@ -748,9 +764,10 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// add a collection to the queue.
     /// (if the queue is empty, it will start playing the collection.)
+    #[instrument]
     async fn queue_add_collection(
         self,
-        _context: Context,
+        context: Context,
         collection: CollectionId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Adding collection to queue: {}", collection);
@@ -771,7 +788,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// add a random song to the queue.
     /// (if the queue is empty, it will start playing the song.)
     #[instrument]
-    async fn queue_add_rand_song(self, _context: Context) -> Result<(), SerializableLibraryError> {
+    async fn queue_add_rand_song(self, context: Context) -> Result<(), SerializableLibraryError> {
         info!("Adding random song to queue");
         let song = Song::read_all(&self.db)
             .await
@@ -793,35 +810,36 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// add a random album to the queue.
     /// (if the queue is empty, it will start playing the album.)
-    async fn queue_add_rand_album(self, _context: Context) -> Result<(), SerializableLibraryError> {
+    #[instrument]
+    async fn queue_add_rand_album(self, context: Context) -> Result<(), SerializableLibraryError> {
         info!("Adding random album to queue");
         todo!()
     }
     /// add a random artist to the queue.
     /// (if the queue is empty, it will start playing the artist.)
-    async fn queue_add_rand_artist(
-        self,
-        _context: Context,
-    ) -> Result<(), SerializableLibraryError> {
+    #[instrument]
+    async fn queue_add_rand_artist(self, context: Context) -> Result<(), SerializableLibraryError> {
         info!("Adding random artist to queue");
         todo!()
     }
     /// set the current song to a queue index.
     /// if the index is out of bounds, it will be clamped to the nearest valid index.
-    async fn queue_set_index(self, _context: Context, index: usize) {
+    #[instrument]
+    async fn queue_set_index(self, context: Context, index: usize) {
         info!("Setting queue index to: {}", index);
         todo!()
     }
     /// remove a range of songs from the queue.
     /// if the range is out of bounds, it will be clamped to the nearest valid range.
-    async fn queue_remove_range(self, _context: Context, range: Range<usize>) {
+    #[instrument]
+    async fn queue_remove_range(self, context: Context, range: Range<usize>) {
         info!("Removing queue range: {:?}", range);
         todo!()
     }
 
     /// Returns brief information about the users playlists.
     #[instrument]
-    async fn playlist_list(self, _context: Context) -> Box<[PlaylistBrief]> {
+    async fn playlist_list(self, context: Context) -> Box<[PlaylistBrief]> {
         info!("Listing playlists");
         Playlist::read_all(&self.db)
             .await
@@ -831,56 +849,65 @@ impl MusicPlayer for MusicPlayerServer {
             .unwrap_or_default()
     }
     /// create a new playlist.
-    async fn playlist_new(self, _context: Context, name: String) -> PlaylistId {
+    #[instrument]
+    async fn playlist_new(self, context: Context, name: String) -> PlaylistId {
         info!("Creating new playlist: {}", name);
         todo!()
     }
     /// remove a playlist.
-    async fn playlist_remove(self, _context: Context, name: String) -> bool {
+    #[instrument]
+    async fn playlist_remove(self, context: Context, name: String) -> bool {
         info!("Removing playlist: {}", name);
         todo!()
     }
     /// clone a playlist.
     /// (creates a new playlist with the same name (append "copy") and contents as the given playlist.)
-    async fn playlist_clone(self, _context: Context, name: String) {
+    #[instrument]
+    async fn playlist_clone(self, context: Context, name: String) {
         info!("Cloning playlist: {}", name);
         todo!()
     }
     /// get the id of a playlist.
-    async fn playlist_get_id(self, _context: Context, name: String) -> Option<PlaylistId> {
+    #[instrument]
+    async fn playlist_get_id(self, context: Context, name: String) -> Option<PlaylistId> {
         info!("Getting playlist ID: {}", name);
         todo!()
     }
     /// remove a song from a playlist.
     /// if the song is not in the playlist, this will do nothing.
-    async fn playlist_remove_song(self, _context: Context, playlist: PlaylistId, song: SongId) {
+    #[instrument]
+    async fn playlist_remove_song(self, context: Context, playlist: PlaylistId, song: SongId) {
         info!("Removing song from playlist: {} ({})", playlist, song);
         todo!()
     }
     /// Add an artist to a playlist.
-    async fn playlist_add_artist(self, _context: Context, playlist: PlaylistId, artist: ArtistId) {
+    #[instrument]
+    async fn playlist_add_artist(self, context: Context, playlist: PlaylistId, artist: ArtistId) {
         info!("Adding artist to playlist: {} ({})", playlist, artist);
         todo!()
     }
     /// Add an album to a playlist.
-    async fn playlist_add_album(self, _context: Context, playlist: PlaylistId, album: AlbumId) {
+    #[instrument]
+    async fn playlist_add_album(self, context: Context, playlist: PlaylistId, album: AlbumId) {
         info!("Adding album to playlist: {} ({})", playlist, album);
         todo!()
     }
     /// Add a song to a playlist.
-    async fn playlist_add_song(self, _context: Context, playlist: PlaylistId, song: SongId) {
+    #[instrument]
+    async fn playlist_add_song(self, context: Context, playlist: PlaylistId, song: SongId) {
         info!("Adding song to playlist: {} ({})", playlist, song);
         todo!()
     }
     /// Get a playlist by its ID.
-    async fn playlist_get(self, _context: Context, id: PlaylistId) -> Option<Playlist> {
+    #[instrument]
+    async fn playlist_get(self, context: Context, id: PlaylistId) -> Option<Playlist> {
         info!("Getting playlist by ID: {}", id);
         todo!()
     }
 
     /// Collections: Return brief information about the users auto curration collections.
     #[instrument]
-    async fn collection_list(self, _context: Context) -> Box<[CollectionBrief]> {
+    async fn collection_list(self, context: Context) -> Box<[CollectionBrief]> {
         info!("Listing collections");
         Collection::read_all(&self.db)
             .await
@@ -890,19 +917,22 @@ impl MusicPlayer for MusicPlayerServer {
             .unwrap_or_default()
     }
     /// Collections: Recluster the users library, creating new collections.
-    async fn collection_recluster(self, _context: Context) {
+    #[instrument]
+    async fn collection_recluster(self, context: Context) {
         info!("Reclustering collections");
         todo!()
     }
     /// Collections: get a collection by its ID.
-    async fn collection_get(self, _context: Context, id: CollectionId) -> Option<Collection> {
+    #[instrument]
+    async fn collection_get(self, context: Context, id: CollectionId) -> Option<Collection> {
         info!("Getting collection by ID: {}", id);
         todo!()
     }
     /// Collections: freeze a collection (convert it to a playlist).
+    #[instrument]
     async fn collection_freeze(
         self,
-        _context: Context,
+        context: Context,
         id: CollectionId,
         name: String,
     ) -> PlaylistId {
@@ -911,9 +941,10 @@ impl MusicPlayer for MusicPlayerServer {
     }
 
     /// Radio: get the `n` most similar songs to the given song.
+    #[instrument]
     async fn radio_get_similar_songs(
         self,
-        _context: Context,
+        context: Context,
         song: SongId,
         n: usize,
     ) -> Box<[SongId]> {
@@ -921,9 +952,10 @@ impl MusicPlayer for MusicPlayerServer {
         todo!()
     }
     /// Radio: get the `n` most similar artists to the given artist.
+    #[instrument]
     async fn radio_get_similar_artist(
         self,
-        _context: Context,
+        context: Context,
         artist: ArtistId,
         n: usize,
     ) -> Box<[ArtistId]> {
@@ -931,9 +963,10 @@ impl MusicPlayer for MusicPlayerServer {
         todo!()
     }
     /// Radio: get the `n` most similar albums to the given album.
+    #[instrument]
     async fn radio_get_similar_album(
         self,
-        _context: Context,
+        context: Context,
         album: AlbumId,
         n: usize,
     ) -> Box<[AlbumId]> {

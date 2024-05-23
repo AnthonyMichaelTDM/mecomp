@@ -34,7 +34,7 @@ pub struct DaemonSettings {
     /// The root paths of the music library.
     pub library_paths: Box<[PathBuf]>,
     /// Sepators for artist names in song metadata.
-    /// For example, "Foo, Bar, Baz" would be split into ["Foo", "Bar", "Baz"]. if the separator is ", ".
+    /// For example, "Foo, Bar, Baz" would be split into \["Foo", "Bar", "Baz"\]. if the separator is ", ".
     /// If the separator is not found, the entire string is considered as a single artist.
     /// If unset, will not split artists.
     pub artist_separator: Option<String>,
