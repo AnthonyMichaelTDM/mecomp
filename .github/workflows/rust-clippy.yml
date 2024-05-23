@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y --no-install-recommends libjack-dev libpulse-dev libasound2-dev wget libavutil-dev
+          sudo apt install -y --no-install-recommends libjack-dev libpulse-dev libasound2-dev wget libavutil-dev libavformat-dev
 
       - name: Set up mold linker
         uses: rui314/setup-mold@v1
