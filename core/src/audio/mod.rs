@@ -1,3 +1,4 @@
+#![allow(clippy::module_name_repetitions)]
 pub mod queue;
 
 use std::{
@@ -29,7 +30,7 @@ lazy_static! {
         let (tx, rx) = std::sync::mpsc::channel();
         tokio::spawn(async {
             let kernel = AudioKernel::new();
-            kernel.spawn(rx);
+            kernel.init(rx);
         });
         Arc::new(AudioKernelSender { tx })
     };
@@ -77,12 +78,13 @@ impl PartialEq for AudioCommand {
             | (Self::ClearPlayer, Self::ClearPlayer)
             | (Self::Clear, Self::Clear)
             | (Self::RestartSong, Self::RestartSong)
-            | (Self::ShuffleQueue, Self::ShuffleQueue) => true,
+            | (Self::ShuffleQueue, Self::ShuffleQueue)
+            | (Self::Exit, Self::Exit)
+            | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
             (Self::SkipForward(a), Self::SkipForward(b))
             | (Self::SkipBackward(a), Self::SkipBackward(b)) => a == b,
             (Self::AddToQueue(a), Self::AddToQueue(b)) => a == b,
             (Self::SetRepeatMode(a), Self::SetRepeatMode(b)) => a == b,
-            (Self::Exit, Self::Exit) | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
             (Self::Volume(a), Self::Volume(b)) => a == b,
             _ => false,
         }
@@ -95,11 +97,17 @@ pub struct AudioKernelSender {
 }
 
 impl AudioKernelSender {
+    #[must_use]
+    pub const fn new(tx: Sender<AudioCommand>) -> Self {
+        Self { tx }
+    }
+
+    /// Send a command to the audio kernel
     #[instrument(skip(self))]
     pub fn send(&self, command: AudioCommand) {
         if let Err(e) = self.tx.send(command) {
-            error!("Failed to send command to audio kernel: {}", e);
-            panic!("Failed to send command to audio kernel: {}", e);
+            error!("Failed to send command to audio kernel: {e}");
+            panic!("Failed to send command to audio kernel: {e}");
         }
     }
 }
@@ -119,15 +127,20 @@ pub struct AudioKernel {
 impl AudioKernel {
     /// this function initializes the audio kernel
     /// it is not meant to be called directly, use `AUDIO_KERNEL` instead to send commands
-    pub(self) fn new() -> Self {
-        let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
+    ///
+    /// # Panics
+    ///
+    /// panics if the rodio stream cannot be created
+    #[must_use]
+    pub fn new() -> Self {
+        let (stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
 
         let player = rodio::Sink::try_new(&stream_handle).unwrap();
         player.pause();
         let queue = Queue::new();
 
         Self {
-            _stream,
+            _stream: stream,
             _stream_handle: stream_handle,
             player,
             queue: RefCell::new(queue),
@@ -140,89 +153,77 @@ impl AudioKernel {
     ///
     /// this function should be called in a detached thread to keep the audio kernel running,
     /// this function will block until the `Exit` command is received
-    pub fn spawn(self, rx: Receiver<AudioCommand>) {
-        async fn run(kernel: &AudioKernel, rx: Receiver<AudioCommand>) {
-            let db = mecomp_storage::db::init_database().await.unwrap();
-
-            loop {
-                let command = rx.recv().unwrap();
-                match command {
-                    AudioCommand::Play => kernel.play(),
-                    AudioCommand::Pause => kernel.pause(),
-                    AudioCommand::TogglePlayback => kernel.toggle_playback(),
-                    AudioCommand::RestartSong => kernel.restart_song(),
-                    AudioCommand::ClearPlayer => kernel.clear_player(),
-                    AudioCommand::Clear => kernel.clear(),
-                    AudioCommand::SkipForward(n) => kernel.skip_forward(n),
-                    AudioCommand::SkipBackward(n) => kernel.skip_backward(n),
-                    AudioCommand::ShuffleQueue => kernel.queue.borrow_mut().shuffle(),
-                    AudioCommand::AddToQueue(OneOrMany::None) => {}
-                    AudioCommand::AddToQueue(OneOrMany::One(song)) => {
-                        kernel.add_song_to_queue(song)
-                    }
-                    AudioCommand::AddToQueue(OneOrMany::Many(songs)) => {
-                        kernel.add_songs_to_queue(songs)
-                    }
-                    AudioCommand::SetRepeatMode(mode) => {
-                        kernel.queue.borrow_mut().set_repeat_mode(mode);
-                    }
-                    AudioCommand::Exit => break,
-                    AudioCommand::ReportStatus(tx) => {
-                        let current_song = kernel.queue.borrow().current_song().cloned();
-
-                        let (current_album, current_artist) = tokio::join!(
-                            async {
-                                if let Some(song) = current_song.as_ref() {
-                                    Song::read_album(&db, song.id.clone()).await
-                                } else {
-                                    Ok(None)
-                                }
-                            },
-                            async {
-                                if let Some(song) = current_song.as_ref() {
-                                    Song::read_artist(&db, song.id.clone())
-                                        .await
-                                        .map(Into::into)
-                                } else {
-                                    Ok(OneOrMany::None)
-                                }
-                            }
-                        );
-
-                        let state = StateAudio {
-                            queue: kernel.queue.borrow().queued_songs(),
-                            queue_position: kernel.queue.borrow().current_index(),
-                            current_song,
-                            repeat_mode: kernel.queue.borrow().get_repeat_mode(),
-                            runtime: kernel.queue.borrow().current_song().map(|song| {
-                                StateRuntime {
-                                    duration: song.runtime.into(),
-                                    seek_position: 0.0, // TODO: determine how much of a Source has been played
-                                    seek_percent: Percent::new(0.0).unwrap(), // TODO: determine how much of a Source has been played
-                                }
-                            }),
-                            paused: kernel.player.is_paused(),
-                            muted: kernel.muted.load(std::sync::atomic::Ordering::Relaxed),
-                            volume: *kernel.volume.borrow(),
-                            current_album: current_album.ok().flatten(),
-                            current_artist: current_artist.ok().into(),
-                        };
-
-                        if tx.send(state).is_err() {
-                            // report and ignore errors
-                            error!("Audio kernel failed to report its state");
-                        }
-                    }
-                    AudioCommand::Volume(command) => kernel.volume_control(command),
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mecomp_core::audio::{AudioKernel, AudioCommand, AudioKernelSender};
+    ///
+    /// // create a channel to send commands to the audio kernel
+    /// let (tx, rx) = std::sync::mpsc::channel();
+    /// // spawn the audio kernel in a detached thread
+    /// std::thread::spawn(move || {
+    ///    let kernel = AudioKernel::new();
+    ///    kernel.init(rx);
+    /// });
+    /// // create a sender to send commands to the audio kernel
+    /// let sender = AudioKernelSender::new(tx);
+    ///
+    /// // send a command to the audio kernel
+    /// // e.g. to shutdown the audio kernel:
+    /// sender.send(AudioCommand::Exit);
+    /// ```
+    pub fn init(self, rx: Receiver<AudioCommand>) {
+        for command in rx {
+            match command {
+                AudioCommand::Play => self.play(),
+                AudioCommand::Pause => self.pause(),
+                AudioCommand::TogglePlayback => self.toggle_playback(),
+                AudioCommand::RestartSong => self.restart_song(),
+                AudioCommand::ClearPlayer => self.clear_player(),
+                AudioCommand::Clear => self.clear(),
+                AudioCommand::SkipForward(n) => self.skip_forward(n),
+                AudioCommand::SkipBackward(n) => self.skip_backward(n),
+                AudioCommand::ShuffleQueue => self.queue.borrow_mut().shuffle(),
+                AudioCommand::AddToQueue(OneOrMany::None) => {}
+                AudioCommand::AddToQueue(OneOrMany::One(song)) => {
+                    self.add_song_to_queue(song);
                 }
+                AudioCommand::AddToQueue(OneOrMany::Many(songs)) => {
+                    self.add_songs_to_queue(songs);
+                }
+                AudioCommand::SetRepeatMode(mode) => {
+                    self.queue.borrow_mut().set_repeat_mode(mode);
+                }
+                AudioCommand::Exit => break,
+                AudioCommand::ReportStatus(tx) => {
+                    let current_song = self.queue.borrow().current_song().cloned();
+
+                    let state = StateAudio {
+                        queue: self.queue.borrow().queued_songs(),
+                        queue_position: self.queue.borrow().current_index(),
+                        current_song,
+                        repeat_mode: self.queue.borrow().get_repeat_mode(),
+                        runtime: self.queue.borrow().current_song().map(|song| {
+                            StateRuntime {
+                                duration: song.runtime.into(),
+                                seek_position: 0.0, // TODO: determine how much of a Source has been played
+                                seek_percent: Percent::new(0.0), // TODO: determine how much of a Source has been played
+                            }
+                        }),
+                        paused: self.player.is_paused(),
+                        muted: self.muted.load(std::sync::atomic::Ordering::Relaxed),
+                        volume: *self.volume.borrow(),
+                    };
+
+                    if tx.send(state).is_err() {
+                        // report and ignore errors
+                        error!("Audio kernel failed to report its state");
+                    }
+                }
+                AudioCommand::Volume(command) => self.volume_control(command),
             }
         }
-
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap()
-            .block_on(run(&self, rx));
     }
 
     fn play(&self) {
@@ -234,10 +235,10 @@ impl AudioKernel {
     }
 
     fn toggle_playback(&self) {
-        if !self.player.is_paused() {
-            self.player.pause();
-        } else {
+        if self.player.is_paused() {
             self.player.play();
+        } else {
+            self.player.pause();
         }
     }
 
@@ -261,10 +262,7 @@ impl AudioKernel {
     }
 
     fn skip_forward(&self, n: usize) {
-        let mut paused = false;
-        if self.player.is_paused() {
-            paused = true;
-        }
+        let paused = self.player.is_paused();
         self.clear_player();
 
         let mut binding = self.queue();
@@ -275,11 +273,11 @@ impl AudioKernel {
                 error!("Failed to append song to player: {}", e);
             }
 
-            if !paused
+            if !(paused
                 // and we have not just finished the queue 
                 // (this makes it so if we hit the end of the queue on RepeatMode::None, we don't start playing again)
-                && !(binding.get_repeat_mode().is_none()
-                    && binding.current_index().is_none())
+                || (binding.get_repeat_mode().is_none()
+                    && binding.current_index().is_none()))
             {
                 self.play();
             }
@@ -287,10 +285,7 @@ impl AudioKernel {
     }
 
     fn skip_backward(&self, n: usize) {
-        let mut paused = false;
-        if self.player.is_paused() {
-            paused = true;
-        }
+        let paused = self.player.is_paused();
         self.clear_player();
 
         let mut binding = self.queue();
@@ -411,6 +406,12 @@ impl AudioKernel {
     }
 }
 
+impl Default for AudioKernel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use mecomp_storage::db::init_test_database;
@@ -433,7 +434,7 @@ mod tests {
 
         thread::spawn(move || {
             let kernel = AudioKernel::new();
-            kernel.spawn(rx);
+            kernel.init(rx);
         });
 
         AudioKernelSender { tx }
@@ -538,7 +539,7 @@ mod tests {
 
         rt.spawn(async {
             let kernel = AudioKernel::new();
-            kernel.spawn(rx);
+            kernel.init(rx);
         });
 
         let sender = AudioKernelSender { tx };

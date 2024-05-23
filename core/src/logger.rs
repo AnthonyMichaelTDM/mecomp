@@ -119,6 +119,11 @@ pub fn init_logger(filter: log::LevelFilter) {
     }
 }
 
+/// Initializes the tracing layer.
+///
+/// # Panics
+///
+/// panics if the tracing layers cannot be initialized.
 #[must_use]
 pub fn init_tracing() -> impl tracing::Subscriber {
     let subscriber = tracing_subscriber::registry();

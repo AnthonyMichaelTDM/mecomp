@@ -334,10 +334,19 @@ impl MusicPlayer for MusicPlayerServer {
 
         AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
 
-        rx.await
+        if let Some(song) = rx
+            .await
             .tap_err(|e| warn!("Error in current_artist: {e}"))
             .ok()
-            .map(|state| state.current_artist)
+            .and_then(|state| state.current_song)
+        {
+            Song::read_artist(&self.db, song.id)
+                .await
+                .tap_err(|e| warn!("Error in current_album: {e}"))
+                .ok()
+        } else {
+            None
+        }
     }
     /// returns the current album.
     #[instrument]
@@ -347,10 +356,20 @@ impl MusicPlayer for MusicPlayerServer {
 
         AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
 
-        rx.await
+        if let Some(song) = rx
+            .await
             .tap_err(|e| warn!("Error in current_album: {e}"))
             .ok()
-            .and_then(|state| state.current_album)
+            .and_then(|state| state.current_song)
+        {
+            Song::read_album(&self.db, song.id)
+                .await
+                .tap_err(|e| warn!("Error in current_album: {e}"))
+                .ok()
+                .flatten()
+        } else {
+            None
+        }
     }
     /// returns the current song.
     #[instrument]
