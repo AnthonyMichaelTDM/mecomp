@@ -35,7 +35,6 @@ jobs:
 
   ci:
     runs-on: ubuntu-latest
-    container: jrottenberg/ffmpeg:6.1-ubuntu
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,10 +42,10 @@ jobs:
       - name: Install dependencies
         run: |
           apt update
-          apt install -y --no-install-recommends clang curl pkg-config libasound2-dev wget
+          apt install -y --no-install-recommends clang curl pkg-config libasound2-dev wget ffmpeg
 
-      # - name: Set up mold linker
-      #   uses: rui314/setup-mold@v1
+      - name: Set up mold linker
+        uses: rui314/setup-mold@v1
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
