@@ -31,7 +31,7 @@ pub fn read_song_by_path() -> SelectStatement {
 /// SELECT * FROM $id<-album_to_song.in
 /// ```
 #[must_use]
-pub fn read_album_of_song() -> SelectStatement {
+pub fn read_album() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
         what: Values(vec![Value::Idiom(Idiom(vec![
@@ -55,7 +55,7 @@ pub fn read_album_of_song() -> SelectStatement {
 /// SELECT * FROM $id<-artist_to_song.in
 /// ```
 #[must_use]
-pub fn read_artist_of_song() -> SelectStatement {
+pub fn read_artist() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
         what: Values(vec![Value::Idiom(Idiom(vec![
@@ -79,7 +79,7 @@ pub fn read_artist_of_song() -> SelectStatement {
 /// SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in
 /// ```
 #[must_use]
-pub fn read_album_artist_of_song() -> SelectStatement {
+pub fn read_album_artist() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
         what: Values(vec![Value::Idiom(Idiom(vec![

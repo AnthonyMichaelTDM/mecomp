@@ -16,8 +16,7 @@ use crate::{
 };
 
 use super::queries::album::{
-    read_artist_of_album, read_by_name, read_by_name_and_album_artist, read_songs_in_album,
-    relate_album_to_songs, remove_songs_from_album,
+    add_songs, read_artist, read_by_name, read_by_name_and_album_artist, read_songs, remove_songs,
 };
 
 impl Album {
@@ -102,41 +101,36 @@ impl Album {
             Self::read_by_name_and_album_artist(db, title, album_artists.clone()).await
         {
             Ok(Some(album))
-        } else {
-            match Self::create(
+        } else if let Some(album) = Self::create(
+            db,
+            Self {
+                id: Self::generate_id(),
+                title: title.into(),
+                artist: album_artists.clone(),
+                runtime: surrealdb::sql::Duration::from_secs(0),
+                release: None,
+                song_count: 0,
+                discs: 1,
+                genre: OneOrMany::None,
+            },
+        )
+        .await?
+        {
+            // we created a new album made by some artists, so we need to update those artists
+            Artist::add_album_to_artists(
                 db,
-                Self {
-                    id: Self::generate_id(),
-                    title: title.into(),
-                    artist: album_artists.clone(),
-                    runtime: surrealdb::sql::Duration::from_secs(0),
-                    release: None,
-                    song_count: 0,
-                    discs: 1,
-                    genre: OneOrMany::None,
-                },
+                &Artist::read_or_create_by_names(db, album_artists)
+                    .await?
+                    .into_iter()
+                    .map(|a| a.id)
+                    .collect::<Vec<_>>(),
+                album.id.clone(),
             )
-            .await?
-            {
-                Some(album) => {
-                    // we created a new album made by some artists, so we need to update those artists
-                    Artist::add_album_to_artists(
-                        db,
-                        &Artist::read_or_create_by_names(db, album_artists)
-                            .await?
-                            .into_iter()
-                            .map(|a| a.id)
-                            .collect::<Vec<_>>(),
-                        album.id.clone(),
-                    )
-                    .await?;
-                    Ok(Some(album))
-                }
-                None => {
-                    warn!("Failed to create album {}", title);
-                    Ok(None)
-                }
-            }
+            .await?;
+            Ok(Some(album))
+        } else {
+            warn!("Failed to create album {}", title);
+            Ok(None)
         }
     }
 
@@ -146,7 +140,7 @@ impl Album {
         id: AlbumId,
         song_ids: &[SongId],
     ) -> Result<(), Error> {
-        db.query(relate_album_to_songs())
+        db.query(add_songs())
             .bind(("album", &id))
             .bind(("songs", song_ids))
             .await?;
@@ -161,11 +155,7 @@ impl Album {
         db: &Surreal<C>,
         id: AlbumId,
     ) -> Result<Vec<Song>, Error> {
-        Ok(db
-            .query(read_songs_in_album())
-            .bind(("album", &id))
-            .await?
-            .take(0)?)
+        Ok(db.query(read_songs()).bind(("album", &id)).await?.take(0)?)
     }
 
     #[instrument()]
@@ -174,7 +164,7 @@ impl Album {
         id: AlbumId,
         song_ids: &[SongId],
     ) -> Result<(), Error> {
-        db.query(remove_songs_from_album())
+        db.query(remove_songs())
             .bind(("album", &id))
             .bind(("songs", song_ids))
             .await?;
@@ -187,11 +177,7 @@ impl Album {
         db: &Surreal<C>,
         id: AlbumId,
     ) -> Result<OneOrMany<Artist>, Error> {
-        Ok(db
-            .query(read_artist_of_album())
-            .bind(("id", id))
-            .await?
-            .take(0)?)
+        Ok(db.query(read_artist()).bind(("id", id)).await?.take(0)?)
     }
 
     /// update counts and runtime

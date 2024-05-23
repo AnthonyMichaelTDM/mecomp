@@ -73,7 +73,7 @@ pub fn read_many() -> SelectStatement {
 /// SELECT * FROM $id->artist_to_album->album
 /// ```
 #[must_use]
-pub fn read_albums_by_artist() -> SelectStatement {
+pub fn read_albums() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
         what: Values(vec![Value::Idiom(Idiom(vec![
@@ -102,7 +102,7 @@ pub fn read_albums_by_artist() -> SelectStatement {
 /// RELATE $id->artist_to_album->$album
 /// ```
 #[must_use]
-pub fn relate_artist_to_album() -> RelateStatement {
+pub fn add_album() -> RelateStatement {
     RelateStatement {
         from: Value::Param(Param(Ident("id".into()))),
         kind: Value::Table(Table("artist_to_album".into())),
@@ -118,7 +118,7 @@ pub fn relate_artist_to_album() -> RelateStatement {
 /// RELATE $ids->artist_to_album->$album
 /// ```
 #[must_use]
-pub fn relate_artists_to_album() -> RelateStatement {
+pub fn add_album_to_artists() -> RelateStatement {
     RelateStatement {
         from: Value::Param(Param(Ident("ids".into()))),
         kind: Value::Table(Table("artist_to_album".into())),
@@ -134,7 +134,7 @@ pub fn relate_artists_to_album() -> RelateStatement {
 /// RELATE $id->artist_to_song->$songs
 /// ```
 #[must_use]
-pub fn relate_artist_to_songs() -> RelateStatement {
+pub fn add_songs() -> RelateStatement {
     RelateStatement {
         from: Value::Param(Param(Ident("id".into()))),
         kind: Value::Table(Table("artist_to_song".into())),
@@ -150,7 +150,7 @@ pub fn relate_artist_to_songs() -> RelateStatement {
 /// DELETE $artist->artist_to_song WHERE out IN $songs
 /// ```
 #[must_use]
-pub fn remove_songs_from_artist() -> DeleteStatement {
+pub fn remove_songs() -> DeleteStatement {
     DeleteStatement {
         what: Values(vec![Value::Idiom(Idiom(vec![
             Part::Start(Value::Param(Param(Ident("artist".into())))),
@@ -177,7 +177,7 @@ pub fn remove_songs_from_artist() -> DeleteStatement {
 /// RETURN array::union((SELECT * FROM $artist->artist_to_song->song), (SELECT * FROM $artist->artist_to_album->album->album_to_song->song))
 /// ```
 #[must_use]
-pub fn read_songs_by_artist() -> OutputStatement {
+pub fn read_songs() -> OutputStatement {
     OutputStatement {
         what: Value::Function(Box::new(surrealdb::sql::Function::Normal(
             "array::union".into(),

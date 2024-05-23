@@ -1,3 +1,4 @@
+#![allow(clippy::module_name_repetitions)]
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -8,12 +9,12 @@ pub type ArtistId = Thing;
 
 pub const TABLE_NAME: &str = "artist";
 
-/// This struct holds all the metadata about a particular ['Artist'].
-/// An ['Artist'] is a collection of ['Album']s.
+/// This struct holds all the metadata about a particular [`Artist`].
+/// An [`Artist`] is a collection of [`super::album::Album`]s.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Table)]
 #[Table("artist")]
 pub struct Artist {
-    /// the unique identifier for this ['Artist'].
+    /// the unique identifier for this [`Artist`].
     #[field(dt = "record")]
     pub id: ArtistId,
 
@@ -53,8 +54,8 @@ pub struct ArtistChangeSet {
     pub song_count: Option<usize>,
 }
 
-/// This struct holds all the metadata about a particular ['Artist'].
-/// An ['Artist'] is a collection of ['Album']s.
+/// This struct holds all the metadata about a particular [`Artist`].
+/// An [`Artist`] is a collection of [`super::album::Album`]s.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ArtistBrief {
     pub id: ArtistId,

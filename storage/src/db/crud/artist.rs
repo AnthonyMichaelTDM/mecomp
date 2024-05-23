@@ -15,9 +15,8 @@ use crate::{
 };
 
 use super::queries::artist::{
-    read_albums_by_artist, read_by_name, read_by_names, read_many, read_songs_by_artist,
-    relate_artist_to_album, relate_artist_to_songs, relate_artists_to_album,
-    remove_songs_from_artist,
+    add_album, add_album_to_artists, add_songs, read_albums, read_by_name, read_by_names,
+    read_many, read_songs, remove_songs,
 };
 
 impl Artist {
@@ -60,7 +59,7 @@ impl Artist {
         names: OneOrMany<Arc<str>>,
     ) -> Result<Vec<Self>, Error> {
         let mut artists = Vec::with_capacity(names.len());
-        for name in names.iter() {
+        for name in &names {
             if let Some(id) = Self::read_or_create_by_name(db, name).await? {
                 artists.push(id);
             }
@@ -145,11 +144,7 @@ impl Artist {
         db: &Surreal<C>,
         id: ArtistId,
     ) -> Result<Vec<Album>, Error> {
-        Ok(db
-            .query(read_albums_by_artist())
-            .bind(("id", id))
-            .await?
-            .take(0)?)
+        Ok(db.query(read_albums()).bind(("id", id)).await?.take(0)?)
     }
 
     #[instrument]
@@ -160,7 +155,7 @@ impl Artist {
     ) -> Result<(), Error> {
         db
             // relate this artist to the album
-            .query(relate_artist_to_album())
+            .query(add_album())
             // relate this artist to the songs in the album
             // .query("RELATE $id->artist_to_song->(SELECT ->album_to_song<-album FROM $album)")
             .bind(("id", &id))
@@ -179,7 +174,7 @@ impl Artist {
     ) -> Result<(), Error> {
         db
             // relate this artist to the album
-            .query(relate_artists_to_album())
+            .query(add_album_to_artists())
             .bind(("ids", &ids))
             .bind(("album", &album_id))
             .await?;
@@ -198,7 +193,7 @@ impl Artist {
     ) -> Result<(), Error> {
         db
             // relate this artist to these songs
-            .query(relate_artist_to_songs())
+            .query(add_songs())
             .bind(("id", &id))
             .bind(("songs", songs))
             .await?;
@@ -212,7 +207,7 @@ impl Artist {
         id: ArtistId,
         song_ids: &[SongId],
     ) -> Result<(), Error> {
-        db.query(remove_songs_from_artist())
+        db.query(remove_songs())
             .bind(("artist", &id))
             .bind(("songs", song_ids))
             .await?;
@@ -225,11 +220,7 @@ impl Artist {
         db: &Surreal<C>,
         id: ArtistId,
     ) -> Result<Vec<Song>, Error> {
-        Ok(db
-            .query(read_songs_by_artist())
-            .bind(("artist", id))
-            .await?
-            .take(0)?)
+        Ok(db.query(read_songs()).bind(("artist", id)).await?.take(0)?)
     }
 
     /// updates the album count, song count, and runtime of the artist

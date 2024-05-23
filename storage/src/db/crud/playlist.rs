@@ -10,9 +10,7 @@ use crate::{
     errors::Error,
 };
 
-use super::queries::playlist::{
-    read_songs_in_playlist, relate_playlist_to_songs, remove_songs_from_playlist, repair,
-};
+use super::queries::playlist::{add_songs, read_songs, remove_songs, repair};
 
 impl Playlist {
     #[instrument]
@@ -62,7 +60,7 @@ impl Playlist {
         id: PlaylistId,
         song_ids: &[SongId],
     ) -> Result<(), Error> {
-        db.query(relate_playlist_to_songs())
+        db.query(add_songs())
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
@@ -75,11 +73,7 @@ impl Playlist {
         db: &Surreal<C>,
         id: PlaylistId,
     ) -> Result<Vec<Song>, Error> {
-        Ok(db
-            .query(read_songs_in_playlist())
-            .bind(("id", id))
-            .await?
-            .take(0)?)
+        Ok(db.query(read_songs()).bind(("id", id)).await?.take(0)?)
     }
 
     #[instrument]
@@ -88,7 +82,7 @@ impl Playlist {
         id: PlaylistId,
         song_ids: &[SongId],
     ) -> Result<(), Error> {
-        db.query(remove_songs_from_playlist())
+        db.query(remove_songs())
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;

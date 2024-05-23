@@ -44,7 +44,7 @@ impl<T> OneOrMany<T> {
         self.get(0)
     }
 
-    pub const fn iter(&self) -> OneOrManyIter<T> {
+    pub const fn iter(&self) -> OneOrManyIter<'_, T> {
         OneOrManyIter {
             inner: self,
             index: 0,
@@ -137,6 +137,15 @@ impl<'a, T> Iterator for OneOrManyIter<'a, T> {
         };
         self.index += 1;
         result
+    }
+}
+
+impl<'a, T> IntoIterator for &'a OneOrMany<T> {
+    type IntoIter = OneOrManyIter<'a, T>;
+    type Item = &'a T;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 

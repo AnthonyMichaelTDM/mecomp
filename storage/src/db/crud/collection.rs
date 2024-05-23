@@ -10,9 +10,7 @@ use crate::{
     errors::Error,
 };
 
-use super::queries::collection::{
-    read_songs_in_collection, relate_collection_to_songs, remove_songs_from_collection, repair,
-};
+use super::queries::collection::{add_songs, read_songs, remove_songs, repair};
 
 impl Collection {
     #[instrument]
@@ -62,7 +60,7 @@ impl Collection {
         id: CollectionId,
         song_ids: &[SongId],
     ) -> Result<(), Error> {
-        db.query(relate_collection_to_songs())
+        db.query(add_songs())
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
@@ -75,11 +73,7 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
     ) -> Result<Vec<Song>, Error> {
-        Ok(db
-            .query(read_songs_in_collection())
-            .bind(("id", id))
-            .await?
-            .take(0)?)
+        Ok(db.query(read_songs()).bind(("id", id)).await?.take(0)?)
     }
 
     #[instrument]
@@ -88,7 +82,7 @@ impl Collection {
         id: CollectionId,
         song_ids: &[SongId],
     ) -> Result<(), Error> {
-        db.query(remove_songs_from_collection())
+        db.query(remove_songs())
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;

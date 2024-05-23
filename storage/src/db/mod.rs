@@ -18,12 +18,22 @@ static DB_DIR: OnceCell<PathBuf> = OnceCell::const_new();
 static TEMP_DB_DIR: Lazy<TempDir> =
     Lazy::new(|| tempfile::tempdir().expect("Failed to create temporary directory"));
 
+/// Set the path to the database.
+///
+/// # Errors
+///
+/// This function will return an error if the path cannot be set.
 pub fn set_database_path(path: PathBuf) -> Result<(), SetError<PathBuf>> {
     DB_DIR.set(path)?;
     info!("Primed database path");
     Ok(())
 }
 
+/// Initialize the database with the necessary tables.
+///
+/// # Errors
+///
+/// This function will return an error if the database cannot be initialized.
 pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
     let db = Surreal::new::<SpeeDb>(DB_DIR
         .get().cloned()
@@ -47,6 +57,12 @@ pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
     Ok(db)
 }
 
+/// Initialize a test database with the same tables as the main database.
+/// This is useful for testing queries and mutations.
+///
+/// # Errors
+///
+/// This function will return an error if the database cannot be initialized.
 pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
     let db = Surreal::new::<Mem>(()).await?;
     db.use_ns("test").use_db("test").await?;

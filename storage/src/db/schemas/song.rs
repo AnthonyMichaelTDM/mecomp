@@ -1,3 +1,4 @@
+#![allow(clippy::module_name_repetitions)]
 //----------------------------------------------------------------------------------------- std lib
 use std::sync::Arc;
 use std::{collections::HashSet, path::PathBuf};
@@ -23,7 +24,7 @@ pub const TABLE_NAME: &str = "song";
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Table)]
 #[Table("song")]
 pub struct Song {
-    // / The unique identifier for this [`Song`].
+    /// The unique identifier for this [`Song`].
     #[field(dt = "record")]
     pub id: SongId,
     /// Title of the [`Song`].
@@ -437,9 +438,9 @@ impl SongMetadata {
                 .album_title()
                 .map_or("Unknown Album".into(), |x| x.replace('\0', ""))
                 .into(),
-            album_artist: tags
-                .album_artist()
-                .map(|a| {
+            album_artist: tags.album_artist().map_or_else(
+                || OneOrMany::One(artist.get(0).unwrap().clone()),
+                |a| {
                     let a = a.replace('\0', "");
                     if let Some(sep) = artist_name_separator {
                         if a.contains(sep) {
@@ -450,8 +451,8 @@ impl SongMetadata {
                     } else {
                         OneOrMany::One(a.into())
                     }
-                })
-                .unwrap_or_else(|| OneOrMany::One(artist.get(0).unwrap().clone())),
+                },
+            ),
             artist,
             genre: tags
                 .genre()

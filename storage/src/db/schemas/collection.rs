@@ -1,3 +1,4 @@
+#![allow(clippy::module_name_repetitions)]
 //! A collection is an auto currated list of similar songs.
 
 use std::sync::Arc;

@@ -65,7 +65,7 @@ pub fn read_by_name_and_album_artist() -> SelectStatement {
 /// RELATE $album->album_to_song->$songs
 /// ```
 #[must_use]
-pub fn relate_album_to_songs() -> RelateStatement {
+pub fn add_songs() -> RelateStatement {
     RelateStatement {
         from: Value::Param(Param(Ident("album".into()))),
         kind: Value::Table(Table("album_to_song".into())),
@@ -82,7 +82,7 @@ pub fn relate_album_to_songs() -> RelateStatement {
 /// SELECT * FROM $album->album_to_song.out
 /// ```
 #[must_use]
-pub fn read_songs_in_album() -> SelectStatement {
+pub fn read_songs() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
         what: Values(vec![Value::Idiom(Idiom(vec![
@@ -107,7 +107,7 @@ pub fn read_songs_in_album() -> SelectStatement {
 /// DELETE $album->album_to_song WHERE out IN $songs
 /// ```
 #[must_use]
-pub fn remove_songs_from_album() -> DeleteStatement {
+pub fn remove_songs() -> DeleteStatement {
     DeleteStatement {
         what: Values(vec![Value::Idiom(Idiom(vec![
             Part::Start(Value::Param(Param(Ident("album".into())))),
@@ -135,7 +135,7 @@ pub fn remove_songs_from_album() -> DeleteStatement {
 /// SELECT * FROM $id<-artist_to_album<-artist
 /// ```
 #[must_use]
-pub fn read_artist_of_album() -> SelectStatement {
+pub fn read_artist() -> SelectStatement {
     SelectStatement {
         expr: Fields::all(),
         what: Values(vec![Value::Idiom(Idiom(vec![

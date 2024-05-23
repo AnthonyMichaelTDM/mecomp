@@ -15,9 +15,7 @@ use crate::{
     util::OneOrMany,
 };
 
-use super::queries::song::{
-    read_album_artist_of_song, read_album_of_song, read_artist_of_song, read_song_by_path,
-};
+use super::queries::song::{read_album, read_album_artist, read_artist, read_song_by_path};
 
 impl Song {
     #[instrument]
@@ -55,11 +53,7 @@ impl Song {
         db: &Surreal<C>,
         id: SongId,
     ) -> Result<Option<Album>, Error> {
-        Ok(db
-            .query(read_album_of_song())
-            .bind(("id", id))
-            .await?
-            .take(0)?)
+        Ok(db.query(read_album()).bind(("id", id)).await?.take(0)?)
     }
 
     #[instrument]
@@ -68,7 +62,7 @@ impl Song {
         id: SongId,
     ) -> Result<OneOrMany<Artist>, Error> {
         let res: Vec<Artist> = db
-            .query(read_artist_of_song())
+            .query(read_artist())
             .bind(("id", id))
             .await?
             .take(0)?;
@@ -82,7 +76,7 @@ impl Song {
         id: SongId,
     ) -> Result<OneOrMany<Artist>, Error> {
         let res: Vec<Artist> = db
-            .query(read_album_artist_of_song())
+            .query(read_album_artist())
             .bind(("id", id))
             .await?
             .take(0)?;
@@ -151,7 +145,7 @@ impl Song {
             let new_artist = Artist::read_or_create_by_names(db, artist.clone()).await?;
 
             // remove song from the old artists
-            for artist in old_artist.iter() {
+            for artist in &old_artist {
                 Artist::remove_songs(db, artist.id.clone(), &[id.clone()]).await?;
             }
             // add song to the new artists
