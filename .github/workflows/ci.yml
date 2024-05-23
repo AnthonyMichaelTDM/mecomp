@@ -42,7 +42,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y --no-install-recommends libjack-dev libpulse-dev libasound2-dev wget libavutil-dev libavformat-dev
+          sudo apt install -y --no-install-recommends libjack-dev libpulse-dev libasound2-dev wget libavutil-dev libavformat-dev jackd
 
       - name: Set up mold linker
         uses: rui314/setup-mold@v1
@@ -62,6 +62,10 @@ jobs:
             ./target
             ~/.cargo
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Create a fake audio device
+        run: |
+          jackd -d dummy &
 
       - name: Run tests
         run: cargo test
