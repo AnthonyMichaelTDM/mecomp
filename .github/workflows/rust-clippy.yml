@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y --no-install-recommends clang curl pkg-config libasound2-dev wget ffmpeg
+          sudo apt install -y --no-install-recommends libjack-dev libpulse-dev libasound2-dev wget
 
       - name: Set up mold linker
         uses: rui314/setup-mold@v1
