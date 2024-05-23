@@ -43,12 +43,13 @@ jobs:
         uses: rui314/setup-mold@v1
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af #@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: clippy
-          override: true
+        run: |
+          rustup show
+          rustup -V
+          rustup set profile minimal
+          rustup toolchain install stable
+          rustup override set stable
+          rustup component add clippy
 
       - name: Initialize Cache
         uses: actions/cache@v4.0.2

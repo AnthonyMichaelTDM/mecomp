@@ -48,11 +48,12 @@ jobs:
         uses: rui314/setup-mold@v1
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+        run: |
+          rustup show
+          rustup -V
+          rustup set profile minimal
+          rustup toolchain install stable
+          rustup override set stable
 
       - name: Initialize Cache
         uses: actions/cache@v4.0.2
