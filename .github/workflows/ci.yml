@@ -42,12 +42,13 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev
+          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev pulseaudio-utils pulseaudio alsa-utils
 
       - name: set up dummy audio device
         run: |
-          sudo apt install -y alsa-utils linux-modules-extra-$(uname -r)
-          sudo modprobe snd-dummy
+          pactl load-module module-null-sink sink_name=dummy sink_properties=device.description=dummy
+          pactl set-default-sink dummy
+          pactl set-default-source dummy.monitor
           sudo usermod -a -G audio $USER
 
       - name: Set up mold linker
