@@ -48,6 +48,7 @@ jobs:
         run: |
           sudo apt install -y alsa-utils linux-modules-extra-$(uname -r)
           sudo modprobe snd-dummy
+          sudo usermod -a -G audio $USER
 
       - name: Set up mold linker
         uses: rui314/setup-mold@v1
