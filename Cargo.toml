@@ -61,9 +61,10 @@ log = { version = "0.4.21", features = ["serde"] }
 nutype = { version = "0.4.2", features = ["serde"] }
 once_cell = { version = "1.19" }
 rand = { version = "0.8.5", features = ["small_rng"] }
-rodio = { git = "https://github.com/RustAudio/rodio.git", features = [
-    "symphonia-all",
-] }
+rodio = { version = "0.18.1", features = ["symphonia-all"] }
+# rodio = { git = "https://github.com/RustAudio/rodio.git", features = [
+# "symphonia-all",
+# ] }
 serde = { version = "1.0", features = ["derive", "rc"] }
 strum = { version = "0.26.2", features = ["derive"] }
 surrealdb = { version = "1.4.2", features = ["kv-speedb"] }

@@ -452,74 +452,6 @@ mod tests {
         rodio::source::SineWave::new(440.0)
     }
 
-    #[rstest]
-    fn test_audio_kernel_play_pause(
-        audio_kernel: AudioKernel,
-        sound: impl Source<Item = f32> + Send + 'static,
-    ) {
-        audio_kernel.player.append(sound);
-        audio_kernel.play();
-        assert!(!audio_kernel.player.is_paused());
-        audio_kernel.pause();
-        assert!(audio_kernel.player.is_paused());
-    }
-
-    #[rstest]
-    fn test_audio_kernel_toggle_playback(
-        audio_kernel: AudioKernel,
-        sound: impl Source<Item = f32> + Send + 'static,
-    ) {
-        audio_kernel.player.append(sound);
-        audio_kernel.play();
-        assert!(!audio_kernel.player.is_paused());
-        audio_kernel.toggle_playback();
-        assert!(audio_kernel.player.is_paused());
-        audio_kernel.toggle_playback();
-        assert!(!audio_kernel.player.is_paused());
-    }
-
-    #[rstest]
-    #[timeout(Duration::from_secs(3))] // if the test takes longer than 3 seconds, this is a failure
-    #[tokio::test]
-    async fn test_audio_kernel_skip_forward() {
-        let sender = audio_kernel_sender();
-
-        let db = init_test_database().await.unwrap();
-        let song = create_song(&db, arb_song_case()()).await.unwrap();
-
-        let state = get_state(sender.clone());
-        assert_eq!(state.queue_position, None);
-        assert!(state.paused);
-
-        sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
-        sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
-        sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
-        // songs were added to an empty queue, so the first song should start playing
-        let state = get_state(sender.clone());
-        assert_eq!(state.queue_position, Some(0));
-        assert!(!state.paused);
-
-        sender.send(AudioCommand::SkipForward(1));
-        // the second song should start playing
-        let state = get_state(sender.clone());
-        assert_eq!(state.queue_position, Some(1));
-        assert!(!state.paused);
-
-        sender.send(AudioCommand::SkipForward(1));
-        // the third song should start playing
-        let state = get_state(sender.clone());
-        assert_eq!(state.queue_position, Some(2));
-        assert!(!state.paused);
-
-        sender.send(AudioCommand::SkipForward(1));
-        // we were at the end of the queue and tried to skip forward, so the player should be paused and the queue position should be None
-        let state = get_state(sender.clone());
-        assert_eq!(state.queue_position, None);
-        assert!(state.paused);
-
-        sender.send(AudioCommand::Exit);
-    }
-
     #[test]
     fn test_audio_kernel_sender_send() {
         let (tx, rx) = mpsc::channel();
@@ -544,5 +476,81 @@ mod tests {
 
         let sender = AudioKernelSender { tx };
         sender.send(AudioCommand::Exit);
+    }
+
+    mod playback_tests {
+        //! These are tests that require the audio kernel to be able to play audio
+        //! As such, they cannot be run on CI.
+        //! Therefore, they are in a separate module so that they can be skipped when running tests on CI.
+
+        use super::*;
+
+        #[rstest]
+        fn test_audio_kernel_play_pause(
+            audio_kernel: AudioKernel,
+            sound: impl Source<Item = f32> + Send + 'static,
+        ) {
+            audio_kernel.player.append(sound);
+            audio_kernel.play();
+            assert!(!audio_kernel.player.is_paused());
+            audio_kernel.pause();
+            assert!(audio_kernel.player.is_paused());
+        }
+
+        #[rstest]
+        fn test_audio_kernel_toggle_playback(
+            audio_kernel: AudioKernel,
+            sound: impl Source<Item = f32> + Send + 'static,
+        ) {
+            audio_kernel.player.append(sound);
+            audio_kernel.play();
+            assert!(!audio_kernel.player.is_paused());
+            audio_kernel.toggle_playback();
+            assert!(audio_kernel.player.is_paused());
+            audio_kernel.toggle_playback();
+            assert!(!audio_kernel.player.is_paused());
+        }
+
+        #[rstest]
+        #[timeout(Duration::from_secs(3))] // if the test takes longer than 3 seconds, this is a failure
+        #[tokio::test]
+        async fn test_audio_kernel_skip_forward() {
+            let sender = audio_kernel_sender();
+
+            let db = init_test_database().await.unwrap();
+            let song = create_song(&db, arb_song_case()()).await.unwrap();
+
+            let state = get_state(sender.clone());
+            assert_eq!(state.queue_position, None);
+            assert!(state.paused);
+
+            sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
+            sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
+            sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
+            // songs were added to an empty queue, so the first song should start playing
+            let state = get_state(sender.clone());
+            assert_eq!(state.queue_position, Some(0));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::SkipForward(1));
+            // the second song should start playing
+            let state = get_state(sender.clone());
+            assert_eq!(state.queue_position, Some(1));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::SkipForward(1));
+            // the third song should start playing
+            let state = get_state(sender.clone());
+            assert_eq!(state.queue_position, Some(2));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::SkipForward(1));
+            // we were at the end of the queue and tried to skip forward, so the player should be paused and the queue position should be None
+            let state = get_state(sender.clone());
+            assert_eq!(state.queue_position, None);
+            assert!(state.paused);
+
+            sender.send(AudioCommand::Exit);
+        }
     }
 }
