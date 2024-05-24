@@ -46,7 +46,7 @@ jobs:
 
       - name: set up dummy audio device
         run: |
-          sudo apt install -y alsa-utils 
+          sudo apt install -y alsa-utils linux-modules-extra-$(uname -r)
           sudo modprobe snd-dummy
 
       - name: Set up mold linker
