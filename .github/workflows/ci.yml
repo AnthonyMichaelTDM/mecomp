@@ -34,7 +34,7 @@ jobs:
         run: cargo fmt --check --all
 
   ci:
-    runs-on: ubuntu-20.04 # latest version is missing some ALSA kernel modules
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -42,15 +42,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev pulseaudio-utils pulseaudio alsa-utils
-
-      - name: set up dummy audio device
-        run: |
-          sudo usermod -a -G audio $USER
-          pulseaudio --start
-          pactl load-module module-null-sink sink_name=dummy sink_properties=device.description=dummy
-          pactl set-default-sink dummy
-          pactl set-default-source dummy.monitor
+          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev
 
       - name: Set up mold linker
         uses: rui314/setup-mold@v1
@@ -72,7 +64,7 @@ jobs:
           key: ${{ runner.os }}-cargo-ci-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run tests
-        run: cargo test || true # ignore test failures, TEMPORARY
+        run: cargo test --all --workspace -- --skip audio::tests::playback_tests
 
       - name: Build
         run: cargo check --all-features
