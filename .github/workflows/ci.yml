@@ -11,8 +11,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "full"
-  SDL_AUDIODRIVER: disk
-  SDL_VIDEODRIVER: dummy
 
 concurrency:
   group: CI-${{ github.ref }}
@@ -45,6 +43,11 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev
+
+      - name: set up dummy audio device
+        run: |
+          sudo apt install -y alsa-utils
+          sudo modprobe snd-dummy
 
       - name: Set up mold linker
         uses: rui314/setup-mold@v1
