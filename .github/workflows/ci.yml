@@ -47,6 +47,7 @@ jobs:
       - name: set up dummy audio device
         run: |
           sudo usermod -a -G audio $USER
+          pulseaudio --start
           pactl load-module module-null-sink sink_name=dummy sink_properties=device.description=dummy
           pactl set-default-sink dummy
           pactl set-default-source dummy.monitor
