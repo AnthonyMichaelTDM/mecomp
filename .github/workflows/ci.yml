@@ -11,6 +11,8 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "full"
+  SDL_AUDIODRIVER: disk
+  SDL_VIDEODRIVER: dummy
 
 concurrency:
   group: CI-${{ github.ref }}
