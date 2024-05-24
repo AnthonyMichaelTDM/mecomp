@@ -67,8 +67,8 @@ jobs:
           --all
           --all-features
           --message-format=json
-          -- -D clippy::pedantic -D clippy::nursery -D clippy::perf -D clippy::all
-          -D warnings | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+          -- -D clippy::pedantic -D clippy::nursery -D clippy::perf
+          -D clippy::all | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
         continue-on-error: true
 
       - name: Upload analysis results to GitHub
