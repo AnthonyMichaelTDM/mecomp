@@ -152,7 +152,7 @@ pub fn init_tracing() -> impl tracing::Subscriber {
         .with_trace_config(
             opentelemetry_sdk::trace::config()
                 .with_resource(Resource::new(vec![KeyValue::new(
-                    opentelemetry_semantic_conventions::resource::SERVICE_NAME.as_ref(),
+                    opentelemetry_semantic_conventions::resource::SERVICE_NAME,
                     "mecomp-daemon",
                 )]))
                 .with_id_generator(opentelemetry_sdk::trace::RandomIdGenerator::default())
