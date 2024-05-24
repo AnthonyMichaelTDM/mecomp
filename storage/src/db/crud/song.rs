@@ -61,11 +61,7 @@ impl Song {
         db: &Surreal<C>,
         id: SongId,
     ) -> Result<OneOrMany<Artist>, Error> {
-        let res: Vec<Artist> = db
-            .query(read_artist())
-            .bind(("id", id))
-            .await?
-            .take(0)?;
+        let res: Vec<Artist> = db.query(read_artist()).bind(("id", id)).await?.take(0)?;
 
         Ok(res.into())
     }
