@@ -25,7 +25,7 @@ concurrency:
 jobs:
   rust-clippy-analyze:
     name: Run rust-clippy analyzing
-    runs-on: ubuntu-20.04 # latest version is missing some ALSA kernel modules
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write

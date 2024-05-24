@@ -34,7 +34,7 @@ jobs:
         run: cargo fmt --check --all
 
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04 # latest version is missing some ALSA kernel modules
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,7 +46,7 @@ jobs:
 
       - name: set up dummy audio device
         run: |
-          sudo apt install -y alsa-utils linux-modules-extra-$(uname -r)
+          sudo apt install -y alsa-utils 
           sudo modprobe snd-dummy
 
       - name: Set up mold linker
