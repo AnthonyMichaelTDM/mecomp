@@ -51,13 +51,10 @@ jobs:
           rustup override set stable
           rustup component add clippy
 
-      - name: Initialize Cache
-        uses: actions/cache@v4.0.2
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ./target
-            ~/.cargo
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
