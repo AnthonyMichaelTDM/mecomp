@@ -1,5 +1,10 @@
 # Metadata Enhanced Collection Oriented Music Player (MECOMP)
 
+[![codecov](https://codecov.io/gh/AnthonyMichaelTDM/mecomp/graph/badge.svg?token=BJAZ081TOE)](https://codecov.io/gh/AnthonyMichaelTDM/mecomp)
+[![CI](https://github.com/AnthonyMichaelTDM/mecomp/actions/workflows/ci.yml/badge.svg)](https://github.com/AnthonyMichaelTDM/mecomp/actions/workflows/ci.yml)
+[![HitCount](https://img.shields.io/endpoint?url=https%3A%2F%2Fhits.dwyl.com%2FAnthonyMichaelTDM%2Fmecomp.json
+)](http://hits.dwyl.com/AnthonyMichaelTDM/mecomp)
+
 (name subject to change)
 
 ## Introduction

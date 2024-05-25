@@ -478,6 +478,7 @@ mod tests {
         sender.send(AudioCommand::Exit);
     }
 
+    #[cfg(not(tarpaulin))]
     mod playback_tests {
         //! These are tests that require the audio kernel to be able to play audio
         //! As such, they cannot be run on CI.
