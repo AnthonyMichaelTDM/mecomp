@@ -12,6 +12,20 @@ use super::generic::{read_related_in, read_related_out, relate, unrelate};
 /// ```sql, ignore
 /// SELECT * FROM album WHERE title=$name
 /// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::album::read_by_name;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = read_by_name();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "SELECT * FROM album WHERE title=$name".into_query().unwrap()
+/// );
+/// ```
 #[must_use]
 pub fn read_by_name() -> SelectStatement {
     SelectStatement {
@@ -33,6 +47,20 @@ pub fn read_by_name() -> SelectStatement {
 /// Compiles to:
 /// ```sql, ignore
 /// SELECT * FROM album WHERE title=$title AND artist=$artist
+/// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::album::read_by_name_and_album_artist;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = read_by_name_and_album_artist();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "SELECT * FROM album WHERE title=$title AND artist=$artist".into_query().unwrap()
+/// );
 /// ```
 #[must_use]
 pub fn read_by_name_and_album_artist() -> SelectStatement {
@@ -65,6 +93,20 @@ pub fn read_by_name_and_album_artist() -> SelectStatement {
 /// ```sql, ignore
 /// RELATE $album->album_to_song->$songs
 /// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::album::add_songs;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = add_songs();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "RELATE $album->album_to_song->$songs".into_query().unwrap()
+/// );
+/// ```
 #[must_use]
 #[inline]
 pub fn add_songs() -> RelateStatement {
@@ -77,6 +119,20 @@ pub fn add_songs() -> RelateStatement {
 ///
 /// ```sql, ignore
 /// SELECT * FROM $album->album_to_song.out
+/// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::album::read_songs;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = read_songs();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "SELECT * FROM $album->album_to_song.out".into_query().unwrap()
+/// );
 /// ```
 #[must_use]
 #[inline]
@@ -91,6 +147,19 @@ pub fn read_songs() -> SelectStatement {
 /// ```sql, ignore
 /// DELETE $album->album_to_song WHERE out IN $songs
 /// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::album::remove_songs;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = remove_songs();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "DELETE $album->album_to_song WHERE out IN $songs".into_query().unwrap()
+/// );
 #[must_use]
 #[inline]
 pub fn remove_songs() -> DeleteStatement {
@@ -102,8 +171,21 @@ pub fn remove_songs() -> DeleteStatement {
 /// Compiles to:
 ///
 /// ```sql, ignore
-/// SELECT * FROM $id<-artist_to_album<-artist
+/// SELECT * FROM $id<-artist_to_album.in
 /// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::album::read_artist;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = read_artist();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "SELECT * FROM $id<-artist_to_album.in".into_query().unwrap()
+/// );
 #[must_use]
 #[inline]
 pub fn read_artist() -> SelectStatement {

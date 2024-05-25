@@ -11,6 +11,20 @@ use super::generic::{read_related_out, relate, unrelate};
 /// ```sql, ignore
 /// RELATE $id->collection_to_song->$songs
 /// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::collection::add_songs;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = add_songs();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "RELATE $id->collection_to_song->$songs".into_query().unwrap()
+/// );
+/// ```
 #[must_use]
 #[inline]
 pub fn add_songs() -> RelateStatement {
@@ -23,6 +37,20 @@ pub fn add_songs() -> RelateStatement {
 /// ```sql, ignore
 /// SELECT * FROM $id->collection_to_song.out
 /// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::collection::read_songs;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = read_songs();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "SELECT * FROM $id->collection_to_song.out".into_query().unwrap()
+/// );
+/// ```
 #[must_use]
 #[inline]
 pub fn read_songs() -> SelectStatement {
@@ -34,6 +62,20 @@ pub fn read_songs() -> SelectStatement {
 /// Compiles to:
 /// ```sql, ignore
 /// DELETE $id->collection_to_song WHERE out IN $songs
+/// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::collection::remove_songs;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = remove_songs();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "DELETE $id->collection_to_song WHERE out IN $songs".into_query().unwrap()
+/// );
 /// ```
 #[must_use]
 #[inline]
@@ -49,6 +91,18 @@ pub fn remove_songs() -> DeleteStatement {
 /// ```sql, ignore
 /// UPDATE $id SET song_count=$songs, runtime=$runtime
 /// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::collection::repair;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = repair();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "UPDATE $id SET song_count=$songs, runtime=$runtime".into_query().unwrap()
 #[must_use]
 pub fn repair() -> UpdateStatement {
     UpdateStatement {

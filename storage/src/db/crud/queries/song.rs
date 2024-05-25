@@ -11,6 +11,20 @@ use super::generic::read_related_in;
 /// ```sql, ignore
 /// SELECT * FROM song WHERE path = $path LIMIT 1
 /// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::song::read_song_by_path;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = read_song_by_path();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "SELECT * FROM song WHERE path = $path LIMIT 1".into_query().unwrap()
+/// );
+/// ```
 #[must_use]
 pub fn read_song_by_path() -> SelectStatement {
     SelectStatement {
@@ -32,6 +46,20 @@ pub fn read_song_by_path() -> SelectStatement {
 /// ```sql, ignore
 /// SELECT * FROM $id<-album_to_song.in
 /// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::song::read_album;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = read_album();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "SELECT * FROM $id<-album_to_song.in".into_query().unwrap()
+/// );
+/// ```
 #[must_use]
 #[inline]
 pub fn read_album() -> SelectStatement {
@@ -44,6 +72,20 @@ pub fn read_album() -> SelectStatement {
 /// ```sql, ignore
 /// SELECT * FROM $id<-artist_to_song.in
 /// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::song::read_artist;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = read_artist();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "SELECT * FROM $id<-artist_to_song.in".into_query().unwrap()
+/// );
+/// ```
 #[must_use]
 #[inline]
 pub fn read_artist() -> SelectStatement {
@@ -55,6 +97,20 @@ pub fn read_artist() -> SelectStatement {
 /// Compiles to:
 /// ```sql, ignore
 /// SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in
+/// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::song::read_album_artist;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = read_album_artist();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in".into_query().unwrap()
+/// );
 /// ```
 #[must_use]
 pub fn read_album_artist() -> SelectStatement {
