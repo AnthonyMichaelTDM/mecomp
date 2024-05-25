@@ -14,7 +14,7 @@ use super::generic::read_related_in;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::song::read_song_by_path;
 /// use surrealdb::opt::IntoQuery;
@@ -49,7 +49,7 @@ pub fn read_song_by_path() -> SelectStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::song::read_album;
 /// use surrealdb::opt::IntoQuery;
@@ -75,7 +75,7 @@ pub fn read_album() -> SelectStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::song::read_artist;
 /// use surrealdb::opt::IntoQuery;
@@ -101,7 +101,7 @@ pub fn read_artist() -> SelectStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::song::read_album_artist;
 /// use surrealdb::opt::IntoQuery;
@@ -139,5 +139,53 @@ pub fn read_album_artist() -> SelectStatement {
             Part::Field(Ident("in".into())),
         ]))]),
         ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod query_validation_tests {
+    use pretty_assertions::assert_eq;
+    use surrealdb::opt::IntoQuery;
+
+    use super::*;
+
+    #[test]
+    fn test_read_song_by_path() {
+        let statement = read_song_by_path();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM song WHERE path = $path LIMIT 1"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_read_album() {
+        let statement = read_album();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM $id<-album_to_song.in".into_query().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_read_artist() {
+        let statement = read_artist();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM $id<-artist_to_song.in".into_query().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_read_album_artist() {
+        let statement = read_album_artist();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in"
+                .into_query()
+                .unwrap()
+        );
     }
 }

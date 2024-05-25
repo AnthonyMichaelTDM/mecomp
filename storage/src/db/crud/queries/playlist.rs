@@ -14,7 +14,7 @@ use super::generic::{read_related_out, relate, unrelate};
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::playlist::add_songs;
 /// use surrealdb::opt::IntoQuery;
@@ -40,7 +40,7 @@ pub fn add_songs() -> RelateStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::playlist::read_songs;
 /// use surrealdb::opt::IntoQuery;
@@ -66,7 +66,7 @@ pub fn read_songs() -> SelectStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::playlist::remove_songs;
 /// use surrealdb::opt::IntoQuery;
@@ -94,7 +94,7 @@ pub fn remove_songs() -> DeleteStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::playlist::repair;
 /// use surrealdb::opt::IntoQuery;
@@ -122,5 +122,55 @@ pub fn repair() -> UpdateStatement {
             ),
         ])),
         ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod query_validation_tests {
+    use pretty_assertions::assert_eq;
+    use surrealdb::opt::IntoQuery;
+
+    use super::*;
+
+    #[test]
+    fn test_add_songs() {
+        let statement = add_songs();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "RELATE $id->playlist_to_song->$songs".into_query().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_read_songs() {
+        let statement = read_songs();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM $id->playlist_to_song.out"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_remove_songs() {
+        let statement = remove_songs();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "DELETE $id->playlist_to_song WHERE out IN $songs"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_repair() {
+        let statement = repair();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "UPDATE $id SET song_count=$songs, runtime=$runtime"
+                .into_query()
+                .unwrap()
+        );
     }
 }

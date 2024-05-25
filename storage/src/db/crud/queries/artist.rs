@@ -17,7 +17,7 @@ use super::generic::{read_related_out, relate, unrelate};
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::artist::read_by_name;
 /// use surrealdb::opt::IntoQuery;
@@ -54,7 +54,7 @@ pub fn read_by_name() -> SelectStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::artist::read_by_names;
 /// use surrealdb::opt::IntoQuery;
@@ -90,7 +90,7 @@ pub fn read_by_names() -> SelectStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::artist::read_many;
 /// use surrealdb::opt::IntoQuery;
@@ -119,7 +119,7 @@ pub fn read_many() -> SelectStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::artist::read_albums;
 /// use surrealdb::opt::IntoQuery;
@@ -145,7 +145,7 @@ pub fn read_albums() -> SelectStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::artist::add_album;
 /// use surrealdb::opt::IntoQuery;
@@ -171,7 +171,7 @@ pub fn add_album() -> RelateStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::artist::add_album_to_artists;
 /// use surrealdb::opt::IntoQuery;
@@ -197,7 +197,7 @@ pub fn add_album_to_artists() -> RelateStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::artist::add_songs;
 /// use surrealdb::opt::IntoQuery;
@@ -223,7 +223,7 @@ pub fn add_songs() -> RelateStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::artist::remove_songs;    
 /// use surrealdb::opt::IntoQuery;
@@ -249,7 +249,7 @@ pub fn remove_songs() -> DeleteStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::artist::read_songs;
 /// use surrealdb::opt::IntoQuery;
@@ -299,5 +299,104 @@ pub fn read_songs() -> OutputStatement {
             ],
         ))),
         ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod query_validation_tests {
+    use pretty_assertions::assert_eq;
+    use surrealdb::opt::IntoQuery;
+
+    use super::*;
+
+    #[test]
+    fn test_read_by_name() {
+        let statement = read_by_name();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM artist WHERE name = $name LIMIT 1"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_read_by_names() {
+        let statement = read_by_names();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM artist WHERE name IN $names"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_read_many() {
+        let statement = read_many();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM $ids".into_query().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_read_albums() {
+        let statement = read_albums();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM $id->artist_to_album.out"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_add_album() {
+        let statement = add_album();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "RELATE $id->artist_to_album->$album".into_query().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_add_album_to_artists() {
+        let statement = add_album_to_artists();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "RELATE $ids->artist_to_album->$album".into_query().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_add_songs() {
+        let statement = add_songs();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "RELATE $id->artist_to_song->$songs".into_query().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_remove_songs() {
+        let statement = remove_songs();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "DELETE $artist->artist_to_song WHERE out IN $songs"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_read_songs() {
+        let statement = read_songs();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "RETURN array::union((SELECT * FROM $artist->artist_to_song.out), (SELECT * FROM $artist->artist_to_album->album->album_to_song.out))"
+                .into_query()
+                .unwrap()
+        );
     }
 }

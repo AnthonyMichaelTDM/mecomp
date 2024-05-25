@@ -14,7 +14,7 @@ use surrealdb::sql::{
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::generic::relate;
 /// use surrealdb::opt::IntoQuery;
@@ -60,7 +60,7 @@ pub fn relate<Source: AsRef<str>, Target: AsRef<str>, Rel: AsRef<str>>(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::generic::unrelate;
 /// use surrealdb::opt::IntoQuery;
@@ -109,7 +109,7 @@ pub fn unrelate<Source: AsRef<str>, Target: AsRef<str>, Rel: AsRef<str>>(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::generic::read_related_out;
 /// use surrealdb::opt::IntoQuery;
@@ -156,7 +156,7 @@ pub fn read_related_out<Source: AsRef<str>, Rel: AsRef<str>>(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::generic::read_related_in;
 /// use surrealdb::opt::IntoQuery;
@@ -204,7 +204,7 @@ pub fn read_related_in<Target: AsRef<str>, Rel: AsRef<str>>(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::generic::count;
 /// use surrealdb::opt::IntoQuery;
@@ -246,7 +246,7 @@ pub fn count<Table: AsRef<str>>(table: Table) -> OutputStatement {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::generic::count_orphaned;
 /// use surrealdb::opt::IntoQuery;
@@ -305,7 +305,7 @@ pub fn count_orphaned<Table: AsRef<str>, Rel: AsRef<str>>(
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::generic::count_orphaned_both;
 /// use surrealdb::opt::IntoQuery;
@@ -369,4 +369,91 @@ pub fn count_orphaned_both<Table: AsRef<str>, Rel1: AsRef<str>, Rel2: AsRef<str>
     }
 
     count_orphaned_both_statement(table.as_ref(), rel1.as_ref(), rel2.as_ref())
+}
+
+#[cfg(test)]
+mod query_validation_tests {
+    use pretty_assertions::assert_eq;
+    use surrealdb::opt::IntoQuery;
+
+    use super::*;
+
+    #[test]
+    fn test_relate() {
+        let statement = relate("id", "album", "artist_to_album");
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "RELATE $id->artist_to_album->$album".into_query().unwrap()
+        );
+
+        let statement = relate("ids", "album", "artist_to_album");
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "RELATE $ids->artist_to_album->$album".into_query().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_unrelate() {
+        let statement = unrelate("artist", "album", "artist_to_album");
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "DELETE $artist->artist_to_album WHERE out IN $album"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_read_related_out() {
+        let statement = read_related_out("album", "album_to_song");
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM $album->album_to_song.out"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_read_related_in() {
+        let statement = read_related_in("album", "artist_to_album");
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM $album<-artist_to_album.in"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_count() {
+        let statement = count("song");
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "RETURN array::len((SELECT * FROM song))"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_count_orphaned() {
+        let statement = count_orphaned("album", "album_to_song");
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "RETURN array::len((SELECT * FROM album WHERE count(->album_to_song) = 0))"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_count_orphaned_both() {
+        let statement = count_orphaned_both("artist", "artist_to_album", "artist_to_song");
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "RETURN array::len((SELECT * FROM artist WHERE count(->artist_to_album) = 0 AND count(->artist_to_song) = 0))".into_query().unwrap()
+        );
+    }
 }
