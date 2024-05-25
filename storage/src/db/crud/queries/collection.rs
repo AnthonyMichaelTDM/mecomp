@@ -1,8 +1,9 @@
 use surrealdb::sql::{
     statements::{DeleteStatement, RelateStatement, SelectStatement, UpdateStatement},
-    Cond, Data, Dir, Expression, Fields, Graph, Ident, Idiom, Operator, Param, Part, Table, Tables,
-    Value, Values,
+    Data, Ident, Idiom, Operator, Param, Part, Value, Values,
 };
+
+use super::generic::{read_related_out, relate, unrelate};
 
 /// Query to relate a collection to its songs.
 ///
@@ -11,13 +12,9 @@ use surrealdb::sql::{
 /// RELATE $id->collection_to_song->$songs
 /// ```
 #[must_use]
+#[inline]
 pub fn add_songs() -> RelateStatement {
-    RelateStatement {
-        from: Value::Param(Param(Ident("id".into()))),
-        kind: Value::Table(Table("collection_to_song".into())),
-        with: Value::Param(Param(Ident("songs".into()))),
-        ..Default::default()
-    }
+    relate("id", "songs", "collection_to_song")
 }
 
 /// Query to read the songs of a collection
@@ -27,21 +24,9 @@ pub fn add_songs() -> RelateStatement {
 /// SELECT * FROM $id->collection_to_song.out
 /// ```
 #[must_use]
+#[inline]
 pub fn read_songs() -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Idiom(Idiom(vec![
-            Part::Start(Value::Param(Param(Ident("id".into())))),
-            Part::Graph(Graph {
-                dir: Dir::Out,
-                what: Tables(vec![Table("collection_to_song".into())]),
-                expr: Fields::all(),
-                ..Default::default()
-            }),
-            Part::Field(Ident("out".into())),
-        ]))]),
-        ..Default::default()
-    }
+    read_related_out("id", "collection_to_song")
 }
 
 /// Query to remove songs from a collection
@@ -51,24 +36,9 @@ pub fn read_songs() -> SelectStatement {
 /// DELETE $id->collection_to_song WHERE out IN $songs
 /// ```
 #[must_use]
+#[inline]
 pub fn remove_songs() -> DeleteStatement {
-    DeleteStatement {
-        what: Values(vec![Value::Idiom(Idiom(vec![
-            Part::Start(Value::Param(Param(Ident("id".into())))),
-            Part::Graph(Graph {
-                dir: Dir::Out,
-                what: Tables(vec![Table("collection_to_song".into())]),
-                expr: Fields::all(),
-                ..Default::default()
-            }),
-        ]))]),
-        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-            l: Value::Idiom(Idiom(vec![Part::Field(Ident("out".into()))])),
-            o: Operator::Inside,
-            r: Value::Param(Param(Ident("songs".into()))),
-        })))),
-        ..Default::default()
-    }
+    unrelate("id", "songs", "collection_to_song")
 }
 
 /// Query to "repair" a collection.

@@ -1,9 +1,10 @@
 use crate::db::schemas;
 use surrealdb::sql::{
     statements::{DeleteStatement, RelateStatement, SelectStatement},
-    Cond, Dir, Expression, Fields, Graph, Ident, Idiom, Operator, Param, Part, Table, Tables,
-    Value, Values,
+    Cond, Expression, Fields, Ident, Idiom, Operator, Param, Table, Value, Values,
 };
+
+use super::generic::{read_related_in, read_related_out, relate, unrelate};
 
 /// Query to read an album by its name.
 ///
@@ -65,13 +66,9 @@ pub fn read_by_name_and_album_artist() -> SelectStatement {
 /// RELATE $album->album_to_song->$songs
 /// ```
 #[must_use]
+#[inline]
 pub fn add_songs() -> RelateStatement {
-    RelateStatement {
-        from: Value::Param(Param(Ident("album".into()))),
-        kind: Value::Table(Table("album_to_song".into())),
-        with: Value::Param(Param(Ident("songs".into()))),
-        ..Default::default()
-    }
+    relate("album", "songs", "album_to_song")
 }
 
 /// Query to read the songs of an album
@@ -82,21 +79,9 @@ pub fn add_songs() -> RelateStatement {
 /// SELECT * FROM $album->album_to_song.out
 /// ```
 #[must_use]
+#[inline]
 pub fn read_songs() -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Idiom(Idiom(vec![
-            Part::Start(Value::Param(Param(Ident("album".into())))),
-            Part::Graph(Graph {
-                dir: Dir::Out,
-                what: Tables(vec![Table("album_to_song".into())]),
-                expr: Fields::all(),
-                ..Default::default()
-            }),
-            Part::Field(Ident("out".into())),
-        ]))]),
-        ..Default::default()
-    }
+    read_related_out("album", "album_to_song")
 }
 
 /// Query to remove songs from an album
@@ -107,24 +92,9 @@ pub fn read_songs() -> SelectStatement {
 /// DELETE $album->album_to_song WHERE out IN $songs
 /// ```
 #[must_use]
+#[inline]
 pub fn remove_songs() -> DeleteStatement {
-    DeleteStatement {
-        what: Values(vec![Value::Idiom(Idiom(vec![
-            Part::Start(Value::Param(Param(Ident("album".into())))),
-            Part::Graph(Graph {
-                dir: Dir::Out,
-                what: Tables(vec![Table("album_to_song".into())]),
-                expr: Fields::all(),
-                ..Default::default()
-            }),
-        ]))]),
-        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-            l: Value::Idiom(Idiom(vec![Part::Field(Ident("out".into()))])),
-            o: Operator::Inside,
-            r: Value::Param(Param(Ident("songs".into()))),
-        })))),
-        ..Default::default()
-    }
+    unrelate("album", "songs", "album_to_song")
 }
 
 /// Query to read the artist of an album
@@ -135,25 +105,7 @@ pub fn remove_songs() -> DeleteStatement {
 /// SELECT * FROM $id<-artist_to_album<-artist
 /// ```
 #[must_use]
+#[inline]
 pub fn read_artist() -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Idiom(Idiom(vec![
-            Part::Start(Value::Param(Param(Ident("id".into())))),
-            Part::Graph(Graph {
-                dir: Dir::In,
-                what: Tables(vec![Table("artist_to_album".into())]),
-                expr: Fields::all(),
-
-                ..Default::default()
-            }),
-            Part::Graph(Graph {
-                dir: Dir::In,
-                what: Tables(vec![Table(schemas::artist::TABLE_NAME.into())]),
-                expr: Fields::all(),
-                ..Default::default()
-            }),
-        ]))]),
-        ..Default::default()
-    }
+    read_related_in("id", "artist_to_album")
 }
