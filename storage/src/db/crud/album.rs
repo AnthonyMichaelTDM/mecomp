@@ -234,9 +234,9 @@ mod tests {
 
     #[rstest]
     #[tokio::test]
-    async fn test_create() -> Result<()> {
+    async fn test_create(ulid: String) -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid();
+        let ulid = &ulid;
         let album = create_album(ulid);
 
         let created = Album::create(&db, album.clone()).await?;

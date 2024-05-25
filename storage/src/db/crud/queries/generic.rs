@@ -1,7 +1,7 @@
 use surrealdb::sql::{
-    statements::{DeleteStatement, RelateStatement, SelectStatement},
-    Cond, Dir, Expression, Fields, Graph, Ident, Idiom, Operator, Param, Part, Table, Tables,
-    Value, Values,
+    statements::{DeleteStatement, OutputStatement, RelateStatement, SelectStatement},
+    Cond, Dir, Expression, Fields, Graph, Ident, Idiom, Number, Operator, Param, Part, Subquery,
+    Table, Tables, Value, Values,
 };
 
 /// Query to add relations between two tables.
@@ -191,4 +191,182 @@ pub fn read_related_in<Target: AsRef<str>, Rel: AsRef<str>>(
     }
 
     read_related_statement(target.as_ref(), rel.as_ref())
+}
+
+/// Query to count the number of items in a table.
+///
+/// Compiles to:
+/// ```sql, ignore
+/// RETURN array::len((SELECT * FROM table))
+/// ```
+///
+/// TODO: Maybe use `SELECT id FROM table` instead of `SELECT * FROM table`, it might be faster.
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::generic::count;
+/// use surrealdb::opt::IntoQuery;
+///
+/// // Example: count the number of songs in the database
+/// let statement = count("song");
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "RETURN array::len((SELECT * FROM song))".into_query().unwrap()
+/// );
+/// ```
+#[must_use]
+pub fn count<Table: AsRef<str>>(table: Table) -> OutputStatement {
+    fn count_statement(table: &str) -> OutputStatement {
+        OutputStatement {
+            what: Value::Function(Box::new(surrealdb::sql::Function::Normal(
+                "array::len".into(),
+                vec![Value::Subquery(Box::new(Subquery::Select(
+                    SelectStatement {
+                        expr: Fields::all(),
+                        what: Values(vec![Value::Table(Table(table.into()))]),
+                        ..Default::default()
+                    },
+                )))],
+            ))),
+            ..Default::default()
+        }
+    }
+
+    count_statement(table.as_ref())
+}
+
+/// Query to count the number of items in a table that are not included in a relation.
+///
+/// Compiles to:
+/// ```sql, ignore
+/// RETURN array::len((SELECT * FROM table WHERE count(->rel) = 0))
+/// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::generic::count_orphaned;
+/// use surrealdb::opt::IntoQuery;
+///
+/// // Example: count the number of orphaned albums in the database
+/// let statement = count_orphaned("album", "album_to_song");
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "RETURN array::len((SELECT * FROM album WHERE count(->album_to_song) = 0))".into_query().unwrap()
+/// );
+/// ```
+#[must_use]
+pub fn count_orphaned<Table: AsRef<str>, Rel: AsRef<str>>(
+    table: Table,
+    rel: Rel,
+) -> OutputStatement {
+    fn count_orphaned_statement(table: &str, rel: &str) -> OutputStatement {
+        OutputStatement {
+            what: Value::Function(Box::new(surrealdb::sql::Function::Normal(
+                "array::len".into(),
+                vec![Value::Subquery(Box::new(Subquery::Select(
+                    SelectStatement {
+                        expr: Fields::all(),
+                        what: Values(vec![Value::Table(Table(table.into()))]),
+                        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
+                            l: Value::Function(Box::new(surrealdb::sql::Function::Normal(
+                                "count".into(),
+                                vec![Value::Idiom(Idiom(vec![Part::Graph(Graph {
+                                    dir: Dir::Out,
+                                    what: Tables(vec![Table(rel.into())]),
+                                    expr: Fields::all(),
+                                    ..Default::default()
+                                })]))],
+                            ))),
+                            o: Operator::Equal,
+                            r: Value::Number(Number::Int(0)),
+                        })))),
+                        ..Default::default()
+                    },
+                )))],
+            ))),
+            ..Default::default()
+        }
+    }
+
+    count_orphaned_statement(table.as_ref(), rel.as_ref())
+}
+
+/// Query to count the number of items in a table that are not included in both of the provided relations.
+/// This is useful for counting orphaned items that are not included in either of the provided relations.
+///
+/// Compiles to:
+/// ```sql, ignore
+/// RETURN array::len((SELECT * FROM table WHERE count(->rel1.out) = 0 AND count(->rel2.out) = 0))
+/// ```
+///
+/// # Example
+///
+/// ```
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::generic::count_orphaned_both;
+/// use surrealdb::opt::IntoQuery;
+///
+/// // Example: count the number of orphaned artists in the database
+/// let statement = count_orphaned_both("artist", "artist_to_album", "artist_to_song");
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "RETURN array::len((SELECT * FROM artist WHERE count(->artist_to_album) = 0 AND count(->artist_to_song) = 0))".into_query().unwrap()
+/// );
+/// ```
+#[must_use]
+pub fn count_orphaned_both<Table: AsRef<str>, Rel1: AsRef<str>, Rel2: AsRef<str>>(
+    table: Table,
+    rel1: Rel1,
+    rel2: Rel2,
+) -> OutputStatement {
+    fn count_orphaned_both_statement(table: &str, rel1: &str, rel2: &str) -> OutputStatement {
+        OutputStatement {
+            what: Value::Function(Box::new(surrealdb::sql::Function::Normal(
+                "array::len".into(),
+                vec![Value::Subquery(Box::new(Subquery::Select(
+                    SelectStatement {
+                        expr: Fields::all(),
+                        what: Values(vec![Value::Table(Table(table.into()))]),
+                        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
+                            l: Value::Expression(Box::new(Expression::Binary {
+                                l: Value::Function(Box::new(surrealdb::sql::Function::Normal(
+                                    "count".into(),
+                                    vec![Value::Idiom(Idiom(vec![Part::Graph(Graph {
+                                        dir: Dir::Out,
+                                        what: Tables(vec![Table(rel1.into())]),
+                                        expr: Fields::all(),
+                                        ..Default::default()
+                                    })]))],
+                                ))),
+                                o: Operator::Equal,
+                                r: Value::Number(Number::Int(0)),
+                            })),
+                            o: Operator::And,
+                            r: Value::Expression(Box::new(Expression::Binary {
+                                l: Value::Function(Box::new(surrealdb::sql::Function::Normal(
+                                    "count".into(),
+                                    vec![Value::Idiom(Idiom(vec![Part::Graph(Graph {
+                                        dir: Dir::Out,
+                                        what: Tables(vec![Table(rel2.into())]),
+                                        expr: Fields::all(),
+                                        ..Default::default()
+                                    })]))],
+                                ))),
+                                o: Operator::Equal,
+                                r: Value::Number(Number::Int(0)),
+                            })),
+                        })))),
+                        ..Default::default()
+                    },
+                )))],
+            ))),
+            ..Default::default()
+        }
+    }
+
+    count_orphaned_both_statement(table.as_ref(), rel1.as_ref(), rel2.as_ref())
 }

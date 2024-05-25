@@ -1,4 +1,5 @@
 pub mod crud;
+pub mod health;
 pub mod schemas;
 
 use std::path::PathBuf;

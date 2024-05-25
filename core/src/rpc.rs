@@ -49,7 +49,7 @@ pub trait MusicPlayer {
     /// Returns full information about the music library's songs.
     async fn library_songs_full() -> Result<Box<[Song]>, SerializableLibraryError>;
     /// Returns information about the health of the music library (are there any missing files, etc.)
-    async fn library_health() -> LibraryHealth;
+    async fn library_health() -> Result<LibraryHealth, SerializableLibraryError>;
 
     // music library CRUD operations
     /// Get a song by its ID.

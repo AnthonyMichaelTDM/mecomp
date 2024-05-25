@@ -164,9 +164,14 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// Returns information about the health of the music library (are there any missing files, etc.)
     #[instrument]
-    async fn library_health(self, context: Context) -> LibraryHealth {
+    async fn library_health(
+        self,
+        context: Context,
+    ) -> Result<LibraryHealth, SerializableLibraryError> {
         info!("Creating library health");
-        todo!()
+        Ok(services::library::health(&self.db)
+            .await
+            .tap_err(|e| warn!("Error in library_health: {e}"))?)
     }
     /// Get a song by its ID.
     #[instrument]

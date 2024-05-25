@@ -1,7 +1,7 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use log::{debug, info, warn};
-use mecomp_core::state::library::{LibraryBrief, LibraryFull};
+use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
 use surrealdb::{Connection, Surreal};
 use tap::TapFallible;
 use tracing::instrument;
@@ -9,12 +9,19 @@ use tracing::instrument;
 use walkdir::WalkDir;
 
 use mecomp_storage::{
-    db::schemas::{
-        album::Album,
-        artist::Artist,
-        collection::Collection,
-        playlist::Playlist,
-        song::{Song, SongMetadata},
+    db::{
+        health::{
+            count_albums, count_artists, count_collections, count_orphaned_albums,
+            count_orphaned_artists, count_orphaned_collections, count_orphaned_playlists,
+            count_playlists, count_songs,
+        },
+        schemas::{
+            album::Album,
+            artist::Artist,
+            collection::Collection,
+            playlist::Playlist,
+            song::{Song, SongMetadata},
+        },
     },
     errors::Error,
     util::MetadataConflictResolution,
@@ -145,11 +152,11 @@ pub async fn rescan<C: Connection>(
 #[instrument]
 pub async fn brief<C: Connection>(db: &Surreal<C>) -> Result<LibraryBrief, Error> {
     Ok(LibraryBrief {
-        artists: Artist::read_all(db).await?.len(),
-        albums: Album::read_all(db).await?.len(),
-        songs: Song::read_all(db).await?.len(),
-        playlists: Playlist::read_all(db).await?.len(),
-        collections: Collection::read_all(db).await?.len(),
+        artists: count_artists(db).await?,
+        albums: count_albums(db).await?,
+        songs: count_songs(db).await?,
+        playlists: count_playlists(db).await?,
+        collections: count_collections(db).await?,
     })
 }
 
@@ -166,5 +173,27 @@ pub async fn full<C: Connection>(db: &Surreal<C>) -> Result<LibraryFull, Error> 
         songs: Song::read_all(db).await?.into(),
         playlists: Playlist::read_all(db).await?.into(),
         collections: Collection::read_all(db).await?.into(),
+    })
+}
+
+/// Get the health of the library.
+///
+/// This function will return the health of the library, including the number of orphaned items.
+///
+/// # Errors
+///
+/// This function will return an error if there is an error reading from the database.
+#[instrument]
+pub async fn health<C: Connection>(db: &Surreal<C>) -> Result<LibraryHealth, Error> {
+    Ok(LibraryHealth {
+        artists: count_artists(db).await?,
+        albums: count_albums(db).await?,
+        songs: count_songs(db).await?,
+        playlists: count_playlists(db).await?,
+        collections: count_collections(db).await?,
+        orphaned_artists: count_orphaned_artists(db).await?,
+        orphaned_albums: count_orphaned_albums(db).await?,
+        orphaned_playlists: count_orphaned_playlists(db).await?,
+        orphaned_collections: count_orphaned_collections(db).await?,
     })
 }
