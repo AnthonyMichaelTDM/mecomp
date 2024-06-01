@@ -8,7 +8,7 @@ use rand::seq::SliceRandom;
 use tap::TapFallible;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
-    audio::{AudioCommand, VolumeCommand, AUDIO_KERNEL},
+    audio::{AudioCommand, QueueCommand, VolumeCommand, AUDIO_KERNEL},
     errors::SerializableLibraryError,
     rpc::MusicPlayer,
     search::SearchResult,
@@ -489,7 +489,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Playing next song");
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::SkipForward(1));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
             }
             .in_current_span(),
         )
@@ -515,7 +515,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Skipping forward by {} songs", amount);
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::SkipForward(amount));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::SkipForward(amount)));
             }
             .in_current_span(),
         )
@@ -528,7 +528,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Going back by {} songs", amount);
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::SkipBackward(amount));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::SkipBackward(amount)));
             }
             .in_current_span(),
         )
@@ -555,7 +555,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Clearing queue and stopping playback");
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::Clear);
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::Clear));
             }
             .in_current_span(),
         )
@@ -574,7 +574,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Setting repeat mode to: {}", mode);
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::SetRepeatMode(mode));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::SetRepeatMode(mode)));
             }
             .in_current_span(),
         )
@@ -587,7 +587,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Shuffling queue");
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::ShuffleQueue);
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::Shuffle));
             }
             .in_current_span(),
         )
@@ -689,7 +689,9 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::AddToQueue(OneOrMany::One(song)));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                    OneOrMany::One(song),
+                )));
             }
             .in_current_span(),
         )
@@ -712,7 +714,7 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::AddToQueue(songs.into()));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
             }
             .in_current_span(),
         )
@@ -735,7 +737,7 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::AddToQueue(songs.into()));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
             }
             .in_current_span(),
         )
@@ -758,7 +760,7 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::AddToQueue(songs.into()));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
             }
             .in_current_span(),
         )
@@ -781,7 +783,7 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::AddToQueue(songs.into()));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
             }
             .in_current_span(),
         )
@@ -804,7 +806,9 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::AddToQueue(OneOrMany::One(song)));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                    OneOrMany::One(song),
+                )));
             }
             .in_current_span(),
         )
@@ -835,7 +839,9 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::AddToQueue(OneOrMany::Many(songs)));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                    OneOrMany::Many(songs),
+                )));
             }
             .in_current_span(),
         )
@@ -866,7 +872,9 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::AddToQueue(OneOrMany::Many(songs)));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                    OneOrMany::Many(songs),
+                )));
             }
             .in_current_span(),
         )
@@ -880,14 +888,30 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn queue_set_index(self, context: Context, index: usize) {
         info!("Setting queue index to: {}", index);
-        todo!()
+        
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::SetPosition(index)));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
     /// remove a range of songs from the queue.
     /// if the range is out of bounds, it will be clamped to the nearest valid range.
     #[instrument]
     async fn queue_remove_range(self, context: Context, range: Range<usize>) {
         info!("Removing queue range: {:?}", range);
-        todo!()
+        
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::RemoveRange(range)));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
     }
 
     /// Returns brief information about the users playlists.

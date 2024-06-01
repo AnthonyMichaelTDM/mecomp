@@ -179,6 +179,38 @@ impl Queue {
     pub fn queued_songs(&self) -> Box<[Song]> {
         self.songs.clone().into_boxed_slice()
     }
+
+    /// Sets the current index, clamped to the nearest valid index.
+    pub fn set_current_index(&mut self, index: usize) {
+        if self.songs.is_empty() {
+            self.current_index = None;
+        } else {
+            self.current_index = Some(index.min(self.songs.len().saturating_sub(1)));
+        }
+    }
+
+    /// Removes a range of songs from the queue.
+    /// If the current index is within the range, it will be set to the next valid index (or the
+    /// previous valid index if the range included the end of the queue).
+    pub fn remove_range(&mut self, range: std::ops::Range<usize>) {
+        if range.is_empty() || self.is_empty() {
+            return;
+        }
+        let current_index = self.current_index.unwrap_or_default();
+        let range_end = range.end.min(self.songs.len());
+        let range_start = range.start.min(range_end);
+
+        self.songs.drain(range_start..range_end);
+
+        if current_index >= range_start && current_index < range_end {
+            self.current_index = Some(range_start + 1);
+        } else if current_index >= range_end {
+            self.current_index = Some(current_index - (range_end - range_start));
+        }
+        if self.current_index.unwrap_or_default() >= self.songs.len() || self.is_empty() {
+            self.current_index = None;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -186,7 +218,8 @@ mod tests {
     use super::*;
     use crate::state::RepeatMode;
     use crate::test_utils::{
-        arb_song_case, arb_vec, bar_sc, baz_sc, create_song, foo_sc, init, SongCase, TIMEOUT,
+        arb_song_case, arb_vec, arb_vec_and_range_and_index, bar_sc, baz_sc, create_song, foo_sc,
+        init, RangeEndMode, RangeIndexMode, RangeStartMode, SongCase, TIMEOUT,
     };
 
     use mecomp_storage::db::init_test_database;
@@ -389,5 +422,95 @@ mod tests {
         let mut queue = Queue::new();
         queue.set_repeat_mode(repeat_mode);
         assert_eq!(queue.repeat_mode, repeat_mode);
+    }
+
+    #[rstest]
+    #[case::within_range( arb_vec(&arb_song_case(), 5..=10 )(), 3 )]
+    #[case::at_start( arb_vec(&arb_song_case(), 5..=10 )(), 0 )]
+    #[case::at_end( arb_vec(&arb_song_case(), 10..=10 )(), 9 )]
+    #[case::empty( arb_vec(&arb_song_case(),0..=0)(), 0)]
+    #[case::out_of_range( arb_vec(&arb_song_case(), 5..=10 )(), 15 )]
+    #[tokio::test]
+    async fn test_set_current_index(
+        #[case] songs: Vec<SongCase>,
+        #[case] index: usize,
+    ) -> anyhow::Result<()> {
+        let db = init_test_database().await?;
+        init().await?;
+        let mut queue = Queue::new();
+        let len = songs.len();
+        for sc in songs {
+            queue.add_song(create_song(&db, sc).await?);
+        }
+
+        queue.set_current_index(index);
+
+        if len == 0 {
+            assert_eq!(queue.current_index, None);
+        } else if index >= len {
+            assert_eq!(queue.current_index, Some(len - 1));
+        } else {
+            assert_eq!(queue.current_index, Some(index.min(len - 1)));
+        }
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[case( arb_vec_and_range_and_index(&arb_song_case(), 5..=10,RangeStartMode::Standard,RangeEndMode::Standard, RangeIndexMode::InRange )() )]
+    #[case( arb_vec_and_range_and_index(&arb_song_case(), 5..=10,RangeStartMode::Standard,RangeEndMode::Standard, RangeIndexMode::BeforeRange )() )]
+    #[case( arb_vec_and_range_and_index(&arb_song_case(), 5..=10,RangeStartMode::Standard,RangeEndMode::Standard, RangeIndexMode::AfterRangeInBounds )() )]
+    #[case( arb_vec_and_range_and_index(&arb_song_case(), 5..=10,RangeStartMode::Standard,RangeEndMode::Standard, RangeIndexMode::OutOfBounds )() )]
+    #[case( arb_vec_and_range_and_index(&arb_song_case(), 5..=10,RangeStartMode::Standard,RangeEndMode::Standard, RangeIndexMode::InBounds )() )]
+    #[case( arb_vec_and_range_and_index(&arb_song_case(), 5..=10,RangeStartMode::OutOfBounds,RangeEndMode::Standard, RangeIndexMode::InRange )() )]
+    #[case( arb_vec_and_range_and_index(&arb_song_case(), 0..=0,RangeStartMode::Zero,RangeEndMode::Start, RangeIndexMode::InBounds )() )]
+    #[case( arb_vec_and_range_and_index(&arb_song_case(), 5..=10, RangeStartMode::Standard, RangeEndMode::Start, RangeIndexMode::InBounds)() )]
+    #[case( arb_vec_and_range_and_index(&arb_song_case(), 5..=10,RangeStartMode::Standard,RangeEndMode::OutOfBounds, RangeIndexMode::InBounds )() )]
+    #[case( arb_vec_and_range_and_index(&arb_song_case(), 5..=10,RangeStartMode::Standard,RangeEndMode::OutOfBounds, RangeIndexMode::InRange )() )]
+    #[case( arb_vec_and_range_and_index(&arb_song_case(), 5..=10,RangeStartMode::Standard,RangeEndMode::OutOfBounds, RangeIndexMode::BeforeRange )() )]
+    #[tokio::test]
+    async fn test_remove_range(
+        #[case] params: (Vec<SongCase>, std::ops::Range<usize>, Option<usize>),
+    ) -> anyhow::Result<()> {
+        let (songs, range, index) = params;
+        let len = songs.len();
+        let db = init_test_database().await?;
+        init().await?;
+        let mut queue = Queue::new();
+        for sc in songs {
+            queue.add_song(create_song(&db, sc).await?);
+        }
+
+        if let Some(index) = index {
+            queue.set_current_index(index);
+        }
+
+        let unmodified_songs = queue.clone();
+
+        queue.remove_range(range.clone());
+
+        let start = range.start;
+        let end = range.end.min(len);
+
+        // our tests fall into 4 categories:
+        // 1. nothing is removed (start==end or start>=len)
+        // 2. everything is removed (start==0 and end>=len)
+        // 3. only some songs are removed(end>start>0)
+
+        if start >= len || start == end {
+            assert_eq!(queue.len(), len);
+        } else if start == 0 && end >= len {
+            assert_eq!(queue.len(), 0);
+            assert_eq!(queue.current_index, None);
+        } else {
+            assert_eq!(queue.len(), len - (end.min(len) - start));
+            for i in 0..start {
+                assert_eq!(queue.get(i), unmodified_songs.get(i));
+            }
+            for i in end..len {
+                assert_eq!(queue.get(i - (end - start)), unmodified_songs.get(i));
+            }
+        }
+        Ok(())
     }
 }
