@@ -33,15 +33,15 @@ impl Playlist {
         id: PlaylistId,
     ) -> Result<Option<Self>, Error> {
         // first we get the playlist we're copying
-        let Some(playlist) = Playlist::read(db, id.clone()).await? else {
+        let Some(playlist) = Self::read(db, id.clone()).await? else {
             return Ok(None);
         };
 
         // next we create a new playlist with the same name (with "copy" appended)
-        let Some(new_playlist) = Playlist::create(
+        let Some(new_playlist) = Self::create(
             db,
-            Playlist {
-                id: Playlist::generate_id(),
+            Self {
+                id: Self::generate_id(),
                 name: format!("{} (copy)", playlist.name).into(),
                 song_count: 0,
                 runtime: Duration::from_secs(0),
@@ -53,10 +53,10 @@ impl Playlist {
         };
 
         // then we add all the songs in the original playlist to the new playlist
-        Playlist::add_songs(
+        Self::add_songs(
             db,
             new_playlist.id.clone(),
-            &Playlist::read_songs(db, id.clone())
+            &Self::read_songs(db, id.clone())
                 .await?
                 .iter()
                 .map(|song| song.id.clone())
@@ -64,7 +64,7 @@ impl Playlist {
         )
         .await?;
 
-        Playlist::read(db, new_playlist.id.clone()).await
+        Self::read(db, new_playlist.id.clone()).await
     }
 
     #[instrument]
