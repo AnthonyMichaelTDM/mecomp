@@ -1,4 +1,7 @@
-use std::{ops::RangeInclusive, time::Duration};
+use std::{
+    ops::{Range, RangeInclusive},
+    time::Duration,
+};
 
 use audiotags;
 use lazy_static::lazy_static;
@@ -142,19 +145,91 @@ pub fn arb_song_case() -> impl Fn() -> SongCase {
     }
 }
 
+pub enum IndexMode {
+    InBounds,
+    OutOfBounds,
+}
+
 pub fn arb_vec_and_index<T>(
     item_strategy: &impl Fn() -> T,
     range: RangeInclusive<usize>,
+    index_mode: IndexMode,
 ) -> impl Fn() -> (Vec<T>, usize) + '_
 where
     T: Clone + std::fmt::Debug + Sized,
 {
     move || {
         let vec = arb_vec(item_strategy, range.clone())();
-        let index = (0..vec.len())
-            .choose(&mut rand::thread_rng())
-            .unwrap_or_default();
+        let index = match index_mode {
+            IndexMode::InBounds => 0..vec.len(),
+            IndexMode::OutOfBounds => vec.len()..(vec.len() + vec.len() / 2 + 1),
+        }
+        .choose(&mut rand::thread_rng())
+        .unwrap_or_default();
         (vec, index)
+    }
+}
+
+pub enum RangeStartMode {
+    Standard,
+    Zero,
+    OutOfBounds,
+}
+
+pub enum RangeEndMode {
+    Start,
+    Standard,
+    OutOfBounds,
+}
+
+pub enum RangeIndexMode {
+    InBounds,
+    InRange,
+    AfterRangeInBounds,
+    OutOfBounds,
+    BeforeRange,
+}
+
+// Returns a tuple of a Vec of T and a Range<usize>
+// where the start is a random index in the Vec
+// and the end is a random index in the Vec that is greater than or equal to the start
+pub fn arb_vec_and_range_and_index<T>(
+    item_strategy: &impl Fn() -> T,
+    range: RangeInclusive<usize>,
+    range_start_mode: RangeStartMode,
+    range_end_mode: RangeEndMode,
+    index_mode: RangeIndexMode,
+) -> impl Fn() -> (Vec<T>, Range<usize>, Option<usize>) + '_
+where
+    T: Clone + std::fmt::Debug + Sized,
+{
+    move || {
+        let vec = arb_vec(item_strategy, range.clone())();
+        let start = match range_start_mode {
+            RangeStartMode::Standard => 0..vec.len(),
+            RangeStartMode::OutOfBounds => vec.len()..(vec.len() + vec.len() / 2 + 1),
+            RangeStartMode::Zero => 0..1,
+        }
+        .choose(&mut rand::thread_rng())
+        .unwrap_or_default();
+        let end = match range_end_mode {
+            RangeEndMode::Standard => start..vec.len(),
+            RangeEndMode::OutOfBounds => vec.len()..(vec.len() + vec.len() / 2 + 1).max(start),
+            RangeEndMode::Start => start..(start + 1),
+        }
+        .choose(&mut rand::thread_rng())
+        .unwrap_or_default();
+
+        let index = match index_mode {
+            RangeIndexMode::InBounds => 0..vec.len(),
+            RangeIndexMode::InRange => start..end,
+            RangeIndexMode::AfterRangeInBounds => end..vec.len(),
+            RangeIndexMode::OutOfBounds => vec.len()..(vec.len() + vec.len() / 2 + 1),
+            RangeIndexMode::BeforeRange => 0..start,
+        }
+        .choose(&mut rand::thread_rng());
+
+        (vec, start..end, index)
     }
 }
 

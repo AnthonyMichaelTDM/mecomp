@@ -5,6 +5,7 @@ use std::{
     cell::{RefCell, RefMut},
     fs::File,
     io::BufReader,
+    ops::Range,
     sync::{
         atomic::AtomicBool,
         mpsc::{Receiver, Sender},
@@ -35,6 +36,18 @@ lazy_static! {
         Arc::new(AudioKernelSender { tx })
     };
 }
+/// Queue Commands
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QueueCommand {
+    SkipForward(usize),
+    SkipBackward(usize),
+    SetPosition(usize),
+    Shuffle,
+    AddToQueue(OneOrMany<Song>),
+    RemoveRange(Range<usize>),
+    Clear,
+    SetRepeatMode(RepeatMode),
+}
 
 /// Volume commands
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -56,12 +69,9 @@ pub enum AudioCommand {
     RestartSong,
     /// only clear the player (i.e. stop playback)
     ClearPlayer,
-    Clear,
-    SkipForward(usize),
-    SkipBackward(usize),
-    ShuffleQueue,
-    AddToQueue(OneOrMany<Song>),
-    SetRepeatMode(RepeatMode),
+    /// Queue Commands
+    Queue(QueueCommand),
+    /// Stop the audio kernel
     Exit,
     /// used to report information about the state of the audio kernel
     ReportStatus(tokio::sync::oneshot::Sender<StateAudio>),
@@ -76,15 +86,10 @@ impl PartialEq for AudioCommand {
             | (Self::Pause, Self::Pause)
             | (Self::TogglePlayback, Self::TogglePlayback)
             | (Self::ClearPlayer, Self::ClearPlayer)
-            | (Self::Clear, Self::Clear)
             | (Self::RestartSong, Self::RestartSong)
-            | (Self::ShuffleQueue, Self::ShuffleQueue)
             | (Self::Exit, Self::Exit)
             | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
-            (Self::SkipForward(a), Self::SkipForward(b))
-            | (Self::SkipBackward(a), Self::SkipBackward(b)) => a == b,
-            (Self::AddToQueue(a), Self::AddToQueue(b)) => a == b,
-            (Self::SetRepeatMode(a), Self::SetRepeatMode(b)) => a == b,
+            (Self::Queue(a), Self::Queue(b)) => a == b,
             (Self::Volume(a), Self::Volume(b)) => a == b,
             _ => false,
         }
@@ -181,20 +186,7 @@ impl AudioKernel {
                 AudioCommand::TogglePlayback => self.toggle_playback(),
                 AudioCommand::RestartSong => self.restart_song(),
                 AudioCommand::ClearPlayer => self.clear_player(),
-                AudioCommand::Clear => self.clear(),
-                AudioCommand::SkipForward(n) => self.skip_forward(n),
-                AudioCommand::SkipBackward(n) => self.skip_backward(n),
-                AudioCommand::ShuffleQueue => self.queue.borrow_mut().shuffle(),
-                AudioCommand::AddToQueue(OneOrMany::None) => {}
-                AudioCommand::AddToQueue(OneOrMany::One(song)) => {
-                    self.add_song_to_queue(song);
-                }
-                AudioCommand::AddToQueue(OneOrMany::Many(songs)) => {
-                    self.add_songs_to_queue(songs);
-                }
-                AudioCommand::SetRepeatMode(mode) => {
-                    self.queue.borrow_mut().set_repeat_mode(mode);
-                }
+                AudioCommand::Queue(command) => self.queue_control(command),
                 AudioCommand::Exit => break,
                 AudioCommand::ReportStatus(tx) => {
                     let current_song = self.queue.borrow().current_song().cloned();
@@ -256,6 +248,21 @@ impl AudioKernel {
         self.player.clear();
     }
 
+    fn queue_control(&self, command: QueueCommand) {
+        match command {
+            QueueCommand::Clear => self.clear(),
+            QueueCommand::SkipForward(n) => self.skip_forward(n),
+            QueueCommand::SkipBackward(n) => self.skip_backward(n),
+            QueueCommand::SetPosition(n) => self.set_position(n),
+            QueueCommand::Shuffle => self.queue.borrow_mut().shuffle(),
+            QueueCommand::AddToQueue(OneOrMany::None) => {}
+            QueueCommand::AddToQueue(OneOrMany::One(song)) => self.add_song_to_queue(song),
+            QueueCommand::AddToQueue(OneOrMany::Many(songs)) => self.add_songs_to_queue(songs),
+            QueueCommand::RemoveRange(range) => self.remove_range_from_queue(range),
+            QueueCommand::SetRepeatMode(mode) => self.queue.borrow_mut().set_repeat_mode(mode),
+        }
+    }
+
     fn clear(&self) {
         self.clear_player();
         self.queue.borrow_mut().clear();
@@ -301,6 +308,24 @@ impl AudioKernel {
         }
     }
 
+    fn set_position(&self, n: usize) {
+        let paused = self.player.is_paused();
+        self.clear_player();
+
+        let mut binding = self.queue();
+        binding.set_current_index(n);
+        let next_song = binding.current_song();
+
+        if let Some(song) = next_song {
+            if let Err(e) = self.append_song_to_player(song) {
+                error!("Failed to append song to player: {e}");
+            }
+            if !paused {
+                self.play();
+            }
+        }
+    }
+
     fn add_song_to_queue(&self, song: Song) {
         {
             let mut binding = self.queue();
@@ -314,7 +339,7 @@ impl AudioKernel {
                 current_index.map_or_else(|| self.get_next_song(), |_| self.get_current_song())
             {
                 if let Err(e) = self.append_song_to_player(&song) {
-                    error!("Failed to append song to player: {}", e);
+                    error!("Failed to append song to player: {e}");
                 }
                 self.play();
             }
@@ -334,8 +359,33 @@ impl AudioKernel {
                 current_index.map_or_else(|| self.get_next_song(), |_| self.get_current_song())
             {
                 if let Err(e) = self.append_song_to_player(&song) {
-                    error!("Failed to append song to player: {}", e);
+                    error!("Failed to append song to player: {e}");
                 }
+                self.play();
+            }
+        }
+    }
+
+    // TODO: test that the player stops playing when the current song is removed,
+    fn remove_range_from_queue(&self, range: Range<usize>) {
+        let paused = if self.player.is_paused() {
+            true
+        } else if let Some(current_index) = self.queue.borrow().current_index() {
+            // still true if the current song is to be removed
+            range.contains(&current_index)
+        } else {
+            false
+        };
+        self.clear_player();
+
+        let mut binding = self.queue();
+        binding.remove_range(range);
+
+        if let Some(song) = binding.current_song() {
+            if let Err(e) = self.append_song_to_player(song) {
+                error!("Failed to append song to player: {e}");
+            }
+            if !paused {
                 self.play();
             }
         }
@@ -525,27 +575,33 @@ mod tests {
             assert_eq!(state.queue_position, None);
             assert!(state.paused);
 
-            sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
-            sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
-            sender.send(AudioCommand::AddToQueue(OneOrMany::One(song.clone())));
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::One(song.clone()),
+            )));
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::One(song.clone()),
+            )));
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::One(song.clone()),
+            )));
             // songs were added to an empty queue, so the first song should start playing
             let state = get_state(sender.clone());
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused);
 
-            sender.send(AudioCommand::SkipForward(1));
+            sender.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
             // the second song should start playing
             let state = get_state(sender.clone());
             assert_eq!(state.queue_position, Some(1));
             assert!(!state.paused);
 
-            sender.send(AudioCommand::SkipForward(1));
+            sender.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
             // the third song should start playing
             let state = get_state(sender.clone());
             assert_eq!(state.queue_position, Some(2));
             assert!(!state.paused);
 
-            sender.send(AudioCommand::SkipForward(1));
+            sender.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
             // we were at the end of the queue and tried to skip forward, so the player should be paused and the queue position should be None
             let state = get_state(sender.clone());
             assert_eq!(state.queue_position, None);
