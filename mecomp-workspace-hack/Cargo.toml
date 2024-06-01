@@ -24,7 +24,7 @@ futures-sink = { version = "0.3" }
 getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
 hashbrown = { version = "0.14", features = ["raw"] }
 indexmap = { version = "2", features = ["serde"] }
-itertools = { version = "0.11" }
+itertools = { version = "0.12" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
 libc = { version = "0.2" }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
@@ -60,7 +60,7 @@ futures-sink = { version = "0.3" }
 getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
 hashbrown = { version = "0.14", features = ["raw"] }
 indexmap = { version = "2", features = ["serde"] }
-itertools = { version = "0.11" }
+itertools = { version = "0.12" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
 libc = { version = "0.2" }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
