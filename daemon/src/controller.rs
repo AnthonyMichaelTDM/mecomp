@@ -888,7 +888,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn queue_set_index(self, context: Context, index: usize) {
         info!("Setting queue index to: {}", index);
-        
+
         tokio::spawn(
             async move {
                 AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::SetPosition(index)));
@@ -903,7 +903,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn queue_remove_range(self, context: Context, range: Range<usize>) {
         info!("Removing queue range: {:?}", range);
-        
+
         tokio::spawn(
             async move {
                 AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::RemoveRange(range)));

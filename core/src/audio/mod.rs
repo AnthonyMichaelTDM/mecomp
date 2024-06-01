@@ -37,7 +37,7 @@ lazy_static! {
     };
 }
 /// Queue Commands
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QueueCommand {
     SkipForward(usize),
     SkipBackward(usize),
