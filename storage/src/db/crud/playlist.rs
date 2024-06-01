@@ -1,11 +1,14 @@
 //! CRUD operations for the playlist table
-use surrealdb::{Connection, Surreal};
+use surrealdb::{sql::Duration, Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
-    db::schemas::{
-        playlist::{Playlist, PlaylistChangeSet, PlaylistId, TABLE_NAME},
-        song::{Song, SongId},
+    db::{
+        crud::queries::playlist::read_by_name,
+        schemas::{
+            playlist::{Playlist, PlaylistChangeSet, PlaylistId, TABLE_NAME},
+            song::{Song, SongId},
+        },
     },
     errors::Error,
 };
@@ -25,6 +28,46 @@ impl Playlist {
     }
 
     #[instrument]
+    pub async fn create_copy<C: Connection>(
+        db: &Surreal<C>,
+        id: PlaylistId,
+    ) -> Result<Option<Self>, Error> {
+        // first we get the playlist we're copying
+        let Some(playlist) = Playlist::read(db, id.clone()).await? else {
+            return Ok(None);
+        };
+
+        // next we create a new playlist with the same name (with "copy" appended)
+        let Some(new_playlist) = Playlist::create(
+            db,
+            Playlist {
+                id: Playlist::generate_id(),
+                name: format!("{} (copy)", playlist.name).into(),
+                song_count: 0,
+                runtime: Duration::from_secs(0),
+            },
+        )
+        .await?
+        else {
+            return Ok(None);
+        };
+
+        // then we add all the songs in the original playlist to the new playlist
+        Playlist::add_songs(
+            db,
+            new_playlist.id.clone(),
+            &Playlist::read_songs(db, id.clone())
+                .await?
+                .iter()
+                .map(|song| song.id.clone())
+                .collect::<Vec<_>>(),
+        )
+        .await?;
+
+        Playlist::read(db, new_playlist.id.clone()).await
+    }
+
+    #[instrument]
     pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Self>, Error> {
         Ok(db.select(TABLE_NAME).await?)
     }
@@ -35,6 +78,18 @@ impl Playlist {
         id: PlaylistId,
     ) -> Result<Option<Self>, Error> {
         Ok(db.select((TABLE_NAME, id)).await?)
+    }
+
+    #[instrument]
+    pub async fn read_by_name<C: Connection>(
+        db: &Surreal<C>,
+        name: String,
+    ) -> Result<Option<Self>, Error> {
+        Ok(db
+            .query(read_by_name())
+            .bind(("name", name))
+            .await?
+            .take(0)?)
     }
 
     #[instrument]
@@ -123,7 +178,7 @@ mod tests {
     use crate::{db::init_test_database, test_utils::ulid, util::OneOrMany};
 
     use anyhow::{anyhow, Result};
-    use pretty_assertions::assert_eq;
+    use pretty_assertions::{assert_eq, assert_str_eq};
     use rstest::rstest;
     use surrealdb::sql::Duration;
 
@@ -148,12 +203,65 @@ mod tests {
 
     #[rstest]
     #[tokio::test]
+    async fn test_create_copy(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
+        // create playlist
+        let playlist = create_playlist(&ulid);
+        Playlist::create(&db, playlist.clone()).await?;
+        // add a song to that playlist
+        let song = Song {
+            id: Song::generate_id(),
+            title: format!("Test Song {ulid}").into(),
+            artist: OneOrMany::One(format!("Test Album {ulid}").into()),
+            album: format!("Test Album {ulid}").into(),
+            runtime: Duration::from_secs(5),
+            track: Some(1),
+            disc: Some(1),
+            genre: OneOrMany::None,
+            album_artist: OneOrMany::One(format!("Test Album {ulid}").into()),
+            release_year: None,
+            extension: "mp3".into(),
+            path: PathBuf::from(format!("song_1_{}_{ulid}", rand::random::<usize>())),
+        };
+        Song::create(&db, song.clone()).await?;
+        Playlist::add_songs(&db, playlist.id.clone(), &[song.id.clone()]).await?;
+        // clone the playlist
+        let result = Playlist::create_copy(&db, playlist.id.clone())
+            .await?
+            .ok_or_else(|| anyhow!("Playlist not found after being cloned"))?;
+
+        // ensure the playlist was cloned correctly
+        assert_str_eq!(result.name, format!("{} (copy)", playlist.name).into());
+        assert_eq!(result.song_count, 1);
+        assert_eq!(result.runtime, Duration::from_secs(5));
+
+        assert_eq!(
+            Playlist::read_songs(&db, result.id.clone()).await?,
+            vec![song]
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
     async fn test_read_all(ulid: String) -> Result<()> {
         let db = init_test_database().await?;
         let playlist = create_playlist(&ulid);
         Playlist::create(&db, playlist.clone()).await?;
         let result = Playlist::read_all(&db).await?;
         assert!(!result.is_empty());
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_read_by_name(ulid: String) -> Result<()> {
+        let db = init_test_database().await?;
+        let playlist = create_playlist(&ulid);
+        Playlist::create(&db, playlist.clone()).await?;
+        let result = Playlist::read_by_name(&db, playlist.name.as_ref().to_string()).await?;
+        assert_eq!(result, Some(playlist));
         Ok(())
     }
 

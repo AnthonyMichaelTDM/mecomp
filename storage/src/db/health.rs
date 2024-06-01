@@ -157,7 +157,7 @@ mod tests {
             disc: None,
             release_year: None,
             extension: "mp3".into(),
-            path: format!("test.mp3").into(),
+            path: "test.mp3".into(),
         }
     }
 

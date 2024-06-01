@@ -185,23 +185,37 @@ pub trait MusicPlayer {
     /// Returns brief information about the users playlists.
     async fn playlist_list() -> Box<[PlaylistBrief]>;
     /// create a new playlist.
-    async fn playlist_new(name: String) -> PlaylistId;
+    async fn playlist_new(name: String) -> Result<PlaylistId, SerializableLibraryError>;
     /// remove a playlist.
-    async fn playlist_remove(name: String) -> bool;
+    async fn playlist_remove(id: PlaylistId) -> Result<(), SerializableLibraryError>;
     /// clone a playlist.
     /// (creates a new playlist with the same name (append "copy") and contents as the given playlist.)
-    async fn playlist_clone(name: String) -> ();
+    /// returns the id of the new playlist.
+    async fn playlist_clone(id: PlaylistId) -> Result<PlaylistId, SerializableLibraryError>;
     /// get the id of a playlist.
+    /// returns none if the playlist does not exist.
     async fn playlist_get_id(name: String) -> Option<PlaylistId>;
-    /// remove a song from a playlist.
-    /// if the song is not in the playlist, this will do nothing.
-    async fn playlist_remove_song(playlist: PlaylistId, song: SongId) -> ();
+    /// remove a list of songs from a playlist.
+    /// if the songs are not in the playlist, this will do nothing.
+    async fn playlist_remove_songs(
+        playlist: PlaylistId,
+        songs: Vec<SongId>,
+    ) -> Result<(), SerializableLibraryError>;
     /// Add an artist to a playlist.
-    async fn playlist_add_artist(playlist: PlaylistId, artist: ArtistId) -> ();
+    async fn playlist_add_artist(
+        playlist: PlaylistId,
+        artist: ArtistId,
+    ) -> Result<(), SerializableLibraryError>;
     /// Add an album to a playlist.
-    async fn playlist_add_album(playlist: PlaylistId, album: AlbumId) -> ();
+    async fn playlist_add_album(
+        playlist: PlaylistId,
+        album: AlbumId,
+    ) -> Result<(), SerializableLibraryError>;
     /// Add a song to a playlist.
-    async fn playlist_add_song(playlist: PlaylistId, song: SongId) -> ();
+    async fn playlist_add_song(
+        playlist: PlaylistId,
+        song: SongId,
+    ) -> Result<(), SerializableLibraryError>;
     /// Get a playlist by its ID.
     async fn playlist_get(id: PlaylistId) -> Option<Playlist>;
 

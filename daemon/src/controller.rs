@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------------------- std lib
 use std::{net::SocketAddr, ops::Range, sync::Arc};
-use surrealdb::{engine::local::Db, Surreal};
+use surrealdb::{engine::local::Db, sql::Duration, Surreal};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
 use log::{info, warn};
@@ -818,14 +818,62 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn queue_add_rand_album(self, context: Context) -> Result<(), SerializableLibraryError> {
         info!("Adding random album to queue");
-        todo!()
+
+        let songs = Album::read_songs(
+            &self.db,
+            Album::read_all(&self.db)
+                .await
+                .tap_err(|e| warn!("Error in rand_album (reading albums): {e}"))
+                .ok()
+                .and_then(|albums| albums.choose(&mut rand::thread_rng()).cloned())
+                .ok_or(NotFound)?
+                .id,
+        )
+        .await
+        .tap_err(|e| warn!("Error in rand_album (reading songs): {e}"))
+        .map_err(|_| NotFound)?;
+
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::AddToQueue(OneOrMany::Many(songs)));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
+
+        Ok(())
     }
     /// add a random artist to the queue.
     /// (if the queue is empty, it will start playing the artist.)
     #[instrument]
     async fn queue_add_rand_artist(self, context: Context) -> Result<(), SerializableLibraryError> {
         info!("Adding random artist to queue");
-        todo!()
+
+        let songs = Artist::read_songs(
+            &self.db,
+            Artist::read_all(&self.db)
+                .await
+                .tap_err(|e| warn!("Error in rand_artist (reading artists): {e}"))
+                .ok()
+                .and_then(|artists| artists.choose(&mut rand::thread_rng()).cloned())
+                .ok_or(NotFound)?
+                .id,
+        )
+        .await
+        .tap_err(|e| warn!("Error in rand_artist (reading songs): {e}"))
+        .map_err(|_| NotFound)?;
+
+        tokio::spawn(
+            async move {
+                AUDIO_KERNEL.send(AudioCommand::AddToQueue(OneOrMany::Many(songs)));
+            }
+            .in_current_span(),
+        )
+        .await
+        .unwrap();
+
+        Ok(())
     }
     /// set the current song to a queue index.
     /// if the index is out of bounds, it will be clamped to the nearest valid index.
@@ -855,59 +903,144 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// create a new playlist.
     #[instrument]
-    async fn playlist_new(self, context: Context, name: String) -> PlaylistId {
+    async fn playlist_new(
+        self,
+        context: Context,
+        name: String,
+    ) -> Result<PlaylistId, SerializableLibraryError> {
         info!("Creating new playlist: {}", name);
-        todo!()
+
+        Ok(Playlist::create(
+            &self.db,
+            Playlist {
+                id: Playlist::generate_id(),
+                name: name.into(),
+                runtime: Duration::from_secs(0),
+                song_count: 0,
+            },
+        )
+        .await?
+        .map(|playlist| playlist.id)
+        .ok_or(NotFound)?)
     }
     /// remove a playlist.
     #[instrument]
-    async fn playlist_remove(self, context: Context, name: String) -> bool {
-        info!("Removing playlist: {}", name);
-        todo!()
+    async fn playlist_remove(
+        self,
+        context: Context,
+        id: PlaylistId,
+    ) -> Result<(), SerializableLibraryError> {
+        info!("Removing playlist with id: {}", id);
+
+        Playlist::delete(&self.db, id).await?.ok_or(NotFound)?;
+
+        Ok(())
     }
     /// clone a playlist.
     /// (creates a new playlist with the same name (append "copy") and contents as the given playlist.)
+    /// returns the id of the new playlist
     #[instrument]
-    async fn playlist_clone(self, context: Context, name: String) {
-        info!("Cloning playlist: {}", name);
-        todo!()
+    async fn playlist_clone(
+        self,
+        context: Context,
+        id: PlaylistId,
+    ) -> Result<PlaylistId, SerializableLibraryError> {
+        info!("Cloning playlist with id: {}", id);
+
+        let new_playlist = Playlist::create_copy(&self.db, id).await?.ok_or(NotFound)?;
+
+        Ok(new_playlist.id)
     }
     /// get the id of a playlist.
+    /// returns none if the playlist does not exist.
     #[instrument]
     async fn playlist_get_id(self, context: Context, name: String) -> Option<PlaylistId> {
         info!("Getting playlist ID: {}", name);
-        todo!()
+
+        Playlist::read_by_name(&self.db, name)
+            .await
+            .tap_err(|e| warn!("Error in playlist_get_id: {e}"))
+            .ok()
+            .flatten()
+            .map(|playlist| playlist.id)
     }
-    /// remove a song from a playlist.
-    /// if the song is not in the playlist, this will do nothing.
+    /// remove a list of songs from a playlist.
+    /// if the songs are not in the playlist, this will do nothing.
     #[instrument]
-    async fn playlist_remove_song(self, context: Context, playlist: PlaylistId, song: SongId) {
-        info!("Removing song from playlist: {} ({})", playlist, song);
-        todo!()
+    async fn playlist_remove_songs(
+        self,
+        context: Context,
+        playlist: PlaylistId,
+        songs: Vec<SongId>,
+    ) -> Result<(), SerializableLibraryError> {
+        info!("Removing song from playlist: {} ({:?})", playlist, songs);
+
+        Ok(Playlist::remove_songs(&self.db, playlist, &songs).await?)
     }
     /// Add an artist to a playlist.
     #[instrument]
-    async fn playlist_add_artist(self, context: Context, playlist: PlaylistId, artist: ArtistId) {
+    async fn playlist_add_artist(
+        self,
+        context: Context,
+        playlist: PlaylistId,
+        artist: ArtistId,
+    ) -> Result<(), SerializableLibraryError> {
         info!("Adding artist to playlist: {} ({})", playlist, artist);
-        todo!()
+
+        Ok(Playlist::add_songs(
+            &self.db,
+            playlist,
+            &Artist::read_songs(&self.db, artist)
+                .await?
+                .iter()
+                .map(|song| song.id.clone())
+                .collect::<Vec<_>>(),
+        )
+        .await?)
     }
     /// Add an album to a playlist.
     #[instrument]
-    async fn playlist_add_album(self, context: Context, playlist: PlaylistId, album: AlbumId) {
+    async fn playlist_add_album(
+        self,
+        context: Context,
+        playlist: PlaylistId,
+        album: AlbumId,
+    ) -> Result<(), SerializableLibraryError> {
         info!("Adding album to playlist: {} ({})", playlist, album);
-        todo!()
+
+        Ok(Playlist::add_songs(
+            &self.db,
+            playlist,
+            &Album::read_songs(&self.db, album)
+                .await?
+                .iter()
+                .map(|song| song.id.clone())
+                .collect::<Vec<_>>(),
+        )
+        .await?)
     }
     /// Add a song to a playlist.
     #[instrument]
-    async fn playlist_add_song(self, context: Context, playlist: PlaylistId, song: SongId) {
+    async fn playlist_add_song(
+        self,
+        context: Context,
+        playlist: PlaylistId,
+        song: SongId,
+    ) -> Result<(), SerializableLibraryError> {
         info!("Adding song to playlist: {} ({})", playlist, song);
-        todo!()
+
+        Ok(Playlist::add_songs(&self.db, playlist, &[song]).await?)
     }
     /// Get a playlist by its ID.
     #[instrument]
     async fn playlist_get(self, context: Context, id: PlaylistId) -> Option<Playlist> {
         info!("Getting playlist by ID: {}", id);
-        todo!()
+
+        Playlist::read(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in playlist_get: {e}"))
+            .ok()
+            .flatten()
     }
 
     /// Collections: Return brief information about the users auto curration collections.
