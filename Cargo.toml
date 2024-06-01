@@ -67,7 +67,7 @@ rodio = { version = "0.18.1", features = ["symphonia-all"] }
 # ] }
 serde = { version = "1.0", features = ["derive", "rc"] }
 strum = { version = "0.26.2", features = ["derive"] }
-surrealdb = { version = "1.4.2", features = ["kv-speedb"] }
+surrealdb = { version = "1.5.1", features = ["kv-speedb"] }
 tap = { version = "1.0" }
 thiserror = { version = "1.0" }
 tokio = { version = "1.37", features = ["rt-multi-thread", "macros"] }
