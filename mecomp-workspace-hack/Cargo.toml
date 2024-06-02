@@ -33,16 +33,17 @@ nom = { version = "7" }
 num-bigint = { version = "0.4" }
 num-integer = { version = "0.1", default-features = false, features = ["i128", "std"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
+proc-macro2 = { version = "1" }
+quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
 regex = { version = "1" }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "hybrid", "meta", "nfa-backtrack", "perf", "unicode"] }
 regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
-serde = { version = "1", features = ["alloc", "derive", "rc"] }
-serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 surrealdb = { version = "1", features = ["kv-mem", "kv-speedb"] }
 surrealdb-core-dff4ba8e3ae991db = { package = "surrealdb-core", version = "1", default-features = false, features = ["kv-mem", "kv-speedb"] }
 surrealdb-core-f42c32b26a2135d3 = { package = "surrealdb-core", version = "2.0.0-1.4.2", default-features = false, features = ["kv-mem", "kv-speedb"] }
+syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
 tracing = { version = "0.1", features = ["log"] }
@@ -69,13 +70,13 @@ nom = { version = "7" }
 num-bigint = { version = "0.4" }
 num-integer = { version = "0.1", default-features = false, features = ["i128", "std"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
+proc-macro2 = { version = "1" }
+quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
 regex = { version = "1" }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "hybrid", "meta", "nfa-backtrack", "perf", "unicode"] }
 regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
-serde = { version = "1", features = ["alloc", "derive", "rc"] }
-serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 surrealdb = { version = "1", features = ["kv-mem", "kv-speedb"] }
 surrealdb-core-dff4ba8e3ae991db = { package = "surrealdb-core", version = "1", default-features = false, features = ["kv-mem", "kv-speedb"] }
 surrealdb-core-f42c32b26a2135d3 = { package = "surrealdb-core", version = "2.0.0-1.4.2", default-features = false, features = ["kv-mem", "kv-speedb"] }
