@@ -435,15 +435,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
-name = "basic-toml"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "823388e228f614e9558c6804262db37960ec8821856535f5c3f59913140558f8"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "bcrypt"
 version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2392,22 +2383,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b955cdeb2a02b9117f121ce63aa52d08ade45de53e48fe6a38b39c10f6f709"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "macrotest"
-version = "1.0.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c373046e96714b07b66d572e8b43e48d67cad110fd3f5bf2e000e58751864d2d"
-dependencies = [
- "basic-toml",
- "diff",
- "glob",
- "prettyplease",
- "serde",
- "serde_derive",
- "serde_json",
- "syn 2.0.65",
 ]
 
 [[package]]
@@ -4742,7 +4717,6 @@ dependencies = [
 name = "surrealqlx-macros"
 version = "0.1.0"
 dependencies = [
- "macrotest",
  "mecomp-workspace-hack",
  "surrealqlx-macros-impl",
  "syn 2.0.65",
@@ -4753,6 +4727,8 @@ name = "surrealqlx-macros-impl"
 version = "0.1.0"
 dependencies = [
  "mecomp-workspace-hack",
+ "pretty_assertions",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "syn 2.0.65",

@@ -4,7 +4,17 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse::Parse, punctuated::Punctuated, Data, DeriveInput};
 
-pub fn table_macro_impl(input: DeriveInput) -> TokenStream {
+#[cfg(test)]
+mod tests;
+
+pub fn table_macro_impl(input: TokenStream) -> TokenStream {
+    let input = match syn::parse2::<DeriveInput>(input) {
+        Ok(input) => input,
+        Err(err) => {
+            return err.to_compile_error().into();
+        }
+    };
+
     let struct_name = &input.ident;
 
     let table_name = match parse_table_name(&input) {
