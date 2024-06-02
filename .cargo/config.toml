@@ -1,2 +1,5 @@
 [alias]
 lint = "clippy -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::perf" # -D clippy::cargo
+
+[build]
+rustflags = ["--cfg", "surrealdb_unstable"]

@@ -6,9 +6,8 @@ use std::path::PathBuf;
 
 use log::info;
 use once_cell::sync::Lazy;
-use surrealdb::engine::local::Mem;
 use surrealdb::{
-    engine::local::{Db, SpeeDb},
+    engine::local::{Db, Mem, SurrealKV},
     Surreal,
 };
 use surrealqlx::register_tables;
@@ -36,7 +35,7 @@ pub fn set_database_path(path: PathBuf) -> Result<(), SetError<PathBuf>> {
 ///
 /// This function will return an error if the database cannot be initialized.
 pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
-    let db = Surreal::new::<SpeeDb>(DB_DIR
+    let db = Surreal::new::<SurrealKV>(DB_DIR
         .get().cloned()
         .unwrap_or_else(|| {
             log::warn!("DB_DIR not set, defaulting to a temporary directory `{}`, this is likely a bug because `init_database` should be called before `db`", TEMP_DB_DIR.path().display());

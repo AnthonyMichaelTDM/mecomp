@@ -34,6 +34,6 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 [dev-dependencies]
 anyhow = { workspace = true }
 pretty_assertions = { workspace = true }
-surrealdb = { workspace = true, features = ["kv-speedb", "kv-mem"] }
+surrealdb = { workspace = true, features = ["kv-mem"] }
 rstest = { workspace = true }
 lazy_static = { workspace = true }
