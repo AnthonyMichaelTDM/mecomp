@@ -66,7 +66,7 @@ fn test_album() {
     };
     let pretty_output = prettyplease::unparse(&syn::parse_file(&output).unwrap());
 
-    let expanded = table_macro_impl(input);
+    let expanded = table_macro_impl(input).unwrap();
     let pretty_expanded = prettyplease::unparse(&syn::parse_file(&expanded.to_string()).unwrap());
 
     assert_str_eq!(pretty_output, pretty_expanded);
@@ -113,7 +113,7 @@ fn test_bare_type() {
     };
     let pretty_output = prettyplease::unparse(&syn::parse_file(&output).unwrap());
 
-    let expanded = table_macro_impl(input);
+    let expanded = table_macro_impl(input).unwrap();
     let pretty_expanded = prettyplease::unparse(&syn::parse_file(&expanded.to_string()).unwrap());
 
     assert_str_eq!(pretty_output, pretty_expanded);
@@ -160,7 +160,7 @@ fn test_basic() {
     };
     let pretty_output = prettyplease::unparse(&syn::parse_file(&output).unwrap());
 
-    let expanded = table_macro_impl(input);
+    let expanded = table_macro_impl(input).unwrap();
     let pretty_expanded = prettyplease::unparse(&syn::parse_file(&expanded.to_string()).unwrap());
 
     assert_str_eq!(pretty_output, pretty_expanded);
@@ -222,7 +222,7 @@ fn test_index() {
     };
     let pretty_output = prettyplease::unparse(&syn::parse_file(&output).unwrap());
 
-    let expanded = table_macro_impl(input);
+    let expanded = table_macro_impl(input).unwrap();
     let pretty_expanded = prettyplease::unparse(&syn::parse_file(&expanded.to_string()).unwrap());
 
     assert_str_eq!(pretty_output, pretty_expanded);
@@ -271,7 +271,7 @@ fn test_skip_some_fields() {
     };
     let pretty_output = prettyplease::unparse(&syn::parse_file(&output).unwrap());
 
-    let expanded = table_macro_impl(input);
+    let expanded = table_macro_impl(input).unwrap();
     let pretty_expanded = prettyplease::unparse(&syn::parse_file(&expanded.to_string()).unwrap());
 
     assert_str_eq!(pretty_output, pretty_expanded);

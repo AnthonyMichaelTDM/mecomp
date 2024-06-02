@@ -7,37 +7,17 @@ use syn::{parse::Parse, punctuated::Punctuated, Data, DeriveInput};
 #[cfg(test)]
 mod tests;
 
-pub fn table_macro_impl(input: TokenStream) -> TokenStream {
-    let input = match syn::parse2::<DeriveInput>(input) {
-        Ok(input) => input,
-        Err(err) => {
-            return err.to_compile_error().into();
-        }
-    };
+pub fn table_macro_impl(input: TokenStream) -> syn::Result<TokenStream> {
+    let input = syn::parse2::<DeriveInput>(input)?;
 
     let struct_name = &input.ident;
 
-    let table_name = match parse_table_name(&input) {
-        Ok(table_name) => table_name,
-        Err(err) => {
-            return err.to_compile_error().into();
-        }
-    };
+    let table_name = parse_table_name(&input)?;
 
-    let struct_fields = match parse_struct_fields(&input) {
-        Ok(fields) => fields,
-        Err(err) => {
-            return err.to_compile_error().into();
-        }
-    };
+    let struct_fields = parse_struct_fields(&input)?;
 
     let (table_field_queries, index_queries) =
-        match create_table_field_queries(struct_fields, &table_name) {
-            Ok(queries) => queries,
-            Err(err) => {
-                return err.to_compile_error().into();
-            }
-        };
+        create_table_field_queries(struct_fields, &table_name)?;
 
     let table_query = format!("DEFINE TABLE {table_name} SCHEMAFULL;");
 
@@ -75,7 +55,7 @@ pub fn table_macro_impl(input: TokenStream) -> TokenStream {
     };
 
     // Hand the output tokens back to the compiler
-    expanded.into()
+    Ok(expanded.into())
 }
 
 // I want to make a derive macro that will implement the Table trait for a struct
