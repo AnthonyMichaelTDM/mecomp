@@ -20,7 +20,6 @@ futures = { workspace = true }
 lazy_static = { workspace = true }
 log = { workspace = true }
 rand = { workspace = true }
-rodio = { workspace = true }
 serde = { workspace = true }
 surrealdb = { workspace = true }
 tap = { workspace = true }
