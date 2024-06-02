@@ -28,7 +28,7 @@ tempfile = { workspace = true }
 
 
 # other dependencies
-metadata = { version = "=0.1.8" }
+metadata = { version = "=0.1.9" }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
