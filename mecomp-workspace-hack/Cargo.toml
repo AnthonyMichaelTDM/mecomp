@@ -12,6 +12,46 @@ publish = false
 # The parts of the file between the BEGIN HAKARI SECTION and END HAKARI SECTION comments
 # are managed by hakari.
 
+[package.metadata.cargo-machete]
+ignored = [
+    "ahash",
+    "anyhow",
+    "arrayvec",
+    "either",
+    "futures-channel",
+    "futures-executor",
+    "futures-io",
+    "futures-sink",
+    "futures-util",
+    "getrandom",
+    "hashbrown",
+    "indexmap",
+    "itertools-93f6ce9d446188ac",
+    "itertools-a6292c17cd707f01",
+    "lalrpop-util",
+    "libc",
+    "log",
+    "memchr",
+    "nom",
+    "num-bigint",
+    "num-integer",
+    "num-traits",
+    "proc-macro2",
+    "quote",
+    "rand",
+    "regex",
+    "regex-automata",
+    "regex-syntax",
+    "semver",
+    "serde",
+    "syn-f595c2ba2a3f28df",
+    "tokio",
+    "tokio-util",
+    "tracing",
+    "tracing-core",
+    "unicode-xid",
+]
+
 ### BEGIN HAKARI SECTION
 [dependencies]
 ahash = { version = "0.8" }
