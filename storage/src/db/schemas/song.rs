@@ -478,16 +478,11 @@ impl SongMetadata {
             runtime: properties.duration().into(),
             track: tag
                 .get_string(&ItemKey::TrackNumber)
-                .map(|x| x.parse().ok())
-                .flatten(),
+                .and_then(|x| x.parse().ok()),
             disc: tag
                 .get_string(&ItemKey::DiscNumber)
-                .map(|x| x.parse().ok())
-                .flatten(),
-            release_year: tag
-                .get_string(&ItemKey::Year)
-                .map(|x| x.parse().ok())
-                .flatten(),
+                .and_then(|x| x.parse().ok()),
+            release_year: tag.get_string(&ItemKey::Year).and_then(|x| x.parse().ok()),
             extension: path
                 .extension()
                 .expect("File without extension")
