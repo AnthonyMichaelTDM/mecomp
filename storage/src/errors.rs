@@ -22,12 +22,12 @@ pub enum Error {
 pub enum SongIOError {
     #[error("IO error: {0}")]
     FsError(#[from] std::io::Error),
-    #[error("Audiotag error: {0}")]
-    AudiotagError(#[from] audiotags::Error),
+    #[error("Lofty error: {0}")]
+    LoftyError(#[from] lofty::error::LoftyError),
+    #[error("Song missing audio tags")]
+    MissingTags,
     #[error("File not found: {0}")]
     FileNotFound(PathBuf),
-    #[error("Duration not found")]
-    DurationNotFound,
     #[error("Song already exists in the database")]
     SongExists,
     #[error("couldn't read duration from metadata")]

@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::{collections::HashSet, path::PathBuf};
 //--------------------------------------------------------------------------------- other libraries
-use metadata::media_file::MediaFileMetadata;
+use lofty::{file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Duration, Id, Thing};
 use surrealdb::{Connection, Surreal};
@@ -408,11 +408,23 @@ impl SongMetadata {
             return Err(SongIOError::FileNotFound(path));
         }
         // get metadata from the file
-        let tags = audiotags::Tag::default()
-            .read_from_path(&path)
-            .map_err(SongIOError::AudiotagError)?;
+        let tagged_file = Probe::open(&path)
+            .map_err(SongIOError::LoftyError)?
+            .read()
+            .map_err(SongIOError::LoftyError)?;
+        let properties = tagged_file.properties();
+
+        let tag = match tagged_file.primary_tag() {
+            Some(primary_tag) => primary_tag,
+            // If the "primary" tag doesn't exist, we just grab the
+            // first tag we can find. Realistically, a tag reader would likely
+            // iterate through the tags to find a suitable one.
+            None => tagged_file.first_tag().ok_or(SongIOError::MissingTags)?,
+        };
+
         let artist: OneOrMany<Arc<str>> =
-            tags.artist()
+            tag.artist()
+                .as_deref()
                 .map_or(OneOrMany::One("Unknown Artist".into()), |a| {
                     let a = a.replace('\0', "");
                     if let Some(sep) = artist_name_separator {
@@ -427,18 +439,18 @@ impl SongMetadata {
                 });
 
         Ok(Self {
-            title: tags
+            title: tag
                 .title()
                 .map_or_else(
                     || path.file_stem().unwrap().to_string_lossy(),
                     |x| x.replace('\0', "").into(),
                 )
                 .into(),
-            album: tags
-                .album_title()
+            album: tag
+                .album()
                 .map_or("Unknown Album".into(), |x| x.replace('\0', ""))
                 .into(),
-            album_artist: tags.album_artist().map_or_else(
+            album_artist: tag.get_string(&ItemKey::AlbumArtist).map_or_else(
                 || OneOrMany::One(artist.get(0).unwrap().clone()),
                 |a| {
                     let a = a.replace('\0', "");
@@ -454,7 +466,7 @@ impl SongMetadata {
                 },
             ),
             artist,
-            genre: tags
+            genre: tag
                 .genre()
                 .map(|genre| match (genre_separator, genre) {
                     (Some(sep), genre) if genre.contains(sep) => OneOrMany::Many(
@@ -463,16 +475,19 @@ impl SongMetadata {
                     (_, genre) => OneOrMany::One(genre.into()),
                 })
                 .into(),
-            runtime: MediaFileMetadata::new(&path)
-                .map_err(|_| SongIOError::DurationReadError)
-                .map(|x| {
-                    x._duration
-                        .map(|d| Duration::from(std::time::Duration::from_secs_f64(d)))
-                })?
-                .ok_or(SongIOError::DurationNotFound)?,
-            track: tags.track_number(),
-            disc: tags.disc_number(),
-            release_year: tags.year(),
+            runtime: properties.duration().into(),
+            track: tag
+                .get_string(&ItemKey::TrackNumber)
+                .map(|x| x.parse().ok())
+                .flatten(),
+            disc: tag
+                .get_string(&ItemKey::DiscNumber)
+                .map(|x| x.parse().ok())
+                .flatten(),
+            release_year: tag
+                .get_string(&ItemKey::Year)
+                .map(|x| x.parse().ok())
+                .flatten(),
             extension: path
                 .extension()
                 .expect("File without extension")

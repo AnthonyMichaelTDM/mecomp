@@ -14,7 +14,7 @@ license.workspace = true
 
 [dependencies]
 # shared dependencies
-audiotags = { workspace = true }
+lofty = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 rand = { workspace = true }
@@ -28,7 +28,6 @@ tempfile = { workspace = true }
 
 
 # other dependencies
-metadata = { version = "=0.1.8" }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]

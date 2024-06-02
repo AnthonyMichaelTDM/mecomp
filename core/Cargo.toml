@@ -48,7 +48,7 @@ pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 rstest_reuse = { workspace = true }
 tempfile = { workspace = true }
-audiotags = { workspace = true }
+lofty = { workspace = true }
 # mecomp-storage = { workspace = true, features = ["mock"] }
 
 [features]

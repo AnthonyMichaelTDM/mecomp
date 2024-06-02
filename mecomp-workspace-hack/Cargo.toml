@@ -26,13 +26,10 @@ ignored = [
     "getrandom",
     "hashbrown",
     "indexmap",
-    "itertools-93f6ce9d446188ac",
-    "itertools-a6292c17cd707f01",
+    "itertools",
     "lalrpop-util",
-    "libc",
     "log",
     "memchr",
-    "nom",
     "num-bigint",
     "num-integer",
     "num-traits",
@@ -44,7 +41,7 @@ ignored = [
     "regex-syntax",
     "semver",
     "serde",
-    "syn-f595c2ba2a3f28df",
+    "syn",
     "tokio",
     "tokio-util",
     "tracing",
@@ -66,13 +63,10 @@ futures-util = { version = "0.3", default-features = false, features = ["async-a
 getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
 hashbrown = { version = "0.14", features = ["raw", "serde"] }
 indexmap = { version = "2", features = ["serde"] }
-itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
-itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
+itertools = { version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
-libc = { version = "0.2" }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 memchr = { version = "2" }
-nom = { version = "7" }
 num-bigint = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
@@ -84,7 +78,7 @@ regex-automata = { version = "0.4", default-features = false, features = ["dfa-o
 regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
-syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
+syn = { version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
 tracing = { version = "0.1", features = ["log"] }
@@ -104,13 +98,10 @@ futures-util = { version = "0.3", default-features = false, features = ["async-a
 getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
 hashbrown = { version = "0.14", features = ["raw", "serde"] }
 indexmap = { version = "2", features = ["serde"] }
-itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
-itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
+itertools = { version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
-libc = { version = "0.2" }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 memchr = { version = "2" }
-nom = { version = "7" }
 num-bigint = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
@@ -122,8 +113,7 @@ regex-automata = { version = "0.4", default-features = false, features = ["dfa-o
 regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
-syn-dff4ba8e3ae991db = { package = "syn", version = "1", features = ["extra-traits", "full", "visit-mut"] }
-syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
+syn = { version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
 tracing = { version = "0.1", features = ["log"] }

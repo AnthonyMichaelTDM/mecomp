@@ -2,6 +2,7 @@ use std::{ops::RangeInclusive, path::PathBuf, str::FromStr, sync::Arc};
 
 use anyhow::Result;
 use lazy_static::lazy_static;
+use lofty::{config::WriteOptions, file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
 use rand::seq::IteratorRandom;
 use rstest::fixture;
 use surrealdb::{
@@ -152,32 +153,43 @@ pub fn song_metadata_from_case(
         .join("../assets/music.mp3")
         .canonicalize()?;
 
-    let mut tags = audiotags::Tag::default().read_from_path(&base_path)?;
-    tags.remove_album_artist();
-    tags.remove_title();
-    tags.remove_artist();
-    tags.remove_genre();
+    let mut tagged_file = Probe::open(&base_path)?.read()?;
+    let tag = match tagged_file.primary_tag_mut() {
+        Some(primary_tag) => primary_tag,
+        // If the "primary" tag doesn't exist, we just grab the
+        // first tag we can find. Realistically, a tag reader would likely
+        // iterate through the tags to find a suitable one.
+        None => tagged_file
+            .first_tag_mut()
+            .ok_or(anyhow::anyhow!("ERROR: No tags found"))?,
+    };
 
-    tags.add_artist(
-        &artists
+    tag.insert_text(
+        ItemKey::AlbumArtist,
+        album_artists
             .iter()
             .map(|a| format!("Artist {a} {ulid}"))
             .collect::<Vec<_>>()
             .join(", "),
     );
-    tags.add_album_artist(
-        &album_artists
+
+    tag.remove_artist();
+    tag.set_artist(
+        artists
             .iter()
             .map(|a| format!("Artist {a} {ulid}"))
             .collect::<Vec<_>>()
             .join(", "),
     );
 
-    tags.set_album_title(&format!("Album {album} {ulid}"));
+    tag.remove_album();
+    tag.set_album(format!("Album {album}"));
 
-    tags.set_title(&format!("Song {song} {ulid}"));
+    tag.remove_title();
+    tag.set_title(format!("Song {song}"));
 
-    tags.set_genre(&format!("Genre {genre} {ulid}"));
+    tag.remove_genre();
+    tag.set_genre(format!("Genre {genre}"));
 
     let new_path = TEMP_MUSIC_DIR
         .path()
@@ -185,7 +197,7 @@ pub fn song_metadata_from_case(
     // copy the base file to the new path
     std::fs::copy(&base_path, &new_path)?;
     // write the new tags to the new file
-    tags.write_to_path(new_path.to_str().unwrap())?;
+    tag.save_to_path(new_path.to_str().unwrap(), WriteOptions::default())?;
 
     // now, we need to load a SongMetadata from the new file
     Ok(SongMetadata::load_from_path(new_path, Some(", "), None)?)
