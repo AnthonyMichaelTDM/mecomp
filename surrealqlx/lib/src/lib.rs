@@ -1,5 +1,6 @@
 pub mod traits;
 #[cfg(feature = "macros")]
+#[doc(inline)]
 pub use surrealqlx_macros::*;
 
 /// Macro to register a table in the database,

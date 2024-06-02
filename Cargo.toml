@@ -9,6 +9,7 @@ members = [
     "storage",
     "surrealqlx/lib",
     "surrealqlx/macros",
+    "surrealqlx/macros-impl",
 ]
 exclude = ["external", "target", "assets", "scripts"]
 resolver = "2"

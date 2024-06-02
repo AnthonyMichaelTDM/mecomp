@@ -4744,6 +4744,15 @@ version = "0.1.0"
 dependencies = [
  "macrotest",
  "mecomp-workspace-hack",
+ "surrealqlx-macros-impl",
+ "syn 2.0.65",
+]
+
+[[package]]
+name = "surrealqlx-macros-impl"
+version = "0.1.0"
+dependencies = [
+ "mecomp-workspace-hack",
  "proc-macro2",
  "quote",
  "syn 2.0.65",
