@@ -7,6 +7,11 @@ use syn::{parse::Parse, punctuated::Punctuated, Data, DeriveInput};
 #[cfg(test)]
 mod tests;
 
+/// Implementation of the Table derive macro
+///
+/// # Errors
+///
+/// This function will return an error if the input couldn't be parsed, or if attributes are missing or invalid.
 pub fn table_macro_impl(input: TokenStream) -> syn::Result<TokenStream> {
     let input = syn::parse2::<DeriveInput>(input)?;
 
@@ -55,7 +60,7 @@ pub fn table_macro_impl(input: TokenStream) -> syn::Result<TokenStream> {
     };
 
     // Hand the output tokens back to the compiler
-    Ok(expanded.into())
+    Ok(expanded)
 }
 
 // I want to make a derive macro that will implement the Table trait for a struct
