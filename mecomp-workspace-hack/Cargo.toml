@@ -14,16 +14,20 @@ publish = false
 
 ### BEGIN HAKARI SECTION
 [dependencies]
+ahash = { version = "0.8" }
+anyhow = { version = "1" }
 arrayvec = { version = "0.7" }
-bitflags = { version = "2", default-features = false, features = ["serde"] }
 either = { version = "1" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-executor = { version = "0.3" }
+futures-io = { version = "0.3" }
 futures-sink = { version = "0.3" }
+futures-util = { version = "0.3", default-features = false, features = ["async-await-macro", "channel", "io", "sink"] }
 getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
 hashbrown = { version = "0.14", features = ["raw", "serde"] }
 indexmap = { version = "2", features = ["serde"] }
-itertools = { version = "0.11" }
+itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
+itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
 libc = { version = "0.2" }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
@@ -39,28 +43,29 @@ regex = { version = "1" }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "hybrid", "meta", "nfa-backtrack", "perf", "unicode"] }
 regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
-surrealdb = { version = "1", features = ["kv-mem", "kv-surrealkv"] }
-surrealdb-core-7b9527e557d8cd20 = { package = "surrealdb-core", version = "2.0.0-1.5.1", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
-surrealdb-core-dff4ba8e3ae991db = { package = "surrealdb-core", version = "1", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
+serde = { version = "1", features = ["alloc", "derive", "rc"] }
 syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
-toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
 unicode-xid = { version = "0.2" }
 
 [build-dependencies]
+ahash = { version = "0.8" }
+anyhow = { version = "1" }
 arrayvec = { version = "0.7" }
-bitflags = { version = "2", default-features = false, features = ["serde"] }
 either = { version = "1" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-executor = { version = "0.3" }
+futures-io = { version = "0.3" }
 futures-sink = { version = "0.3" }
+futures-util = { version = "0.3", default-features = false, features = ["async-await-macro", "channel", "io", "sink"] }
 getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
 hashbrown = { version = "0.14", features = ["raw", "serde"] }
 indexmap = { version = "2", features = ["serde"] }
-itertools = { version = "0.11" }
+itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
+itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
 libc = { version = "0.2" }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
@@ -76,15 +81,11 @@ regex = { version = "1" }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "hybrid", "meta", "nfa-backtrack", "perf", "unicode"] }
 regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
-surrealdb = { version = "1", features = ["kv-mem", "kv-surrealkv"] }
-surrealdb-core-7b9527e557d8cd20 = { package = "surrealdb-core", version = "2.0.0-1.5.1", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
-surrealdb-core-dff4ba8e3ae991db = { package = "surrealdb-core", version = "1", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
+serde = { version = "1", features = ["alloc", "derive", "rc"] }
 syn-dff4ba8e3ae991db = { package = "syn", version = "1", features = ["extra-traits", "full", "visit-mut"] }
 syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
-tiny-keccak = { version = "2", features = ["sha3", "shake"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
-toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
 unicode-xid = { version = "0.2" }

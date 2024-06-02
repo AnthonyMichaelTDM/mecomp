@@ -12,9 +12,13 @@ license.workspace = true
 
 
 [dependencies]
-proc-macro2 = "1.0"
-quote = { version = "1.0", features = ["proc-macro"] }
-syn = { version = "2.0", features = ["parsing", "proc-macro"] }
+proc-macro2 = { version = "1.0", default-features = false }
+quote = { version = "1.0", default-features = false }
+syn = { version = "2.0", features = [
+    "derive",
+    "parsing",
+    "printing",
+], default-features = false }
 mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
 
 [dev-dependencies]

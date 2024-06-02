@@ -17,6 +17,6 @@ proc-macro = true
 doctest = false
 
 [dependencies]
-syn = { version = "2.0", features = ["parsing", "proc-macro"] }
+syn = { version = "2.0", default-features = false }
 mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
 surrealqlx-macros-impl = { path = "../macros-impl" }
