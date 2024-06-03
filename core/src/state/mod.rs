@@ -96,9 +96,9 @@ impl Display for StateAudio {
                 .collect::<Vec<_>>()
                 .join(", "),
             self.queue_position,
-            self.current_song.as_ref().map(|song| song.title.to_string()).unwrap_or("None".to_string()),
+            self.current_song.as_ref().map_or_else(|| "None".to_string(),|song| song.title.to_string()),
             self.repeat_mode,
-            self.runtime.as_ref().map(|runtime| runtime.to_string()).unwrap_or_default(),
+            self.runtime.as_ref().map(std::string::ToString::to_string).unwrap_or_default(),
             self.paused,
             self.muted,
             self.volume,

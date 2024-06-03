@@ -105,10 +105,10 @@ impl std::fmt::Display for AudioCommand {
             Self::TogglePlayback => write!(f, "Toggle Playback"),
             Self::RestartSong => write!(f, "Restart Song"),
             Self::ClearPlayer => write!(f, "Clear Player"),
-            Self::Queue(command) => write!(f, "Queue: {:?}", command),
+            Self::Queue(command) => write!(f, "Queue: {command:?}"),
             Self::Exit => write!(f, "Exit"),
             Self::ReportStatus(_) => write!(f, "Report Status"),
-            Self::Volume(command) => write!(f, "Volume: {:?}", command),
+            Self::Volume(command) => write!(f, "Volume: {command:?}"),
         }
     }
 }
@@ -247,8 +247,7 @@ impl AudioKernel {
     /// sender.send(AudioCommand::Exit);
     /// ```
     pub fn init(self, rx: Receiver<(AudioCommand, tracing::Span)>) {
-        // for command in rx {
-        while let Ok((command, ctx)) = rx.recv() {
+        for (command, ctx) in rx {
             let _guard = ctx.enter();
 
             match command {
