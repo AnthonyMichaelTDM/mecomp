@@ -139,9 +139,14 @@ impl AudioKernelSender {
 
 pub struct AudioKernel {
     /// this is not used, but is needed to keep the stream alive
+    #[cfg(not(any(test, feature = "mock_playback")))]
+    // in tests, we have no audio devices to play audio on so we don't need to keep the stream alive
     _stream: rodio::OutputStream,
     /// this is not used, but is needed to keep the stream alive
+    #[cfg(not(any(test, feature = "mock_playback")))]
     _stream_handle: rodio::OutputStreamHandle,
+    #[cfg(any(test, feature = "mock_playback"))]
+    _queue_rx_end_tx: tokio::sync::oneshot::Sender<()>,
     player: rodio::Sink,
     queue: RefCell<Queue>,
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will multiply each sample by this value.
@@ -157,6 +162,7 @@ impl AudioKernel {
     ///
     /// panics if the rodio stream cannot be created
     #[must_use]
+    #[cfg(not(any(test, feature = "mock_playback")))]
     pub fn new() -> Self {
         let (stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
 
@@ -169,6 +175,48 @@ impl AudioKernel {
             _stream_handle: stream_handle,
             player,
             queue: RefCell::new(queue),
+            volume: RefCell::new(1.0),
+            muted: AtomicBool::new(false),
+        }
+    }
+
+    /// this function initializes the audio kernel
+    /// it is not meant to be called directly, use `AUDIO_KERNEL` instead to send command
+    ///
+    /// this is the version for tests, where we don't create the actual audio stream since we don't need to play audio
+    #[must_use]
+    #[cfg(any(test, feature = "mock_playback"))]
+    pub fn new() -> Self {
+        let (sink, mut queue_rx) = rodio::Sink::new_idle();
+
+        // start a detached thread that continuously polls the queue_rx, until it receives a command to exit
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        std::thread::spawn(move || {
+            // basically, call rx.await and while it is waiting for a command, poll the queue_rx
+            let _ = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(async {
+                    tokio::select! {
+                        _ = rx => {},
+                        _ = async {
+                            loop {
+                                queue_rx.next();
+                                std::thread::sleep(std::time::Duration::from_millis(100));
+                            }
+                        } => {},
+                    }
+                });
+        });
+
+        sink.pause();
+
+        Self {
+            player: sink,
+            _queue_rx_end_tx: tx,
+            queue: RefCell::new(Queue::new()),
             volume: RefCell::new(1.0),
             muted: AtomicBool::new(false),
         }
@@ -224,6 +272,9 @@ impl AudioKernel {
                 AudioCommand::Volume(command) => self.volume_control(command),
             }
         }
+
+        #[cfg(any(test, feature = "mock_playback"))]
+        self._queue_rx_end_tx.send(()).unwrap();
     }
 
     #[instrument(skip(self))]
@@ -566,7 +617,6 @@ mod tests {
         sender.send(AudioCommand::Exit);
     }
 
-    #[cfg(not(tarpaulin))]
     mod playback_tests {
         //! These are tests that require the audio kernel to be able to play audio
         //! As such, they cannot be run on CI.
