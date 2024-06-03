@@ -236,48 +236,6 @@ impl Parse for FieldAnnotation {
                 expr => return Err(syn::Error::new_spanned(expr, "Unexpected expression syntax found, attribute parameters should be in the forms: `foo`, `\"foo\"`, `foo = ...`, or `foo(...)`")),
             }
 
-            if let Ok(dt) = input.parse::<syn::LitStr>() {
-                // is this a string literal param? (i.e., the type)
-                // `#[field("foobar")]`
-                type_ = Some(dt);
-            } else if let Ok(ident) = input.parse::<syn::Ident>() {
-                // is this an ident param
-                // `#[field(skip)]`
-                match ident.to_string().as_str() {
-                    "skip" => {
-                        skip = true;
-                        break;
-                    }
-                    "dt" => {
-                        input.parse::<syn::Token![=]>()?;
-                        type_ = Some(input.parse::<syn::LitStr>()?);
-                    }
-                    s => {
-                        // if it is neither `skip` nor `type`, try to parse a litstr as the type or return an error
-                        return Err(syn::Error::new_spanned(
-                            ident,
-                            format!(
-                                "Unknown field attribute, expected `skip` or `dt`, found `{s}`"
-                            ),
-                        ));
-                    }
-                }
-            } else if let Ok(expr_call) = input.parse::<syn::ExprCall>() {
-                // is this in call expression syntax?
-                // `#[field(index(unique, vector(dim= 7))]`
-                match expr_call.func.to_token_stream().to_string().as_str() {
-                    "index" => {
-                        index = Some(IndexAnnotation::parse(expr_call.args.borrow())?);
-                    }
-                    _ => {
-                        return Err(syn::Error::new_spanned(
-                            expr_call.func,
-                            "Unknown field attribute",
-                        ))
-                    }
-                }
-            }
-
             let _ = input.parse::<syn::Token![,]>();
         }
 

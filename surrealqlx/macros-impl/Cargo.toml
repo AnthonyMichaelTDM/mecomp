@@ -24,3 +24,4 @@ mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" 
 [dev-dependencies]
 pretty_assertions.workspace = true
 prettyplease = "0.2.20"
+rstest.workspace = true

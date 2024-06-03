@@ -1,6 +1,8 @@
 use crate::table_macro_impl;
 use pretty_assertions::assert_str_eq;
+use proc_macro2::TokenStream;
 use quote::quote;
+use rstest::rstest;
 
 #[test]
 fn test_album() {
@@ -173,7 +175,7 @@ fn test_index() {
         struct User {
             #[field(dt = "string", index(unique))]
             name: String,
-            #[field(dt = "int", index())]
+            #[field(index(), dt = "int")]
             age: i32,
             #[field("int", index())]
             age2: i32,
@@ -275,4 +277,56 @@ fn test_skip_some_fields() {
     let pretty_expanded = prettyplease::unparse(&syn::parse_file(&expanded.to_string()).unwrap());
 
     assert_str_eq!(pretty_output, pretty_expanded);
+}
+
+#[rstest]
+#[case::missing_table_attr(quote!{ struct User { #[field(dt = "string")] name: String, }})]
+#[case::missing_table_name(quote!{ #[Table] struct User { #[field(dt = "string")] name: String, }})]
+#[case::invalid_table_name(quote!{ #[Table(1)] struct User { #[field(dt = "string")] name: String, }})]
+#[case::invalid_table_name2(quote!{ #[Table(foo())] struct User { #[field(dt = "string")] name: String, }})]
+fn test_invalid_table_attr(#[case] input: TokenStream) {
+    let expanded = table_macro_impl(input);
+    assert!(expanded.is_err());
+}
+
+#[rstest]
+#[case::enum_(quote!{#[Table("users")] enum User { A, B, C, }})]
+#[case::trait_(quote!{#[Table("users")] trait User { fn foo(&self); }})]
+#[case::impl_(quote!{#[Table("users")] impl User { fn foo(&self) {} }})]
+#[case::type_(quote!{#[Table("users")] type User = i32;})]
+#[case::unit_struct(quote!{#[Table("users")] struct User(String, i32, Vec<i32>);})]
+#[case::empty_struct(quote!{#[Table("users")] struct User{};})]
+fn test_fails_for_non_structs(#[case] input: TokenStream) {
+    let expanded = table_macro_impl(input);
+    assert!(expanded.is_err());
+}
+
+#[rstest]
+#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index)] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(invalid_option))] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(unique = foo))] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector))] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector()))] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector(dim)))] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector(dim = "not a number")))] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector("not a number")))] name: String, }})]
+fn test_invalid_index(#[case] input: TokenStream) {
+    let expanded = table_macro_impl(input);
+    assert!(expanded.is_err());
+}
+
+#[rstest]
+#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", invalid)] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", invalid(foo))] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(dt = 1)] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field("string" = dt)] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(dt = foo())] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(1)] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(foo - bar)] name: String, }})]
+#[case(quote!{ #[Table("users")] struct User { #[field(index())] name: String, }})]
+#[case::missing(quote!{ #[Table("users")] struct User { name: String, }})]
+#[case::missing_dt(quote!{ #[Table("users")] struct User { #[field] name: String, }})]
+fn test_invalid_field(#[case] input: TokenStream) {
+    let expanded = table_macro_impl(input);
+    assert!(expanded.is_err());
 }

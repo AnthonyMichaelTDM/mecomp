@@ -4509,6 +4509,7 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
+ "rstest",
  "syn 2.0.66",
 ]
 
