@@ -2,7 +2,7 @@
 pub mod queue;
 
 use std::{
-    cell::{RefCell, RefMut},
+    cell::RefCell,
     fs::File,
     io::BufReader,
     ops::Range,
@@ -26,6 +26,7 @@ use mecomp_storage::{db::schemas::song::Song, util::OneOrMany};
 
 use self::queue::Queue;
 
+#[cfg(not(tarpaulin_include))]
 lazy_static! {
     pub static ref AUDIO_KERNEL: Arc<AudioKernelSender> = {
         let (tx, rx) = std::sync::mpsc::channel();
@@ -96,21 +97,40 @@ impl PartialEq for AudioCommand {
     }
 }
 
+impl std::fmt::Display for AudioCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Play => write!(f, "Play"),
+            Self::Pause => write!(f, "Pause"),
+            Self::TogglePlayback => write!(f, "Toggle Playback"),
+            Self::RestartSong => write!(f, "Restart Song"),
+            Self::ClearPlayer => write!(f, "Clear Player"),
+            Self::Queue(command) => write!(f, "Queue: {:?}", command),
+            Self::Exit => write!(f, "Exit"),
+            Self::ReportStatus(_) => write!(f, "Report Status"),
+            Self::Volume(command) => write!(f, "Volume: {:?}", command),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct AudioKernelSender {
-    tx: Sender<AudioCommand>,
+    tx: Sender<(AudioCommand, tracing::Span)>,
 }
 
 impl AudioKernelSender {
     #[must_use]
-    pub const fn new(tx: Sender<AudioCommand>) -> Self {
+    pub const fn new(tx: Sender<(AudioCommand, tracing::Span)>) -> Self {
         Self { tx }
     }
 
     /// Send a command to the audio kernel
     #[instrument(skip(self))]
     pub fn send(&self, command: AudioCommand) {
-        if let Err(e) = self.tx.send(command) {
+        let ctx =
+            tracing::info_span!("Sending Audio Command to Kernel", command = ?command).or_current();
+
+        if let Err(e) = self.tx.send((command, ctx)) {
             error!("Failed to send command to audio kernel: {e}");
             panic!("Failed to send command to audio kernel: {e}");
         }
@@ -178,8 +198,11 @@ impl AudioKernel {
     /// // e.g. to shutdown the audio kernel:
     /// sender.send(AudioCommand::Exit);
     /// ```
-    pub fn init(self, rx: Receiver<AudioCommand>) {
-        for command in rx {
+    pub fn init(self, rx: Receiver<(AudioCommand, tracing::Span)>) {
+        // for command in rx {
+        while let Ok((command, ctx)) = rx.recv() {
+            let _guard = ctx.enter();
+
             match command {
                 AudioCommand::Play => self.play(),
                 AudioCommand::Pause => self.pause(),
@@ -189,28 +212,13 @@ impl AudioKernel {
                 AudioCommand::Queue(command) => self.queue_control(command),
                 AudioCommand::Exit => break,
                 AudioCommand::ReportStatus(tx) => {
-                    let current_song = self.queue.borrow().current_song().cloned();
+                    let state = self.state();
 
-                    let state = StateAudio {
-                        queue: self.queue.borrow().queued_songs(),
-                        queue_position: self.queue.borrow().current_index(),
-                        current_song,
-                        repeat_mode: self.queue.borrow().get_repeat_mode(),
-                        runtime: self.queue.borrow().current_song().map(|song| {
-                            StateRuntime {
-                                duration: song.runtime.into(),
-                                seek_position: 0.0, // TODO: determine how much of a Source has been played
-                                seek_percent: Percent::new(0.0), // TODO: determine how much of a Source has been played
-                            }
-                        }),
-                        paused: self.player.is_paused(),
-                        muted: self.muted.load(std::sync::atomic::Ordering::Relaxed),
-                        volume: *self.volume.borrow(),
-                    };
-
-                    if tx.send(state).is_err() {
-                        // report and ignore errors
-                        error!("Audio kernel failed to report its state");
+                    if let Err(e) = tx.send(state) {
+                        // if there was an error, then the receiver will never receive the state, this can cause a permanent hang
+                        // so we stop the audio kernel if this happens (which will cause any future calls to `send` to panic)
+                        error!("Audio Kernel failed to send state to the receiver, state receiver likely has been dropped. State: {e}");
+                        break;
                     }
                 }
                 AudioCommand::Volume(command) => self.volume_control(command),
@@ -218,14 +226,17 @@ impl AudioKernel {
         }
     }
 
+    #[instrument(skip(self))]
     fn play(&self) {
         self.player.play();
     }
 
+    #[instrument(skip(self))]
     fn pause(&self) {
         self.player.pause();
     }
 
+    #[instrument(skip(self))]
     fn toggle_playback(&self) {
         if self.player.is_paused() {
             self.player.play();
@@ -234,6 +245,7 @@ impl AudioKernel {
         }
     }
 
+    #[instrument(skip(self))]
     fn restart_song(&self) {
         self.clear_player();
 
@@ -244,10 +256,12 @@ impl AudioKernel {
         }
     }
 
+    #[instrument(skip(self))]
     fn clear_player(&self) {
         self.player.clear();
     }
 
+    #[instrument(skip(self))]
     fn queue_control(&self, command: QueueCommand) {
         match command {
             QueueCommand::Clear => self.clear(),
@@ -263,23 +277,56 @@ impl AudioKernel {
         }
     }
 
+    #[instrument(skip(self))]
+    fn state(&self) -> StateAudio {
+        let queue = self.queue.borrow();
+        let queue_position = queue.current_index();
+        let current_song = queue.current_song().cloned();
+        let repeat_mode = queue.get_repeat_mode();
+        let runtime = current_song.as_ref().map(|song| {
+            StateRuntime {
+                duration: song.runtime.into(),
+                seek_position: 0.0, // TODO: determine how much of a Source has been played
+                seek_percent: Percent::new(0.0), // TODO: determine how much of a Source has been played
+            }
+        });
+        let paused = self.player.is_paused();
+        let muted = self.muted.load(std::sync::atomic::Ordering::Relaxed);
+        let volume = *self.volume.borrow();
+
+        let queue = queue.queued_songs();
+
+        StateAudio {
+            queue,
+            queue_position,
+            current_song,
+            repeat_mode,
+            runtime,
+            paused,
+            muted,
+            volume,
+        }
+    }
+
+    #[instrument(skip(self))]
     fn clear(&self) {
         self.clear_player();
         self.queue.borrow_mut().clear();
     }
 
+    #[instrument(skip(self))]
     fn skip_forward(&self, n: usize) {
         let paused = self.player.is_paused();
         self.clear_player();
 
-        let mut binding = self.queue();
-        let next_song = binding.skip_forward(n);
+        let next_song = self.queue.borrow_mut().skip_forward(n).cloned();
 
         if let Some(song) = next_song {
-            if let Err(e) = self.append_song_to_player(song) {
+            if let Err(e) = self.append_song_to_player(&song) {
                 error!("Failed to append song to player: {}", e);
             }
 
+            let binding = self.queue.borrow();
             if !(paused
                 // and we have not just finished the queue 
                 // (this makes it so if we hit the end of the queue on RepeatMode::None, we don't start playing again)
@@ -291,15 +338,15 @@ impl AudioKernel {
         }
     }
 
+    #[instrument(skip(self))]
     fn skip_backward(&self, n: usize) {
         let paused = self.player.is_paused();
         self.clear_player();
 
-        let mut binding = self.queue();
-        let next_song = binding.skip_backward(n);
+        let next_song = self.queue.borrow_mut().skip_backward(n).cloned();
 
         if let Some(song) = next_song {
-            if let Err(e) = self.append_song_to_player(song) {
+            if let Err(e) = self.append_song_to_player(&song) {
                 error!("Failed to append song to player: {}", e);
             }
             if !paused {
@@ -308,16 +355,18 @@ impl AudioKernel {
         }
     }
 
+    #[instrument(skip(self))]
     fn set_position(&self, n: usize) {
         let paused = self.player.is_paused();
         self.clear_player();
 
-        let mut binding = self.queue();
+        let mut binding = self.queue.borrow_mut();
         binding.set_current_index(n);
-        let next_song = binding.current_song();
+        let next_song = binding.current_song().cloned();
+        drop(binding);
 
         if let Some(song) = next_song {
-            if let Err(e) = self.append_song_to_player(song) {
+            if let Err(e) = self.append_song_to_player(&song) {
                 error!("Failed to append song to player: {e}");
             }
             if !paused {
@@ -326,11 +375,10 @@ impl AudioKernel {
         }
     }
 
+    #[instrument(skip(self))]
     fn add_song_to_queue(&self, song: Song) {
-        {
-            let mut binding = self.queue();
-            binding.add_song(song);
-        }
+        self.queue.borrow_mut().add_song(song);
+
         // if the player is empty, start playback
         if self.player.empty() {
             let current_index = self.queue.borrow().current_index();
@@ -346,11 +394,10 @@ impl AudioKernel {
         }
     }
 
+    #[instrument(skip(self))]
     fn add_songs_to_queue(&self, songs: Vec<Song>) {
-        {
-            let mut binding = self.queue();
-            binding.add_songs(songs);
-        }
+        self.queue.borrow_mut().add_songs(songs);
+
         // if the player is empty, start playback
         if self.player.empty() {
             let current_index = self.queue.borrow().current_index();
@@ -367,22 +414,22 @@ impl AudioKernel {
     }
 
     // TODO: test that the player stops playing when the current song is removed,
+    #[instrument(skip(self))]
     fn remove_range_from_queue(&self, range: Range<usize>) {
         let paused = if self.player.is_paused() {
             true
         } else if let Some(current_index) = self.queue.borrow().current_index() {
             // still true if the current song is to be removed
-            range.contains(&current_index)
+            range.start <= current_index && range.end > current_index
         } else {
             false
         };
         self.clear_player();
 
-        let mut binding = self.queue();
-        binding.remove_range(range);
+        self.queue.borrow_mut().remove_range(range);
 
-        if let Some(song) = binding.current_song() {
-            if let Err(e) = self.append_song_to_player(song) {
+        if let Some(song) = self.get_current_song() {
+            if let Err(e) = self.append_song_to_player(&song) {
                 error!("Failed to append song to player: {e}");
             }
             if !paused {
@@ -391,16 +438,17 @@ impl AudioKernel {
         }
     }
 
+    #[instrument(skip(self))]
     fn get_current_song(&self) -> Option<Song> {
-        let binding = self.queue.borrow();
-        binding.current_song().cloned()
+        self.queue.borrow().current_song().cloned()
     }
 
+    #[instrument(skip(self))]
     fn get_next_song(&self) -> Option<Song> {
-        let mut binding = self.queue.borrow_mut();
-        binding.next_song().cloned()
+        self.queue.borrow_mut().next_song().cloned()
     }
 
+    #[instrument(skip(self, source))]
     fn append_to_player<T>(&self, source: T)
     where
         T: Source<Item = f32> + Send + 'static,
@@ -408,6 +456,7 @@ impl AudioKernel {
         self.player.append(source);
     }
 
+    #[instrument(skip(self))]
     fn append_song_to_player(&self, song: &Song) -> Result<(), LibraryError> {
         let source = Decoder::new(BufReader::new(File::open(&song.path)?))?.convert_samples();
 
@@ -416,10 +465,7 @@ impl AudioKernel {
         Ok(())
     }
 
-    fn queue(&self) -> RefMut<Queue> {
-        self.queue.borrow_mut()
-    }
-
+    #[instrument(skip(self))]
     fn volume_control(&self, command: VolumeCommand) {
         match command {
             VolumeCommand::Up(percent) => {
@@ -439,12 +485,10 @@ impl AudioKernel {
                     .store(false, std::sync::atomic::Ordering::Relaxed);
             }
             VolumeCommand::ToggleMute => {
-                if self.muted.load(std::sync::atomic::Ordering::Relaxed) {
-                    self.muted
-                        .store(false, std::sync::atomic::Ordering::Relaxed);
-                } else {
-                    self.muted.store(true, std::sync::atomic::Ordering::Relaxed);
-                }
+                self.muted.store(
+                    !self.muted.load(std::sync::atomic::Ordering::Relaxed),
+                    std::sync::atomic::Ordering::Relaxed,
+                );
             }
         }
 
@@ -467,7 +511,7 @@ mod tests {
     use mecomp_storage::db::init_test_database;
     use rstest::{fixture, rstest};
 
-    use crate::test_utils::{arb_song_case, create_song};
+    use crate::test_utils::{arb_song_case, create_song, init};
 
     use super::*;
     use std::sync::mpsc;
@@ -479,6 +523,7 @@ mod tests {
         AudioKernel::new()
     }
 
+    #[fixture]
     fn audio_kernel_sender() -> AudioKernelSender {
         let (tx, rx) = mpsc::channel();
 
@@ -487,14 +532,14 @@ mod tests {
             kernel.init(rx);
         });
 
-        AudioKernelSender { tx }
+        AudioKernelSender::new(tx)
     }
 
-    fn get_state(sender: AudioKernelSender) -> StateAudio {
+    #[instrument]
+    async fn get_state(sender: AudioKernelSender) -> StateAudio {
         let (tx, rx) = tokio::sync::oneshot::channel::<StateAudio>();
-        let state_handle = thread::spawn(move || rx.blocking_recv().unwrap());
         sender.send(AudioCommand::ReportStatus(tx));
-        state_handle.join().unwrap()
+        rx.await.unwrap()
     }
 
     #[fixture]
@@ -505,26 +550,19 @@ mod tests {
     #[test]
     fn test_audio_kernel_sender_send() {
         let (tx, rx) = mpsc::channel();
-        let sender = AudioKernelSender { tx };
+        let sender = AudioKernelSender::new(tx);
         sender.send(AudioCommand::Play);
-        assert_eq!(rx.recv().unwrap(), AudioCommand::Play);
+        let (recv, _) = rx.recv().unwrap();
+        assert_eq!(recv, AudioCommand::Play);
     }
 
     #[rstest]
     #[timeout(Duration::from_secs(3))] // if the test takes longer than 3 seconds, this is a failure
-    fn test_audio_player_kernel_spawn_and_exit() {
-        let (tx, rx) = mpsc::channel();
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+    fn test_audio_player_kernel_spawn_and_exit(
+        #[from(audio_kernel_sender)] sender: AudioKernelSender,
+    ) {
+        init();
 
-        rt.spawn(async {
-            let kernel = AudioKernel::new();
-            kernel.init(rx);
-        });
-
-        let sender = AudioKernelSender { tx };
         sender.send(AudioCommand::Exit);
     }
 
@@ -571,7 +609,7 @@ mod tests {
             let db = init_test_database().await.unwrap();
             let song = create_song(&db, arb_song_case()()).await.unwrap();
 
-            let state = get_state(sender.clone());
+            let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
             assert!(state.paused);
 
@@ -585,25 +623,25 @@ mod tests {
                 OneOrMany::One(song.clone()),
             )));
             // songs were added to an empty queue, so the first song should start playing
-            let state = get_state(sender.clone());
+            let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused);
 
             sender.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
             // the second song should start playing
-            let state = get_state(sender.clone());
+            let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(1));
             assert!(!state.paused);
 
             sender.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
             // the third song should start playing
-            let state = get_state(sender.clone());
+            let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(2));
             assert!(!state.paused);
 
             sender.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
             // we were at the end of the queue and tried to skip forward, so the player should be paused and the queue position should be None
-            let state = get_state(sender.clone());
+            let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
             assert!(state.paused);
 

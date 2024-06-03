@@ -259,8 +259,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::function_name;
-
     use super::*;
     use mecomp_storage::db::init_test_database;
     use pretty_assertions::assert_eq;
