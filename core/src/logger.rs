@@ -130,6 +130,11 @@ pub fn init_logger(filter: log::LevelFilter) {
 pub fn init_tracing() -> impl tracing::Subscriber {
     let subscriber = tracing_subscriber::registry();
 
+    #[cfg(feature = "flame")]
+    let (flame_layer, _guard) = tracing_flame::FlameLayer::with_file("tracing.folded").unwrap();
+    #[cfg(feature = "flame")]
+    let subscriber = subscriber.with(flame_layer);
+
     #[cfg(not(feature = "verbose_tracing"))]
     #[allow(unused_variables)]
     let filter = tracing_subscriber::EnvFilter::builder()
@@ -169,11 +174,6 @@ pub fn init_tracing() -> impl tracing::Subscriber {
             .with_tracer(tracer)
             .with_filter(filter),
     );
-
-    #[cfg(feature = "flame")]
-    let (flame_layer, _guard) = tracing_flame::FlameLayer::with_file("tracing.folded").unwrap();
-    #[cfg(feature = "flame")]
-    let subscriber = subscriber.with(flame_layer);
 
     subscriber
 }

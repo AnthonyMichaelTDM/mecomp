@@ -96,7 +96,7 @@ impl Song {
     /// This function will create a new [`Song`], [`Artist`], and [`Album`] if they do not exist in the database.
     /// This function will also add the new [`Song`] to the [`Artist`] and the [`Album`].
     /// This function will also update the [`Artist`] and the [`Album`] in the database.
-    #[instrument(skip(metadata))]
+    #[instrument()]
     pub async fn try_load_into_db<C: Connection>(
         db: &Surreal<C>,
         metadata: SongMetadata,

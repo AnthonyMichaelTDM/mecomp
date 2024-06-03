@@ -1,5 +1,6 @@
 use std::{
     ops::{Range, RangeInclusive},
+    sync::OnceLock,
     time::Duration,
 };
 
@@ -9,33 +10,29 @@ use mecomp_storage::db::schemas::song::{Song, SongMetadata};
 use rand::seq::IteratorRandom;
 use surrealdb::{Connection, Surreal};
 use tempfile;
-use tokio::sync::Mutex;
+use tracing::instrument;
 
 use crate::logger::{init_logger, init_tracing};
 
 lazy_static! {
     static ref TEMP_MUSIC_DIR: tempfile::TempDir = tempfile::tempdir().unwrap();
-    static ref INIT: Mutex<Option<()>> = Mutex::new(None);
 }
+static INIT: OnceLock<()> = OnceLock::new();
 
 pub const TIMEOUT: std::time::Duration = Duration::from_secs(30);
 
-pub async fn init() -> anyhow::Result<()> {
-    let mut init = INIT.lock().await;
-    if init.is_some() {
-        return Ok(());
-    }
-    init_logger(log::LevelFilter::Debug);
-    tracing::subscriber::set_global_default(init_tracing())?;
-
-    init.replace(());
-    drop(init);
-
-    Ok(())
+pub fn init() {
+    INIT.get_or_init(|| {
+        init_logger(log::LevelFilter::Debug);
+        if let Err(e) = tracing::subscriber::set_global_default(init_tracing()) {
+            panic!("Error setting global default tracing subscriber: {e:?}")
+        }
+    });
 }
 
 const ARTIST_NAME_SEPARATOR: &str = ", ";
 
+#[instrument()]
 pub async fn create_song<C: Connection>(
     db: &Surreal<C>,
     SongCase {
@@ -262,13 +259,16 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::function_name;
+
     use super::*;
     use mecomp_storage::db::init_test_database;
     use pretty_assertions::assert_eq;
 
     #[tokio::test]
     async fn test_create_song() {
-        init().await.unwrap();
+        init();
+
         let db = init_test_database().await.unwrap();
         // Create a test case
         let song_case = SongCase::new(0, vec![0], vec![0], 0, 0);

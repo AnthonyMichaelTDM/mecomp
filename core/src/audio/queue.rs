@@ -1,5 +1,6 @@
 use rand::{prelude::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::state::RepeatMode;
 use mecomp_storage::db::schemas::song::Song;
@@ -27,14 +28,17 @@ impl Queue {
         }
     }
 
+    #[instrument]
     pub fn add_song(&mut self, song: Song) {
         self.songs.push(song);
     }
 
+    #[instrument]
     pub fn add_songs(&mut self, songs: Vec<Song>) {
         self.songs.extend(songs);
     }
 
+    #[instrument]
     pub fn remove_song(&mut self, index: usize) {
         if index >= self.len() {
             return;
@@ -55,17 +59,19 @@ impl Queue {
         self.songs.remove(index);
     }
 
+    #[instrument]
     pub fn clear(&mut self) {
         self.songs.clear();
         self.current_index = None;
     }
 
     #[must_use]
+    #[instrument]
     pub fn current_song(&self) -> Option<&Song> {
         self.current_index.and_then(|index| self.songs.get(index))
     }
 
-    #[inline]
+    #[instrument]
     pub fn next_song(&mut self) -> Option<&Song> {
         self.skip_forward(1)
     }
@@ -73,6 +79,7 @@ impl Queue {
     /// Skip forward n songs in the queue.
     ///
     /// progresses the current index by n, following the repeat mode rules.
+    #[instrument]
     pub fn skip_forward(&mut self, n: usize) -> Option<&Song> {
         match self.current_index {
             Some(current_index) if current_index + n < self.songs.len() => {
@@ -103,10 +110,7 @@ impl Queue {
                 }
             }
             None => {
-                if self.songs.is_empty() {
-                    return None;
-                }
-                if n == 0 {
+                if self.songs.is_empty() || n == 0 {
                     return None;
                 }
 
@@ -116,10 +120,12 @@ impl Queue {
         }
     }
 
+    #[instrument]
     pub fn previous_song(&mut self) -> Option<&Song> {
         self.skip_backward(1)
     }
 
+    #[instrument]
     pub fn skip_backward(&mut self, n: usize) -> Option<&Song> {
         match self.current_index {
             Some(current_index) if current_index >= n => {
@@ -133,6 +139,7 @@ impl Queue {
         }
     }
 
+    #[instrument]
     pub fn set_repeat_mode(&mut self, repeat_mode: RepeatMode) {
         self.repeat_mode = repeat_mode;
     }
@@ -142,6 +149,7 @@ impl Queue {
         self.repeat_mode
     }
 
+    #[instrument]
     pub fn shuffle(&mut self) {
         // shuffle
         self.songs.shuffle(&mut thread_rng());
@@ -156,16 +164,19 @@ impl Queue {
     }
 
     #[must_use]
+    #[instrument]
     pub fn get(&self, index: usize) -> Option<&Song> {
         self.songs.get(index)
     }
 
     #[must_use]
+    #[instrument]
     pub fn len(&self) -> usize {
         self.songs.len()
     }
 
     #[must_use]
+    #[instrument]
     pub fn is_empty(&self) -> bool {
         self.songs.is_empty()
     }
@@ -176,11 +187,13 @@ impl Queue {
     }
 
     #[must_use]
+    #[instrument]
     pub fn queued_songs(&self) -> Box<[Song]> {
         self.songs.clone().into_boxed_slice()
     }
 
     /// Sets the current index, clamped to the nearest valid index.
+    #[instrument]
     pub fn set_current_index(&mut self, index: usize) {
         if self.songs.is_empty() {
             self.current_index = None;
@@ -192,6 +205,7 @@ impl Queue {
     /// Removes a range of songs from the queue.
     /// If the current index is within the range, it will be set to the next valid index (or the
     /// previous valid index if the range included the end of the queue).
+    #[instrument]
     pub fn remove_range(&mut self, range: std::ops::Range<usize>) {
         if range.is_empty() || self.is_empty() {
             return;
@@ -231,10 +245,10 @@ mod tests {
 
     #[test]
     fn test_new_queue() {
-        let mut queue = Queue::new();
+        let mut queue = Queue::default();
         assert_eq!(queue.len(), 0);
-        assert_eq!(queue.current_index, None);
-        assert_eq!(queue.repeat_mode, RepeatMode::None);
+        assert_eq!(queue.current_index(), None);
+        assert_eq!(queue.get_repeat_mode(), RepeatMode::None);
 
         assert_eq!(queue.current_song(), None);
         assert_eq!(queue.next_song(), None);
@@ -249,8 +263,10 @@ mod tests {
     #[case(baz_sc())]
     #[tokio::test]
     async fn test_add_song(#[case] song: SongCase) -> anyhow::Result<()> {
+        init();
+
         let db = init_test_database().await.unwrap();
-        init().await?;
+
         let mut queue = Queue::new();
         let song = create_song(&db, song).await?;
         queue.add_song(song.clone());
@@ -261,14 +277,32 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn test_add_songs() {
+        init();
+        let db = init_test_database().await.unwrap();
+
+        let songs = vec![
+            create_song(&db, foo_sc()).await.unwrap(),
+            create_song(&db, bar_sc()).await.unwrap(),
+            create_song(&db, baz_sc()).await.unwrap(),
+        ];
+        let mut queue = Queue::new();
+        queue.add_songs(songs.clone());
+        assert_eq!(queue.len(), 3);
+        assert_eq!(queue.queued_songs(), songs.into_boxed_slice());
+        assert_eq!(queue.current_song(), None);
+    }
+
     #[rstest]
     #[case(foo_sc())]
     #[case(bar_sc())]
     #[case(baz_sc())]
     #[tokio::test]
     async fn test_remove_song(#[case] song: SongCase) -> anyhow::Result<()> {
+        init();
         let db = init_test_database().await.unwrap();
-        init().await?;
+
         let mut queue = Queue::new();
         let song = create_song(&db, song).await?;
         queue.add_song(song);
@@ -287,8 +321,9 @@ mod tests {
         #[case] song1: SongCase,
         #[case] song2: SongCase,
     ) -> anyhow::Result<()> {
+        init();
         let db = init_test_database().await.unwrap();
-        init().await?;
+
         let mut queue = Queue::new();
         let song1 = create_song(&db, song1).await?;
         let song2 = create_song(&db, song2).await?;
@@ -297,6 +332,10 @@ mod tests {
         assert_eq!(queue.next_song(), Some(&song1));
         assert_eq!(queue.next_song(), Some(&song2));
         assert_eq!(queue.previous_song(), Some(&song1));
+        assert_eq!(queue.previous_song(), None);
+
+        queue.clear();
+        assert_eq!(queue.next_song(), None);
         assert_eq!(queue.previous_song(), None);
 
         Ok(())
@@ -316,8 +355,9 @@ mod tests {
     #[apply(skip_song_test_template)]
     #[tokio::test]
     async fn test_skip_song_rp_none(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
+        init();
         let db = init_test_database().await.unwrap();
-        init().await?;
+
         let mut queue = Queue::new();
         let len = songs.len();
         for sc in songs {
@@ -349,8 +389,9 @@ mod tests {
     #[apply(skip_song_test_template)]
     #[tokio::test]
     async fn test_skip_song_rp_once(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
+        init();
         let db = init_test_database().await.unwrap();
-        init().await?;
+
         let mut queue = Queue::new();
         let len = songs.len();
         for sc in songs {
@@ -392,8 +433,9 @@ mod tests {
     #[apply(skip_song_test_template)]
     #[tokio::test]
     async fn test_next_song_rp_continuous(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
+        init();
         let db = init_test_database().await.unwrap();
-        init().await?;
+
         let mut queue = Queue::new();
         let len = songs.len();
         for sc in songs {
@@ -435,8 +477,9 @@ mod tests {
         #[case] songs: Vec<SongCase>,
         #[case] index: usize,
     ) -> anyhow::Result<()> {
+        init();
         let db = init_test_database().await?;
-        init().await?;
+
         let mut queue = Queue::new();
         let len = songs.len();
         for sc in songs {
@@ -472,10 +515,11 @@ mod tests {
     async fn test_remove_range(
         #[case] params: (Vec<SongCase>, std::ops::Range<usize>, Option<usize>),
     ) -> anyhow::Result<()> {
+        init();
         let (songs, range, index) = params;
         let len = songs.len();
         let db = init_test_database().await?;
-        init().await?;
+
         let mut queue = Queue::new();
         for sc in songs {
             queue.add_song(create_song(&db, sc).await?);
