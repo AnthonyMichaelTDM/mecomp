@@ -63,6 +63,16 @@ pub struct StateRuntime {
     pub duration: Duration,
 }
 
+impl Display for StateRuntime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "StateRuntime {{ seek_position: {}, seek_percent: {}, duration: {:?} }}",
+            self.seek_position, self.seek_percent, self.duration
+        )
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct StateAudio {
     pub queue: Box<[Song]>,
@@ -73,4 +83,53 @@ pub struct StateAudio {
     pub paused: bool,
     pub muted: bool,
     pub volume: f32,
+}
+
+impl Display for StateAudio {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "StateAudio {{ queue: [{}], queue_position: {:?}, current_song: {:?}, repeat_mode: {}, runtime: {:?}, paused: {}, muted: {}, volume: {} }}",
+            self.queue
+                .iter()
+                .map(|song| song.title.clone())
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.queue_position,
+            self.current_song.as_ref().map(|song| song.title.to_string()).unwrap_or("None".to_string()),
+            self.repeat_mode,
+            self.runtime.as_ref().map(|runtime| runtime.to_string()).unwrap_or_default(),
+            self.paused,
+            self.muted,
+            self.volume,
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_percent() {
+        let percent = Percent::new(50.0);
+        assert_eq!(percent.into_inner(), 50.0);
+        assert_eq!(percent.to_string(), "50.00%");
+    }
+
+    #[test]
+    fn test_repeat_mode() {
+        assert_eq!(RepeatMode::None.is_none(), true);
+        assert_eq!(RepeatMode::None.is_once(), false);
+        assert_eq!(RepeatMode::None.is_continuous(), false);
+
+        assert_eq!(RepeatMode::Once.is_none(), false);
+        assert_eq!(RepeatMode::Once.is_once(), true);
+        assert_eq!(RepeatMode::Once.is_continuous(), false);
+
+        assert_eq!(RepeatMode::Continuous.is_none(), false);
+        assert_eq!(RepeatMode::Continuous.is_once(), false);
+        assert_eq!(RepeatMode::Continuous.is_continuous(), true);
+    }
 }

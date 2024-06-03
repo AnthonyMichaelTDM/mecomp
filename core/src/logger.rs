@@ -20,6 +20,7 @@ use tracing_subscriber::Layer as _;
 pub static INIT_INSTANT: Lazy<Instant> = Lazy::new(Instant::now);
 
 /// Returns the seconds since [`INIT_INSTANT`].
+#[cfg(not(tarpaulin_include))]
 pub fn uptime() -> u64 {
     INIT_INSTANT.elapsed().as_secs()
 }
@@ -41,6 +42,7 @@ pub fn uptime() -> u64 {
 ///
 /// # Panics
 /// This must only be called _once_.
+#[cfg(not(tarpaulin_include))]
 pub fn init_logger(filter: log::LevelFilter) {
     // Initialize timer.
     let now = Lazy::force(&INIT_INSTANT);

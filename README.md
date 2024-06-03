@@ -24,7 +24,7 @@ MECOMP is a local music player inspired by [festival](https://github.com/hinto-j
 - [ ] handle song and album art properly
 - [x] maintain a persistent state of the music collection (henceforth referred to as "Library" or "Music Library") that allows users to create playlists, track play counts, "like" songs, etc.
   this library will not update dynamically (i.e. if a file is added/removed from the music collection), but will have a "rescan" feature that will update the library without losing any of the user's data (play counts, likes, playlists, etc.)
-- [ ] allow users to create playlists
+- [x] allow users to create playlists
 - [ ] allow users to "like" songs
 - [ ] track play counts
 - [ ] allow users to create "smart playlists" that are automatically updated based on a set of criteria (e.g. "all songs with a play count greater than 10", "all songs by Green Day", "all songs with a similarity to Foo greater than X", etc.)

@@ -49,3 +49,27 @@ impl From<LibraryError> for SerializableLibraryError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_str_eq;
+
+    #[test]
+    fn test_serializable_library_error() {
+        let error = LibraryError::Database(Error::NoId);
+        let serializable_error: SerializableLibraryError = error.into();
+        assert_str_eq!(
+            serializable_error.to_string(),
+            "Database error: Item is missing an Id."
+        );
+
+        let error = LibraryError::IO(std::io::Error::new(std::io::ErrorKind::Other, "test"));
+        let serializable_error: SerializableLibraryError = error.into();
+        assert_str_eq!(serializable_error.to_string(), "IO error: test");
+
+        let error = LibraryError::Decoder(rodio::decoder::DecoderError::DecodeError("test"));
+        let serializable_error: SerializableLibraryError = error.into();
+        assert_str_eq!(serializable_error.to_string(), "Decoder error: test");
+    }
+}
