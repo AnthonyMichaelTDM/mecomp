@@ -32,6 +32,7 @@ ignored = ["mecomp-workspace-hack"]
 
 
 [profile.release]
+# debug = true      # for profiling
 lto = true
 strip = "none"
 codegen-units = 1

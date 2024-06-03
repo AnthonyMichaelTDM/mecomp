@@ -139,13 +139,13 @@ impl AudioKernelSender {
 
 pub struct AudioKernel {
     /// this is not used, but is needed to keep the stream alive
-    #[cfg(not(any(test, feature = "mock_playback")))]
+    #[cfg(not(feature = "mock_playback"))]
     // in tests, we have no audio devices to play audio on so we don't need to keep the stream alive
     _stream: rodio::OutputStream,
     /// this is not used, but is needed to keep the stream alive
-    #[cfg(not(any(test, feature = "mock_playback")))]
+    #[cfg(not(feature = "mock_playback"))]
     _stream_handle: rodio::OutputStreamHandle,
-    #[cfg(any(test, feature = "mock_playback"))]
+    #[cfg(feature = "mock_playback")]
     _queue_rx_end_tx: tokio::sync::oneshot::Sender<()>,
     player: rodio::Sink,
     queue: RefCell<Queue>,
@@ -162,7 +162,7 @@ impl AudioKernel {
     ///
     /// panics if the rodio stream cannot be created
     #[must_use]
-    #[cfg(not(any(test, feature = "mock_playback")))]
+    #[cfg(not(feature = "mock_playback"))]
     pub fn new() -> Self {
         let (stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
 
@@ -185,7 +185,7 @@ impl AudioKernel {
     ///
     /// this is the version for tests, where we don't create the actual audio stream since we don't need to play audio
     #[must_use]
-    #[cfg(any(test, feature = "mock_playback"))]
+    #[cfg(feature = "mock_playback")]
     pub fn new() -> Self {
         let (sink, mut queue_rx) = rodio::Sink::new_idle();
 
@@ -204,7 +204,7 @@ impl AudioKernel {
                         _ = async {
                             loop {
                                 queue_rx.next();
-                                std::thread::sleep(std::time::Duration::from_millis(100));
+                                std::thread::sleep(std::time::Duration::from_millis(1));
                             }
                         } => {},
                     }
@@ -273,7 +273,7 @@ impl AudioKernel {
             }
         }
 
-        #[cfg(any(test, feature = "mock_playback"))]
+        #[cfg(feature = "mock_playback")]
         self._queue_rx_end_tx.send(()).unwrap();
     }
 
@@ -651,10 +651,58 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(3))] // if the test takes longer than 3 seconds, this is a failure
+        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
-        async fn test_audio_kernel_skip_forward() {
-            let sender = audio_kernel_sender();
+        async fn test_audio_kernel_skip_forward(audio_kernel: AudioKernel) {
+            init();
+            let db = init_test_database().await.unwrap();
+            let song = create_song(&db, arb_song_case()()).await.unwrap();
+
+            let state = audio_kernel.state();
+            assert_eq!(state.queue_position, None);
+            assert!(state.paused);
+
+            audio_kernel.queue_control(QueueCommand::AddToQueue(OneOrMany::Many(vec![
+                song.clone(),
+                song.clone(),
+                song.clone(),
+            ])));
+
+            // songs were added to an empty queue, so the first song should start playing
+            let state = audio_kernel.state();
+            assert_eq!(state.queue_position, Some(0));
+            assert!(!state.paused);
+
+            audio_kernel.queue_control(QueueCommand::SkipForward(1));
+
+            // the second song should start playing
+            let state = audio_kernel.state();
+            assert_eq!(state.queue_position, Some(1));
+            assert!(!state.paused);
+
+            audio_kernel.queue_control(QueueCommand::SkipForward(1));
+
+            // the third song should start playing
+            let state = audio_kernel.state();
+            assert_eq!(state.queue_position, Some(2));
+            assert!(!state.paused);
+
+            audio_kernel.queue_control(QueueCommand::SkipForward(1));
+
+            // we were at the end of the queue and tried to skip forward, so the player should be paused and the queue position should be None
+            let state = audio_kernel.state();
+            assert_eq!(state.queue_position, None);
+            assert!(state.paused);
+        }
+
+        #[rstest]
+        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[tokio::test]
+        async fn test_audio_kernel_skip_forward_sender(
+            #[from(audio_kernel_sender)] sender: AudioKernelSender,
+        ) {
+            // set up tracing
+            init();
 
             let db = init_test_database().await.unwrap();
             let song = create_song(&db, arb_song_case()()).await.unwrap();

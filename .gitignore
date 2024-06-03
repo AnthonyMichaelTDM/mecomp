@@ -4,3 +4,6 @@ tracing-flamegraph.svg
 tracing.folded
 tracing-flamechart.svg
 tarpaulin-report.html
+perf.data
+perf.data.old
+flamegraph.svg
