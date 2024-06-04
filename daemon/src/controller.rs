@@ -30,18 +30,19 @@ use mecomp_storage::{
 };
 use tracing::{instrument, Instrument};
 
-use crate::{config::SETTINGS, services};
+use crate::{config::DaemonSettings, services};
 
 #[derive(Clone, Debug)]
 pub struct MusicPlayerServer {
     pub addr: SocketAddr,
     db: Arc<Surreal<Db>>,
+    settings: Arc<DaemonSettings>,
 }
 
 impl MusicPlayerServer {
     #[must_use]
-    pub fn new(addr: SocketAddr, db: Arc<Surreal<Db>>) -> Self {
-        Self { addr, db }
+    pub fn new(addr: SocketAddr, db: Arc<Surreal<Db>>, settings: Arc<DaemonSettings>) -> Self {
+        Self { addr, db, settings }
     }
 }
 
@@ -57,10 +58,10 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Rescanning library");
         Ok(services::library::rescan(
             &self.db,
-            &SETTINGS.library_paths,
-            SETTINGS.artist_separator.as_deref(),
-            SETTINGS.genre_separator.as_deref(),
-            SETTINGS.conflict_resolution,
+            &self.settings.library_paths,
+            self.settings.artist_separator.as_deref(),
+            self.settings.genre_separator.as_deref(),
+            self.settings.conflict_resolution,
         )
         .await
         .tap_err(|e| warn!("Error in library_rescan: {e}"))?)
