@@ -151,16 +151,19 @@ impl Queue {
 
     #[instrument]
     pub fn shuffle(&mut self) {
-        // shuffle
-        self.songs.shuffle(&mut thread_rng());
         // swap current song to first
         match self.current_index {
-            Some(current_index) if current_index != 0 => {
+            Some(current_index) if current_index != 0 && !self.is_empty() => {
                 self.songs.swap(0, current_index);
                 self.current_index = Some(0);
             }
             _ => {}
         }
+        if self.len() <= 1 {
+            return;
+        }
+        // shuffle the slice from [1..]
+        self.songs[1..].shuffle(&mut thread_rng());
     }
 
     #[must_use]
@@ -327,7 +330,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case::with_data(arb_vec_and_index( &arb_song_case(), 1..=10, IndexMode::InBounds)())]
+    #[case::one_song(arb_vec_and_index( &arb_song_case(), 1..=1, IndexMode::InBounds)())]
+    #[case::many_songs(arb_vec_and_index( &arb_song_case(), 2..=10, IndexMode::InBounds)())]
     #[tokio::test]
     async fn test_shuffle(#[case] params: (Vec<SongCase>, usize)) {
         init();
