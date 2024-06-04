@@ -5,18 +5,26 @@ use std::{fmt::Display, time::Duration};
 use mecomp_storage::db::schemas::song::Song;
 use nutype::nutype;
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumIter, EnumString};
 
 #[derive(
-    Clone, Copy, Debug, Display, PartialEq, Eq, Deserialize, Serialize, EnumIter, EnumString,
+    Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize
 )]
 pub enum SeekType {
     Absolute,
     Relative,
 }
 
+impl Display for SeekType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SeekType::Absolute => write!(f, "Absolute"),
+            SeekType::Relative => write!(f, "Relative"),
+        }
+    }
+}
+
 #[derive(
-    Clone, Copy, Debug, Display, PartialEq, Eq, Deserialize, Serialize, EnumIter, EnumString,
+    Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize
 )]
 pub enum RepeatMode {
     /// No repeat: after the queue is finished the player stops
@@ -25,6 +33,16 @@ pub enum RepeatMode {
     Once,
     /// Repeat Continuously: after going through the queue, the player goes back to the beginning and continues
     Continuous,
+}
+
+impl Display for RepeatMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RepeatMode::None => write!(f, "None"),
+            RepeatMode::Once => write!(f, "Once"),
+            RepeatMode::Continuous => write!(f, "Continuous"),
+        }
+    }
 }
 
 impl RepeatMode {

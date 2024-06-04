@@ -49,6 +49,12 @@ ignored = [
     "unicode-xid",
 ]
 
+[lib]
+test = false
+bench = false
+doctest = false
+doc = false
+
 ### BEGIN HAKARI SECTION
 [dependencies]
 ahash = { version = "0.8" }
@@ -56,6 +62,7 @@ anyhow = { version = "1" }
 arrayvec = { version = "0.7" }
 either = { version = "1" }
 futures-channel = { version = "0.3", features = ["sink"] }
+futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-sink = { version = "0.3" }
@@ -91,6 +98,7 @@ anyhow = { version = "1" }
 arrayvec = { version = "0.7" }
 either = { version = "1" }
 futures-channel = { version = "0.3", features = ["sink"] }
+futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-sink = { version = "0.3" }

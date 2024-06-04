@@ -2280,7 +2280,6 @@ dependencies = [
  "rstest",
  "rstest_reuse",
  "serde",
- "strum",
  "surrealdb",
  "tarpc",
  "tempfile",
@@ -2348,6 +2347,7 @@ dependencies = [
  "arrayvec",
  "either",
  "futures-channel",
+ "futures-core",
  "futures-executor",
  "futures-io",
  "futures-sink",
@@ -4210,28 +4210,6 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
-
-[[package]]
-name = "strum"
-version = "0.26.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d8cec3501a5194c432b2b7976db6b7d10ec95c253208b45f83f7136aa985e29"
-dependencies = [
- "strum_macros",
-]
-
-[[package]]
-name = "strum_macros"
-version = "0.26.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7993a8e3a9e88a00351486baae9522c91b123a088f76469e5bd5cc17198ea87"
-dependencies = [
- "heck 0.5.0",
- "proc-macro2",
- "quote",
- "rustversion",
- "syn 2.0.66",
-]
 
 [[package]]
 name = "subtle"

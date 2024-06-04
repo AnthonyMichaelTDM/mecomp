@@ -23,7 +23,6 @@ once_cell = { workspace = true }
 rand = { workspace = true }
 rodio = { workspace = true }
 serde = { workspace = true }
-strum = { workspace = true }
 surrealdb = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
