@@ -12,7 +12,7 @@ pub enum LibraryError {
     Decoder(#[from] rodio::decoder::DecoderError),
 }
 
-#[derive(Error, Debug, Deserialize, Serialize)]
+#[derive(Error, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum SerializableLibraryError {
     #[error("Database error: {0}")]
     Database(String),
@@ -54,6 +54,7 @@ impl From<LibraryError> for SerializableLibraryError {
 mod tests {
     use super::*;
     use pretty_assertions::assert_str_eq;
+    use rstest::rstest;
 
     #[test]
     fn test_serializable_library_error() {
@@ -71,5 +72,16 @@ mod tests {
         let error = LibraryError::Decoder(rodio::decoder::DecoderError::DecodeError("test"));
         let serializable_error: SerializableLibraryError = error.into();
         assert_str_eq!(serializable_error.to_string(), "Decoder error: test");
+    }
+
+    #[rstest]
+    #[case(Error::NoId, LibraryError::Database(Error::NoId).into())]
+    #[case(std::io::Error::new(std::io::ErrorKind::Other, "test"), LibraryError::IO(std::io::Error::new(std::io::ErrorKind::Other, "test")).into())]
+    #[case(rodio::decoder::DecoderError::DecodeError("test"), LibraryError::Decoder(rodio::decoder::DecoderError::DecodeError("test")).into())]
+    fn test_serializable_library_error_from<T: Into<SerializableLibraryError>>(
+        #[case] from: T,
+        #[case] to: SerializableLibraryError,
+    ) {
+        assert_eq!(from.into(), to);
     }
 }

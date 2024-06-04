@@ -74,6 +74,7 @@ impl Display for Percent {
     }
 }
 
+/// Information about the runtime of the current song
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct StateRuntime {
     pub seek_position: f64,
@@ -85,8 +86,10 @@ impl Display for StateRuntime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "StateRuntime {{ seek_position: {}, seek_percent: {}, duration: {:?} }}",
-            self.seek_position, self.seek_percent, self.duration
+            "StateRuntime {{ seek_position: {:.2}s, seek_percent: {}, duration: {:.1}s }}",
+            self.seek_position,
+            self.seek_percent,
+            self.duration.as_secs_f32()
         )
     }
 }
@@ -107,19 +110,18 @@ impl Display for StateAudio {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "StateAudio {{ queue: [{}], queue_position: {:?}, current_song: {:?}, repeat_mode: {}, runtime: {:?}, paused: {}, muted: {}, volume: {} }}",
+            "StateAudio {{ queue: {:?}, queue_position: {}, current_song: {}, repeat_mode: {}, runtime: {}, paused: {}, muted: {}, volume: {:.0}% }}",
             self.queue
                 .iter()
-                .map(|song| song.title.clone())
-                .collect::<Vec<_>>()
-                .join(", "),
-            self.queue_position,
-            self.current_song.as_ref().map_or_else(|| "None".to_string(),|song| song.title.to_string()),
+                .map(|song| song.title.to_string())
+                .collect::<Vec<_>>(),
+            self.queue_position.map_or_else(|| "None".to_string(), |pos| pos.to_string()),
+            self.current_song.as_ref().map_or_else(|| "None".to_string(),|song| format!("\"{}\"",song.title)),
             self.repeat_mode,
-            self.runtime.as_ref().map(std::string::ToString::to_string).unwrap_or_default(),
+            self.runtime.as_ref().map_or_else(|| "None".to_string(),std::string::ToString::to_string),
             self.paused,
             self.muted,
-            self.volume,
+            self.volume * 100.0,
         )
     }
 }
@@ -127,27 +129,97 @@ impl Display for StateAudio {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pretty_assertions::assert_eq;
+    use mecomp_storage::util::OneOrMany;
+    use pretty_assertions::{assert_eq, assert_str_eq};
+    use rstest::rstest;
 
-    #[test]
-    fn test_percent() {
-        let percent = Percent::new(50.0);
-        assert_eq!(percent.into_inner(), 50.0);
-        assert_eq!(percent.to_string(), "50.00%");
+    #[rstest]
+    #[case::none(RepeatMode::None, [true, false, false])]
+    #[case::once(RepeatMode::Once, [false, true, false])]
+    #[case::continuous(RepeatMode::Continuous, [false, false, true])]
+    fn test_repeat_mode(#[case] mode: RepeatMode, #[case] expected: [bool; 3]) {
+        assert_eq!(mode.is_none(), expected[0]);
+        assert_eq!(mode.is_once(), expected[1]);
+        assert_eq!(mode.is_continuous(), expected[2]);
     }
 
-    #[test]
-    fn test_repeat_mode() {
-        assert_eq!(RepeatMode::None.is_none(), true);
-        assert_eq!(RepeatMode::None.is_once(), false);
-        assert_eq!(RepeatMode::None.is_continuous(), false);
-
-        assert_eq!(RepeatMode::Once.is_none(), false);
-        assert_eq!(RepeatMode::Once.is_once(), true);
-        assert_eq!(RepeatMode::Once.is_continuous(), false);
-
-        assert_eq!(RepeatMode::Continuous.is_none(), false);
-        assert_eq!(RepeatMode::Continuous.is_once(), false);
-        assert_eq!(RepeatMode::Continuous.is_continuous(), true);
+    #[rstest]
+    #[case::seek_type(SeekType::Absolute, "Absolute")]
+    #[case::seek_type(SeekType::Relative, "Relative")]
+    #[case::repeat_mode(RepeatMode::None, "None")]
+    #[case::repeat_mode(RepeatMode::Once, "Once")]
+    #[case::repeat_mode(RepeatMode::Continuous, "Continuous")]
+    #[case::percent(Percent::new(50.0), "50.00%")]
+    #[case::state_runtimme(
+        StateRuntime {
+            seek_position: 3.0,
+            seek_percent: Percent::new(50.0),
+            duration: Duration::from_secs(6),
+        },
+        "StateRuntime { seek_position: 3.00s, seek_percent: 50.00%, duration: 6.0s }"
+    )]
+    #[case::state_audio_empty( 
+        StateAudio {
+            queue: Box::new([]),
+            queue_position: None,
+            current_song: None,
+            repeat_mode: RepeatMode::None,
+            runtime: None,
+            paused: false,
+            muted: false,
+            volume: 1.0,
+        }, 
+        "StateAudio { queue: [], queue_position: None, current_song: None, repeat_mode: None, runtime: None, paused: false, muted: false, volume: 100% }"
+    )]
+    #[case::state_audio( 
+        StateAudio {
+            queue: Box::new([
+                Song {
+                    id: Song::generate_id(),
+                    title: "Song 1".into(),
+                    artist: OneOrMany::None,
+                    album_artist: OneOrMany::None,
+                    album: "album".into(),
+                    genre: OneOrMany::None,
+                    runtime: surrealdb::sql::Duration::from_secs(100),
+                    track: None,
+                    disc: None,
+                    release_year: None,
+                    extension: "mp3".into(),
+                    path: "foo/bar.mp3".into(),
+                }
+            ]),
+            queue_position: Some(1),
+            current_song: Some(
+                Song {
+                    id: Song::generate_id(),
+                    title: "Song 1".into(),
+                    artist: OneOrMany::None,
+                    album_artist: OneOrMany::None,
+                    album: "album".into(),
+                    genre: OneOrMany::None,
+                    runtime: surrealdb::sql::Duration::from_secs(100),
+                    track: None,
+                    disc: None,
+                    release_year: None,
+                    extension: "mp3".into(),
+                    path: "foo/bar.mp3".into(),
+                }
+            ),
+            repeat_mode: RepeatMode::None,
+            runtime: Some(StateRuntime {
+                seek_position: 20.0,
+                seek_percent: Percent::new(20.0),
+                duration: Duration::from_secs(100),
+            
+            }),
+            paused: false,
+            muted: false,
+            volume: 1.0,
+        },
+        "StateAudio { queue: [\"Song 1\"], queue_position: 1, current_song: \"Song 1\", repeat_mode: None, runtime: StateRuntime { seek_position: 20.00s, seek_percent: 20.00%, duration: 100.0s }, paused: false, muted: false, volume: 100% }"
+    )]
+    fn test_display_impls<T: Display>(#[case] input: T, #[case] expected: &str) {
+        assert_str_eq!(input.to_string(), expected);
     }
 }

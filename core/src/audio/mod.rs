@@ -3,6 +3,7 @@ pub mod queue;
 
 use std::{
     cell::RefCell,
+    fmt::Display,
     fs::File,
     io::BufReader,
     ops::Range,
@@ -27,10 +28,9 @@ use mecomp_storage::{db::schemas::song::Song, util::OneOrMany};
 use self::queue::Queue;
 
 lazy_static! {
-    #[cfg(not(tarpaulin_include))]
     pub static ref AUDIO_KERNEL: Arc<AudioKernelSender> = {
         let (tx, rx) = std::sync::mpsc::channel();
-        tokio::spawn(async {
+        std::thread::spawn(move || {
             let kernel = AudioKernel::new();
             kernel.init(rx);
         });
@@ -50,6 +50,38 @@ pub enum QueueCommand {
     SetRepeatMode(RepeatMode),
 }
 
+impl Display for QueueCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            QueueCommand::SkipForward(n) => write!(f, "Skip Forward by {n}"),
+            QueueCommand::SkipBackward(n) => write!(f, "Skip Backward by {n}"),
+            QueueCommand::SetPosition(n) => write!(f, "Set Position to {n}"),
+            QueueCommand::Shuffle => write!(f, "Shuffle"),
+            QueueCommand::AddToQueue(OneOrMany::None) => write!(f, "Add nothing"),
+            QueueCommand::AddToQueue(OneOrMany::One(song)) => {
+                write!(f, "Add \"{}\"", song.title.to_string())
+            }
+            QueueCommand::AddToQueue(OneOrMany::Many(songs)) => {
+                write!(
+                    f,
+                    "Add {:?}",
+                    songs
+                        .iter()
+                        .map(|song| song.title.to_string())
+                        .collect::<Vec<_>>()
+                )
+            }
+            QueueCommand::RemoveRange(range) => {
+                write!(f, "Remove items {}..{}", range.start, range.end)
+            }
+            QueueCommand::Clear => write!(f, "Clear"),
+            QueueCommand::SetRepeatMode(mode) => {
+                write!(f, "Set Repeat Mode to {mode}", mode = mode)
+            }
+        }
+    }
+}
+
 /// Volume commands
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum VolumeCommand {
@@ -59,6 +91,19 @@ pub enum VolumeCommand {
     Mute,
     Unmute,
     ToggleMute,
+}
+
+impl Display for VolumeCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VolumeCommand::Up(percent) => write!(f, "+{percent:.0}%", percent = percent * 100.0),
+            VolumeCommand::Down(percent) => write!(f, "-{percent:.0}%", percent = percent * 100.0),
+            VolumeCommand::Set(percent) => write!(f, "={percent:.0}%", percent = percent * 100.0),
+            VolumeCommand::Mute => write!(f, "Mute"),
+            VolumeCommand::Unmute => write!(f, "Unmute"),
+            VolumeCommand::ToggleMute => write!(f, "Toggle Mute"),
+        }
+    }
 }
 
 /// Commands that can be sent to the audio kernel
@@ -78,6 +123,7 @@ pub enum AudioCommand {
     ReportStatus(tokio::sync::oneshot::Sender<StateAudio>),
     /// volume control commands
     Volume(VolumeCommand),
+    // TODO: seek commands
 }
 
 impl PartialEq for AudioCommand {
@@ -92,12 +138,13 @@ impl PartialEq for AudioCommand {
             | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
             (Self::Queue(a), Self::Queue(b)) => a == b,
             (Self::Volume(a), Self::Volume(b)) => a == b,
+            #[cfg(not(tarpaulin_include))]
             _ => false,
         }
     }
 }
 
-impl std::fmt::Display for AudioCommand {
+impl Display for AudioCommand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Play => write!(f, "Play"),
@@ -105,10 +152,10 @@ impl std::fmt::Display for AudioCommand {
             Self::TogglePlayback => write!(f, "Toggle Playback"),
             Self::RestartSong => write!(f, "Restart Song"),
             Self::ClearPlayer => write!(f, "Clear Player"),
-            Self::Queue(command) => write!(f, "Queue: {command:?}"),
+            Self::Queue(command) => write!(f, "Queue: {command}"),
             Self::Exit => write!(f, "Exit"),
             Self::ReportStatus(_) => write!(f, "Report Status"),
-            Self::Volume(command) => write!(f, "Volume: {command:?}"),
+            Self::Volume(command) => write!(f, "Volume: {command}"),
         }
     }
 }
@@ -297,11 +344,16 @@ impl AudioKernel {
 
     #[instrument(skip(self))]
     fn restart_song(&self) {
+        let paused = self.player.is_paused();
         self.clear_player();
 
         if let Some(song) = self.queue.borrow().current_song() {
             if let Err(e) = self.append_song_to_player(song) {
                 error!("Failed to append song to player: {}", e);
+            }
+
+            if !paused {
+                self.play();
             }
         }
     }
@@ -559,6 +611,7 @@ impl Default for AudioKernel {
 #[cfg(test)]
 mod tests {
     use mecomp_storage::db::init_test_database;
+    use pretty_assertions::assert_str_eq;
     use rstest::{fixture, rstest};
 
     use crate::test_utils::{arb_song_case, create_song, init};
@@ -678,6 +731,76 @@ mod tests {
         assert_eq!(rhs == lhs, expected);
     }
 
+    // dummy song used for display tests, makes the tests more readable
+    fn dummy_song() -> Song {
+        Song {
+            id: Song::generate_id(),
+            title: "Song 1".into(),
+            artist: OneOrMany::None,
+            album_artist: OneOrMany::None,
+            album: "album".into(),
+            genre: OneOrMany::None,
+            runtime: surrealdb::sql::Duration::from_secs(100),
+            track: None,
+            disc: None,
+            release_year: None,
+            extension: "mp3".into(),
+            path: "foo/bar.mp3".into(),
+        }
+    }
+
+    #[rstest]
+    #[case(AudioCommand::Play, "Play")]
+    #[case(AudioCommand::Pause, "Pause")]
+    #[case(AudioCommand::TogglePlayback, "Toggle Playback")]
+    #[case(AudioCommand::ClearPlayer, "Clear Player")]
+    #[case(AudioCommand::RestartSong, "Restart Song")]
+    #[case(AudioCommand::Queue(QueueCommand::Clear), "Queue: Clear")]
+    #[case(AudioCommand::Queue(QueueCommand::Shuffle), "Queue: Shuffle")]
+    #[case(
+        AudioCommand::Queue(QueueCommand::AddToQueue(OneOrMany::None)),
+        "Queue: Add nothing"
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::AddToQueue(OneOrMany::One(dummy_song()))),
+        "Queue: Add \"Song 1\""
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::AddToQueue(OneOrMany::Many(vec![dummy_song()]))),
+        "Queue: Add [\"Song 1\"]"
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::RemoveRange(0..1)),
+        "Queue: Remove items 0..1"
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::SetRepeatMode(RepeatMode::None)),
+        "Queue: Set Repeat Mode to None"
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::SkipForward(1)),
+        "Queue: Skip Forward by 1"
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::SkipBackward(1)),
+        "Queue: Skip Backward by 1"
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::SetPosition(1)),
+        "Queue: Set Position to 1"
+    )]
+    #[case(AudioCommand::Volume(VolumeCommand::Up(0.1)), "Volume: +10%")]
+    #[case(AudioCommand::Volume(VolumeCommand::Down(0.1)), "Volume: -10%")]
+    #[case(AudioCommand::Volume(VolumeCommand::Set(0.1)), "Volume: =10%")]
+    #[case(AudioCommand::Volume(VolumeCommand::Mute), "Volume: Mute")]
+    #[case(AudioCommand::Volume(VolumeCommand::Unmute), "Volume: Unmute")]
+    #[case(AudioCommand::Volume(VolumeCommand::ToggleMute), "Volume: Toggle Mute")]
+    #[case(AudioCommand::Exit, "Exit")]
+    #[case(AudioCommand::ReportStatus(tokio::sync::oneshot::channel().0), "Report Status")]
+    fn test_audio_command_display(#[case] command: AudioCommand, #[case] expected: &str) {
+        assert_str_eq!(command.to_string(), expected);
+    }
+
     #[fixture]
     fn audio_kernel() -> AudioKernel {
         AudioKernel::default()
@@ -732,6 +855,14 @@ mod tests {
         init();
 
         sender.send(AudioCommand::Exit);
+    }
+
+    #[rstest]
+    #[timeout(Duration::from_secs(3))] // if the test takes longer than 3 seconds, this is a failure
+    fn test_audio_player_global_kernel_exit() {
+        init();
+
+        AUDIO_KERNEL.send(AudioCommand::Exit);
     }
 
     #[rstest]
@@ -814,19 +945,60 @@ mod tests {
         #[rstest]
         #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
+        async fn test_play_pause_toggle_restart(
+            #[from(audio_kernel_sender)] sender: AudioKernelSender,
+        ) {
+            init();
+            let db = init_test_database().await.unwrap();
+
+            let song = create_song(&db, arb_song_case()()).await.unwrap();
+
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::One(song.clone()),
+            )));
+
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::Pause);
+            let state = get_state(sender.clone()).await;
+            assert!(state.paused);
+
+            sender.send(AudioCommand::Play);
+            let state = get_state(sender.clone()).await;
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::RestartSong);
+            let state = get_state(sender.clone()).await;
+            assert!(!state.paused); // Note, unlike adding a song to the queue, RestartSong does not affect whether the player is paused
+
+            sender.send(AudioCommand::TogglePlayback);
+            let state = get_state(sender.clone()).await;
+            assert!(state.paused);
+
+            sender.send(AudioCommand::RestartSong);
+            let state = get_state(sender.clone()).await;
+            assert!(state.paused); // Note, unlike adding a song to the queue, RestartSong does not affect whether the player is paused
+
+            sender.send(AudioCommand::Exit);
+        }
+
+        #[rstest]
+        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[tokio::test]
         async fn test_audio_kernel_skip_forward(audio_kernel: AudioKernel) {
             init();
             let db = init_test_database().await.unwrap();
-            let song = create_song(&db, arb_song_case()()).await.unwrap();
 
             let state = audio_kernel.state();
             assert_eq!(state.queue_position, None);
             assert!(state.paused);
 
             audio_kernel.queue_control(QueueCommand::AddToQueue(OneOrMany::Many(vec![
-                song.clone(),
-                song.clone(),
-                song.clone(),
+                create_song(&db, arb_song_case()()).await.unwrap(),
+                create_song(&db, arb_song_case()()).await.unwrap(),
+                create_song(&db, arb_song_case()()).await.unwrap(),
             ])));
 
             // songs were added to an empty queue, so the first song should start playing
@@ -866,20 +1038,17 @@ mod tests {
             init();
 
             let db = init_test_database().await.unwrap();
-            let song = create_song(&db, arb_song_case()()).await.unwrap();
 
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
             assert!(state.paused);
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-                OneOrMany::One(song.clone()),
-            )));
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-                OneOrMany::One(song.clone()),
-            )));
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-                OneOrMany::One(song.clone()),
+                OneOrMany::Many(vec![
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                ]),
             )));
             // songs were added to an empty queue, so the first song should start playing
             let state = get_state(sender.clone()).await;
@@ -908,29 +1077,292 @@ mod tests {
         }
 
         #[rstest]
+        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
-        async fn test_remove_range_from_queue(audio_kernel: AudioKernel) {
-            // test to ensure the player is stopped when the current song is removed
+        async fn test_remove_range_from_queue(
+            #[from(audio_kernel_sender)] sender: AudioKernelSender,
+        ) {
             init();
             let db = init_test_database().await.unwrap();
             let song1 = create_song(&db, arb_song_case()()).await.unwrap();
             let song2 = create_song(&db, arb_song_case()()).await.unwrap();
 
             // add songs to the queue, starts playback
-            audio_kernel.add_song_to_queue(song1.clone());
-            audio_kernel.add_song_to_queue(song2.clone());
-            assert!(!audio_kernel.player.is_paused());
-            assert_eq!(audio_kernel.queue.borrow().current_index(), Some(0));
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::Many(vec![song1.clone(), song2.clone()]),
+            )));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert!(!state.paused);
 
-            // remove the song from the queue, player should be paused
-            audio_kernel.remove_range_from_queue(0..1);
-            assert!(audio_kernel.player.is_paused());
+            // remove the current song from the queue, player should be paused
+            sender.send(AudioCommand::Queue(QueueCommand::RemoveRange(0..1)));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, None);
+            assert!(state.paused);
+            assert_eq!(state.queue.len(), 1);
+            assert_eq!(state.queue[0], song2);
 
-            let queue = audio_kernel.queue.borrow();
-            assert_eq!(queue.queued_songs().len(), 1);
-            assert_eq!(queue.get(0), Some(&song2));
-            assert_eq!(queue.current_index(), None);
-            assert_eq!(queue.current_song(), None);
+            // add the song back to the queue, starts playback
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::One(song1.clone()),
+            )));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert!(!state.paused);
+            assert_eq!(state.queue.len(), 2);
+            assert_eq!(state.queue[0], song2);
+            assert_eq!(state.queue[1], song1);
+
+            // remove the next song from the queue, player should still be playing
+            sender.send(AudioCommand::Queue(QueueCommand::RemoveRange(1..2)));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert!(!state.paused);
+            assert_eq!(state.queue.len(), 1);
+            assert_eq!(state.queue[0], song2);
+
+            sender.send(AudioCommand::Exit);
+        }
+
+        #[rstest]
+        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[tokio::test]
+        async fn test_audio_kernel_skip_backward(
+            #[from(audio_kernel_sender)] sender: AudioKernelSender,
+        ) {
+            init();
+            let db = init_test_database().await.unwrap();
+
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, None);
+            assert!(state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::Many(vec![
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                ]),
+            )));
+
+            // songs were added to an empty queue, so the first song should start playing
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::SkipForward(2)));
+
+            // the third song should start playing
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(2));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::SkipBackward(1)));
+
+            // the second song should start playing
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(1));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::SkipBackward(1)));
+
+            // the first song should start playing
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::SkipBackward(1)));
+
+            // we were at the start of the queue and tried to skip backward, so the player should be paused and the queue position should be None
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, None);
+            assert!(state.paused);
+
+            sender.send(AudioCommand::Exit);
+        }
+
+        #[rstest]
+        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[tokio::test]
+        async fn test_audio_kernel_set_position(
+            #[from(audio_kernel_sender)] sender: AudioKernelSender,
+        ) {
+            init();
+            let db = init_test_database().await.unwrap();
+
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, None);
+            assert!(state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::Many(vec![
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                ]),
+            )));
+            // songs were added to an empty queue, so the first song should start playing
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::SetPosition(1)));
+            // the second song should start playing
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(1));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::SetPosition(2)));
+            // the third song should start playing
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(2));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::SetPosition(0)));
+            // the first song should start playing
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::SetPosition(3)));
+            // we tried to set the position to an index that's out of pounds, so the player should be at the nearest valid index
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(2));
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::Exit);
+        }
+
+        #[rstest]
+        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[tokio::test]
+        async fn test_audio_kernel_clear(#[from(audio_kernel_sender)] sender: AudioKernelSender) {
+            init();
+            let db = init_test_database().await.unwrap();
+
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, None);
+            assert!(state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::Many(vec![
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                ]),
+            )));
+            // songs were added to an empty queue, so the first song should start playing
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert_eq!(state.queue.len(), 3);
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::ClearPlayer);
+            // we only cleared the audio player, so the queue should still have the songs
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert_eq!(state.queue.len(), 3);
+            assert!(state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::Clear));
+            // we cleared the queue, so the player should be paused and the queue should be empty
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, None);
+            assert_eq!(state.queue.len(), 0);
+            assert!(state.paused);
+
+            sender.send(AudioCommand::Exit);
+        }
+
+        #[rstest]
+        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[tokio::test]
+        async fn test_audio_kernel_shuffle(#[from(audio_kernel_sender)] sender: AudioKernelSender) {
+            init();
+            let db = init_test_database().await.unwrap();
+
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, None);
+            assert!(state.paused);
+
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::Many(vec![
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    create_song(&db, arb_song_case()()).await.unwrap(),
+                ]),
+            )));
+            // songs were added to an empty queue, so the first song should start playing
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert_eq!(state.queue.len(), 3);
+            assert!(!state.paused);
+
+            // lets go to the second song
+            sender.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(1));
+            assert_eq!(state.queue.len(), 3);
+            assert!(!state.paused);
+
+            // lets shuffle the queue
+            sender.send(AudioCommand::Queue(QueueCommand::Shuffle));
+            // we shuffled the queue, so the player should still be playing and the queue should still have 3 songs, and the previous current song should be the now first song
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert_eq!(state.queue.len(), 3);
+            assert!(!state.paused);
+
+            sender.send(AudioCommand::Exit);
+        }
+
+        #[rstest]
+        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[tokio::test]
+        async fn test_volume_commands(#[from(audio_kernel_sender)] sender: AudioKernelSender) {
+            init();
+
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.volume, 1.0);
+            assert!(!state.muted);
+
+            sender.send(AudioCommand::Volume(VolumeCommand::Up(0.1)));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.volume, 1.1);
+            assert!(!state.muted);
+
+            sender.send(AudioCommand::Volume(VolumeCommand::Down(0.1)));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.volume, 1.0);
+            assert!(!state.muted);
+
+            sender.send(AudioCommand::Volume(VolumeCommand::Set(0.5)));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.volume, 0.5);
+            assert!(!state.muted);
+
+            sender.send(AudioCommand::Volume(VolumeCommand::Mute));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.volume, 0.5); // although underlying volume is 0 (for the rodio player), the stored volume is still 0.5
+            assert!(state.muted);
+
+            sender.send(AudioCommand::Volume(VolumeCommand::Unmute));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.volume, 0.5);
+            assert!(!state.muted);
+
+            sender.send(AudioCommand::Volume(VolumeCommand::ToggleMute));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.volume, 0.5);
+            assert!(state.muted);
+
+            sender.send(AudioCommand::Volume(VolumeCommand::ToggleMute));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.volume, 0.5);
+            assert!(!state.muted);
+
+            sender.send(AudioCommand::Exit);
         }
     }
 }

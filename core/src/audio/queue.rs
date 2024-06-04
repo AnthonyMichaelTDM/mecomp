@@ -201,7 +201,7 @@ impl Queue {
         if self.songs.is_empty() {
             self.current_index = None;
         } else {
-            self.current_index = Some(index.min(self.songs.len().saturating_sub(1)));
+            self.current_index = Some(index.min(self.songs.len() - 1));
         }
     }
 
@@ -332,6 +332,7 @@ mod tests {
     #[rstest]
     #[case::one_song(arb_vec_and_index( &arb_song_case(), 1..=1, IndexMode::InBounds)())]
     #[case::many_songs(arb_vec_and_index( &arb_song_case(), 2..=10, IndexMode::InBounds)())]
+    #[case::many_songs_guarenteed_nonzero_index((arb_vec( &arb_song_case(), 2..=10)(), 1))]
     #[tokio::test]
     async fn test_shuffle(#[case] params: (Vec<SongCase>, usize)) {
         init();
