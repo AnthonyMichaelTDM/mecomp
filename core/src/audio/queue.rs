@@ -232,8 +232,9 @@ mod tests {
     use super::*;
     use crate::state::RepeatMode;
     use crate::test_utils::{
-        arb_song_case, arb_vec, arb_vec_and_range_and_index, bar_sc, baz_sc, create_song, foo_sc,
-        init, RangeEndMode, RangeIndexMode, RangeStartMode, SongCase, TIMEOUT,
+        arb_song_case, arb_vec, arb_vec_and_index, arb_vec_and_range_and_index, bar_sc, baz_sc,
+        create_song, foo_sc, init, IndexMode, RangeEndMode, RangeIndexMode, RangeStartMode,
+        SongCase, TIMEOUT,
     };
 
     use mecomp_storage::db::init_test_database;
@@ -295,21 +296,59 @@ mod tests {
     }
 
     #[rstest]
-    #[case(foo_sc())]
-    #[case(bar_sc())]
-    #[case(baz_sc())]
+    #[case::index_oob(vec![arb_song_case()(), arb_song_case()(), arb_song_case()()], 1, 4, Some(1))]
+    #[case::index_before_current(vec![arb_song_case()(), arb_song_case()(), arb_song_case()()], 2, 1, Some(1))]
+    #[case::index_after_current(vec![arb_song_case()(),arb_song_case()(),arb_song_case()()], 1, 2, Some(1))]
+    #[case::index_at_current(vec![arb_song_case()(), arb_song_case()(), arb_song_case()()],  1, 1, Some(0))]
+    #[case::index_at_current_zero(vec![arb_song_case()(), arb_song_case()(), arb_song_case()()],  0, 0, Some(0))]
+    #[case::remove_only_song(vec![arb_song_case()()], 0, 0, None )]
     #[tokio::test]
-    async fn test_remove_song(#[case] song: SongCase) -> anyhow::Result<()> {
+    async fn test_remove_song(
+        #[case] songs: Vec<SongCase>,
+        #[case] current_index_before: usize,
+        #[case] index_to_remove: usize,
+        #[case] expected_current_index_after: Option<usize>,
+    ) {
         init();
         let db = init_test_database().await.unwrap();
-
         let mut queue = Queue::new();
-        let song = create_song(&db, song).await?;
-        queue.add_song(song);
-        queue.remove_song(0);
-        assert_eq!(queue.songs.len(), 0);
 
-        Ok(())
+        // add songs and set index
+        for sc in songs {
+            queue.add_song(create_song(&db, sc).await.unwrap());
+        }
+        queue.set_current_index(current_index_before);
+
+        // remove specified song
+        queue.remove_song(index_to_remove);
+
+        // assert current index is as expected
+        assert_eq!(queue.current_index(), expected_current_index_after);
+    }
+
+    #[rstest]
+    #[case::with_data(arb_vec_and_index( &arb_song_case(), 1..=10, IndexMode::InBounds)())]
+    #[tokio::test]
+    async fn test_shuffle(#[case] params: (Vec<SongCase>, usize)) {
+        init();
+        let (songs, index) = params;
+        let db = init_test_database().await.unwrap();
+        let mut queue = Queue::default();
+
+        // add songs to queue and set index
+        for sc in songs {
+            queue.add_song(create_song(&db, sc).await.unwrap());
+        }
+        queue.set_current_index(index);
+
+        let current_song = queue.current_song().cloned();
+
+        // shuffle queue
+        queue.shuffle();
+
+        // assert that the currrent song doesn't change and that current index is 0
+        assert_eq!(queue.current_song().cloned(), current_song);
+        assert_eq!(queue.current_index(), Some(0));
     }
 
     #[rstest]

@@ -26,8 +26,8 @@ use mecomp_storage::{db::schemas::song::Song, util::OneOrMany};
 
 use self::queue::Queue;
 
-#[cfg(not(tarpaulin_include))]
 lazy_static! {
+    #[cfg(not(tarpaulin_include))]
     pub static ref AUDIO_KERNEL: Arc<AudioKernelSender> = {
         let (tx, rx) = std::sync::mpsc::channel();
         tokio::spawn(async {
@@ -568,9 +568,119 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
+    #[rstest]
+    #[case(AudioCommand::Play, AudioCommand::Play, true)]
+    #[case(AudioCommand::Play, AudioCommand::Pause, false)]
+    #[case(AudioCommand::Pause, AudioCommand::Pause, true)]
+    #[case(AudioCommand::TogglePlayback, AudioCommand::TogglePlayback, true)]
+    #[case(AudioCommand::RestartSong, AudioCommand::RestartSong, true)]
+    #[case(
+        AudioCommand::Queue(QueueCommand::Clear),
+        AudioCommand::Queue(QueueCommand::Clear),
+        true
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::Clear),
+        AudioCommand::Queue(QueueCommand::Shuffle),
+        false
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::SkipForward(1)),
+        AudioCommand::Queue(QueueCommand::SkipForward(1)),
+        true
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::SkipForward(1)),
+        AudioCommand::Queue(QueueCommand::SkipForward(2)),
+        false
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::SkipBackward(1)),
+        AudioCommand::Queue(QueueCommand::SkipBackward(1)),
+        true
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::SkipBackward(1)),
+        AudioCommand::Queue(QueueCommand::SkipBackward(2)),
+        false
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::SetPosition(1)),
+        AudioCommand::Queue(QueueCommand::SetPosition(1)),
+        true
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::SetPosition(1)),
+        AudioCommand::Queue(QueueCommand::SetPosition(2)),
+        false
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::Shuffle),
+        AudioCommand::Queue(QueueCommand::Shuffle),
+        true
+    )]
+    #[case(
+        AudioCommand::Queue(QueueCommand::Shuffle),
+        AudioCommand::Queue(QueueCommand::Clear),
+        false
+    )]
+    #[case(
+        AudioCommand::Volume(VolumeCommand::Up(0.1)),
+        AudioCommand::Volume(VolumeCommand::Up(0.1)),
+        true
+    )]
+    #[case(
+        AudioCommand::Volume(VolumeCommand::Up(0.1)),
+        AudioCommand::Volume(VolumeCommand::Up(0.2)),
+        false
+    )]
+    #[case(
+        AudioCommand::Volume(VolumeCommand::Down(0.1)),
+        AudioCommand::Volume(VolumeCommand::Down(0.1)),
+        true
+    )]
+    #[case(
+        AudioCommand::Volume(VolumeCommand::Down(0.1)),
+        AudioCommand::Volume(VolumeCommand::Down(0.2)),
+        false
+    )]
+    #[case(
+        AudioCommand::Volume(VolumeCommand::Set(0.1)),
+        AudioCommand::Volume(VolumeCommand::Set(0.1)),
+        true
+    )]
+    #[case(
+        AudioCommand::Volume(VolumeCommand::Set(0.1)),
+        AudioCommand::Volume(VolumeCommand::Set(0.2)),
+        false
+    )]
+    #[case(
+        AudioCommand::Volume(VolumeCommand::Mute),
+        AudioCommand::Volume(VolumeCommand::Mute),
+        true
+    )]
+    #[case(
+        AudioCommand::Volume(VolumeCommand::Mute),
+        AudioCommand::Volume(VolumeCommand::Unmute),
+        false
+    )]
+    #[case(
+        AudioCommand::Volume(VolumeCommand::Unmute),
+        AudioCommand::Volume(VolumeCommand::Unmute),
+        true
+    )]
+    fn test_audio_command_equality(
+        #[case] lhs: AudioCommand,
+        #[case] rhs: AudioCommand,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(lhs == rhs, expected);
+        assert_eq!(rhs == lhs, expected);
+    }
+
     #[fixture]
     fn audio_kernel() -> AudioKernel {
-        AudioKernel::new()
+        AudioKernel::default()
     }
 
     #[fixture]
@@ -606,6 +716,14 @@ mod tests {
         assert_eq!(recv, AudioCommand::Play);
     }
 
+    #[test]
+    #[should_panic]
+    fn test_audio_kernel_send_closed_channel() {
+        let (tx, _) = mpsc::channel();
+        let sender = AudioKernelSender::new(tx);
+        sender.send(AudioCommand::Play);
+    }
+
     #[rstest]
     #[timeout(Duration::from_secs(3))] // if the test takes longer than 3 seconds, this is a failure
     fn test_audio_player_kernel_spawn_and_exit(
@@ -614,6 +732,50 @@ mod tests {
         init();
 
         sender.send(AudioCommand::Exit);
+    }
+
+    #[rstest]
+    fn test_volume_control(audio_kernel: AudioKernel) {
+        audio_kernel.volume_control(VolumeCommand::Up(0.1));
+        assert_eq!(*audio_kernel.volume.borrow(), 1.1);
+
+        audio_kernel.volume_control(VolumeCommand::Down(0.1));
+        assert_eq!(*audio_kernel.volume.borrow(), 1.0);
+
+        audio_kernel.volume_control(VolumeCommand::Set(0.5));
+        assert_eq!(*audio_kernel.volume.borrow(), 0.5);
+
+        audio_kernel.volume_control(VolumeCommand::Mute);
+        assert_eq!(
+            audio_kernel
+                .muted
+                .load(std::sync::atomic::Ordering::Relaxed),
+            true
+        );
+
+        audio_kernel.volume_control(VolumeCommand::Unmute);
+        assert_eq!(
+            audio_kernel
+                .muted
+                .load(std::sync::atomic::Ordering::Relaxed),
+            false
+        );
+
+        audio_kernel.volume_control(VolumeCommand::ToggleMute);
+        assert_eq!(
+            audio_kernel
+                .muted
+                .load(std::sync::atomic::Ordering::Relaxed),
+            true
+        );
+
+        audio_kernel.volume_control(VolumeCommand::ToggleMute);
+        assert_eq!(
+            audio_kernel
+                .muted
+                .load(std::sync::atomic::Ordering::Relaxed),
+            false
+        );
     }
 
     mod playback_tests {
@@ -743,6 +905,32 @@ mod tests {
             assert!(state.paused);
 
             sender.send(AudioCommand::Exit);
+        }
+
+        #[rstest]
+        #[tokio::test]
+        async fn test_remove_range_from_queue(audio_kernel: AudioKernel) {
+            // test to ensure the player is stopped when the current song is removed
+            init();
+            let db = init_test_database().await.unwrap();
+            let song1 = create_song(&db, arb_song_case()()).await.unwrap();
+            let song2 = create_song(&db, arb_song_case()()).await.unwrap();
+
+            // add songs to the queue, starts playback
+            audio_kernel.add_song_to_queue(song1.clone());
+            audio_kernel.add_song_to_queue(song2.clone());
+            assert!(!audio_kernel.player.is_paused());
+            assert_eq!(audio_kernel.queue.borrow().current_index(), Some(0));
+
+            // remove the song from the queue, player should be paused
+            audio_kernel.remove_range_from_queue(0..1);
+            assert!(audio_kernel.player.is_paused());
+
+            let queue = audio_kernel.queue.borrow();
+            assert_eq!(queue.queued_songs().len(), 1);
+            assert_eq!(queue.get(0), Some(&song2));
+            assert_eq!(queue.current_index(), None);
+            assert_eq!(queue.current_song(), None);
         }
     }
 }
