@@ -332,7 +332,7 @@ mod tests {
     #[rstest]
     #[case::one_song(arb_vec_and_index( &arb_song_case(), 1..=1, IndexMode::InBounds)())]
     #[case::many_songs(arb_vec_and_index( &arb_song_case(), 2..=10, IndexMode::InBounds)())]
-    #[case::many_songs_guarenteed_nonzero_index((arb_vec( &arb_song_case(), 2..=10)(), 1))]
+    #[case::many_songs_guaranteed_nonzero_index((arb_vec( &arb_song_case(), 2..=10)(), 1))]
     #[tokio::test]
     async fn test_shuffle(#[case] params: (Vec<SongCase>, usize)) {
         init();
@@ -351,7 +351,7 @@ mod tests {
         // shuffle queue
         queue.shuffle();
 
-        // assert that the currrent song doesn't change and that current index is 0
+        // assert that the current song doesn't change and that current index is 0
         assert_eq!(queue.current_song().cloned(), current_song);
         assert_eq!(queue.current_index(), Some(0));
     }

@@ -19,6 +19,7 @@ ignored = [
     "arrayvec",
     "either",
     "futures-channel",
+    "futures-core",
     "futures-executor",
     "futures-io",
     "futures-sink",
@@ -66,8 +67,17 @@ futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-sink = { version = "0.3" }
-futures-util = { version = "0.3", default-features = false, features = ["async-await-macro", "channel", "io", "sink"] }
-getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
+futures-util = { version = "0.3", default-features = false, features = [
+    "async-await-macro",
+    "channel",
+    "io",
+    "sink",
+] }
+getrandom = { version = "0.2", default-features = false, features = [
+    "js",
+    "rdrand",
+    "std",
+] }
 hashbrown = { version = "0.14", features = ["raw", "serde"] }
 indexmap = { version = "2", features = ["serde"] }
 itertools = { version = "0.11" }
@@ -81,12 +91,32 @@ proc-macro2 = { version = "1" }
 quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
 regex = { version = "1" }
-regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "hybrid", "meta", "nfa-backtrack", "perf", "unicode"] }
+regex-automata = { version = "0.4", default-features = false, features = [
+    "dfa-onepass",
+    "hybrid",
+    "meta",
+    "nfa-backtrack",
+    "perf",
+    "unicode",
+] }
 regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
-syn = { version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
-tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
+syn = { version = "2", features = [
+    "extra-traits",
+    "full",
+    "visit",
+    "visit-mut",
+] }
+tokio = { version = "1", features = [
+    "io-std",
+    "io-util",
+    "macros",
+    "net",
+    "rt-multi-thread",
+    "sync",
+    "time",
+] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
@@ -102,8 +132,17 @@ futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-sink = { version = "0.3" }
-futures-util = { version = "0.3", default-features = false, features = ["async-await-macro", "channel", "io", "sink"] }
-getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
+futures-util = { version = "0.3", default-features = false, features = [
+    "async-await-macro",
+    "channel",
+    "io",
+    "sink",
+] }
+getrandom = { version = "0.2", default-features = false, features = [
+    "js",
+    "rdrand",
+    "std",
+] }
 hashbrown = { version = "0.14", features = ["raw", "serde"] }
 indexmap = { version = "2", features = ["serde"] }
 itertools = { version = "0.11" }
@@ -117,12 +156,32 @@ proc-macro2 = { version = "1" }
 quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
 regex = { version = "1" }
-regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "hybrid", "meta", "nfa-backtrack", "perf", "unicode"] }
+regex-automata = { version = "0.4", default-features = false, features = [
+    "dfa-onepass",
+    "hybrid",
+    "meta",
+    "nfa-backtrack",
+    "perf",
+    "unicode",
+] }
 regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
-syn = { version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
-tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
+syn = { version = "2", features = [
+    "extra-traits",
+    "full",
+    "visit",
+    "visit-mut",
+] }
+tokio = { version = "1", features = [
+    "io-std",
+    "io-util",
+    "macros",
+    "net",
+    "rt-multi-thread",
+    "sync",
+    "time",
+] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
