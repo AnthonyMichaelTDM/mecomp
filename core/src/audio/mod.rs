@@ -53,15 +53,15 @@ pub enum QueueCommand {
 impl Display for QueueCommand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            QueueCommand::SkipForward(n) => write!(f, "Skip Forward by {n}"),
-            QueueCommand::SkipBackward(n) => write!(f, "Skip Backward by {n}"),
-            QueueCommand::SetPosition(n) => write!(f, "Set Position to {n}"),
-            QueueCommand::Shuffle => write!(f, "Shuffle"),
-            QueueCommand::AddToQueue(OneOrMany::None) => write!(f, "Add nothing"),
-            QueueCommand::AddToQueue(OneOrMany::One(song)) => {
-                write!(f, "Add \"{}\"", song.title.to_string())
+            Self::SkipForward(n) => write!(f, "Skip Forward by {n}"),
+            Self::SkipBackward(n) => write!(f, "Skip Backward by {n}"),
+            Self::SetPosition(n) => write!(f, "Set Position to {n}"),
+            Self::Shuffle => write!(f, "Shuffle"),
+            Self::AddToQueue(OneOrMany::None) => write!(f, "Add nothing"),
+            Self::AddToQueue(OneOrMany::One(song)) => {
+                write!(f, "Add \"{}\"", song.title)
             }
-            QueueCommand::AddToQueue(OneOrMany::Many(songs)) => {
+            Self::AddToQueue(OneOrMany::Many(songs)) => {
                 write!(
                     f,
                     "Add {:?}",
@@ -71,12 +71,12 @@ impl Display for QueueCommand {
                         .collect::<Vec<_>>()
                 )
             }
-            QueueCommand::RemoveRange(range) => {
+            Self::RemoveRange(range) => {
                 write!(f, "Remove items {}..{}", range.start, range.end)
             }
-            QueueCommand::Clear => write!(f, "Clear"),
-            QueueCommand::SetRepeatMode(mode) => {
-                write!(f, "Set Repeat Mode to {mode}", mode = mode)
+            Self::Clear => write!(f, "Clear"),
+            Self::SetRepeatMode(mode) => {
+                write!(f, "Set Repeat Mode to {mode}")
             }
         }
     }
@@ -96,12 +96,12 @@ pub enum VolumeCommand {
 impl Display for VolumeCommand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            VolumeCommand::Up(percent) => write!(f, "+{percent:.0}%", percent = percent * 100.0),
-            VolumeCommand::Down(percent) => write!(f, "-{percent:.0}%", percent = percent * 100.0),
-            VolumeCommand::Set(percent) => write!(f, "={percent:.0}%", percent = percent * 100.0),
-            VolumeCommand::Mute => write!(f, "Mute"),
-            VolumeCommand::Unmute => write!(f, "Unmute"),
-            VolumeCommand::ToggleMute => write!(f, "Toggle Mute"),
+            Self::Up(percent) => write!(f, "+{percent:.0}%", percent = percent * 100.0),
+            Self::Down(percent) => write!(f, "-{percent:.0}%", percent = percent * 100.0),
+            Self::Set(percent) => write!(f, "={percent:.0}%", percent = percent * 100.0),
+            Self::Mute => write!(f, "Mute"),
+            Self::Unmute => write!(f, "Unmute"),
+            Self::ToggleMute => write!(f, "Toggle Mute"),
         }
     }
 }

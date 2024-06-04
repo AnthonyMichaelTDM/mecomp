@@ -6,9 +6,7 @@ use mecomp_storage::db::schemas::song::Song;
 use nutype::nutype;
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize
-)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub enum SeekType {
     Absolute,
     Relative,
@@ -17,15 +15,13 @@ pub enum SeekType {
 impl Display for SeekType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SeekType::Absolute => write!(f, "Absolute"),
-            SeekType::Relative => write!(f, "Relative"),
+            Self::Absolute => write!(f, "Absolute"),
+            Self::Relative => write!(f, "Relative"),
         }
     }
 }
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize
-)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub enum RepeatMode {
     /// No repeat: after the queue is finished the player stops
     None,
@@ -38,9 +34,9 @@ pub enum RepeatMode {
 impl Display for RepeatMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RepeatMode::None => write!(f, "None"),
-            RepeatMode::Once => write!(f, "Once"),
-            RepeatMode::Continuous => write!(f, "Continuous"),
+            Self::None => write!(f, "None"),
+            Self::Once => write!(f, "Once"),
+            Self::Continuous => write!(f, "Continuous"),
         }
     }
 }
@@ -158,7 +154,7 @@ mod tests {
         },
         "StateRuntime { seek_position: 3.00s, seek_percent: 50.00%, duration: 6.0s }"
     )]
-    #[case::state_audio_empty( 
+    #[case::state_audio_empty(
         StateAudio {
             queue: Box::new([]),
             queue_position: None,
@@ -168,10 +164,10 @@ mod tests {
             paused: false,
             muted: false,
             volume: 1.0,
-        }, 
+        },
         "StateAudio { queue: [], queue_position: None, current_song: None, repeat_mode: None, runtime: None, paused: false, muted: false, volume: 100% }"
     )]
-    #[case::state_audio( 
+    #[case::state_audio(
         StateAudio {
             queue: Box::new([
                 Song {
@@ -211,7 +207,6 @@ mod tests {
                 seek_position: 20.0,
                 seek_percent: Percent::new(20.0),
                 duration: Duration::from_secs(100),
-            
             }),
             paused: false,
             muted: false,
