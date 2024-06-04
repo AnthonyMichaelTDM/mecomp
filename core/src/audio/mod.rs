@@ -193,7 +193,7 @@ pub struct AudioKernel {
     #[cfg(not(feature = "mock_playback"))]
     _stream_handle: rodio::OutputStreamHandle,
     #[cfg(feature = "mock_playback")]
-    _queue_rx_end_tx: tokio::sync::oneshot::Sender<()>,
+    queue_rx_end_tx: tokio::sync::oneshot::Sender<()>,
     player: rodio::Sink,
     queue: RefCell<Queue>,
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will multiply each sample by this value.
@@ -231,6 +231,10 @@ impl AudioKernel {
     /// it is not meant to be called directly, use `AUDIO_KERNEL` instead to send command
     ///
     /// this is the version for tests, where we don't create the actual audio stream since we don't need to play audio
+    ///
+    /// # Panics
+    ///
+    /// panics if the tokio runtime cannot be created
     #[must_use]
     #[cfg(feature = "mock_playback")]
     pub fn new() -> Self {
@@ -241,14 +245,14 @@ impl AudioKernel {
 
         std::thread::spawn(move || {
             // basically, call rx.await and while it is waiting for a command, poll the queue_rx
-            let _ = tokio::runtime::Builder::new_current_thread()
+            tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .unwrap()
                 .block_on(async {
                     tokio::select! {
                         _ = rx => {},
-                        _ = async {
+                        () = async {
                             loop {
                                 queue_rx.next();
                                 std::thread::sleep(std::time::Duration::from_millis(1));
@@ -262,7 +266,7 @@ impl AudioKernel {
 
         Self {
             player: sink,
-            _queue_rx_end_tx: tx,
+            queue_rx_end_tx: tx,
             queue: RefCell::new(Queue::new()),
             volume: RefCell::new(1.0),
             muted: AtomicBool::new(false),
@@ -293,6 +297,10 @@ impl AudioKernel {
     /// // e.g. to shutdown the audio kernel:
     /// sender.send(AudioCommand::Exit);
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// if the `mock_playback` feature is enabled, this function may panic if it is unable to signal the `queue_rx` thread to end.
     pub fn init(self, rx: Receiver<(AudioCommand, tracing::Span)>) {
         for (command, ctx) in rx {
             let _guard = ctx.enter();
@@ -320,7 +328,7 @@ impl AudioKernel {
         }
 
         #[cfg(feature = "mock_playback")]
-        self._queue_rx_end_tx.send(()).unwrap();
+        self.queue_rx_end_tx.send(()).unwrap();
     }
 
     #[instrument(skip(self))]
