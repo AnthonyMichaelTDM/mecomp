@@ -28,6 +28,8 @@ pub mod controller;
 pub mod dynamic_updates;
 pub mod errors;
 pub mod services;
+#[cfg(test)]
+pub mod test_utils;
 
 use crate::config::DaemonSettings;
 use crate::controller::MusicPlayerServer;
