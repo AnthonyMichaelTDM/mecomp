@@ -23,7 +23,8 @@ use crate::{
     errors::LibraryError,
     state::{Percent, RepeatMode, StateAudio, StateRuntime},
 };
-use mecomp_storage::{db::schemas::song::Song, util::OneOrMany};
+use mecomp_storage::db::schemas::song::Song;
+use one_or_many::OneOrMany;
 
 use self::queue::Queue;
 

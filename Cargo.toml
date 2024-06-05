@@ -6,6 +6,7 @@ members = [
     "core",
     "daemon",
     "mecomp-workspace-hack",
+    "one-or-many",
     "storage",
     "surrealqlx/lib",
     "surrealqlx/macros",
@@ -98,7 +99,8 @@ tracing-flame = "0.2.0"
 mecomp-core = { path = "core" }
 mecomp-daemon = { path = "daemon" }
 mecomp-storage = { path = "storage" }
-surrealqlx = { path = "surrealqlx/lib", version = "*", features = ["macros"] }
+surrealqlx = { path = "surrealqlx/lib", features = ["macros"] }
+one-or-many = { path = "one-or-many" }
 
 # shared dev dependencies
 pretty_assertions = "1.4"

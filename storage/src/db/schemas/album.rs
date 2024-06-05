@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use surrealdb::sql::{Duration, Id, Thing};
 use surrealqlx::Table;
 
-use crate::util::OneOrMany;
+use one_or_many::OneOrMany;
 
 pub type AlbumId = Thing;
 

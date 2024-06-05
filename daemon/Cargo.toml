@@ -45,6 +45,7 @@ walkdir = { workspace = true }
 # MECOMP dependencies
 mecomp-core = { workspace = true, features = ["rpc"] }
 mecomp-storage = { workspace = true }
+one-or-many = { workspace = true }
 
 # server dependencies
 config = { version = "0.14.0", default-features = false }

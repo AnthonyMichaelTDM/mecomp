@@ -14,10 +14,8 @@ lazy_static! {
     static ref TEMP_MUSIC_DIR: tempfile::TempDir = tempfile::tempdir().unwrap();
 }
 
-use crate::{
-    db::schemas::song::{Song, SongChangeSet, SongMetadata},
-    util::OneOrMany,
-};
+use crate::db::schemas::song::{Song, SongChangeSet, SongMetadata};
+use one_or_many::OneOrMany;
 
 pub async fn create_song<C: Connection>(
     db: &Surreal<C>,

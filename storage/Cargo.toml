@@ -29,6 +29,7 @@ tempfile = { workspace = true }
 
 # other dependencies
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+one-or-many = { workspace = true, features = ["serde", "surrealdb"] }
 
 [dev-dependencies]
 anyhow = { workspace = true }

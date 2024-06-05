@@ -12,8 +12,8 @@ use crate::{
         song::{Song, SongChangeSet, SongId, TABLE_NAME},
     },
     errors::Error,
-    util::OneOrMany,
 };
+use one_or_many::OneOrMany;
 
 use super::queries::song::{read_album, read_album_artist, read_artist, read_song_by_path};
 

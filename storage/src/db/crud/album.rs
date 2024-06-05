@@ -12,8 +12,8 @@ use crate::{
         song::{Song, SongId},
     },
     errors::Error,
-    util::OneOrMany,
 };
+use one_or_many::OneOrMany;
 
 use super::queries::album::{
     add_songs, read_artist, read_by_name, read_by_name_and_album_artist, read_songs, remove_songs,

@@ -125,7 +125,7 @@ impl Display for StateAudio {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mecomp_storage::util::OneOrMany;
+    use one_or_many::OneOrMany;
     use pretty_assertions::{assert_eq, assert_str_eq};
     use rstest::rstest;
 
