@@ -16,7 +16,7 @@ use mecomp_core::{
     logger::{init_logger, init_tracing},
     rpc::{MusicPlayer as _, MusicPlayerClient},
 };
-use mecomp_storage::db::set_database_path;
+use mecomp_storage::db::{init_database, set_database_path};
 
 async fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
     tokio::spawn(fut);
@@ -24,6 +24,8 @@ async fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
 
 pub mod config;
 pub mod controller;
+#[cfg(feature = "dynamic_updates")]
+pub mod dynamic_updates;
 pub mod errors;
 pub mod services;
 
@@ -56,8 +58,17 @@ pub async fn start_daemon(
     // Initialize the logger, database, and tracing.
     init_logger(log_level);
     set_database_path(settings.db_path.clone())?;
-    let db = Arc::new(mecomp_storage::db::init_database().await?);
+    let db = Arc::new(init_database().await?);
     tracing::subscriber::set_global_default(init_tracing())?;
+
+    // Start the music library watcher.
+    #[cfg(feature = "dynamic_updates")]
+    let _watcher = dynamic_updates::init_music_library_watcher(
+        db.clone(),
+        &settings.library_paths,
+        settings.artist_separator.clone(),
+        settings.genre_separator.clone(),
+    )?;
 
     // Start the RPC server.
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.rpc_port);

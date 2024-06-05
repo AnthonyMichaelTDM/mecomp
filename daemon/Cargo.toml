@@ -19,10 +19,11 @@ bench = false
 doctest = false
 
 [features]
-default = ["cli"]
-cli = ["dep:clap"]                          # features needed for the CLI (binary crate)
+default = ["cli", "dynamic_updates"]
+cli = ["dep:clap"]                                            # features needed for the CLI (binary crate)
 otel_tracing = ["mecomp-core/otel_tracing"]
 flame = ["mecomp-core/flame"]
+dynamic_updates = ["dep:notify-debouncer-full", "dep:notify"]
 
 [dependencies]
 # shared dependencies
@@ -30,14 +31,16 @@ anyhow = { workspace = true }
 clap = { workspace = true, optional = true }
 futures = { workspace = true }
 log = { workspace = true }
+notify = { workspace = true, optional = true }
+notify-debouncer-full = { workspace = true, optional = true }
 rand = { workspace = true }
 serde = { workspace = true }
 surrealdb = { workspace = true }
 tap = { workspace = true }
-tokio = { workspace = true }
-walkdir = { workspace = true }
 tarpc = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
+walkdir = { workspace = true }
 
 # MECOMP dependencies
 mecomp-core = { workspace = true, features = ["rpc"] }

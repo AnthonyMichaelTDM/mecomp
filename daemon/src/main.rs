@@ -8,8 +8,8 @@ use mecomp_daemon::{config::DaemonSettings, start_daemon};
 
 use clap::Parser;
 
-#[cfg(not(feature = "clap"))]
-compile_error!("The clap feature is required to build the daemon binary");
+#[cfg(not(feature = "cli"))]
+compile_error!("The cli feature is required to build the daemon binary");
 
 /// Options configurable via the CLI.
 #[derive(Parser)]
