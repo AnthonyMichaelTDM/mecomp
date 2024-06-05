@@ -3,31 +3,24 @@
 //! this module is responsible for parsing the Config.toml file, parsing cli arguments, and
 //! setting up the logger.
 
-use clap::Parser;
 use config::{Config, ConfigError, Environment, File};
-use lazy_static::lazy_static;
-use log::{info, warn};
 use serde::Deserialize;
-use tap::TapFallible;
 
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use mecomp_storage::util::MetadataConflictResolution;
 
-/// Options configurable via the CLI.
-#[derive(Parser)]
-pub struct Flags {
-    /// Sets the port number to listen on.
-    #[clap(long)]
-    port: Option<u16>,
-    /// config file path
-    #[clap(long, default_value = "Mecomp.toml")]
-    config: PathBuf,
+const DEFAULT_PORT: u16 = 6600;
+
+const fn default_port() -> u16 {
+    DEFAULT_PORT
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct DaemonSettings {
     /// The port to listen on for RPC requests.
+    /// Default is 6600.
+    #[serde(default = "default_port")]
     pub rpc_port: u16,
     /// The path to the database.
     pub db_path: PathBuf,
@@ -61,21 +54,23 @@ impl Default for DaemonSettings {
 }
 
 impl DaemonSettings {
-    /// Load settings from the config file and environment variables.
+    /// Load settings from the config file, environment variables, and CLI arguments.
     ///
     /// The config file is located at the path specified by the `--config` flag.
     ///
     /// The environment variables are prefixed with `MECOMP_`.
     ///
+    /// # Arguments
+    ///
+    /// * `flags` - The parsed CLI arguments.
+    ///
     /// # Errors
     ///
     /// This function will return an error if the config file is not found or if the config file is
     /// invalid.
-    pub fn init() -> Result<Self, ConfigError> {
-        let flags = Flags::parse();
-
+    pub fn init(port: Option<u16>, config: PathBuf) -> Result<Self, ConfigError> {
         let s = Config::builder()
-            .add_source(File::from(flags.config))
+            .add_source(File::from(config))
             .add_source(Environment::with_prefix("MECOMP"))
             .build()?;
 
@@ -87,19 +82,10 @@ impl DaemonSettings {
                 .into();
         }
 
-        if let Some(port) = flags.port {
+        if let Some(port) = port {
             settings.rpc_port = port;
         }
 
         Ok(settings)
     }
-}
-
-lazy_static! {
-    pub static ref SETTINGS: Arc<DaemonSettings> = Arc::new(
-        DaemonSettings::init()
-            .tap_err(|e| warn!("Error Loading Settings: {e:?}"))
-            .tap_ok(|x| info!("Loaded settings: {x:?}"))
-            .unwrap_or_default()
-    );
 }

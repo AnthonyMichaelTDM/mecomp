@@ -1,3 +1,7 @@
+//! utilitites used for testing
+//!
+//! TODO: the other modules (core and storage) also have test_utils modules. Should we combine them into a new crate?
+
 use std::{
     ops::{Range, RangeInclusive},
     sync::OnceLock,
@@ -6,13 +10,12 @@ use std::{
 
 use lazy_static::lazy_static;
 use lofty::{config::WriteOptions, file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
-use mecomp_storage::db::schemas::song::{Song, SongMetadata};
+use mecomp_storage::db::schemas::song::SongMetadata;
 use rand::seq::IteratorRandom;
-use surrealdb::{Connection, Surreal};
 use tempfile;
 use tracing::instrument;
 
-use crate::logger::{init_logger, init_tracing};
+use mecomp_core::logger::{init_logger, init_tracing};
 
 lazy_static! {
     static ref TEMP_MUSIC_DIR: tempfile::TempDir = tempfile::tempdir().unwrap();
@@ -30,11 +33,11 @@ pub fn init() {
     });
 }
 
-const ARTIST_NAME_SEPARATOR: &str = ", ";
+pub const ARTIST_NAME_SEPARATOR: &str = ", ";
 
 #[instrument()]
-pub async fn create_song<C: Connection>(
-    db: &Surreal<C>,
+pub fn song_metadata_from_case(
+    tempdir: &tempfile::TempDir,
     SongCase {
         song,
         artists,
@@ -42,7 +45,7 @@ pub async fn create_song<C: Connection>(
         album,
         genre,
     }: SongCase,
-) -> anyhow::Result<Song> {
+) -> anyhow::Result<SongMetadata> {
     // we have an example mp3 in `assets/`, we want to take that and create a new audio file with psuedorandom id3 tags
     let base_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../assets/music.mp3")
@@ -86,20 +89,20 @@ pub async fn create_song<C: Connection>(
     tag.remove_genre();
     tag.set_genre(format!("Genre {genre}"));
 
-    let new_path =
-        TEMP_MUSIC_DIR
-            .path()
-            .join(format!("song_{}_{}.mp3", song, rand::random::<u64>()));
+    let new_path = tempdir
+        .path()
+        .join(format!("song_{song}_{}.mp3", rand::random::<u64>()));
     // copy the base file to the new path
     std::fs::copy(&base_path, &new_path)?;
     // write the new tags to the new file
-    tag.save_to_path(new_path.to_str().unwrap(), WriteOptions::default())?;
+    tag.save_to_path(&new_path, WriteOptions::default())?;
 
     // now, we need to load a SongMetadata from the new file
-    let song_metadata = SongMetadata::load_from_path(new_path, Some(ARTIST_NAME_SEPARATOR), None)?;
-
-    // now, we need to create a Song from the SongMetadata
-    Ok(Song::try_load_into_db(db, song_metadata).await?)
+    Ok(SongMetadata::load_from_path(
+        new_path,
+        Some(ARTIST_NAME_SEPARATOR),
+        None,
+    )?)
 }
 
 #[derive(Debug, Clone)]
@@ -147,8 +150,16 @@ pub fn arb_song_case() -> impl Fn() -> SongCase {
                 .unwrap_or_default()
         };
         let rng = &mut rand::thread_rng();
-        let artists = arb_vec(&artist_item_strategy, 1..=10)();
-        let album_artists = arb_vec(&artist_item_strategy, 1..=10)();
+        let artists = arb_vec(&artist_item_strategy, 1..=10)()
+            .into_iter()
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let album_artists = arb_vec(&artist_item_strategy, 1..=10)()
+            .into_iter()
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
         let song = (0..=10u8).choose(rng).unwrap_or_default();
         let album = (0..=10u8).choose(rng).unwrap_or_default();
         let genre = (0..=10u8).choose(rng).unwrap_or_default();
@@ -258,38 +269,5 @@ where
             .choose(&mut rand::thread_rng())
             .unwrap_or_default();
         Vec::from_iter(std::iter::repeat_with(item_strategy).take(size))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use mecomp_storage::db::init_test_database;
-    use pretty_assertions::assert_eq;
-
-    #[tokio::test]
-    async fn test_create_song() {
-        init();
-
-        let db = init_test_database().await.unwrap();
-        // Create a test case
-        let song_case = SongCase::new(0, vec![0], vec![0], 0, 0);
-
-        // Call the create_song function
-        let result = create_song(&db, song_case).await;
-
-        // Assert that the result is Ok
-        if let Err(e) = result {
-            panic!("Error creating song: {e:?}");
-        }
-
-        // Get the Song from the result
-        let song = result.unwrap();
-
-        // Assert that we can get the song from the database
-        let song_from_db = Song::read(&db, song.id.clone()).await.unwrap().unwrap();
-
-        // Assert that the song from the database is the same as the song we created
-        assert_eq!(song, song_from_db);
     }
 }
