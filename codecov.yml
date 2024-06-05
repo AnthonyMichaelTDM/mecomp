@@ -9,8 +9,12 @@ component_management:
     statuses:
       - type: project # in this case every component that doesn't have a status defined will have a project type one
         target: auto
+        branches:
+          - "*" # all branches
       - type: patch
         target: auto
+        branches:
+          - "*" # all branches
   individual_components:
     - component_id: module_mecomp_core # this is an identifier that should not be changed
       name: MECOMP Core # this is a display name, and can be changed freely
