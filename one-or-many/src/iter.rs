@@ -1,5 +1,6 @@
 use crate::OneOrMany;
 
+#[allow(clippy::module_name_repetitions)]
 pub struct OneOrManyIter<'a, T> {
     pub(crate) inner: &'a OneOrMany<T>,
     pub(crate) index: usize,
@@ -36,7 +37,7 @@ impl<'a, T> IntoIterator for &'a OneOrMany<T> {
 
 impl<T> OneOrMany<T> {
     /// Returns an iterator over the values in the `OneOrMany`.
-    pub fn iter(&self) -> OneOrManyIter<T> {
+    pub const fn iter(&self) -> OneOrManyIter<T> {
         OneOrManyIter {
             inner: self,
             index: 0,

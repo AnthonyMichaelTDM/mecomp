@@ -214,7 +214,7 @@ impl<T, I: SliceIndex<[T]>> IndexMut<I> for OneOrMany<T> {
 
 // implement partial ord
 // None < One < Many
-impl<T> PartialOrd<OneOrMany<T>> for OneOrMany<T>
+impl<T> PartialOrd<Self> for OneOrMany<T>
 where
     T: PartialOrd,
 {

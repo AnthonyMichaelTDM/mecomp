@@ -1,4 +1,4 @@
-//! trait impls that let `OneOrMany<T>` be used as a return type from SurrealDB queries.
+//! trait impls that let `OneOrMany<T>` be used as a return type from `SurrealDB` queries.
 //!
 
 use surrealdb::opt::QueryResult;
