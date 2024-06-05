@@ -141,15 +141,19 @@ pub fn baz_sc() -> SongCase {
 
 pub fn arb_song_case() -> impl Fn() -> SongCase {
     || {
+        let artist_item_strategy = move || {
+            (0..=10u8)
+                .choose(&mut rand::thread_rng())
+                .unwrap_or_default()
+        };
         let rng = &mut rand::thread_rng();
+        let artists = arb_vec(&artist_item_strategy, 1..=10)();
+        let album_artists = arb_vec(&artist_item_strategy, 1..=10)();
+        let song = (0..=10u8).choose(rng).unwrap_or_default();
+        let album = (0..=10u8).choose(rng).unwrap_or_default();
+        let genre = (0..=10u8).choose(rng).unwrap_or_default();
 
-        SongCase::new(
-            (0..=10u8).choose(rng).unwrap_or_default(),
-            arb_vec(&rand::random::<u8>, 1..=10)(),
-            arb_vec(&rand::random::<u8>, 1..=10)(),
-            (0..=10u8).choose(rng).unwrap_or_default(),
-            (0..=10u8).choose(rng).unwrap_or_default(),
-        )
+        SongCase::new(song, artists, album_artists, album, genre)
     }
 }
 
