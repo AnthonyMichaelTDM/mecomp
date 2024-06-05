@@ -1,6 +1,6 @@
 //! This is the daemon binary that runs the Mecomp daemon.
 //! there are no tests or anything else in this file because the only thing it does is set up and start the daemon
-//! with functions from the mecomp_daemon library crate (which is tested).
+//! with functions from the `mecomp_daemon` library crate (which is tested).
 
 use std::path::PathBuf;
 

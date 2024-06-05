@@ -1,7 +1,7 @@
 //! Module for handling dynamic updates to the music library.
-//! 
+//!
 //! This module is only available when the `dynamic_updates` feature is enabled.
-//! 
+//!
 //! The `init_music_library_watcher`
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
@@ -15,21 +15,21 @@ use notify_debouncer_full::{
     new_debouncer, DebounceEventHandler, DebounceEventResult, DebouncedEvent, Debouncer, FileIdMap,
 };
 use surrealdb::{engine::local::Db, Surreal};
-use walkdir::{WalkDir, DirEntry};
+use walkdir::{DirEntry, WalkDir};
 
 const VALID_AUDIO_EXTENSIONS: [&str; 5] = ["flac", "mp3", "m4a", "ogg", "wav"];
 
 fn is_hidden(entry: &DirEntry) -> bool {
-    entry.file_name()
-         .to_str()
-         .map(|s| s.starts_with("."))
-         .unwrap_or(false)
+    entry
+        .file_name()
+        .to_str()
+        .map_or(false, |s| s.starts_with('.'))
 }
 
 /// uses the notify crate to update
 /// the internal music library (database) when changes to configured
 /// music library directories are detected.
-/// 
+///
 /// this watcher is terminated when the returned value is dropped.
 ///
 /// # Arguments
@@ -41,6 +41,10 @@ fn is_hidden(entry: &DirEntry) -> bool {
 ///
 /// If the watchers were successfully started, it is returned.
 /// it will stop when it is dropped.
+///
+/// # Errors
+///
+/// If the watcher could not be started, an error is returned.
 pub fn init_music_library_watcher(
     db: Arc<Surreal<Db>>,
     library_paths: &[PathBuf],
@@ -90,16 +94,16 @@ impl DebounceEventHandler for MusicLibEventHandler {
                 }
             }
             Err(errors) => {
-                errors
-                    .iter()
-                    .for_each(|error| error!("watch error: {error:?}"));
+                for error in errors {
+                    error!("watch error: {error:?}");
+                }
             }
         }
     }
 }
 
 impl MusicLibEventHandler {
-    /// Creates a new MusicLibEventHandler.
+    /// Creates a new `MusicLibEventHandler`.
     pub fn new(
         db: Arc<Surreal<Db>>,
         artist_name_separator: Option<String>,
@@ -150,8 +154,8 @@ impl MusicLibEventHandler {
     ) -> anyhow::Result<()> {
         match kind {
             RemoveKind::File => {
-                match event.paths.first() {
-                    Some(path) => match path.extension().map(|ext| ext.to_str()) {
+                if let Some(path) = event.paths.first() {
+                    match path.extension().map(|ext| ext.to_str()) {
                         Some(Some(ext)) if VALID_AUDIO_EXTENSIONS.contains(&ext) => {
                             debug!("file removed: {:?}. removing from db", event.paths);
                             let song = Song::read_by_path(self.db.as_ref(), path.clone()).await?;
@@ -160,10 +164,12 @@ impl MusicLibEventHandler {
                             }
                         }
                         _ => {
-                            debug!("file removed: {:?}. not a song, no action needed", event.paths)
+                            debug!(
+                                "file removed: {:?}. not a song, no action needed",
+                                event.paths
+                            );
                         }
-                    },
-                    None => {}
+                    }
                 }
             }
             RemoveKind::Folder => {
@@ -172,21 +178,21 @@ impl MusicLibEventHandler {
                         debug!("folder removed: {:?}. removing entries in db", event.paths);
                         // NOTE: another way to do this could be to delete all songs with a path that starts with the dir_path,
                         // which is probably easier to test, but may have worse performance
-                        for entry in WalkDir::new(dir_path).into_iter().filter_entry(|e: &DirEntry| !is_hidden(e)).filter_map(|e| {
-                            match e {
-                                Ok(entry) if entry.file_type().is_file()=> {
-                                    Some(entry)
-                                }
-                                Ok(_) => {
-                                    None
-                                }
+                        for entry in WalkDir::new(dir_path)
+                            .into_iter()
+                            .filter_entry(|e: &DirEntry| !is_hidden(e))
+                            .filter_map(|e| match e {
+                                Ok(entry) if entry.file_type().is_file() => Some(entry),
+                                Ok(_) => None,
                                 Err(e) => {
                                     error!("failed to read entry: {:?}", e);
                                     None
                                 }
-                            }
-                        }) {
-                            let song = Song::read_by_path(self.db.as_ref(), entry.path().to_owned()).await?;
+                            })
+                        {
+                            let song =
+                                Song::read_by_path(self.db.as_ref(), entry.path().to_owned())
+                                    .await?;
                             if let Some(song) = song {
                                 Song::delete(self.db.as_ref(), song.id).await?;
                             }
@@ -213,28 +219,29 @@ impl MusicLibEventHandler {
         kind: CreateKind,
     ) -> anyhow::Result<()> {
         match kind {
-            CreateKind::File => match event.paths.first() {
-                Some(path) => match path.extension().map(|ext| ext.to_str()) {
-                    Some(Some(ext)) if VALID_AUDIO_EXTENSIONS.contains(&ext) => {
-                        debug!("file created: {:?}. adding to db", event.paths);
+            CreateKind::File => {
+                if let Some(path) = event.paths.first() {
+                    match path.extension().map(|ext| ext.to_str()) {
+                        Some(Some(ext)) if VALID_AUDIO_EXTENSIONS.contains(&ext) => {
+                            debug!("file created: {:?}. adding to db", event.paths);
 
-                        let metadata = SongMetadata::load_from_path(
-                            path.to_owned(),
-                            self.artist_name_separator.as_deref(),
-                            self.genre_separator.as_deref(),
-                        )?;
+                            let metadata = SongMetadata::load_from_path(
+                                path.to_owned(),
+                                self.artist_name_separator.as_deref(),
+                                self.genre_separator.as_deref(),
+                            )?;
 
-                        Song::try_load_into_db(self.db.as_ref(), metadata).await?;
+                            Song::try_load_into_db(self.db.as_ref(), metadata).await?;
+                        }
+                        _ => {
+                            debug!(
+                                "file created: {:?}. not a song, no action needed",
+                                event.paths
+                            );
+                        }
                     }
-                    _ => {
-                        debug!(
-                            "file created: {:?}. not a song, no action needed",
-                            event.paths
-                        );
-                    }
-                },
-                None => {}
-            },
+                }
+            }
             CreateKind::Folder => {
                 debug!("folder created: {:?}. no action needed", event.paths);
             }
@@ -249,7 +256,11 @@ impl MusicLibEventHandler {
     }
 
     // handler for modify events
-    async fn modify_event_handler(&self, event: DebouncedEvent, kind: ModifyKind) -> anyhow::Result<()> {
+    async fn modify_event_handler(
+        &self,
+        event: DebouncedEvent,
+        kind: ModifyKind,
+    ) -> anyhow::Result<()> {
         match kind {
             // file data modified
             ModifyKind::Data(_) => {
@@ -257,12 +268,12 @@ impl MusicLibEventHandler {
             }
             // file name (path) modified
             ModifyKind::Name(RenameMode::Both) => {
-                match (event.paths.first(), event.paths.get(1)) {
-                    (Some(from_path),Some(to_path)) => match (from_path.extension().map(|ext| ext.to_string_lossy()),to_path.extension().map(|ext| ext.to_string_lossy())) {
+                if let (Some(from_path),Some(to_path)) = (event.paths.first(), event.paths.get(1)) {
+                     match (from_path.extension().map(|ext| ext.to_string_lossy()),to_path.extension().map(|ext| ext.to_string_lossy())) {
                         (Some(from_ext), Some(to_ext)) if VALID_AUDIO_EXTENSIONS.iter().any(|ext| *ext == from_ext) && VALID_AUDIO_EXTENSIONS.iter().any(|ext| *ext == to_ext) => {
                             debug!("file name modified: {:?}. updating in db",
                             event.paths);
-                            
+
                             // NOTE: if this fails, the song may just not've been added previously, may want to handle that in the future
                             let song = Song::read_by_path(self.db.as_ref(), from_path.clone()).await?.ok_or(mecomp_storage::errors::Error::NotFound)?;
 
@@ -278,15 +289,15 @@ impl MusicLibEventHandler {
                                 event.paths
                             );
                         }
-                    },
-                    _ => {}
+                    }
                 }
 
             }
             ModifyKind::Name(
-                kind @ RenameMode::From // likely a Remove event
-                | kind @ RenameMode::To // likely a Create event
-            ) => {
+                kind @ (
+                    RenameMode::From // likely a Remove event
+                |  RenameMode::To // likely a Create event
+            )) => {
                 warn!(
                     "file name modified ({kind:?}): {:?}. not enough info to handle properly, rescan recommended",
                     event.paths
@@ -299,8 +310,8 @@ impl MusicLibEventHandler {
                 );
             }
             // file attributes modified
-            ModifyKind::Metadata(MetadataKind::Extended) => match event.paths.first() {
-                Some(path) => match path.extension().map(|ext| ext.to_str()) {
+            ModifyKind::Metadata(MetadataKind::Extended) => if let Some(path) = event.paths.first() {
+                match path.extension().map(|ext| ext.to_str()) {
                     Some(Some(ext)) if VALID_AUDIO_EXTENSIONS.contains(&ext) => {
                         debug!("file metadata modified: {:?}. updating in db", event.paths);
 
@@ -320,8 +331,7 @@ impl MusicLibEventHandler {
                     _ => {
                         debug!("file metadata modified: {:?}.  not a song, no action needed", event.paths);
                     }
-                },
-                None => {}
+                }
             },
             ModifyKind::Metadata(
                 MetadataKind::AccessTime
