@@ -2661,7 +2661,6 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49f5dab59c348b9b50cf7f261960a20e389feb2713636399cd9082cd4b536154"
 dependencies = [
- "crossbeam-channel",
  "file-id",
  "log",
  "notify",

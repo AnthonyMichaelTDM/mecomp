@@ -65,7 +65,7 @@ pub async fn start_daemon(
 
     // Start the music library watcher.
     #[cfg(feature = "dynamic_updates")]
-    let _watcher = dynamic_updates::init_music_library_watcher(
+    let guard = dynamic_updates::init_music_library_watcher(
         db.clone(),
         &settings.library_paths,
         settings.artist_separator.clone(),
@@ -102,6 +102,9 @@ pub async fn start_daemon(
         .buffer_unordered(10)
         .for_each(|()| async {})
         .await;
+
+    #[cfg(feature = "dynamic_updates")]
+    guard.stop();
 
     Ok(())
 }
