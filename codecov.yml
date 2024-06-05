@@ -3,18 +3,12 @@
 comment:
   layout: "header, diff, components, files" # show component info in the PR comment
   behavior: default
-  require_changes: false # if true: only post the comment if coverage changes
-  require_base: false # [true :: must have a base report to post]
-  require_head: true # [true :: must have a head report to post]
-  hide_project_coverage: false # [true :: only show coverage on the git diff aka patch coverage]]
 
 component_management:
   default_rules: # default rules that will be inherited by all components
     statuses:
       - type: project # in this case every component that doesn't have a status defined will have a project type one
         target: auto
-        branches:
-          - "!main"
       - type: patch
         target: auto
   individual_components:
