@@ -37,6 +37,10 @@ pub const MAX_DEBOUNCE_TIME: Duration = Duration::from_millis(500);
 /// # Errors
 ///
 /// If the watcher could not be started, an error is returned.
+///
+/// # Panics
+///
+/// Panics if it could not create the tokio runtime
 pub fn init_music_library_watcher(
     db: Arc<Surreal<Db>>,
     library_paths: &[PathBuf],
@@ -55,7 +59,7 @@ pub fn init_music_library_watcher(
                 _ = stop_rx => {
                     debug!("stopping watcher");
                 }
-                _ = async {
+                () = async {
                     for result in rx {
                         match result {
                             Ok(events) => {
@@ -108,7 +112,7 @@ pub struct MusicLibEventHandlerGuard {
 impl MusicLibEventHandlerGuard {
     pub fn stop(self) {
         let Self { debouncer, stop_tx } = self;
-        stop_tx.send(()).unwrap();
+        stop_tx.send(()).ok();
         debouncer.stop();
     }
 }
