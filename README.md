@@ -119,9 +119,9 @@ cat tracing.folded | inferno-flamegraph --flamechart > tracing-flamechart.svg
 MECOMP uses `tarpaulin` to generate test coverage reports, to generate a test coverage report, run:
 
 ```sh
-cargo tarpaulin --all --out Xml
+cargo tarpaulin --all --out Html --all-features
 ```
 
-this will generate a file called `tarpaulin-report.xml` in the current directory, which can be uploaded to codecov.
+this will generate a file called `tarpaulin-report.html` in the current directory, which can be viewed in your browser.
 
 [![codecov graph](https://codecov.io/gh/AnthonyMichaelTDM/mecomp/graphs/sunburst.svg?token=BJAZ081TOE)](https://codecov.io/gh/AnthonyMichaelTDM/mecomp)
