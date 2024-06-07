@@ -5,6 +5,8 @@ use std::{collections::HashSet, path::PathBuf};
 //--------------------------------------------------------------------------------- other libraries
 #[cfg(not(feature = "surrealdb"))]
 use crate::surreal::Thing;
+#[cfg(not(feature = "surrealdb"))]
+use std::time::Duration;
 #[cfg(feature = "surrealdb")]
 use surrealdb::sql::{Duration, Id, Thing};
 //----------------------------------------------------------------------------------- local modules
@@ -28,18 +30,18 @@ pub struct Song {
     pub title: Arc<str>,
     /// Artist of the [`Song`]. (Can be multiple)
     #[cfg_attr(feature = "surrealdb", field(dt = "option<set<string> | string>"))]
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub artist: OneOrMany<Arc<str>>,
     /// album artist, if not found then defaults to first artist
     #[cfg_attr(feature = "surrealdb", field(dt = "option<set<string> | string>"))]
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub album_artist: OneOrMany<Arc<str>>,
     /// album title
     #[cfg_attr(feature = "surrealdb", field(dt = "string"))]
     pub album: Arc<str>,
     /// Genre of the [`Song`]. (Can be multiple)
     #[cfg_attr(feature = "surrealdb", field(dt = "option<set<string> | string>"))]
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub genre: OneOrMany<Arc<str>>,
 
     /// Total runtime of this [`Song`].
@@ -49,15 +51,15 @@ pub struct Song {
     // pub sample_rate: u32,
     /// The track number of this [`Song`].
     #[cfg_attr(feature = "surrealdb", field(dt = "option<int>"))]
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub track: Option<u16>,
     /// The disc number of this [`Song`].
     #[cfg_attr(feature = "surrealdb", field(dt = "option<int>"))]
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub disc: Option<u16>,
     /// the year the song was released
     #[cfg_attr(feature = "surrealdb", field(dt = "option<int>"))]
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub release_year: Option<i32>,
 
     // /// The `MIME` type of this [`Song`].
@@ -128,6 +130,9 @@ impl From<Song> for SongBrief {
             album: song.album,
             album_artist: song.album_artist,
             release_year: song.release_year,
+            #[cfg(not(feature = "surrealdb"))]
+            duration: song.runtime,
+            #[cfg(feature = "surrealdb")]
             duration: song.runtime.into(),
             path: song.path,
         }
@@ -143,6 +148,9 @@ impl From<&Song> for SongBrief {
             album: song.album.clone(),
             album_artist: song.album_artist.clone(),
             release_year: song.release_year,
+            #[cfg(not(feature = "surrealdb"))]
+            duration: song.runtime,
+            #[cfg(feature = "surrealdb")]
             duration: song.runtime.into(),
             path: song.path.clone(),
         }

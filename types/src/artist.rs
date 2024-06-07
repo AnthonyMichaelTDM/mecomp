@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 #[cfg(not(feature = "surrealdb"))]
 use crate::surreal::Thing;
+#[cfg(not(feature = "surrealdb"))]
+use std::time::Duration;
 #[cfg(feature = "surrealdb")]
 use surrealdb::sql::{Duration, Id, Thing};
 
@@ -76,6 +78,9 @@ impl From<Artist> for ArtistBrief {
         Self {
             id: artist.id,
             name: artist.name,
+            #[cfg(not(feature = "surrealdb"))]
+            runtime: artist.runtime,
+            #[cfg(feature = "surrealdb")]
             runtime: artist.runtime.into(),
             albums: artist.album_count,
             songs: artist.song_count,
@@ -88,6 +93,9 @@ impl From<&Artist> for ArtistBrief {
         Self {
             id: artist.id.clone(),
             name: artist.name.clone(),
+            #[cfg(not(feature = "surrealdb"))]
+            runtime: artist.runtime,
+            #[cfg(feature = "surrealdb")]
             runtime: artist.runtime.into(),
             albums: artist.album_count,
             songs: artist.song_count,
