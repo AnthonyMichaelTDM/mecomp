@@ -60,9 +60,9 @@ impl<T> OneOrMany<T> {
     /// Returns the first value, or `None` if the `OneOrMany` is empty.
     pub fn first(&self) -> Option<&T> {
         match self {
-            OneOrMany::One(t) => Some(t),
-            OneOrMany::Many(v) => v.first(),
-            OneOrMany::None => None,
+            Self::One(t) => Some(t),
+            Self::Many(v) => v.first(),
+            Self::None => None,
         }
     }
 
@@ -154,7 +154,7 @@ impl<T> OneOrMany<T> {
 
     /// Convert a `&OneOrMany<T>` to an `OneOrMany<&T>`
     #[inline]
-    pub fn as_ref<'a>(&self) -> OneOrMany<&T> {
+    pub fn as_ref(&self) -> OneOrMany<&T> {
         match *self {
             Self::One(ref x) => OneOrMany::One(x),
             Self::Many(ref v) => OneOrMany::Many(v.iter().collect()),
@@ -177,7 +177,7 @@ impl<T> From<Option<T>> for OneOrMany<T> {
 
 impl<T> From<Option<Vec<T>>> for OneOrMany<T> {
     fn from(t: Option<Vec<T>>) -> Self {
-        t.map_or_else(|| Self::None, |t| t.into())
+        t.map_or_else(|| Self::None, Into::into)
     }
 }
 

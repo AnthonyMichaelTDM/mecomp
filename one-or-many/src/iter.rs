@@ -51,6 +51,7 @@ impl<'a, T> Iterator for Iter<'a, T> {
 /// This is really just a wrapper around other iterators.
 ///
 /// TODO: find a better way to do this
+#[allow(clippy::module_name_repetitions)]
 pub struct IntoIter<T> {
     inner_iter: InnerIntoIter<T>,
 }
@@ -67,9 +68,9 @@ impl<T> IntoIterator for OneOrMany<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         let inner_iter = match self {
-            OneOrMany::One(t) => InnerIntoIter::One(Some(t)),
-            OneOrMany::Many(v) => InnerIntoIter::Many(v.into_iter()),
-            OneOrMany::None => InnerIntoIter::None,
+            Self::One(t) => InnerIntoIter::One(Some(t)),
+            Self::Many(v) => InnerIntoIter::Many(v.into_iter()),
+            Self::None => InnerIntoIter::None,
         };
 
         IntoIter { inner_iter }
