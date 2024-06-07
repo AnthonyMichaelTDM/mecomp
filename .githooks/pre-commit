@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# Run cargo fmt --all
+echo "Running cargo fmt --all..."
+cargo fmt --all
+if [ $? -ne 0 ]; then
+  echo "cargo fmt failed, aborting commit"
+  exit 1
+fi
+
+# Run cargo clippy
+echo "Running cargo clippy (strict)..."
+cargo lint
+if [ $? -ne 0 ]; then
+  echo "cargo clippy failed, aborting commit"
+  exit 1
+fi
+
+# If we made it here, everything passed and the commit can proceed
+echo "All checks passed, proceeding with commit"
+exit 0

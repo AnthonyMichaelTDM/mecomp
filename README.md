@@ -125,3 +125,11 @@ cargo tarpaulin --all --out Html --all-features
 this will generate a file called `tarpaulin-report.html` in the current directory, which can be viewed in your browser.
 
 [![codecov graph](https://codecov.io/gh/AnthonyMichaelTDM/mecomp/graphs/sunburst.svg?token=BJAZ081TOE)](https://codecov.io/gh/AnthonyMichaelTDM/mecomp)
+
+## Git Hooks
+
+MECOMP uses several git hooks to ensure code quality, these are stored in the `.githooks` directory, to install these hooks, run:
+
+```sh
+git config core.hooksPath .githooks
+```
