@@ -1,51 +1,6 @@
 use crate::OneOrMany;
 
-#[allow(clippy::module_name_repetitions)]
-pub struct OneOrManyIter<'a, T> {
-    pub(crate) inner: &'a OneOrMany<T>,
-    pub(crate) index: usize,
-}
-
-impl<'a, T> Iterator for OneOrManyIter<'a, T> {
-    type Item = &'a T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let result = match self.inner {
-            OneOrMany::One(t) => {
-                if self.index == 0 {
-                    Some(t)
-                } else {
-                    None
-                }
-            }
-            OneOrMany::Many(t) => t.get(self.index),
-            OneOrMany::None => None,
-        };
-        self.index += 1;
-        result
-    }
-}
-
-impl<'a, T> IntoIterator for &'a OneOrMany<T> {
-    type IntoIter = OneOrManyIter<'a, T>;
-    type Item = &'a T;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl<T> OneOrMany<T> {
-    /// Returns an iterator over the values in the `OneOrMany`.
-    pub const fn iter(&self) -> OneOrManyIter<T> {
-        OneOrManyIter {
-            inner: self,
-            index: 0,
-        }
-    }
-}
-
-impl<T: Clone> FromIterator<T> for OneOrMany<T> {
+impl<T: ToOwned<Owned = T>> FromIterator<T> for OneOrMany<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let iter: <I as IntoIterator>::IntoIter = iter.into_iter();
         let mut result: Self = Self::None;
@@ -53,5 +8,154 @@ impl<T: Clone> FromIterator<T> for OneOrMany<T> {
             result.push(item);
         }
         result
+    }
+}
+
+#[allow(clippy::module_name_repetitions)]
+pub struct Iter<'a, T> {
+    inner: &'a OneOrMany<T>,
+    index: usize,
+}
+
+impl<T> OneOrMany<T> {
+    /// Returns an iterator over the values in the `OneOrMany`.
+    pub const fn iter(&self) -> Iter<T> {
+        Iter {
+            inner: self,
+            index: 0,
+        }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a OneOrMany<T> {
+    type IntoIter = Iter<'a, T>;
+    type Item = &'a T;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = self.inner.get(self.index);
+        self.index += 1;
+        result
+    }
+}
+
+/// A consuming iterator over the values in a `OneOrMany`.
+///
+/// This is really just a wrapper around other iterators.
+///
+/// TODO: find a better way to do this
+pub struct IntoIter<T> {
+    inner_iter: InnerIntoIter<T>,
+}
+
+enum InnerIntoIter<T> {
+    One(Option<T>),
+    Many(std::vec::IntoIter<T>),
+    None,
+}
+
+impl<T> IntoIterator for OneOrMany<T> {
+    type IntoIter = IntoIter<T>;
+    type Item = T;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let inner_iter = match self {
+            OneOrMany::One(t) => InnerIntoIter::One(Some(t)),
+            OneOrMany::Many(v) => InnerIntoIter::Many(v.into_iter()),
+            OneOrMany::None => InnerIntoIter::None,
+        };
+
+        IntoIter { inner_iter }
+    }
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.inner_iter {
+            InnerIntoIter::One(ref mut t) => t.take(),
+            InnerIntoIter::Many(ref mut v) => v.next(),
+            InnerIntoIter::None => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::OneOrMany;
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::none(Vec::<usize>::new().into_iter(), OneOrMany::<usize>::None)]
+    #[case::one(vec![1].into_iter(), OneOrMany::One(1))]
+    #[case::many(vec![1,2,3].into_iter(), OneOrMany::Many(vec![1,2,3]))]
+    fn test_from_iter<T, I>(#[case] input: I, #[case] expected: OneOrMany<T>)
+    where
+        T: std::fmt::Debug + Clone + std::cmp::PartialEq,
+        I: Iterator<Item = T>,
+    {
+        assert_eq!(input.collect::<OneOrMany<_>>(), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, vec![None])]
+    #[case::one(OneOrMany::One(1), vec![Some(1), None])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), vec![Some(1), Some(2), Some(3), None])]
+    fn test_iter<T>(#[case] input: OneOrMany<T>, #[case] expected: Vec<Option<T>>)
+    where
+        T: std::fmt::Debug + Clone + std::cmp::PartialEq,
+    {
+        let mut iter = input.iter();
+
+        for item in expected {
+            assert_eq!(iter.next(), item.as_ref());
+        }
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, vec![None])]
+    #[case::one(OneOrMany::One(1), vec![Some(1), None])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), vec![Some(1), Some(2), Some(3), None])]
+    fn test_into_iter_byval<T>(#[case] input: OneOrMany<T>, #[case] expected: Vec<Option<T>>)
+    where
+        T: std::fmt::Debug + Clone + std::cmp::PartialEq,
+    {
+        let mut iter = input.into_iter();
+
+        for item in expected {
+            assert_eq!(iter.next(), item);
+        }
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None)]
+    #[case::one(OneOrMany::One(1))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]))]
+    fn test_for_loop<T>(#[case] input: OneOrMany<T>)
+    where
+        T: std::fmt::Debug + Clone + std::cmp::PartialEq,
+    {
+        // non-consuming
+        let mut iter = input.iter();
+        for item in &input {
+            assert_eq!(iter.next(), Some(item));
+        }
+        assert_eq!(iter.next(), None);
+
+        // consuming
+        let mut iter = input.clone().into_iter();
+        for item in input {
+            assert_eq!(iter.next(), Some(item));
+        }
+        assert_eq!(iter.next(), None);
     }
 }

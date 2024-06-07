@@ -1,5 +1,5 @@
 mod iter;
-pub use iter::OneOrManyIter;
+pub use iter::Iter;
 #[cfg(feature = "surrealdb")]
 mod query_result_impl;
 
@@ -59,7 +59,11 @@ impl<T> OneOrMany<T> {
 
     /// Returns the first value, or `None` if the `OneOrMany` is empty.
     pub fn first(&self) -> Option<&T> {
-        self.get(0)
+        match self {
+            OneOrMany::One(t) => Some(t),
+            OneOrMany::Many(v) => v.first(),
+            OneOrMany::None => None,
+        }
     }
 
     /// Returns `true` if the `OneOrMany` contains the given value.
@@ -77,11 +81,11 @@ impl<T> OneOrMany<T> {
     /// Pushes a new value onto the end of the `OneOrMany`.
     pub fn push(&mut self, new: T)
     where
-        T: Clone,
+        T: ToOwned<Owned = T>,
     {
         match self {
             Self::One(t) => {
-                *self = Self::Many(vec![t.clone(), new]);
+                *self = Self::Many(vec![t.to_owned(), new]);
             }
             Self::Many(t) => t.push(new),
             Self::None => *self = Self::One(new),
@@ -91,15 +95,21 @@ impl<T> OneOrMany<T> {
     /// Pops a value from the end of the `OneOrMany`.
     pub fn pop(&mut self) -> Option<T>
     where
-        T: Clone,
+        T: ToOwned<Owned = T>,
     {
         match self {
             Self::One(t) => {
-                let old = t.clone();
+                let old = t.to_owned();
                 *self = Self::None;
                 Some(old)
             }
-            Self::Many(t) => t.pop(),
+            Self::Many(t) => {
+                let old = t.pop();
+                if t.len() == 1 {
+                    *self = Self::One(t[0].to_owned());
+                }
+                old
+            }
             Self::None => None,
         }
     }
@@ -141,6 +151,16 @@ impl<T> OneOrMany<T> {
             Self::None => &mut [],
         }
     }
+
+    /// Convert a `&OneOrMany<T>` to an `OneOrMany<&T>`
+    #[inline]
+    pub fn as_ref<'a>(&self) -> OneOrMany<&T> {
+        match *self {
+            Self::One(ref x) => OneOrMany::One(x),
+            Self::Many(ref v) => OneOrMany::Many(v.iter().collect()),
+            Self::None => OneOrMany::None,
+        }
+    }
 }
 
 impl<T> From<T> for OneOrMany<T> {
@@ -152,6 +172,12 @@ impl<T> From<T> for OneOrMany<T> {
 impl<T> From<Option<T>> for OneOrMany<T> {
     fn from(t: Option<T>) -> Self {
         t.map_or_else(|| Self::None, |t| Self::One(t))
+    }
+}
+
+impl<T> From<Option<Vec<T>>> for OneOrMany<T> {
+    fn from(t: Option<Vec<T>>) -> Self {
+        t.map_or_else(|| Self::None, |t| t.into())
     }
 }
 
@@ -228,5 +254,351 @@ where
             (Self::One(_), _) => Some(std::cmp::Ordering::Less),
             (_, Self::One(_)) => Some(std::cmp::Ordering::Greater),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::{assert_eq, assert_ne};
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, 0)]
+    #[case::one(OneOrMany::One(1), 1)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 3)]
+    fn test_len<T>(#[case] input: OneOrMany<T>, #[case] expected: usize) {
+        assert_eq!(input.len(), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, true)]
+    #[case::one(OneOrMany::One(1), false)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), false)]
+    fn test_is_empty<T>(#[case] input: OneOrMany<T>, #[case] expected: bool) {
+        assert_eq!(input.is_empty(), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None,0, None)]
+    #[case::none(OneOrMany::<usize>::None,1, None)]
+    #[case::one(OneOrMany::One(1), 0, Some(&1))]
+    #[case::one(OneOrMany::One(1), 1, None)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0, Some(&1))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 1, Some(&2))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 2, Some(&3))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 3, None)]
+    fn test_get<T>(#[case] input: OneOrMany<T>, #[case] index: usize, #[case] expected: Option<&T>)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input.get(index), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, None)]
+    #[case::one(OneOrMany::One(1), Some(&1))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), Some(&1))]
+    fn test_first<T>(#[case] input: OneOrMany<T>, #[case] expected: Option<&T>)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input.first(), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, 2, false)]
+    #[case::one(OneOrMany::One(1), 1, true)]
+    #[case::one(OneOrMany::One(1), 0, false)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]),2, true)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]),4, false)]
+    fn test_contains<T>(#[case] input: OneOrMany<T>, #[case] value: T, #[case] expected: bool)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input.contains(&value), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, 1, OneOrMany::One(1))]
+    #[case::one(OneOrMany::One(1), 2, OneOrMany::Many(vec![1, 2]))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 4, OneOrMany::Many(vec![1, 2, 3, 4]))]
+    fn test_push<T>(#[case] mut input: OneOrMany<T>, #[case] new: T, #[case] expected: OneOrMany<T>)
+    where
+        T: Clone + PartialEq + std::fmt::Debug,
+    {
+        input.push(new);
+        assert_eq!(input, expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, None, OneOrMany::<usize>::None)]
+    #[case::one(OneOrMany::One(1), Some(1), OneOrMany::<usize>::None)]
+    #[case::many(OneOrMany::Many(vec![1, 2]), Some(2), OneOrMany::One(1))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), Some(3), OneOrMany::Many(vec![1, 2]))]
+    fn test_pop<T>(
+        #[case] mut input: OneOrMany<T>,
+        #[case] expected: Option<T>,
+        #[case] expected_output: OneOrMany<T>,
+    ) where
+        T: Clone + PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input.pop(), expected);
+        assert_eq!(input, expected_output);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, true)]
+    #[case::one(OneOrMany::One(1), false)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), false)]
+    fn test_is_none<T>(#[case] input: OneOrMany<T>, #[case] expected: bool)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input.is_none(), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, false)]
+    #[case::one(OneOrMany::One(1), true)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), false)]
+    fn test_is_one<T>(#[case] input: OneOrMany<T>, #[case] expected: bool)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input.is_one(), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, false)]
+    #[case::one(OneOrMany::One(1), false)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), true)]
+    fn test_is_many<T>(#[case] input: OneOrMany<T>, #[case] expected: bool)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input.is_many(), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, false)]
+    #[case::one(OneOrMany::One(1), true)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), true)]
+    fn test_is_some<T>(#[case] input: OneOrMany<T>, #[case] expected: bool)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input.is_some(), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, vec![])]
+    #[case::one(OneOrMany::One(1), vec![1])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), vec![1, 2, 3])]
+    fn test_as_slice<T>(#[case] input: OneOrMany<T>, #[case] expected: Vec<T>)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input.as_slice(), expected.as_slice());
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, vec![])]
+    #[case::one(OneOrMany::One(1), vec![1])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), vec![1, 2, 3])]
+    fn test_as_mut_slice<T>(#[case] mut input: OneOrMany<T>, #[case] mut expected: Vec<T>)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input.as_mut_slice(), expected.as_mut_slice());
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::<&usize>::None)]
+    #[case::one(OneOrMany::One(1), OneOrMany::One(&1))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![&1, &2, &3]))]
+    fn test_as_ref<T>(#[case] input: OneOrMany<T>, #[case] expected: OneOrMany<&T>)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input.as_ref(), expected);
+    }
+
+    #[rstest]
+    #[case::one(1, OneOrMany::One(1))]
+    fn test_from<T>(#[case] input: T, #[case] expected: OneOrMany<T>)
+    where
+        T: Clone + PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(OneOrMany::from(input), expected);
+    }
+
+    #[rstest]
+    #[case::none(vec![], OneOrMany::<usize>::None)]
+    #[case::one(vec![1], OneOrMany::One(1))]
+    #[case::many(vec![1, 2, 3], OneOrMany::Many(vec![1, 2, 3]))]
+    fn test_from_vec<T>(#[case] input: Vec<T>, #[case] expected: OneOrMany<T>)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(OneOrMany::from(input), expected);
+    }
+
+    #[rstest]
+    #[case::none(&[], OneOrMany::<usize>::None)]
+    #[case::one(&[1], OneOrMany::One(1))]
+    #[case::many(&[1, 2, 3], OneOrMany::Many(vec![1, 2, 3]))]
+    fn test_from_slice<T>(#[case] input: &[T], #[case] expected: OneOrMany<T>)
+    where
+        T: PartialEq + std::fmt::Debug + Clone,
+    {
+        assert_eq!(OneOrMany::from(input), expected);
+    }
+
+    #[rstest]
+    #[case::none(None, OneOrMany::<usize>::None)]
+    #[case::one(Some(1), OneOrMany::One(1))]
+    fn test_from_option(#[case] input: Option<usize>, #[case] expected: OneOrMany<usize>) {
+        assert_eq!(OneOrMany::from(input), expected);
+    }
+
+    #[rstest]
+    #[case::none(Option::<Vec<usize>>::None, OneOrMany::None)]
+    #[case::one(Some(vec![1]), OneOrMany::One(1))]
+    #[case::many(Some(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]))]
+    fn test_from_option_vec(#[case] input: Option<Vec<usize>>, #[case] expected: OneOrMany<usize>) {
+        assert_eq!(OneOrMany::from(input), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, vec![])]
+    #[case::one(OneOrMany::One(1), vec![1])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), vec![1, 2, 3])]
+    fn test_into_vec(#[case] input: OneOrMany<usize>, #[case] expected: Vec<usize>) {
+        assert_eq!(Vec::from(input), expected);
+    }
+
+    #[rstest]
+    #[should_panic]
+    #[case::none(OneOrMany::<usize>::None, 0, 0)]
+    #[case::one(OneOrMany::One(1), 0, 1)]
+    #[should_panic]
+    #[case::one(OneOrMany::One(1), 1, 0)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0, 1)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 1, 2)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 2, 3)]
+    #[should_panic]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 3, 4)]
+    fn test_index<T>(#[case] input: OneOrMany<T>, #[case] index: usize, #[case] expected: T)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input[index], expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, 0..0, &[])]
+    #[should_panic]
+    #[case::none(OneOrMany::<usize>::None, 0..1, &[])]
+    #[case::one(OneOrMany::One(1), 0..0, &[])]
+    #[case::one(OneOrMany::One(1), 0..1, &[1])]
+    #[should_panic]
+    #[case::one(OneOrMany::One(1), 1..2, &[])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0..0, &[])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0..1, &[1])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 1..2, &[2])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 2..3, &[3])]
+    #[should_panic]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 3..4, &[])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0..3, &[1, 2, 3])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0..2, &[1, 2])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 1..3, &[2, 3])]
+    fn test_index_slice<'a, T, I>(
+        #[case] input: OneOrMany<T>,
+        #[case] index: I,
+        #[case] expected: &[T],
+    ) where
+        T: PartialEq + std::fmt::Debug,
+        I: std::slice::SliceIndex<[T], Output = [T]>,
+    {
+        assert_eq!(&input[index], expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, 0..0, &[])]
+    #[should_panic]
+    #[case::none(OneOrMany::<usize>::None, 0..1, &[])]
+    #[case::one(OneOrMany::One(1), 0..0, &[])]
+    #[case::one(OneOrMany::One(1), 0..1, &[1])]
+    #[should_panic]
+    #[case::one(OneOrMany::One(1), 1..2, &[])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0..0, &[])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0..1, &[1])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 1..2, &[2])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 2..3, &[3])]
+    #[should_panic]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 3..4, &[])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0..3, &[1, 2, 3])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0..2, &[1, 2])]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), 1..3, &[2, 3])]
+    fn test_index_mut_slice<'a, T, I>(
+        #[case] mut input: OneOrMany<T>,
+        #[case] index: I,
+        #[case] expected: &[T],
+    ) where
+        T: PartialEq + std::fmt::Debug,
+        I: std::slice::SliceIndex<[T], Output = [T]>,
+    {
+        assert_eq!(&mut input[index], expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::<usize>::None, Some(std::cmp::Ordering::Equal))]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::One(1), Some(std::cmp::Ordering::Less))]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::Many(vec![1, 2, 3]), Some(std::cmp::Ordering::Less))]
+    #[case::one(OneOrMany::One(1), OneOrMany::<usize>::None, Some(std::cmp::Ordering::Greater))]
+    #[case::one(OneOrMany::One(1), OneOrMany::One(1), Some(std::cmp::Ordering::Equal))]
+    #[case::one(OneOrMany::One(1), OneOrMany::One(2), Some(std::cmp::Ordering::Less))]
+    #[case::one(
+        OneOrMany::One(1),
+        OneOrMany::One(0),
+        Some(std::cmp::Ordering::Greater)
+    )]
+    #[case::one(OneOrMany::One(1), OneOrMany::Many(vec![1, 2, 3]), Some(std::cmp::Ordering::Less))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::<usize>::None, Some(std::cmp::Ordering::Greater))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::One(1), Some(std::cmp::Ordering::Greater))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]), Some(std::cmp::Ordering::Equal))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![2, 3]), Some(std::cmp::Ordering::Less))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3, 4]), Some(std::cmp::Ordering::Less))]
+    fn test_partial_cmp<T>(
+        #[case] input: OneOrMany<T>,
+        #[case] other: OneOrMany<T>,
+        #[case] expected: Option<std::cmp::Ordering>,
+    ) where
+        T: std::fmt::Debug + PartialOrd,
+    {
+        assert_eq!(input.partial_cmp(&other), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::<usize>::None)]
+    #[case::one(OneOrMany::One(1), OneOrMany::One(1))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]))]
+    fn test_eq<T>(#[case] input: OneOrMany<T>, #[case] other: OneOrMany<T>)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(input, other);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::One(1))]
+    #[case::one(OneOrMany::One(1), OneOrMany::Many(vec![1, 2, 3]))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::<usize>::None)]
+    fn test_ne<T>(#[case] input: OneOrMany<T>, #[case] other: OneOrMany<T>)
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        assert_ne!(input, other);
     }
 }
