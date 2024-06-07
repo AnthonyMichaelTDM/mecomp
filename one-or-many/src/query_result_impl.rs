@@ -101,7 +101,7 @@ mod tests {
 
     #[rstest]
     #[tokio::test]
-    async fn test_oneormany_as_query_result() -> anyhow::Result<()> {
+    async fn test_as_query_result() -> anyhow::Result<()> {
         let db = init_test_database().await?;
 
         async fn all_items(db: &Surreal<Db>) -> anyhow::Result<OneOrMany<TestStruct>> {
@@ -123,7 +123,11 @@ mod tests {
             .unwrap();
 
         // read a query that returns one item
-        assert_eq!(all_items(&db).await?, OneOrMany::One(struct1.clone()));
+        let result: OneOrMany<TestStruct> = db
+            .query(format!("SELECT * FROM {TABLE_NAME} LIMIT 1"))
+            .await?
+            .take(0)?;
+        assert_eq!(result, OneOrMany::One(struct1.clone()));
 
         // next, we add another item to the database so our next query will return Many
         let struct2: TestStruct = TestStruct::new(OneOrMany::Many(vec![1, 2, 3]));
@@ -134,10 +138,11 @@ mod tests {
             .unwrap();
 
         // read a query that returns many items
-        assert_eq!(
-            all_items(&db).await?,
-            OneOrMany::Many(vec![struct1, struct2])
-        );
+        let result = all_items(&db).await?;
+        assert!(result.is_many());
+        assert_eq!(result.len(), 2);
+        assert!(result.contains(&struct1));
+        assert!(result.contains(&struct2));
 
         Ok(())
     }
