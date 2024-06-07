@@ -12,8 +12,8 @@ use crate::{
         song::{Song, SongChangeSet, SongId, TABLE_NAME},
     },
     errors::Error,
-    util::OneOrMany,
 };
+use one_or_many::OneOrMany;
 
 use super::queries::song::{read_album, read_album_artist, read_artist, read_song_by_path};
 
@@ -141,8 +141,8 @@ impl Song {
             let new_artist = Artist::read_or_create_by_names(db, artist.clone()).await?;
 
             // remove song from the old artists
-            for artist in &old_artist {
-                Artist::remove_songs(db, artist.id.clone(), &[id.clone()]).await?;
+            for artist in old_artist {
+                Artist::remove_songs(db, artist.id, &[id.clone()]).await?;
             }
             // add song to the new artists
             for artist in new_artist {

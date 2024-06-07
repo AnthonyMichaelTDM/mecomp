@@ -32,3 +32,7 @@ component_management:
       name: SurrealQLX
       paths:
         - surrealqlx/**
+    - component_id: module_one_or_many
+      name: OneOrMany
+      paths:
+        - one-or-many/**

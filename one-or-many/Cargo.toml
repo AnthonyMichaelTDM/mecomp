@@ -1,0 +1,27 @@
+[package]
+name = "one-or-many"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+description = "Utility container for working with data that can either be null, a single value, or a list of values."
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[features]
+default = []
+serde = ["dep:serde"]
+surrealdb = ["serde", "dep:surrealdb"]
+
+[dependencies]
+serde = { workspace = true, optional = true }
+surrealdb = { workspace = true, optional = true }
+
+[dev-dependencies]
+rstest = { workspace = true }
+pretty_assertions = { workspace = true }
+surrealqlx = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }

@@ -2340,6 +2340,7 @@ dependencies = [
  "mecomp-workspace-hack",
  "nutype",
  "once_cell",
+ "one-or-many",
  "opentelemetry 0.23.0",
  "opentelemetry-otlp",
  "opentelemetry-semantic-conventions",
@@ -2378,6 +2379,7 @@ dependencies = [
  "mecomp-workspace-hack",
  "notify",
  "notify-debouncer-full",
+ "one-or-many",
  "pretty_assertions",
  "rand",
  "rstest",
@@ -2402,6 +2404,7 @@ dependencies = [
  "log",
  "mecomp-workspace-hack",
  "once_cell",
+ "one-or-many",
  "pretty_assertions",
  "rand",
  "rstest",
@@ -2891,6 +2894,19 @@ name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
+
+[[package]]
+name = "one-or-many"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "pretty_assertions",
+ "rstest",
+ "serde",
+ "surrealdb",
+ "surrealqlx",
+ "tokio",
+]
 
 [[package]]
 name = "opentelemetry"

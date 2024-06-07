@@ -11,10 +11,8 @@ use surrealqlx::Table;
 use tracing::instrument;
 //----------------------------------------------------------------------------------- local modules
 use super::{album::Album, artist::Artist};
-use crate::{
-    errors::{Error, SongIOError},
-    util::OneOrMany,
-};
+use crate::errors::{Error, SongIOError};
+use one_or_many::OneOrMany;
 
 pub type SongId = Thing;
 

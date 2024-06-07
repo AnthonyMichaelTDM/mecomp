@@ -124,7 +124,8 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::{db::init_test_database, test_utils::ulid, util::OneOrMany};
+    use crate::{db::init_test_database, test_utils::ulid};
+    use one_or_many::OneOrMany;
 
     use anyhow::{anyhow, Result};
     use pretty_assertions::assert_eq;
