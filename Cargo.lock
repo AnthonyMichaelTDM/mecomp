@@ -2418,6 +2418,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "mecomp-types"
+version = "0.1.0"
+
+[[package]]
 name = "mecomp-workspace-hack"
 version = "0.1.0"
 dependencies = [

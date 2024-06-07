@@ -1,0 +1,13 @@
+[package]
+name = "mecomp-types"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Types/schemas for the mecomp project's internal representations of a music library"
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[dependencies]

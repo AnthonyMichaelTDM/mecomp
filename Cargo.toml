@@ -11,6 +11,7 @@ members = [
     "surrealqlx/lib",
     "surrealqlx/macros",
     "surrealqlx/macros-impl",
+    "types",
 ]
 exclude = ["external", "target", "assets", "scripts"]
 resolver = "2"
@@ -99,6 +100,7 @@ tracing-flame = "0.2.0"
 mecomp-core = { path = "core" }
 mecomp-daemon = { path = "daemon" }
 mecomp-storage = { path = "storage" }
+mecomp-types = { path = "types" }
 surrealqlx = { path = "surrealqlx/lib", features = ["macros"] }
 one-or-many = { path = "one-or-many" }
 
