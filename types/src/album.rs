@@ -1,8 +1,10 @@
 #![allow(clippy::module_name_repetitions)]
 use std::sync::Arc;
 
+#[cfg(not(feature = "surrealdb"))]
+use crate::surreal::Thing;
+#[cfg(feature = "surrealdb")]
 use surrealdb::sql::{Duration, Id, Thing};
-use surrealqlx::Table;
 
 use one_or_many::OneOrMany;
 
@@ -13,42 +15,43 @@ pub const TABLE_NAME: &str = "album";
 /// This struct holds all the metadata about a particular [`Album`].
 /// An [`Album`] is a collection of [`super::song::Song`]s owned by an [`super::artist::Artist`].
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "surrealdb", derive(Table))]
+#[cfg_attr(feature = "surrealdb", derive(surrealqlx::Table))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "surrealdb", Table("album"))]
 pub struct Album {
     /// The unique identifier for this [`Album`].
-    #[field(dt = "record")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "record"))]
     pub id: AlbumId,
     /// Title of the [`Album`].
-    #[field(dt = "string", index())]
+    #[cfg_attr(feature = "surrealdb", field(dt = "string", index()))]
     pub title: Arc<str>,
     /// Artist of the [`Album`]. (Can be multiple)
-    #[field(dt = "option<set<string> | string>")]
-    #[serde(default)]
+    #[cfg_attr(feature = "surrealdb", field(dt = "option<set<string> | string>"))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub artist: OneOrMany<Arc<str>>,
     /// Release year of this [`Album`].
-    #[field(dt = "option<int>")]
-    #[serde(default)]
+    #[cfg_attr(feature = "surrealdb", field(dt = "option<int>"))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub release: Option<i32>,
     /// Total runtime of this [`Album`].
-    #[field(dt = "duration")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "duration"))]
     pub runtime: Duration,
     /// [`Song`] count of this [`Album`].
-    #[field(dt = "int")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "int"))]
     pub song_count: usize,
     /// How many discs are in this [`Album`]?
     /// (Most will only have 1).
-    #[field(dt = "int")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "int"))]
     pub discs: u32,
     /// This [`Album`]'s genre.
-    #[field(dt = "option<set<string> | string>")]
-    #[serde(default)]
+    #[cfg_attr(feature = "surrealdb", field(dt = "option<set<string> | string>"))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub genre: OneOrMany<Arc<str>>,
 }
 
 impl Album {
     #[must_use]
+    #[cfg(feature = "surrealdb")]
     pub fn generate_id() -> AlbumId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }

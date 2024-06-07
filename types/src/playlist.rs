@@ -1,8 +1,10 @@
 #![allow(clippy::module_name_repetitions)]
 use std::sync::Arc;
 
+#[cfg(not(feature = "surrealdb"))]
+use crate::surreal::Thing;
+#[cfg(feature = "surrealdb")]
 use surrealdb::sql::{Duration, Id, Thing};
-use surrealqlx::Table;
 
 pub type PlaylistId = Thing;
 
@@ -11,29 +13,30 @@ pub const TABLE_NAME: &str = "playlist";
 /// This struct holds all the metadata about a particular [`Playlist`].
 /// A [`Playlist`] is a collection of [`super::song::Song`]s.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "surrealdb", derive(Table))]
+#[cfg_attr(feature = "surrealdb", derive(surrealqlx::Table))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "surrealdb", Table("playlist"))]
 pub struct Playlist {
     /// the unique identifier for this [`Playlist`].
-    #[field(dt = "record")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "record"))]
     pub id: PlaylistId,
 
     /// The [`Playlist`]'s name.
-    #[field(dt = "string")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "string"))]
     pub name: Arc<str>,
 
     /// Total runtime.
-    #[field(dt = "duration")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "duration"))]
     pub runtime: Duration,
 
     /// the number of songs this playlist has.
-    #[field(dt = "int")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "int"))]
     pub song_count: usize,
 }
 
 impl Playlist {
     #[must_use]
+    #[cfg(feature = "surrealdb")]
     pub fn generate_id() -> PlaylistId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }

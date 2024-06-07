@@ -3,8 +3,10 @@
 use std::sync::Arc;
 use std::{collections::HashSet, path::PathBuf};
 //--------------------------------------------------------------------------------- other libraries
+#[cfg(not(feature = "surrealdb"))]
+use crate::surreal::Thing;
+#[cfg(feature = "surrealdb")]
 use surrealdb::sql::{Duration, Id, Thing};
-use surrealqlx::Table;
 //----------------------------------------------------------------------------------- local modules
 use one_or_many::OneOrMany;
 
@@ -14,63 +16,64 @@ pub const TABLE_NAME: &str = "song";
 
 /// This struct holds all the metadata about a particular [`Song`].
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "surrealdb", derive(Table))]
+#[cfg_attr(feature = "surrealdb", derive(surrealqlx::Table))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "surrealdb", Table("song"))]
 pub struct Song {
     /// The unique identifier for this [`Song`].
-    #[field(dt = "record")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "record"))]
     pub id: SongId,
     /// Title of the [`Song`].
-    #[field(dt = "string", index())]
+    #[cfg_attr(feature = "surrealdb", field(dt = "string", index()))]
     pub title: Arc<str>,
     /// Artist of the [`Song`]. (Can be multiple)
-    #[field(dt = "option<set<string> | string>")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "option<set<string> | string>"))]
     #[serde(default)]
     pub artist: OneOrMany<Arc<str>>,
     /// album artist, if not found then defaults to first artist
-    #[field(dt = "option<set<string> | string>")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "option<set<string> | string>"))]
     #[serde(default)]
     pub album_artist: OneOrMany<Arc<str>>,
     /// album title
-    #[field(dt = "string")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "string"))]
     pub album: Arc<str>,
     /// Genre of the [`Song`]. (Can be multiple)
-    #[field(dt = "option<set<string> | string>")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "option<set<string> | string>"))]
     #[serde(default)]
     pub genre: OneOrMany<Arc<str>>,
 
     /// Total runtime of this [`Song`].
-    #[field(dt = "duration")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "duration"))]
     pub runtime: Duration,
     // /// Sample rate of this [`Song`].
     // pub sample_rate: u32,
     /// The track number of this [`Song`].
-    #[field(dt = "option<int>")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "option<int>"))]
     #[serde(default)]
     pub track: Option<u16>,
     /// The disc number of this [`Song`].
-    #[field(dt = "option<int>")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "option<int>"))]
     #[serde(default)]
     pub disc: Option<u16>,
     /// the year the song was released
-    #[field(dt = "option<int>")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "option<int>"))]
     #[serde(default)]
     pub release_year: Option<i32>,
 
     // /// The `MIME` type of this [`Song`].
     // pub mime: Arc<str>,
     /// The file extension of this [`Song`].
-    #[field(dt = "string")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "string"))]
     pub extension: Arc<str>,
 
     /// The [`PathBuf`] this [`Song`] is located at.
-    #[field(dt = "string", index(unique))]
+    #[cfg_attr(feature = "surrealdb", field(dt = "string", index(unique)))]
     pub path: PathBuf,
 }
 
 impl Song {
     #[must_use]
+    #[cfg(feature = "surrealdb")]
     pub fn generate_id() -> SongId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }

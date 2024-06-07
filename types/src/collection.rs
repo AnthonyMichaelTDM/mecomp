@@ -3,37 +3,40 @@
 
 use std::sync::Arc;
 
+#[cfg(not(feature = "surrealdb"))]
+use crate::surreal::Thing;
+#[cfg(feature = "surrealdb")]
 use surrealdb::sql::{Duration, Id, Thing};
-use surrealqlx::Table;
 
 pub type CollectionId = Thing;
 
 pub const TABLE_NAME: &str = "collection";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "surrealdb", derive(Table))]
+#[cfg_attr(feature = "surrealdb", derive(surrealqlx::Table))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "surrealdb", Table("collection"))]
 pub struct Collection {
     /// the unique identifier for this [`Collection`].
-    #[field(dt = "record")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "record"))]
     pub id: CollectionId,
 
     /// The name of the collection.
-    #[field(dt = "string", index(unique))]
+    #[cfg_attr(feature = "surrealdb", field(dt = "string", index(unique)))]
     pub name: Arc<str>,
 
     /// Total runtime.
-    #[field(dt = "duration")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "duration"))]
     pub runtime: Duration,
 
     /// the number of songs this collection has.
-    #[field(dt = "int")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "int"))]
     pub song_count: usize,
 }
 
 impl Collection {
     #[must_use]
+    #[cfg(feature = "surrealdb")]
     pub fn generate_id() -> CollectionId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }

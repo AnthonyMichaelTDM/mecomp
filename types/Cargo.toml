@@ -12,7 +12,7 @@ license.workspace = true
 
 [features]
 default = ["surrealdb"]
-serde = ["dep:serde"]
+serde = ["dep:serde", "one-or-many/serde"]
 surrealdb = ["serde", "dep:surrealdb", "dep:surrealqlx"]
 
 [dependencies]

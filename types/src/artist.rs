@@ -1,8 +1,10 @@
 #![allow(clippy::module_name_repetitions)]
 use std::sync::Arc;
 
+#[cfg(not(feature = "surrealdb"))]
+use crate::surreal::Thing;
+#[cfg(feature = "surrealdb")]
 use surrealdb::sql::{Duration, Id, Thing};
-use surrealqlx::Table;
 
 pub type ArtistId = Thing;
 
@@ -11,33 +13,34 @@ pub const TABLE_NAME: &str = "artist";
 /// This struct holds all the metadata about a particular [`Artist`].
 /// An [`Artist`] is a collection of [`super::album::Album`]s.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "surrealdb", derive(Table))]
+#[cfg_attr(feature = "surrealdb", derive(surrealqlx::Table))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "surrealdb", Table("artist"))]
 pub struct Artist {
     /// the unique identifier for this [`Artist`].
-    #[field(dt = "record")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "record"))]
     pub id: ArtistId,
 
     /// The [`Artist`]'s name.
-    #[field(dt = "string", index(unique))]
+    #[cfg_attr(feature = "surrealdb", field(dt = "string", index(unique)))]
     pub name: Arc<str>,
 
     /// Total runtime.
-    #[field(dt = "duration")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "duration"))]
     pub runtime: Duration,
 
     /// the number of albums this artist has.
-    #[field(dt = "int")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "int"))]
     pub album_count: usize,
 
     /// the number of songs this artist has.
-    #[field(dt = "int")]
+    #[cfg_attr(feature = "surrealdb", field(dt = "int"))]
     pub song_count: usize,
 }
 
 impl Artist {
     #[must_use]
+    #[cfg(feature = "surrealdb")]
     pub fn generate_id() -> ArtistId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
