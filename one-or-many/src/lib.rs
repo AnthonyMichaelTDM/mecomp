@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 /// A type that can be either one value, many values, or no values.
 ///
-/// Especially usefull when working with deserialing data
+/// Especially useful when working with deserialing data
 ///
 /// To let it be useful in other contexts, it aims to implement many of the same traits and functions as `Vec<T>` and `Option<T>`.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
