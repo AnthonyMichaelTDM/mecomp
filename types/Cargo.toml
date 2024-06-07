@@ -10,4 +10,13 @@ categories.workspace = true
 readme.workspace = true
 license.workspace = true
 
+[features]
+default = ["surrealdb"]
+serde = ["dep:serde"]
+surrealdb = ["serde", "dep:surrealdb", "dep:surrealqlx"]
+
 [dependencies]
+one-or-many = { workspace = true }
+serde = { workspace = true, optional = true }
+surrealdb = { workspace = true, optional = true }
+surrealqlx = { workspace = true, optional = true }

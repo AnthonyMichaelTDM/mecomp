@@ -2420,6 +2420,12 @@ dependencies = [
 [[package]]
 name = "mecomp-types"
 version = "0.1.0"
+dependencies = [
+ "one-or-many",
+ "serde",
+ "surrealdb",
+ "surrealqlx",
+]
 
 [[package]]
 name = "mecomp-workspace-hack"
