@@ -146,10 +146,7 @@ impl From<Song> for SongBrief {
             album: song.album,
             album_artist: song.album_artist,
             release_year: song.release_year,
-            #[cfg(not(feature = "db"))]
             runtime: song.runtime,
-            #[cfg(feature = "db")]
-            runtime: song.runtime.into(),
             path: song.path,
         }
     }
@@ -164,10 +161,7 @@ impl From<&Song> for SongBrief {
             album: song.album.clone(),
             album_artist: song.album_artist.clone(),
             release_year: song.release_year,
-            #[cfg(not(feature = "db"))]
             runtime: song.runtime,
-            #[cfg(feature = "db")]
-            runtime: song.runtime.into(),
             path: song.path.clone(),
         }
     }
@@ -428,10 +422,7 @@ impl SongMetadata {
                     (_, genre) => OneOrMany::One(genre.into()),
                 })
                 .into(),
-            #[cfg(not(feature = "db"))]
             runtime: properties.duration(),
-            #[cfg(feature = "db")]
-            runtime: properties.duration().into(),
             track: tag
                 .get_string(&ItemKey::TrackNumber)
                 .and_then(|x| x.parse().ok()),

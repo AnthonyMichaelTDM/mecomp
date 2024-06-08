@@ -82,10 +82,7 @@ impl From<Collection> for CollectionBrief {
         Self {
             id: collection.id,
             name: collection.name,
-            #[cfg(not(feature = "db"))]
             runtime: collection.runtime,
-            #[cfg(feature = "db")]
-            runtime: collection.runtime.into(),
             songs: collection.song_count,
         }
     }
@@ -96,10 +93,7 @@ impl From<&Collection> for CollectionBrief {
         Self {
             id: collection.id.clone(),
             name: collection.name.clone(),
-            #[cfg(not(feature = "db"))]
             runtime: collection.runtime,
-            #[cfg(feature = "db")]
-            runtime: collection.runtime.into(),
             songs: collection.song_count,
         }
     }

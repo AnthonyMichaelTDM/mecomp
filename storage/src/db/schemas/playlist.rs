@@ -82,10 +82,7 @@ impl From<Playlist> for PlaylistBrief {
         Self {
             id: playlist.id,
             name: playlist.name,
-            #[cfg(not(feature = "db"))]
             runtime: playlist.runtime,
-            #[cfg(feature = "db")]
-            runtime: playlist.runtime.into(),
             songs: playlist.song_count,
         }
     }
@@ -96,10 +93,7 @@ impl From<&Playlist> for PlaylistBrief {
         Self {
             id: playlist.id.clone(),
             name: playlist.name.clone(),
-            #[cfg(not(feature = "db"))]
             runtime: playlist.runtime,
-            #[cfg(feature = "db")]
-            runtime: playlist.runtime.into(),
             songs: playlist.song_count,
         }
     }
