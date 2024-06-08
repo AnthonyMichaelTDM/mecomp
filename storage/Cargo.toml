@@ -15,13 +15,13 @@ license.workspace = true
 [features]
 defualt = []
 db = [
+    "serde",
+    "one-or-many/surrealdb",
     "dep:surrealdb",
     "dep:surrealqlx",
     "dep:tempfile",
-    "serde",
-    "one-or-many/surrealdb",
 ]
-serde = ["dep:serde", "one-or-many/serde"]
+serde = ["one-or-many/serde", "dep:serde"]
 
 [dependencies]
 # shared dependencies
@@ -45,7 +45,6 @@ one-or-many = { workspace = true }
 [dev-dependencies]
 anyhow = { workspace = true }
 pretty_assertions = { workspace = true }
-serde = { workspace = true }
 serde_json = { version = "1.0" }
 tempfile = { workspace = true }
 rstest = { workspace = true }

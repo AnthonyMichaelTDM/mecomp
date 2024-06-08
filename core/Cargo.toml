@@ -12,6 +12,22 @@ license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+rpc = ["tarpc"]
+otel_tracing = [
+    "tracing-opentelemetry",
+    "opentelemetry",
+    "opentelemetry_sdk",
+    "opentelemetry-semantic-conventions",
+    "opentelemetry-otlp",
+]
+flame = ["tracing-flame"]
+verbose_tracing = []
+
+# for testing purposes, prevents actual playback of audio which is useful in CI environments where audio playback is not possible
+mock_playback = []
+
 
 [dependencies]
 # shared dependencies
@@ -50,19 +66,3 @@ tempfile = { workspace = true }
 lofty = { workspace = true }
 mecomp-storage = { workspace = true, features = ["serde", "db"] }
 surrealdb = { workspace = true }
-
-[features]
-default = []
-rpc = ["tarpc"]
-otel_tracing = [
-    "tracing-opentelemetry",
-    "opentelemetry",
-    "opentelemetry_sdk",
-    "opentelemetry-semantic-conventions",
-    "opentelemetry-otlp",
-]
-flame = ["tracing-flame"]
-verbose_tracing = []
-
-# for testing purposes, prevents actual playback of audio which is useful in CI environments where audio playback is not possible
-mock_playback = []

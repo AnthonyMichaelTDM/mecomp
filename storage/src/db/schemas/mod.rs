@@ -4,6 +4,11 @@ pub mod collection;
 pub mod playlist;
 pub mod song;
 
+/// Serialize a `std::time::Duration` as a `surrealdb::sql::Duration`.
+///
+/// # Errors
+///
+/// This function will return an error if the `std::time::Duration` cannot be serialized as a `surrealdb::sql::Duration`.
 #[cfg(feature = "db")]
 pub fn serialize_duration_as_sql_duration<S>(
     x: &std::time::Duration,
@@ -17,6 +22,11 @@ where
     Into::<surrealdb::sql::Duration>::into(*x).serialize(s)
 }
 
+/// Serialize an `Option<std::time::Duration>` as an `Option<surrealdb::sql::Duration>`.
+///
+/// # Errors
+///
+/// This function will return an error if the `Option<std::time::Duration>` cannot be serialized as an `Option<surrealdb::sql::Duration>`.
 #[cfg(feature = "db")]
 pub fn serialize_duration_option_as_sql_duration<S>(
     x: &Option<std::time::Duration>,
@@ -33,6 +43,11 @@ where
     }
 }
 
+/// Deserialize a `std::time::Duration` from a `surrealdb::sql::Duration`.
+///
+/// # Errors
+///
+/// This function will return an error if the `std::time::Duration` cannot be deserialized from a `surrealdb::sql::Duration`.
 #[cfg(feature = "db")]
 pub fn deserialize_duration_from_sql_duration<'de, D>(d: D) -> Result<std::time::Duration, D::Error>
 where
@@ -44,6 +59,11 @@ where
     Ok(duration.into())
 }
 
+/// Deserialize an `Option<std::time::Duration>` from an `Option<surrealdb::sql::Duration>`.
+///
+/// # Errors
+///
+/// This function will return an error if the `Option<std::time::Duration>` cannot be deserialized from an `Option<surrealdb::sql::Duration>`.
 #[cfg(feature = "db")]
 pub fn deserialize_duration_from_sql_duration_option<'de, D>(
     d: D,
