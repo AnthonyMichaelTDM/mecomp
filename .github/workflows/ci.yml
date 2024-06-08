@@ -77,4 +77,7 @@ jobs:
         run: cargo test --all --workspace --features mock_playback
 
       - name: Build
+        run: cargo check
+
+      - name: Build
         run: cargo check --all-features
