@@ -58,17 +58,14 @@ pub struct PlaylistChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     #[cfg_attr(
         feature = "db",
-        serde(
-            serialize_with = "super::serialize_duration_option_as_sql_duration",
-            deserialize_with = "super::deserialize_duration_from_sql_duration_option"
-        )
+        serde(serialize_with = "super::serialize_duration_option_as_sql_duration")
     )]
     pub runtime: Option<Duration>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub song_count: Option<usize>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PlaylistBrief {
     pub id: PlaylistId,
@@ -96,5 +93,44 @@ impl From<&Playlist> for PlaylistBrief {
             runtime: playlist.runtime,
             songs: playlist.song_count,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use pretty_assertions::assert_eq;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn playlist() -> Playlist {
+        Playlist {
+            id: Thing::from((TABLE_NAME, "id")),
+            name: Arc::from("playlist"),
+            runtime: Duration::from_secs(3600),
+            song_count: 100,
+        }
+    }
+
+    #[fixture]
+    fn playlist_brief() -> PlaylistBrief {
+        PlaylistBrief {
+            id: Thing::from((TABLE_NAME, "id")),
+            name: Arc::from("playlist"),
+            runtime: Duration::from_secs(3600),
+            songs: 100,
+        }
+    }
+
+    #[rstest]
+    #[case(playlist(), playlist_brief())]
+    #[case(&playlist(), playlist_brief())]
+    fn test_playlist_brief_from_playlist<T: Into<PlaylistBrief>>(
+        #[case] playlist: T,
+        #[case] brief: PlaylistBrief,
+    ) {
+        let actual: PlaylistBrief = playlist.into();
+        assert_eq!(actual, brief);
     }
 }

@@ -58,17 +58,14 @@ pub struct CollectionChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     #[cfg_attr(
         feature = "db",
-        serde(
-            serialize_with = "super::serialize_duration_option_as_sql_duration",
-            deserialize_with = "super::deserialize_duration_from_sql_duration_option"
-        )
+        serde(serialize_with = "super::serialize_duration_option_as_sql_duration")
     )]
     pub runtime: Option<Duration>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub song_count: Option<usize>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CollectionBrief {
     pub id: CollectionId,
@@ -96,5 +93,44 @@ impl From<&Collection> for CollectionBrief {
             runtime: collection.runtime,
             songs: collection.song_count,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use pretty_assertions::assert_eq;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn collection() -> Collection {
+        Collection {
+            id: Thing::from((TABLE_NAME, "id")),
+            name: Arc::from("collection"),
+            runtime: Duration::from_secs(3600),
+            song_count: 100,
+        }
+    }
+
+    #[fixture]
+    fn collection_brief() -> CollectionBrief {
+        CollectionBrief {
+            id: Thing::from((TABLE_NAME, "id")),
+            name: Arc::from("collection"),
+            runtime: Duration::from_secs(3600),
+            songs: 100,
+        }
+    }
+
+    #[rstest]
+    #[case(collection(), collection_brief())]
+    #[case(&collection(), collection_brief())]
+    fn test_collection_brief_from_collection<T: Into<CollectionBrief>>(
+        #[case] collection: T,
+        #[case] brief: CollectionBrief,
+    ) {
+        let actual: CollectionBrief = collection.into();
+        assert_eq!(actual, brief);
     }
 }

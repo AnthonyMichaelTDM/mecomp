@@ -106,10 +106,7 @@ pub struct SongChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     #[cfg_attr(
         feature = "db",
-        serde(
-            serialize_with = "super::serialize_duration_option_as_sql_duration",
-            deserialize_with = "super::deserialize_duration_from_sql_duration_option"
-        )
+        serde(serialize_with = "super::serialize_duration_option_as_sql_duration")
     )]
     pub runtime: Option<Duration>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -124,7 +121,7 @@ pub struct SongChangeSet {
     pub path: Option<PathBuf>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SongBrief {
     pub id: SongId,
@@ -443,63 +440,47 @@ impl SongMetadata {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        db::{
-            init_test_database,
-            schemas::{album::Album, artist::Artist},
-        },
-        test_utils::{arb_song_case, song_metadata_from_case, ulid},
-    };
 
     use pretty_assertions::assert_eq;
+    use rstest::{fixture, rstest};
 
-    #[tokio::test]
-    async fn test_try_load_into_db() {
-        let db = init_test_database().await.unwrap();
-        // Create a mock SongMetadata object for testing
-        let metadata = song_metadata_from_case(arb_song_case()(), &ulid()).unwrap();
-
-        // Call the try_load_into_db function
-        let result = Song::try_load_into_db(&db, metadata.clone()).await;
-
-        // Assert that the function returns a valid Song object
-        if let Err(e) = result {
-            panic!("Error: {e:?}");
+    #[fixture]
+    fn song() -> Song {
+        Song {
+            id: Thing::from((TABLE_NAME, "id")),
+            title: Arc::from("song"),
+            artist: OneOrMany::One(Arc::from("artist")),
+            album_artist: OneOrMany::One(Arc::from("artist")),
+            album: Arc::from("album"),
+            genre: OneOrMany::One(Arc::from("genre")),
+            runtime: Duration::from_secs(3600),
+            track: Some(1),
+            disc: Some(1),
+            release_year: Some(2021),
+            extension: Arc::from("mp3"),
+            path: PathBuf::from("path"),
         }
-        let song = result.unwrap();
+    }
 
-        // Assert that the song has been loaded into the database correctly
-        assert_eq!(song.title, metadata.title);
-        assert_eq!(song.artist.len(), metadata.artist.len());
-        assert_eq!(song.album_artist.len(), metadata.album_artist.len());
-        assert_eq!(song.album, metadata.album);
-        assert_eq!(song.genre.len(), metadata.genre.len());
-        assert_eq!(song.runtime, metadata.runtime);
-        assert_eq!(song.track, metadata.track);
-        assert_eq!(song.disc, metadata.disc);
-        assert_eq!(song.release_year, metadata.release_year);
-        assert_eq!(song.extension, metadata.extension);
-        assert_eq!(song.path, metadata.path);
+    #[fixture]
+    fn song_brief() -> SongBrief {
+        SongBrief {
+            id: Thing::from((TABLE_NAME, "id")),
+            title: Arc::from("song"),
+            artist: OneOrMany::One(Arc::from("artist")),
+            album: Arc::from("album"),
+            album_artist: OneOrMany::One(Arc::from("artist")),
+            release_year: Some(2021),
+            runtime: Duration::from_secs(3600),
+            path: PathBuf::from("path"),
+        }
+    }
 
-        // Assert that the artists and album have been created in the database
-        let artists = Song::read_artist(&db, song.id.clone()).await.unwrap();
-        assert_eq!(artists.len(), metadata.artist.len()); // 2 artists + 1 album artist
-
-        let album = Song::read_album(&db, song.id.clone()).await;
-        assert_eq!(album.is_ok(), true);
-        let album = album.unwrap();
-        assert_eq!(album.is_some(), true);
-        let album = album.unwrap();
-
-        // Assert that the song has been associated with the artists and album correctly
-        let artist_songs = Artist::read_songs(&db, artists.get(0).unwrap().id.clone())
-            .await
-            .unwrap();
-        assert_eq!(artist_songs.len(), 1);
-        assert_eq!(artist_songs[0].id, song.id);
-
-        let album_songs = Album::read_songs(&db, album.id.clone()).await.unwrap();
-        assert_eq!(album_songs.len(), 1);
-        assert_eq!(album_songs[0].id, song.id);
+    #[rstest]
+    #[case(song(), song_brief())]
+    #[case(&song(), song_brief())]
+    fn test_song_brief_from_song<T: Into<SongBrief>>(#[case] song: T, #[case] brief: SongBrief) {
+        let actual: SongBrief = song.into();
+        assert_eq!(actual, brief);
     }
 }

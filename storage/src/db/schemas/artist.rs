@@ -62,10 +62,7 @@ pub struct ArtistChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     #[cfg_attr(
         feature = "db",
-        serde(
-            serialize_with = "super::serialize_duration_option_as_sql_duration",
-            deserialize_with = "super::deserialize_duration_from_sql_duration_option"
-        )
+        serde(serialize_with = "super::serialize_duration_option_as_sql_duration")
     )]
     pub runtime: Option<Duration>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -76,7 +73,7 @@ pub struct ArtistChangeSet {
 
 /// This struct holds all the metadata about a particular [`Artist`].
 /// An [`Artist`] is a collection of [`super::album::Album`]s.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ArtistBrief {
     pub id: ArtistId,
@@ -107,5 +104,46 @@ impl From<&Artist> for ArtistBrief {
             albums: artist.album_count,
             songs: artist.song_count,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use pretty_assertions::assert_eq;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn artist() -> Artist {
+        Artist {
+            id: Thing::from((TABLE_NAME, "id")),
+            name: Arc::from("artist"),
+            runtime: Duration::from_secs(3600),
+            album_count: 10,
+            song_count: 100,
+        }
+    }
+
+    #[fixture]
+    fn artist_brief() -> ArtistBrief {
+        ArtistBrief {
+            id: Thing::from((TABLE_NAME, "id")),
+            name: Arc::from("artist"),
+            runtime: Duration::from_secs(3600),
+            albums: 10,
+            songs: 100,
+        }
+    }
+
+    #[rstest]
+    #[case(artist(), artist_brief())]
+    #[case(&artist(), artist_brief())]
+    fn test_artist_brief_from_artist<T: Into<ArtistBrief>>(
+        #[case] artist: T,
+        #[case] brief: ArtistBrief,
+    ) {
+        let actual: ArtistBrief = artist.into();
+        assert_eq!(actual, brief);
     }
 }

@@ -77,10 +77,7 @@ pub struct AlbumChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     #[cfg_attr(
         feature = "db",
-        serde(
-            serialize_with = "super::serialize_duration_option_as_sql_duration",
-            deserialize_with = "super::deserialize_duration_from_sql_duration_option"
-        )
+        serde(serialize_with = "super::serialize_duration_option_as_sql_duration",)
     )]
     pub runtime: Option<Duration>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -91,7 +88,7 @@ pub struct AlbumChangeSet {
     pub genre: Option<OneOrMany<Arc<str>>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AlbumBrief {
     pub id: AlbumId,
@@ -131,5 +128,52 @@ impl From<&Album> for AlbumBrief {
             discs: album.discs,
             genre: album.genre.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use pretty_assertions::assert_eq;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn album() -> Album {
+        Album {
+            id: AlbumId::from((TABLE_NAME, "id")),
+            title: Arc::from("test"),
+            artist: OneOrMany::One(Arc::from("test")),
+            release: Some(2021),
+            runtime: Duration::from_secs(0),
+            song_count: 0,
+            discs: 1,
+            genre: OneOrMany::One(Arc::from("test")),
+        }
+    }
+
+    #[fixture]
+    fn album_brief() -> AlbumBrief {
+        AlbumBrief {
+            id: AlbumId::from((TABLE_NAME, "id")),
+            title: Arc::from("test"),
+            artist: OneOrMany::One(Arc::from("test")),
+            release: Some(2021),
+            runtime: Duration::from_secs(0),
+            song_count: 0,
+            discs: 1,
+            genre: OneOrMany::One(Arc::from("test")),
+        }
+    }
+
+    #[rstest]
+    #[case(album(), album_brief())]
+    #[case(&album(), album_brief())]
+    fn test_album_brief_from_album<T: Into<AlbumBrief>>(
+        #[case] album: T,
+        #[case] brief: AlbumBrief,
+    ) {
+        let actual: AlbumBrief = album.into();
+        assert_eq!(actual, brief);
     }
 }

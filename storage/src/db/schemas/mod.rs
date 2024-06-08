@@ -37,10 +37,7 @@ where
 {
     use serde::Serialize;
 
-    match x {
-        Some(x) => serialize_duration_as_sql_duration(x, s),
-        None => Option::<surrealdb::sql::Duration>::None.serialize(s),
-    }
+    x.map(Into::<surrealdb::sql::Duration>::into).serialize(s)
 }
 
 /// Deserialize a `std::time::Duration` from a `surrealdb::sql::Duration`.
@@ -57,24 +54,6 @@ where
 
     let duration = surrealdb::sql::Duration::deserialize(d)?;
     Ok(duration.into())
-}
-
-/// Deserialize an `Option<std::time::Duration>` from an `Option<surrealdb::sql::Duration>`.
-///
-/// # Errors
-///
-/// This function will return an error if the `Option<std::time::Duration>` cannot be deserialized from an `Option<surrealdb::sql::Duration>`.
-#[cfg(feature = "db")]
-pub fn deserialize_duration_from_sql_duration_option<'de, D>(
-    d: D,
-) -> Result<Option<std::time::Duration>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    use serde::Deserialize;
-
-    let duration = Option::<surrealdb::sql::Duration>::deserialize(d)?;
-    Ok(duration.map(Into::into))
 }
 
 /// Implement a version of the `surrealdb` `Thing` type that we can use when the `db` feature is not enabled.
