@@ -305,10 +305,11 @@ impl AudioKernel {
     ///
     /// // create a channel to send commands to the audio kernel
     /// let (tx, rx) = std::sync::mpsc::channel();
+    /// let tx_clone = tx.clone();
     /// // spawn the audio kernel in a detached thread
     /// std::thread::spawn(move || {
     ///    let kernel = AudioKernel::new();
-    ///    kernel.init(rx);
+    ///    kernel.init(tx_clone, rx);
     /// });
     /// // create a sender to send commands to the audio kernel
     /// let sender = AudioKernelSender::new(tx);
@@ -423,9 +424,9 @@ impl AudioKernel {
     #[instrument(skip(self))]
     fn toggle_playback(&self) {
         if self.player.is_paused() {
-            self.player.play();
+            self.play();
         } else {
-            self.player.pause();
+            self.pause();
         }
     }
 
