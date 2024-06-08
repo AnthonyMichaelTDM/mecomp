@@ -2,8 +2,7 @@ use crate::handlers::printing;
 
 use super::{
     Command, CommandHandler, CurrentTarget, LibraryCommand, LibraryGetTarget, LibraryListTarget,
-    PlaylistAddTarget, PlaylistGetMethod, QueueCommand, RandTarget, SearchTarget, SeekCommand,
-    VolumeCommand,
+    PlaylistGetMethod, QueueCommand, RandTarget, SearchTarget, SeekCommand, VolumeCommand,
 };
 
 use mecomp_core::state::{
@@ -560,60 +559,7 @@ impl CommandHandler for super::PlaylistCommand {
                 println!("Daemon response:\nplaylist deleted");
                 Ok(())
             }
-            Self::Add {
-                id,
-                target,
-                item_id,
-            } => {
-                let resp = match target {
-                    PlaylistAddTarget::Artist => client
-                        .playlist_add_artist(
-                            ctx,
-                            Thing {
-                                tb: artist::TABLE_NAME.to_owned(),
-                                id: Id::String(item_id.clone()),
-                            },
-                            Thing {
-                                tb: playlist::TABLE_NAME.to_owned(),
-                                id: Id::String(id.clone()),
-                            },
-                        )
-                        .await?
-                        .map(|()| "artist added to playlist"),
-                    PlaylistAddTarget::Album => client
-                        .playlist_add_album(
-                            ctx,
-                            Thing {
-                                tb: album::TABLE_NAME.to_owned(),
-                                id: Id::String(item_id.clone()),
-                            },
-                            Thing {
-                                tb: playlist::TABLE_NAME.to_owned(),
-                                id: Id::String(id.clone()),
-                            },
-                        )
-                        .await?
-                        .map(|()| "album added to playlist"),
-                    PlaylistAddTarget::Song => client
-                        .playlist_add_song(
-                            ctx,
-                            Thing {
-                                tb: song::TABLE_NAME.to_owned(),
-                                id: Id::String(item_id.clone()),
-                            },
-                            Thing {
-                                tb: playlist::TABLE_NAME.to_owned(),
-                                id: Id::String(id.clone()),
-                            },
-                        )
-                        .await?
-                        .map(|()| "song added to playlist"),
-                };
-
-                println!("Daemon response:\n{resp:?}");
-
-                Ok(())
-            }
+            Self::Add { command } => command.handle(ctx, client).await,
             Self::Remove { id, item_ids } => {
                 client
                     .playlist_remove_songs(
@@ -636,6 +582,66 @@ impl CommandHandler for super::PlaylistCommand {
                 Ok(())
             }
         }
+    }
+}
+
+impl CommandHandler for super::PlaylistAddCommand {
+    type Output = anyhow::Result<()>;
+
+    async fn handle(
+        &self,
+        ctx: tarpc::context::Context,
+        client: mecomp_core::rpc::MusicPlayerClient,
+    ) -> Self::Output {
+        let resp = match self {
+            Self::Artist { id, artist_id } => client
+                .playlist_add_artist(
+                    ctx,
+                    Thing {
+                        tb: artist::TABLE_NAME.to_owned(),
+                        id: Id::String(artist_id.clone()),
+                    },
+                    Thing {
+                        tb: playlist::TABLE_NAME.to_owned(),
+                        id: Id::String(id.clone()),
+                    },
+                )
+                .await?
+                .map(|()| "artist added to playlist"),
+            Self::Album { id, album_id } => client
+                .playlist_add_album(
+                    ctx,
+                    Thing {
+                        tb: album::TABLE_NAME.to_owned(),
+                        id: Id::String(album_id.clone()),
+                    },
+                    Thing {
+                        tb: playlist::TABLE_NAME.to_owned(),
+                        id: Id::String(id.clone()),
+                    },
+                )
+                .await?
+                .map(|()| "album added to playlist"),
+            Self::Song { id, song_ids } => client
+                .playlist_add_songs(
+                    ctx,
+                    Thing {
+                        tb: playlist::TABLE_NAME.to_owned(),
+                        id: Id::String(id.clone()),
+                    },
+                    song_ids
+                        .iter()
+                        .map(|id| Thing {
+                            tb: song::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        })
+                        .collect(),
+                )
+                .await?
+                .map(|()| "songs added to playlist"),
+        };
+        println!("Daemon response:\n{resp:?}");
+        Ok(())
     }
 }
 

@@ -1092,19 +1092,19 @@ impl MusicPlayer for MusicPlayerServer {
         )
         .await?)
     }
-    /// Add a song to a playlist.
+    /// Add songs to a playlist.
     #[instrument]
-    async fn playlist_add_song(
+    async fn playlist_add_songs(
         self,
         context: Context,
         playlist: PlaylistId,
-        song: SongId,
+        songs: Vec<SongId>,
     ) -> Result<(), SerializableLibraryError> {
         let playlist = playlist.into();
-        let song = song.into();
-        info!("Adding song to playlist: {} ({})", playlist, song);
+        let songs = songs.into_iter().map(Into::into).collect::<Vec<_>>();
+        info!("Adding songs to playlist: {} ({:?})", playlist, songs);
 
-        Ok(Playlist::add_songs(&self.db, playlist, &[song]).await?)
+        Ok(Playlist::add_songs(&self.db, playlist, &songs).await?)
     }
     /// Get a playlist by its ID.
     #[instrument]

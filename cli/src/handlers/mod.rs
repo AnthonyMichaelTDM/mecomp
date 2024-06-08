@@ -288,12 +288,8 @@ pub enum PlaylistCommand {
     },
     /// Add to a playlist
     Add {
-        /// The id of the playlist
-        id: String,
-        /// What to add (artist, album, song)
-        target: PlaylistAddTarget,
-        /// The id of the item
-        item_id: String,
+        #[clap(subcommand)]
+        command: PlaylistAddCommand,
     },
     /// Remove from a playlist
     Remove {
@@ -310,11 +306,29 @@ pub enum PlaylistGetMethod {
     Name,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, ValueEnum)]
-pub enum PlaylistAddTarget {
-    Artist,
-    Album,
-    Song,
+#[derive(Debug, Subcommand)]
+pub enum PlaylistAddCommand {
+    /// Add an artist to a playlist
+    Artist {
+        /// The id of the playlist
+        id: String,
+        /// The id of the artist
+        artist_id: String,
+    },
+    /// Add an album to a playlist
+    Album {
+        /// The id of the playlist
+        id: String,
+        /// The id of the album
+        album_id: String,
+    },
+    /// Add a song to a playlist
+    Song {
+        /// The id of the playlist
+        id: String,
+        /// The ids of the song(s) to add
+        song_ids: Vec<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]

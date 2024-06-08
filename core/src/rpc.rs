@@ -33,6 +33,10 @@ pub type AlbumId = Thing;
 pub type CollectionId = Thing;
 pub type PlaylistId = Thing;
 
+// TODO: add commands for reading songs by artists, in albums, in playlists, in collections, etc.
+// TODO: commands for reading songs by paths, artists by name, etc.
+// TODO: implement search commands for fuzzy searching.
+
 #[tarpc::service]
 pub trait MusicPlayer {
     // misc
@@ -220,10 +224,10 @@ pub trait MusicPlayer {
         playlist: PlaylistId,
         album: AlbumId,
     ) -> Result<(), SerializableLibraryError>;
-    /// Add a song to a playlist.
-    async fn playlist_add_song(
+    /// Add songs to a playlist.
+    async fn playlist_add_songs(
         playlist: PlaylistId,
-        song: SongId,
+        songs: Vec<SongId>,
     ) -> Result<(), SerializableLibraryError>;
     /// Get a playlist by its ID.
     async fn playlist_get(id: PlaylistId) -> Option<Playlist>;
