@@ -2,7 +2,6 @@
 pub mod queue;
 
 use std::{
-    cell::RefCell,
     fmt::Display,
     fs::File,
     io::BufReader,
@@ -10,8 +9,9 @@ use std::{
     sync::{
         atomic::AtomicBool,
         mpsc::{Receiver, Sender},
-        Arc,
+        Arc, Mutex,
     },
+    time::Duration,
 };
 
 use lazy_static::lazy_static;
@@ -190,18 +190,25 @@ impl AudioKernelSender {
 pub struct AudioKernel {
     /// this is not used, but is needed to keep the stream alive
     #[cfg(not(feature = "mock_playback"))]
-    // in tests, we have no audio devices to play audio on so we don't need to keep the stream alive
-    _stream: rodio::OutputStream,
-    /// this is not used, but is needed to keep the stream alive
-    #[cfg(not(feature = "mock_playback"))]
-    _stream_handle: rodio::OutputStreamHandle,
+    _music_output: Arc<(rodio::OutputStream, rodio::OutputStreamHandle)>,
     #[cfg(feature = "mock_playback")]
     queue_rx_end_tx: tokio::sync::oneshot::Sender<()>,
-    player: rodio::Sink,
-    queue: RefCell<Queue>,
+    // /// Transmitter used to send commands to the audio kernel
+    // tx: Sender<(AudioCommand, tracing::Span)>,
+    /// the rodio sink used to play audio
+    player: Arc<rodio::Sink>,
+    /// the queue of songs to play
+    queue: Arc<Mutex<Queue>>,
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will multiply each sample by this value.
-    volume: RefCell<f32>,
+    volume: Arc<Mutex<f32>>,
+    /// whether the audio is muted
     muted: AtomicBool,
+    /// the amount of time the current sound has been playing
+    time_played: Arc<Mutex<Duration>>,
+    /// the duration of the current sound
+    current_song_runtime: Arc<Mutex<Duration>>,
+    /// whether the audio kernel is paused
+    paused: Arc<AtomicBool>,
 }
 
 impl AudioKernel {
@@ -216,17 +223,19 @@ impl AudioKernel {
     pub fn new() -> Self {
         let (stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
 
-        let player = rodio::Sink::try_new(&stream_handle).unwrap();
-        player.pause();
+        let sink = rodio::Sink::try_new(&stream_handle).unwrap();
+        sink.pause();
         let queue = Queue::new();
 
         Self {
-            _stream: stream,
-            _stream_handle: stream_handle,
-            player,
-            queue: RefCell::new(queue),
-            volume: RefCell::new(1.0),
+            _music_output: Arc::new((stream, stream_handle)),
+            player: sink.into(),
+            queue: Arc::new(Mutex::new(queue)),
+            volume: Arc::new(Mutex::new(1.0)),
             muted: AtomicBool::new(false),
+            time_played: Arc::new(Mutex::new(Duration::from_secs(0))),
+            current_song_runtime: Arc::new(Mutex::new(Duration::from_secs(0))),
+            paused: Arc::new(AtomicBool::new(true)),
         }
     }
 
@@ -268,11 +277,14 @@ impl AudioKernel {
         sink.pause();
 
         Self {
-            player: sink,
+            player: sink.into(),
             queue_rx_end_tx: tx,
-            queue: RefCell::new(Queue::new()),
-            volume: RefCell::new(1.0),
+            queue: Arc::new(Mutex::new(Queue::new())),
+            volume: Arc::new(Mutex::new(1.0)),
             muted: AtomicBool::new(false),
+            time_played: Arc::new(Mutex::new(Duration::from_secs(0))),
+            current_song_runtime: Arc::new(Mutex::new(Duration::from_secs(0))),
+            paused: Arc::new(AtomicBool::new(true)),
         }
     }
 
@@ -337,11 +349,15 @@ impl AudioKernel {
     #[instrument(skip(self))]
     fn play(&self) {
         self.player.play();
+        self.paused
+            .store(false, std::sync::atomic::Ordering::Relaxed);
     }
 
     #[instrument(skip(self))]
     fn pause(&self) {
         self.player.pause();
+        self.paused
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     #[instrument(skip(self))]
@@ -358,7 +374,7 @@ impl AudioKernel {
         let paused = self.player.is_paused();
         self.clear_player();
 
-        if let Some(song) = self.queue.borrow().current_song() {
+        if let Some(song) = self.queue.lock().unwrap().current_song() {
             if let Err(e) = self.append_song_to_player(song) {
                 error!("Failed to append song to player: {}", e);
             }
@@ -371,6 +387,9 @@ impl AudioKernel {
 
     #[instrument(skip(self))]
     fn clear_player(&self) {
+        self.paused
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        *self.time_played.lock().unwrap() = Duration::from_secs(0);
         self.player.clear();
     }
 
@@ -381,20 +400,20 @@ impl AudioKernel {
             QueueCommand::SkipForward(n) => self.skip_forward(n),
             QueueCommand::SkipBackward(n) => self.skip_backward(n),
             QueueCommand::SetPosition(n) => self.set_position(n),
-            QueueCommand::Shuffle => self.queue.borrow_mut().shuffle(),
+            QueueCommand::Shuffle => self.queue.lock().unwrap().shuffle(),
             QueueCommand::AddToQueue(song_box) => match *song_box {
                 OneOrMany::None => {}
                 OneOrMany::One(song) => self.add_song_to_queue(song),
                 OneOrMany::Many(songs) => self.add_songs_to_queue(songs),
             },
             QueueCommand::RemoveRange(range) => self.remove_range_from_queue(range),
-            QueueCommand::SetRepeatMode(mode) => self.queue.borrow_mut().set_repeat_mode(mode),
+            QueueCommand::SetRepeatMode(mode) => self.queue.lock().unwrap().set_repeat_mode(mode),
         }
     }
 
     #[instrument(skip(self))]
     fn state(&self) -> StateAudio {
-        let queue = self.queue.borrow();
+        let queue = self.queue.lock().unwrap();
         let queue_position = queue.current_index();
         let current_song = queue.current_song().cloned();
         let repeat_mode = queue.get_repeat_mode();
@@ -406,8 +425,12 @@ impl AudioKernel {
             }
         });
         let paused = self.player.is_paused();
+        debug_assert_eq!(
+            self.paused.load(std::sync::atomic::Ordering::Relaxed),
+            paused
+        );
         let muted = self.muted.load(std::sync::atomic::Ordering::Relaxed);
-        let volume = *self.volume.borrow();
+        let volume = *self.volume.lock().unwrap();
 
         let queue = queue.queued_songs();
 
@@ -426,7 +449,7 @@ impl AudioKernel {
     #[instrument(skip(self))]
     fn clear(&self) {
         self.clear_player();
-        self.queue.borrow_mut().clear();
+        self.queue.lock().unwrap().clear();
     }
 
     #[instrument(skip(self))]
@@ -434,14 +457,14 @@ impl AudioKernel {
         let paused = self.player.is_paused();
         self.clear_player();
 
-        let next_song = self.queue.borrow_mut().skip_forward(n).cloned();
+        let next_song = self.queue.lock().unwrap().skip_forward(n).cloned();
 
         if let Some(song) = next_song {
             if let Err(e) = self.append_song_to_player(&song) {
                 error!("Failed to append song to player: {}", e);
             }
 
-            let binding = self.queue.borrow();
+            let binding = self.queue.lock().unwrap();
             if !(paused
                 // and we have not just finished the queue 
                 // (this makes it so if we hit the end of the queue on RepeatMode::None, we don't start playing again)
@@ -458,7 +481,7 @@ impl AudioKernel {
         let paused = self.player.is_paused();
         self.clear_player();
 
-        let next_song = self.queue.borrow_mut().skip_backward(n).cloned();
+        let next_song = self.queue.lock().unwrap().skip_backward(n).cloned();
 
         if let Some(song) = next_song {
             if let Err(e) = self.append_song_to_player(&song) {
@@ -475,7 +498,7 @@ impl AudioKernel {
         let paused = self.player.is_paused();
         self.clear_player();
 
-        let mut binding = self.queue.borrow_mut();
+        let mut binding = self.queue.lock().unwrap();
         binding.set_current_index(n);
         let next_song = binding.current_song().cloned();
         drop(binding);
@@ -492,11 +515,11 @@ impl AudioKernel {
 
     #[instrument(skip(self))]
     fn add_song_to_queue(&self, song: Song) {
-        self.queue.borrow_mut().add_song(song);
+        self.queue.lock().unwrap().add_song(song);
 
         // if the player is empty, start playback
         if self.player.empty() {
-            let current_index = self.queue.borrow().current_index();
+            let current_index = self.queue.lock().unwrap().current_index();
 
             if let Some(song) =
                 current_index.map_or_else(|| self.get_next_song(), |_| self.get_current_song())
@@ -511,11 +534,11 @@ impl AudioKernel {
 
     #[instrument(skip(self))]
     fn add_songs_to_queue(&self, songs: Vec<Song>) {
-        self.queue.borrow_mut().add_songs(songs);
+        self.queue.lock().unwrap().add_songs(songs);
 
         // if the player is empty, start playback
         if self.player.empty() {
-            let current_index = self.queue.borrow().current_index();
+            let current_index = self.queue.lock().unwrap().current_index();
 
             if let Some(song) =
                 current_index.map_or_else(|| self.get_next_song(), |_| self.get_current_song())
@@ -528,12 +551,11 @@ impl AudioKernel {
         }
     }
 
-    // TODO: test that the player stops playing when the current song is removed,
     #[instrument(skip(self))]
     fn remove_range_from_queue(&self, range: Range<usize>) {
         let paused = if self.player.is_paused() {
             true
-        } else if let Some(current_index) = self.queue.borrow().current_index() {
+        } else if let Some(current_index) = self.queue.lock().unwrap().current_index() {
             // still true if the current song is to be removed
             range.start <= current_index && range.end > current_index
         } else {
@@ -541,7 +563,7 @@ impl AudioKernel {
         };
         self.clear_player();
 
-        self.queue.borrow_mut().remove_range(range);
+        self.queue.lock().unwrap().remove_range(range);
 
         if let Some(song) = self.get_current_song() {
             if let Err(e) = self.append_song_to_player(&song) {
@@ -555,12 +577,12 @@ impl AudioKernel {
 
     #[instrument(skip(self))]
     fn get_current_song(&self) -> Option<Song> {
-        self.queue.borrow().current_song().cloned()
+        self.queue.lock().unwrap().current_song().cloned()
     }
 
     #[instrument(skip(self))]
     fn get_next_song(&self) -> Option<Song> {
-        self.queue.borrow_mut().next_song().cloned()
+        self.queue.lock().unwrap().next_song().cloned()
     }
 
     #[instrument(skip(self, source))]
@@ -568,13 +590,16 @@ impl AudioKernel {
     where
         T: Source<Item = f32> + Send + 'static,
     {
+        if let Some(duration) = source.total_duration() {
+            *self.current_song_runtime.lock().unwrap() = duration;
+        }
         self.player.append(source);
     }
 
     #[instrument(skip(self))]
     fn append_song_to_player(&self, song: &Song) -> Result<(), LibraryError> {
         let source = Decoder::new(BufReader::new(File::open(&song.path)?))?.convert_samples();
-
+        *self.current_song_runtime.lock().unwrap() = song.runtime;
         self.append_to_player(source);
 
         Ok(())
@@ -584,13 +609,13 @@ impl AudioKernel {
     fn volume_control(&self, command: VolumeCommand) {
         match command {
             VolumeCommand::Up(percent) => {
-                *self.volume.borrow_mut() += percent;
+                *self.volume.lock().unwrap() += percent;
             }
             VolumeCommand::Down(percent) => {
-                *self.volume.borrow_mut() -= percent;
+                *self.volume.lock().unwrap() -= percent;
             }
             VolumeCommand::Set(percent) => {
-                *self.volume.borrow_mut() = percent;
+                *self.volume.lock().unwrap() = percent;
             }
             VolumeCommand::Mute => {
                 self.muted.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -610,7 +635,8 @@ impl AudioKernel {
         if self.muted.load(std::sync::atomic::Ordering::Relaxed) {
             self.player.set_volume(0.0);
         } else {
-            self.player.set_volume(self.volume.borrow().to_owned());
+            self.player
+                .set_volume(self.volume.lock().unwrap().to_owned());
         }
     }
 }
@@ -881,13 +907,13 @@ mod tests {
     #[rstest]
     fn test_volume_control(audio_kernel: AudioKernel) {
         audio_kernel.volume_control(VolumeCommand::Up(0.1));
-        assert_eq!(*audio_kernel.volume.borrow(), 1.1);
+        assert_eq!(*audio_kernel.volume.lock().unwrap(), 1.1);
 
         audio_kernel.volume_control(VolumeCommand::Down(0.1));
-        assert_eq!(*audio_kernel.volume.borrow(), 1.0);
+        assert_eq!(*audio_kernel.volume.lock().unwrap(), 1.0);
 
         audio_kernel.volume_control(VolumeCommand::Set(0.5));
-        assert_eq!(*audio_kernel.volume.borrow(), 0.5);
+        assert_eq!(*audio_kernel.volume.lock().unwrap(), 0.5);
 
         audio_kernel.volume_control(VolumeCommand::Mute);
         assert_eq!(
