@@ -418,10 +418,14 @@ impl AudioKernel {
         let current_song = queue.current_song().cloned();
         let repeat_mode = queue.get_repeat_mode();
         let runtime = current_song.as_ref().map(|song| {
+            let seek_position = *self.time_played.lock().unwrap();
+            let duration = song.runtime;
+            let seek_percent =
+                Percent::new(seek_position.as_secs_f32() / duration.as_secs_f32() * 100.0);
             StateRuntime {
-                duration: song.runtime,
-                seek_position: 0.0, // TODO: determine how much of a Source has been played
-                seek_percent: Percent::new(0.0), // TODO: determine how much of a Source has been played
+                seek_position,
+                seek_percent,
+                duration,
             }
         });
         let paused = self.player.is_paused();
@@ -432,10 +436,11 @@ impl AudioKernel {
         let muted = self.muted.load(std::sync::atomic::Ordering::Relaxed);
         let volume = *self.volume.lock().unwrap();
 
-        let queue = queue.queued_songs();
+        let queued_songs = queue.queued_songs();
+        drop(queue);
 
         StateAudio {
-            queue,
+            queue: queued_songs,
             queue_position,
             current_song,
             repeat_mode,
