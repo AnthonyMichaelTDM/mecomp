@@ -2,7 +2,7 @@
 use std::{net::SocketAddr, ops::Range, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
-use log::{info, warn};
+use log::{error, info, warn};
 use rand::seq::SliceRandom;
 use surrealdb::{engine::local::Db, Surreal};
 use tap::TapFallible;
@@ -11,7 +11,7 @@ use tracing::{instrument, Instrument};
 use mecomp_core::{
     audio::{AudioCommand, QueueCommand, VolumeCommand, AUDIO_KERNEL},
     errors::SerializableLibraryError,
-    rpc::MusicPlayer,
+    rpc::{AlbumId, ArtistId, CollectionId, MusicPlayer, PlaylistId, SongId},
     search::SearchResult,
     state::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
@@ -20,17 +20,23 @@ use mecomp_core::{
 };
 use mecomp_storage::{
     db::schemas::{
-        album::{Album, AlbumBrief, AlbumId},
-        artist::{Artist, ArtistBrief, ArtistId},
-        collection::{Collection, CollectionBrief, CollectionId},
-        playlist::{Playlist, PlaylistBrief, PlaylistId},
-        song::{Song, SongBrief, SongId},
+        album::{Album, AlbumBrief},
+        artist::{Artist, ArtistBrief},
+        collection::{Collection, CollectionBrief},
+        playlist::{Playlist, PlaylistBrief},
+        song::{Song, SongBrief},
     },
     errors::Error::{self, NotFound},
 };
 use one_or_many::OneOrMany;
 
 use crate::{config::DaemonSettings, services};
+
+mod locks {
+    use tokio::sync::Mutex;
+
+    pub static LIBRARY_RESCAN_LOCK: Mutex<()> = Mutex::const_new(());
+}
 
 #[derive(Clone, Debug)]
 pub struct MusicPlayerServer {
@@ -56,15 +62,31 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_rescan(self, context: Context) -> Result<(), SerializableLibraryError> {
         info!("Rescanning library");
-        Ok(services::library::rescan(
-            &self.db,
-            &self.settings.library_paths,
-            self.settings.artist_separator.as_deref(),
-            self.settings.genre_separator.as_deref(),
-            self.settings.conflict_resolution,
-        )
-        .await
-        .tap_err(|e| warn!("Error in library_rescan: {e}"))?)
+
+        if locks::LIBRARY_RESCAN_LOCK.try_lock().is_err() {
+            warn!("Library rescan already in progress");
+            return Err(SerializableLibraryError::RescanInProgress);
+        }
+
+        std::thread::spawn(move || {
+            tokio::runtime::Runtime::new().unwrap().block_on(async {
+                let _guard = locks::LIBRARY_RESCAN_LOCK.lock().await;
+                match services::library::rescan(
+                    &self.db,
+                    &self.settings.library_paths,
+                    self.settings.artist_separator.as_deref(),
+                    self.settings.genre_separator.as_deref(),
+                    self.settings.conflict_resolution,
+                )
+                .await
+                {
+                    Ok(()) => info!("Library rescan complete"),
+                    Err(e) => error!("Error in library_rescan: {e}"),
+                }
+            });
+        });
+
+        Ok(())
     }
     /// Returns brief information about the music library.
     #[instrument]
@@ -177,6 +199,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// Get a song by its ID.
     #[instrument]
     async fn library_song_get(self, context: Context, id: SongId) -> Option<Song> {
+        let id = id.into();
         info!("Getting song by ID: {}", id);
         Song::read(&self.db, id)
             .await
@@ -187,6 +210,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// Get an album by its ID.
     #[instrument]
     async fn library_album_get(self, context: Context, id: AlbumId) -> Option<Album> {
+        let id = id.into();
         info!("Getting album by ID: {}", id);
         Album::read(&self.db, id)
             .await
@@ -197,6 +221,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// Get an artist by its ID.
     #[instrument]
     async fn library_artist_get(self, context: Context, id: ArtistId) -> Option<Artist> {
+        let id = id.into();
         info!("Getting artist by ID: {}", id);
         Artist::read(&self.db, id)
             .await
@@ -207,6 +232,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// Get a playlist by its ID.
     #[instrument]
     async fn library_playlist_get(self, context: Context, id: PlaylistId) -> Option<Playlist> {
+        let id = id.into();
         info!("Getting playlist by ID: {}", id);
         Playlist::read(&self.db, id)
             .await
@@ -332,7 +358,7 @@ impl MusicPlayer for MusicPlayerServer {
 
     /// returns the current artist.
     #[instrument]
-    async fn current_artist(self, context: Context) -> Option<OneOrMany<Artist>> {
+    async fn current_artist(self, context: Context) -> OneOrMany<Artist> {
         info!("Getting current artist");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -348,8 +374,9 @@ impl MusicPlayer for MusicPlayerServer {
                 .await
                 .tap_err(|e| warn!("Error in current_album: {e}"))
                 .ok()
+                .into()
         } else {
-            None
+            OneOrMany::None
         }
     }
     /// returns the current album.
@@ -683,6 +710,7 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         song: SongId,
     ) -> Result<(), SerializableLibraryError> {
+        let song = song.into();
         info!("Adding song to queue: {}", song);
         let Some(song) = Song::read(&self.db, song).await? else {
             return Err(Error::NotFound.into());
@@ -709,6 +737,7 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         album: AlbumId,
     ) -> Result<(), SerializableLibraryError> {
+        let album = album.into();
         info!("Adding album to queue: {}", album);
 
         let songs = Album::read_songs(&self.db, album).await?;
@@ -734,6 +763,7 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         artist: ArtistId,
     ) -> Result<(), SerializableLibraryError> {
+        let artist = artist.into();
         info!("Adding artist to queue: {}", artist);
 
         let songs = Artist::read_songs(&self.db, artist).await?;
@@ -759,6 +789,7 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         playlist: PlaylistId,
     ) -> Result<(), SerializableLibraryError> {
+        let playlist = playlist.into();
         info!("Adding playlist to queue: {}", playlist);
 
         let songs = Playlist::read_songs(&self.db, playlist).await?;
@@ -784,6 +815,7 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         collection: CollectionId,
     ) -> Result<(), SerializableLibraryError> {
+        let collection = collection.into();
         info!("Adding collection to queue: {}", collection);
 
         let songs = Collection::read_songs(&self.db, collection).await?;
@@ -953,7 +985,7 @@ impl MusicPlayer for MusicPlayerServer {
             },
         )
         .await?
-        .map(|playlist| playlist.id)
+        .map(|playlist| playlist.id.into())
         .ok_or(NotFound)?)
     }
     /// remove a playlist.
@@ -963,6 +995,7 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         id: PlaylistId,
     ) -> Result<(), SerializableLibraryError> {
+        let id = id.into();
         info!("Removing playlist with id: {}", id);
 
         Playlist::delete(&self.db, id).await?.ok_or(NotFound)?;
@@ -978,11 +1011,12 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         id: PlaylistId,
     ) -> Result<PlaylistId, SerializableLibraryError> {
+        let id = id.into();
         info!("Cloning playlist with id: {}", id);
 
         let new_playlist = Playlist::create_copy(&self.db, id).await?.ok_or(NotFound)?;
 
-        Ok(new_playlist.id)
+        Ok(new_playlist.id.into())
     }
     /// get the id of a playlist.
     /// returns none if the playlist does not exist.
@@ -995,7 +1029,7 @@ impl MusicPlayer for MusicPlayerServer {
             .tap_err(|e| warn!("Error in playlist_get_id: {e}"))
             .ok()
             .flatten()
-            .map(|playlist| playlist.id)
+            .map(|playlist| playlist.id.into())
     }
     /// remove a list of songs from a playlist.
     /// if the songs are not in the playlist, this will do nothing.
@@ -1006,6 +1040,8 @@ impl MusicPlayer for MusicPlayerServer {
         playlist: PlaylistId,
         songs: Vec<SongId>,
     ) -> Result<(), SerializableLibraryError> {
+        let playlist = playlist.into();
+        let songs = songs.into_iter().map(Into::into).collect::<Vec<_>>();
         info!("Removing song from playlist: {} ({:?})", playlist, songs);
 
         Ok(Playlist::remove_songs(&self.db, playlist, &songs).await?)
@@ -1018,6 +1054,8 @@ impl MusicPlayer for MusicPlayerServer {
         playlist: PlaylistId,
         artist: ArtistId,
     ) -> Result<(), SerializableLibraryError> {
+        let playlist = playlist.into();
+        let artist = artist.into();
         info!("Adding artist to playlist: {} ({})", playlist, artist);
 
         Ok(Playlist::add_songs(
@@ -1039,6 +1077,8 @@ impl MusicPlayer for MusicPlayerServer {
         playlist: PlaylistId,
         album: AlbumId,
     ) -> Result<(), SerializableLibraryError> {
+        let playlist = playlist.into();
+        let album = album.into();
         info!("Adding album to playlist: {} ({})", playlist, album);
 
         Ok(Playlist::add_songs(
@@ -1060,6 +1100,8 @@ impl MusicPlayer for MusicPlayerServer {
         playlist: PlaylistId,
         song: SongId,
     ) -> Result<(), SerializableLibraryError> {
+        let playlist = playlist.into();
+        let song = song.into();
         info!("Adding song to playlist: {} ({})", playlist, song);
 
         Ok(Playlist::add_songs(&self.db, playlist, &[song]).await?)
@@ -1067,6 +1109,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// Get a playlist by its ID.
     #[instrument]
     async fn playlist_get(self, context: Context, id: PlaylistId) -> Option<Playlist> {
+        let id = id.into();
         info!("Getting playlist by ID: {}", id);
 
         Playlist::read(&self.db, id)
@@ -1089,14 +1132,14 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// Collections: Recluster the users library, creating new collections.
     #[instrument]
-    async fn collection_recluster(self, context: Context) {
+    async fn collection_recluster(self, context: Context) -> Result<(), SerializableLibraryError> {
         info!("Reclustering collections");
         todo!()
     }
     /// Collections: get a collection by its ID.
     #[instrument]
     async fn collection_get(self, context: Context, id: CollectionId) -> Option<Collection> {
-        info!("Getting collection by ID: {}", id);
+        info!("Getting collection by ID: {:?}", id);
         todo!()
     }
     /// Collections: freeze a collection (convert it to a playlist).
@@ -1107,7 +1150,7 @@ impl MusicPlayer for MusicPlayerServer {
         id: CollectionId,
         name: String,
     ) -> PlaylistId {
-        info!("Freezing collection: {} ({})", id, name);
+        info!("Freezing collection: {:?} ({})", id, name);
         todo!()
     }
 
@@ -1119,29 +1162,29 @@ impl MusicPlayer for MusicPlayerServer {
         song: SongId,
         n: usize,
     ) -> Box<[SongId]> {
-        info!("Getting the {} most similar songs to: {}", n, song);
+        info!("Getting the {} most similar songs to: {:?}", n, song);
         todo!()
     }
     /// Radio: get the `n` most similar artists to the given artist.
     #[instrument]
-    async fn radio_get_similar_artist(
+    async fn radio_get_similar_artists(
         self,
         context: Context,
         artist: ArtistId,
         n: usize,
     ) -> Box<[ArtistId]> {
-        info!("Getting the {} most similar artists to: {}", n, artist);
+        info!("Getting the {} most similar artists to: {:?}", n, artist);
         todo!()
     }
     /// Radio: get the `n` most similar albums to the given album.
     #[instrument]
-    async fn radio_get_similar_album(
+    async fn radio_get_similar_albums(
         self,
         context: Context,
         album: AlbumId,
         n: usize,
     ) -> Box<[AlbumId]> {
-        info!("Getting the {} most similar albums to: {}", n, album);
+        info!("Getting the {} most similar albums to: {:?}", n, album);
         todo!()
     }
 }

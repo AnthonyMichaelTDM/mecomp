@@ -9,7 +9,7 @@ use log::info;
 use tarpc::{
     self,
     server::{incoming::Incoming as _, BaseChannel, Channel as _},
-    tokio_serde::formats::Bincode,
+    tokio_serde::formats::Json,
 };
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
@@ -33,6 +33,8 @@ pub mod test_utils;
 
 use crate::config::DaemonSettings;
 use crate::controller::MusicPlayerServer;
+
+// TODO: at some point, we should probably add a panic handler to the daemon to ensure graceful shutdown.
 
 /// Run the daemon
 ///
@@ -75,7 +77,7 @@ pub async fn start_daemon(
     // Start the RPC server.
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.rpc_port);
 
-    let mut listener = tarpc::serde_transport::tcp::listen(&server_addr, Bincode::default).await?;
+    let mut listener = tarpc::serde_transport::tcp::listen(&server_addr, Json::default).await?;
     info!("Listening on {}", listener.local_addr());
     listener.config_mut().max_frame_length(usize::MAX);
     listener

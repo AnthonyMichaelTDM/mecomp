@@ -45,6 +45,7 @@ ignored = [
     "serde",
     "serde_json",
     "syn",
+    "toml_datetime",
     "tokio",
     "tokio-util",
     "tracing",
@@ -122,6 +123,9 @@ tokio = { version = "1", features = [
     "time",
 ] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
+toml_datetime = { version = "0.6", default-features = false, features = [
+    "serde",
+] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
 unicode-xid = { version = "0.2" }
@@ -189,6 +193,9 @@ tokio = { version = "1", features = [
     "time",
 ] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
+toml_datetime = { version = "0.6", default-features = false, features = [
+    "serde",
+] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
 unicode-xid = { version = "0.2" }
