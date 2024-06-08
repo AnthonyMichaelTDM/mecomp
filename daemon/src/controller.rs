@@ -32,6 +32,12 @@ use one_or_many::OneOrMany;
 
 use crate::{config::DaemonSettings, services};
 
+mod locks {
+    use tokio::sync::Mutex;
+
+    pub static LIBRARY_RESCAN_LOCK: Mutex<()> = Mutex::const_new(());
+}
+
 #[derive(Clone, Debug)]
 pub struct MusicPlayerServer {
     pub addr: SocketAddr,
@@ -56,15 +62,31 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_rescan(self, context: Context) -> Result<(), SerializableLibraryError> {
         info!("Rescanning library");
-        Ok(services::library::rescan(
-            &self.db,
-            &self.settings.library_paths,
-            self.settings.artist_separator.as_deref(),
-            self.settings.genre_separator.as_deref(),
-            self.settings.conflict_resolution,
-        )
-        .await
-        .tap_err(|e| warn!("Error in library_rescan: {e}"))?)
+
+        if locks::LIBRARY_RESCAN_LOCK.try_lock().is_err() {
+            warn!("Library rescan already in progress");
+            return Err(SerializableLibraryError::RescanInProgress);
+        }
+
+        std::thread::spawn(move || {
+            tokio::runtime::Runtime::new().unwrap().block_on(async {
+                let _guard = locks::LIBRARY_RESCAN_LOCK.lock().await;
+                match services::library::rescan(
+                    &self.db,
+                    &self.settings.library_paths,
+                    self.settings.artist_separator.as_deref(),
+                    self.settings.genre_separator.as_deref(),
+                    self.settings.conflict_resolution,
+                )
+                .await
+                {
+                    Ok(()) => info!("Library rescan complete"),
+                    Err(e) => error!("Error in library_rescan: {e}"),
+                }
+            });
+        });
+
+        Ok(())
     }
     /// Returns brief information about the music library.
     #[instrument]

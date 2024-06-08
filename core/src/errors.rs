@@ -20,6 +20,8 @@ pub enum SerializableLibraryError {
     IO(String),
     #[error("Decoder error: {0}")]
     Decoder(String),
+    #[error("Library Rescan already in progress.")]
+    RescanInProgress,
 }
 
 impl From<Error> for SerializableLibraryError {
