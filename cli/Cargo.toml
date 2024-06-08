@@ -23,4 +23,3 @@ tokio = { workspace = true }
 # MECOMP dependencies
 mecomp-core = { workspace = true, features = ["rpc"] }
 mecomp-storage = { workspace = true, features = ["serde"] }
-one-or-many = { workspace = true, features = ["serde"] }

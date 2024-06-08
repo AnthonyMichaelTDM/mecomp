@@ -2336,7 +2336,6 @@ dependencies = [
  "clap",
  "mecomp-core",
  "mecomp-storage",
- "one-or-many",
  "tarpc",
  "tokio",
 ]
@@ -2469,6 +2468,7 @@ dependencies = [
  "syn 2.0.66",
  "tokio",
  "tokio-util",
+ "toml_datetime",
  "tracing",
  "tracing-core",
  "unicode-xid",
@@ -5069,13 +5069,13 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "911a61637386b789af998ee23f50aa30d5fd7edcec8d6d3dedae5e5815205466"
 dependencies = [
- "bincode",
  "bytes",
  "educe",
  "futures-core",
  "futures-sink",
  "pin-project",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
