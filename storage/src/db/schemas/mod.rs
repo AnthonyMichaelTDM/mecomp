@@ -4,12 +4,62 @@ pub mod collection;
 pub mod playlist;
 pub mod song;
 
+#[cfg(feature = "db")]
+pub fn serialize_duration_as_sql_duration<S>(
+    x: &std::time::Duration,
+    s: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    use serde::Serialize;
+
+    Into::<surrealdb::sql::Duration>::into(*x).serialize(s)
+}
+
+#[cfg(feature = "db")]
+pub fn serialize_duration_option_as_sql_duration<S>(
+    x: &Option<std::time::Duration>,
+    s: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    use serde::Serialize;
+
+    match x {
+        Some(x) => serialize_duration_as_sql_duration(x, s),
+        None => Option::<surrealdb::sql::Duration>::None.serialize(s),
+    }
+}
+
+#[cfg(feature = "db")]
+pub fn deserialize_duration_from_sql_duration<'de, D>(d: D) -> Result<std::time::Duration, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+
+    let duration = surrealdb::sql::Duration::deserialize(d)?;
+    Ok(duration.into())
+}
+
+#[cfg(feature = "db")]
+pub fn deserialize_duration_from_sql_duration_option<'de, D>(
+    d: D,
+) -> Result<Option<std::time::Duration>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+
+    let duration = Option::<surrealdb::sql::Duration>::deserialize(d)?;
+    Ok(duration.map(Into::into))
+}
+
 /// Implement a version of the `surrealdb` `Thing` type that we can use when the `db` feature is not enabled.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[cfg_attr(
-    any(test, feature = "serde"),
-    derive(serde::Serialize, serde::Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Thing {
     /// Table name
     pub tb: String,
@@ -20,17 +70,14 @@ pub struct Thing {
 ///
 /// Only the variants we actually use are implemented.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[cfg_attr(
-    any(test, feature = "serde"),
-    derive(serde::Serialize, serde::Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[allow(clippy::module_name_repetitions)]
 pub enum Id {
     Number(i64),
     String(String),
 }
 
-#[cfg(feature = "surrealdb")]
+#[cfg(feature = "db")]
 impl From<Thing> for surrealdb::sql::Thing {
     fn from(thing: Thing) -> Self {
         Self {
@@ -40,7 +87,7 @@ impl From<Thing> for surrealdb::sql::Thing {
     }
 }
 
-#[cfg(feature = "surrealdb")]
+#[cfg(feature = "db")]
 impl From<Id> for surrealdb::sql::Id {
     fn from(id: Id) -> Self {
         match id {
@@ -110,9 +157,20 @@ mod thing {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "db"))]
 mod duration {
     //! tests to ensure that the `std::time::Duration` type is serialized and deserialized just like the `surrealdb` `Duration` type.
+    use super::deserialize_duration_from_sql_duration;
+    use super::serialize_duration_as_sql_duration;
+
+    #[derive(serde::Serialize, serde::Deserialize)]
+    struct TestStruct {
+        #[serde(
+            serialize_with = "serialize_duration_as_sql_duration",
+            deserialize_with = "deserialize_duration_from_sql_duration"
+        )]
+        duration: std::time::Duration,
+    }
 
     #[test]
     fn test_serialize() {
@@ -125,7 +183,7 @@ mod duration {
 
     #[test]
     fn test_deserialize() {
-        let serialized = serde_json::to_string(&std::time::Duration::from_secs(42)).unwrap();
+        let serialized = serde_json::to_string(&surrealdb::sql::Duration::from_secs(42)).unwrap();
 
         let duration: std::time::Duration = serde_json::from_str(&serialized).unwrap();
         assert_eq!(duration, std::time::Duration::from_secs(42));

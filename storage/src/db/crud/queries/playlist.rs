@@ -1,7 +1,6 @@
 use surrealdb::sql::{
-    statements::{DeleteStatement, RelateStatement, SelectStatement, UpdateStatement},
-    Cond, Data, Expression, Fields, Ident, Idiom, Limit, Operator, Param, Part, Table, Value,
-    Values,
+    statements::{DeleteStatement, RelateStatement, SelectStatement},
+    Cond, Expression, Fields, Ident, Idiom, Limit, Operator, Param, Table, Value, Values,
 };
 
 use crate::db::schemas;
@@ -86,48 +85,6 @@ pub fn remove_songs() -> DeleteStatement {
     unrelate("id", "songs", "playlist_to_song")
 }
 
-/// Query to "repair" a collection.
-///
-/// This query updates the `song_count` and runtime of the collection.
-///
-/// Compiles to:
-/// ```sql, ignore
-/// UPDATE $id SET song_count=$songs, runtime=$runtime
-/// ```
-///
-/// # Example
-///
-/// ```ignore
-/// # use pretty_assertions::assert_eq;
-/// use mecomp_storage::db::crud::queries::playlist::repair;
-/// use surrealdb::opt::IntoQuery;
-///
-/// let statement = repair();
-/// assert_eq!(
-///     statement.into_query().unwrap(),
-///     "UPDATE $id SET song_count=$songs, runtime=$runtime".into_query().unwrap()
-/// );
-/// ```
-#[must_use]
-pub fn repair() -> UpdateStatement {
-    UpdateStatement {
-        what: Values(vec![Value::Param(Param(Ident("id".into())))]),
-        data: Some(Data::SetExpression(vec![
-            (
-                Idiom(vec![Part::Field(Ident("song_count".into()))]),
-                Operator::Equal,
-                Value::Param(Param(Ident("songs".into()))),
-            ),
-            (
-                Idiom(vec![Part::Field(Ident("runtime".into()))]),
-                Operator::Equal,
-                Value::Param(Param(Ident("runtime".into()))),
-            ),
-        ])),
-        ..Default::default()
-    }
-}
-
 /// Query to read a playlist by its name.
 ///
 /// Compiles to:
@@ -198,17 +155,6 @@ mod query_validation_tests {
         assert_eq!(
             statement.into_query().unwrap(),
             "DELETE $id->playlist_to_song WHERE out IN $songs"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_repair() {
-        let statement = repair();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "UPDATE $id SET song_count=$songs, runtime=$runtime"
                 .into_query()
                 .unwrap()
         );

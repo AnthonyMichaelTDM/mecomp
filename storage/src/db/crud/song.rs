@@ -246,7 +246,7 @@ mod test {
     use anyhow::{anyhow, Result};
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use surrealdb::sql::Duration;
+    use std::time::Duration;
 
     fn create_song(ulid: &str) -> Song {
         Song {

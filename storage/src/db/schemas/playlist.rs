@@ -1,12 +1,11 @@
 #![allow(clippy::module_name_repetitions)]
 use std::sync::Arc;
 
-#[cfg(not(any(test, feature = "db")))]
+#[cfg(not(feature = "db"))]
 use super::Thing;
-#[cfg(not(any(test, feature = "db")))]
 use std::time::Duration;
-#[cfg(any(test, feature = "db"))]
-use surrealdb::sql::{Duration, Id, Thing};
+#[cfg(feature = "db")]
+use surrealdb::sql::{Id, Thing};
 
 pub type PlaylistId = Thing;
 
@@ -15,53 +14,62 @@ pub const TABLE_NAME: &str = "playlist";
 /// This struct holds all the metadata about a particular [`Playlist`].
 /// A [`Playlist`] is a collection of [`super::song::Song`]s.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "db"), derive(surrealqlx::Table))]
-#[cfg_attr(
-    any(test, feature = "serde"),
-    derive(serde::Serialize, serde::Deserialize)
-)]
-#[cfg_attr(any(test, feature = "db"), Table("playlist"))]
+#[cfg_attr(feature = "db", derive(surrealqlx::Table))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "db", Table("playlist"))]
 pub struct Playlist {
     /// the unique identifier for this [`Playlist`].
-    #[cfg_attr(any(test, feature = "db"), field(dt = "record"))]
+    #[cfg_attr(feature = "db", field(dt = "record"))]
     pub id: PlaylistId,
 
     /// The [`Playlist`]'s name.
-    #[cfg_attr(any(test, feature = "db"), field(dt = "string"))]
+    #[cfg_attr(feature = "db", field(dt = "string"))]
     pub name: Arc<str>,
 
     /// Total runtime.
-    #[cfg_attr(any(test, feature = "db"), field(dt = "duration"))]
+    #[cfg_attr(feature = "db", field(dt = "duration"))]
+    #[cfg_attr(
+        feature = "db",
+        serde(
+            serialize_with = "super::serialize_duration_as_sql_duration",
+            deserialize_with = "super::deserialize_duration_from_sql_duration"
+        )
+    )]
     pub runtime: Duration,
 
     /// the number of songs this playlist has.
-    #[cfg_attr(any(test, feature = "db"), field(dt = "int"))]
+    #[cfg_attr(feature = "db", field(dt = "int"))]
     pub song_count: usize,
 }
 
 impl Playlist {
     #[must_use]
-    #[cfg(any(test, feature = "db"))]
+    #[cfg(feature = "db")]
     pub fn generate_id() -> PlaylistId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
 }
 
 #[derive(Debug, Default)]
-#[cfg_attr(any(test, feature = "serde"), derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct PlaylistChangeSet {
-    #[cfg_attr(
-        any(test, feature = "serde"),
-        serde(skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub name: Option<Arc<str>>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "db",
+        serde(
+            serialize_with = "super::serialize_duration_option_as_sql_duration",
+            deserialize_with = "super::deserialize_duration_from_sql_duration_option"
+        )
+    )]
+    pub runtime: Option<Duration>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub song_count: Option<usize>,
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(
-    any(test, feature = "serde"),
-    derive(serde::Serialize, serde::Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PlaylistBrief {
     pub id: PlaylistId,
     pub name: Arc<str>,
@@ -74,9 +82,9 @@ impl From<Playlist> for PlaylistBrief {
         Self {
             id: playlist.id,
             name: playlist.name,
-            #[cfg(not(any(test, feature = "db")))]
+            #[cfg(not(feature = "db"))]
             runtime: playlist.runtime,
-            #[cfg(any(test, feature = "db"))]
+            #[cfg(feature = "db")]
             runtime: playlist.runtime.into(),
             songs: playlist.song_count,
         }
@@ -88,9 +96,9 @@ impl From<&Playlist> for PlaylistBrief {
         Self {
             id: playlist.id.clone(),
             name: playlist.name.clone(),
-            #[cfg(not(any(test, feature = "db")))]
+            #[cfg(not(feature = "db"))]
             runtime: playlist.runtime,
-            #[cfg(any(test, feature = "db"))]
+            #[cfg(feature = "db")]
             runtime: playlist.runtime.into(),
             songs: playlist.song_count,
         }

@@ -1,7 +1,7 @@
 //! CRUD operations for the artist table
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use surrealdb::{sql::Duration, Connection, Surreal};
+use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
@@ -255,7 +255,7 @@ impl Artist {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{path::PathBuf, time::Duration};
 
     use super::*;
     use crate::{db::init_test_database, test_utils::ulid};
@@ -263,7 +263,6 @@ mod tests {
     use anyhow::{anyhow, Result};
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use surrealdb::sql::Duration;
 
     fn create_artist(ulid: &str) -> Artist {
         Artist {

@@ -14,8 +14,14 @@ license.workspace = true
 
 [features]
 defualt = []
-db = ["dep:surrealdb", "dep:surrealqlx", "dep:tempfile", "serde"]
-serde = ["dep:serde"]
+db = [
+    "dep:surrealdb",
+    "dep:surrealqlx",
+    "dep:tempfile",
+    "serde",
+    "one-or-many/surrealdb",
+]
+serde = ["dep:serde", "one-or-many/serde"]
 
 [dependencies]
 # shared dependencies
@@ -34,15 +40,13 @@ tempfile = { workspace = true, optional = true }
 
 # other dependencies
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
-one-or-many = { workspace = true, features = ["serde", "surrealdb"] }
+one-or-many = { workspace = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
 pretty_assertions = { workspace = true }
 serde = { workspace = true }
 serde_json = { version = "1.0" }
-surrealdb = { workspace = true }
-surrealqlx = { workspace = true }
 tempfile = { workspace = true }
 rstest = { workspace = true }
 lazy_static = { workspace = true }

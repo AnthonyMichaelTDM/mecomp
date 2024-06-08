@@ -23,7 +23,6 @@ once_cell = { workspace = true }
 rand = { workspace = true }
 rodio = { workspace = true }
 serde = { workspace = true }
-surrealdb = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tarpc = { workspace = true, optional = true }
@@ -50,6 +49,7 @@ rstest_reuse = { workspace = true }
 tempfile = { workspace = true }
 lofty = { workspace = true }
 mecomp-storage = { workspace = true, features = ["serde", "db"] }
+surrealdb = { workspace = true }
 
 [features]
 default = []

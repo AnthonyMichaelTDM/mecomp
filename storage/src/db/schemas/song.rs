@@ -3,13 +3,12 @@
 use std::sync::Arc;
 use std::{collections::HashSet, path::PathBuf};
 //--------------------------------------------------------------------------------- other libraries
-#[cfg(not(any(test, feature = "db")))]
+#[cfg(not(feature = "db"))]
 use super::Thing;
 use lofty::{file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
-#[cfg(not(any(test, feature = "db")))]
 use std::time::Duration;
-#[cfg(any(test, feature = "db"))]
-use surrealdb::sql::{Duration, Id, Thing};
+#[cfg(feature = "db")]
+use surrealdb::sql::{Id, Thing};
 use tracing::instrument;
 //----------------------------------------------------------------------------------- local modules
 use crate::errors::SongIOError;
@@ -21,137 +20,112 @@ pub const TABLE_NAME: &str = "song";
 
 /// This struct holds all the metadata about a particular [`Song`].
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "db"), derive(surrealqlx::Table))]
-#[cfg_attr(
-    any(test, feature = "serde"),
-    derive(serde::Serialize, serde::Deserialize)
-)]
-#[cfg_attr(any(test, feature = "db"), Table("song"))]
+#[cfg_attr(feature = "db", derive(surrealqlx::Table))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "db", Table("song"))]
 pub struct Song {
     /// The unique identifier for this [`Song`].
-    #[cfg_attr(any(test, feature = "db"), field(dt = "record"))]
+    #[cfg_attr(feature = "db", field(dt = "record"))]
     pub id: SongId,
     /// Title of the [`Song`].
-    #[cfg_attr(any(test, feature = "db"), field(dt = "string", index()))]
+    #[cfg_attr(feature = "db", field(dt = "string", index()))]
     pub title: Arc<str>,
     /// Artist of the [`Song`]. (Can be multiple)
-    #[cfg_attr(any(test, feature = "db"), field(dt = "option<set<string> | string>"))]
-    #[cfg_attr(any(test, feature = "serde"), serde(default))]
+    #[cfg_attr(feature = "db", field(dt = "option<set<string> | string>"))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub artist: OneOrMany<Arc<str>>,
     /// album artist, if not found then defaults to first artist
-    #[cfg_attr(any(test, feature = "db"), field(dt = "option<set<string> | string>"))]
-    #[cfg_attr(any(test, feature = "serde"), serde(default))]
+    #[cfg_attr(feature = "db", field(dt = "option<set<string> | string>"))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub album_artist: OneOrMany<Arc<str>>,
     /// album title
-    #[cfg_attr(any(test, feature = "db"), field(dt = "string"))]
+    #[cfg_attr(feature = "db", field(dt = "string"))]
     pub album: Arc<str>,
     /// Genre of the [`Song`]. (Can be multiple)
-    #[cfg_attr(any(test, feature = "db"), field(dt = "option<set<string> | string>"))]
-    #[cfg_attr(any(test, feature = "serde"), serde(default))]
+    #[cfg_attr(feature = "db", field(dt = "option<set<string> | string>"))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub genre: OneOrMany<Arc<str>>,
 
     /// Total runtime of this [`Song`].
-    #[cfg_attr(any(test, feature = "db"), field(dt = "duration"))]
+    #[cfg_attr(feature = "db", field(dt = "duration"))]
+    #[cfg_attr(
+        feature = "db",
+        serde(
+            serialize_with = "super::serialize_duration_as_sql_duration",
+            deserialize_with = "super::deserialize_duration_from_sql_duration"
+        )
+    )]
     pub runtime: Duration,
     // /// Sample rate of this [`Song`].
     // pub sample_rate: u32,
     /// The track number of this [`Song`].
-    #[cfg_attr(any(test, feature = "db"), field(dt = "option<int>"))]
-    #[cfg_attr(any(test, feature = "serde"), serde(default))]
+    #[cfg_attr(feature = "db", field(dt = "option<int>"))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub track: Option<u16>,
     /// The disc number of this [`Song`].
-    #[cfg_attr(any(test, feature = "db"), field(dt = "option<int>"))]
-    #[cfg_attr(any(test, feature = "serde"), serde(default))]
+    #[cfg_attr(feature = "db", field(dt = "option<int>"))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub disc: Option<u16>,
     /// the year the song was released
-    #[cfg_attr(any(test, feature = "db"), field(dt = "option<int>"))]
-    #[cfg_attr(any(test, feature = "serde"), serde(default))]
+    #[cfg_attr(feature = "db", field(dt = "option<int>"))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub release_year: Option<i32>,
 
     // /// The `MIME` type of this [`Song`].
     // pub mime: Arc<str>,
     /// The file extension of this [`Song`].
-    #[cfg_attr(any(test, feature = "db"), field(dt = "string"))]
+    #[cfg_attr(feature = "db", field(dt = "string"))]
     pub extension: Arc<str>,
 
     /// The [`PathBuf`] this [`Song`] is located at.
-    #[cfg_attr(any(test, feature = "db"), field(dt = "string", index(unique)))]
+    #[cfg_attr(feature = "db", field(dt = "string", index(unique)))]
     pub path: PathBuf,
 }
 
 impl Song {
     #[must_use]
-    #[cfg(any(test, feature = "db"))]
+    #[cfg(feature = "db")]
     pub fn generate_id() -> SongId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
 }
 
 #[derive(Debug, Default, Clone)]
-#[cfg_attr(any(test, feature = "serde"), derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct SongChangeSet {
-    #[cfg_attr(
-        any(test, feature = "serde"),
-        serde(skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub title: Option<Arc<str>>,
-    #[cfg_attr(
-        any(test, feature = "serde"),
-        serde(skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub artist: Option<OneOrMany<Arc<str>>>,
-    #[cfg_attr(
-        any(test, feature = "serde"),
-        serde(skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub album_artist: Option<OneOrMany<Arc<str>>>,
-    #[cfg_attr(
-        any(test, feature = "serde"),
-        serde(skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub album: Option<Arc<str>>,
-    #[cfg_attr(
-        any(test, feature = "serde"),
-        serde(skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub genre: Option<OneOrMany<Arc<str>>>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     #[cfg_attr(
-        any(test, feature = "serde"),
-        serde(skip_serializing_if = "Option::is_none")
+        feature = "db",
+        serde(
+            serialize_with = "super::serialize_duration_option_as_sql_duration",
+            deserialize_with = "super::deserialize_duration_from_sql_duration_option"
+        )
     )]
     pub runtime: Option<Duration>,
-    #[cfg_attr(
-        any(test, feature = "serde"),
-        serde(skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub track: Option<Option<u16>>,
-    #[cfg_attr(
-        any(test, feature = "serde"),
-        serde(skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub disc: Option<Option<u16>>,
-    #[cfg_attr(
-        any(test, feature = "serde"),
-        serde(skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub release_year: Option<Option<i32>>,
-    #[cfg_attr(
-        any(test, feature = "serde"),
-        serde(skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub extension: Option<Arc<str>>,
-    #[cfg_attr(
-        any(test, feature = "serde"),
-        serde(skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub path: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(
-    any(test, feature = "serde"),
-    derive(serde::Serialize, serde::Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SongBrief {
     pub id: SongId,
     pub title: Arc<str>,
@@ -159,7 +133,7 @@ pub struct SongBrief {
     pub album: Arc<str>,
     pub album_artist: OneOrMany<Arc<str>>,
     pub release_year: Option<i32>,
-    pub duration: std::time::Duration,
+    pub runtime: std::time::Duration,
     pub path: PathBuf,
 }
 
@@ -172,10 +146,10 @@ impl From<Song> for SongBrief {
             album: song.album,
             album_artist: song.album_artist,
             release_year: song.release_year,
-            #[cfg(not(any(test, feature = "db")))]
-            duration: song.runtime,
-            #[cfg(any(test, feature = "db"))]
-            duration: song.runtime.into(),
+            #[cfg(not(feature = "db"))]
+            runtime: song.runtime,
+            #[cfg(feature = "db")]
+            runtime: song.runtime.into(),
             path: song.path,
         }
     }
@@ -190,20 +164,17 @@ impl From<&Song> for SongBrief {
             album: song.album.clone(),
             album_artist: song.album_artist.clone(),
             release_year: song.release_year,
-            #[cfg(not(any(test, feature = "db")))]
-            duration: song.runtime,
-            #[cfg(any(test, feature = "db"))]
-            duration: song.runtime.into(),
+            #[cfg(not(feature = "db"))]
+            runtime: song.runtime,
+            #[cfg(feature = "db")]
+            runtime: song.runtime.into(),
             path: song.path.clone(),
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(
-    any(test, feature = "serde"),
-    derive(serde::Serialize, serde::Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SongMetadata {
     pub title: Arc<str>,
     pub artist: OneOrMany<Arc<str>>,
@@ -457,9 +428,9 @@ impl SongMetadata {
                     (_, genre) => OneOrMany::One(genre.into()),
                 })
                 .into(),
-            #[cfg(not(any(test, feature = "db")))]
+            #[cfg(not(feature = "db"))]
             runtime: properties.duration(),
-            #[cfg(any(test, feature = "db"))]
+            #[cfg(feature = "db")]
             runtime: properties.duration().into(),
             track: tag
                 .get_string(&ItemKey::TrackNumber)

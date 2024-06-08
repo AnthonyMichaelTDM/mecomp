@@ -1,18 +1,18 @@
-#[cfg(any(test, feature = "db"))]
+#[cfg(feature = "db")]
 pub mod crud;
-#[cfg(any(test, feature = "db"))]
+#[cfg(feature = "db")]
 pub mod health;
 pub mod schemas;
 
-#[cfg(any(test, feature = "db"))]
+#[cfg(feature = "db")]
 use surrealdb::{
     engine::local::{Db, Mem, SurrealKV},
     Surreal,
 };
 
-#[cfg(any(test, feature = "db"))]
+#[cfg(feature = "db")]
 static DB_DIR: tokio::sync::OnceCell<std::path::PathBuf> = tokio::sync::OnceCell::const_new();
-#[cfg(any(test, feature = "db"))]
+#[cfg(feature = "db")]
 static TEMP_DB_DIR: once_cell::sync::Lazy<tempfile::TempDir> = once_cell::sync::Lazy::new(|| {
     tempfile::tempdir().expect("Failed to create temporary directory")
 });
@@ -22,7 +22,7 @@ static TEMP_DB_DIR: once_cell::sync::Lazy<tempfile::TempDir> = once_cell::sync::
 /// # Errors
 ///
 /// This function will return an error if the path cannot be set.
-#[cfg(any(test, feature = "db"))]
+#[cfg(feature = "db")]
 pub fn set_database_path(
     path: std::path::PathBuf,
 ) -> Result<(), tokio::sync::SetError<std::path::PathBuf>> {
@@ -36,7 +36,7 @@ pub fn set_database_path(
 /// # Errors
 ///
 /// This function will return an error if the database cannot be initialized.
-#[cfg(any(test, feature = "db"))]
+#[cfg(feature = "db")]
 pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
     let db = Surreal::new::<SurrealKV>(DB_DIR
         .get().cloned()
@@ -66,7 +66,7 @@ pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
 /// # Errors
 ///
 /// This function will return an error if the database cannot be initialized.
-#[cfg(any(test, feature = "db"))]
+#[cfg(feature = "db")]
 pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
     let db = Surreal::new::<Mem>(()).await?;
     db.use_ns("test").use_db("test").await?;

@@ -1,5 +1,7 @@
 //! CRUD operations for the playlist table
-use surrealdb::{sql::Duration, Connection, Surreal};
+use std::time::Duration;
+
+use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
@@ -13,7 +15,7 @@ use crate::{
     errors::Error,
 };
 
-use super::queries::playlist::{add_songs, read_songs, remove_songs, repair};
+use super::queries::playlist::{add_songs, read_songs, remove_songs};
 
 impl Playlist {
     #[instrument]
@@ -154,17 +156,16 @@ impl Playlist {
     pub async fn repair<C: Connection>(db: &Surreal<C>, id: PlaylistId) -> Result<bool, Error> {
         let songs = Self::read_songs(db, id.clone()).await?;
 
-        db.query(repair())
-            .bind(("id", id))
-            .bind(("songs", songs.len()))
-            .bind((
-                "runtime",
-                songs
-                    .iter()
-                    .map(|song| song.runtime)
-                    .sum::<surrealdb::sql::Duration>(),
-            ))
-            .await?;
+        Self::update(
+            db,
+            id,
+            PlaylistChangeSet {
+                song_count: Some(songs.len()),
+                runtime: Some(songs.iter().map(|song| song.runtime).sum::<Duration>()),
+                ..Default::default()
+            },
+        )
+        .await?;
 
         Ok(songs.is_empty())
     }
@@ -172,7 +173,7 @@ impl Playlist {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{path::PathBuf, time::Duration};
 
     use super::*;
     use crate::{db::init_test_database, test_utils::ulid};
@@ -181,7 +182,6 @@ mod tests {
     use anyhow::{anyhow, Result};
     use pretty_assertions::{assert_eq, assert_str_eq};
     use rstest::rstest;
-    use surrealdb::sql::Duration;
 
     fn create_playlist(ulid: &str) -> Playlist {
         Playlist {
@@ -285,6 +285,7 @@ mod tests {
         Playlist::create(&db, playlist.clone()).await?;
         let changes = PlaylistChangeSet {
             name: Some(format!("Updated Name {ulid}").into()),
+            ..Default::default()
         };
 
         let updated = Playlist::update(&db, playlist.id.clone(), changes).await?;

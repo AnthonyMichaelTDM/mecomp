@@ -1,14 +1,11 @@
-use std::{ops::RangeInclusive, path::PathBuf, str::FromStr, sync::Arc};
+use std::{ops::RangeInclusive, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use lazy_static::lazy_static;
 use lofty::{config::WriteOptions, file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
 use rand::seq::IteratorRandom;
 use rstest::fixture;
-use surrealdb::{
-    sql::{Duration, Id},
-    Connection, Surreal,
-};
+use surrealdb::{sql::Id, Connection, Surreal};
 
 lazy_static! {
     static ref TEMP_MUSIC_DIR: tempfile::TempDir = tempfile::tempdir().unwrap();

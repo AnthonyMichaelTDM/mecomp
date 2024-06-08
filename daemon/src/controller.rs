@@ -1,10 +1,10 @@
 //----------------------------------------------------------------------------------------- std lib
-use std::{net::SocketAddr, ops::Range, sync::Arc};
-use surrealdb::{engine::local::Db, sql::Duration, Surreal};
+use std::{net::SocketAddr, ops::Range, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
 use log::{info, warn};
 use rand::seq::SliceRandom;
+use surrealdb::{engine::local::Db, Surreal};
 use tap::TapFallible;
 use tracing::{instrument, Instrument};
 //-------------------------------------------------------------------------------- MECOMP libraries
