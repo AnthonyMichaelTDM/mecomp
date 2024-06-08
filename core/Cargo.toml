@@ -12,45 +12,6 @@ license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-
-[dependencies]
-# shared dependencies
-env_logger = { workspace = true }
-log = { workspace = true }
-lazy_static = { workspace = true }
-nutype = { workspace = true }
-once_cell = { workspace = true }
-rand = { workspace = true }
-rodio = { workspace = true }
-serde = { workspace = true }
-surrealdb = { workspace = true }
-thiserror = { workspace = true }
-tokio = { workspace = true }
-tarpc = { workspace = true, optional = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-tracing-opentelemetry = { workspace = true, optional = true }
-tracing-flame = { workspace = true, optional = true }
-opentelemetry = { workspace = true, optional = true }
-opentelemetry_sdk = { workspace = true, optional = true }
-opentelemetry-otlp = { workspace = true, optional = true }
-opentelemetry-semantic-conventions = { workspace = true, optional = true }
-
-# MECOMP dependencies
-mecomp-storage = { workspace = true }
-mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
-one-or-many = { workspace = true }
-
-[dev-dependencies]
-# shared dev dependencies
-anyhow = { workspace = true }
-pretty_assertions = { workspace = true }
-rstest = { workspace = true }
-rstest_reuse = { workspace = true }
-tempfile = { workspace = true }
-lofty = { workspace = true }
-# mecomp-storage = { workspace = true, features = ["mock"] }
-
 [features]
 default = []
 rpc = ["tarpc"]
@@ -66,3 +27,42 @@ verbose_tracing = []
 
 # for testing purposes, prevents actual playback of audio which is useful in CI environments where audio playback is not possible
 mock_playback = []
+
+
+[dependencies]
+# shared dependencies
+env_logger = { workspace = true }
+log = { workspace = true }
+lazy_static = { workspace = true }
+nutype = { workspace = true }
+once_cell = { workspace = true }
+rand = { workspace = true }
+rodio = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tarpc = { workspace = true, optional = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-opentelemetry = { workspace = true, optional = true }
+tracing-flame = { workspace = true, optional = true }
+opentelemetry = { workspace = true, optional = true }
+opentelemetry_sdk = { workspace = true, optional = true }
+opentelemetry-otlp = { workspace = true, optional = true }
+opentelemetry-semantic-conventions = { workspace = true, optional = true }
+
+# MECOMP dependencies
+mecomp-storage = { workspace = true, features = ["serde"] }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+one-or-many = { workspace = true }
+
+[dev-dependencies]
+# shared dev dependencies
+anyhow = { workspace = true }
+pretty_assertions = { workspace = true }
+rstest = { workspace = true }
+rstest_reuse = { workspace = true }
+tempfile = { workspace = true }
+lofty = { workspace = true }
+mecomp-storage = { workspace = true, features = ["serde", "db"] }
+surrealdb = { workspace = true }

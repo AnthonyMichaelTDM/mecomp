@@ -1,5 +1,5 @@
 //! CRUD operations for the album table
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use log::warn;
 use surrealdb::{Connection, Surreal};
@@ -107,7 +107,7 @@ impl Album {
                 id: Self::generate_id(),
                 title: title.into(),
                 artist: album_artists.clone(),
-                runtime: surrealdb::sql::Duration::from_secs(0),
+                runtime: Duration::from_secs(0),
                 release: None,
                 song_count: 0,
                 discs: 1,
@@ -211,13 +211,14 @@ impl Album {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
     use crate::{db::init_test_database, test_utils::ulid};
 
     use anyhow::{anyhow, Result};
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use surrealdb::sql::Duration;
 
     fn create_album(ulid: &str) -> Album {
         Album {

@@ -45,7 +45,7 @@ pub enum QueueCommand {
     SkipBackward(usize),
     SetPosition(usize),
     Shuffle,
-    AddToQueue(OneOrMany<Song>),
+    AddToQueue(Box<OneOrMany<Song>>),
     RemoveRange(Range<usize>),
     Clear,
     SetRepeatMode(RepeatMode),
@@ -58,20 +58,22 @@ impl Display for QueueCommand {
             Self::SkipBackward(n) => write!(f, "Skip Backward by {n}"),
             Self::SetPosition(n) => write!(f, "Set Position to {n}"),
             Self::Shuffle => write!(f, "Shuffle"),
-            Self::AddToQueue(OneOrMany::None) => write!(f, "Add nothing"),
-            Self::AddToQueue(OneOrMany::One(song)) => {
-                write!(f, "Add \"{}\"", song.title)
-            }
-            Self::AddToQueue(OneOrMany::Many(songs)) => {
-                write!(
-                    f,
-                    "Add {:?}",
-                    songs
-                        .iter()
-                        .map(|song| song.title.to_string())
-                        .collect::<Vec<_>>()
-                )
-            }
+            Self::AddToQueue(song_box) => match &**song_box {
+                OneOrMany::None => write!(f, "Add nothing"),
+                OneOrMany::One(song) => {
+                    write!(f, "Add \"{}\"", song.title)
+                }
+                OneOrMany::Many(songs) => {
+                    write!(
+                        f,
+                        "Add {:?}",
+                        songs
+                            .iter()
+                            .map(|song| song.title.to_string())
+                            .collect::<Vec<_>>()
+                    )
+                }
+            },
             Self::RemoveRange(range) => {
                 write!(f, "Remove items {}..{}", range.start, range.end)
             }
@@ -380,9 +382,11 @@ impl AudioKernel {
             QueueCommand::SkipBackward(n) => self.skip_backward(n),
             QueueCommand::SetPosition(n) => self.set_position(n),
             QueueCommand::Shuffle => self.queue.borrow_mut().shuffle(),
-            QueueCommand::AddToQueue(OneOrMany::None) => {}
-            QueueCommand::AddToQueue(OneOrMany::One(song)) => self.add_song_to_queue(song),
-            QueueCommand::AddToQueue(OneOrMany::Many(songs)) => self.add_songs_to_queue(songs),
+            QueueCommand::AddToQueue(song_box) => match *song_box {
+                OneOrMany::None => {}
+                OneOrMany::One(song) => self.add_song_to_queue(song),
+                OneOrMany::Many(songs) => self.add_songs_to_queue(songs),
+            },
             QueueCommand::RemoveRange(range) => self.remove_range_from_queue(range),
             QueueCommand::SetRepeatMode(mode) => self.queue.borrow_mut().set_repeat_mode(mode),
         }
@@ -396,7 +400,7 @@ impl AudioKernel {
         let repeat_mode = queue.get_repeat_mode();
         let runtime = current_song.as_ref().map(|song| {
             StateRuntime {
-                duration: song.runtime.into(),
+                duration: song.runtime,
                 seek_position: 0.0, // TODO: determine how much of a Source has been played
                 seek_percent: Percent::new(0.0), // TODO: determine how much of a Source has been played
             }
@@ -749,7 +753,7 @@ mod tests {
             album_artist: OneOrMany::None,
             album: "album".into(),
             genre: OneOrMany::None,
-            runtime: surrealdb::sql::Duration::from_secs(100),
+            runtime: Duration::from_secs(100),
             track: None,
             disc: None,
             release_year: None,
@@ -767,15 +771,15 @@ mod tests {
     #[case(AudioCommand::Queue(QueueCommand::Clear), "Queue: Clear")]
     #[case(AudioCommand::Queue(QueueCommand::Shuffle), "Queue: Shuffle")]
     #[case(
-        AudioCommand::Queue(QueueCommand::AddToQueue(OneOrMany::None)),
+        AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(OneOrMany::None))),
         "Queue: Add nothing"
     )]
     #[case(
-        AudioCommand::Queue(QueueCommand::AddToQueue(OneOrMany::One(dummy_song()))),
+        AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(OneOrMany::One(dummy_song())))),
         "Queue: Add \"Song 1\""
     )]
     #[case(
-        AudioCommand::Queue(QueueCommand::AddToQueue(OneOrMany::Many(vec![dummy_song()]))),
+        AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(OneOrMany::Many(vec![dummy_song()])))),
         "Queue: Add [\"Song 1\"]"
     )]
     #[case(
@@ -962,9 +966,9 @@ mod tests {
 
             let song = create_song(&db, arb_song_case()()).await.unwrap();
 
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::One(song.clone()),
-            )));
+            ))));
 
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
@@ -1004,11 +1008,11 @@ mod tests {
             assert_eq!(state.queue_position, None);
             assert!(state.paused);
 
-            audio_kernel.queue_control(QueueCommand::AddToQueue(OneOrMany::Many(vec![
+            audio_kernel.queue_control(QueueCommand::AddToQueue(Box::new(OneOrMany::Many(vec![
                 create_song(&db, arb_song_case()()).await.unwrap(),
                 create_song(&db, arb_song_case()()).await.unwrap(),
                 create_song(&db, arb_song_case()()).await.unwrap(),
-            ])));
+            ]))));
 
             // songs were added to an empty queue, so the first song should start playing
             let state = audio_kernel.state();
@@ -1052,13 +1056,13 @@ mod tests {
             assert_eq!(state.queue_position, None);
             assert!(state.paused);
 
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::Many(vec![
                     create_song(&db, arb_song_case()()).await.unwrap(),
                     create_song(&db, arb_song_case()()).await.unwrap(),
                     create_song(&db, arb_song_case()()).await.unwrap(),
                 ]),
-            )));
+            ))));
             // songs were added to an empty queue, so the first song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
@@ -1097,9 +1101,9 @@ mod tests {
             let song2 = create_song(&db, arb_song_case()()).await.unwrap();
 
             // add songs to the queue, starts playback
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::Many(vec![song1.clone(), song2.clone()]),
-            )));
+            ))));
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused);
@@ -1113,9 +1117,9 @@ mod tests {
             assert_eq!(state.queue[0], song2);
 
             // add the song back to the queue, starts playback
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::One(song1.clone()),
-            )));
+            ))));
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused);
@@ -1147,13 +1151,13 @@ mod tests {
             assert_eq!(state.queue_position, None);
             assert!(state.paused);
 
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::Many(vec![
                     create_song(&db, arb_song_case()()).await.unwrap(),
                     create_song(&db, arb_song_case()()).await.unwrap(),
                     create_song(&db, arb_song_case()()).await.unwrap(),
                 ]),
-            )));
+            ))));
 
             // songs were added to an empty queue, so the first song should start playing
             let state = get_state(sender.clone()).await;
@@ -1204,13 +1208,13 @@ mod tests {
             assert_eq!(state.queue_position, None);
             assert!(state.paused);
 
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::Many(vec![
                     create_song(&db, arb_song_case()()).await.unwrap(),
                     create_song(&db, arb_song_case()()).await.unwrap(),
                     create_song(&db, arb_song_case()()).await.unwrap(),
                 ]),
-            )));
+            ))));
             // songs were added to an empty queue, so the first song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
@@ -1254,13 +1258,13 @@ mod tests {
             assert_eq!(state.queue_position, None);
             assert!(state.paused);
 
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::Many(vec![
                     create_song(&db, arb_song_case()()).await.unwrap(),
                     create_song(&db, arb_song_case()()).await.unwrap(),
                     create_song(&db, arb_song_case()()).await.unwrap(),
                 ]),
-            )));
+            ))));
             // songs were added to an empty queue, so the first song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
@@ -1295,13 +1299,13 @@ mod tests {
             assert_eq!(state.queue_position, None);
             assert!(state.paused);
 
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::Many(vec![
                     create_song(&db, arb_song_case()()).await.unwrap(),
                     create_song(&db, arb_song_case()()).await.unwrap(),
                     create_song(&db, arb_song_case()()).await.unwrap(),
                 ]),
-            )));
+            ))));
             // songs were added to an empty queue, so the first song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));

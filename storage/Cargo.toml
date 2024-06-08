@@ -12,28 +12,40 @@ license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+db = [
+    "serde",
+    "one-or-many/surrealdb",
+    "dep:surrealdb",
+    "dep:surrealqlx",
+    "dep:tempfile",
+]
+serde = ["one-or-many/serde", "dep:serde"]
+
 [dependencies]
 # shared dependencies
 lofty = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 rand = { workspace = true }
-serde = { workspace = true }
-surrealdb = { workspace = true }
-surrealqlx = { workspace = true }
+serde = { workspace = true, optional = true }
+surrealdb = { workspace = true, optional = true }
+surrealqlx = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
-tempfile = { workspace = true }
+tempfile = { workspace = true, optional = true }
 
 
 # other dependencies
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
-one-or-many = { workspace = true, features = ["serde", "surrealdb"] }
+one-or-many = { workspace = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
 pretty_assertions = { workspace = true }
-surrealdb = { workspace = true }
+serde_json = { version = "1.0" }
+tempfile = { workspace = true }
 rstest = { workspace = true }
 lazy_static = { workspace = true }

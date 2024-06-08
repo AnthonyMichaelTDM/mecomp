@@ -98,11 +98,12 @@ pub async fn count_orphaned_playlists<C: Connection>(db: &Surreal<C>) -> Result<
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
     use crate::db::init_test_database;
     use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
-    use surrealdb::sql::Duration;
 
     pub fn album() -> Album {
         Album {

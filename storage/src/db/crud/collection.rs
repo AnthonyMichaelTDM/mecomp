@@ -1,4 +1,6 @@
 //! CRUD operations for the collection table
+use std::time::Duration;
+
 use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
@@ -10,7 +12,7 @@ use crate::{
     errors::Error,
 };
 
-use super::queries::collection::{add_songs, read_songs, remove_songs, repair};
+use super::queries::collection::{add_songs, read_songs, remove_songs};
 
 impl Collection {
     #[instrument]
@@ -103,17 +105,16 @@ impl Collection {
     pub async fn repair<C: Connection>(db: &Surreal<C>, id: CollectionId) -> Result<bool, Error> {
         let songs = Self::read_songs(db, id.clone()).await?;
 
-        db.query(repair())
-            .bind(("id", id))
-            .bind(("songs", songs.len()))
-            .bind((
-                "runtime",
-                songs
-                    .iter()
-                    .map(|song| song.runtime)
-                    .sum::<surrealdb::sql::Duration>(),
-            ))
-            .await?;
+        Self::update(
+            db,
+            id,
+            CollectionChangeSet {
+                song_count: Some(songs.len()),
+                runtime: Some(songs.iter().map(|song| song.runtime).sum::<Duration>()),
+                ..Default::default()
+            },
+        )
+        .await?;
 
         Ok(songs.is_empty())
     }
@@ -121,7 +122,7 @@ impl Collection {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{path::PathBuf, time::Duration};
 
     use super::*;
     use crate::{db::init_test_database, test_utils::ulid};
@@ -130,7 +131,6 @@ mod tests {
     use anyhow::{anyhow, Result};
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use surrealdb::sql::Duration;
 
     fn create_collection(ulid: &str) -> Collection {
         Collection {
@@ -181,6 +181,7 @@ mod tests {
         Collection::create(&db, collection.clone()).await?;
         let changes = CollectionChangeSet {
             name: Some(format!("Updated Name {ulid}").into()),
+            ..Default::default()
         };
 
         let updated = Collection::update(&db, collection.id.clone(), changes).await?;

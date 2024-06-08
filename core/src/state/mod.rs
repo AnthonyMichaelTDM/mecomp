@@ -124,6 +124,8 @@ impl Display for StateAudio {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
     use one_or_many::OneOrMany;
     use pretty_assertions::{assert_eq, assert_str_eq};
@@ -177,7 +179,7 @@ mod tests {
                     album_artist: OneOrMany::None,
                     album: "album".into(),
                     genre: OneOrMany::None,
-                    runtime: surrealdb::sql::Duration::from_secs(100),
+                    runtime: Duration::from_secs(100),
                     track: None,
                     disc: None,
                     release_year: None,
@@ -194,7 +196,7 @@ mod tests {
                     album_artist: OneOrMany::None,
                     album: "album".into(),
                     genre: OneOrMany::None,
-                    runtime: surrealdb::sql::Duration::from_secs(100),
+                    runtime: Duration::from_secs(100),
                     track: None,
                     disc: None,
                     release_year: None,

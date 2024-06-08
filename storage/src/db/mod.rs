@@ -1,31 +1,33 @@
+#[cfg(feature = "db")]
 pub mod crud;
+#[cfg(feature = "db")]
 pub mod health;
 pub mod schemas;
 
-use std::path::PathBuf;
-
-use log::info;
-use once_cell::sync::Lazy;
+#[cfg(feature = "db")]
 use surrealdb::{
     engine::local::{Db, Mem, SurrealKV},
     Surreal,
 };
-use surrealqlx::register_tables;
-use tempfile::TempDir;
-use tokio::sync::{OnceCell, SetError};
 
-static DB_DIR: OnceCell<PathBuf> = OnceCell::const_new();
-static TEMP_DB_DIR: Lazy<TempDir> =
-    Lazy::new(|| tempfile::tempdir().expect("Failed to create temporary directory"));
+#[cfg(feature = "db")]
+static DB_DIR: tokio::sync::OnceCell<std::path::PathBuf> = tokio::sync::OnceCell::const_new();
+#[cfg(feature = "db")]
+static TEMP_DB_DIR: once_cell::sync::Lazy<tempfile::TempDir> = once_cell::sync::Lazy::new(|| {
+    tempfile::tempdir().expect("Failed to create temporary directory")
+});
 
 /// Set the path to the database.
 ///
 /// # Errors
 ///
 /// This function will return an error if the path cannot be set.
-pub fn set_database_path(path: PathBuf) -> Result<(), SetError<PathBuf>> {
+#[cfg(feature = "db")]
+pub fn set_database_path(
+    path: std::path::PathBuf,
+) -> Result<(), tokio::sync::SetError<std::path::PathBuf>> {
     DB_DIR.set(path)?;
-    info!("Primed database path");
+    log::info!("Primed database path");
     Ok(())
 }
 
@@ -34,6 +36,7 @@ pub fn set_database_path(path: PathBuf) -> Result<(), SetError<PathBuf>> {
 /// # Errors
 ///
 /// This function will return an error if the database cannot be initialized.
+#[cfg(feature = "db")]
 pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
     let db = Surreal::new::<SurrealKV>(DB_DIR
         .get().cloned()
@@ -45,7 +48,7 @@ pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
 
     db.use_ns("mecomp").use_db("music").await?;
 
-    register_tables!(
+    surrealqlx::register_tables!(
         &db,
         schemas::album::Album,
         schemas::artist::Artist,
@@ -63,11 +66,12 @@ pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
 /// # Errors
 ///
 /// This function will return an error if the database cannot be initialized.
+#[cfg(feature = "db")]
 pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
     let db = Surreal::new::<Mem>(()).await?;
     db.use_ns("test").use_db("test").await?;
 
-    register_tables!(
+    surrealqlx::register_tables!(
         &db,
         schemas::album::Album,
         schemas::artist::Artist,

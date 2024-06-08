@@ -1,10 +1,10 @@
 //----------------------------------------------------------------------------------------- std lib
-use std::{net::SocketAddr, ops::Range, sync::Arc};
-use surrealdb::{engine::local::Db, sql::Duration, Surreal};
+use std::{net::SocketAddr, ops::Range, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
 use log::{info, warn};
 use rand::seq::SliceRandom;
+use surrealdb::{engine::local::Db, Surreal};
 use tap::TapFallible;
 use tracing::{instrument, Instrument};
 //-------------------------------------------------------------------------------- MECOMP libraries
@@ -690,9 +690,9 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                     OneOrMany::One(song),
-                )));
+                ))));
             }
             .in_current_span(),
         )
@@ -715,7 +715,9 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                    songs.into(),
+                ))));
             }
             .in_current_span(),
         )
@@ -738,7 +740,9 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                    songs.into(),
+                ))));
             }
             .in_current_span(),
         )
@@ -761,7 +765,9 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                    songs.into(),
+                ))));
             }
             .in_current_span(),
         )
@@ -784,7 +790,9 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                    songs.into(),
+                ))));
             }
             .in_current_span(),
         )
@@ -807,9 +815,9 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                     OneOrMany::One(song),
-                )));
+                ))));
             }
             .in_current_span(),
         )
@@ -840,9 +848,9 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                     OneOrMany::Many(songs),
-                )));
+                ))));
             }
             .in_current_span(),
         )
@@ -873,9 +881,9 @@ impl MusicPlayer for MusicPlayerServer {
 
         tokio::spawn(
             async move {
-                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                     OneOrMany::Many(songs),
-                )));
+                ))));
             }
             .in_current_span(),
         )
