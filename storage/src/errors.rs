@@ -4,6 +4,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[cfg(any(test, feature = "db"))]
     #[error("SurrealDB error: {0}")]
     DbError(#[from] surrealdb::Error),
     #[error("Failed to set database path: {0}")]

@@ -2409,22 +2409,13 @@ dependencies = [
  "rand",
  "rstest",
  "serde",
+ "serde_json",
  "surrealdb",
  "surrealqlx",
  "tempfile",
  "thiserror",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "mecomp-types"
-version = "0.1.0"
-dependencies = [
- "one-or-many",
- "serde",
- "surrealdb",
- "surrealqlx",
 ]
 
 [[package]]

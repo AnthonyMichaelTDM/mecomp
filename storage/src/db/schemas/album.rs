@@ -1,9 +1,12 @@
 #![allow(clippy::module_name_repetitions)]
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+#[cfg(not(any(test, feature = "db")))]
+use super::Thing;
+#[cfg(not(any(test, feature = "db")))]
+use std::time::Duration;
+#[cfg(any(test, feature = "db"))]
 use surrealdb::sql::{Duration, Id, Thing};
-use surrealqlx::Table;
 
 use one_or_many::OneOrMany;
 
@@ -13,65 +16,97 @@ pub const TABLE_NAME: &str = "album";
 
 /// This struct holds all the metadata about a particular [`Album`].
 /// An [`Album`] is a collection of [`super::song::Song`]s owned by an [`super::artist::Artist`].
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Table)]
-#[Table("album")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "db"), derive(surrealqlx::Table))]
+#[cfg_attr(
+    any(test, feature = "serde"),
+    derive(serde::Serialize, serde::Deserialize)
+)]
+#[cfg_attr(any(test, feature = "db"), Table("album"))]
 pub struct Album {
     /// The unique identifier for this [`Album`].
-    #[field(dt = "record")]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "record"))]
     pub id: AlbumId,
     /// Title of the [`Album`].
-    #[field(dt = "string", index())]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "string", index()))]
     pub title: Arc<str>,
     /// Artist of the [`Album`]. (Can be multiple)
-    #[field(dt = "option<set<string> | string>")]
-    #[serde(default)]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "option<set<string> | string>"))]
+    #[cfg_attr(any(test, feature = "serde"), serde(default))]
     pub artist: OneOrMany<Arc<str>>,
     /// Release year of this [`Album`].
-    #[field(dt = "option<int>")]
-    #[serde(default)]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "option<int>"))]
+    #[cfg_attr(any(test, feature = "serde"), serde(default))]
     pub release: Option<i32>,
     /// Total runtime of this [`Album`].
-    #[field(dt = "duration")]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "duration"))]
     pub runtime: Duration,
     /// [`Song`] count of this [`Album`].
-    #[field(dt = "int")]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "int"))]
     pub song_count: usize,
     /// How many discs are in this [`Album`]?
     /// (Most will only have 1).
-    #[field(dt = "int")]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "int"))]
     pub discs: u32,
     /// This [`Album`]'s genre.
-    #[field(dt = "option<set<string> | string>")]
-    #[serde(default)]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "option<set<string> | string>"))]
+    #[cfg_attr(any(test, feature = "serde"), serde(default))]
     pub genre: OneOrMany<Arc<str>>,
 }
 
 impl Album {
     #[must_use]
+    #[cfg(any(test, feature = "db"))]
     pub fn generate_id() -> AlbumId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default)]
+#[cfg_attr(any(test, feature = "serde"), derive(serde::Serialize))]
 pub struct AlbumChangeSet {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        any(test, feature = "serde"),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub title: Option<Arc<str>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        any(test, feature = "serde"),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub artist: Option<OneOrMany<Arc<str>>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        any(test, feature = "serde"),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub release: Option<Option<i32>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        any(test, feature = "serde"),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub runtime: Option<Duration>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        any(test, feature = "serde"),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub song_count: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        any(test, feature = "serde"),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub discs: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        any(test, feature = "serde"),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub genre: Option<OneOrMany<Arc<str>>>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    any(test, feature = "serde"),
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub struct AlbumBrief {
     pub id: AlbumId,
     pub title: Arc<str>,
@@ -90,6 +125,9 @@ impl From<Album> for AlbumBrief {
             title: album.title,
             artist: album.artist,
             release: album.release,
+            #[cfg(not(any(test, feature = "db")))]
+            runtime: album.runtime,
+            #[cfg(any(test, feature = "db"))]
             runtime: album.runtime.into(),
             song_count: album.song_count,
             discs: album.discs,
@@ -105,6 +143,9 @@ impl From<&Album> for AlbumBrief {
             title: album.title.clone(),
             artist: album.artist.clone(),
             release: album.release,
+            #[cfg(not(any(test, feature = "db")))]
+            runtime: album.runtime,
+            #[cfg(any(test, feature = "db"))]
             runtime: album.runtime.into(),
             song_count: album.song_count,
             discs: album.discs,

@@ -37,7 +37,7 @@ opentelemetry-otlp = { workspace = true, optional = true }
 opentelemetry-semantic-conventions = { workspace = true, optional = true }
 
 # MECOMP dependencies
-mecomp-storage = { workspace = true }
+mecomp-storage = { workspace = true, features = ["serde"] }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 one-or-many = { workspace = true }
 
@@ -49,7 +49,7 @@ rstest = { workspace = true }
 rstest_reuse = { workspace = true }
 tempfile = { workspace = true }
 lofty = { workspace = true }
-# mecomp-storage = { workspace = true, features = ["mock"] }
+mecomp-storage = { workspace = true, features = ["serde", "db"] }
 
 [features]
 default = []

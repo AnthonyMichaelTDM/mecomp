@@ -1,9 +1,12 @@
 #![allow(clippy::module_name_repetitions)]
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+#[cfg(not(any(test, feature = "db")))]
+use super::Thing;
+#[cfg(not(any(test, feature = "db")))]
+use std::time::Duration;
+#[cfg(any(test, feature = "db"))]
 use surrealdb::sql::{Duration, Id, Thing};
-use surrealqlx::Table;
 
 pub type ArtistId = Thing;
 
@@ -11,52 +14,75 @@ pub const TABLE_NAME: &str = "artist";
 
 /// This struct holds all the metadata about a particular [`Artist`].
 /// An [`Artist`] is a collection of [`super::album::Album`]s.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Table)]
-#[Table("artist")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "db"), derive(surrealqlx::Table))]
+#[cfg_attr(
+    any(test, feature = "serde"),
+    derive(serde::Serialize, serde::Deserialize)
+)]
+#[cfg_attr(any(test, feature = "db"), Table("artist"))]
 pub struct Artist {
     /// the unique identifier for this [`Artist`].
-    #[field(dt = "record")]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "record"))]
     pub id: ArtistId,
 
     /// The [`Artist`]'s name.
-    #[field(dt = "string", index(unique))]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "string", index(unique)))]
     pub name: Arc<str>,
 
     /// Total runtime.
-    #[field(dt = "duration")]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "duration"))]
     pub runtime: Duration,
 
     /// the number of albums this artist has.
-    #[field(dt = "int")]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "int"))]
     pub album_count: usize,
 
     /// the number of songs this artist has.
-    #[field(dt = "int")]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "int"))]
     pub song_count: usize,
 }
 
 impl Artist {
     #[must_use]
+    #[cfg(any(test, feature = "db"))]
     pub fn generate_id() -> ArtistId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default)]
+#[cfg_attr(any(test, feature = "serde"), derive(serde::Serialize))]
 pub struct ArtistChangeSet {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        any(test, feature = "serde"),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub name: Option<Arc<str>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        any(test, feature = "serde"),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub runtime: Option<Duration>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        any(test, feature = "serde"),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub album_count: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        any(test, feature = "serde"),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub song_count: Option<usize>,
 }
 
 /// This struct holds all the metadata about a particular [`Artist`].
 /// An [`Artist`] is a collection of [`super::album::Album`]s.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    any(test, feature = "serde"),
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub struct ArtistBrief {
     pub id: ArtistId,
     pub name: Arc<str>,
@@ -70,6 +96,9 @@ impl From<Artist> for ArtistBrief {
         Self {
             id: artist.id,
             name: artist.name,
+            #[cfg(not(any(test, feature = "db")))]
+            runtime: artist.runtime,
+            #[cfg(any(test, feature = "db"))]
             runtime: artist.runtime.into(),
             albums: artist.album_count,
             songs: artist.song_count,
@@ -82,6 +111,9 @@ impl From<&Artist> for ArtistBrief {
         Self {
             id: artist.id.clone(),
             name: artist.name.clone(),
+            #[cfg(not(any(test, feature = "db")))]
+            runtime: artist.runtime,
+            #[cfg(any(test, feature = "db"))]
             runtime: artist.runtime.into(),
             albums: artist.album_count,
             songs: artist.song_count,

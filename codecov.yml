@@ -36,7 +36,3 @@ component_management:
       name: OneOrMany
       paths:
         - one-or-many/**
-    - component_id: module_mecomp_types
-      name: MECOMP Types
-      paths:
-        - types/**

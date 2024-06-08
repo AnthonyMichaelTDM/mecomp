@@ -3,48 +3,65 @@
 
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+#[cfg(not(any(test, feature = "db")))]
+use super::Thing;
+#[cfg(not(any(test, feature = "db")))]
+use std::time::Duration;
+#[cfg(any(test, feature = "db"))]
 use surrealdb::sql::{Duration, Id, Thing};
-use surrealqlx::Table;
 
 pub type CollectionId = Thing;
 
 pub const TABLE_NAME: &str = "collection";
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Table)]
-#[Table("collection")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "db"), derive(surrealqlx::Table))]
+#[cfg_attr(
+    any(test, feature = "serde"),
+    derive(serde::Serialize, serde::Deserialize)
+)]
+#[cfg_attr(any(test, feature = "db"), Table("collection"))]
 pub struct Collection {
     /// the unique identifier for this [`Collection`].
-    #[field(dt = "record")]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "record"))]
     pub id: CollectionId,
 
     /// The name of the collection.
-    #[field(dt = "string", index(unique))]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "string", index(unique)))]
     pub name: Arc<str>,
 
     /// Total runtime.
-    #[field(dt = "duration")]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "duration"))]
     pub runtime: Duration,
 
     /// the number of songs this collection has.
-    #[field(dt = "int")]
+    #[cfg_attr(any(test, feature = "db"), field(dt = "int"))]
     pub song_count: usize,
 }
 
 impl Collection {
     #[must_use]
+    #[cfg(any(test, feature = "db"))]
     pub fn generate_id() -> CollectionId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default)]
+#[cfg_attr(any(test, feature = "serde"), derive(serde::Serialize))]
 pub struct CollectionChangeSet {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        any(test, feature = "serde"),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub name: Option<Arc<str>>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    any(test, feature = "serde"),
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub struct CollectionBrief {
     pub id: CollectionId,
     pub name: Arc<str>,
@@ -57,6 +74,9 @@ impl From<Collection> for CollectionBrief {
         Self {
             id: collection.id,
             name: collection.name,
+            #[cfg(not(any(test, feature = "db")))]
+            runtime: collection.runtime,
+            #[cfg(any(test, feature = "db"))]
             runtime: collection.runtime.into(),
             songs: collection.song_count,
         }
@@ -68,6 +88,9 @@ impl From<&Collection> for CollectionBrief {
         Self {
             id: collection.id.clone(),
             name: collection.name.clone(),
+            #[cfg(not(any(test, feature = "db")))]
+            runtime: collection.runtime,
+            #[cfg(any(test, feature = "db"))]
             runtime: collection.runtime.into(),
             songs: collection.song_count,
         }
