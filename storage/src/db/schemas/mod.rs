@@ -96,6 +96,29 @@ impl From<Id> for surrealdb::sql::Id {
     }
 }
 
+#[cfg(feature = "db")]
+impl From<surrealdb::sql::Thing> for Thing {
+    fn from(thing: surrealdb::sql::Thing) -> Self {
+        Self {
+            tb: thing.tb,
+            id: thing.id.into(),
+        }
+    }
+}
+
+#[cfg(feature = "db")]
+impl From<surrealdb::sql::Id> for Id {
+    fn from(id: surrealdb::sql::Id) -> Self {
+        match id {
+            surrealdb::sql::Id::Number(n) => Self::Number(n),
+            surrealdb::sql::Id::String(s) => Self::String(s),
+            surrealdb::sql::Id::Array(_) => todo!(),
+            surrealdb::sql::Id::Object(_) => todo!(),
+            surrealdb::sql::Id::Generate(_) => todo!(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod thing {
     //! tests to ensure that the `Thing` type is serialized and deserialized just like the `surrealdb` `Thing` type.

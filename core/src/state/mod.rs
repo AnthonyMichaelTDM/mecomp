@@ -9,14 +9,16 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub enum SeekType {
     Absolute,
-    Relative,
+    RelativeForwards,
+    RelativeBackwards,
 }
 
 impl Display for SeekType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Absolute => write!(f, "Absolute"),
-            Self::Relative => write!(f, "Relative"),
+            Self::RelativeForwards => write!(f, "Forwards"),
+            Self::RelativeBackwards => write!(f, "Backwards"),
         }
     }
 }
@@ -143,7 +145,8 @@ mod tests {
 
     #[rstest]
     #[case::seek_type(SeekType::Absolute, "Absolute")]
-    #[case::seek_type(SeekType::Relative, "Relative")]
+    #[case::seek_type(SeekType::RelativeForwards, "Forwards")]
+    #[case::seek_type(SeekType::RelativeBackwards, "Backwards")]
     #[case::repeat_mode(RepeatMode::None, "None")]
     #[case::repeat_mode(RepeatMode::Once, "Once")]
     #[case::repeat_mode(RepeatMode::Continuous, "Continuous")]

@@ -8,11 +8,12 @@ use std::{
 };
 
 use mecomp_storage::db::schemas::{
-    album::{Album, AlbumBrief, AlbumId},
-    artist::{Artist, ArtistBrief, ArtistId},
-    collection::{Collection, CollectionBrief, CollectionId},
-    playlist::{Playlist, PlaylistBrief, PlaylistId},
-    song::{Song, SongBrief, SongId},
+    album::{Album, AlbumBrief},
+    artist::{Artist, ArtistBrief},
+    collection::{Collection, CollectionBrief},
+    playlist::{Playlist, PlaylistBrief},
+    song::{Song, SongBrief},
+    Thing,
 };
 use one_or_many::OneOrMany;
 use tarpc::{client, tokio_serde::formats::Bincode};
@@ -26,13 +27,19 @@ use crate::{
     },
 };
 
+pub type SongId = Thing;
+pub type ArtistId = Thing;
+pub type AlbumId = Thing;
+pub type CollectionId = Thing;
+pub type PlaylistId = Thing;
+
 #[tarpc::service]
 pub trait MusicPlayer {
     // misc
     async fn ping() -> String;
 
     // Music library.
-    /// Rescans the music library.
+    /// Rescans the music library, only error is if a rescan is already in progress.
     async fn library_rescan() -> Result<(), SerializableLibraryError>;
     /// Returns brief information about the music library.
     async fn library_brief() -> Result<LibraryBrief, SerializableLibraryError>;
@@ -226,17 +233,19 @@ pub trait MusicPlayer {
     /// Collections: Return brief information about the users auto curration collections.
     async fn collection_list() -> Box<[CollectionBrief]>;
     /// Collections: Recluster the users library, creating new collections.
-    async fn collection_recluster() -> ();
+    async fn collection_recluster() -> Result<(), SerializableLibraryError>;
     /// Collections: get a collection by its ID.
     async fn collection_get(id: CollectionId) -> Option<Collection>;
     /// Collections: freeze a collection (convert it to a playlist).
     async fn collection_freeze(id: CollectionId, name: String) -> PlaylistId;
+
+    // Radio commands.
     /// Radio: get the `n` most similar songs to the given song.
     async fn radio_get_similar_songs(song: SongId, n: usize) -> Box<[SongId]>;
     /// Radio: get the `n` most similar artists to the given artist.
-    async fn radio_get_similar_artist(artist: ArtistId, n: usize) -> Box<[ArtistId]>;
+    async fn radio_get_similar_artists(artist: ArtistId, n: usize) -> Box<[ArtistId]>;
     /// Radio: get the `n` most similar albums to the given album.
-    async fn radio_get_similar_album(album: AlbumId, n: usize) -> Box<[AlbumId]>;
+    async fn radio_get_similar_albums(album: AlbumId, n: usize) -> Box<[AlbumId]>;
 }
 
 /// Initialize the client

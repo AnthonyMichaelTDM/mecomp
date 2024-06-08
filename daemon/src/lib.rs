@@ -34,6 +34,8 @@ pub mod test_utils;
 use crate::config::DaemonSettings;
 use crate::controller::MusicPlayerServer;
 
+// TODO: at some point, we should probably add a panic handler to the daemon to ensure graceful shutdown.
+
 /// Run the daemon
 ///
 /// also initializes the logger, database, and other necessary components.
