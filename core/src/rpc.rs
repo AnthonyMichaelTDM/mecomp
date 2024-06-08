@@ -94,7 +94,7 @@ pub trait MusicPlayer {
 
     // Current (audio state)
     /// returns the current artist.
-    async fn current_artist() -> Option<OneOrMany<Artist>>;
+    async fn current_artist() -> OneOrMany<Artist>;
     /// returns the current album.
     async fn current_album() -> Option<Album>;
     /// returns the current song.

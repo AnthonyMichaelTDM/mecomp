@@ -2336,6 +2336,7 @@ dependencies = [
  "clap",
  "mecomp-core",
  "mecomp-storage",
+ "one-or-many",
  "tarpc",
  "tokio",
 ]

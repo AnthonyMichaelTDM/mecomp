@@ -358,7 +358,7 @@ impl MusicPlayer for MusicPlayerServer {
 
     /// returns the current artist.
     #[instrument]
-    async fn current_artist(self, context: Context) -> Option<OneOrMany<Artist>> {
+    async fn current_artist(self, context: Context) -> OneOrMany<Artist> {
         info!("Getting current artist");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -374,8 +374,9 @@ impl MusicPlayer for MusicPlayerServer {
                 .await
                 .tap_err(|e| warn!("Error in current_album: {e}"))
                 .ok()
+                .into()
         } else {
-            None
+            OneOrMany::None
         }
     }
     /// returns the current album.

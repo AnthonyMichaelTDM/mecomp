@@ -1,11 +1,24 @@
+use crate::handlers::printing;
+
 use super::{
     Command, CommandHandler, CurrentTarget, LibraryCommand, LibraryGetTarget, LibraryListTarget,
     PlaylistAddTarget, PlaylistGetMethod, QueueCommand, RandTarget, SearchTarget, SeekCommand,
     VolumeCommand,
 };
 
-use mecomp_core::state::SeekType;
-use mecomp_storage::db::schemas::{album, artist, collection, playlist, song, Id, Thing};
+use mecomp_core::state::{
+    library::{LibraryBrief, LibraryFull, LibraryHealth},
+    SeekType,
+};
+use mecomp_storage::db::schemas::{
+    album::{self, Album, AlbumBrief},
+    artist::{self, Artist, ArtistBrief},
+    collection::{self, Collection, CollectionBrief},
+    playlist::{self, Playlist, PlaylistBrief},
+    song::{self, Song, SongBrief},
+    Id, Thing,
+};
+use one_or_many::OneOrMany;
 
 impl CommandHandler for Command {
     type Output = anyhow::Result<()>;
@@ -17,7 +30,7 @@ impl CommandHandler for Command {
     ) -> Self::Output {
         match self {
             Self::Ping => {
-                let resp = client.ping(ctx).await?;
+                let resp: String = client.ping(ctx).await?;
                 println!("Daemon response:\n{resp}");
                 Ok(())
             }
@@ -28,20 +41,26 @@ impl CommandHandler for Command {
             }
             Self::Library { command } => command.handle(ctx, client).await,
             Self::State => {
-                let resp = client.state_audio(ctx).await?;
-                println!("Daemon response:\n{resp:?}");
+                if let Some(state) = client.state_audio(ctx).await? {
+                    println!("{}", printing::audio_state(&state)?);
+                } else {
+                    println!("Daemon response:\nNo audio state available");
+                }
                 Ok(())
             }
             Self::Current { target } => {
                 match target {
                     CurrentTarget::Artist => {
-                        println!("Daemon response:\n{:?}", client.current_artist(ctx).await?);
+                        let resp: OneOrMany<Artist> = client.current_artist(ctx).await?;
+                        println!("Daemon response:\n{resp:#?}");
                     }
                     CurrentTarget::Album => {
-                        println!("Daemon response:\n{:?}", client.current_album(ctx).await?);
+                        let resp: Option<Album> = client.current_album(ctx).await?;
+                        println!("Daemon response:\n{resp:#?}");
                     }
                     CurrentTarget::Song => {
-                        println!("Daemon response:\n{:?}", client.current_song(ctx).await?);
+                        let resp: Option<Song> = client.current_song(ctx).await?;
+                        println!("Daemon response:\n{resp:#?}");
                     }
                 }
                 Ok(())
@@ -49,13 +68,16 @@ impl CommandHandler for Command {
             Self::Rand { target } => {
                 match target {
                     RandTarget::Artist => {
-                        println!("Daemon response:\n{:?}", client.rand_artist(ctx).await?);
+                        let resp: Option<Artist> = client.rand_artist(ctx).await?;
+                        println!("Daemon response:\n{resp:#?}");
                     }
                     RandTarget::Album => {
-                        println!("Daemon response:\n{:?}", client.rand_album(ctx).await?);
+                        let resp: Option<Album> = client.rand_album(ctx).await?;
+                        println!("Daemon response:\n{resp:#?}");
                     }
                     RandTarget::Song => {
-                        println!("Daemon response:\n{:?}", client.rand_song(ctx).await?);
+                        let resp: Option<Song> = client.rand_song(ctx).await?;
+                        println!("Daemon response:\n{resp:#?}");
                     }
                 }
                 Ok(())
@@ -69,21 +91,24 @@ impl CommandHandler for Command {
                         );
                     }
                     Some(SearchTarget::Artist) => {
+                        let resp: Box<[Artist]> = client.search_artist(ctx, query.clone()).await?;
                         println!(
-                            "Daemon response:\n{:?}",
-                            client.search_artist(ctx, query.clone()).await?
+                            "Daemon response:\n{}",
+                            printing::artist_list("Artists", &resp)?
                         );
                     }
                     Some(SearchTarget::Album) => {
+                        let resp: Box<[Album]> = client.search_album(ctx, query.clone()).await?;
                         println!(
-                            "Daemon response:\n{:?}",
-                            client.search_album(ctx, query.clone()).await?
+                            "Daemon response:\n{}",
+                            printing::album_list("Albums", &resp)?
                         );
                     }
                     Some(SearchTarget::Song) => {
+                        let resp: Box<[Song]> = client.search_song(ctx, query.clone()).await?;
                         println!(
-                            "Daemon response:\n{:?}",
-                            client.search_song(ctx, query.clone()).await?
+                            "Daemon response:\n{}",
+                            printing::song_list("Songs", &resp, false)?
                         );
                     }
                 }
@@ -109,7 +134,7 @@ impl CommandHandler for LibraryCommand {
     ) -> Self::Output {
         match self {
             Self::Rescan => {
-                let resp = client.library_rescan(ctx).await?;
+                let resp: Result<(), _> = client.library_rescan(ctx).await?;
                 if let Err(e) = resp {
                     println!("Daemon response:\n{e}");
                 } else {
@@ -118,60 +143,68 @@ impl CommandHandler for LibraryCommand {
                 Ok(())
             }
             Self::Brief => {
-                let resp = client.library_brief(ctx).await?;
-                println!("Daemon response:\n{resp:?}");
+                let resp: Result<LibraryBrief, _> = client.library_brief(ctx).await?;
+                println!("Daemon response:\n{resp:#?}");
                 Ok(())
             }
             Self::Full => {
-                let resp = client.library_full(ctx).await?;
+                let resp: Result<LibraryFull, _> = client.library_full(ctx).await?;
                 println!("Daemon response:\n{resp:?}");
                 Ok(())
             }
             Self::Health => {
-                let resp = client.library_health(ctx).await?;
-                println!("Daemon response:\n{resp:?}");
+                let resp: Result<LibraryHealth, _> = client.library_health(ctx).await?;
+                println!("Daemon response:\n{resp:#?}");
                 Ok(())
             }
             Self::List { full, target } => {
                 if *full {
                     match target {
                         LibraryListTarget::Artists => {
+                            let resp: Box<[Artist]> = client.library_artists_full(ctx).await??;
                             println!(
-                                "Daemon response:\n{:?}",
-                                client.library_artists_full(ctx).await?
+                                "Daemon response:\n{}",
+                                printing::artist_list("Artists", &resp)?
                             );
                         }
                         LibraryListTarget::Albums => {
+                            let resp: Box<[Album]> = client.library_albums_full(ctx).await??;
                             println!(
-                                "Daemon response:\n{:?}",
-                                client.library_albums_full(ctx).await?
+                                "Daemon response:\n{}",
+                                printing::album_list("Albums", &resp)?
                             );
                         }
                         LibraryListTarget::Songs => {
+                            let resp: Box<[Song]> = client.library_songs_full(ctx).await??;
                             println!(
-                                "Daemon response:\n{:?}",
-                                client.library_songs_full(ctx).await?
+                                "Daemon response:\n{}",
+                                printing::song_list("Songs", &resp, false)?
                             );
                         }
                     }
                 } else {
                     match target {
                         LibraryListTarget::Artists => {
+                            let resp: Box<[ArtistBrief]> =
+                                client.library_artists_brief(ctx).await??;
                             println!(
-                                "Daemon response:\n{:?}",
-                                client.library_artists_brief(ctx).await?
+                                "Daemon response:\n{}",
+                                printing::artist_brief_list("Artists", &resp)?
                             );
                         }
                         LibraryListTarget::Albums => {
+                            let resp: Box<[AlbumBrief]> =
+                                client.library_albums_brief(ctx).await??;
                             println!(
-                                "Daemon response:\n{:?}",
-                                client.library_albums_brief(ctx).await?
+                                "Daemon response:\n{}",
+                                printing::album_brief_list("Albums", &resp)?
                             );
                         }
                         LibraryListTarget::Songs => {
+                            let resp: Box<[SongBrief]> = client.library_songs_brief(ctx).await??;
                             println!(
-                                "Daemon response:\n{:?}",
-                                client.library_songs_brief(ctx).await?
+                                "Daemon response:\n{}",
+                                printing::song_brief_list("Songs", &resp)?
                             );
                         }
                     }
@@ -182,63 +215,54 @@ impl CommandHandler for LibraryCommand {
             Self::Get { target, id } => {
                 match target {
                     LibraryGetTarget::Artist => {
-                        println!(
-                            "Daemon response:\n{:?}",
-                            client
-                                .library_artist_get(
-                                    ctx,
-                                    Thing {
-                                        tb: artist::TABLE_NAME.to_owned(),
-                                        id: Id::String(id.to_owned())
-                                    }
-                                )
-                                .await?
-                        );
+                        let resp: Option<Artist> = client
+                            .library_artist_get(
+                                ctx,
+                                Thing {
+                                    tb: artist::TABLE_NAME.to_owned(),
+                                    id: Id::String(id.to_owned()),
+                                },
+                            )
+                            .await?;
+                        println!("Daemon response:\n{resp:#?}");
                     }
                     LibraryGetTarget::Album => {
-                        println!(
-                            "Daemon response:\n{:?}",
-                            client
-                                .library_album_get(
-                                    ctx,
-                                    Thing {
-                                        tb: album::TABLE_NAME.to_owned(),
-                                        id: Id::String(id.to_owned())
-                                    }
-                                )
-                                .await?
-                        );
+                        let resp: Option<Album> = client
+                            .library_album_get(
+                                ctx,
+                                Thing {
+                                    tb: album::TABLE_NAME.to_owned(),
+                                    id: Id::String(id.to_owned()),
+                                },
+                            )
+                            .await?;
+                        println!("Daemon response:\n{resp:#?}");
                     }
                     LibraryGetTarget::Song => {
-                        println!(
-                            "Daemon response:\n{:?}",
-                            client
-                                .library_song_get(
-                                    ctx,
-                                    Thing {
-                                        tb: song::TABLE_NAME.to_owned(),
-                                        id: Id::String(id.to_owned())
-                                    }
-                                )
-                                .await?
-                        );
+                        let resp: Option<Song> = client
+                            .library_song_get(
+                                ctx,
+                                Thing {
+                                    tb: song::TABLE_NAME.to_owned(),
+                                    id: Id::String(id.to_owned()),
+                                },
+                            )
+                            .await?;
+                        println!("Daemon response:\n{resp:#?}");
                     }
                     LibraryGetTarget::Playlist => {
-                        println!(
-                            "Daemon response:\n{:?}",
-                            client
-                                .library_playlist_get(
-                                    ctx,
-                                    Thing {
-                                        tb: playlist::TABLE_NAME.to_owned(),
-                                        id: Id::String(id.to_owned())
-                                    }
-                                )
-                                .await?
-                        );
+                        let resp: Option<Playlist> = client
+                            .library_playlist_get(
+                                ctx,
+                                Thing {
+                                    tb: playlist::TABLE_NAME.to_owned(),
+                                    id: Id::String(id.to_owned()),
+                                },
+                            )
+                            .await?;
+                        println!("Daemon response:\n{resp:#?}");
                     }
                 }
-
                 Ok(())
             }
         }
@@ -291,6 +315,17 @@ impl CommandHandler for super::PlaybackCommand {
             }
             Self::Seek { command } => command.handle(ctx, client).await,
             Self::Volume { command } => command.handle(ctx, client).await,
+            Self::Repeat { mode } => {
+                let mode: mecomp_core::state::RepeatMode = (*mode).into();
+                client.playback_repeat(ctx, mode).await?;
+                println!("Daemon response:\nrepeat mode set to {mode}");
+                Ok(())
+            }
+            Self::Shuffle => {
+                client.playback_shuffle(ctx).await?;
+                println!("Daemon response:\nqueue shuffled");
+                Ok(())
+            }
         }
     }
 }
@@ -380,12 +415,20 @@ impl CommandHandler for QueueCommand {
                 Ok(())
             }
             Self::List => {
-                let resp = client.state_queue(ctx).await?;
-                println!("Daemon response:\n{resp:?}");
+                let resp: Option<Box<[Song]>> = client.state_queue(ctx).await?;
+                if let Some(songs) = resp {
+                    println!(
+                        "Daemon response:\n{}",
+                        printing::song_list("Queue", &songs, true)?
+                    );
+                } else {
+                    println!("Daemon response:\nNo queue available");
+                }
+
                 Ok(())
             }
             Self::Add { target, id } => {
-                let resp = match target {
+                let message: &str = match target {
                     super::QueueAddTarget::Artist => client
                         .queue_add_artist(
                             ctx,
@@ -436,9 +479,9 @@ impl CommandHandler for QueueCommand {
                         )
                         .await?
                         .map(|()| "collection added to queue"),
-                };
+                }?;
 
-                println!("Daemon response:\n{resp:?}");
+                println!("Daemon response:\n{message}");
 
                 Ok(())
             }
@@ -467,12 +510,15 @@ impl CommandHandler for super::PlaylistCommand {
     ) -> Self::Output {
         match self {
             Self::List => {
-                let resp = client.playlist_list(ctx).await?;
-                println!("Daemon response:\n{resp:?}");
+                let resp: Box<[PlaylistBrief]> = client.playlist_list(ctx).await?;
+                println!(
+                    "Daemon response:\n{}",
+                    printing::playlist_brief_list("Playlists", &resp)?
+                );
                 Ok(())
             }
             Self::Get { method, target } => {
-                let resp = match method {
+                let resp: Option<Playlist> = match method {
                     PlaylistGetMethod::Id => {
                         client
                             .playlist_get(
@@ -493,16 +539,16 @@ impl CommandHandler for super::PlaylistCommand {
                     }
                 };
 
-                println!("Daemon response:\n{resp:?}");
+                println!("Daemon response:\n{resp:#?}");
                 Ok(())
             }
             Self::Create { name } => {
-                let resp = client.playlist_new(ctx, name.clone()).await?;
-                println!("Daemon response:\n{resp:?}");
+                let resp: Result<Thing, _> = client.playlist_new(ctx, name.clone()).await?;
+                println!("Daemon response:\n{resp:#?}");
                 Ok(())
             }
             Self::Delete { id } => {
-                let resp = client
+                client
                     .playlist_remove(
                         ctx,
                         Thing {
@@ -510,8 +556,8 @@ impl CommandHandler for super::PlaylistCommand {
                             id: Id::String(id.clone()),
                         },
                     )
-                    .await?;
-                println!("Daemon response:\n{resp:?}");
+                    .await??;
+                println!("Daemon response:\nplaylist deleted");
                 Ok(())
             }
             Self::Add {
@@ -569,7 +615,7 @@ impl CommandHandler for super::PlaylistCommand {
                 Ok(())
             }
             Self::Remove { id, item_ids } => {
-                let resp = client
+                client
                     .playlist_remove_songs(
                         ctx,
                         Thing {
@@ -584,8 +630,8 @@ impl CommandHandler for super::PlaylistCommand {
                             })
                             .collect(),
                     )
-                    .await?;
-                println!("Daemon response:\n{resp:?}");
+                    .await??;
+                println!("Daemon response:\nsongs removed from playlist");
 
                 Ok(())
             }
@@ -603,12 +649,15 @@ impl CommandHandler for super::CollectionCommand {
     ) -> Self::Output {
         match self {
             Self::List => {
-                let resp = client.collection_list(ctx).await?;
-                println!("Daemon response:\n{resp:?}");
+                let resp: Box<[CollectionBrief]> = client.collection_list(ctx).await?;
+                println!(
+                    "Daemon response:\n{}",
+                    printing::playlist_collection_list("Collections", &resp)?
+                );
                 Ok(())
             }
             Self::Get { id } => {
-                let resp = client
+                let resp: Option<Collection> = client
                     .collection_get(
                         ctx,
                         Thing {
@@ -621,7 +670,7 @@ impl CommandHandler for super::CollectionCommand {
                 Ok(())
             }
             Self::Recluster => {
-                let resp = client
+                let resp: Result<&str, _> = client
                     .collection_recluster(ctx)
                     .await?
                     .map(|()| "reclustering started");
@@ -629,7 +678,7 @@ impl CommandHandler for super::CollectionCommand {
                 Ok(())
             }
             Self::Freeze { id, name } => {
-                let resp = client
+                let resp: Thing = client
                     .collection_freeze(
                         ctx,
                         Thing {
@@ -656,7 +705,7 @@ impl CommandHandler for super::RadioCommand {
     ) -> Self::Output {
         match self {
             Self::Songs { id, n } => {
-                let resp = client
+                let resp: Box<[Thing]> = client
                     .radio_get_similar_songs(
                         ctx,
                         Thing {
@@ -670,7 +719,7 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Artists { id, n } => {
-                let resp = client
+                let resp: Box<[Thing]> = client
                     .radio_get_similar_artists(
                         ctx,
                         Thing {
@@ -684,7 +733,7 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Albums { id, n } => {
-                let resp = client
+                let resp: Box<[Thing]> = client
                     .radio_get_similar_albums(
                         ctx,
                         Thing {

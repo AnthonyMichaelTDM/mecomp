@@ -1,4 +1,5 @@
-mod implementations;
+pub mod implementations;
+pub mod printing;
 
 use clap::{Subcommand, ValueEnum};
 
@@ -158,6 +159,13 @@ pub enum PlaybackCommand {
         #[clap(subcommand)]
         command: VolumeCommand,
     },
+    /// Set repeat mode
+    Repeat {
+        /// The repeat mode to set to (none, once, continuous)
+        mode: RepeatMode,
+    },
+    /// Shuffle the queue
+    Shuffle,
 }
 
 #[derive(Debug, Subcommand)]
@@ -202,6 +210,23 @@ pub enum VolumeCommand {
     Mute,
     /// Unmute the volume
     Unmute,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, ValueEnum)]
+pub enum RepeatMode {
+    None,
+    Once,
+    Continuous,
+}
+
+impl From<RepeatMode> for mecomp_core::state::RepeatMode {
+    fn from(mode: RepeatMode) -> Self {
+        match mode {
+            RepeatMode::None => Self::None,
+            RepeatMode::Once => Self::Once,
+            RepeatMode::Continuous => Self::Continuous,
+        }
+    }
 }
 
 #[derive(Debug, Subcommand)]
