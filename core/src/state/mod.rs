@@ -75,7 +75,7 @@ impl Display for Percent {
 /// Information about the runtime of the current song
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct StateRuntime {
-    pub seek_position: f64,
+    pub seek_position: Duration,
     pub seek_percent: Percent,
     pub duration: Duration,
 }
@@ -85,7 +85,7 @@ impl Display for StateRuntime {
         write!(
             f,
             "StateRuntime {{ seek_position: {:.2}s, seek_percent: {}, duration: {:.1}s }}",
-            self.seek_position,
+            self.seek_position.as_secs_f32(),
             self.seek_percent,
             self.duration.as_secs_f32()
         )
@@ -153,7 +153,7 @@ mod tests {
     #[case::percent(Percent::new(50.0), "50.00%")]
     #[case::state_runtimme(
         StateRuntime {
-            seek_position: 3.0,
+            seek_position: Duration::from_secs(3),
             seek_percent: Percent::new(50.0),
             duration: Duration::from_secs(6),
         },
@@ -209,7 +209,7 @@ mod tests {
             ),
             repeat_mode: RepeatMode::None,
             runtime: Some(StateRuntime {
-                seek_position: 20.0,
+                seek_position: Duration::from_secs(20),
                 seek_percent: Percent::new(20.0),
                 duration: Duration::from_secs(100),
             }),
