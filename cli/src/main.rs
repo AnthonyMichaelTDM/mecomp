@@ -5,7 +5,8 @@ mod handlers;
 use handlers::CommandHandler;
 
 /// Options configurable via the CLI.
-#[derive(Parser)]
+#[derive(Debug, Parser)]
+#[command(name = "mecomp-cli", version = env!("CARGO_PKG_VERSION"), about)]
 struct Flags {
     /// Sets the port number to listen on.
     #[clap(long, default_value = "6600")]

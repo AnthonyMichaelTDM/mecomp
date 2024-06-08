@@ -12,7 +12,7 @@ pub trait CommandHandler {
     ) -> Self::Output;
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum Command {
     /// Ping the daemon
     Ping,
@@ -70,7 +70,7 @@ pub enum Command {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum LibraryCommand {
     /// Rescan the library
     Rescan,
@@ -132,7 +132,7 @@ pub enum SearchTarget {
     Song,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum PlaybackCommand {
     /// Toggle play/pause
     Toggle,
@@ -160,7 +160,7 @@ pub enum PlaybackCommand {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum SeekCommand {
     /// Seek forwards by a given amount (in seconds)
     Forward {
@@ -179,7 +179,7 @@ pub enum SeekCommand {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum VolumeCommand {
     /// Set the volume
     Set {
@@ -204,7 +204,7 @@ pub enum VolumeCommand {
     Unmute,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum QueueCommand {
     /// Clear the queue
     Clear,
@@ -240,7 +240,7 @@ pub enum QueueAddTarget {
     Collection,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum PlaylistCommand {
     /// List playlists
     List,
@@ -292,7 +292,7 @@ pub enum PlaylistAddTarget {
     Song,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum CollectionCommand {
     /// List collections
     List,
@@ -312,7 +312,7 @@ pub enum CollectionCommand {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum RadioCommand {
     /// get the 'n' most similar songs to the given song
     Songs {
