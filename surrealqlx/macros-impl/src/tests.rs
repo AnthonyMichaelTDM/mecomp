@@ -58,7 +58,7 @@ fn test_album() {
                         .query("DEFINE FIELD genre ON album TYPE set<string> | string;")
                         .query("COMMIT;")
                         .query("BEGIN;")
-                        .query("DEFINE INDEX album_title_index ON album FIELDS title;")
+                        .query("DEFINE INDEX album_title_normal_index ON album FIELDS title;")
                         .query("COMMIT;")
                         .await?;
                     Ok(())
@@ -183,7 +183,7 @@ fn test_index() {
             favorite_numbers: [i32; 7],
             #[field(dt = "array<int>", index(vector(7)))]
             favorite_numbers2: [i32; 7],
-            #[field(dt = "string", index(text("analyzer")))]
+            #[field(dt = "string", index(text("analyzer")), index(unique))]
             text: String,
         }
     };
@@ -209,18 +209,19 @@ fn test_index() {
                         .query("DEFINE FIELD text ON users TYPE string;")
                         .query("COMMIT;")
                         .query("BEGIN;")
-                        .query("DEFINE INDEX users_name_index ON users FIELDS name UNIQUE;")
-                        .query("DEFINE INDEX users_age_index ON users FIELDS age;")
-                        .query("DEFINE INDEX users_age2_index ON users FIELDS age2;")
+                        .query("DEFINE INDEX users_name_unique_index ON users FIELDS name UNIQUE;")
+                        .query("DEFINE INDEX users_age_normal_index ON users FIELDS age;")
+                        .query("DEFINE INDEX users_age2_normal_index ON users FIELDS age2;")
                         .query(
-                            "DEFINE INDEX users_favorite_numbers_index ON users FIELDS favorite_numbers MTREE DIMENSION 7;",
+                            "DEFINE INDEX users_favorite_numbers_vector_index ON users FIELDS favorite_numbers MTREE DIMENSION 7;",
                         )
                         .query(
-                            "DEFINE INDEX users_favorite_numbers2_index ON users FIELDS favorite_numbers2 MTREE DIMENSION 7;",
+                            "DEFINE INDEX users_favorite_numbers2_vector_index ON users FIELDS favorite_numbers2 MTREE DIMENSION 7;",
                         )
                         .query(
-                            "DEFINE INDEX users_text_index ON users FIELDS text SEARCH ANALYZER analyzer BM25;",
+                            "DEFINE INDEX users_text_text_index ON users FIELDS text SEARCH ANALYZER analyzer BM25;",
                         )
+                        .query("DEFINE INDEX users_text_unique_index ON users FIELDS text UNIQUE;")
                         .query("COMMIT;")
                         .await?;
                     Ok(())

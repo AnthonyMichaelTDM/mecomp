@@ -125,7 +125,7 @@ fn create_table_field_queries<'a>(
             })
             .peekable();
 
-        let mut field_index = None;
+        let mut field_indexes = Vec::new();
 
         // process the field attribute
         let field_type = match field_attrs.next() {
@@ -140,8 +140,8 @@ fn create_table_field_queries<'a>(
                     index,
                 },
             ))) => {
-                if index.is_some() {
-                    field_index = index;
+                if !index.is_empty() {
+                    field_indexes = index;
                 };
                 type_.value()
             }
@@ -180,7 +180,7 @@ fn create_table_field_queries<'a>(
             "DEFINE FIELD {field_name} ON {table_name} TYPE {field_type};",
         ));
 
-        if let Some(index) = field_index {
+        for index in field_indexes {
             index_queries.push(index.to_query_string(table_name, &field_name.to_string()));
         }
     }
@@ -191,7 +191,7 @@ fn create_table_field_queries<'a>(
 struct FieldAnnotation {
     skip: bool,
     type_: Option<syn::LitStr>,
-    index: Option<IndexAnnotation>,
+    index: Vec<IndexAnnotation>,
 }
 
 /// parses the `#[field]` attribute
@@ -203,7 +203,9 @@ impl Parse for FieldAnnotation {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut skip = false;
         let mut type_ = None;
-        let mut index = None;
+        let mut index = Vec::new();
+
+        // TODO: error if more than one of the same type of index is specified
 
         while !input.is_empty() {
             match input.parse::<syn::Expr>()? {
@@ -223,7 +225,7 @@ impl Parse for FieldAnnotation {
                 },
                 syn::Expr::Call(call) => match call.func.to_token_stream().to_string().as_str() {
                     "index" => {
-                        index = Some(IndexAnnotation::parse(call.args.borrow())?);
+                        index.push(IndexAnnotation::parse(call.args.borrow())?);
                     }
                     _ => {
                         return Err(syn::Error::new_spanned(
@@ -283,8 +285,14 @@ impl IndexAnnotation {
             Self::Normal => String::new(),
             Self::Unique => String::from(" UNIQUE"),
         };
+        let index_type = match self {
+            Self::Vector(_) => "vector",
+            Self::Text(_) => "text",
+            Self::Normal => "normal",
+            Self::Unique => "unique",
+        };
         format!(
-            "DEFINE INDEX {table_name}_{field_name}_index ON {table_name} FIELDS {field_name}{extra};"
+            "DEFINE INDEX {table_name}_{field_name}_{index_type}_index ON {table_name} FIELDS {field_name}{extra};"
         )
     }
     fn parse(args: &Punctuated<syn::Expr, syn::token::Comma>) -> syn::Result<Self> {
