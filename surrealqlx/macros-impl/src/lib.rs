@@ -77,14 +77,14 @@ pub fn table_macro_impl(input: TokenStream) -> syn::Result<TokenStream> {
 //
 // the macro will also implement the Table trait for the struct
 
-#[derive(Default)]
+#[derive(Debug, Copy, Clone)]
 struct VectorIndexAnnotation {
-    dim: Option<usize>,
+    dim: usize,
 }
 
 impl VectorIndexAnnotation {
     fn parse(args: &Punctuated<syn::Expr, syn::token::Comma>) -> syn::Result<Self> {
-        let mut vectorindex = Self::default();
+        let mut dim = None;
         for arg in args {
             match arg {
                 syn::Expr::Assign(assign)
@@ -92,7 +92,7 @@ impl VectorIndexAnnotation {
                 {
                     if let syn::Expr::Lit(lit) = &*assign.right {
                         if let syn::Lit::Int(int) = &lit.lit {
-                            vectorindex.dim = Some(int.base10_parse()?);
+                            dim = Some(int.base10_parse()?);
                             continue;
                         }
                     }
@@ -100,7 +100,7 @@ impl VectorIndexAnnotation {
                 }
                 syn::Expr::Lit(lit) => {
                     match &lit.lit {
-                        syn::Lit::Int(int) => vectorindex.dim = Some(int.base10_parse()?),
+                        syn::Lit::Int(int) => dim = Some(int.base10_parse()?),
                         _ => return Err(syn::Error::new_spanned(lit, "`dim` expects an integer literal representing the number of dimensions in the vector")),
                     }
                 }
@@ -113,25 +113,29 @@ impl VectorIndexAnnotation {
             }
         }
 
-        if vectorindex.dim.is_none() {
-            return Err(syn::Error::new_spanned(
+        match dim {
+            Some(dim) if dim > 0 => Ok(Self { dim }),
+            Some(_) => Err(syn::Error::new_spanned(
+                args,
+                "Vector dimension must be greater than 0",
+            )),
+            None => Err(syn::Error::new_spanned(
                 args,
                 "vector attribute without dimension set",
-            ));
+            )),
         }
-
-        Ok(vectorindex)
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone, Copy)]
 struct IndexAnnotation {
     unique: bool,
-    vector: VectorIndexAnnotation,
+    vector: Option<VectorIndexAnnotation>,
 }
 
 impl IndexAnnotation {
-    fn to_query_string(&self, table_name: &str, field_name: &str) -> String {
+    // if both vector and full-text indexes are set, return None
+    fn to_query_string(self, table_name: &str, field_name: &str) -> String {
         format!(
             "DEFINE INDEX {table_name}_{field_name}_index ON {table_name} FIELDS {field_name}{};",
             {
@@ -139,8 +143,8 @@ impl IndexAnnotation {
                 if self.unique {
                     extra.push_str(" UNIQUE");
                 }
-                if let Some(vector_dim) = self.vector.dim {
-                    extra.push_str(format!(" MTREE DIMENSION {vector_dim}").as_str());
+                if let Some(vector) = self.vector {
+                    extra.push_str(format!(" MTREE DIMENSION {}", vector.dim).as_str());
                 }
 
                 extra
@@ -152,7 +156,7 @@ impl IndexAnnotation {
         for arg in args {
             match arg {
                 syn::Expr::Call(call) if call.func.to_token_stream().to_string().eq("vector") => {
-                    index.vector = VectorIndexAnnotation::parse(&call.args)?;
+                    index.vector = Some(VectorIndexAnnotation::parse(&call.args)?);
                 }
                 syn::Expr::Path(path) if path.to_token_stream().to_string().eq("unique") => {
                     index.unique = true;
