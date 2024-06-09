@@ -23,7 +23,10 @@ pub struct Artist {
     pub id: ArtistId,
 
     /// The [`Artist`]'s name.
-    #[cfg_attr(feature = "db", field(dt = "string", index(unique)))]
+    #[cfg_attr(
+        feature = "db",
+        field(dt = "string", index(unique), index(text("custom_analyzer")))
+    )]
     pub name: Arc<str>,
 
     /// Total runtime.

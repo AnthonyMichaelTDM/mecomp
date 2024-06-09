@@ -12,7 +12,6 @@ use mecomp_core::{
     audio::{AudioCommand, QueueCommand, VolumeCommand, AUDIO_KERNEL},
     errors::SerializableLibraryError,
     rpc::{AlbumId, ArtistId, CollectionId, MusicPlayer, PlaylistId, SongId},
-    search::SearchResult,
     state::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
         RepeatMode, SeekType, StateAudio, StateRuntime,
@@ -449,27 +448,73 @@ impl MusicPlayer for MusicPlayerServer {
 
     /// returns a list of artists, albums, and songs matching the given search query.
     #[instrument]
-    async fn search(self, context: Context, query: String) -> Box<[SearchResult]> {
+    #[allow(clippy::type_complexity)]
+    async fn search(
+        self,
+        context: Context,
+        query: String,
+        limit: u32,
+    ) -> (Box<[Song]>, Box<[Album]>, Box<[Artist]>) {
         info!("Searching for: {}", query);
-        todo!()
+        // basic idea:
+        // 1. search for songs
+        // 2. search for albums
+        // 3. search for artists
+        // 4. return the results
+        let songs = Song::search_by_title(&self.db, &query, i64::from(limit))
+            .await
+            .tap_err(|e| warn!("Error in search: {e}"))
+            .unwrap_or_default()
+            .into();
+
+        let albums = Album::search_by_title(&self.db, &query, i64::from(limit))
+            .await
+            .tap_err(|e| warn!("Error in search: {e}"))
+            .unwrap_or_default()
+            .into();
+
+        let artists = Artist::search_by_name(&self.db, &query, i64::from(limit))
+            .await
+            .tap_err(|e| warn!("Error in search: {e}"))
+            .unwrap_or_default()
+            .into();
+        (songs, albums, artists)
     }
     /// returns a list of artists matching the given search query.
     #[instrument]
-    async fn search_artist(self, context: Context, query: String) -> Box<[Artist]> {
+    async fn search_artist(self, context: Context, query: String, limit: u32) -> Box<[Artist]> {
         info!("Searching for artist: {}", query);
-        todo!()
+        Artist::search_by_name(&self.db, &query, i64::from(limit))
+            .await
+            .tap_err(|e| {
+                warn!("Error in search_artist: {e}");
+            })
+            .unwrap_or_default()
+            .into()
     }
     /// returns a list of albums matching the given search query.
     #[instrument]
-    async fn search_album(self, context: Context, query: String) -> Box<[Album]> {
+    async fn search_album(self, context: Context, query: String, limit: u32) -> Box<[Album]> {
         info!("Searching for album: {}", query);
-        todo!()
+        Album::search_by_title(&self.db, &query, i64::from(limit))
+            .await
+            .tap_err(|e| {
+                warn!("Error in search_album: {e}");
+            })
+            .unwrap_or_default()
+            .into()
     }
     /// returns a list of songs matching the given search query.
     #[instrument]
-    async fn search_song(self, context: Context, query: String) -> Box<[Song]> {
+    async fn search_song(self, context: Context, query: String, limit: u32) -> Box<[Song]> {
         info!("Searching for song: {}", query);
-        todo!()
+        Song::search_by_title(&self.db, &query, i64::from(limit))
+            .await
+            .tap_err(|e| {
+                warn!("Error in search_song: {e}");
+            })
+            .unwrap_or_default()
+            .into()
     }
 
     /// toggles playback (play/pause).

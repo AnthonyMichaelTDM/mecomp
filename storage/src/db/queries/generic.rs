@@ -1,7 +1,7 @@
 use surrealdb::sql::{
     statements::{DeleteStatement, OutputStatement, RelateStatement, SelectStatement},
-    Cond, Dir, Expression, Fields, Graph, Ident, Idiom, Number, Operator, Param, Part, Subquery,
-    Table, Tables, Value, Values,
+    Cond, Dir, Expression, Fields, Graph, Ident, Idiom, Limit, Number, Operator, Order, Orders,
+    Param, Part, Subquery, Table, Tables, Value, Values,
 };
 
 /// Query to add relations between two tables.
@@ -371,6 +371,57 @@ pub fn count_orphaned_both<Table: AsRef<str>, Rel1: AsRef<str>, Rel2: AsRef<str>
     count_orphaned_both_statement(table.as_ref(), rel1.as_ref(), rel2.as_ref())
 }
 
+/// Query to run a full text search on a given field of a given table.
+///
+/// Compiles to:
+/// ```sql, ignore
+/// SELECT * FROM table WHERE field @@ $field ORDER BY relevance DESC LIMIT limit
+/// ```
+///
+/// # Example
+///
+/// ```ignore
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::generic::full_text_search;
+/// use surrealdb::opt::IntoQuery;
+///
+/// // Example: search for songs with the word "hello" in the title
+/// let statement = full_text_search("song", "title", 10);
+/// assert_eq!(
+///    statement.into_query().unwrap(),
+///   "SELECT * FROM song WHERE title @@ $title ORDER BY relevance DESC LIMIT 10".into_query().unwrap()
+/// );
+/// ```
+#[must_use]
+pub fn full_text_search<Table: AsRef<str>, Field: AsRef<str>>(
+    table: Table,
+    field: Field,
+    limit: i64,
+) -> SelectStatement {
+    fn full_text_search_statement(table: &str, field: &str, limit: i64) -> SelectStatement {
+        SelectStatement {
+            expr: Fields::all(),
+            what: Values(vec![Value::Table(Table(table.into()))]),
+            cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
+                l: Value::Idiom(Idiom(vec![Part::Field(Ident(field.into()))])),
+                o: Operator::Matches(None),
+                r: Value::Param(Param(Ident(field.into()))),
+            })))),
+            order: Some(Orders(vec![Order {
+                order: Idiom(vec![Part::Field(Ident("relevance".into()))]),
+                random: false,
+                collate: false,
+                numeric: false,
+                direction: false,
+            }])),
+            limit: Some(Limit(Value::Number(limit.into()))),
+            ..Default::default()
+        }
+    }
+
+    full_text_search_statement(table.as_ref(), field.as_ref(), limit)
+}
+
 #[cfg(test)]
 mod query_validation_tests {
     use pretty_assertions::assert_eq;
@@ -454,6 +505,17 @@ mod query_validation_tests {
         assert_eq!(
             statement.into_query().unwrap(),
             "RETURN array::len((SELECT * FROM artist WHERE count(->artist_to_album) = 0 AND count(->artist_to_song) = 0))".into_query().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_full_text_search() {
+        let statement = full_text_search("song", "title", 10);
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM song WHERE title @@ $title ORDER BY relevance DESC LIMIT 10"
+                .into_query()
+                .unwrap()
         );
     }
 }

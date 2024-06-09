@@ -19,6 +19,8 @@ pub type SongId = Thing;
 pub const TABLE_NAME: &str = "song";
 
 /// This struct holds all the metadata about a particular [`Song`].
+///
+/// TODO: figure out how to "full text search" on the `title`, `artist`, `album`, `album_artist`, and `genre` fields
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "db", derive(surrealqlx::Table))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -28,7 +30,7 @@ pub struct Song {
     #[cfg_attr(feature = "db", field(dt = "record"))]
     pub id: SongId,
     /// Title of the [`Song`].
-    #[cfg_attr(feature = "db", field(dt = "string", index()))]
+    #[cfg_attr(feature = "db", field(dt = "string", index(text("custom_analyzer"))))]
     pub title: Arc<str>,
     /// Artist of the [`Song`]. (Can be multiple)
     #[cfg_attr(feature = "db", field(dt = "option<set<string> | string>"))]

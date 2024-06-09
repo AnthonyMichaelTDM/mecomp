@@ -22,6 +22,7 @@ use one_or_many::OneOrMany;
 impl CommandHandler for Command {
     type Output = anyhow::Result<()>;
 
+    #[allow(clippy::too_many_lines)]
     async fn handle(
         &self,
         ctx: tarpc::context::Context,
@@ -81,30 +82,41 @@ impl CommandHandler for Command {
                 }
                 Ok(())
             }
-            Self::Search { target, query } => {
+            Self::Search {
+                target,
+                query,
+                limit,
+            } => {
                 match target {
-                    None => {
+                    SearchTarget::All => {
+                        let (songs, albums, artists) =
+                            client.search(ctx, query.clone(), *limit).await?;
                         println!(
-                            "Daemon response:\n{:?}",
-                            client.search(ctx, query.clone()).await?
+                            "Daemon response:\n{}\n{}\n{}",
+                            printing::song_list("Songs", &songs, false)?,
+                            printing::album_list("Albums", &albums)?,
+                            printing::artist_list("Artists", &artists)?
                         );
                     }
-                    Some(SearchTarget::Artist) => {
-                        let resp: Box<[Artist]> = client.search_artist(ctx, query.clone()).await?;
+                    SearchTarget::Artist => {
+                        let resp: Box<[Artist]> =
+                            client.search_artist(ctx, query.clone(), *limit).await?;
                         println!(
                             "Daemon response:\n{}",
                             printing::artist_list("Artists", &resp)?
                         );
                     }
-                    Some(SearchTarget::Album) => {
-                        let resp: Box<[Album]> = client.search_album(ctx, query.clone()).await?;
+                    SearchTarget::Album => {
+                        let resp: Box<[Album]> =
+                            client.search_album(ctx, query.clone(), *limit).await?;
                         println!(
                             "Daemon response:\n{}",
                             printing::album_list("Albums", &resp)?
                         );
                     }
-                    Some(SearchTarget::Song) => {
-                        let resp: Box<[Song]> = client.search_song(ctx, query.clone()).await?;
+                    SearchTarget::Song => {
+                        let resp: Box<[Song]> =
+                            client.search_song(ctx, query.clone(), *limit).await?;
                         println!(
                             "Daemon response:\n{}",
                             printing::song_list("Songs", &resp, false)?

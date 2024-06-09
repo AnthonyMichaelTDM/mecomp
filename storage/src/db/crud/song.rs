@@ -6,16 +6,20 @@ use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
-    db::schemas::{
-        album::Album,
-        artist::Artist,
-        song::{Song, SongChangeSet, SongId, SongMetadata, TABLE_NAME},
+    db::{
+        queries::{
+            generic::full_text_search,
+            song::{read_album, read_album_artist, read_artist, read_song_by_path},
+        },
+        schemas::{
+            album::Album,
+            artist::Artist,
+            song::{Song, SongChangeSet, SongId, SongMetadata, TABLE_NAME},
+        },
     },
     errors::{Error, SongIOError},
 };
 use one_or_many::OneOrMany;
-
-use super::queries::song::{read_album, read_album_artist, read_artist, read_song_by_path};
 
 impl Song {
     #[instrument]
@@ -78,6 +82,20 @@ impl Song {
             .take(0)?;
 
         Ok(res.into())
+    }
+
+    #[instrument]
+    /// TODO: figure out how to "full text search" on the `title`, `artist`, `album`, `album_artist`, and `genre` fields
+    pub async fn search_by_title<C: Connection>(
+        db: &Surreal<C>,
+        title: &str,
+        limit: i64,
+    ) -> Result<Vec<Self>, Error> {
+        Ok(db
+            .query(full_text_search(TABLE_NAME, "title", limit))
+            .bind(("title", title))
+            .await?
+            .take(0)?)
     }
 
     /// Update the information about a song, repairs relations if necessary
@@ -389,6 +407,29 @@ mod test {
             OneOrMany::One(artist),
             Song::read_album_artist(&db, song.id.clone()).await?
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_search_by_title() -> Result<()> {
+        let db = init_test_database().await?;
+        let ulid1 = ulid();
+        let ulid2 = ulid();
+        let song1 = create_song(&ulid1);
+        let song2 = create_song(&ulid2);
+
+        Song::create(&db, song1.clone()).await?;
+        Song::create(&db, song2.clone()).await?;
+
+        let found = Song::search_by_title(&db, "Test Song", 2).await?;
+        assert_eq!(found.len(), 2);
+        assert!(found.contains(&song1));
+        assert!(found.contains(&song2));
+
+        let found = Song::search_by_title(&db, &ulid1, 1).await?;
+        assert_eq!(found.len(), 1);
+        assert_eq!(found, vec![song1]);
+
         Ok(())
     }
 

@@ -35,10 +35,14 @@ pub enum Command {
     #[clap(hide = true)]
     Search {
         /// What we're searching for
-        target: Option<SearchTarget>,
+        target: SearchTarget,
 
         /// The search query
         query: String,
+
+        /// The number of results to return
+        #[clap(default_value = "10")]
+        limit: u32,
     },
     /// Playback control
     Playback {
@@ -128,6 +132,7 @@ pub enum RandTarget {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, ValueEnum)]
 pub enum SearchTarget {
+    All,
     Artist,
     Album,
     Song,

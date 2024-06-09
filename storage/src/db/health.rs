@@ -5,13 +5,11 @@ use tracing::instrument;
 
 use surrealqlx::traits::Table;
 
-use crate::db::crud::queries::generic::count;
+use crate::db::queries::generic::{count, count_orphaned, count_orphaned_both};
 use crate::db::schemas::{
     album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song,
 };
 use crate::errors::Error;
-
-use super::crud::queries::generic::{count_orphaned, count_orphaned_both};
 
 /// Count the number of albums in the database
 #[instrument]

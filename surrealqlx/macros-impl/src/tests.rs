@@ -12,7 +12,7 @@ fn test_album() {
         pub struct Album {
             #[field(dt = "record")]
             pub id: AlbumId,
-            #[field(dt = "string", index())]
+            #[field(dt = "string", index(text("custom_analyzer")))]
             pub title: Arc<str>,
             #[field(dt = "set<record> | record")]
             pub artist_id: OneOrMany<ArtistId>,
@@ -58,7 +58,7 @@ fn test_album() {
                         .query("DEFINE FIELD genre ON album TYPE set<string> | string;")
                         .query("COMMIT;")
                         .query("BEGIN;")
-                        .query("DEFINE INDEX album_title_index ON album FIELDS title;")
+                        .query("DEFINE INDEX album_title_text_index ON album FIELDS title SEARCH ANALYZER custom_analyzer BM25;")
                         .query("COMMIT;")
                         .await?;
                     Ok(())
@@ -181,8 +181,10 @@ fn test_index() {
             age2: i32,
             #[field(dt = "array<int>", index(vector(dim = 7)))]
             favorite_numbers: [i32; 7],
-            #[field(dt = "array<int>", index(unique, vector(7)))]
+            #[field(dt = "array<int>", index(vector(7)))]
             favorite_numbers2: [i32; 7],
+            #[field(dt = "string", index(text("analyzer")), index(unique))]
+            text: String,
         }
     };
 
@@ -204,17 +206,22 @@ fn test_index() {
                         .query("DEFINE FIELD age2 ON users TYPE int;")
                         .query("DEFINE FIELD favorite_numbers ON users TYPE array<int>;")
                         .query("DEFINE FIELD favorite_numbers2 ON users TYPE array<int>;")
+                        .query("DEFINE FIELD text ON users TYPE string;")
                         .query("COMMIT;")
                         .query("BEGIN;")
-                        .query("DEFINE INDEX users_name_index ON users FIELDS name UNIQUE;")
-                        .query("DEFINE INDEX users_age_index ON users FIELDS age;")
-                        .query("DEFINE INDEX users_age2_index ON users FIELDS age2;")
+                        .query("DEFINE INDEX users_name_unique_index ON users FIELDS name UNIQUE;")
+                        .query("DEFINE INDEX users_age_normal_index ON users FIELDS age;")
+                        .query("DEFINE INDEX users_age2_normal_index ON users FIELDS age2;")
                         .query(
-                            "DEFINE INDEX users_favorite_numbers_index ON users FIELDS favorite_numbers MTREE DIMENSION 7;",
+                            "DEFINE INDEX users_favorite_numbers_vector_index ON users FIELDS favorite_numbers MTREE DIMENSION 7;",
                         )
                         .query(
-                            "DEFINE INDEX users_favorite_numbers2_index ON users FIELDS favorite_numbers2 UNIQUE MTREE DIMENSION 7;",
+                            "DEFINE INDEX users_favorite_numbers2_vector_index ON users FIELDS favorite_numbers2 MTREE DIMENSION 7;",
                         )
+                        .query(
+                            "DEFINE INDEX users_text_text_index ON users FIELDS text SEARCH ANALYZER analyzer BM25;",
+                        )
+                        .query("DEFINE INDEX users_text_unique_index ON users FIELDS text UNIQUE;")
                         .query("COMMIT;")
                         .await?;
                     Ok(())
@@ -302,14 +309,22 @@ fn test_fails_for_non_structs(#[case] input: TokenStream) {
 }
 
 #[rstest]
-#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index)] name: String, }})]
-#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(invalid_option))] name: String, }})]
-#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(unique = foo))] name: String, }})]
-#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector))] name: String, }})]
-#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector()))] name: String, }})]
-#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector(dim)))] name: String, }})]
-#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector(dim = "not a number")))] name: String, }})]
-#[case(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector("not a number")))] name: String, }})]
+#[case::not_a_call_expr(quote!{ #[Table("users")] struct User { #[field(dt = "string", index)] name: String, }})]
+#[case::invalid_arg(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(invalid_option))] name: String, }})]
+#[case::unique_not_bool(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(unique = foo))] name: String, }})]
+#[case::vector_not_a_call_expr(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector))] name: String, }})]
+#[case::vector_invalid_dim(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector()))] name: String, }})]
+#[case::vector_invalid_dim(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector(0)))] name: String, }})]
+#[case::vector_invalid_dim(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector(dim)))] name: String, }})]
+#[case::vector_invalid_dim(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector(dim = "not a number")))] name: String, }})]
+#[case::vector_invalid_dim(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector("not a number")))] name: String, }})]
+#[case::cant_mix_index_types(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(unique, vector(1)))] name: String, }})]
+#[case::cant_mix_index_types(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(unique, text("analyzer")))] name: String, }})]
+#[case::cant_mix_index_types(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(vector(1), text("analyzer")))] name: String, }})]
+#[case::text_not_a_call_expr(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(text))] name: String, }})]
+#[case::text_invalid_analyzer(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(text()))] name: String, }})]
+#[case::text_invalid_analyzer(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(text(0)))] name: String, }})]
+#[case::text_invalid_analyzer(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(text(analyzer)))] name: String, }})]
 fn test_invalid_index(#[case] input: TokenStream) {
     let expanded = table_macro_impl(input);
     assert!(expanded.is_err());

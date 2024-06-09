@@ -6,7 +6,7 @@ use tracing::instrument;
 
 use crate::{
     db::{
-        crud::queries::playlist::read_by_name,
+        queries::playlist::{add_songs, read_by_name, read_songs, remove_songs},
         schemas::{
             playlist::{Playlist, PlaylistChangeSet, PlaylistId, TABLE_NAME},
             song::{Song, SongId},
@@ -14,8 +14,6 @@ use crate::{
     },
     errors::Error,
 };
-
-use super::queries::playlist::{add_songs, read_songs, remove_songs};
 
 impl Playlist {
     #[instrument]
