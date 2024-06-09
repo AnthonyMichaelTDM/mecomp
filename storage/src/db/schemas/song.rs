@@ -1,7 +1,7 @@
 #![allow(clippy::module_name_repetitions)]
 //----------------------------------------------------------------------------------------- std lib
+use std::path::PathBuf;
 use std::sync::Arc;
-use std::{collections::HashSet, path::PathBuf};
 //--------------------------------------------------------------------------------- other libraries
 #[cfg(not(feature = "db"))]
 use super::Thing;
@@ -90,7 +90,7 @@ impl Song {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct SongChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -246,52 +246,6 @@ impl SongMetadata {
             // the release year is the same, or the release year is not in self but is in other
             && (self.release_year == other.release_year
                 || (self.release_year.is_none() && other.release_year.is_some()))
-    }
-
-    /// Merge the metadata of two songs.
-    /// This function will merge the metadata of two songs into a new song metadata.
-    ///
-    /// for fields that can't be merged (like the title, album, or duration), the metadata of `self` will be used.
-    ///
-    /// Therefore, you should check that the songs are the same song before merging (use `is_same_song`).
-    #[instrument()]
-    pub fn merge(base: &Self, other: &Self) -> Self {
-        Self {
-            title: base.title.clone(),
-            // merge the artists, if the artist is in `self` and not in `other`, then add it to the merged metadata
-            artist: {
-                base.artist
-                    .iter()
-                    .chain(other.artist.iter())
-                    .cloned()
-                    .collect::<HashSet<_>>() // remove duplicates
-                    .into_iter()
-                    .collect()
-            },
-            album: base.album.clone(),
-            album_artist: base
-                .album_artist
-                .iter()
-                .chain(other.album_artist.iter())
-                .cloned()
-                .collect::<HashSet<_>>() // remove duplicates
-                .into_iter()
-                .collect(),
-            genre: base
-                .genre
-                .iter()
-                .chain(other.genre.iter())
-                .cloned()
-                .collect::<HashSet<Arc<str>>>()
-                .into_iter()
-                .collect(),
-            runtime: base.runtime,
-            track: base.track.or(other.track),
-            disc: base.disc.or(other.disc),
-            release_year: base.release_year.or(other.release_year),
-            extension: base.extension.clone(),
-            path: base.path.clone(),
-        }
     }
 
     /// create a changeset from the difference between `self` and `song`
@@ -482,5 +436,77 @@ mod tests {
     fn test_song_brief_from_song<T: Into<SongBrief>>(#[case] song: T, #[case] brief: SongBrief) {
         let actual: SongBrief = song.into();
         assert_eq!(actual, brief);
+    }
+
+    #[rstest]
+    #[case::same(SongMetadata {
+        title: Arc::from("song"),
+        artist: OneOrMany::One(Arc::from("artist")),
+        album_artist: OneOrMany::One(Arc::from("artist")),
+        album: Arc::from("album"),
+        genre: OneOrMany::One(Arc::from("genre")),
+        runtime: Duration::from_secs(3600),
+        track: Some(1),
+        disc: Some(1),
+        release_year: Some(2021),
+        extension: Arc::from("mp3"),
+        path: PathBuf::from("path"),
+    },
+    Song {
+        id: Thing::from((TABLE_NAME, "id")),
+        title: Arc::from("song"),
+        artist: OneOrMany::One(Arc::from("artist")),
+        album_artist: OneOrMany::One(Arc::from("artist")),
+        album: Arc::from("album"),
+        genre: OneOrMany::One(Arc::from("genre")),
+        runtime: Duration::from_secs(3600),
+        track: Some(1),
+        disc: Some(1),
+        release_year: Some(2021),
+        extension: Arc::from("mp3"),
+        path: PathBuf::from("path"),
+    },
+    SongChangeSet::default())]
+    #[case::different(SongMetadata {
+        title: Arc::from("song 2"),
+        artist: OneOrMany::One(Arc::from("artist")),
+        album_artist: OneOrMany::One(Arc::from("artist")),
+        album: Arc::from("album"),
+        genre: OneOrMany::One(Arc::from("rock")),
+        runtime: Duration::from_secs(3000),
+        track: Some(1),
+        disc: Some(3),
+        release_year: Some(2021),
+        extension: Arc::from("mp3"),
+        path: PathBuf::from("path"),
+    },
+    Song {
+        id: Thing::from((TABLE_NAME, "id")),
+        title: Arc::from("song"),
+        artist: OneOrMany::One(Arc::from("artist")),
+        album_artist: OneOrMany::One(Arc::from("artist")),
+        album: Arc::from("album"),
+        genre: OneOrMany::One(Arc::from("genre")),
+        runtime: Duration::from_secs(3600),
+        track: Some(1),
+        disc: Some(1),
+        release_year: Some(2021),
+        extension: Arc::from("mp3"),
+        path: PathBuf::from("path"),
+    },
+    SongChangeSet{
+        title: Some(Arc::from("song 2")),
+        genre: Some(OneOrMany::One(Arc::from("rock"))),
+        runtime: Some(Duration::from_secs(3000)),
+        disc: Some(Some(3)),
+        ..Default::default()
+    })]
+    fn test_merge_with_song(
+        #[case] base: SongMetadata,
+        #[case] other: Song,
+        #[case] expected: SongChangeSet,
+    ) {
+        let actual = base.merge_with_song(&other);
+        assert_eq!(actual, expected);
     }
 }

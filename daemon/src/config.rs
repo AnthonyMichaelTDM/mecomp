@@ -48,7 +48,7 @@ impl Default for DaemonSettings {
                 .into_boxed_slice(),
             artist_separator: None,
             genre_separator: None,
-            conflict_resolution: MetadataConflictResolution::Merge,
+            conflict_resolution: MetadataConflictResolution::Overwrite,
         }
     }
 }

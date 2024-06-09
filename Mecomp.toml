@@ -15,4 +15,4 @@ artist_separator = ", "
 # "merge" - merge the metadata
 # "overwrite" - overwrite the metadata with new metadata
 # "skip" - skip the file (keep old metadata)
-conflict_resolution = "merge"
+conflict_resolution = "overwrite"

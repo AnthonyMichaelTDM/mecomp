@@ -49,48 +49,55 @@ pub async fn rescan<C: Connection>(
     // for each song, check if the file still exists
     for song in songs {
         let path = song.path.clone();
-        if path.exists() {
-            // check if the metadata of the file is the same as the metadata in the database
-            match SongMetadata::load_from_path(path.clone(), artist_name_separator, genre_separator)
-            {
-                Ok(metadata) => {
-                    debug!("loaded metadata for {}", path.to_string_lossy());
-                    if !metadata.is_same_song(&SongMetadata::from(&song)) {
-                        let new_metadata = match conflict_resolution_mode {
-                            MetadataConflictResolution::Merge => {
-                                SongMetadata::merge(&SongMetadata::from(&song), &metadata)
-                            }
-                            MetadataConflictResolution::Overwrite => metadata,
-                            MetadataConflictResolution::Skip => {
-                                warn!(
-                                    "{} has conflicting metadata with index, but conflict resolution mode is \"skip\", so we do nothing",
-                                    path.to_string_lossy()
-                                );
-                                continue;
-                            }
-                        };
-                        // if the file has been modified, update the song's metadata
-                        Song::update(db, song.id.clone(), new_metadata.merge_with_song(&song))
-                            .await?;
-                    }
-                }
-                Err(e) => {
-                    warn!(
-                        "Error reading metadata for {}: {}",
-                        path.to_string_lossy(),
-                        e
-                    );
-                    info!("assuming the file isn't a song or doesn't exist anymore, removing from library");
-                    Song::delete(db, song.id).await?;
-                }
-            }
-            // now, add the path to the list of paths to skip so that we don't index the song again
-            paths_to_skip.insert(path);
-        } else {
+        if !path.exists() {
             // remove the song from the library
             warn!("Song {} no longer exists, deleting", path.to_string_lossy());
             Song::delete(db, song.id).await?;
+            continue;
         }
+
+        debug!("loading metadata for {}", path.to_string_lossy());
+        // check if the metadata of the file is the same as the metadata in the database
+        match (
+            SongMetadata::load_from_path(path.clone(), artist_name_separator, genre_separator),
+            conflict_resolution_mode,
+        ) {
+            // if we have metadata and the metadata is different from the song's metadata, and we are in "overwrite" mode, update the song's metadata
+            (Ok(metadata), MetadataConflictResolution::Overwrite)
+                if !metadata.is_same_song(&SongMetadata::from(&song)) =>
+            {
+                info!(
+                    "{} has conflicting metadata with index, resolving conflict",
+                    path.to_string_lossy()
+                );
+                // if the file has been modified, update the song's metadata
+                Song::update(db, song.id.clone(), metadata.merge_with_song(&song)).await?;
+            }
+            // if we have metadata and the metadata is different from the song's metadata, and we are in "skip" mode, do nothing
+            (Ok(metadata), MetadataConflictResolution::Skip)
+                if !metadata.is_same_song(&SongMetadata::from(&song)) =>
+            {
+                warn!(
+                            "{} has conflicting metadata with index, but conflict resolution mode is \"skip\", so we do nothing",
+                            path.to_string_lossy()
+                        );
+                continue;
+            }
+            // if we have an error, delete the song from the library
+            (Err(e), _) => {
+                warn!(
+                    "Error reading metadata for {}: {}",
+                    path.to_string_lossy(),
+                    e
+                );
+                info!("assuming the file isn't a song or doesn't exist anymore, removing from library");
+                Song::delete(db, song.id).await?;
+            }
+            // if the metadata is the same, do nothing
+            _ => {}
+        }
+        // now, add the path to the list of paths to skip so that we don't index the song again
+        paths_to_skip.insert(path);
     }
     // now, index all the songs in the library that haven't been indexed yet
     let mut visited_paths = HashSet::new();
