@@ -5,19 +5,20 @@ use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
-    db::schemas::{
-        album::{Album, AlbumId},
-        artist::{Artist, ArtistChangeSet, ArtistId, TABLE_NAME},
-        song::{Song, SongId},
+    db::{
+        queries::artist::{
+            add_album, add_album_to_artists, add_songs, read_albums, read_by_name, read_by_names,
+            read_many, read_songs, remove_songs,
+        },
+        schemas::{
+            album::{Album, AlbumId},
+            artist::{Artist, ArtistChangeSet, ArtistId, TABLE_NAME},
+            song::{Song, SongId},
+        },
     },
     errors::Error,
 };
 use one_or_many::OneOrMany;
-
-use super::queries::artist::{
-    add_album, add_album_to_artists, add_songs, read_albums, read_by_name, read_by_names,
-    read_many, read_songs, remove_songs,
-};
 
 impl Artist {
     #[instrument]

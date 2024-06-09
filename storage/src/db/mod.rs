@@ -2,6 +2,8 @@
 pub mod crud;
 #[cfg(feature = "db")]
 pub mod health;
+#[cfg(feature = "db")]
+pub mod queries;
 pub mod schemas;
 
 #[cfg(feature = "db")]

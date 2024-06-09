@@ -5,14 +5,15 @@ use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
-    db::schemas::{
-        collection::{Collection, CollectionChangeSet, CollectionId, TABLE_NAME},
-        song::{Song, SongId},
+    db::{
+        queries::collection::{add_songs, read_songs, remove_songs},
+        schemas::{
+            collection::{Collection, CollectionChangeSet, CollectionId, TABLE_NAME},
+            song::{Song, SongId},
+        },
     },
     errors::Error,
 };
-
-use super::queries::collection::{add_songs, read_songs, remove_songs};
 
 impl Collection {
     #[instrument]

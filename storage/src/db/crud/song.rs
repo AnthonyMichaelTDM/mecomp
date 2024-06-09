@@ -6,16 +6,17 @@ use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
-    db::schemas::{
-        album::Album,
-        artist::Artist,
-        song::{Song, SongChangeSet, SongId, SongMetadata, TABLE_NAME},
+    db::{
+        queries::song::{read_album, read_album_artist, read_artist, read_song_by_path},
+        schemas::{
+            album::Album,
+            artist::Artist,
+            song::{Song, SongChangeSet, SongId, SongMetadata, TABLE_NAME},
+        },
     },
     errors::{Error, SongIOError},
 };
 use one_or_many::OneOrMany;
-
-use super::queries::song::{read_album, read_album_artist, read_artist, read_song_by_path};
 
 impl Song {
     #[instrument]
