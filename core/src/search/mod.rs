@@ -8,3 +8,5 @@ pub enum SearchResult {
     Artist(ArtistBrief),
     Song(SongBrief),
 }
+
+// TODO: implement searching (might move to the storage crate)
