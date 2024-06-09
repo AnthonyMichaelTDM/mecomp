@@ -7,9 +7,12 @@ use tracing::instrument;
 
 use crate::{
     db::{
-        queries::album::{
-            add_songs, read_artist, read_by_name, read_by_name_and_album_artist, read_songs,
-            remove_songs,
+        queries::{
+            album::{
+                add_songs, read_artist, read_by_name, read_by_name_and_album_artist, read_songs,
+                remove_songs,
+            },
+            generic::full_text_search,
         },
         schemas::{
             album::{Album, AlbumChangeSet, AlbumId, TABLE_NAME},
@@ -59,6 +62,19 @@ impl Album {
         Ok(db
             .query(read_by_name())
             .bind(("name", name))
+            .await?
+            .take(0)?)
+    }
+
+    #[instrument()]
+    pub async fn search_by_title<C: Connection>(
+        db: &Surreal<C>,
+        title: &str,
+        limit: i64,
+    ) -> Result<Vec<Self>, Error> {
+        Ok(db
+            .query(full_text_search(TABLE_NAME, "title", limit))
+            .bind(("title", title))
             .await?
             .take(0)?)
     }
@@ -428,6 +444,28 @@ mod tests {
         assert_eq!(read.discs, album.discs);
         assert_eq!(read.genre, album.genre);
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_search_by_name() -> Result<()> {
+        let db = init_test_database().await?;
+        let ulid1 = ulid();
+        let ulid2 = ulid();
+        let album1 = create_album(&ulid1);
+        let album2 = create_album(&ulid2);
+
+        Album::create(&db, album1.clone()).await?;
+        Album::create(&db, album2.clone()).await?;
+
+        let found = Album::search_by_title(&db, "Test Album", 2).await?;
+        assert_eq!(found.len(), 2);
+        assert!(found.contains(&album1));
+        assert!(found.contains(&album2));
+
+        let found = Album::search_by_title(&db, &ulid1, 1).await?;
+        assert_eq!(found.len(), 1);
+        assert_eq!(found, vec![album1]);
         Ok(())
     }
 

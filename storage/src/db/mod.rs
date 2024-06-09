@@ -19,6 +19,9 @@ static TEMP_DB_DIR: once_cell::sync::Lazy<tempfile::TempDir> = once_cell::sync::
     tempfile::tempdir().expect("Failed to create temporary directory")
 });
 
+/// NOTE: if you change this, you must go through the schemas and update the index analyzer names
+pub const FULL_TEXT_SEARCH_ANALYZER_NAME: &str = "custom_analyzer";
+
 /// Set the path to the database.
 ///
 /// # Errors
@@ -50,6 +53,7 @@ pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
 
     db.use_ns("mecomp").use_db("music").await?;
 
+    register_custom_analyzer(&db).await?;
     surrealqlx::register_tables!(
         &db,
         schemas::album::Album,
@@ -73,6 +77,7 @@ pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
     let db = Surreal::new::<Mem>(()).await?;
     db.use_ns("test").use_db("test").await?;
 
+    register_custom_analyzer(&db).await?;
     surrealqlx::register_tables!(
         &db,
         schemas::album::Album,
@@ -83,6 +88,24 @@ pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
     )?;
 
     Ok(db)
+}
+
+#[cfg(feature = "db")]
+pub(crate) async fn register_custom_analyzer<C>(db: &Surreal<C>) -> surrealdb::Result<()>
+where
+    C: surrealdb::Connection,
+{
+    use queries::define_analyzer;
+    use surrealdb::sql::Tokenizer;
+
+    db.query(define_analyzer(
+        FULL_TEXT_SEARCH_ANALYZER_NAME,
+        Some(Tokenizer::Class),
+        &["snowball(english)"],
+    ))
+    .await?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -100,6 +123,9 @@ mod test {
         // use an in-memory db for testing
         let db = Surreal::new::<Mem>(()).await?;
         db.use_ns("test").use_db("test").await?;
+
+        // register the custom analyzer
+        register_custom_analyzer(&db).await?;
 
         // first we init all the table to ensure that the queries made by the macro work without error
         <Album as Table>::init_table(&db).await?;

@@ -12,7 +12,7 @@ fn test_album() {
         pub struct Album {
             #[field(dt = "record")]
             pub id: AlbumId,
-            #[field(dt = "string", index())]
+            #[field(dt = "string", index(text("custom_analyzer")))]
             pub title: Arc<str>,
             #[field(dt = "set<record> | record")]
             pub artist_id: OneOrMany<ArtistId>,
@@ -58,7 +58,7 @@ fn test_album() {
                         .query("DEFINE FIELD genre ON album TYPE set<string> | string;")
                         .query("COMMIT;")
                         .query("BEGIN;")
-                        .query("DEFINE INDEX album_title_normal_index ON album FIELDS title;")
+                        .query("DEFINE INDEX album_title_text_index ON album FIELDS title SEARCH ANALYZER custom_analyzer BM25;")
                         .query("COMMIT;")
                         .await?;
                     Ok(())

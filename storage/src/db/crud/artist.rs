@@ -6,9 +6,12 @@ use tracing::instrument;
 
 use crate::{
     db::{
-        queries::artist::{
-            add_album, add_album_to_artists, add_songs, read_albums, read_by_name, read_by_names,
-            read_many, read_songs, remove_songs,
+        queries::{
+            artist::{
+                add_album, add_album_to_artists, add_songs, read_albums, read_by_name,
+                read_by_names, read_many, read_songs, remove_songs,
+            },
+            generic::full_text_search,
         },
         schemas::{
             album::{Album, AlbumId},
@@ -121,6 +124,19 @@ impl Artist {
         ids: Vec<ArtistId>,
     ) -> Result<Vec<Self>, Error> {
         Ok(db.query(read_many()).bind(("ids", ids)).await?.take(0)?)
+    }
+
+    #[instrument]
+    pub async fn search_by_name<C: Connection>(
+        db: &Surreal<C>,
+        name: &str,
+        limit: i64,
+    ) -> Result<Vec<Self>, Error> {
+        Ok(db
+            .query(full_text_search(TABLE_NAME, "name", limit))
+            .bind(("name", name))
+            .await?
+            .take(0)?)
     }
 
     #[instrument]
@@ -358,6 +374,28 @@ mod tests {
 
         let read = Artist::read_many(&db, vec![artist.id.clone(), artist2.id.clone()]).await?;
         assert_eq!(read, vec![created, created2]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_search_by_name() -> Result<()> {
+        let db = init_test_database().await?;
+        let ulid1 = ulid();
+        let ulid2 = ulid();
+        let artist1 = create_artist(&ulid1);
+        let artist2 = create_artist(&ulid2);
+
+        Artist::create(&db, artist1.clone()).await?;
+        Artist::create(&db, artist2.clone()).await?;
+
+        let found = Artist::search_by_name(&db, "Test Artist", 2).await?;
+        assert_eq!(found.len(), 2);
+        assert!(found.contains(&artist1));
+        assert!(found.contains(&artist2));
+
+        let found = Artist::search_by_name(&db, &ulid1, 1).await?;
+        assert_eq!(found.len(), 1);
+        assert_eq!(found, vec![artist1]);
         Ok(())
     }
 

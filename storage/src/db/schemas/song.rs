@@ -28,7 +28,7 @@ pub struct Song {
     #[cfg_attr(feature = "db", field(dt = "record"))]
     pub id: SongId,
     /// Title of the [`Song`].
-    #[cfg_attr(feature = "db", field(dt = "string", index()))]
+    #[cfg_attr(feature = "db", field(dt = "string", index(text("custom_analyzer"))))]
     pub title: Arc<str>,
     /// Artist of the [`Song`]. (Can be multiple)
     #[cfg_attr(feature = "db", field(dt = "option<set<string> | string>"))]
