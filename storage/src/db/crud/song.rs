@@ -85,6 +85,7 @@ impl Song {
     }
 
     #[instrument]
+    /// TODO: figure out how to "full text search" on the `title`, `artist`, `album`, `album_artist`, and `genre` fields
     pub async fn search_by_title<C: Connection>(
         db: &Surreal<C>,
         title: &str,

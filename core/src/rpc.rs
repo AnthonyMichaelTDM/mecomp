@@ -32,6 +32,8 @@ pub type AlbumId = Thing;
 pub type CollectionId = Thing;
 pub type PlaylistId = Thing;
 
+pub type SearchResult = (Box<[Song]>, Box<[Album]>, Box<[Artist]>);
+
 // TODO: add commands for reading songs by artists, in albums, in playlists, in collections, etc.
 // TODO: commands for reading songs by paths, artists by name, etc.
 // TODO: implement search commands for fuzzy searching.
@@ -113,13 +115,13 @@ pub trait MusicPlayer {
 
     // Search (fuzzy keys)
     /// returns a list of artists, albums, and songs matching the given search query.
-    async fn search(query: String, limit: i64) -> (Box<[Song]>, Box<[Album]>, Box<[Artist]>);
+    async fn search(query: String, limit: u32) -> SearchResult;
     /// returns a list of artists matching the given search query.
-    async fn search_artist(query: String, limit: i64) -> Box<[Artist]>;
+    async fn search_artist(query: String, limit: u32) -> Box<[Artist]>;
     /// returns a list of albums matching the given search query.
-    async fn search_album(query: String, limit: i64) -> Box<[Album]>;
+    async fn search_album(query: String, limit: u32) -> Box<[Album]>;
     /// returns a list of songs matching the given search query.
-    async fn search_song(query: String, limit: i64) -> Box<[Song]>;
+    async fn search_song(query: String, limit: u32) -> Box<[Song]>;
 
     // Playback control.
     /// toggles playback (play/pause).
