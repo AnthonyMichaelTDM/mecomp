@@ -113,34 +113,12 @@ impl Song {
             let old_album = old_album.ok_or(Error::NotFound)?;
 
             // find/create the new album
-            let new_album = match (&changes.album, &changes.album_artist) {
-                (Some(album), Some(album_artist)) => {
-                    Album::read_or_create_by_name_and_album_artist(
-                        db,
-                        album,
-                        album_artist.to_owned(),
-                    )
-                    .await?
-                }
-                (Some(album), None) => {
-                    Album::read_or_create_by_name_and_album_artist(
-                        db,
-                        album,
-                        old_album.artist.clone(),
-                    )
-                    .await?
-                }
-                (None, Some(album_artist)) => {
-                    // find/create the new album
-                    Album::read_or_create_by_name_and_album_artist(
-                        db,
-                        &old_album.title,
-                        album_artist.to_owned(),
-                    )
-                    .await?
-                }
-                (None, None) => unreachable!(),
-            }
+            let new_album = Album::read_or_create_by_name_and_album_artist(
+                db,
+                &changes.album.clone().unwrap_or(old_album.title),
+                changes.album_artist.clone().unwrap_or(old_album.artist),
+            )
+            .await?
             .ok_or(Error::NotFound)?;
 
             // remove song from the old album
