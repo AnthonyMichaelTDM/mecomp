@@ -184,7 +184,11 @@ fn test_index() {
             #[field(dt = "array<int>", index(vector(7)))]
             favorite_numbers2: [i32; 7],
             #[field(dt = "string", index(text("analyzer")), index(unique))]
-            text: String,
+            text1: String,
+            #[field(dt = "string", index(compound("text1"), text("analyzer")))]
+            text2: String,
+            #[field(dt = "string", index(text("analyzer"), compound("text1", "text2")))]
+            text3: String,
         }
     };
 
@@ -206,7 +210,9 @@ fn test_index() {
                         .query("DEFINE FIELD age2 ON users TYPE int;")
                         .query("DEFINE FIELD favorite_numbers ON users TYPE array<int>;")
                         .query("DEFINE FIELD favorite_numbers2 ON users TYPE array<int>;")
-                        .query("DEFINE FIELD text ON users TYPE string;")
+                        .query("DEFINE FIELD text1 ON users TYPE string;")
+                        .query("DEFINE FIELD text2 ON users TYPE string;")
+                        .query("DEFINE FIELD text3 ON users TYPE string;")
                         .query("COMMIT;")
                         .query("BEGIN;")
                         .query("DEFINE INDEX users_name_unique_index ON users FIELDS name UNIQUE;")
@@ -219,9 +225,15 @@ fn test_index() {
                             "DEFINE INDEX users_favorite_numbers2_vector_index ON users FIELDS favorite_numbers2 MTREE DIMENSION 7;",
                         )
                         .query(
-                            "DEFINE INDEX users_text_text_index ON users FIELDS text SEARCH ANALYZER analyzer BM25;",
+                            "DEFINE INDEX users_text1_text_index ON users FIELDS text1 SEARCH ANALYZER analyzer BM25;",
                         )
-                        .query("DEFINE INDEX users_text_unique_index ON users FIELDS text UNIQUE;")
+                        .query("DEFINE INDEX users_text1_unique_index ON users FIELDS text1 UNIQUE;")
+                        .query(
+                            "DEFINE INDEX users_text2_text1_text_index ON users FIELDS text2,text1 SEARCH ANALYZER analyzer BM25;",
+                        )
+                        .query(
+                            "DEFINE INDEX users_text3_text1_text2_text_index ON users FIELDS text3,text1,text2 SEARCH ANALYZER analyzer BM25;",
+                        )
                         .query("COMMIT;")
                         .await?;
                     Ok(())
@@ -325,6 +337,10 @@ fn test_fails_for_non_structs(#[case] input: TokenStream) {
 #[case::text_invalid_analyzer(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(text()))] name: String, }})]
 #[case::text_invalid_analyzer(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(text(0)))] name: String, }})]
 #[case::text_invalid_analyzer(quote!{ #[Table("users")] struct User { #[field(dt = "string", index(text(analyzer)))] name: String, }})]
+#[case::invalid_compound(quote!{ #[Table("users")] struct User {#[field(dt = "string")] text: String, #[field(dt = "string", index(compound))] name: String, }})]
+#[case::invalid_compound(quote!{ #[Table("users")] struct User {#[field(dt = "string")] text: String, #[field(dt = "string", index(compound(text)))] name: String, }})]
+#[case::invalid_compound(quote!{ #[Table("users")] struct User {#[field(dt = "string")] text: String, #[field(dt = "string", index(compound()))] name: String, }})]
+#[case::invalid_compound(quote!{ #[Table("users")] struct User {#[field(dt = "string")] text: String, #[field(dt = "string", index(compound("text"), unique, invalid))] name: String, }})]
 fn test_invalid_index(#[case] input: TokenStream) {
     let expanded = table_macro_impl(input);
     assert!(expanded.is_err());
