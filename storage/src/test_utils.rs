@@ -48,6 +48,14 @@ pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
 /// Create a song with the given case, and optionally apply the given overrides.
 ///
 /// The created song is shallow, meaning that the artists, album artists, and album are not created in the database.
+///
+/// # Errors
+///
+/// This function will return an error if the song cannot be created.
+///
+/// # Panics
+///
+/// Panics if the song can't be read from the database after creation.
 pub async fn create_song_with_overrides<C: Connection>(
     db: &Surreal<C>,
     SongCase {
@@ -97,6 +105,10 @@ pub async fn create_song_with_overrides<C: Connection>(
 /// The song file is created in a temporary directory.
 /// The song metadata is created from the song file.
 /// The song is not added to the database.
+///
+/// # Errors
+///
+/// This function will return an error if the song metadata cannot be created.
 pub fn create_song_metadata(
     tempdir: &tempfile::TempDir,
     SongCase {
@@ -120,7 +132,7 @@ pub fn create_song_metadata(
         // iterate through the tags to find a suitable one.
         None => tagged_file
             .first_tag_mut()
-            .ok_or(anyhow::anyhow!("ERROR: No tags found"))?,
+            .ok_or_else(|| anyhow::anyhow!("ERROR: No tags found"))?,
     };
 
     tag.insert_text(
@@ -150,9 +162,7 @@ pub fn create_song_metadata(
     tag.remove_genre();
     tag.set_genre(format!("Genre {genre}"));
 
-    let new_path = tempdir
-        .path()
-        .join(format!("song_{}.mp3", Id::ulid().to_string()));
+    let new_path = tempdir.path().join(format!("song_{}.mp3", Id::ulid()));
     // copy the base file to the new path
     std::fs::copy(&base_path, &new_path)?;
     // write the new tags to the new file
@@ -226,7 +236,7 @@ where
             .clone()
             .choose(&mut rand::thread_rng())
             .unwrap_or_default();
-        Vec::from_iter(std::iter::repeat_with(item_strategy).take(size))
+        std::iter::repeat_with(item_strategy).take(size).collect()
     }
 }
 
@@ -247,6 +257,7 @@ where
         let vec = arb_vec(item_strategy, range.clone())();
         let index = match index_mode {
             IndexMode::InBounds => 0..vec.len(),
+            #[allow(clippy::range_plus_one)]
             IndexMode::OutOfBounds => vec.len()..(vec.len() + vec.len() / 2 + 1),
         }
         .choose(&mut rand::thread_rng())
@@ -293,6 +304,7 @@ where
         let vec = arb_vec(item_strategy, range.clone())();
         let start = match range_start_mode {
             RangeStartMode::Standard => 0..vec.len(),
+            #[allow(clippy::range_plus_one)]
             RangeStartMode::OutOfBounds => vec.len()..(vec.len() + vec.len() / 2 + 1),
             RangeStartMode::Zero => 0..1,
         }
@@ -300,7 +312,9 @@ where
         .unwrap_or_default();
         let end = match range_end_mode {
             RangeEndMode::Standard => start..vec.len(),
+            #[allow(clippy::range_plus_one)]
             RangeEndMode::OutOfBounds => vec.len()..(vec.len() + vec.len() / 2 + 1).max(start),
+            #[allow(clippy::range_plus_one)]
             RangeEndMode::Start => start..(start + 1),
         }
         .choose(rng)
@@ -310,6 +324,7 @@ where
             RangeIndexMode::InBounds => 0..vec.len(),
             RangeIndexMode::InRange => start..end,
             RangeIndexMode::AfterRangeInBounds => end..vec.len(),
+            #[allow(clippy::range_plus_one)]
             RangeIndexMode::OutOfBounds => vec.len()..(vec.len() + vec.len() / 2 + 1),
             RangeIndexMode::BeforeRange => 0..start,
         }
