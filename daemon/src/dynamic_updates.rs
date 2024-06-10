@@ -357,7 +357,7 @@ mod tests {
     //! The tests then create a `MusicLibEventHandler` and test the event handlers
     //! by adding, modifying, and removing files in the temporary music library directory
 
-    use crate::test_utils::{arb_song_case, init, song_metadata_from_case, ARTIST_NAME_SEPARATOR};
+    use crate::test_utils::init;
 
     use super::*;
 
@@ -366,7 +366,9 @@ mod tests {
     use rstest::{fixture, rstest};
     use tempfile::{tempdir, TempDir};
 
-    use mecomp_storage::db::init_test_database;
+    use mecomp_storage::test_utils::{
+        arb_song_case, create_song_metadata, init_test_database, ARTIST_NAME_SEPARATOR,
+    };
 
     #[fixture]
     async fn setup() -> (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard) {
@@ -391,8 +393,8 @@ mod tests {
     ) {
         let (music_lib, db, handler) = setup.await;
 
-        // let's call song_metadata_from_case to create a new song in our temporary music library, and get the metadata of that song
-        let metadata = song_metadata_from_case(&music_lib, arb_song_case()()).unwrap();
+        // let's call create_song_metadata to create a new song in our temporary music library, and get the metadata of that song
+        let metadata = create_song_metadata(&music_lib, arb_song_case()()).unwrap();
 
         tokio::time::sleep(Duration::from_secs(1)).await;
 
@@ -416,8 +418,8 @@ mod tests {
     ) {
         let (music_lib, db, handler) = setup.await;
 
-        // let's call song_metadata_from_case to create a new song in our temporary music library, and get the metadata of that song
-        let metadata = song_metadata_from_case(&music_lib, arb_song_case()()).unwrap();
+        // let's call create_song_metadata to create a new song in our temporary music library, and get the metadata of that song
+        let metadata = create_song_metadata(&music_lib, arb_song_case()()).unwrap();
 
         // this should trigger the create event handler to add the song to the database, so let's see if it's there
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -467,8 +469,8 @@ mod tests {
     ) {
         let (music_lib, db, handler) = setup.await;
 
-        // let's call song_metadata_from_case to create a new song in our temporary music library, and get the metadata of that song
-        let metadata = song_metadata_from_case(&music_lib, arb_song_case()()).unwrap();
+        // let's call create_song_metadata to create a new song in our temporary music library, and get the metadata of that song
+        let metadata = create_song_metadata(&music_lib, arb_song_case()()).unwrap();
 
         // this should trigger the create event handler to add the song to the database, so let's see if it's there
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -502,8 +504,8 @@ mod tests {
     ) {
         let (music_lib, db, handler) = setup.await;
 
-        // let's call song_metadata_from_case to create a new song in our temporary music library, and get the metadata of that song
-        let metadata = song_metadata_from_case(&music_lib, arb_song_case()()).unwrap();
+        // let's call create_song_metadata to create a new song in our temporary music library, and get the metadata of that song
+        let metadata = create_song_metadata(&music_lib, arb_song_case()()).unwrap();
 
         // this should trigger the create event handler to add the song to the database, so let's see if it's there
         tokio::time::sleep(Duration::from_secs(1)).await;

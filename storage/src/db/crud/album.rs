@@ -232,17 +232,16 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::{db::init_test_database, test_utils::ulid};
+    use crate::test_utils::init_test_database;
 
     use anyhow::{anyhow, Result};
     use pretty_assertions::assert_eq;
-    use rstest::rstest;
 
-    fn create_album(ulid: &str) -> Album {
+    fn create_album() -> Album {
         Album {
             id: Album::generate_id(),
-            title: format!("Test Album {ulid}").into(),
-            artist: vec![format!("Test Artist {ulid}").into()].into(),
+            title: "Test Album".into(),
+            artist: vec!["Test Artist".into()].into(),
             runtime: Duration::from_secs(0),
             release: None,
             song_count: 0,
@@ -251,24 +250,20 @@ mod tests {
         }
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_create(ulid: String) -> Result<()> {
+    async fn test_create() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let album = create_album(ulid);
+        let album = create_album();
 
         let created = Album::create(&db, album.clone()).await?;
         assert_eq!(Some(album), created);
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read(ulid: String) -> Result<()> {
+    async fn test_read() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let album = create_album(ulid);
+        let album = create_album();
 
         let created = Album::create(&db, album.clone())
             .await?
@@ -282,19 +277,17 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_update(ulid: String) -> Result<()> {
+    async fn test_update() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let album = create_album(ulid);
+        let album = create_album();
 
         let _ = Album::create(&db, album.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create album"))?;
 
         let changes = AlbumChangeSet {
-            title: Some(format!("New Title {ulid}").into()),
+            title: Some("New Title".into()),
             ..Default::default()
         };
 
@@ -303,17 +296,15 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to read album"))?;
 
-        assert_eq!(read.title, format!("New Title {ulid}").into());
+        assert_eq!(read.title, "New Title".into());
         assert_eq!(Some(read), updated);
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_delete(ulid: String) -> Result<()> {
+    async fn test_delete() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let album = create_album(ulid);
+        let album = create_album();
 
         let _ = Album::create(&db, album.clone())
             .await?
@@ -327,29 +318,25 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_by_name(ulid: String) -> Result<()> {
+    async fn test_read_by_name() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let album = create_album(ulid);
+        let album = create_album();
 
         let _ = Album::create(&db, album.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create album"))?;
 
-        let read = Album::read_by_name(&db, &format!("Test Album {ulid}")).await?;
+        let read = Album::read_by_name(&db, "Test Album").await?;
         assert_eq!(read.len(), 1);
         assert_eq!(read[0], album);
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_all(ulid: String) -> Result<()> {
+    async fn test_read_all() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let album = create_album(ulid);
+        let album = create_album();
 
         let _ = Album::create(&db, album.clone())
             .await?
@@ -360,17 +347,15 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_by_name_and_album_artist(ulid: String) -> Result<()> {
+    async fn test_read_by_name_and_album_artist() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
 
         let artist = Artist::create(
             &db,
             Artist {
                 id: Artist::generate_id(),
-                name: format!("Test Artist {ulid}").into(),
+                name: "Test Artist".into(),
                 runtime: Duration::from_secs(0),
                 album_count: 0,
                 song_count: 0,
@@ -379,7 +364,7 @@ mod tests {
         .await?
         .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
-        let album = create_album(ulid);
+        let album = create_album();
 
         let _ = Album::create(&db, album.clone())
             .await?
@@ -389,26 +374,24 @@ mod tests {
 
         let read = Album::read_by_name_and_album_artist(
             &db,
-            &format!("Test Album {ulid}"),
-            vec![format!("Test Artist {ulid}").into()].into(),
+            "Test Album",
+            vec!["Test Artist".into()].into(),
         )
         .await?;
         assert_eq!(read, Some(album));
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
     // the test above tests the read branch of this, so here we test the create branch
-    async fn test_read_or_create_by_name_and_album_artist(ulid: String) -> Result<()> {
+    async fn test_read_or_create_by_name_and_album_artist() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
 
         let artist = Artist::create(
             &db,
             Artist {
                 id: Artist::generate_id(),
-                name: format!("Test Artist {ulid}").into(),
+                name: "Test Artist".into(),
                 runtime: Duration::from_secs(0),
                 album_count: 0,
                 song_count: 0,
@@ -419,8 +402,8 @@ mod tests {
 
         let album = Album {
             id: Album::generate_id(), // <-- this will be different because it's being regenerated, but the rest should be the same
-            title: format!("Test Album {ulid}").into(),
-            artist: vec![format!("Test Artist {ulid}").into()].into(),
+            title: "Test Album".into(),
+            artist: vec!["Test Artist".into()].into(),
             runtime: Duration::from_secs(0),
             release: None,
             song_count: 0,
@@ -430,7 +413,7 @@ mod tests {
 
         let read = Album::read_or_create_by_name_and_album_artist(
             &db,
-            &format!("Test Album {ulid}"),
+            "Test Album",
             vec![artist.name.clone()].into(),
         )
         .await?
@@ -450,45 +433,43 @@ mod tests {
     #[tokio::test]
     async fn test_search() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid1 = ulid();
-        let ulid2 = ulid();
-        let album1 = create_album(&ulid1);
-        let album2 = create_album(&ulid2);
+        let mut album1 = create_album();
+        album1.title = "Foo Bar".into();
+        let mut album2 = create_album();
+        album2.title = "Foo".into();
 
         Album::create(&db, album1.clone()).await?;
         Album::create(&db, album2.clone()).await?;
 
-        let found = Album::search(&db, "Test Album", 2).await?;
+        let found = Album::search(&db, "foo", 2).await?;
         assert_eq!(found.len(), 2);
         assert!(found.contains(&album1));
         assert!(found.contains(&album2));
 
-        let found = Album::search(&db, &ulid1, 1).await?;
+        let found = Album::search(&db, "bar", 10).await?;
         assert_eq!(found.len(), 1);
         assert_eq!(found, vec![album1]);
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_add_songs(ulid: String) -> Result<()> {
+    async fn test_add_songs() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
 
-        let album = create_album(ulid);
+        let album = create_album();
         let song = Song {
             id: Song::generate_id(),
-            title: format!("Test Song {ulid}").into(),
-            artist: vec![format!("Test Artist {ulid}").into()].into(),
-            album_artist: vec![format!("Test Artist {ulid}").into()].into(),
-            album: format!("Test Album {ulid}").into(),
-            genre: OneOrMany::One(format!("Test Genre {ulid}").into()),
+            title: "Test Song".into(),
+            artist: vec!["Test Artist".into()].into(),
+            album_artist: vec!["Test Artist".into()].into(),
+            album: "Test Album".into(),
+            genre: OneOrMany::One("Test Genre".into()),
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
             release_year: None,
             extension: "mp3".into(),
-            path: format!("song_{ulid}.mp3").into(),
+            path: "song.mp3".into(),
         };
 
         let album = Album::create(&db, album)
@@ -507,26 +488,25 @@ mod tests {
         assert_eq!(read.runtime, song.runtime);
         Ok(())
     }
-    #[rstest]
-    #[tokio::test]
-    async fn test_read_songs(ulid: String) -> Result<()> {
-        let db = init_test_database().await?;
-        let ulid = &ulid;
 
-        let album = create_album(ulid);
+    #[tokio::test]
+    async fn test_read_songs() -> Result<()> {
+        let db = init_test_database().await?;
+
+        let album = create_album();
         let song = Song {
             id: Song::generate_id(),
-            title: format!("Test Song {ulid}").into(),
-            artist: vec![format!("Test Artist {ulid}").into()].into(),
-            album_artist: vec![format!("Test Artist {ulid}").into()].into(),
-            album: format!("Test Album {ulid}").into(),
-            genre: OneOrMany::One(format!("Test Genre {ulid}").into()),
+            title: "Test Song".into(),
+            artist: vec!["Test Artist".into()].into(),
+            album_artist: vec!["Test Artist".into()].into(),
+            album: "Test Album".into(),
+            genre: OneOrMany::One("Test Genre".into()),
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
             release_year: None,
             extension: "mp3".into(),
-            path: format!("song_{ulid}.mp3").into(),
+            path: "song.mp3".into(),
         };
 
         let _ = Album::create(&db, album.clone())
@@ -544,26 +524,24 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_remove_songs(ulid: String) -> Result<()> {
+    async fn test_remove_songs() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
 
-        let album = create_album(ulid);
+        let album = create_album();
         let song = Song {
             id: Song::generate_id(),
-            title: format!("Test Song {ulid}").into(),
-            artist: vec![format!("Test Artist {ulid}").into()].into(),
-            album_artist: vec![format!("Test Artist {ulid}").into()].into(),
-            album: format!("Test Album {ulid}").into(),
-            genre: OneOrMany::One(format!("Test Genre {ulid}").into()),
+            title: "Test Song".into(),
+            artist: vec!["Test Artist".into()].into(),
+            album_artist: vec!["Test Artist".into()].into(),
+            album: "Test Album".into(),
+            genre: OneOrMany::One("Test Genre".into()),
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
             release_year: None,
             extension: "mp3".into(),
-            path: format!("song_{ulid}.mp3").into(),
+            path: "song.mp3".into(),
         };
 
         let _ = Album::create(&db, album.clone())
@@ -581,17 +559,15 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_artist(ulid: String) -> Result<()> {
+    async fn test_read_artist() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
 
         let artist = Artist::create(
             &db,
             Artist {
                 id: Artist::generate_id(),
-                name: format!("Test Artist {ulid}").into(),
+                name: "Test Artist".into(),
                 runtime: Duration::from_secs(0),
                 album_count: 0,
                 song_count: 0,
@@ -600,7 +576,7 @@ mod tests {
         .await?
         .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
-        let album = create_album(ulid);
+        let album = create_album();
 
         let _ = Album::create(&db, album.clone())
             .await?

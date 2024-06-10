@@ -171,58 +171,45 @@ impl Playlist {
 
 #[cfg(test)]
 mod tests {
-    use std::{path::PathBuf, time::Duration};
+    use std::time::Duration;
 
     use super::*;
-    use crate::{db::init_test_database, test_utils::ulid};
-    use one_or_many::OneOrMany;
+    use crate::{
+        db::schemas::song::SongChangeSet,
+        test_utils::{arb_song_case, create_song_with_overrides, init_test_database},
+    };
 
     use anyhow::{anyhow, Result};
     use pretty_assertions::{assert_eq, assert_str_eq};
     use rstest::rstest;
 
-    fn create_playlist(ulid: &str) -> Playlist {
+    fn create_playlist() -> Playlist {
         Playlist {
             id: Playlist::generate_id(),
-            name: format!("Test Playlist {ulid}").into(),
+            name: "Test Playlist".into(),
             song_count: 0,
             runtime: Duration::from_secs(0),
         }
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_create(ulid: String) -> Result<()> {
+    async fn test_create() -> Result<()> {
         let db = init_test_database().await?;
-        let playlist = create_playlist(&ulid);
+        let playlist = create_playlist();
         let result = Playlist::create(&db, playlist.clone()).await?;
         assert_eq!(result, Some(playlist));
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_create_copy(ulid: String) -> Result<()> {
+    async fn test_create_copy() -> Result<()> {
         let db = init_test_database().await?;
         // create playlist
-        let playlist = create_playlist(&ulid);
+        let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
         // add a song to that playlist
-        let song = Song {
-            id: Song::generate_id(),
-            title: format!("Test Song {ulid}").into(),
-            artist: OneOrMany::One(format!("Test Album {ulid}").into()),
-            album: format!("Test Album {ulid}").into(),
-            runtime: Duration::from_secs(5),
-            track: Some(1),
-            disc: Some(1),
-            genre: OneOrMany::None,
-            album_artist: OneOrMany::One(format!("Test Album {ulid}").into()),
-            release_year: None,
-            extension: "mp3".into(),
-            path: PathBuf::from(format!("song_1_{}_{ulid}", rand::random::<usize>())),
-        };
-        Song::create(&db, song.clone()).await?;
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
         Playlist::add_songs(&db, playlist.id.clone(), &[song.id.clone()]).await?;
         // clone the playlist
         let result = Playlist::create_copy(&db, playlist.id.clone())
@@ -232,7 +219,7 @@ mod tests {
         // ensure the playlist was cloned correctly
         assert_str_eq!(result.name, format!("{} (copy)", playlist.name).into());
         assert_eq!(result.song_count, 1);
-        assert_eq!(result.runtime, Duration::from_secs(5));
+        assert_eq!(result.runtime, song.runtime);
 
         assert_eq!(
             Playlist::read_songs(&db, result.id.clone()).await?,
@@ -242,47 +229,43 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_all(ulid: String) -> Result<()> {
+    async fn test_read_all() -> Result<()> {
         let db = init_test_database().await?;
-        let playlist = create_playlist(&ulid);
+        let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
         let result = Playlist::read_all(&db).await?;
         assert!(!result.is_empty());
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_by_name(ulid: String) -> Result<()> {
+    async fn test_read_by_name() -> Result<()> {
         let db = init_test_database().await?;
-        let playlist = create_playlist(&ulid);
+        let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
         let result = Playlist::read_by_name(&db, playlist.name.as_ref().to_string()).await?;
         assert_eq!(result, Some(playlist));
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read(ulid: String) -> Result<()> {
+    async fn test_read() -> Result<()> {
         let db = init_test_database().await?;
-        let playlist = create_playlist(&ulid);
+        let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
         let result = Playlist::read(&db, playlist.id.clone()).await?;
         assert_eq!(result, Some(playlist));
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_update(ulid: String) -> Result<()> {
+    async fn test_update() -> Result<()> {
         let db = init_test_database().await?;
-        let playlist = create_playlist(&ulid);
+        let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
         let changes = PlaylistChangeSet {
-            name: Some(format!("Updated Name {ulid}").into()),
+            name: Some("Updated Name".into()),
             ..Default::default()
         };
 
@@ -291,16 +274,15 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Playlist not found"))?;
 
-        assert_eq!(read.name, format!("Updated Name {ulid}").into());
+        assert_eq!(read.name, "Updated Name".into());
         assert_eq!(Some(read), updated);
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_delete(ulid: String) -> Result<()> {
+    async fn test_delete() -> Result<()> {
         let db = init_test_database().await?;
-        let playlist = create_playlist(&ulid);
+        let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
         let result = Playlist::delete(&db, playlist.id.clone()).await?;
         assert_eq!(result, Some(playlist.clone()));
@@ -309,63 +291,36 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_add_songs(ulid: String) -> Result<()> {
+    async fn test_add_songs() -> Result<()> {
         let db = init_test_database().await?;
-        let playlist = create_playlist(&ulid);
+        let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
-        let song = Song {
-            id: Song::generate_id(),
-            title: format!("Test Song {ulid}").into(),
-            artist: OneOrMany::One(format!("Test Album {ulid}").into()),
-            album: format!("Test Album {ulid}").into(),
-            runtime: Duration::from_secs(5),
-            track: Some(1),
-            disc: Some(1),
-            genre: OneOrMany::None,
-            album_artist: OneOrMany::One(format!("Test Album {ulid}").into()),
-            release_year: None,
-            extension: "mp3".into(),
-            path: PathBuf::from(format!("song_1_{}_{ulid}", rand::random::<usize>())),
-        };
-        Song::create(&db, song.clone()).await?;
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
         Playlist::add_songs(&db, playlist.id.clone(), &[song.id.clone()]).await?;
 
         let result = Playlist::read_songs(&db, playlist.id.clone()).await?;
-        assert_eq!(result, vec![song]);
+        assert_eq!(result, vec![song.clone()]);
 
         let read = Playlist::read(&db, playlist.id.clone())
             .await?
             .ok_or_else(|| anyhow!("Playlist not found"))?;
         assert_eq!(read.song_count, 1);
-        assert_eq!(read.runtime, Duration::from_secs(5));
+        assert_eq!(read.runtime, song.runtime);
 
         Ok(())
     }
 
     #[rstest]
     #[tokio::test]
-    async fn test_remove_songs(ulid: String) -> Result<()> {
+    async fn test_remove_songs() -> Result<()> {
         let db = init_test_database().await?;
-        let playlist = create_playlist(&ulid);
+        let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
-        let song = Song {
-            id: Song::generate_id(),
-            title: format!("Test Song {ulid}").into(),
-            artist: OneOrMany::One(format!("Test Album {ulid}").into()),
-            album: format!("Test Album {ulid}").into(),
-            runtime: Duration::from_secs(5),
-            track: Some(1),
-            disc: Some(1),
-            genre: OneOrMany::None,
-            album_artist: OneOrMany::One(format!("Test Album {ulid}").into()),
-            release_year: None,
-            extension: "mp3".into(),
-            path: PathBuf::from(format!("song_1_{}_{ulid}", rand::random::<usize>())),
-        };
-        Song::create(&db, song.clone()).await?;
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
         Playlist::add_songs(&db, playlist.id.clone(), &[song.id.clone()]).await?;
         Playlist::remove_songs(&db, playlist.id.clone(), &[song.id.clone()]).await?;

@@ -231,66 +231,59 @@ impl Song {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        db::init_test_database,
-        test_utils::{self, arb_song_case, song_metadata_from_case, ulid},
+    use crate::test_utils::{
+        arb_song_case, create_song_metadata, create_song_with_overrides, init_test_database,
     };
 
     use anyhow::{anyhow, Result};
     use pretty_assertions::assert_eq;
-    use rstest::rstest;
     use std::time::Duration;
 
-    fn create_song(ulid: &str) -> Song {
-        Song {
+    #[tokio::test]
+    async fn test_create() -> Result<()> {
+        let db = init_test_database().await?;
+
+        let song = Song {
             id: Song::generate_id(),
-            title: format!("Test Song {ulid}").into(),
-            artist: vec![format!("Test Artist {ulid}").into()].into(),
-            album_artist: vec![format!("Test Artist {ulid}").into()].into(),
-            album: format!("Test Album {ulid}").into(),
-            genre: OneOrMany::One(format!("Test Genre {ulid}").into()),
+            title: format!("Test Song").into(),
+            artist: vec![format!("Test Artist").into()].into(),
+            album_artist: vec![format!("Test Artist").into()].into(),
+            album: format!("Test Album").into(),
+            genre: OneOrMany::One(format!("Test Genre").into()),
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
             release_year: None,
             extension: "mp3".into(),
-            path: format!("song_{ulid}.mp3").into(),
-        }
-    }
-
-    #[rstest]
-    #[tokio::test]
-    async fn test_create(ulid: String) -> Result<()> {
-        let db = init_test_database().await?;
-        let ulid = &ulid;
-        let song = create_song(ulid);
+            path: format!("song.mp3").into(),
+        };
 
         let created = Song::create(&db, song.clone()).await?;
         assert_eq!(created, Some(song));
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_all(ulid: String) -> Result<()> {
+    async fn test_read_all() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let song = create_song(ulid);
+        let _ =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let _ =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let _ =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        Song::create(&db, song.clone()).await?;
         let songs = Song::read_all(&db).await?;
         assert!(!songs.is_empty());
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read(ulid: String) -> Result<()> {
+    async fn test_read() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let song = create_song(ulid);
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        Song::create(&db, song.clone()).await?;
         let read = Song::read(&db, song.id.clone())
             .await?
             .ok_or_else(|| anyhow!("Song not found"))?;
@@ -298,14 +291,12 @@ mod test {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_by_path(ulid: String) -> Result<()> {
+    async fn test_read_by_path() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let song = create_song(ulid);
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        Song::create(&db, song.clone()).await?;
         let read = Song::read_by_path(&db, song.path.clone())
             .await?
             .ok_or_else(|| anyhow!("Song not found"))?;
@@ -313,14 +304,11 @@ mod test {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_album(ulid: String) -> Result<()> {
+    async fn test_read_album() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let song = create_song(ulid);
-
-        Song::create(&db, song.clone()).await?;
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
         let album =
             Album::read_or_create_by_name_and_album_artist(&db, &song.album, song.album_artist)
@@ -334,14 +322,11 @@ mod test {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_artist(ulid: String) -> Result<()> {
+    async fn test_read_artist() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let song = create_song(ulid);
-
-        Song::create(&db, song.clone()).await?;
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
         let artist = Artist::read_or_create_by_name(&db, song.artist.clone().first().unwrap())
             .await?
@@ -357,51 +342,58 @@ mod test {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_album_artist(ulid: String) -> Result<()> {
+    async fn test_read_album_artist() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let song = create_song(ulid);
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        Song::create(&db, song.clone()).await?;
-
-        let artist =
-            Artist::read_or_create_by_name(&db, song.album_artist.clone().first().unwrap())
-                .await?
-                .ok_or_else(|| anyhow!("Album Artist not found/created"))?;
-        let album =
-            Album::read_or_create_by_name_and_album_artist(&db, &song.album, song.album_artist)
-                .await?
-                .ok_or_else(|| anyhow!("Album not found/created"))?;
+        let album = Album::read_or_create_by_name_and_album_artist(
+            &db,
+            &song.album,
+            song.album_artist.clone(),
+        )
+        .await?
+        .ok_or_else(|| anyhow!("Album not found/created"))?;
         Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
-        let artist = Artist::read(&db, artist.id.clone())
-            .await?
-            .ok_or_else(|| anyhow!("Artist not found"))?;
-        assert_eq!(
-            OneOrMany::One(artist),
-            Song::read_album_artist(&db, song.id.clone()).await?
-        );
+        let mut artist = Artist::read_or_create_by_names(&db, song.album_artist.clone()).await?;
+        artist.sort_by(|a, b| a.id.cmp(&b.id));
+
+        let mut read: Vec<Artist> = Vec::from(Song::read_album_artist(&db, song.id.clone()).await?);
+        read.sort_by(|a, b| a.id.cmp(&b.id));
+
+        assert_eq!(artist, read);
         Ok(())
     }
 
     #[tokio::test]
     async fn test_search_by_title() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid1 = ulid();
-        let ulid2 = ulid();
-        let song1 = create_song(&ulid1);
-        let song2 = create_song(&ulid2);
+        let song1 = create_song_with_overrides(
+            &db,
+            arb_song_case()(),
+            SongChangeSet {
+                title: Some("Foo Bar".into()),
+                ..Default::default()
+            },
+        )
+        .await?;
+        let song2 = create_song_with_overrides(
+            &db,
+            arb_song_case()(),
+            SongChangeSet {
+                title: Some("Foo".into()),
+                ..Default::default()
+            },
+        )
+        .await?;
 
-        Song::create(&db, song1.clone()).await?;
-        Song::create(&db, song2.clone()).await?;
-
-        let found = Song::search(&db, "Test Song", 2).await?;
+        let found = Song::search(&db, "Foo", 2).await?;
         assert_eq!(found.len(), 2);
         assert!(found.contains(&song1));
         assert!(found.contains(&song2));
 
-        let found = Song::search(&db, &ulid1, 1).await?;
+        let found = Song::search(&db, "Bar", 10).await?;
         assert_eq!(found.len(), 1);
         assert_eq!(found, vec![song1]);
 
@@ -411,25 +403,31 @@ mod test {
     #[tokio::test]
     async fn test_search_by_artist() -> Result<()> {
         let db = init_test_database().await?;
-        let sc1 = arb_song_case()();
-        let sc2 = arb_song_case()();
-        let sc3 = arb_song_case()();
-
-        let greenday_changeset = SongChangeSet {
-            artist: Some(OneOrMany::One("Green Day".into())),
-            ..Default::default()
-        };
-
-        let song1 = test_utils::create_song(&db, sc1, greenday_changeset.clone(), "").await?;
-        let song2 = test_utils::create_song(&db, sc2, greenday_changeset, "").await?;
-        let song3 = test_utils::create_song(
+        let song1 = create_song_with_overrides(
             &db,
-            sc3,
+            arb_song_case()(),
+            SongChangeSet {
+                artist: Some(OneOrMany::One("Green Day".into())),
+                ..Default::default()
+            },
+        )
+        .await?;
+        let song2 = create_song_with_overrides(
+            &db,
+            arb_song_case()(),
+            SongChangeSet {
+                artist: Some(OneOrMany::One("Green Day".into())),
+                ..Default::default()
+            },
+        )
+        .await?;
+        let song3 = create_song_with_overrides(
+            &db,
+            arb_song_case()(),
             SongChangeSet {
                 title: Some("green".into()),
                 ..Default::default()
             },
-            "",
         )
         .await?;
 
@@ -446,18 +444,11 @@ mod test {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_update_no_repair(ulid: String) -> Result<()> {
+    async fn test_update_no_repair() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let song = create_song(ulid);
-
-        Song::create(&db, song.clone()).await?;
-
-        // test updating things that don't require relation repair
         let changes = SongChangeSet {
-            title: Some(format!("Updated Title {ulid}").into()),
+            title: Some(format!("Updated Title ").into()),
             runtime: Some(Duration::from_secs(10)),
             track: Some(Some(2)),
             disc: Some(Some(2)),
@@ -466,9 +457,8 @@ mod test {
             extension: Some("flac".into()),
             ..Default::default()
         };
-        let updated = Song::update(&db, song.id.clone(), changes.clone())
-            .await?
-            .ok_or_else(|| anyhow!("Song not found"))?;
+        // test updating things that don't require relation repair
+        let updated = create_song_with_overrides(&db, arb_song_case()(), changes.clone()).await?;
 
         assert_eq!(updated.title, changes.title.unwrap());
         assert_eq!(updated.runtime, changes.runtime.unwrap());
@@ -480,29 +470,16 @@ mod test {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_update_artist(ulid: String) -> Result<()> {
+    async fn test_update_artist() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let song = create_song(ulid);
-
-        Song::create(&db, song.clone()).await?;
-
-        // note, we need the artist to actually exist in the db and be associated with the song
-        let artist = Artist::read_or_create_by_name(&db, song.artist.first().unwrap())
-            .await?
-            .ok_or_else(|| anyhow!("Artist not found/created"))?;
-        Artist::add_songs(&db, artist.id, &[song.id.clone()]).await?;
-
         let changes = SongChangeSet {
-            artist: Some(OneOrMany::One(format!("Updated Artist {ulid}").into())),
+            artist: Some(OneOrMany::One(format!("Updated Artist").into())),
             ..Default::default()
         };
+        // test updating the artist
+        let updated = create_song_with_overrides(&db, arb_song_case()(), changes.clone()).await?;
 
-        let updated = Song::update(&db, song.id.clone(), changes.clone())
-            .await?
-            .ok_or_else(|| anyhow!("Song not found"))?;
         assert_eq!(updated.artist, changes.artist.clone().unwrap());
 
         // since the new artist didn't exist before, it should have been created
@@ -510,40 +487,23 @@ mod test {
             Artist::read_or_create_by_names(&db, changes.artist.unwrap())
                 .await?
                 .into();
-        assert_eq!(new_artist, Song::read_artist(&db, song.id.clone()).await?);
+        assert_eq!(
+            new_artist,
+            Song::read_artist(&db, updated.id.clone()).await?
+        );
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_update_album_artist(ulid: String) -> Result<()> {
+    async fn test_update_album_artist() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let song = create_song(ulid);
-
-        Song::create(&db, song.clone()).await?;
-
-        // note, we need the artist to actually exist in the db and be associated with the song
-        let artist = Artist::read_or_create_by_name(&db, song.album_artist.first().unwrap())
-            .await?
-            .ok_or_else(|| anyhow!("Album Artist not found/created"))?;
-        // the album must also exist, and be associated with the song and artist
-        let album =
-            Album::read_or_create_by_name_and_album_artist(&db, &song.album, song.album_artist)
-                .await?
-                .ok_or_else(|| anyhow!("Album not found/created"))?;
-        Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
-        Artist::add_album(&db, artist.id, album.id.clone()).await?;
-
         let changes = SongChangeSet {
-            album_artist: Some(OneOrMany::One(
-                format!("Updated Album Artist {ulid}").into(),
-            )),
+            album_artist: Some(OneOrMany::One(format!("Updated Album Artist").into())),
             ..Default::default()
         };
-        let updated = Song::update(&db, song.id.clone(), changes.clone())
-            .await?
-            .ok_or_else(|| anyhow!("Song not found"))?;
+        // test updating the album artist
+        let updated = create_song_with_overrides(&db, arb_song_case()(), changes.clone()).await?;
+
         assert_eq!(updated.album_artist, changes.album_artist.clone().unwrap());
 
         // since the new artist didn't exist before, it should have been created
@@ -553,52 +513,31 @@ mod test {
                 .into();
         assert_eq!(
             new_artist,
-            Song::read_album_artist(&db, song.id.clone()).await?
+            Song::read_album_artist(&db, updated.id.clone()).await?
         );
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_update_album(ulid: String) -> Result<()> {
+    async fn test_update_album() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let song = create_song(ulid);
-
-        Song::create(&db, song.clone()).await?;
-
-        // note, we need the artist to actually exist in the db and be associated with the song
-        let album_artist = Artist::read_or_create_by_name(&db, song.album_artist.first().unwrap())
-            .await?
-            .ok_or_else(|| anyhow!("Album Artist not found/created"))?;
-        // the album must also exist, and be associated with the song and artist
-        let album = Album::read_or_create_by_name_and_album_artist(
-            &db,
-            &song.album,
-            song.album_artist.clone(),
-        )
-        .await?
-        .ok_or_else(|| anyhow!("Album not found/created"))?;
-        Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
-        Artist::add_album(&db, album_artist.id, album.id.clone()).await?;
-
         let changes = SongChangeSet {
-            album: Some(format!("Updated Album {ulid}").into()),
+            album: Some(format!("Updated Album").into()),
             ..Default::default()
         };
-        let updated = Song::update(&db, song.id.clone(), changes.clone())
-            .await?
-            .ok_or_else(|| anyhow!("Song not found"))?;
+        // test updating the album
+        let updated = create_song_with_overrides(&db, arb_song_case()(), changes.clone()).await?;
+
         assert_eq!(updated.album, changes.album.clone().unwrap());
 
         // since the new album didn't exist before, it should have been created
         let new_album = Album::read_or_create_by_name_and_album_artist(
             &db,
             &changes.album.unwrap(),
-            song.album_artist.clone(),
+            updated.album_artist.clone(),
         )
         .await?;
-        assert_eq!(new_album, Song::read_album(&db, song.id.clone()).await?);
+        assert_eq!(new_album, Song::read_album(&db, updated.id.clone()).await?);
         assert!(new_album.is_some());
         Ok(())
     }
@@ -606,8 +545,9 @@ mod test {
     #[tokio::test]
     async fn test_try_load_into_db() {
         let db = init_test_database().await.unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
         // Create a mock SongMetadata object for testing
-        let metadata = song_metadata_from_case(arb_song_case()(), &ulid()).unwrap();
+        let metadata = create_song_metadata(&temp_dir, arb_song_case()()).unwrap();
 
         // Call the try_load_into_db function
         let result = Song::try_load_into_db(&db, metadata.clone()).await;

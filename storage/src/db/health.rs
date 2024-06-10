@@ -98,8 +98,12 @@ pub async fn count_orphaned_playlists<C: Connection>(db: &Surreal<C>) -> Result<
 mod tests {
     use std::time::Duration;
 
+    use crate::{
+        db::schemas::song::SongChangeSet,
+        test_utils::{arb_song_case, create_song_with_overrides, init_test_database},
+    };
+
     use super::*;
-    use crate::db::init_test_database;
     use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
 
@@ -107,7 +111,7 @@ mod tests {
         Album {
             id: Album::generate_id(),
             title: "Test Album".into(),
-            artist: vec!["Test Artist {ulid}".into()].into(),
+            artist: vec!["Test Artist".into()].into(),
             runtime: Duration::from_secs(0),
             release: None,
             song_count: 0,
@@ -119,7 +123,7 @@ mod tests {
     pub fn artist() -> Artist {
         Artist {
             id: Artist::generate_id(),
-            name: "Test Artist {ulid}".into(),
+            name: "Test Artist".into(),
             runtime: Duration::from_secs(0),
             song_count: 0,
             album_count: 0,
@@ -144,23 +148,6 @@ mod tests {
         }
     }
 
-    pub fn song() -> Song {
-        Song {
-            id: Song::generate_id(),
-            title: "Test Song".into(),
-            artist: vec!["Test Artist".into()].into(),
-            album_artist: vec!["Test Artist".into()].into(),
-            album: "Test Album".into(),
-            genre: OneOrMany::One("Test Genre".into()),
-            runtime: Duration::from_secs(120),
-            track: None,
-            disc: None,
-            release_year: None,
-            extension: "mp3".into(),
-            path: "test.mp3".into(),
-        }
-    }
-
     #[tokio::test]
     async fn test_album_counting() {
         let db = init_test_database().await.unwrap();
@@ -176,11 +163,18 @@ mod tests {
         assert_eq!(count_orphaned_albums(&db).await.unwrap(), 1);
 
         // if we add a new song to the album, the album will no longer be orphaned
-        let song = song();
-        Song::create(&db, song.clone()).await.unwrap();
-        Album::add_songs(&db, album.id, &[song.id.clone()])
-            .await
-            .unwrap();
+        let song = create_song_with_overrides(
+            &db,
+            arb_song_case()(),
+            SongChangeSet {
+                album: Some(album.title.clone()),
+                album_artist: Some(album.artist.clone()), // NOTE: if we don't specify the album artist, a new album will be created instead of adding the song to the existing album
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
         assert_eq!(count_albums(&db).await.unwrap(), 1);
         assert_eq!(count_orphaned_albums(&db).await.unwrap(), 0);
 
@@ -219,11 +213,16 @@ mod tests {
         assert_eq!(count_orphaned_artists(&db).await.unwrap(), 1);
 
         // if we add a new song to the artist, the artist will no longer be orphaned
-        let song = song();
-        Song::create(&db, song.clone()).await.unwrap();
-        Artist::add_songs(&db, artist.id, &[song.id.clone()])
-            .await
-            .unwrap();
+        let song = create_song_with_overrides(
+            &db,
+            arb_song_case()(),
+            SongChangeSet {
+                artist: Some(OneOrMany::One(artist.name)),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
         assert_eq!(count_artists(&db).await.unwrap(), 1);
         assert_eq!(count_orphaned_artists(&db).await.unwrap(), 0);
 
@@ -248,8 +247,9 @@ mod tests {
         assert_eq!(count_orphaned_collections(&db).await.unwrap(), 1);
 
         // if we add a new song to the collection, the collection will no longer be orphaned
-        let song = song();
-        Song::create(&db, song.clone()).await.unwrap();
+        let song = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+            .await
+            .unwrap();
         Collection::add_songs(&db, collection.id, &[song.id.clone()])
             .await
             .unwrap();
@@ -277,8 +277,9 @@ mod tests {
         assert_eq!(count_orphaned_playlists(&db).await.unwrap(), 1);
 
         // if we add a new song to the playlist, the playlist will no longer be orphaned
-        let song = song();
-        Song::create(&db, song.clone()).await.unwrap();
+        let song = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+            .await
+            .unwrap();
         Playlist::add_songs(&db, playlist.id, &[song.id.clone()])
             .await
             .unwrap();
@@ -299,8 +300,9 @@ mod tests {
         assert_eq!(count_songs(&db).await.unwrap(), 0);
 
         // if we add a new song, there will be one song
-        let song = song();
-        Song::create(&db, song.clone()).await.unwrap();
+        let song = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+            .await
+            .unwrap();
         assert_eq!(count_songs(&db).await.unwrap(), 1);
 
         // if we delete that song, there will be no songs

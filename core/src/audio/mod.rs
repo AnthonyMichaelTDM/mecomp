@@ -715,11 +715,10 @@ impl Default for AudioKernel {
 
 #[cfg(test)]
 mod tests {
-    use mecomp_storage::db::init_test_database;
     use pretty_assertions::assert_str_eq;
     use rstest::{fixture, rstest};
 
-    use crate::test_utils::{arb_song_case, create_song, init};
+    use crate::test_utils::init;
 
     use super::*;
     use std::sync::mpsc;
@@ -1019,6 +1018,8 @@ mod tests {
         //! As such, they cannot be run on CI.
         //! Therefore, they are in a separate module so that they can be skipped when running tests on CI.
 
+        use mecomp_storage::test_utils::{arb_song_case, create_song_metadata, init_test_database};
+
         use super::*;
 
         #[rstest]
@@ -1055,8 +1056,14 @@ mod tests {
         ) {
             init();
             let db = init_test_database().await.unwrap();
+            let tempdir = tempfile::tempdir().unwrap();
 
-            let song = create_song(&db, arb_song_case()()).await.unwrap();
+            let song = Song::try_load_into_db(
+                &db,
+                create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+            )
+            .await
+            .unwrap();
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::One(song.clone()),
@@ -1095,15 +1102,31 @@ mod tests {
         async fn test_audio_kernel_skip_forward(audio_kernel: AudioKernel) {
             init();
             let db = init_test_database().await.unwrap();
+            let tempdir = tempfile::tempdir().unwrap();
 
             let state = audio_kernel.state();
             assert_eq!(state.queue_position, None);
             assert!(state.paused);
 
             audio_kernel.queue_control(QueueCommand::AddToQueue(Box::new(OneOrMany::Many(vec![
-                create_song(&db, arb_song_case()()).await.unwrap(),
-                create_song(&db, arb_song_case()()).await.unwrap(),
-                create_song(&db, arb_song_case()()).await.unwrap(),
+                Song::try_load_into_db(
+                    &db,
+                    create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                )
+                .await
+                .unwrap(),
+                Song::try_load_into_db(
+                    &db,
+                    create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                )
+                .await
+                .unwrap(),
+                Song::try_load_into_db(
+                    &db,
+                    create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                )
+                .await
+                .unwrap(),
             ]))));
 
             // songs were added to an empty queue, so the first song should start playing
@@ -1143,6 +1166,7 @@ mod tests {
             init();
 
             let db = init_test_database().await.unwrap();
+            let tempdir = tempfile::tempdir().unwrap();
 
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
@@ -1150,9 +1174,24 @@ mod tests {
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::Many(vec![
-                    create_song(&db, arb_song_case()()).await.unwrap(),
-                    create_song(&db, arb_song_case()()).await.unwrap(),
-                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
                 ]),
             ))));
             // songs were added to an empty queue, so the first song should start playing
@@ -1189,8 +1228,19 @@ mod tests {
         ) {
             init();
             let db = init_test_database().await.unwrap();
-            let song1 = create_song(&db, arb_song_case()()).await.unwrap();
-            let song2 = create_song(&db, arb_song_case()()).await.unwrap();
+            let tempdir = tempfile::tempdir().unwrap();
+            let song1 = Song::try_load_into_db(
+                &db,
+                create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+            )
+            .await
+            .unwrap();
+            let song2 = Song::try_load_into_db(
+                &db,
+                create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+            )
+            .await
+            .unwrap();
 
             // add songs to the queue, starts playback
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
@@ -1238,6 +1288,7 @@ mod tests {
         ) {
             init();
             let db = init_test_database().await.unwrap();
+            let tempdir = tempfile::tempdir().unwrap();
 
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
@@ -1245,9 +1296,24 @@ mod tests {
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::Many(vec![
-                    create_song(&db, arb_song_case()()).await.unwrap(),
-                    create_song(&db, arb_song_case()()).await.unwrap(),
-                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
                 ]),
             ))));
 
@@ -1295,6 +1361,7 @@ mod tests {
         ) {
             init();
             let db = init_test_database().await.unwrap();
+            let tempdir = tempfile::tempdir().unwrap();
 
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
@@ -1302,9 +1369,24 @@ mod tests {
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::Many(vec![
-                    create_song(&db, arb_song_case()()).await.unwrap(),
-                    create_song(&db, arb_song_case()()).await.unwrap(),
-                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
                 ]),
             ))));
             // songs were added to an empty queue, so the first song should start playing
@@ -1345,6 +1427,7 @@ mod tests {
         async fn test_audio_kernel_clear(#[from(audio_kernel_sender)] sender: AudioKernelSender) {
             init();
             let db = init_test_database().await.unwrap();
+            let tempdir = tempfile::tempdir().unwrap();
 
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
@@ -1352,9 +1435,24 @@ mod tests {
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::Many(vec![
-                    create_song(&db, arb_song_case()()).await.unwrap(),
-                    create_song(&db, arb_song_case()()).await.unwrap(),
-                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
                 ]),
             ))));
             // songs were added to an empty queue, so the first song should start playing
@@ -1386,6 +1484,7 @@ mod tests {
         async fn test_audio_kernel_shuffle(#[from(audio_kernel_sender)] sender: AudioKernelSender) {
             init();
             let db = init_test_database().await.unwrap();
+            let tempdir = tempfile::tempdir().unwrap();
 
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
@@ -1393,9 +1492,24 @@ mod tests {
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::Many(vec![
-                    create_song(&db, arb_song_case()()).await.unwrap(),
-                    create_song(&db, arb_song_case()()).await.unwrap(),
-                    create_song(&db, arb_song_case()()).await.unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
+                    Song::try_load_into_db(
+                        &db,
+                        create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+                    )
+                    .await
+                    .unwrap(),
                 ]),
             ))));
             // songs were added to an empty queue, so the first song should start playing

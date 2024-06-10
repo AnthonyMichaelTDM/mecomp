@@ -275,40 +275,35 @@ mod tests {
     use std::{path::PathBuf, time::Duration};
 
     use super::*;
-    use crate::{db::init_test_database, test_utils::ulid};
+    use crate::test_utils::init_test_database;
 
     use anyhow::{anyhow, Result};
     use pretty_assertions::assert_eq;
-    use rstest::rstest;
 
-    fn create_artist(ulid: &str) -> Artist {
+    fn create_artist() -> Artist {
         Artist {
             id: Artist::generate_id(),
-            name: format!("Test Artist {ulid}").into(),
+            name: "Test Artist".into(),
             runtime: Duration::from_secs(0),
             album_count: 0,
             song_count: 0,
         }
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_create(ulid: String) -> Result<()> {
+    async fn test_create() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let artist = create_artist(ulid);
+        let artist = create_artist();
 
         let created = Artist::create(&db, artist.clone()).await?;
         assert_eq!(Some(artist), created);
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read(ulid: String) -> Result<()> {
+    async fn test_read() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let artist = create_artist(ulid);
+        let artist = create_artist();
 
         let created = Artist::create(&db, artist.clone())
             .await?
@@ -322,14 +317,12 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_one_or_many(ulid: String) -> Result<()> {
+    async fn test_read_one_or_many() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let artist = create_artist(ulid);
-        let mut artist2 = create_artist(ulid);
-        artist2.name = format!("Test Artist 2 {ulid}").into();
+        let artist = create_artist();
+        let mut artist2 = create_artist();
+        artist2.name = format!("Test Artist 2").into();
 
         // test None
         let read = Artist::read_one_or_many(&db, OneOrMany::None).await?;
@@ -356,14 +349,12 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_many(ulid: String) -> Result<()> {
+    async fn test_read_many() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let artist = create_artist(ulid);
-        let mut artist2 = create_artist(ulid);
-        artist2.name = format!("Test Artist 2 {ulid}").into();
+        let artist = create_artist();
+        let mut artist2 = create_artist();
+        artist2.name = format!("Test Artist 2").into();
 
         let created = Artist::create(&db, artist.clone())
             .await?
@@ -380,38 +371,36 @@ mod tests {
     #[tokio::test]
     async fn test_search() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid1 = ulid();
-        let ulid2 = ulid();
-        let artist1 = create_artist(&ulid1);
-        let artist2 = create_artist(&ulid2);
+        let mut artist1 = create_artist();
+        artist1.name = "Foo Bar".into();
+        let mut artist2 = create_artist();
+        artist2.name = "Foo".into();
 
         Artist::create(&db, artist1.clone()).await?;
         Artist::create(&db, artist2.clone()).await?;
 
-        let found = Artist::search(&db, "Test Artist", 2).await?;
+        let found = Artist::search(&db, "foo", 2).await?;
         assert_eq!(found.len(), 2);
         assert!(found.contains(&artist1));
         assert!(found.contains(&artist2));
 
-        let found = Artist::search(&db, &ulid1, 1).await?;
+        let found = Artist::search(&db, "bar", 1).await?;
         assert_eq!(found.len(), 1);
         assert_eq!(found, vec![artist1]);
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_update(ulid: String) -> Result<()> {
+    async fn test_update() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let artist = create_artist(ulid);
+        let artist = create_artist();
 
         let _ = Artist::create(&db, artist.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
         let changes = ArtistChangeSet {
-            name: Some(format!("New Name {ulid}").into()),
+            name: Some(format!("New Name").into()),
             ..Default::default()
         };
 
@@ -420,17 +409,15 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
 
-        assert_eq!(read.name, format!("New Name {ulid}").into());
+        assert_eq!(read.name, format!("New Name").into());
         assert_eq!(Some(read), updated);
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_delete(ulid: String) -> Result<()> {
+    async fn test_delete() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let artist = create_artist(ulid);
+        let artist = create_artist();
 
         let _ = Artist::create(&db, artist.clone())
             .await?
@@ -444,46 +431,40 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_by_name(ulid: String) -> Result<()> {
+    async fn test_read_by_name() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let album = create_artist(ulid);
+        let album = create_artist();
 
         let _ = Artist::create(&db, album.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
-        let read = Artist::read_by_name(&db, &format!("Test Artist {ulid}")).await?;
+        let read = Artist::read_by_name(&db, &format!("Test Artist")).await?;
         assert_eq!(read, Some(album));
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
     /// read path tested in `test_read_by_name`, so we only need to test the create path
-    async fn test_read_or_create_by_name(ulid: String) -> Result<()> {
+    async fn test_read_or_create_by_name() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
 
-        let created = Artist::read_or_create_by_name(&db, &format!("Test Artist {ulid}"))
+        let created = Artist::read_or_create_by_name(&db, &format!("Test Artist"))
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
-        let read = Artist::read_by_name(&db, &format!("Test Artist {ulid}")).await?;
+        let read = Artist::read_by_name(&db, &format!("Test Artist")).await?;
         assert_eq!(read, Some(created));
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_by_names(ulid: String) -> Result<()> {
+    async fn test_read_by_names() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let album = create_artist(ulid);
-        let mut album2 = create_artist(ulid);
-        album2.name = format!("Test Artist 2 {ulid}").into();
+        let album = create_artist();
+        let mut album2 = create_artist();
+        album2.name = "Test Artist 2".into();
 
         let _ = Artist::create(&db, album.clone())
             .await?
@@ -492,14 +473,8 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
-        let read = Artist::read_by_names(
-            &db,
-            &[
-                format!("Test Artist {ulid}").into(),
-                format!("Test Artist 2 {ulid}").into(),
-            ],
-        )
-        .await?;
+        let read =
+            Artist::read_by_names(&db, &["Test Artist".into(), "Test Artist 2".into()]).await?;
 
         assert_eq!(read.len(), 2);
 
@@ -514,30 +489,19 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
     /// read path tested in `test_read_by_names`, so we only need to test the create path
-    async fn test_read_or_create_by_names(ulid: String) -> Result<()> {
+    async fn test_read_or_create_by_names() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
 
         let created = Artist::read_or_create_by_names(
             &db,
-            OneOrMany::Many(vec![
-                format!("Test Artist {ulid}").into(),
-                format!("Test Artist 2 {ulid}").into(),
-            ]),
+            OneOrMany::Many(vec!["Test Artist".into(), "Test Artist 2".into()]),
         )
         .await?;
 
-        let read = Artist::read_by_names(
-            &db,
-            &[
-                format!("Test Artist {ulid}").into(),
-                format!("Test Artist 2 {ulid}").into(),
-            ],
-        )
-        .await?;
+        let read =
+            Artist::read_by_names(&db, &["Test Artist".into(), "Test Artist 2".into()]).await?;
 
         assert_eq!(read.len(), 2);
 
@@ -545,12 +509,10 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_all(ulid: String) -> Result<()> {
+    async fn test_read_all() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let album = create_artist(ulid);
+        let album = create_artist();
 
         let _ = Artist::create(&db, album.clone())
             .await?
@@ -561,15 +523,13 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_albums(ulid: String) -> Result<()> {
+    async fn test_read_albums() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let artist = create_artist(ulid);
+        let artist = create_artist();
         let album = Album {
             id: Album::generate_id(),
-            title: format!("Test Album {ulid}").into(),
+            title: "Test Album".into(),
             artist: OneOrMany::One(artist.name.clone()),
             song_count: 4,
             runtime: Duration::from_secs(5),
@@ -593,15 +553,13 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_add_album(ulid: String) -> Result<()> {
+    async fn test_add_album() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let artist = create_artist(ulid);
+        let artist = create_artist();
         let album = Album {
             id: Album::generate_id(),
-            title: format!("Test Album {ulid}").into(),
+            title: "Test Album".into(),
             artist: OneOrMany::One(artist.name.clone()),
             song_count: 0,
             runtime: Duration::from_secs(0),
@@ -611,9 +569,9 @@ mod tests {
         };
         let song = Song {
             id: Song::generate_id(),
-            title: format!("Test Song {ulid}").into(),
+            title: "Test Song".into(),
             artist: OneOrMany::One(artist.name.clone()),
-            album: format!("Test Album {ulid}").into(),
+            album: "Test Album".into(),
             runtime: Duration::from_secs(5),
             track: Some(1),
             disc: Some(1),
@@ -621,7 +579,7 @@ mod tests {
             album_artist: OneOrMany::One(artist.name.clone()),
             release_year: None,
             extension: "mp3".into(),
-            path: PathBuf::from(format!("song_1_{}_{ulid}", rand::random::<usize>())),
+            path: PathBuf::from("song.mp3"),
         };
 
         let _ = Artist::create(&db, artist.clone())
@@ -642,23 +600,21 @@ mod tests {
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
 
         assert_eq!(read.album_count, 1);
-        assert_eq!(read.runtime, Duration::from_secs(5));
+        assert_eq!(read.runtime, song.runtime);
         assert_eq!(read.song_count, 1);
 
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_add_album_to_artists(ulid: String) -> Result<()> {
+    async fn test_add_album_to_artists() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let artist = create_artist(ulid);
-        let mut artist2 = create_artist(ulid);
-        artist2.name = format!("Test Artist 2 {ulid}").into();
+        let artist = create_artist();
+        let mut artist2 = create_artist();
+        artist2.name = "Test Artist 2".into();
         let album = Album {
             id: Album::generate_id(),
-            title: format!("Test Album {ulid}").into(),
+            title: "Test Album".into(),
             artist: OneOrMany::Many(vec![artist.name.clone(), artist2.name.clone()]),
             song_count: 0,
             runtime: Duration::from_secs(0),
@@ -668,9 +624,9 @@ mod tests {
         };
         let song = Song {
             id: Song::generate_id(),
-            title: format!("Test Song {ulid}").into(),
+            title: format!("Test Song").into(),
             artist: OneOrMany::One(artist.name.clone()),
-            album: format!("Test Album {ulid}").into(),
+            album: format!("Test Album ").into(),
             runtime: Duration::from_secs(5),
             track: Some(1),
             disc: Some(1),
@@ -678,7 +634,7 @@ mod tests {
             album_artist: OneOrMany::One(artist.name.clone()),
             release_year: None,
             extension: "mp3".into(),
-            path: PathBuf::from(format!("song_1_{}_{ulid}", rand::random::<usize>())),
+            path: PathBuf::from("song.mp3"),
         };
 
         let _ = Artist::create(&db, artist.clone())
@@ -706,24 +662,22 @@ mod tests {
 
         for artist in read {
             assert_eq!(artist.album_count, 1);
-            assert_eq!(artist.runtime, Duration::from_secs(5));
+            assert_eq!(artist.runtime, song.runtime);
             assert_eq!(artist.song_count, 1);
         }
 
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_add_songs(ulid: String) -> Result<()> {
+    async fn test_add_songs() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let artist = create_artist(ulid);
+        let artist = create_artist();
         let song = Song {
             id: Song::generate_id(),
-            title: format!("Test Song {ulid}").into(),
+            title: "Test Song".into(),
             artist: OneOrMany::One(artist.name.clone()),
-            album: format!("Test Album {ulid}").into(),
+            album: "Test Album".into(),
             runtime: Duration::from_secs(5),
             track: Some(1),
             disc: Some(1),
@@ -731,7 +685,7 @@ mod tests {
             album_artist: OneOrMany::One(artist.name.clone()),
             release_year: None,
             extension: "mp3".into(),
-            path: PathBuf::from(format!("song_1_{}_{ulid}", rand::random::<usize>())),
+            path: PathBuf::from("song.mp3"),
         };
 
         let artist = Artist::create(&db, artist)
@@ -748,22 +702,20 @@ mod tests {
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
 
         assert_eq!(read.song_count, 1);
-        assert_eq!(read.runtime, Duration::from_secs(5));
+        assert_eq!(read.runtime, song.runtime);
 
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_remove_songs(ulid: String) -> Result<()> {
+    async fn test_remove_songs() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let artist = create_artist(ulid);
+        let artist = create_artist();
         let song = Song {
             id: Song::generate_id(),
-            title: format!("Test Song {ulid}").into(),
+            title: "Test Song".into(),
             artist: OneOrMany::One(artist.name.clone()),
-            album: format!("Test Album {ulid}").into(),
+            album: "Test Album".into(),
             runtime: Duration::from_secs(5),
             track: Some(1),
             disc: Some(1),
@@ -771,7 +723,7 @@ mod tests {
             album_artist: OneOrMany::One(artist.name.clone()),
             release_year: None,
             extension: "mp3".into(),
-            path: PathBuf::from(format!("song_1_{}_{ulid}", rand::random::<usize>())),
+            path: PathBuf::from("song.mp3"),
         };
 
         let artist = Artist::create(&db, artist.clone())
@@ -795,15 +747,13 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
     #[tokio::test]
-    async fn test_read_songs(ulid: String) -> Result<()> {
+    async fn test_read_songs() -> Result<()> {
         let db = init_test_database().await?;
-        let ulid = &ulid;
-        let artist = create_artist(ulid);
+        let artist = create_artist();
         let album = Album {
             id: Album::generate_id(),
-            title: format!("Test Album {ulid}").into(),
+            title: "Test Album".into(),
             artist: OneOrMany::One(artist.name.clone()),
             song_count: 4,
             runtime: Duration::from_secs(5),
@@ -813,9 +763,9 @@ mod tests {
         };
         let song = Song {
             id: Song::generate_id(),
-            title: format!("Test Song {ulid}").into(),
+            title: "Test Song".into(),
             artist: OneOrMany::One(artist.name.clone()),
-            album: format!("Test Album {ulid}").into(),
+            album: "Test Album".into(),
             runtime: Duration::from_secs(5),
             track: Some(1),
             disc: Some(1),
@@ -823,13 +773,13 @@ mod tests {
             album_artist: OneOrMany::One(artist.name.clone()),
             release_year: None,
             extension: "mp3".into(),
-            path: PathBuf::from(format!("song_1_{}_{ulid}", rand::random::<usize>())),
+            path: PathBuf::from("song.mp3"),
         };
         let song2 = Song {
             id: Song::generate_id(),
-            title: format!("Test Song 2 {ulid}").into(),
+            title: "Test Song 2".into(),
             artist: OneOrMany::One(artist.name.clone()),
-            album: format!("Test Album {ulid}").into(),
+            album: "Test Album".into(),
             runtime: Duration::from_secs(5),
             track: Some(2),
             disc: Some(1),
@@ -837,7 +787,7 @@ mod tests {
             album_artist: OneOrMany::One(artist.name.clone()),
             release_year: None,
             extension: "mp3".into(),
-            path: PathBuf::from(format!("song_2_{}_{ulid}", rand::random::<usize>())),
+            path: PathBuf::from("song_2.mp3"),
         };
 
         let _ = Artist::create(&db, artist.clone())
