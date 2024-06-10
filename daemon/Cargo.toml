@@ -55,6 +55,7 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 [dev-dependencies]
 tempfile = { workspace = true }
 mecomp-core = { workspace = true, features = ["rpc", "mock_playback"] }
+mecomp-storage = { workspace = true, features = ["test_utils"] }
 lofty = { workspace = true }
 lazy_static = { workspace = true }
 rstest = { workspace = true }

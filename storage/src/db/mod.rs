@@ -8,7 +8,7 @@ pub mod schemas;
 
 #[cfg(feature = "db")]
 use surrealdb::{
-    engine::local::{Db, Mem, SurrealKV},
+    engine::local::{Db, SurrealKV},
     Surreal,
 };
 
@@ -52,30 +52,6 @@ pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
         })).await?;
 
     db.use_ns("mecomp").use_db("music").await?;
-
-    register_custom_analyzer(&db).await?;
-    surrealqlx::register_tables!(
-        &db,
-        schemas::album::Album,
-        schemas::artist::Artist,
-        schemas::song::Song,
-        schemas::collection::Collection,
-        schemas::playlist::Playlist
-    )?;
-
-    Ok(db)
-}
-
-/// Initialize a test database with the same tables as the main database.
-/// This is useful for testing queries and mutations.
-///
-/// # Errors
-///
-/// This function will return an error if the database cannot be initialized.
-#[cfg(feature = "db")]
-pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
-    let db = Surreal::new::<Mem>(()).await?;
-    db.use_ns("test").use_db("test").await?;
 
     register_custom_analyzer(&db).await?;
     surrealqlx::register_tables!(

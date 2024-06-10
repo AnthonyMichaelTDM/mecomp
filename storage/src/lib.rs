@@ -2,5 +2,5 @@ pub mod db;
 pub mod errors;
 pub mod util;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test_utils"))]
 pub mod test_utils;
