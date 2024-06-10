@@ -56,6 +56,7 @@ pub async fn create_song<C: Connection>(
 
     Song::create(db, song.clone()).await?;
     Song::update(db, song.id.clone(), overrides).await?;
+    let song = Song::read(db, song.id).await?.expect("Song should exist");
     Ok(song)
 }
 
