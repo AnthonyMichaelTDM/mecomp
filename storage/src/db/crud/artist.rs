@@ -127,14 +127,14 @@ impl Artist {
     }
 
     #[instrument]
-    pub async fn search_by_name<C: Connection>(
+    pub async fn search<C: Connection>(
         db: &Surreal<C>,
-        name: &str,
+        query: &str,
         limit: i64,
     ) -> Result<Vec<Self>, Error> {
         Ok(db
             .query(full_text_search(TABLE_NAME, "name", limit))
-            .bind(("name", name))
+            .bind(("name", query))
             .await?
             .take(0)?)
     }
@@ -378,7 +378,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_search_by_name() -> Result<()> {
+    async fn test_search() -> Result<()> {
         let db = init_test_database().await?;
         let ulid1 = ulid();
         let ulid2 = ulid();
@@ -388,12 +388,12 @@ mod tests {
         Artist::create(&db, artist1.clone()).await?;
         Artist::create(&db, artist2.clone()).await?;
 
-        let found = Artist::search_by_name(&db, "Test Artist", 2).await?;
+        let found = Artist::search(&db, "Test Artist", 2).await?;
         assert_eq!(found.len(), 2);
         assert!(found.contains(&artist1));
         assert!(found.contains(&artist2));
 
-        let found = Artist::search_by_name(&db, &ulid1, 1).await?;
+        let found = Artist::search(&db, &ulid1, 1).await?;
         assert_eq!(found.len(), 1);
         assert_eq!(found, vec![artist1]);
         Ok(())

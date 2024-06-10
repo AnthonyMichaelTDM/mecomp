@@ -67,14 +67,14 @@ impl Album {
     }
 
     #[instrument()]
-    pub async fn search_by_title<C: Connection>(
+    pub async fn search<C: Connection>(
         db: &Surreal<C>,
-        title: &str,
+        query: &str,
         limit: i64,
     ) -> Result<Vec<Self>, Error> {
         Ok(db
             .query(full_text_search(TABLE_NAME, "title", limit))
-            .bind(("title", title))
+            .bind(("title", query))
             .await?
             .take(0)?)
     }
@@ -448,7 +448,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_search_by_name() -> Result<()> {
+    async fn test_search() -> Result<()> {
         let db = init_test_database().await?;
         let ulid1 = ulid();
         let ulid2 = ulid();
@@ -458,12 +458,12 @@ mod tests {
         Album::create(&db, album1.clone()).await?;
         Album::create(&db, album2.clone()).await?;
 
-        let found = Album::search_by_title(&db, "Test Album", 2).await?;
+        let found = Album::search(&db, "Test Album", 2).await?;
         assert_eq!(found.len(), 2);
         assert!(found.contains(&album1));
         assert!(found.contains(&album2));
 
-        let found = Album::search_by_title(&db, &ulid1, 1).await?;
+        let found = Album::search(&db, &ulid1, 1).await?;
         assert_eq!(found.len(), 1);
         assert_eq!(found, vec![album1]);
         Ok(())

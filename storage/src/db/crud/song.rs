@@ -7,10 +7,7 @@ use tracing::instrument;
 
 use crate::{
     db::{
-        queries::{
-            generic::full_text_search,
-            song::{read_album, read_album_artist, read_artist, read_song_by_path},
-        },
+        queries::song::{read_album, read_album_artist, read_artist, read_song_by_path},
         schemas::{
             album::Album,
             artist::Artist,
@@ -85,15 +82,15 @@ impl Song {
     }
 
     #[instrument]
-    /// TODO: figure out how to "full text search" on the `title`, `artist`, `album`, `album_artist`, and `genre` fields
-    pub async fn search_by_title<C: Connection>(
+    pub async fn search<C: Connection>(
         db: &Surreal<C>,
-        title: &str,
+        query: &str,
         limit: i64,
     ) -> Result<Vec<Self>, Error> {
         Ok(db
-            .query(full_text_search(TABLE_NAME, "title", limit))
-            .bind(("title", title))
+            .query("SELECT *, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM song WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit")
+            .bind(("query", query))
+            .bind(("limit", limit))
             .await?
             .take(0)?)
     }
@@ -258,7 +255,7 @@ mod test {
     use super::*;
     use crate::{
         db::init_test_database,
-        test_utils::{arb_song_case, song_metadata_from_case, ulid},
+        test_utils::{self, arb_song_case, song_metadata_from_case, ulid},
     };
 
     use anyhow::{anyhow, Result};
@@ -421,14 +418,52 @@ mod test {
         Song::create(&db, song1.clone()).await?;
         Song::create(&db, song2.clone()).await?;
 
-        let found = Song::search_by_title(&db, "Test Song", 2).await?;
+        let found = Song::search(&db, "Test Song", 2).await?;
         assert_eq!(found.len(), 2);
         assert!(found.contains(&song1));
         assert!(found.contains(&song2));
 
-        let found = Song::search_by_title(&db, &ulid1, 1).await?;
+        let found = Song::search(&db, &ulid1, 1).await?;
         assert_eq!(found.len(), 1);
         assert_eq!(found, vec![song1]);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_search_by_artist() -> Result<()> {
+        let db = init_test_database().await?;
+        let sc1 = arb_song_case()();
+        let sc2 = arb_song_case()();
+        let sc3 = arb_song_case()();
+
+        let greenday_changeset = SongChangeSet {
+            artist: Some(OneOrMany::One("Green Day".into())),
+            ..Default::default()
+        };
+
+        let song1 = test_utils::create_song(&db, sc1, greenday_changeset.clone(), "").await?;
+        let song2 = test_utils::create_song(&db, sc2, greenday_changeset, "").await?;
+        let song3 = test_utils::create_song(
+            &db,
+            sc3,
+            SongChangeSet {
+                title: Some("green".into()),
+                ..Default::default()
+            },
+            "",
+        )
+        .await?;
+
+        let found = Song::search(&db, "Green", 3).await?;
+        // assert that all 3 songs were found, and that the first one is the one with "green" in the title (since title is weighted higher than artist in the search query)
+        assert_eq!(found.len(), 3);
+        // assert_eq!(found, vec![]);
+        assert!(found.contains(&song1));
+        assert!(found.contains(&song2));
+        assert!(found.contains(&song3));
+
+        assert_eq!(found.first(), Some(&song3));
 
         Ok(())
     }
