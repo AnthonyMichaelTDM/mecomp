@@ -2336,6 +2336,7 @@ dependencies = [
  "clap",
  "mecomp-core",
  "mecomp-storage",
+ "mecomp-workspace-hack",
  "one-or-many",
  "tarpc",
  "tokio",
@@ -2412,7 +2413,6 @@ name = "mecomp-storage"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "lazy_static",
  "lofty",
  "log",
  "mecomp-workspace-hack",
@@ -2917,6 +2917,7 @@ name = "one-or-many"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "mecomp-workspace-hack",
  "pretty_assertions",
  "rstest",
  "serde",

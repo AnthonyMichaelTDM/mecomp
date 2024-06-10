@@ -18,6 +18,7 @@ surrealdb = ["serde", "dep:surrealdb"]
 [dependencies]
 serde = { workspace = true, optional = true }
 surrealdb = { workspace = true, optional = true }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
 rstest = { workspace = true }

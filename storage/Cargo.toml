@@ -22,7 +22,7 @@ db = [
     "dep:tempfile",
 ]
 serde = ["one-or-many/serde", "dep:serde"]
-test_utils = ["dep:tempfile", "dep:tempfile", "dep:anyhow", "db"]
+test_utils = ["dep:tempfile", "dep:anyhow", "db"]
 
 [dependencies]
 # shared dependencies
@@ -44,7 +44,6 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 one-or-many = { workspace = true }
 
 # dependencies for the test_utils feature
-lazy_static = { workspace = true, optional = true }
 anyhow = { workspace = true, optional = true }
 
 [dev-dependencies]
