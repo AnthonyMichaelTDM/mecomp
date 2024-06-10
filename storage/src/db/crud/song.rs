@@ -109,20 +109,34 @@ impl Song {
         changes: SongChangeSet,
     ) -> Result<Option<Self>, Error> {
         if changes.album.is_some() || changes.album_artist.is_some() {
-            let old_album: Option<Album> = Self::read_album(db, id.clone()).await?;
-            let old_album = old_album.ok_or(Error::NotFound)?;
+            let old_album = Self::read_album(db, id.clone()).await?;
+
+            // get the old album title and artist
+            // priority: old album (read from db) > old album info (read from song) > unknown
+            let (old_album_title, old_album_artist) = if let Some(album) = &old_album {
+                (album.title.clone(), album.artist.clone())
+            } else if let Some(song) = Self::read(db, id.clone()).await? {
+                (song.album.clone(), song.album_artist)
+            } else {
+                (
+                    "Unknown Album".into(),
+                    OneOrMany::One("Unknown Artist".into()),
+                )
+            };
 
             // find/create the new album
             let new_album = Album::read_or_create_by_name_and_album_artist(
                 db,
-                &changes.album.clone().unwrap_or(old_album.title),
-                changes.album_artist.clone().unwrap_or(old_album.artist),
+                &changes.album.clone().unwrap_or(old_album_title),
+                changes.album_artist.clone().unwrap_or(old_album_artist),
             )
             .await?
             .ok_or(Error::NotFound)?;
 
-            // remove song from the old album
-            Album::remove_songs(db, old_album.id, &[id.clone()]).await?;
+            // remove song from the old album, if it existed
+            if let Some(old_album) = old_album {
+                Album::remove_songs(db, old_album.id, &[id.clone()]).await?;
+            }
 
             // add song to the new album
             Album::add_songs(db, new_album.id, &[id.clone()]).await?;
