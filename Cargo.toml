@@ -57,7 +57,15 @@ opt-level = 0
 # shared dependencies
 anyhow = { version = "1.0", default-features = false }
 lofty = { version = "0.19.2" }
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", default-features = false, features = [
+    "color",
+    "error-context",
+    "help",
+    "std",
+    "usage",
+    "suggestions",
+    "derive",
+] }
 env_logger = { version = "0.10.2", features = [
     "color",
 ], default-features = false }
@@ -73,21 +81,18 @@ nutype = { version = "0.4.2", features = ["serde"] }
 once_cell = "1.19"
 rand = { version = "0.8.5", features = ["small_rng"] }
 rodio = { version = "0.18.1", features = ["symphonia-all"] }
-# rodio = { git = "https://github.com/RustAudio/rodio.git", features = [
-# "symphonia-all",
-# ] }
 serde = { version = "1.0", features = ["derive", "rc"] }
-surrealdb = { version = "1.5.1", features = ["kv-surrealkv", "kv-mem"] }
+surrealdb = { version = "1.5", features = ["kv-surrealkv", "kv-mem"] }
 tap = { version = "1.0" }
 thiserror = { version = "1.0" }
-tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.37", features = ["macros"] }
 walkdir = { version = "2.5" }
 tarpc = { version = "0.34.0", features = [
     "serde-transport",
     "serde-transport-json",
     "tcp",
 ] }
-tracing = { version = "0.1.40", features = ["log"] }
+tracing = { version = "0.1.40" }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing-opentelemetry = "0.24.0"
 opentelemetry = "0.23.0"
@@ -99,7 +104,7 @@ tracing-flame = "0.2.0"
 # MECOMP packages
 mecomp-core = { path = "core" }
 mecomp-daemon = { path = "daemon" }
-mecomp-storage = { path = "storage" }
+mecomp-storage = { path = "storage", default-features = false }
 surrealqlx = { path = "surrealqlx/lib", features = ["macros"] }
 one-or-many = { path = "one-or-many" }
 

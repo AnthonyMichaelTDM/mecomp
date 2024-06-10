@@ -65,6 +65,12 @@ pub struct Thing {
     pub id: Id,
 }
 
+impl std::fmt::Display for Thing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.tb, self.id)
+    }
+}
+
 /// Implement a version of the `surrealdb` `Id` type that we can use when the `db` feature is not enabled.
 ///
 /// Only the variants we actually use are implemented.
@@ -74,6 +80,15 @@ pub struct Thing {
 pub enum Id {
     Number(i64),
     String(String),
+}
+
+impl std::fmt::Display for Id {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Number(n) => write!(f, "{n}"),
+            Self::String(s) => write!(f, "{s}"),
+        }
+    }
 }
 
 #[cfg(feature = "db")]
