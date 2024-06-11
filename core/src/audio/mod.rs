@@ -70,6 +70,12 @@ impl AudioKernelSender {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+struct DurationInfo {
+    time_played: Duration,
+    current_duration: Duration,
+}
+
 pub struct AudioKernel {
     /// this is not used, but is needed to keep the stream alive
     #[cfg(not(feature = "mock_playback"))]
@@ -85,11 +91,9 @@ pub struct AudioKernel {
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will multiply each sample by this value.
     volume: Arc<Mutex<f32>>,
     /// whether the audio is muted
-    muted: AtomicBool,
-    /// the amount of time the current sound has been playing
-    time_played: Arc<Mutex<Duration>>,
-    /// the duration of the current sound
-    current_song_runtime: Arc<Mutex<Duration>>,
+    muted: Arc<AtomicBool>,
+    /// the current song duration and the time played
+    duration_info: Arc<Mutex<DurationInfo>>,
     /// whether the audio kernel is paused
     paused: Arc<AtomicBool>,
 }
@@ -115,9 +119,8 @@ impl AudioKernel {
             player: sink.into(),
             queue: Arc::new(Mutex::new(queue)),
             volume: Arc::new(Mutex::new(1.0)),
-            muted: AtomicBool::new(false),
-            time_played: Arc::new(Mutex::new(Duration::from_secs(0))),
-            current_song_runtime: Arc::new(Mutex::new(Duration::from_secs(0))),
+            muted: Arc::new(AtomicBool::new(false)),
+            duration_info: Arc::new(Mutex::new(DurationInfo::default())),
             paused: Arc::new(AtomicBool::new(true)),
         }
     }
@@ -141,7 +144,7 @@ impl AudioKernel {
         std::thread::spawn(move || {
             // basically, call rx.await and while it is waiting for a command, poll the queue_rx
             tokio::runtime::Builder::new_current_thread()
-                .enable_all()
+                .enable_time()
                 .build()
                 .unwrap()
                 .block_on(async {
@@ -150,7 +153,7 @@ impl AudioKernel {
                         () = async {
                             loop {
                                 queue_rx.next();
-                                std::thread::sleep(std::time::Duration::from_millis(1));
+                                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
                             }
                         } => {},
                     }
@@ -164,9 +167,8 @@ impl AudioKernel {
             queue_rx_end_tx: tx,
             queue: Arc::new(Mutex::new(Queue::new())),
             volume: Arc::new(Mutex::new(1.0)),
-            muted: AtomicBool::new(false),
-            time_played: Arc::new(Mutex::new(Duration::from_secs(0))),
-            current_song_runtime: Arc::new(Mutex::new(Duration::from_secs(0))),
+            muted: Arc::new(AtomicBool::new(false)),
+            duration_info: Arc::new(Mutex::new(DurationInfo::default())),
             paused: Arc::new(AtomicBool::new(true)),
         }
     }
@@ -216,8 +218,7 @@ impl AudioKernel {
         let (dw_tx, dw_rx) = tokio::sync::oneshot::channel();
 
         // we won't be able to access this AudioKernel instance reliably, so we need to clone Arcs to all the values we need
-        let time_played = self.time_played.clone();
-        let current_song_runtime = self.current_song_runtime.clone();
+        let duration_info = self.duration_info.clone();
         let paused = self.paused.clone();
 
         let _duration_water = std::thread::spawn(move || {
@@ -226,7 +227,8 @@ impl AudioKernel {
                 std::time::Duration::from_millis(DURATION_WATCHER_NEXT_SONG_THRESHOLD_MS);
 
             tokio::runtime::Builder::new_current_thread()
-                .enable_all()
+                .enable_time()
+                .thread_name("Duration Watcher")
                 .build()
                 .unwrap()
                 .block_on(async {
@@ -236,13 +238,12 @@ impl AudioKernel {
                         () = async {
                             loop {
                                 tokio::time::sleep(sleep_time).await;
+                                let mut duration_info = duration_info.lock().unwrap();
                                 if !paused.load(std::sync::atomic::Ordering::Relaxed) {
-                                    let mut time_played = time_played.lock().unwrap();
                                     // if we aren't paused, increment the time played
-                                    *time_played += sleep_time;
+                                    duration_info.time_played += sleep_time;
                                     // if we're within the threshold of the end of the song, signal to the audio kernel to skip to the next song
-                                    let current_song_runtime = current_song_runtime.lock().unwrap();
-                                    if *time_played >= *current_song_runtime - duration_threshold {
+                                    if duration_info.time_played >= duration_info.current_duration - duration_threshold {
                                         if let Err(e) = tx.send((AudioCommand::Queue(QueueCommand::SkipForward(1)), tracing::Span::current())) {
                                             error!("Failed to send command to audio kernel: {e}");
                                             panic!("Failed to send command to audio kernel: {e}");
@@ -277,7 +278,7 @@ impl AudioKernel {
                     }
                 }
                 AudioCommand::Volume(command) => self.volume_control(command),
-                AudioCommand::Seek(_seek, _duration) => todo!(),
+                AudioCommand::Seek(seek, duration) => self.seek(seek, duration),
             }
         }
 
@@ -326,11 +327,17 @@ impl AudioKernel {
     }
 
     #[instrument(skip(self))]
+    fn clear(&self) {
+        self.clear_player();
+        self.queue.lock().unwrap().clear();
+    }
+
+    #[instrument(skip(self))]
     fn clear_player(&self) {
+        self.player.clear();
         self.paused
             .store(true, std::sync::atomic::Ordering::Relaxed);
-        *self.time_played.lock().unwrap() = Duration::from_secs(0);
-        self.player.clear();
+        *self.duration_info.lock().unwrap() = DurationInfo::default();
     }
 
     #[instrument(skip(self))]
@@ -357,9 +364,11 @@ impl AudioKernel {
         let queue_position = queue.current_index();
         let current_song = queue.current_song().cloned();
         let repeat_mode = queue.get_repeat_mode();
-        let runtime = current_song.as_ref().map(|song| {
-            let seek_position = *self.time_played.lock().unwrap();
-            let duration = song.runtime;
+        let runtime = current_song.as_ref().map(|_| {
+            let duration_info = self.duration_info.lock().unwrap();
+            let seek_position = duration_info.time_played;
+            let duration = duration_info.current_duration;
+            drop(duration_info);
             let seek_percent =
                 Percent::new(seek_position.as_secs_f32() / duration.as_secs_f32() * 100.0);
             StateRuntime {
@@ -389,12 +398,6 @@ impl AudioKernel {
             muted,
             volume,
         }
-    }
-
-    #[instrument(skip(self))]
-    fn clear(&self) {
-        self.clear_player();
-        self.queue.lock().unwrap().clear();
     }
 
     #[instrument(skip(self))]
@@ -536,7 +539,10 @@ impl AudioKernel {
         T: Source<Item = f32> + Send + 'static,
     {
         if let Some(duration) = source.total_duration() {
-            *self.current_song_runtime.lock().unwrap() = duration;
+            *self.duration_info.lock().unwrap() = DurationInfo {
+                time_played: Duration::from_secs(0),
+                current_duration: duration,
+            };
         }
         self.player.append(source);
     }
@@ -544,7 +550,10 @@ impl AudioKernel {
     #[instrument(skip(self))]
     fn append_song_to_player(&self, song: &Song) -> Result<(), LibraryError> {
         let source = Decoder::new(BufReader::new(File::open(&song.path)?))?.convert_samples();
-        *self.current_song_runtime.lock().unwrap() = song.runtime;
+        *self.duration_info.lock().unwrap() = DurationInfo {
+            time_played: Duration::from_secs(0),
+            current_duration: song.runtime,
+        };
         self.append_to_player(source);
 
         Ok(())
@@ -582,6 +591,42 @@ impl AudioKernel {
         } else {
             self.player
                 .set_volume(self.volume.lock().unwrap().to_owned());
+        }
+    }
+
+    #[instrument(skip(self))]
+    fn seek(&self, seek: SeekType, duration: Duration) {
+        // get a lock on the current song duration and time played
+        let mut duration_info = self.duration_info.lock().unwrap();
+        // calculate the new time based on the seek type
+        let new_time = match seek {
+            SeekType::Absolute => duration,
+            SeekType::RelativeForwards => duration_info.time_played + duration,
+            SeekType::RelativeBackwards => duration_info.time_played - duration,
+        };
+        let new_time = if new_time > duration_info.current_duration {
+            duration_info.current_duration
+        } else if new_time < Duration::from_secs(0) {
+            Duration::from_secs(0)
+        } else {
+            new_time
+        };
+
+        // try to seek to the new time.
+        // if the seek fails, log the error and continue
+        // if the seek succeeds, update the time_played to the new time
+        match self.player.try_seek(new_time) {
+            Ok(()) => {
+                debug!("Seeked to {}", format_duration(&new_time));
+                duration_info.time_played = new_time;
+                drop(duration_info);
+            }
+            Err(SeekError::NotSupported { underlying_source }) => {
+                error!("Seek not supported by source: {underlying_source}");
+            }
+            Err(err) => {
+                error!("Seeking failed with error: {err}");
+            }
         }
     }
 }
@@ -1282,6 +1327,75 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.volume, 0.5);
             assert!(!state.muted);
+
+            sender.send(AudioCommand::Exit);
+        }
+
+        #[rstest]
+        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[tokio::test]
+        async fn test_seek_commands(#[from(audio_kernel_sender)] sender: AudioKernelSender) {
+            init();
+            let db = init_test_database().await.unwrap();
+            let tempdir = tempfile::tempdir().unwrap();
+
+            let song = Song::try_load_into_db(
+                &db,
+                create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+            )
+            .await
+            .unwrap();
+
+            // add a song to the queue
+            // NOTE: this song has a duration of 10 seconds
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                OneOrMany::One(song.clone()),
+            ))));
+            sender.send(AudioCommand::Pause);
+            let state: StateAudio = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert!(state.paused);
+            assert_eq!(
+                state.runtime.unwrap().duration,
+                Duration::from_secs(10) + Duration::from_nanos(6)
+            );
+
+            // skip ahead a bit
+            sender.send(AudioCommand::Seek(
+                SeekType::RelativeForwards,
+                Duration::from_secs(2),
+            ));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(2));
+            assert_eq!(state.current_song, Some(song.clone()));
+            assert!(state.paused);
+
+            // skip back a bit
+            sender.send(AudioCommand::Seek(
+                SeekType::RelativeBackwards,
+                Duration::from_secs(1),
+            ));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(1));
+            assert_eq!(state.current_song, Some(song.clone()));
+            assert!(state.paused);
+
+            // skip to 9 seconds
+            sender.send(AudioCommand::Seek(
+                SeekType::Absolute,
+                Duration::from_secs(9),
+            ));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(9));
+            assert_eq!(state.current_song, Some(song.clone()));
+            assert!(state.paused);
+
+            // now we unpause, wait a bit, and check that the song has ended
+            sender.send(AudioCommand::Play);
+            tokio::time::sleep(Duration::from_millis(1001)).await;
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, None);
+            assert!(state.paused);
 
             sender.send(AudioCommand::Exit);
         }
