@@ -18,6 +18,7 @@ pub enum Command {
     /// Ping the daemon
     Ping,
     /// Stop the daemon
+    #[clap(alias = "exit")]
     Stop,
     /// Library commands
     Library {

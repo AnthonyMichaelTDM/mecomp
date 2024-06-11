@@ -27,13 +27,7 @@ pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
     };
     for i in start_index..state.queue_position.unwrap_or_default() {
         let song = &state.queue[i];
-        queue_lines.push(format!(
-            "\t\t{}: \"{}\" (id: {}, path: {}),",
-            i,
-            song.title,
-            song.id,
-            song.path.to_string_lossy()
-        ));
+        queue_lines.push(format!("\t\t{}: \"{}\" (id: {}),", i, song.title, song.id));
     }
     // print the current song
     if let Some(current_index) = state.queue_position {
@@ -51,13 +45,7 @@ pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
             .min(state.queue_position.unwrap_or_default() + 5)
     {
         let song = &state.queue[i];
-        queue_lines.push(format!(
-            "\t\t{}: \"{}\" (id: {}, path: {}),",
-            i,
-            song.title,
-            song.id,
-            song.path.to_string_lossy()
-        ));
+        queue_lines.push(format!("\t\t{}: \"{}\" (id: {}),", i, song.title, song.id));
     }
     writeln!(output, "{}", queue_lines.join("\n"))?;
     writeln!(output, "\t],")?;
