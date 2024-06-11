@@ -106,5 +106,5 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Build every crate
+      - name: Build every binary
         run: ./x.sh b

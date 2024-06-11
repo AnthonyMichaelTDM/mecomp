@@ -63,7 +63,8 @@ test() {
 
 # Build.
 build() {
-	for i in {mecomp-storage,mecomp-core,mecomp-cli,mecomp-daemon,one-or-many,surrealqlx,surrealqlx-macros,surrealqlx-macros-impl}; do
+	# Build the binaries.
+	for i in {mecomp-cli,mecomp-daemon}; do
 		title "Build [${i}]"
 		if cargo build -r -p ${i}; then
 			ok "Build [${i}] OK"
@@ -74,6 +75,7 @@ build() {
 
 	finish
 	ls -al --color=always target/release/mecomp-daemon
+	ls -al --color=always target/release/mecomp-cli
 }
 
 # Do everything.
