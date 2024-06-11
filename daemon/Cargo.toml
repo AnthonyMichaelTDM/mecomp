@@ -38,7 +38,7 @@ serde = { workspace = true }
 surrealdb = { workspace = true }
 tap = { workspace = true }
 tarpc = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true , features = ["rt-multi-thread"] }
 tracing = { workspace = true }
 walkdir = { workspace = true }
 

@@ -92,7 +92,7 @@ semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 syn = { version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
-tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt", "sync", "time"] }
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
 toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
 tracing = { version = "0.1", features = ["log"] }
@@ -131,7 +131,7 @@ semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 syn = { version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
-tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt", "sync", "time"] }
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
 toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
 tracing = { version = "0.1", features = ["log"] }
