@@ -18,6 +18,7 @@ pub enum Command {
     /// Ping the daemon
     Ping,
     /// Stop the daemon
+    #[clap(alias = "exit")]
     Stop,
     /// Library commands
     Library {
@@ -175,19 +176,22 @@ pub enum PlaybackCommand {
 #[derive(Debug, Subcommand)]
 pub enum SeekCommand {
     /// Seek forwards by a given amount (in seconds)
+    #[clap(alias = "f", alias = "+", alias = "ahead")]
     Forward {
         /// The amount to seek by
-        amount: u64,
+        amount: f32,
     },
     /// Seek backwards by a given amount
+    #[clap(alias = "b", alias = "-", alias = "back")]
     Backward {
         /// The amount to seek by
-        amount: u64,
+        amount: f32,
     },
     /// Seek to a given position
-    To {
+    #[clap(alias = "a", alias = "=", alias = "to")]
+    Absolute {
         /// The position to seek to
-        position: u64,
+        position: f32,
     },
 }
 

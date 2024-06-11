@@ -71,7 +71,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run tests
-        run: cargo test --all --workspace --features mock_playback
+        run: cargo test --workspace --features mock_playback
 
       - name: Build
         run: cargo check
@@ -106,5 +106,5 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Build every crate
+      - name: Build every binary
         run: ./x.sh b

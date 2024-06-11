@@ -45,3 +45,33 @@ macro_rules! function_name {
         &name[..name.len() - 3]
     }};
 }
+
+pub(crate) fn format_duration(duration: &std::time::Duration) -> String {
+    let total_seconds = duration.as_secs();
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = duration.as_secs_f32() % 60.;
+
+    format!("{hours:02}:{minutes:02}:{seconds:05.2}")
+}
+
+#[cfg(test)]
+mod test {
+    use super::format_duration;
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+    use std::time::Duration;
+
+    #[rstest]
+    #[case::zero(Duration::from_secs(0), "00:00:00.00")]
+    #[case::sub_second(Duration::from_millis(100), "00:00:00.10")]
+    #[case::sub_second(Duration::from_millis(101), "00:00:00.10")]
+    #[case::one_second(Duration::from_secs(1), "00:00:01.00")]
+    #[case::one_minute(Duration::from_secs(60), "00:01:00.00")]
+    #[case::one_hour(Duration::from_secs(3600), "01:00:00.00")]
+    #[case::one_hour_one_minute_one_second(Duration::from_secs(3661), "01:01:01.00")]
+    #[case(Duration::from_secs(3600 + 120 + 1), "01:02:01.00")]
+    fn test_format_duration(#[case] duration: Duration, #[case] expected: &str) {
+        assert_eq!(format_duration(&duration), expected);
+    }
+}

@@ -1,8 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
-pub mod queue;
 
 use std::{
-    fmt::Display,
     fs::File,
     io::BufReader,
     ops::Range,
@@ -15,158 +13,41 @@ use std::{
 };
 
 use lazy_static::lazy_static;
-use log::error;
-use rodio::{Decoder, Source};
+use log::{debug, error};
+use rodio::{source::SeekError, Decoder, Source};
 use tracing::instrument;
 
 use crate::{
     errors::LibraryError,
-    state::{Percent, RepeatMode, StateAudio, StateRuntime},
+    format_duration,
+    state::{Percent, SeekType, StateAudio, StateRuntime},
 };
 use mecomp_storage::db::schemas::song::Song;
 use one_or_many::OneOrMany;
 
-use self::queue::Queue;
+pub mod commands;
+pub mod queue;
+
+use commands::{AudioCommand, QueueCommand, VolumeCommand};
+use queue::Queue;
 
 lazy_static! {
     pub static ref AUDIO_KERNEL: Arc<AudioKernelSender> = {
         let (tx, rx) = std::sync::mpsc::channel();
         let tx_clone = tx.clone();
-        std::thread::spawn(move || {
-            let kernel = AudioKernel::new();
-            kernel.init(tx_clone, rx);
-        });
+        std::thread::Builder::new()
+            .name(String::from("Audio Kernel"))
+            .spawn(move || {
+                let kernel = AudioKernel::new();
+                kernel.init(tx_clone, rx);
+            })
+            .unwrap();
         Arc::new(AudioKernelSender { tx })
     };
 }
 
 const DURATION_WATCHER_TICK_MS: u64 = 50;
 const DURATION_WATCHER_NEXT_SONG_THRESHOLD_MS: u64 = 100;
-
-/// Queue Commands
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum QueueCommand {
-    SkipForward(usize),
-    SkipBackward(usize),
-    SetPosition(usize),
-    Shuffle,
-    AddToQueue(Box<OneOrMany<Song>>),
-    RemoveRange(Range<usize>),
-    Clear,
-    SetRepeatMode(RepeatMode),
-}
-
-impl Display for QueueCommand {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::SkipForward(n) => write!(f, "Skip Forward by {n}"),
-            Self::SkipBackward(n) => write!(f, "Skip Backward by {n}"),
-            Self::SetPosition(n) => write!(f, "Set Position to {n}"),
-            Self::Shuffle => write!(f, "Shuffle"),
-            Self::AddToQueue(song_box) => match &**song_box {
-                OneOrMany::None => write!(f, "Add nothing"),
-                OneOrMany::One(song) => {
-                    write!(f, "Add \"{}\"", song.title)
-                }
-                OneOrMany::Many(songs) => {
-                    write!(
-                        f,
-                        "Add {:?}",
-                        songs
-                            .iter()
-                            .map(|song| song.title.to_string())
-                            .collect::<Vec<_>>()
-                    )
-                }
-            },
-            Self::RemoveRange(range) => {
-                write!(f, "Remove items {}..{}", range.start, range.end)
-            }
-            Self::Clear => write!(f, "Clear"),
-            Self::SetRepeatMode(mode) => {
-                write!(f, "Set Repeat Mode to {mode}")
-            }
-        }
-    }
-}
-
-/// Volume commands
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum VolumeCommand {
-    Up(f32),
-    Down(f32),
-    Set(f32),
-    Mute,
-    Unmute,
-    ToggleMute,
-}
-
-impl Display for VolumeCommand {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Up(percent) => write!(f, "+{percent:.0}%", percent = percent * 100.0),
-            Self::Down(percent) => write!(f, "-{percent:.0}%", percent = percent * 100.0),
-            Self::Set(percent) => write!(f, "={percent:.0}%", percent = percent * 100.0),
-            Self::Mute => write!(f, "Mute"),
-            Self::Unmute => write!(f, "Unmute"),
-            Self::ToggleMute => write!(f, "Toggle Mute"),
-        }
-    }
-}
-
-/// Commands that can be sent to the audio kernel
-#[derive(Debug)]
-pub enum AudioCommand {
-    Play,
-    Pause,
-    TogglePlayback,
-    RestartSong,
-    /// only clear the player (i.e. stop playback)
-    ClearPlayer,
-    /// Queue Commands
-    Queue(QueueCommand),
-    /// Stop the audio kernel
-    Exit,
-    /// used to report information about the state of the audio kernel
-    ReportStatus(tokio::sync::oneshot::Sender<StateAudio>),
-    /// volume control commands
-    Volume(VolumeCommand),
-    // TODO: seek commands
-}
-
-impl PartialEq for AudioCommand {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Play, Self::Play)
-            | (Self::Pause, Self::Pause)
-            | (Self::TogglePlayback, Self::TogglePlayback)
-            | (Self::ClearPlayer, Self::ClearPlayer)
-            | (Self::RestartSong, Self::RestartSong)
-            | (Self::Exit, Self::Exit)
-            | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
-            (Self::Queue(a), Self::Queue(b)) => a == b,
-            (Self::Volume(a), Self::Volume(b)) => a == b,
-            #[cfg(not(tarpaulin_include))]
-            _ => false,
-        }
-    }
-}
-
-impl Display for AudioCommand {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Play => write!(f, "Play"),
-            Self::Pause => write!(f, "Pause"),
-            Self::TogglePlayback => write!(f, "Toggle Playback"),
-            Self::RestartSong => write!(f, "Restart Song"),
-            Self::ClearPlayer => write!(f, "Clear Player"),
-            Self::Queue(command) => write!(f, "Queue: {command}"),
-            Self::Exit => write!(f, "Exit"),
-            Self::ReportStatus(_) => write!(f, "Report Status"),
-            Self::Volume(command) => write!(f, "Volume: {command}"),
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct AudioKernelSender {
@@ -192,6 +73,12 @@ impl AudioKernelSender {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+struct DurationInfo {
+    time_played: Duration,
+    current_duration: Duration,
+}
+
 pub struct AudioKernel {
     /// this is not used, but is needed to keep the stream alive
     #[cfg(not(feature = "mock_playback"))]
@@ -207,11 +94,9 @@ pub struct AudioKernel {
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will multiply each sample by this value.
     volume: Arc<Mutex<f32>>,
     /// whether the audio is muted
-    muted: AtomicBool,
-    /// the amount of time the current sound has been playing
-    time_played: Arc<Mutex<Duration>>,
-    /// the duration of the current sound
-    current_song_runtime: Arc<Mutex<Duration>>,
+    muted: Arc<AtomicBool>,
+    /// the current song duration and the time played
+    duration_info: Arc<Mutex<DurationInfo>>,
     /// whether the audio kernel is paused
     paused: Arc<AtomicBool>,
 }
@@ -237,9 +122,8 @@ impl AudioKernel {
             player: sink.into(),
             queue: Arc::new(Mutex::new(queue)),
             volume: Arc::new(Mutex::new(1.0)),
-            muted: AtomicBool::new(false),
-            time_played: Arc::new(Mutex::new(Duration::from_secs(0))),
-            current_song_runtime: Arc::new(Mutex::new(Duration::from_secs(0))),
+            muted: Arc::new(AtomicBool::new(false)),
+            duration_info: Arc::new(Mutex::new(DurationInfo::default())),
             paused: Arc::new(AtomicBool::new(true)),
         }
     }
@@ -263,7 +147,7 @@ impl AudioKernel {
         std::thread::spawn(move || {
             // basically, call rx.await and while it is waiting for a command, poll the queue_rx
             tokio::runtime::Builder::new_current_thread()
-                .enable_all()
+                .enable_time()
                 .build()
                 .unwrap()
                 .block_on(async {
@@ -272,7 +156,7 @@ impl AudioKernel {
                         () = async {
                             loop {
                                 queue_rx.next();
-                                std::thread::sleep(std::time::Duration::from_millis(1));
+                                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
                             }
                         } => {},
                     }
@@ -286,9 +170,8 @@ impl AudioKernel {
             queue_rx_end_tx: tx,
             queue: Arc::new(Mutex::new(Queue::new())),
             volume: Arc::new(Mutex::new(1.0)),
-            muted: AtomicBool::new(false),
-            time_played: Arc::new(Mutex::new(Duration::from_secs(0))),
-            current_song_runtime: Arc::new(Mutex::new(Duration::from_secs(0))),
+            muted: Arc::new(AtomicBool::new(false)),
+            duration_info: Arc::new(Mutex::new(DurationInfo::default())),
             paused: Arc::new(AtomicBool::new(true)),
         }
     }
@@ -301,7 +184,7 @@ impl AudioKernel {
     /// # Example
     ///
     /// ```
-    /// use mecomp_core::audio::{AudioKernel, AudioCommand, AudioKernelSender};
+    /// use mecomp_core::audio::{AudioKernel, commands::AudioCommand, AudioKernelSender};
     ///
     /// // create a channel to send commands to the audio kernel
     /// let (tx, rx) = std::sync::mpsc::channel();
@@ -338,17 +221,16 @@ impl AudioKernel {
         let (dw_tx, dw_rx) = tokio::sync::oneshot::channel();
 
         // we won't be able to access this AudioKernel instance reliably, so we need to clone Arcs to all the values we need
-        let time_played = self.time_played.clone();
-        let current_song_runtime = self.current_song_runtime.clone();
+        let duration_info = self.duration_info.clone();
         let paused = self.paused.clone();
 
-        let _duration_water = std::thread::spawn(move || {
+        let _duration_water = std::thread::Builder::new().name(String::from("Duration Watcher")).spawn(move || {
             let sleep_time = std::time::Duration::from_millis(DURATION_WATCHER_TICK_MS);
             let duration_threshold =
                 std::time::Duration::from_millis(DURATION_WATCHER_NEXT_SONG_THRESHOLD_MS);
 
             tokio::runtime::Builder::new_current_thread()
-                .enable_all()
+                .enable_time()
                 .build()
                 .unwrap()
                 .block_on(async {
@@ -358,13 +240,12 @@ impl AudioKernel {
                         () = async {
                             loop {
                                 tokio::time::sleep(sleep_time).await;
+                                let mut duration_info = duration_info.lock().unwrap();
                                 if !paused.load(std::sync::atomic::Ordering::Relaxed) {
-                                    let mut time_played = time_played.lock().unwrap();
                                     // if we aren't paused, increment the time played
-                                    *time_played += sleep_time;
+                                    duration_info.time_played += sleep_time;
                                     // if we're within the threshold of the end of the song, signal to the audio kernel to skip to the next song
-                                    let current_song_runtime = current_song_runtime.lock().unwrap();
-                                    if *time_played >= *current_song_runtime - duration_threshold {
+                                    if duration_info.time_played >= duration_info.current_duration - duration_threshold {
                                         if let Err(e) = tx.send((AudioCommand::Queue(QueueCommand::SkipForward(1)), tracing::Span::current())) {
                                             error!("Failed to send command to audio kernel: {e}");
                                             panic!("Failed to send command to audio kernel: {e}");
@@ -399,6 +280,7 @@ impl AudioKernel {
                     }
                 }
                 AudioCommand::Volume(command) => self.volume_control(command),
+                AudioCommand::Seek(seek, duration) => self.seek(seek, duration),
             }
         }
 
@@ -447,11 +329,17 @@ impl AudioKernel {
     }
 
     #[instrument(skip(self))]
+    fn clear(&self) {
+        self.clear_player();
+        self.queue.lock().unwrap().clear();
+    }
+
+    #[instrument(skip(self))]
     fn clear_player(&self) {
+        self.player.clear();
         self.paused
             .store(true, std::sync::atomic::Ordering::Relaxed);
-        *self.time_played.lock().unwrap() = Duration::from_secs(0);
-        self.player.clear();
+        *self.duration_info.lock().unwrap() = DurationInfo::default();
     }
 
     #[instrument(skip(self))]
@@ -478,9 +366,11 @@ impl AudioKernel {
         let queue_position = queue.current_index();
         let current_song = queue.current_song().cloned();
         let repeat_mode = queue.get_repeat_mode();
-        let runtime = current_song.as_ref().map(|song| {
-            let seek_position = *self.time_played.lock().unwrap();
-            let duration = song.runtime;
+        let runtime = current_song.as_ref().map(|_| {
+            let duration_info = self.duration_info.lock().unwrap();
+            let seek_position = duration_info.time_played;
+            let duration = duration_info.current_duration;
+            drop(duration_info);
             let seek_percent =
                 Percent::new(seek_position.as_secs_f32() / duration.as_secs_f32() * 100.0);
             StateRuntime {
@@ -510,12 +400,6 @@ impl AudioKernel {
             muted,
             volume,
         }
-    }
-
-    #[instrument(skip(self))]
-    fn clear(&self) {
-        self.clear_player();
-        self.queue.lock().unwrap().clear();
     }
 
     #[instrument(skip(self))]
@@ -657,7 +541,10 @@ impl AudioKernel {
         T: Source<Item = f32> + Send + 'static,
     {
         if let Some(duration) = source.total_duration() {
-            *self.current_song_runtime.lock().unwrap() = duration;
+            *self.duration_info.lock().unwrap() = DurationInfo {
+                time_played: Duration::from_secs(0),
+                current_duration: duration,
+            };
         }
         self.player.append(source);
     }
@@ -665,7 +552,10 @@ impl AudioKernel {
     #[instrument(skip(self))]
     fn append_song_to_player(&self, song: &Song) -> Result<(), LibraryError> {
         let source = Decoder::new(BufReader::new(File::open(&song.path)?))?.convert_samples();
-        *self.current_song_runtime.lock().unwrap() = song.runtime;
+        *self.duration_info.lock().unwrap() = DurationInfo {
+            time_played: Duration::from_secs(0),
+            current_duration: song.runtime,
+        };
         self.append_to_player(source);
 
         Ok(())
@@ -705,6 +595,42 @@ impl AudioKernel {
                 .set_volume(self.volume.lock().unwrap().to_owned());
         }
     }
+
+    #[instrument(skip(self))]
+    fn seek(&self, seek: SeekType, duration: Duration) {
+        // get a lock on the current song duration and time played
+        let mut duration_info = self.duration_info.lock().unwrap();
+        // calculate the new time based on the seek type
+        let new_time = match seek {
+            SeekType::Absolute => duration,
+            SeekType::RelativeForwards => duration_info.time_played + duration,
+            SeekType::RelativeBackwards => duration_info.time_played - duration,
+        };
+        let new_time = if new_time > duration_info.current_duration {
+            duration_info.current_duration
+        } else if new_time < Duration::from_secs(0) {
+            Duration::from_secs(0)
+        } else {
+            new_time
+        };
+
+        // try to seek to the new time.
+        // if the seek fails, log the error and continue
+        // if the seek succeeds, update the time_played to the new time
+        match self.player.try_seek(new_time) {
+            Ok(()) => {
+                debug!("Seek to {} successful", format_duration(&new_time));
+                duration_info.time_played = new_time;
+                drop(duration_info);
+            }
+            Err(SeekError::NotSupported { underlying_source }) => {
+                error!("Seek not supported by source: {underlying_source}");
+            }
+            Err(err) => {
+                error!("Seeking failed with error: {err}");
+            }
+        }
+    }
 }
 
 impl Default for AudioKernel {
@@ -715,7 +641,7 @@ impl Default for AudioKernel {
 
 #[cfg(test)]
 mod tests {
-    use pretty_assertions::assert_str_eq;
+    use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
 
     use crate::test_utils::init;
@@ -724,186 +650,6 @@ mod tests {
     use std::sync::mpsc;
     use std::thread;
     use std::time::Duration;
-
-    #[rstest]
-    #[case(AudioCommand::Play, AudioCommand::Play, true)]
-    #[case(AudioCommand::Play, AudioCommand::Pause, false)]
-    #[case(AudioCommand::Pause, AudioCommand::Pause, true)]
-    #[case(AudioCommand::TogglePlayback, AudioCommand::TogglePlayback, true)]
-    #[case(AudioCommand::RestartSong, AudioCommand::RestartSong, true)]
-    #[case(
-        AudioCommand::Queue(QueueCommand::Clear),
-        AudioCommand::Queue(QueueCommand::Clear),
-        true
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::Clear),
-        AudioCommand::Queue(QueueCommand::Shuffle),
-        false
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::SkipForward(1)),
-        AudioCommand::Queue(QueueCommand::SkipForward(1)),
-        true
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::SkipForward(1)),
-        AudioCommand::Queue(QueueCommand::SkipForward(2)),
-        false
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::SkipBackward(1)),
-        AudioCommand::Queue(QueueCommand::SkipBackward(1)),
-        true
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::SkipBackward(1)),
-        AudioCommand::Queue(QueueCommand::SkipBackward(2)),
-        false
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::SetPosition(1)),
-        AudioCommand::Queue(QueueCommand::SetPosition(1)),
-        true
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::SetPosition(1)),
-        AudioCommand::Queue(QueueCommand::SetPosition(2)),
-        false
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::Shuffle),
-        AudioCommand::Queue(QueueCommand::Shuffle),
-        true
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::Shuffle),
-        AudioCommand::Queue(QueueCommand::Clear),
-        false
-    )]
-    #[case(
-        AudioCommand::Volume(VolumeCommand::Up(0.1)),
-        AudioCommand::Volume(VolumeCommand::Up(0.1)),
-        true
-    )]
-    #[case(
-        AudioCommand::Volume(VolumeCommand::Up(0.1)),
-        AudioCommand::Volume(VolumeCommand::Up(0.2)),
-        false
-    )]
-    #[case(
-        AudioCommand::Volume(VolumeCommand::Down(0.1)),
-        AudioCommand::Volume(VolumeCommand::Down(0.1)),
-        true
-    )]
-    #[case(
-        AudioCommand::Volume(VolumeCommand::Down(0.1)),
-        AudioCommand::Volume(VolumeCommand::Down(0.2)),
-        false
-    )]
-    #[case(
-        AudioCommand::Volume(VolumeCommand::Set(0.1)),
-        AudioCommand::Volume(VolumeCommand::Set(0.1)),
-        true
-    )]
-    #[case(
-        AudioCommand::Volume(VolumeCommand::Set(0.1)),
-        AudioCommand::Volume(VolumeCommand::Set(0.2)),
-        false
-    )]
-    #[case(
-        AudioCommand::Volume(VolumeCommand::Mute),
-        AudioCommand::Volume(VolumeCommand::Mute),
-        true
-    )]
-    #[case(
-        AudioCommand::Volume(VolumeCommand::Mute),
-        AudioCommand::Volume(VolumeCommand::Unmute),
-        false
-    )]
-    #[case(
-        AudioCommand::Volume(VolumeCommand::Unmute),
-        AudioCommand::Volume(VolumeCommand::Unmute),
-        true
-    )]
-    fn test_audio_command_equality(
-        #[case] lhs: AudioCommand,
-        #[case] rhs: AudioCommand,
-        #[case] expected: bool,
-    ) {
-        assert_eq!(lhs == rhs, expected);
-        assert_eq!(rhs == lhs, expected);
-    }
-
-    // dummy song used for display tests, makes the tests more readable
-    fn dummy_song() -> Song {
-        Song {
-            id: Song::generate_id(),
-            title: "Song 1".into(),
-            artist: OneOrMany::None,
-            album_artist: OneOrMany::None,
-            album: "album".into(),
-            genre: OneOrMany::None,
-            runtime: Duration::from_secs(100),
-            track: None,
-            disc: None,
-            release_year: None,
-            extension: "mp3".into(),
-            path: "foo/bar.mp3".into(),
-        }
-    }
-
-    #[rstest]
-    #[case(AudioCommand::Play, "Play")]
-    #[case(AudioCommand::Pause, "Pause")]
-    #[case(AudioCommand::TogglePlayback, "Toggle Playback")]
-    #[case(AudioCommand::ClearPlayer, "Clear Player")]
-    #[case(AudioCommand::RestartSong, "Restart Song")]
-    #[case(AudioCommand::Queue(QueueCommand::Clear), "Queue: Clear")]
-    #[case(AudioCommand::Queue(QueueCommand::Shuffle), "Queue: Shuffle")]
-    #[case(
-        AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(OneOrMany::None))),
-        "Queue: Add nothing"
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(OneOrMany::One(dummy_song())))),
-        "Queue: Add \"Song 1\""
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(OneOrMany::Many(vec![dummy_song()])))),
-        "Queue: Add [\"Song 1\"]"
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::RemoveRange(0..1)),
-        "Queue: Remove items 0..1"
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::SetRepeatMode(RepeatMode::None)),
-        "Queue: Set Repeat Mode to None"
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::SkipForward(1)),
-        "Queue: Skip Forward by 1"
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::SkipBackward(1)),
-        "Queue: Skip Backward by 1"
-    )]
-    #[case(
-        AudioCommand::Queue(QueueCommand::SetPosition(1)),
-        "Queue: Set Position to 1"
-    )]
-    #[case(AudioCommand::Volume(VolumeCommand::Up(0.1)), "Volume: +10%")]
-    #[case(AudioCommand::Volume(VolumeCommand::Down(0.1)), "Volume: -10%")]
-    #[case(AudioCommand::Volume(VolumeCommand::Set(0.1)), "Volume: =10%")]
-    #[case(AudioCommand::Volume(VolumeCommand::Mute), "Volume: Mute")]
-    #[case(AudioCommand::Volume(VolumeCommand::Unmute), "Volume: Unmute")]
-    #[case(AudioCommand::Volume(VolumeCommand::ToggleMute), "Volume: Toggle Mute")]
-    #[case(AudioCommand::Exit, "Exit")]
-    #[case(AudioCommand::ReportStatus(tokio::sync::oneshot::channel().0), "Report Status")]
-    fn test_audio_command_display(#[case] command: AudioCommand, #[case] expected: &str) {
-        assert_str_eq!(command.to_string(), expected);
-    }
 
     #[fixture]
     fn audio_kernel() -> AudioKernel {
@@ -922,7 +668,6 @@ mod tests {
         AudioKernelSender::new(tx)
     }
 
-    #[instrument]
     async fn get_state(sender: AudioKernelSender) -> StateAudio {
         let (tx, rx) = tokio::sync::oneshot::channel::<StateAudio>();
         sender.send(AudioCommand::ReportStatus(tx));
@@ -1019,8 +764,12 @@ mod tests {
         //! Therefore, they are in a separate module so that they can be skipped when running tests on CI.
 
         use mecomp_storage::test_utils::{arb_song_case, create_song_metadata, init_test_database};
+        use pretty_assertions::assert_eq;
+        use rstest::rstest;
 
-        use super::*;
+        use crate::test_utils::init;
+
+        use super::{super::*, audio_kernel, audio_kernel_sender, get_state, sound};
 
         #[rstest]
         fn test_audio_kernel_play_pause(
@@ -1580,6 +1329,75 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.volume, 0.5);
             assert!(!state.muted);
+
+            sender.send(AudioCommand::Exit);
+        }
+
+        #[rstest]
+        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[tokio::test]
+        async fn test_seek_commands(#[from(audio_kernel_sender)] sender: AudioKernelSender) {
+            init();
+            let db = init_test_database().await.unwrap();
+            let tempdir = tempfile::tempdir().unwrap();
+
+            let song = Song::try_load_into_db(
+                &db,
+                create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
+            )
+            .await
+            .unwrap();
+
+            // add a song to the queue
+            // NOTE: this song has a duration of 10 seconds
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                OneOrMany::One(song.clone()),
+            ))));
+            sender.send(AudioCommand::Pause);
+            let state: StateAudio = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, Some(0));
+            assert!(state.paused);
+            assert_eq!(
+                state.runtime.unwrap().duration,
+                Duration::from_secs(10) + Duration::from_nanos(6)
+            );
+
+            // skip ahead a bit
+            sender.send(AudioCommand::Seek(
+                SeekType::RelativeForwards,
+                Duration::from_secs(2),
+            ));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(2));
+            assert_eq!(state.current_song, Some(song.clone()));
+            assert!(state.paused);
+
+            // skip back a bit
+            sender.send(AudioCommand::Seek(
+                SeekType::RelativeBackwards,
+                Duration::from_secs(1),
+            ));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(1));
+            assert_eq!(state.current_song, Some(song.clone()));
+            assert!(state.paused);
+
+            // skip to 9 seconds
+            sender.send(AudioCommand::Seek(
+                SeekType::Absolute,
+                Duration::from_secs(9),
+            ));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(9));
+            assert_eq!(state.current_song, Some(song.clone()));
+            assert!(state.paused);
+
+            // now we unpause, wait a bit, and check that the song has ended
+            sender.send(AudioCommand::Play);
+            tokio::time::sleep(Duration::from_millis(1001)).await;
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.queue_position, None);
+            assert!(state.paused);
 
             sender.send(AudioCommand::Exit);
         }

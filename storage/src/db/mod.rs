@@ -13,7 +13,7 @@ use surrealdb::{
 };
 
 #[cfg(feature = "db")]
-static DB_DIR: tokio::sync::OnceCell<std::path::PathBuf> = tokio::sync::OnceCell::const_new();
+static DB_DIR: once_cell::sync::OnceCell<std::path::PathBuf> = once_cell::sync::OnceCell::new();
 #[cfg(feature = "db")]
 static TEMP_DB_DIR: once_cell::sync::Lazy<tempfile::TempDir> = once_cell::sync::Lazy::new(|| {
     tempfile::tempdir().expect("Failed to create temporary directory")
@@ -28,10 +28,10 @@ pub const FULL_TEXT_SEARCH_ANALYZER_NAME: &str = "custom_analyzer";
 ///
 /// This function will return an error if the path cannot be set.
 #[cfg(feature = "db")]
-pub fn set_database_path(
-    path: std::path::PathBuf,
-) -> Result<(), tokio::sync::SetError<std::path::PathBuf>> {
-    DB_DIR.set(path)?;
+pub fn set_database_path(path: std::path::PathBuf) -> Result<(), crate::errors::Error> {
+    DB_DIR
+        .set(path)
+        .map_err(crate::errors::Error::DbPathSetError)?;
     log::info!("Primed database path");
     Ok(())
 }
