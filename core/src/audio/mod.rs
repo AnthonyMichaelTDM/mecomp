@@ -184,7 +184,7 @@ impl AudioKernel {
     /// # Example
     ///
     /// ```
-    /// use mecomp_core::audio::{AudioKernel, AudioCommand, AudioKernelSender};
+    /// use mecomp_core::audio::{AudioKernel, commands::AudioCommand, AudioKernelSender};
     ///
     /// // create a channel to send commands to the audio kernel
     /// let (tx, rx) = std::sync::mpsc::channel();
