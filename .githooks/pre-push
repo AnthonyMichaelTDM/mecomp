@@ -10,7 +10,11 @@ fi
 
 # Run cargo test
 echo "Running cargo test..."
-cargo test --all --workspace --features mock_playback
+if cargo nextest -V > /dev/null 2>&1; then
+  cargo nextest run --workspace --features mock_playback
+else
+  cargo test --workspace --features mock_playback
+fi
 if [ $? -ne 0 ]; then
   echo "cargo test failed, aborting commit"
   exit 1
