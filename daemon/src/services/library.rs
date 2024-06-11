@@ -5,7 +5,6 @@ use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
 use surrealdb::{Connection, Surreal};
 use tap::TapFallible;
 use tracing::instrument;
-// use tokio::runtime::Handle;
 use walkdir::WalkDir;
 
 use mecomp_storage::{

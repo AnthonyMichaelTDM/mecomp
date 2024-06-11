@@ -7,8 +7,8 @@ pub enum Error {
     #[cfg(feature = "db")]
     #[error("SurrealDB error: {0}")]
     DbError(#[from] surrealdb::Error),
-    #[error("Failed to set database path: {0}")]
-    SetError(#[from] tokio::sync::SetError<PathBuf>),
+    #[error("Failed to set database path to {0}")]
+    DbPathSetError(PathBuf),
     #[error("Item is missing an Id.")]
     NoId,
     #[error("Item not found.")]

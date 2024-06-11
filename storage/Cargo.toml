@@ -35,7 +35,6 @@ surrealdb = { workspace = true, optional = true }
 surrealqlx = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-tokio = { workspace = true }
 tempfile = { workspace = true, optional = true }
 
 
@@ -52,4 +51,5 @@ pretty_assertions = { workspace = true }
 surrealdb = { workspace = true }
 serde_json = { version = "1.0" }
 tempfile = { workspace = true }
+tokio = { workspace = true }
 rstest = { workspace = true }

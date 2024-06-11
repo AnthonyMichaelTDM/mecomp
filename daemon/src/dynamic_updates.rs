@@ -5,6 +5,8 @@
 //! The `init_music_library_watcher`
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
+use futures::FutureExt;
+use futures::StreamExt;
 use log::{debug, error, info, trace, warn};
 use mecomp_storage::db::schemas::song::{Song, SongChangeSet, SongMetadata};
 use notify::{
@@ -37,54 +39,58 @@ pub const MAX_DEBOUNCE_TIME: Duration = Duration::from_millis(500);
 /// # Errors
 ///
 /// If the watcher could not be started, an error is returned.
-///
-/// # Panics
-///
-/// Panics if it could not create the tokio runtime
 pub fn init_music_library_watcher(
     db: Arc<Surreal<Db>>,
     library_paths: &[PathBuf],
     artist_name_separator: Option<String>,
     genre_separator: Option<String>,
 ) -> anyhow::Result<MusicLibEventHandlerGuard> {
-    let (tx, rx) = std::sync::mpsc::channel();
+    let (tx, rx) = futures::channel::mpsc::unbounded();
     // create a oneshot that can be used to stop the watcher
-    let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
+    let (stop_tx, stop_rx) = futures::channel::oneshot::channel();
 
     // spawn the event handler in a new thread
-    std::thread::spawn(move || {
-        let handler = MusicLibEventHandler::new(db, artist_name_separator, genre_separator);
-        tokio::runtime::Runtime::new().unwrap().block_on(async {
-            tokio::select! {
-                _ = stop_rx => {
-                    debug!("stopping watcher");
-                }
-                () = async {
-                    for result in rx {
-                        match result {
-                            Ok(events) => {
-                                for event in events {
-                                    if let Err(e) = handler.handle_event(event).await {
-                                        error!("failed to handle event: {:?}", e);
+    std::thread::Builder::new()
+        .name(String::from("Music Library Watcher"))
+        .spawn(move || {
+            let handler = MusicLibEventHandler::new(db, artist_name_separator, genre_separator);
+            futures::executor::block_on(async {
+                let mut stop_rx = stop_rx.fuse();
+                let mut rx = rx.fuse();
+
+                loop {
+                    futures::select! {
+                        _ = stop_rx => {
+                            debug!("stopping watcher");
+                            break;
+                        }
+                        result = rx.select_next_some() => {
+                            match result {
+                                Ok(events) => {
+                                    for event in events {
+                                        if let Err(e) = handler.handle_event(event).await {
+                                            error!("failed to handle event: {:?}", e);
+                                        }
                                     }
                                 }
-                            }
-                            Err(errors) => {
-                                for error in errors {
-                                    error!("watch error: {error:?}");
+                                Err(errors) => {
+                                    for error in errors {
+                                        error!("watch error: {error:?}");
+                                    }
                                 }
                             }
                         }
                     }
-                } => {}
-            }
-        });
-    });
+                }
+            });
+        })?;
 
     // Select recommended watcher for debouncer.
     // Using a callback here, could also be a channel.
     let mut debouncer: Debouncer<INotifyWatcher, FileIdMap> =
-        new_debouncer(MAX_DEBOUNCE_TIME, None, tx)?;
+        new_debouncer(MAX_DEBOUNCE_TIME, None, move |event| {
+            let _ = tx.unbounded_send(event);
+        })?;
 
     // Add all library paths to the debouncer.
     for path in library_paths {
@@ -106,7 +112,7 @@ pub fn init_music_library_watcher(
 
 pub struct MusicLibEventHandlerGuard {
     debouncer: Debouncer<INotifyWatcher, FileIdMap>,
-    stop_tx: tokio::sync::oneshot::Sender<()>,
+    stop_tx: futures::channel::oneshot::Sender<()>,
 }
 
 impl MusicLibEventHandlerGuard {
