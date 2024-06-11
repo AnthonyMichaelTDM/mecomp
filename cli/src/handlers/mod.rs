@@ -31,7 +31,6 @@ pub enum Command {
     /// Rand (audio state)
     Rand { target: RandTarget },
     /// Search (fuzzy keys)
-    /// TODO: not implemented
     #[clap(hide = true)]
     Search {
         /// What we're searching for

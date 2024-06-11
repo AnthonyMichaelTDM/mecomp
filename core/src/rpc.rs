@@ -36,7 +36,6 @@ pub type SearchResult = (Box<[Song]>, Box<[Album]>, Box<[Artist]>);
 
 // TODO: add commands for reading songs by artists, in albums, in playlists, in collections, etc.
 // TODO: commands for reading songs by paths, artists by name, etc.
-// TODO: implement search commands for fuzzy searching.
 
 #[tarpc::service]
 pub trait MusicPlayer {

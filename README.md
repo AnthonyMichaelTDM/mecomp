@@ -27,6 +27,8 @@ MECOMP is a local music player inspired by [festival](https://github.com/hinto-j
     - used when adding a new root directory to the music collection, or when there have been changes to the collection while the daemon was not running
   - [x] music library watcher that dynamically updates the library when songs are added, removed, or modified as long as the daemon is running
 - [x] allow users to create playlists
+- [x] allow users to search their music library (search for songs, artists, albums, etc.)
+  - [x] searching by songs includes the artist names in the index, so for example searching for "Green Day" will return all songs by Green Day (even if the song name doesn't contain "Green Day")
 - [ ] allow users to "like" songs
 - [ ] track play counts
 - [ ] allow users to create "smart playlists" that are automatically updated based on a set of criteria (e.g. "all songs with a play count greater than 10", "all songs by Green Day", "all songs with a similarity to Foo greater than X", etc.)
