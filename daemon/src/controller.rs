@@ -9,7 +9,10 @@ use tap::TapFallible;
 use tracing::instrument;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
-    audio::{AudioCommand, QueueCommand, VolumeCommand, AUDIO_KERNEL},
+    audio::{
+        commands::{AudioCommand, QueueCommand, VolumeCommand},
+        AUDIO_KERNEL,
+    },
     errors::SerializableLibraryError,
     rpc::{AlbumId, ArtistId, CollectionId, MusicPlayer, PlaylistId, SongId},
     state::{
