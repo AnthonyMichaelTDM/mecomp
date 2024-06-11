@@ -35,10 +35,13 @@ lazy_static! {
     pub static ref AUDIO_KERNEL: Arc<AudioKernelSender> = {
         let (tx, rx) = std::sync::mpsc::channel();
         let tx_clone = tx.clone();
-        std::thread::spawn(move || {
-            let kernel = AudioKernel::new();
-            kernel.init(tx_clone, rx);
-        });
+        std::thread::Builder::new()
+            .name(String::from("Audio Kernel"))
+            .spawn(move || {
+                let kernel = AudioKernel::new();
+                kernel.init(tx_clone, rx);
+            })
+            .unwrap();
         Arc::new(AudioKernelSender { tx })
     };
 }
@@ -221,14 +224,13 @@ impl AudioKernel {
         let duration_info = self.duration_info.clone();
         let paused = self.paused.clone();
 
-        let _duration_water = std::thread::spawn(move || {
+        let _duration_water = std::thread::Builder::new().name(String::from("Duration Watcher")).spawn(move || {
             let sleep_time = std::time::Duration::from_millis(DURATION_WATCHER_TICK_MS);
             let duration_threshold =
                 std::time::Duration::from_millis(DURATION_WATCHER_NEXT_SONG_THRESHOLD_MS);
 
             tokio::runtime::Builder::new_current_thread()
                 .enable_time()
-                .thread_name("Duration Watcher")
                 .build()
                 .unwrap()
                 .block_on(async {

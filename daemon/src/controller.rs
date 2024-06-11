@@ -70,23 +70,25 @@ impl MusicPlayer for MusicPlayerServer {
             return Err(SerializableLibraryError::RescanInProgress);
         }
 
-        std::thread::spawn(move || {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let _guard = locks::LIBRARY_RESCAN_LOCK.lock().await;
-                match services::library::rescan(
-                    &self.db,
-                    &self.settings.library_paths,
-                    self.settings.artist_separator.as_deref(),
-                    self.settings.genre_separator.as_deref(),
-                    self.settings.conflict_resolution,
-                )
-                .await
-                {
-                    Ok(()) => info!("Library rescan complete"),
-                    Err(e) => error!("Error in library_rescan: {e}"),
-                }
-            });
-        });
+        std::thread::Builder::new()
+            .name(String::from("Library Rescan"))
+            .spawn(move || {
+                futures::executor::block_on(async {
+                    let _guard = locks::LIBRARY_RESCAN_LOCK.lock().await;
+                    match services::library::rescan(
+                        &self.db,
+                        &self.settings.library_paths,
+                        self.settings.artist_separator.as_deref(),
+                        self.settings.genre_separator.as_deref(),
+                        self.settings.conflict_resolution,
+                    )
+                    .await
+                    {
+                        Ok(()) => info!("Library rescan complete"),
+                        Err(e) => error!("Error in library_rescan: {e}"),
+                    }
+                });
+            })?;
 
         Ok(())
     }
@@ -246,11 +248,14 @@ impl MusicPlayer for MusicPlayerServer {
     /// tells the daemon to shutdown.
     #[instrument]
     async fn daemon_shutdown(self, context: Context) {
-        std::thread::spawn(|| {
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            AUDIO_KERNEL.send(AudioCommand::Exit);
-            std::process::exit(0);
-        });
+        std::thread::Builder::new()
+            .name(String::from("Daemon Shutdown"))
+            .spawn(|| {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                AUDIO_KERNEL.send(AudioCommand::Exit);
+                std::process::exit(0);
+            })
+            .unwrap();
         info!("Shutting down daemon in 1 second");
     }
 
