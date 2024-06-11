@@ -637,8 +637,8 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// seek forwards, backwards, or to an absolute second in the current song.
     #[instrument]
-    async fn playback_seek(self, context: Context, seek: SeekType, seconds: u64) {
-        info!("Seeking {} seconds ({})", seconds, seek);
+    async fn playback_seek(self, context: Context, seek: SeekType, duration: Duration) {
+        info!("Seeking {seek} by {:.2}s", duration.as_secs_f32());
         todo!()
     }
     /// set the repeat mode.

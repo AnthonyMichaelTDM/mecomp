@@ -21,7 +21,8 @@ use tracing::instrument;
 
 use crate::{
     errors::LibraryError,
-    state::{Percent, RepeatMode, StateAudio, StateRuntime},
+    format_duration,
+    state::{Percent, RepeatMode, SeekType, StateAudio, StateRuntime},
 };
 use mecomp_storage::db::schemas::song::Song;
 use one_or_many::OneOrMany;
@@ -42,6 +43,69 @@ lazy_static! {
 
 const DURATION_WATCHER_TICK_MS: u64 = 50;
 const DURATION_WATCHER_NEXT_SONG_THRESHOLD_MS: u64 = 100;
+
+/// Commands that can be sent to the audio kernel
+#[derive(Debug)]
+pub enum AudioCommand {
+    Play,
+    Pause,
+    TogglePlayback,
+    RestartSong,
+    /// only clear the player (i.e. stop playback)
+    ClearPlayer,
+    /// Queue Commands
+    Queue(QueueCommand),
+    /// Stop the audio kernel
+    Exit,
+    /// used to report information about the state of the audio kernel
+    ReportStatus(tokio::sync::oneshot::Sender<StateAudio>),
+    /// volume control commands
+    Volume(VolumeCommand),
+    /// seek commands
+    Seek(SeekType, Duration),
+}
+
+impl PartialEq for AudioCommand {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Play, Self::Play)
+            | (Self::Pause, Self::Pause)
+            | (Self::TogglePlayback, Self::TogglePlayback)
+            | (Self::ClearPlayer, Self::ClearPlayer)
+            | (Self::RestartSong, Self::RestartSong)
+            | (Self::Exit, Self::Exit)
+            | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
+            (Self::Queue(a), Self::Queue(b)) => a == b,
+            (Self::Volume(a), Self::Volume(b)) => a == b,
+            (Self::Seek(a, b), Self::Seek(c, d)) => a == c && b == d,
+            #[cfg(not(tarpaulin_include))]
+            _ => false,
+        }
+    }
+}
+
+impl Display for AudioCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Play => write!(f, "Play"),
+            Self::Pause => write!(f, "Pause"),
+            Self::TogglePlayback => write!(f, "Toggle Playback"),
+            Self::RestartSong => write!(f, "Restart Song"),
+            Self::ClearPlayer => write!(f, "Clear Player"),
+            Self::Queue(command) => write!(f, "Queue: {command}"),
+            Self::Exit => write!(f, "Exit"),
+            Self::ReportStatus(_) => write!(f, "Report Status"),
+            Self::Volume(command) => write!(f, "Volume: {command}"),
+            Self::Seek(seek_type, duration) => {
+                write!(
+                    f,
+                    "Seek: {seek_type} {} (HH:MM:SS)",
+                    format_duration(duration)
+                )
+            }
+        }
+    }
+}
 
 /// Queue Commands
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -110,60 +174,6 @@ impl Display for VolumeCommand {
             Self::Mute => write!(f, "Mute"),
             Self::Unmute => write!(f, "Unmute"),
             Self::ToggleMute => write!(f, "Toggle Mute"),
-        }
-    }
-}
-
-/// Commands that can be sent to the audio kernel
-#[derive(Debug)]
-pub enum AudioCommand {
-    Play,
-    Pause,
-    TogglePlayback,
-    RestartSong,
-    /// only clear the player (i.e. stop playback)
-    ClearPlayer,
-    /// Queue Commands
-    Queue(QueueCommand),
-    /// Stop the audio kernel
-    Exit,
-    /// used to report information about the state of the audio kernel
-    ReportStatus(tokio::sync::oneshot::Sender<StateAudio>),
-    /// volume control commands
-    Volume(VolumeCommand),
-    // TODO: seek commands
-}
-
-impl PartialEq for AudioCommand {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Play, Self::Play)
-            | (Self::Pause, Self::Pause)
-            | (Self::TogglePlayback, Self::TogglePlayback)
-            | (Self::ClearPlayer, Self::ClearPlayer)
-            | (Self::RestartSong, Self::RestartSong)
-            | (Self::Exit, Self::Exit)
-            | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
-            (Self::Queue(a), Self::Queue(b)) => a == b,
-            (Self::Volume(a), Self::Volume(b)) => a == b,
-            #[cfg(not(tarpaulin_include))]
-            _ => false,
-        }
-    }
-}
-
-impl Display for AudioCommand {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Play => write!(f, "Play"),
-            Self::Pause => write!(f, "Pause"),
-            Self::TogglePlayback => write!(f, "Toggle Playback"),
-            Self::RestartSong => write!(f, "Restart Song"),
-            Self::ClearPlayer => write!(f, "Clear Player"),
-            Self::Queue(command) => write!(f, "Queue: {command}"),
-            Self::Exit => write!(f, "Exit"),
-            Self::ReportStatus(_) => write!(f, "Report Status"),
-            Self::Volume(command) => write!(f, "Volume: {command}"),
         }
     }
 }
@@ -399,6 +409,7 @@ impl AudioKernel {
                     }
                 }
                 AudioCommand::Volume(command) => self.volume_control(command),
+                AudioCommand::Seek(_seek, _duration) => todo!(),
             }
         }
 
@@ -826,6 +837,61 @@ mod tests {
         AudioCommand::Volume(VolumeCommand::Unmute),
         true
     )]
+    #[case(
+        AudioCommand::Volume(VolumeCommand::Unmute),
+        AudioCommand::Volume(VolumeCommand::Mute),
+        false
+    )]
+    #[case(
+        AudioCommand::Volume(VolumeCommand::ToggleMute),
+        AudioCommand::Volume(VolumeCommand::ToggleMute),
+        true
+    )]
+    #[case(
+        AudioCommand::Seek(SeekType::Absolute, Duration::from_secs(10)),
+        AudioCommand::Seek(SeekType::Absolute, Duration::from_secs(10)),
+        true
+    )]
+    #[case(
+        AudioCommand::Seek(SeekType::Absolute, Duration::from_secs(10)),
+        AudioCommand::Seek(SeekType::Absolute, Duration::from_secs(20)),
+        false
+    )]
+    #[case(
+        AudioCommand::Seek(SeekType::RelativeForwards, Duration::from_secs(10)),
+        AudioCommand::Seek(SeekType::RelativeForwards, Duration::from_secs(10)),
+        true
+    )]
+    #[case(
+        AudioCommand::Seek(SeekType::RelativeForwards, Duration::from_secs(10)),
+        AudioCommand::Seek(SeekType::RelativeForwards, Duration::from_secs(20)),
+        false
+    )]
+    #[case(
+        AudioCommand::Seek(SeekType::RelativeBackwards, Duration::from_secs(10)),
+        AudioCommand::Seek(SeekType::RelativeBackwards, Duration::from_secs(10)),
+        true
+    )]
+    #[case(
+        AudioCommand::Seek(SeekType::RelativeBackwards, Duration::from_secs(10)),
+        AudioCommand::Seek(SeekType::RelativeBackwards, Duration::from_secs(20)),
+        false
+    )]
+    #[case(
+        AudioCommand::Seek(SeekType::Absolute, Duration::from_secs(10)),
+        AudioCommand::Seek(SeekType::RelativeBackwards, Duration::from_secs(10)),
+        false
+    )]
+    #[case(
+        AudioCommand::Seek(SeekType::Absolute, Duration::from_secs(10)),
+        AudioCommand::Seek(SeekType::RelativeForwards, Duration::from_secs(10)),
+        false
+    )]
+    #[case(
+        AudioCommand::Seek(SeekType::RelativeForwards, Duration::from_secs(10)),
+        AudioCommand::Seek(SeekType::RelativeBackwards, Duration::from_secs(10)),
+        false
+    )]
     fn test_audio_command_equality(
         #[case] lhs: AudioCommand,
         #[case] rhs: AudioCommand,
@@ -901,6 +967,22 @@ mod tests {
     #[case(AudioCommand::Volume(VolumeCommand::ToggleMute), "Volume: Toggle Mute")]
     #[case(AudioCommand::Exit, "Exit")]
     #[case(AudioCommand::ReportStatus(tokio::sync::oneshot::channel().0), "Report Status")]
+    #[case(
+        AudioCommand::Seek(SeekType::Absolute, Duration::from_secs(10)),
+        "Seek: Absolute 00:00:10.00 (HH:MM:SS)"
+    )]
+    #[case(
+        AudioCommand::Seek(SeekType::RelativeForwards, Duration::from_secs(10)),
+        "Seek: Forwards 00:00:10.00 (HH:MM:SS)"
+    )]
+    #[case(
+        AudioCommand::Seek(SeekType::RelativeBackwards, Duration::from_secs(10)),
+        "Seek: Backwards 00:00:10.00 (HH:MM:SS)"
+    )]
+    #[case(
+        AudioCommand::Seek(SeekType::Absolute, Duration::from_secs(3600 + 120 + 1)),
+        "Seek: Absolute 01:02:01.00 (HH:MM:SS)"
+    )]
     fn test_audio_command_display(#[case] command: AudioCommand, #[case] expected: &str) {
         assert_str_eq!(command.to_string(), expected);
     }

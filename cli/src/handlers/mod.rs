@@ -177,17 +177,17 @@ pub enum SeekCommand {
     /// Seek forwards by a given amount (in seconds)
     Forward {
         /// The amount to seek by
-        amount: u64,
+        amount: f32,
     },
     /// Seek backwards by a given amount
     Backward {
         /// The amount to seek by
-        amount: u64,
+        amount: f32,
     },
     /// Seek to a given position
     To {
         /// The position to seek to
-        position: u64,
+        position: f32,
     },
 }
 

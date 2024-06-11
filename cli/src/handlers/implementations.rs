@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::handlers::printing;
 
 use super::{
@@ -352,21 +354,29 @@ impl CommandHandler for SeekCommand {
         match self {
             Self::Forward { amount } => {
                 client
-                    .playback_seek(ctx, SeekType::RelativeForwards, *amount)
+                    .playback_seek(
+                        ctx,
+                        SeekType::RelativeForwards,
+                        Duration::from_secs_f32(*amount),
+                    )
                     .await?;
-                println!("Daemon response:\nseeked forward by {amount}");
+                println!("Daemon response:\nseeked forward by {amount:.2}s");
             }
             Self::Backward { amount } => {
                 client
-                    .playback_seek(ctx, SeekType::RelativeBackwards, *amount)
+                    .playback_seek(
+                        ctx,
+                        SeekType::RelativeBackwards,
+                        Duration::from_secs_f32(*amount),
+                    )
                     .await?;
-                println!("Daemon response:\nseeked backward by {amount}");
+                println!("Daemon response:\nseeked backward by {amount:.2}s");
             }
             Self::To { position } => {
                 client
-                    .playback_seek(ctx, SeekType::Absolute, *position)
+                    .playback_seek(ctx, SeekType::Absolute, Duration::from_secs_f32(*position))
                     .await?;
-                println!("Daemon response:\nseeked to position {position}");
+                println!("Daemon response:\nseeked to position {position:.2}s");
             }
         }
         Ok(())

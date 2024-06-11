@@ -6,6 +6,8 @@ use mecomp_storage::db::schemas::song::Song;
 use nutype::nutype;
 use serde::{Deserialize, Serialize};
 
+use crate::format_duration;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub enum SeekType {
     Absolute,
@@ -84,10 +86,10 @@ impl Display for StateRuntime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "StateRuntime {{ seek_position: {:.2}s, seek_percent: {}, duration: {:.1}s }}",
-            self.seek_position.as_secs_f32(),
+            "StateRuntime {{ seek_position: {}, seek_percent: {}, duration: {} }}",
+            format_duration(&self.seek_position),
             self.seek_percent,
-            self.duration.as_secs_f32()
+            format_duration(&self.duration)
         )
     }
 }
@@ -157,7 +159,7 @@ mod tests {
             seek_percent: Percent::new(50.0),
             duration: Duration::from_secs(6),
         },
-        "StateRuntime { seek_position: 3.00s, seek_percent: 50.00%, duration: 6.0s }"
+        "StateRuntime { seek_position: 00:00:03.00, seek_percent: 50.00%, duration: 00:00:06.00 }"
     )]
     #[case::state_audio_empty(
         StateAudio {
@@ -217,7 +219,7 @@ mod tests {
             muted: false,
             volume: 1.0,
         },
-        "StateAudio { queue: [\"Song 1\"], queue_position: 1, current_song: \"Song 1\", repeat_mode: None, runtime: StateRuntime { seek_position: 20.00s, seek_percent: 20.00%, duration: 100.0s }, paused: false, muted: false, volume: 100% }"
+        "StateAudio { queue: [\"Song 1\"], queue_position: 1, current_song: \"Song 1\", repeat_mode: None, runtime: StateRuntime { seek_position: 00:00:20.00, seek_percent: 20.00%, duration: 00:01:40.00 }, paused: false, muted: false, volume: 100% }"
     )]
     fn test_display_impls<T: Display>(#[case] input: T, #[case] expected: &str) {
         assert_str_eq!(input.to_string(), expected);

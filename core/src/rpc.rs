@@ -5,6 +5,7 @@
 use std::{
     net::{IpAddr, Ipv4Addr},
     ops::Range,
+    time::Duration,
 };
 
 use mecomp_storage::db::schemas::{
@@ -142,7 +143,7 @@ pub trait MusicPlayer {
     /// clears the queue and stops playback.
     async fn playback_clear() -> ();
     /// seek forwards, backwards, or to an absolute second in the current song.
-    async fn playback_seek(seek: SeekType, seconds: u64) -> ();
+    async fn playback_seek(seek: SeekType, duration: Duration) -> ();
     /// set the repeat mode.
     async fn playback_repeat(mode: RepeatMode) -> ();
     /// Shuffle the current queue, then start playing from the 1st Song in the queue.
