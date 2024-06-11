@@ -619,7 +619,7 @@ impl AudioKernel {
         // if the seek succeeds, update the time_played to the new time
         match self.player.try_seek(new_time) {
             Ok(()) => {
-                debug!("Seeked to {}", format_duration(&new_time));
+                debug!("Seek to {} successful", format_duration(&new_time));
                 duration_info.time_played = new_time;
                 drop(duration_info);
             }
