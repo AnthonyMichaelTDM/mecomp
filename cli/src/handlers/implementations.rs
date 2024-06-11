@@ -372,7 +372,7 @@ impl CommandHandler for SeekCommand {
                     .await?;
                 println!("Daemon response:\nseeked backward by {amount:.2}s");
             }
-            Self::To { position } => {
+            Self::Absolute { position } => {
                 client
                     .playback_seek(ctx, SeekType::Absolute, Duration::from_secs_f32(*position))
                     .await?;
