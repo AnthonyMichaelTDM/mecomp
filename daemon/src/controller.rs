@@ -579,7 +579,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn playback_seek(self, context: Context, seek: SeekType, duration: Duration) {
         info!("Seeking {seek} by {:.2}s", duration.as_secs_f32());
-        todo!()
+        AUDIO_KERNEL.send(AudioCommand::Seek(seek, duration));
     }
     /// set the repeat mode.
     #[instrument]
