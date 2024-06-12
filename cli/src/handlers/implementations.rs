@@ -715,7 +715,7 @@ impl CommandHandler for super::CollectionCommand {
                         },
                         name.to_owned(),
                     )
-                    .await?;
+                    .await??;
                 println!("Daemon response:\n{resp:?}");
                 Ok(())
             }

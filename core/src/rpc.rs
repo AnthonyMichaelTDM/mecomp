@@ -242,7 +242,10 @@ pub trait MusicPlayer {
     /// Collections: get a collection by its ID.
     async fn collection_get(id: CollectionId) -> Option<Collection>;
     /// Collections: freeze a collection (convert it to a playlist).
-    async fn collection_freeze(id: CollectionId, name: String) -> PlaylistId;
+    async fn collection_freeze(
+        id: CollectionId,
+        name: String,
+    ) -> Result<PlaylistId, SerializableLibraryError>;
 
     // Radio commands.
     /// Radio: get the `n` most similar songs to the given song.

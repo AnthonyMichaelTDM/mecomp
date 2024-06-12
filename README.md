@@ -37,7 +37,7 @@ MECOMP is a local music player inspired by [festival](https://github.com/hinto-j
 - [ ] maintains multiple auto-curated "Collections" created by K-Means clustering on the Music Library, these collections will represent the broad themes within your music collection, but are not tied to human defined genres
   - I'm not sure how best to name these collections, may be "genres", "moods", "styles", etc. I'm not sure if these should be user editable or not, but I'm leaning towards not.
   - These collections are generated when the Music Library is scanned and will be updated when the Music Library is rescanned
-  - [ ] Users can "freeze" a collection, which will convert it to a playlist
+  - [x] Users can "freeze" a collection, which will convert it to a playlist
 - [ ] allow users to start a "radio" based on a specific song, which will populate the queue with the `n` most similar songs to the current song
   - uses HNSW nearest neighbor search to find similar songs. This is a fast approximate nearest neighbor search algorithm that is well suited for high dimensional data (like audio features)
   - audio features are extracted by methods inspired by [bliss-rs](https://github.com/Polochon-street/bliss-rs), these are the same features we use for clustering

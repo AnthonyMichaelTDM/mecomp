@@ -1013,9 +1013,11 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         id: CollectionId,
         name: String,
-    ) -> PlaylistId {
+    ) -> Result<PlaylistId, SerializableLibraryError> {
         info!("Freezing collection: {id:?} ({name})");
-        todo!()
+        Ok(Collection::freeze(&self.db, id.into(), name.into())
+            .await
+            .map(|p| p.id.into())?)
     }
 
     /// Radio: get the `n` most similar songs to the given song.
