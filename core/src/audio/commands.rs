@@ -75,7 +75,7 @@ impl Display for AudioCommand {
 }
 
 /// Queue Commands
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum QueueCommand {
     SkipForward(usize),
     SkipBackward(usize),
@@ -333,6 +333,7 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: "foo/bar.mp3".into(),
+            analysis: Box::new([0.; 20]),
         }
     }
 

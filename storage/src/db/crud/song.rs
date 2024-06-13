@@ -226,6 +226,7 @@ impl Song {
             track: metadata.track,
             disc: metadata.disc,
             path: metadata.path,
+            analysis: Box::new([0.; 20]),
         };
         // add that song to the database
         let song_id = Self::create(db, song.clone()).await?.unwrap().id;
@@ -270,6 +271,7 @@ mod test {
             release_year: None,
             extension: "mp3".into(),
             path: format!("song.mp3").into(),
+            analysis: Box::new([0.; 20]),
         };
 
         let created = Song::create(&db, song.clone()).await?;

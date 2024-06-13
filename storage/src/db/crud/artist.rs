@@ -580,6 +580,7 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
+            analysis: Box::new([0.; 20]),
         };
 
         let _ = Artist::create(&db, artist.clone())
@@ -635,6 +636,7 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
+            analysis: Box::new([0.; 20]),
         };
 
         let _ = Artist::create(&db, artist.clone())
@@ -686,6 +688,7 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
+            analysis: Box::new([0.; 20]),
         };
 
         let artist = Artist::create(&db, artist)
@@ -724,6 +727,7 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
+            analysis: Box::new([0.; 20]),
         };
 
         let artist = Artist::create(&db, artist.clone())
@@ -774,6 +778,7 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
+            analysis: Box::new([0.; 20]),
         };
         let song2 = Song {
             id: Song::generate_id(),
@@ -788,6 +793,7 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song_2.mp3"),
+            analysis: Box::new([0.; 20]),
         };
 
         let _ = Artist::create(&db, artist.clone())

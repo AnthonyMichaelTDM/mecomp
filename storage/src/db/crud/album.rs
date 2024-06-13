@@ -470,6 +470,7 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: "song.mp3".into(),
+            analysis: Box::new([0.; 20]),
         };
 
         let album = Album::create(&db, album)
@@ -507,6 +508,7 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: "song.mp3".into(),
+            analysis: Box::new([0.; 20]),
         };
 
         let _ = Album::create(&db, album.clone())
@@ -542,6 +544,7 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: "song.mp3".into(),
+            analysis: Box::new([0.; 20]),
         };
 
         let _ = Album::create(&db, album.clone())
