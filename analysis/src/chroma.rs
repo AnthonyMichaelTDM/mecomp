@@ -22,7 +22,9 @@ use noisy_float::prelude::*;
  * without consequences, this one performs better if the full song is used at
  * once.
  */
-pub(crate) struct ChromaDesc {
+#[derive(Debug, Clone)]
+#[allow(clippy::module_name_repetitions)]
+pub struct ChromaDesc {
     sample_rate: u32,
     n_chroma: u32,
     values_chroma: Array2<f64>,
@@ -36,6 +38,7 @@ impl Normalize for ChromaDesc {
 impl ChromaDesc {
     pub const WINDOW_SIZE: usize = 8192;
 
+    #[must_use]
     pub fn new(sample_rate: u32, n_chroma: u32) -> Self {
         Self {
             sample_rate,
@@ -50,6 +53,7 @@ impl ChromaDesc {
      * Passing a full song here once instead of streaming smaller parts of the
      * song will greatly improve accuracy.
      */
+    #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     pub fn do_(&mut self, signal: &[f32]) -> AnalysisResult<()> {
         let mut stft = stft(signal, Self::WINDOW_SIZE, 2205);
         let tuning = estimate_tuning(self.sample_rate, &stft, Self::WINDOW_SIZE, 0.01, 12)?;
@@ -83,8 +87,14 @@ impl ChromaDesc {
 }
 
 // Functions below are Rust versions of python notebooks by AudioLabs Erlang
-// (https://www.audiolabs-erlangen.de/resources/MIR/FMP/C0/C0.html)
-fn chroma_interval_features(chroma: &Array2<f64>) -> Array1<f64> {
+// (<https://www.audiolabs-erlangen.de/resources/MIR/FMP/C0/C0.html>)
+#[allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::module_name_repetitions
+)]
+#[must_use]
+pub fn chroma_interval_features(chroma: &Array2<f64>) -> Array1<f64> {
     let chroma = normalize_feature_sequence(&chroma.mapv(|x| (x * 15.).exp()));
     let templates = arr2(&[
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -104,7 +114,8 @@ fn chroma_interval_features(chroma: &Array2<f64>) -> Array1<f64> {
     interval_feature_matrix.mean_axis(Axis(1)).unwrap()
 }
 
-fn extract_interval_features(chroma: &Array2<f64>, templates: &Array2<i32>) -> Array2<f64> {
+#[must_use]
+pub fn extract_interval_features(chroma: &Array2<f64>, templates: &Array2<i32>) -> Array2<f64> {
     let mut f_intervals: Array2<f64> = Array::zeros((chroma.shape()[1], templates.shape()[1]));
     for (template, mut f_interval) in templates
         .axis_iter(Axis(1))
@@ -124,7 +135,7 @@ fn extract_interval_features(chroma: &Array2<f64>, templates: &Array2<i32>) -> A
     f_intervals.t().to_owned()
 }
 
-fn normalize_feature_sequence(feature: &Array2<f64>) -> Array2<f64> {
+pub fn normalize_feature_sequence(feature: &Array2<f64>) -> Array2<f64> {
     let mut normalized_sequence = feature.to_owned();
     for mut column in normalized_sequence.columns_mut() {
         let mut sum = column.mapv(f64::abs).sum();
@@ -144,7 +155,12 @@ fn normalize_feature_sequence(feature: &Array2<f64>) -> Array2<f64> {
 // Could be precomputed, but it takes very little time to compute it
 // on the fly compared to the rest of the functions, and we'd lose the
 // possibility to tweak parameters.
-fn chroma_filter(
+#[allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::module_name_repetitions
+)]
+pub fn chroma_filter(
     sample_rate: u32,
     n_fft: usize,
     n_chroma: u32,
@@ -215,7 +231,8 @@ fn chroma_filter(
     Ok(wts.slice_move(s![.., ..non_aliased]))
 }
 
-fn pip_track(
+#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+pub fn pip_track(
     sample_rate: u32,
     spectrum: &Array2<f64>,
     n_fft: usize,
@@ -281,7 +298,8 @@ fn pip_track(
 }
 
 // Only use this with strictly positive `frequencies`.
-fn pitch_tuning(
+#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+pub fn pitch_tuning(
     frequencies: &mut Array1<f64>,
     resolution: f64,
     bins_per_octave: u32,
@@ -311,7 +329,8 @@ fn pitch_tuning(
     Ok((100. * resolution).mul_add(max_index as f64, -50.) / 100.)
 }
 
-fn estimate_tuning(
+#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+pub fn estimate_tuning(
     sample_rate: u32,
     spectrum: &Array2<f64>,
     n_fft: usize,
@@ -343,7 +362,12 @@ fn estimate_tuning(
     pitch_tuning(&mut pitch, resolution, bins_per_octave)
 }
 
-fn chroma_stft(
+#[allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::module_name_repetitions
+)]
+pub fn chroma_stft(
     sample_rate: u32,
     spectrum: &mut Array2<f64>,
     n_fft: usize,

@@ -24,7 +24,7 @@ cli = ["dep:clap"]                                            # features needed 
 otel_tracing = ["mecomp-core/otel_tracing"]
 flame = ["mecomp-core/flame"]
 dynamic_updates = ["dep:notify-debouncer-full", "dep:notify"]
-analysis = ["mecomp-storage/analysis", "dep:mecomp-analysis"]
+analysis = ["mecomp-storage/analysis"]
 
 [dependencies]
 # shared dependencies
@@ -50,7 +50,6 @@ one-or-many = { workspace = true }
 
 # server dependencies
 config = { version = "0.14.0", default-features = false, features = ["toml"] }
-mecomp-analysis = { workspace = true, optional = true }
 shellexpand = "3.1"
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 

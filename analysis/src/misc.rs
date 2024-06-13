@@ -25,8 +25,8 @@ use super::utils::{mean, Normalize};
  * (This is technically the sound pressure level of the track, but loudness is
  * way more visual)
  */
-#[derive(Default)]
-pub(crate) struct LoudnessDesc {
+#[derive(Default, Clone)]
+pub struct LoudnessDesc {
     pub values: Vec<f32>,
 }
 

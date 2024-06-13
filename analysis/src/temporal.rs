@@ -28,7 +28,7 @@ use noisy_float::prelude::*;
  * has trouble to identify tempo > 190 BPM - did not investigate too much)
  *
  */
-pub(crate) struct BPMDesc {
+pub struct BPMDesc {
     aubio_obj: Tempo,
     bpms: Vec<f32>,
 }
@@ -39,6 +39,7 @@ impl BPMDesc {
     pub const WINDOW_SIZE: usize = 512;
     pub const HOP_SIZE: usize = Self::WINDOW_SIZE / 2;
 
+    #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     pub fn new(sample_rate: u32) -> AnalysisResult<Self> {
         Ok(Self {
             aubio_obj: Tempo::new(
@@ -54,6 +55,7 @@ impl BPMDesc {
         })
     }
 
+    #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     pub fn do_(&mut self, chunk: &[f32]) -> AnalysisResult<()> {
         let result = self.aubio_obj.do_result(chunk).map_err(|e| {
             AnalysisError::AnalysisError(format!("aubio error while computing tempo {e}"))
@@ -71,6 +73,7 @@ impl BPMDesc {
      *
      * - `song` Song to compute score from
      */
+    #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     pub fn get_value(&mut self) -> f32 {
         if self.bpms.is_empty() {
             warn!("Set tempo value to zero because no beats were found.");

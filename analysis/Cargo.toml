@@ -3,12 +3,15 @@ name = "mecomp-analysis"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-description.workspace = true
+description = "A library for creating feature vectors from audio files."
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
 readme.workspace = true
 license.workspace = true
+
+[features]
+default = []
 
 [dependencies]
 bliss-audio-aubio-rs = { version = "0.2.2", features = ["static"] }
@@ -28,3 +31,32 @@ ndarray-npy = { version = "0.8.1", default-features = false }
 adler32 = "1.2"
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "analysis"
+harness = false
+
+[[bench]]
+name = "chroma"
+harness = false
+
+[[bench]]
+name = "decoder"
+harness = false
+
+[[bench]]
+name = "misc"
+harness = false
+
+[[bench]]
+name = "temporal"
+harness = false
+
+[[bench]]
+name = "timbral"
+harness = false
+
+[[bench]]
+name = "utils"
+harness = false

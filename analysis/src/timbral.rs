@@ -25,7 +25,7 @@ use super::SAMPLE_RATE;
  *
  * All descriptors are currently summarized by their mean only.
  */
-pub(crate) struct SpectralDesc {
+pub struct SpectralDesc {
     phase_vocoder: PVoc,
     sample_rate: u32,
 
@@ -121,6 +121,9 @@ impl SpectralDesc {
         ]
     }
 
+    /// # Errors
+    ///
+    /// This function will return an error if there is an error loading the aubio objects
     pub fn new(sample_rate: u32) -> AnalysisResult<Self> {
         Ok(Self {
             centroid_aubio_desc: SpecDesc::new(SpecShape::Centroid, Self::WINDOW_SIZE).map_err(
@@ -148,12 +151,13 @@ impl SpectralDesc {
     }
 
     /**
-     * Compute all the descriptors' value for the given chunk.
-     *
-     * After using this on all the song's chunks, you can call
-     * `get_centroid`, `get_flatness` and `get_rolloff` to get the respective
-     * descriptors' values.
-     */
+    Compute all the descriptors' value for the given chunk.
+
+    After using this on all the song's chunks, you can call
+    `get_centroid`, `get_flatness` and `get_rolloff` to get the respective
+    descriptors' values.
+    */
+    #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     pub fn do_(&mut self, chunk: &[f32]) -> AnalysisResult<()> {
         let mut fftgrain: Vec<f32> = vec![0.0; Self::WINDOW_SIZE];
         self.phase_vocoder
@@ -220,14 +224,15 @@ impl Normalize for SpectralDesc {
  *
  * The value range is between 0 and 1.
  */
-#[derive(Default)]
-pub(crate) struct ZeroCrossingRateDesc {
+#[derive(Default, Clone)]
+pub struct ZeroCrossingRateDesc {
     values: Vec<u32>,
     number_samples: usize,
 }
 
 impl ZeroCrossingRateDesc {
     #[allow(dead_code)]
+    #[must_use]
     pub fn new(_sample_rate: u32) -> Self {
         Self::default()
     }
