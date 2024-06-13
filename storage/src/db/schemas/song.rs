@@ -19,7 +19,7 @@ pub type SongId = Thing;
 pub const TABLE_NAME: &str = "song";
 
 /// This struct holds all the metadata about a particular [`Song`].
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "db", derive(surrealqlx::Table))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "db", Table("song"))]
@@ -83,13 +83,6 @@ pub struct Song {
     /// The [`PathBuf`] this [`Song`] is located at.
     #[cfg_attr(feature = "db", field(dt = "string", index(unique)))]
     pub path: PathBuf,
-
-    /// The [`Analysis`] of this [`Song`].
-    #[cfg_attr(
-        feature = "db",
-        field(dt = "option<array<float>>", index(vector(dim = 20)))
-    )]
-    pub analysis: [f32; 20],
 }
 
 impl Song {
@@ -100,7 +93,7 @@ impl Song {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct SongChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -129,8 +122,6 @@ pub struct SongChangeSet {
     pub extension: Option<Arc<str>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub path: Option<PathBuf>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub analysis: Option<Box<[f32; 20]>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -425,7 +416,6 @@ mod tests {
             release_year: Some(2021),
             extension: Arc::from("mp3"),
             path: PathBuf::from("path"),
-            analysis: [0.; 20],
         }
     }
 
@@ -478,7 +468,6 @@ mod tests {
         release_year: Some(2021),
         extension: Arc::from("mp3"),
         path: PathBuf::from("path"),
-        analysis:[0.; 20],
     },
     SongChangeSet::default())]
     #[case::different(SongMetadata {
@@ -507,7 +496,6 @@ mod tests {
         release_year: Some(2021),
         extension: Arc::from("mp3"),
         path: PathBuf::from("path"),
-        analysis: [0.; 20],
     },
     SongChangeSet{
         title: Some(Arc::from("song 2")),

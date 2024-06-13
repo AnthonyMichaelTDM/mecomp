@@ -2,8 +2,6 @@
 
 use std::path::PathBuf;
 
-#[cfg(feature = "analysis")]
-use mecomp_analysis::decoder::Decoder;
 use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
@@ -197,13 +195,6 @@ impl Song {
             return Err(SongIOError::FileNotFound(metadata.path).into());
         }
 
-        // a separate thread, start analyzing the song
-        #[cfg(feature = "analysis")]
-        let path = metadata.path.clone();
-        #[cfg(feature = "analysis")]
-        let analysis_handle =
-            std::thread::spawn(move || mecomp_analysis::decoder::MecompDecoder::analyze_path(path));
-
         // for each artist, check if the artist exists in the database and get the id, if they don't then create a new artist and get the id
         let artists = Artist::read_or_create_by_names(db, metadata.artist.clone()).await?;
 
@@ -235,10 +226,6 @@ impl Song {
             track: metadata.track,
             disc: metadata.disc,
             path: metadata.path,
-            #[cfg(not(feature = "analysis"))]
-            analysis: [0.; 20],
-            #[cfg(feature = "analysis")]
-            analysis: *analysis_handle.join().unwrap()?.inner(),
         };
         // add that song to the database
         let song_id = Self::create(db, song.clone()).await?.unwrap().id;
@@ -283,7 +270,6 @@ mod test {
             release_year: None,
             extension: "mp3".into(),
             path: format!("song.mp3").into(),
-            analysis: [0.; 20],
         };
 
         let created = Song::create(&db, song.clone()).await?;

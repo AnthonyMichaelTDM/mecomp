@@ -18,7 +18,10 @@ use crate::{
 
 impl Collection {
     #[instrument]
-    pub async fn create<C: Connection>(db: &Surreal<C>, collection: Self) -> StorageResult<Option<Self>> {
+    pub async fn create<C: Connection>(
+        db: &Surreal<C>,
+        collection: Self,
+    ) -> StorageResult<Option<Self>> {
         Ok(db
             .create((TABLE_NAME, collection.id.clone()))
             .content(collection)
@@ -31,7 +34,10 @@ impl Collection {
     }
 
     #[instrument]
-    pub async fn read<C: Connection>(db: &Surreal<C>, id: CollectionId) -> StorageResult<Option<Self>> {
+    pub async fn read<C: Connection>(
+        db: &Surreal<C>,
+        id: CollectionId,
+    ) -> StorageResult<Option<Self>> {
         Ok(db.select((TABLE_NAME, id)).await?)
     }
 
@@ -45,7 +51,10 @@ impl Collection {
     }
 
     #[instrument]
-    pub async fn delete<C: Connection>(db: &Surreal<C>, id: CollectionId) -> StorageResult<Option<Self>> {
+    pub async fn delete<C: Connection>(
+        db: &Surreal<C>,
+        id: CollectionId,
+    ) -> StorageResult<Option<Self>> {
         Ok(db.delete((TABLE_NAME, id)).await?)
     }
 
@@ -64,7 +73,10 @@ impl Collection {
     }
 
     #[instrument]
-    pub async fn read_songs<C: Connection>(db: &Surreal<C>, id: CollectionId) -> StorageResult<Vec<Song>> {
+    pub async fn read_songs<C: Connection>(
+        db: &Surreal<C>,
+        id: CollectionId,
+    ) -> StorageResult<Vec<Song>> {
         Ok(db.query(read_songs()).bind(("id", id)).await?.take(0)?)
     }
 

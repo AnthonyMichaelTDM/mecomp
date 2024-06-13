@@ -26,7 +26,10 @@ use one_or_many::OneOrMany;
 
 impl Album {
     #[instrument()]
-    pub async fn create<C: Connection>(db: &Surreal<C>, album: Self) -> StorageResult<Option<Self>> {
+    pub async fn create<C: Connection>(
+        db: &Surreal<C>,
+        album: Self,
+    ) -> StorageResult<Option<Self>> {
         Ok(db
             .create((TABLE_NAME, album.id.clone()))
             .content(album)
@@ -44,12 +47,18 @@ impl Album {
     }
 
     #[instrument]
-    pub async fn delete<C: Connection>(db: &Surreal<C>, id: AlbumId) -> StorageResult<Option<Self>> {
+    pub async fn delete<C: Connection>(
+        db: &Surreal<C>,
+        id: AlbumId,
+    ) -> StorageResult<Option<Self>> {
         Ok(db.delete((TABLE_NAME, id)).await?)
     }
 
     #[instrument()]
-    pub async fn read_by_name<C: Connection>(db: &Surreal<C>, name: &str) -> StorageResult<Vec<Self>> {
+    pub async fn read_by_name<C: Connection>(
+        db: &Surreal<C>,
+        name: &str,
+    ) -> StorageResult<Vec<Self>> {
         Ok(db
             .query(read_by_name())
             .bind(("name", name))
@@ -160,7 +169,10 @@ impl Album {
     }
 
     #[instrument()]
-    pub async fn read_songs<C: Connection>(db: &Surreal<C>, id: AlbumId) -> StorageResult<Vec<Song>> {
+    pub async fn read_songs<C: Connection>(
+        db: &Surreal<C>,
+        id: AlbumId,
+    ) -> StorageResult<Vec<Song>> {
         Ok(db.query(read_songs()).bind(("album", &id)).await?.take(0)?)
     }
 
@@ -458,7 +470,6 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: "song.mp3".into(),
-            analysis: [0.; 20],
         };
 
         let album = Album::create(&db, album)
@@ -496,7 +507,6 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: "song.mp3".into(),
-            analysis: [0.; 20],
         };
 
         let _ = Album::create(&db, album.clone())
@@ -532,7 +542,6 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: "song.mp3".into(),
-            analysis: [0.; 20],
         };
 
         let _ = Album::create(&db, album.clone())

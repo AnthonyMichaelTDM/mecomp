@@ -62,6 +62,8 @@ pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
         schemas::collection::Collection,
         schemas::playlist::Playlist
     )?;
+    #[cfg(feature = "analysis")]
+    surrealqlx::register_tables!(&db, schemas::analysis::Analysis)?;
 
     Ok(db)
 }

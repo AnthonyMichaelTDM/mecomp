@@ -190,7 +190,6 @@ mod tests {
                     release_year: None,
                     extension: "mp3".into(),
                     path: "foo/bar.mp3".into(),
-                    analysis: [0.; 20],
                 }
             ]),
             queue_position: Some(1),
@@ -208,7 +207,6 @@ mod tests {
                     release_year: None,
                     extension: "mp3".into(),
                     path: "foo/bar.mp3".into(),
-                    analysis: [0.; 20],
                 }
             ),
             repeat_mode: RepeatMode::None,

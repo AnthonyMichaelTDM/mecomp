@@ -25,7 +25,10 @@ use one_or_many::OneOrMany;
 
 impl Artist {
     #[instrument]
-    pub async fn create<C: Connection>(db: &Surreal<C>, artist: Self) -> StorageResult<Option<Self>> {
+    pub async fn create<C: Connection>(
+        db: &Surreal<C>,
+        artist: Self,
+    ) -> StorageResult<Option<Self>> {
         Ok(db
             .create((TABLE_NAME, artist.id.clone()))
             .content(artist)
@@ -69,7 +72,10 @@ impl Artist {
     }
 
     #[instrument]
-    pub async fn read_by_name<C: Connection>(db: &Surreal<C>, name: &str) -> StorageResult<Option<Self>> {
+    pub async fn read_by_name<C: Connection>(
+        db: &Surreal<C>,
+        name: &str,
+    ) -> StorageResult<Option<Self>> {
         Ok(db
             .query(read_by_name())
             .bind(("name", name))
@@ -143,12 +149,18 @@ impl Artist {
     }
 
     #[instrument]
-    pub async fn delete<C: Connection>(db: &Surreal<C>, id: ArtistId) -> StorageResult<Option<Self>> {
+    pub async fn delete<C: Connection>(
+        db: &Surreal<C>,
+        id: ArtistId,
+    ) -> StorageResult<Option<Self>> {
         Ok(db.delete((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
-    pub async fn read_albums<C: Connection>(db: &Surreal<C>, id: ArtistId) -> StorageResult<Vec<Album>> {
+    pub async fn read_albums<C: Connection>(
+        db: &Surreal<C>,
+        id: ArtistId,
+    ) -> StorageResult<Vec<Album>> {
         Ok(db.query(read_albums()).bind(("id", id)).await?.take(0)?)
     }
 
@@ -221,7 +233,10 @@ impl Artist {
     }
 
     #[instrument]
-    pub async fn read_songs<C: Connection>(db: &Surreal<C>, id: ArtistId) -> StorageResult<Vec<Song>> {
+    pub async fn read_songs<C: Connection>(
+        db: &Surreal<C>,
+        id: ArtistId,
+    ) -> StorageResult<Vec<Song>> {
         Ok(db.query(read_songs()).bind(("artist", id)).await?.take(0)?)
     }
 
@@ -565,7 +580,6 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
-            analysis: [0.; 20],
         };
 
         let _ = Artist::create(&db, artist.clone())
@@ -621,7 +635,6 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
-            analysis: [0.; 20],
         };
 
         let _ = Artist::create(&db, artist.clone())
@@ -673,7 +686,6 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
-            analysis: [0.; 20],
         };
 
         let artist = Artist::create(&db, artist)
@@ -712,7 +724,6 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
-            analysis: [0.; 20],
         };
 
         let artist = Artist::create(&db, artist.clone())
@@ -763,7 +774,6 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
-            analysis: [0.; 20],
         };
         let song2 = Song {
             id: Song::generate_id(),
@@ -778,7 +788,6 @@ mod tests {
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song_2.mp3"),
-            analysis: [0.; 20],
         };
 
         let _ = Artist::create(&db, artist.clone())

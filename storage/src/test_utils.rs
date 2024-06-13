@@ -91,7 +91,6 @@ pub async fn create_song_with_overrides<C: Connection>(
         release_year: None,
         extension: Arc::from("mp3"),
         path: PathBuf::from_str(&format!("{}.mp3", id.id))?,
-        analysis: [0.; 20],
     };
 
     Song::create(db, song.clone()).await?;
