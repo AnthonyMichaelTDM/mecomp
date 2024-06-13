@@ -3,6 +3,7 @@
 
 [workspace]
 members = [
+    "analysis",
     "cli",
     "core",
     "daemon",
@@ -106,7 +107,8 @@ opentelemetry-semantic-conventions = { version = "0.15.0" }
 tracing-flame = "0.2.0"
 
 # MECOMP packages
-mecomp-core = { path = "core", default-features = false }
+mecomp-analysis = { path = "analysis" }
+mecomp-core = { path = "core" }
 mecomp-daemon = { path = "daemon" }
 mecomp-storage = { path = "storage", default-features = false }
 surrealqlx = { path = "surrealqlx/lib", features = ["macros"] }

@@ -11,9 +11,7 @@ use log::info;
 use rodio::Source;
 use rubato::{FastFixedIn, PolynomialDegree, Resampler};
 
-use crate::analysis::errors::AnalysisError;
-
-use super::{errors::AnalysisResult, Analysis, ResampledAudio, SAMPLE_RATE};
+use crate::{errors::AnalysisError, errors::AnalysisResult, Analysis, ResampledAudio, SAMPLE_RATE};
 
 /// Trait used to implement your own decoder.
 ///
@@ -196,8 +194,7 @@ impl Decoder for MecompDecoder {
 
 #[cfg(test)]
 mod tests {
-    use super::Decoder as DecoderTrait;
-    use super::MecompDecoder as Decoder;
+    use super::{Decoder as DecoderTrait, MecompDecoder as Decoder};
     use adler32::RollingAdler32;
     use pretty_assertions::assert_eq;
     use rstest::rstest;

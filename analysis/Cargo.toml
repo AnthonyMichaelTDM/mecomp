@@ -1,0 +1,30 @@
+[package]
+name = "mecomp-analysis"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[dependencies]
+bliss-audio-aubio-rs = { version = "0.2.2", features = ["static"] }
+log = { workspace = true }
+ndarray = { version = "0.15.6", features = ["rayon"] }
+ndarray-stats = { version = "0.5.1" }
+noisy_float = { version = "0.2.0" }
+rodio = { workspace = true }
+rubato = { workspace = true }
+rustfft = { version = "6.1" }
+serde = { workspace = true }
+strum = { version = "0.26.2", features = ["derive"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+ndarray-npy = { version = "0.8.1", default-features = false }
+adler32 = "1.2"
+pretty_assertions = { workspace = true }
+rstest = { workspace = true }

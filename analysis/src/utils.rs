@@ -170,14 +170,11 @@ pub(crate) fn convolve(input: &Array1<f64>, kernel: &Array1<f64>) -> Array1<f64>
 
 #[cfg(test)]
 mod tests {
-    use super::super::decoder::Decoder as DecoderTrait;
-    use super::super::decoder::MecompDecoder as Decoder;
     use super::*;
-    use ndarray::Array2;
-    use ndarray::{arr1, Array};
+    use crate::decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder};
+    use ndarray::{arr1, Array, Array2};
     use ndarray_npy::ReadNpyExt;
-    use std::fs::File;
-    use std::path::Path;
+    use std::{fs::File, path::Path};
 
     #[test]
     fn test_mean() {

@@ -253,9 +253,8 @@ impl Normalize for ZeroCrossingRateDesc {
 
 #[cfg(test)]
 mod tests {
-    use super::super::decoder::Decoder as DecoderTrait;
-    use super::super::decoder::MecompDecoder as Decoder;
     use super::*;
+    use crate::decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder};
     use std::path::Path;
 
     #[test]

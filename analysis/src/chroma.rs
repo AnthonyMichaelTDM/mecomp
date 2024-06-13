@@ -367,7 +367,7 @@ fn chroma_stft(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::analysis::{
+    use crate::{
         decoder::{Decoder as _, MecompDecoder as Decoder},
         utils::stft,
         SAMPLE_RATE,

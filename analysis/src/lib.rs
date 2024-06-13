@@ -1,6 +1,6 @@
-//! This module contains stuff for song anaylsis and feature extraction.
+//! This library contains stuff for song anaylsis and feature extraction.
 //!
-//! A lot of the code in this module is inspired by, or directly pulled from, [bliss-rs](https://github.com/Polochon-street/bliss-rs).
+//! A lot of the code in this library is inspired by, or directly pulled from, [bliss-rs](https://github.com/Polochon-street/bliss-rs).
 //! We don't simply use bliss-rs because I don't want to bring in an ffmpeg dependency, and bliss-rs also has a lot of features that I don't need.
 //! (for example, I don't need to decode tags, process playlists, etc. etc., I'm doing all of that myself already)
 //!

@@ -2365,6 +2365,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "mecomp-analysis"
+version = "0.1.0"
+dependencies = [
+ "adler32",
+ "bliss-audio-aubio-rs",
+ "log",
+ "ndarray",
+ "ndarray-npy",
+ "ndarray-stats",
+ "noisy_float",
+ "pretty_assertions",
+ "rodio",
+ "rstest",
+ "rubato",
+ "rustfft",
+ "serde",
+ "strum",
+ "thiserror",
+]
+
+[[package]]
 name = "mecomp-cli"
 version = "0.1.0"
 dependencies = [
@@ -2382,19 +2403,13 @@ dependencies = [
 name = "mecomp-core"
 version = "0.1.0"
 dependencies = [
- "adler32",
  "anyhow",
- "bliss-audio-aubio-rs",
  "env_logger",
  "lazy_static",
  "lofty",
  "log",
  "mecomp-storage",
  "mecomp-workspace-hack",
- "ndarray",
- "ndarray-npy",
- "ndarray-stats",
- "noisy_float",
  "nutype",
  "once_cell",
  "one-or-many",
@@ -2407,10 +2422,7 @@ dependencies = [
  "rodio",
  "rstest",
  "rstest_reuse",
- "rubato",
- "rustfft",
  "serde",
- "strum",
  "surrealdb",
  "tarpc",
  "tempfile",

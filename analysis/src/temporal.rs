@@ -93,10 +93,11 @@ impl Normalize for BPMDesc {
 
 #[cfg(test)]
 mod tests {
-    use super::super::decoder::Decoder as DecoderTrait;
-    use super::super::decoder::MecompDecoder as Decoder;
-    use super::super::SAMPLE_RATE;
     use super::*;
+    use crate::{
+        decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder},
+        SAMPLE_RATE,
+    };
     use std::path::Path;
 
     #[test]
