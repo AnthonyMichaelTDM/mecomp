@@ -49,10 +49,10 @@ opt-level = 0
 # [profile.dev.build-override]
 # opt-level = 3
 
-#[profile.test]
-#lto           = false
-#strip         = "none"
-#opt-level     = 1
+[profile.test]
+lto = false
+strip = "none"
+opt-level = 1
 
 [workspace.dependencies]
 # shared dependencies

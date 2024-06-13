@@ -17,8 +17,12 @@ ignored = [
     "ahash",
     "anyhow",
     "arrayvec",
+    "clap",
+    "clap_builder",
+    "criterion",
     "crossbeam-utils",
     "either",
+    "futures",
     "futures-channel",
     "futures-core",
     "futures-executor",
@@ -28,11 +32,14 @@ ignored = [
     "getrandom",
     "hashbrown",
     "indexmap",
-    "itertools",
+    "itertools-93f6ce9d446188ac",
+    "itertools-a6292c17cd707f01",
     "lalrpop-util",
     "log",
     "memchr",
+    "ndarray",
     "num-bigint",
+    "num-complex",
     "num-integer",
     "num-traits",
     "proc-macro2",
@@ -64,8 +71,12 @@ doc = false
 ahash = { version = "0.8" }
 anyhow = { version = "1" }
 arrayvec = { version = "0.7" }
+clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "usage"] }
+clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "usage"] }
+criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
 crossbeam-utils = { version = "0.8" }
 either = { version = "1" }
+futures = { version = "0.3" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
@@ -75,11 +86,14 @@ futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
 getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
 hashbrown = { version = "0.14", features = ["raw", "serde"] }
 indexmap = { version = "2", features = ["serde"] }
-itertools = { version = "0.11" }
+itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
+itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 memchr = { version = "2" }
+ndarray = { version = "0.15", features = ["approx", "rayon"] }
 num-bigint = { version = "0.4" }
+num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
 proc-macro2 = { version = "1" }
@@ -103,8 +117,13 @@ unicode-xid = { version = "0.2" }
 ahash = { version = "0.8" }
 anyhow = { version = "1" }
 arrayvec = { version = "0.7" }
+cc = { version = "1", default-features = false, features = ["parallel"] }
+clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "usage"] }
+clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "usage"] }
+criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
 crossbeam-utils = { version = "0.8" }
 either = { version = "1" }
+futures = { version = "0.3" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
@@ -114,11 +133,14 @@ futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
 getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
 hashbrown = { version = "0.14", features = ["raw", "serde"] }
 indexmap = { version = "2", features = ["serde"] }
-itertools = { version = "0.11" }
+itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
+itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 memchr = { version = "2" }
+ndarray = { version = "0.15", features = ["approx", "rayon"] }
 num-bigint = { version = "0.4" }
+num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
 proc-macro2 = { version = "1" }

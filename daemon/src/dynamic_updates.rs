@@ -362,6 +362,9 @@ mod tests {
     //!
     //! The tests then create a `MusicLibEventHandler` and test the event handlers
     //! by adding, modifying, and removing files in the temporary music library directory
+    //!
+    //! The way many of these tests work is by exploiting the timeout attribute.
+    //! Rather than asserting that certain state changes have occurred, we wait for them to occur within a certain time frame.
 
     use crate::test_utils::init;
 
@@ -393,6 +396,7 @@ mod tests {
     }
 
     #[rstest]
+    #[timeout(Duration::from_secs(5))]
     #[tokio::test]
     async fn test_create_song(
         #[future] setup: (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard),
@@ -402,11 +406,12 @@ mod tests {
         // let's call create_song_metadata to create a new song in our temporary music library, and get the metadata of that song
         let metadata = create_song_metadata(&music_lib, arb_song_case()()).unwrap();
 
-        tokio::time::sleep(Duration::from_secs(2)).await;
-
         // this should trigger the create event handler to add the song to the database, so let's see if it's there
+        while Song::read_all(&db).await.unwrap().is_empty() {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+
         let path = metadata.path.clone();
-        assert!(!Song::read_all(&db).await.unwrap().is_empty());
         let song = Song::read_by_path(&db, path).await.unwrap().unwrap();
 
         // let's assert that the song in the database is the same as the song we created
@@ -418,6 +423,7 @@ mod tests {
     }
 
     #[rstest]
+    #[timeout(Duration::from_secs(5))]
     #[tokio::test]
     async fn test_rename_song(
         #[future] setup: (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard),
@@ -428,9 +434,11 @@ mod tests {
         let metadata = create_song_metadata(&music_lib, arb_song_case()()).unwrap();
 
         // this should trigger the create event handler to add the song to the database, so let's see if it's there
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        while Song::read_all(&db).await.unwrap().is_empty() {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+
         let path = metadata.path.clone();
-        assert!(!Song::read_all(&db).await.unwrap().is_empty());
         let song = Song::read_by_path(&db, path.clone())
             .await
             .unwrap()
@@ -444,13 +452,19 @@ mod tests {
         std::fs::rename(&path, &new_path).unwrap();
 
         // this should trigger the modify event handler to update the song in the database, so let's see if it's there
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        while Song::read_by_path(&db, new_path.clone())
+            .await
+            .unwrap()
+            .is_none()
+        {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+
         let new_song = Song::read_by_path(&db, new_path.clone())
             .await
             .unwrap()
             .unwrap();
         assert_eq!(song.id, new_song.id);
-        assert_eq!(new_path, new_song.path);
 
         // let's stop the watcher
         handler.stop();
@@ -469,6 +483,7 @@ mod tests {
     }
 
     #[rstest]
+    #[timeout(Duration::from_secs(5))]
     #[tokio::test]
     async fn test_modify_song(
         #[future] setup: (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard),
@@ -479,9 +494,10 @@ mod tests {
         let metadata = create_song_metadata(&music_lib, arb_song_case()()).unwrap();
 
         // this should trigger the create event handler to add the song to the database, so let's see if it's there
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        while Song::read_all(&db).await.unwrap().is_empty() {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
         let path = metadata.path.clone();
-        assert!(!Song::read_all(&db).await.unwrap().is_empty());
         let song = Song::read_by_path(&db, path.clone())
             .await
             .unwrap()
@@ -494,9 +510,15 @@ mod tests {
         modify_song_metadata(path.clone(), "new song name".to_string()).unwrap();
 
         // this should trigger the modify event handler to update the song in the database, so let's see if it's there
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        let new_song = Song::read(&db, song.id).await.unwrap().unwrap();
-        assert_eq!(new_song.title, "new song name".into());
+        while Song::read_by_path(&db, path.clone())
+            .await
+            .unwrap()
+            .unwrap()
+            .title
+            != "new song name".into()
+        {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
 
         // let's stop the watcher
         handler.stop();
@@ -504,6 +526,7 @@ mod tests {
     }
 
     #[rstest]
+    #[timeout(Duration::from_secs(5))]
     #[tokio::test]
     async fn test_remove_song(
         #[future] setup: (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard),
@@ -514,9 +537,10 @@ mod tests {
         let metadata = create_song_metadata(&music_lib, arb_song_case()()).unwrap();
 
         // this should trigger the create event handler to add the song to the database, so let's see if it's there
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        while Song::read_all(&db).await.unwrap().is_empty() {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
         let path = metadata.path.clone();
-        assert!(!Song::read_all(&db).await.unwrap().is_empty());
         let song = Song::read_by_path(&db, path.clone())
             .await
             .unwrap()
@@ -529,8 +553,13 @@ mod tests {
         std::fs::remove_file(&path).unwrap();
 
         // this should trigger the remove event handler to remove the song from the database, so let's see if it's there
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        assert!(Song::read_by_path(&db, path).await.unwrap().is_none());
+        while Song::read_by_path(&db, path.clone())
+            .await
+            .unwrap()
+            .is_some()
+        {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
 
         // let's stop the watcher
         handler.stop();

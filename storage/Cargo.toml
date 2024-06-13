@@ -13,7 +13,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["db", "analysis"]
+default = ["db", "analysis", "test_utils"]
 db = [
     "serde",
     "one-or-many/surrealdb",
@@ -55,3 +55,8 @@ serde_json = { version = "1.0" }
 tempfile = { workspace = true }
 tokio = { workspace = true }
 rstest = { workspace = true }
+criterion = { workspace = true, features = ["async_tokio"] }
+
+[[bench]]
+name = "song"
+harness = false
