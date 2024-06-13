@@ -20,16 +20,13 @@ use crate::{
             song::{Song, SongId},
         },
     },
-    errors::Error,
+    errors::StorageResult,
 };
 use one_or_many::OneOrMany;
 
 impl Album {
     #[instrument()]
-    pub async fn create<C: Connection>(
-        db: &Surreal<C>,
-        album: Self,
-    ) -> Result<Option<Self>, Error> {
+    pub async fn create<C: Connection>(db: &Surreal<C>, album: Self) -> StorageResult<Option<Self>> {
         Ok(db
             .create((TABLE_NAME, album.id.clone()))
             .content(album)
@@ -37,28 +34,22 @@ impl Album {
     }
 
     #[instrument()]
-    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Self>, Error> {
+    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
         Ok(db.select(TABLE_NAME).await?)
     }
 
     #[instrument()]
-    pub async fn read<C: Connection>(db: &Surreal<C>, id: AlbumId) -> Result<Option<Self>, Error> {
+    pub async fn read<C: Connection>(db: &Surreal<C>, id: AlbumId) -> StorageResult<Option<Self>> {
         Ok(db.select((TABLE_NAME, id)).await?)
     }
 
     #[instrument]
-    pub async fn delete<C: Connection>(
-        db: &Surreal<C>,
-        id: AlbumId,
-    ) -> Result<Option<Self>, Error> {
+    pub async fn delete<C: Connection>(db: &Surreal<C>, id: AlbumId) -> StorageResult<Option<Self>> {
         Ok(db.delete((TABLE_NAME, id)).await?)
     }
 
     #[instrument()]
-    pub async fn read_by_name<C: Connection>(
-        db: &Surreal<C>,
-        name: &str,
-    ) -> Result<Vec<Self>, Error> {
+    pub async fn read_by_name<C: Connection>(db: &Surreal<C>, name: &str) -> StorageResult<Vec<Self>> {
         Ok(db
             .query(read_by_name())
             .bind(("name", name))
@@ -71,7 +62,7 @@ impl Album {
         db: &Surreal<C>,
         query: &str,
         limit: i64,
-    ) -> Result<Vec<Self>, Error> {
+    ) -> StorageResult<Vec<Self>> {
         Ok(db
             .query(full_text_search(TABLE_NAME, "title", limit))
             .bind(("title", query))
@@ -84,7 +75,7 @@ impl Album {
         db: &Surreal<C>,
         id: AlbumId,
         changes: AlbumChangeSet,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         Ok(db.update((TABLE_NAME, id)).merge(changes).await?)
     }
 
@@ -93,7 +84,7 @@ impl Album {
         db: &Surreal<C>,
         title: &str,
         album_artists: OneOrMany<Arc<str>>,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         if album_artists == OneOrMany::None {
             return Ok(None);
         }
@@ -114,7 +105,7 @@ impl Album {
         db: &Surreal<C>,
         title: &str,
         album_artists: OneOrMany<Arc<str>>,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         if let Ok(Some(album)) =
             Self::read_by_name_and_album_artist(db, title, album_artists.clone()).await
         {
@@ -157,7 +148,7 @@ impl Album {
         db: &Surreal<C>,
         id: AlbumId,
         song_ids: &[SongId],
-    ) -> Result<(), Error> {
+    ) -> StorageResult<()> {
         db.query(add_songs())
             .bind(("album", &id))
             .bind(("songs", song_ids))
@@ -169,10 +160,7 @@ impl Album {
     }
 
     #[instrument()]
-    pub async fn read_songs<C: Connection>(
-        db: &Surreal<C>,
-        id: AlbumId,
-    ) -> Result<Vec<Song>, Error> {
+    pub async fn read_songs<C: Connection>(db: &Surreal<C>, id: AlbumId) -> StorageResult<Vec<Song>> {
         Ok(db.query(read_songs()).bind(("album", &id)).await?.take(0)?)
     }
 
@@ -181,7 +169,7 @@ impl Album {
         db: &Surreal<C>,
         id: AlbumId,
         song_ids: &[SongId],
-    ) -> Result<(), Error> {
+    ) -> StorageResult<()> {
         db.query(remove_songs())
             .bind(("album", &id))
             .bind(("songs", song_ids))
@@ -194,7 +182,7 @@ impl Album {
     pub async fn read_artist<C: Connection>(
         db: &Surreal<C>,
         id: AlbumId,
-    ) -> Result<OneOrMany<Artist>, Error> {
+    ) -> StorageResult<OneOrMany<Artist>> {
         Ok(db.query(read_artist()).bind(("id", id)).await?.take(0)?)
     }
 
@@ -208,7 +196,7 @@ impl Album {
     ///
     /// Returns a boolean indicating if the album should be removed (if it has no songs left in it)
     #[instrument()]
-    pub async fn repair<C: Connection>(db: &Surreal<C>, id: AlbumId) -> Result<bool, Error> {
+    pub async fn repair<C: Connection>(db: &Surreal<C>, id: AlbumId) -> StorageResult<bool> {
         // remove or update the album and return
         let songs = Self::read_songs(db, id.clone()).await?;
 

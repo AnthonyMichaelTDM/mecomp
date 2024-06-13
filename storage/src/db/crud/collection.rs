@@ -13,15 +13,12 @@ use crate::{
             song::{Song, SongId},
         },
     },
-    errors::Error,
+    errors::{Error, StorageResult},
 };
 
 impl Collection {
     #[instrument]
-    pub async fn create<C: Connection>(
-        db: &Surreal<C>,
-        collection: Self,
-    ) -> Result<Option<Self>, Error> {
+    pub async fn create<C: Connection>(db: &Surreal<C>, collection: Self) -> StorageResult<Option<Self>> {
         Ok(db
             .create((TABLE_NAME, collection.id.clone()))
             .content(collection)
@@ -29,15 +26,12 @@ impl Collection {
     }
 
     #[instrument]
-    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Self>, Error> {
+    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
         Ok(db.select(TABLE_NAME).await?)
     }
 
     #[instrument]
-    pub async fn read<C: Connection>(
-        db: &Surreal<C>,
-        id: CollectionId,
-    ) -> Result<Option<Self>, Error> {
+    pub async fn read<C: Connection>(db: &Surreal<C>, id: CollectionId) -> StorageResult<Option<Self>> {
         Ok(db.select((TABLE_NAME, id)).await?)
     }
 
@@ -46,15 +40,12 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
         changes: CollectionChangeSet,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         Ok(db.update((TABLE_NAME, id)).merge(changes).await?)
     }
 
     #[instrument]
-    pub async fn delete<C: Connection>(
-        db: &Surreal<C>,
-        id: CollectionId,
-    ) -> Result<Option<Self>, Error> {
+    pub async fn delete<C: Connection>(db: &Surreal<C>, id: CollectionId) -> StorageResult<Option<Self>> {
         Ok(db.delete((TABLE_NAME, id)).await?)
     }
 
@@ -63,7 +54,7 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
         song_ids: &[SongId],
-    ) -> Result<(), Error> {
+    ) -> StorageResult<()> {
         db.query(add_songs())
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
@@ -73,10 +64,7 @@ impl Collection {
     }
 
     #[instrument]
-    pub async fn read_songs<C: Connection>(
-        db: &Surreal<C>,
-        id: CollectionId,
-    ) -> Result<Vec<Song>, Error> {
+    pub async fn read_songs<C: Connection>(db: &Surreal<C>, id: CollectionId) -> StorageResult<Vec<Song>> {
         Ok(db.query(read_songs()).bind(("id", id)).await?.take(0)?)
     }
 
@@ -85,7 +73,7 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
         song_ids: &[SongId],
-    ) -> Result<(), Error> {
+    ) -> StorageResult<()> {
         db.query(remove_songs())
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
@@ -104,7 +92,7 @@ impl Collection {
     ///
     /// * `bool` - True if the collection is empty
     #[instrument]
-    pub async fn repair<C: Connection>(db: &Surreal<C>, id: CollectionId) -> Result<bool, Error> {
+    pub async fn repair<C: Connection>(db: &Surreal<C>, id: CollectionId) -> StorageResult<bool> {
         let songs = Self::read_songs(db, id.clone()).await?;
 
         Self::update(
@@ -127,7 +115,7 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
         name: Arc<str>,
-    ) -> Result<Playlist, Error> {
+    ) -> StorageResult<Playlist> {
         // create the new playlist
         let playlist = Playlist::create(
             db,

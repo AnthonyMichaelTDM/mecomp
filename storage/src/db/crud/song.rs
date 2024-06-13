@@ -16,13 +16,13 @@ use crate::{
             song::{Song, SongChangeSet, SongId, SongMetadata, TABLE_NAME},
         },
     },
-    errors::{Error, SongIOError},
+    errors::{Error, SongIOError, StorageResult},
 };
 use one_or_many::OneOrMany;
 
 impl Song {
     #[instrument]
-    pub async fn create<C: Connection>(db: &Surreal<C>, song: Self) -> Result<Option<Self>, Error> {
+    pub async fn create<C: Connection>(db: &Surreal<C>, song: Self) -> StorageResult<Option<Self>> {
         Ok(db
             .create((TABLE_NAME, song.id.clone()))
             .content(song)
@@ -30,12 +30,12 @@ impl Song {
     }
 
     #[instrument]
-    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Self>, Error> {
+    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
         Ok(db.select(TABLE_NAME).await?)
     }
 
     #[instrument]
-    pub async fn read<C: Connection>(db: &Surreal<C>, id: SongId) -> Result<Option<Self>, Error> {
+    pub async fn read<C: Connection>(db: &Surreal<C>, id: SongId) -> StorageResult<Option<Self>> {
         Ok(db.select((TABLE_NAME, id)).await?)
     }
 
@@ -43,7 +43,7 @@ impl Song {
     pub async fn read_by_path<C: Connection>(
         db: &Surreal<C>,
         path: PathBuf,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         Ok(db
             .query(read_song_by_path())
             .bind(("path", path))
@@ -55,7 +55,7 @@ impl Song {
     pub async fn read_album<C: Connection>(
         db: &Surreal<C>,
         id: SongId,
-    ) -> Result<Option<Album>, Error> {
+    ) -> StorageResult<Option<Album>> {
         Ok(db.query(read_album()).bind(("id", id)).await?.take(0)?)
     }
 
@@ -63,7 +63,7 @@ impl Song {
     pub async fn read_artist<C: Connection>(
         db: &Surreal<C>,
         id: SongId,
-    ) -> Result<OneOrMany<Artist>, Error> {
+    ) -> StorageResult<OneOrMany<Artist>> {
         let res: Vec<Artist> = db.query(read_artist()).bind(("id", id)).await?.take(0)?;
 
         Ok(res.into())
@@ -73,7 +73,7 @@ impl Song {
     pub async fn read_album_artist<C: Connection>(
         db: &Surreal<C>,
         id: SongId,
-    ) -> Result<OneOrMany<Artist>, Error> {
+    ) -> StorageResult<OneOrMany<Artist>> {
         let res: Vec<Artist> = db
             .query(read_album_artist())
             .bind(("id", id))
@@ -88,7 +88,7 @@ impl Song {
         db: &Surreal<C>,
         query: &str,
         limit: i64,
-    ) -> Result<Vec<Self>, Error> {
+    ) -> StorageResult<Vec<Self>> {
         Ok(db
             .query("SELECT *, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM song WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit")
             .bind(("query", query))
@@ -109,7 +109,7 @@ impl Song {
         db: &Surreal<C>,
         id: SongId,
         changes: SongChangeSet,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         if changes.album.is_some() || changes.album_artist.is_some() {
             let old_album = Self::read_album(db, id.clone()).await?;
 
@@ -168,7 +168,7 @@ impl Song {
     /// - remove the song from playlists.
     /// - remove the song from collections.
     #[instrument]
-    pub async fn delete<C: Connection>(db: &Surreal<C>, id: SongId) -> Result<Option<Self>, Error> {
+    pub async fn delete<C: Connection>(db: &Surreal<C>, id: SongId) -> StorageResult<Option<Self>> {
         Ok(db.delete((TABLE_NAME, id)).await?)
     }
 
@@ -191,7 +191,7 @@ impl Song {
     pub async fn try_load_into_db<C: Connection>(
         db: &Surreal<C>,
         metadata: SongMetadata,
-    ) -> Result<Self, Error> {
+    ) -> StorageResult<Self> {
         // check if the file exists
         if !metadata.path_exists() {
             return Err(SongIOError::FileNotFound(metadata.path).into());

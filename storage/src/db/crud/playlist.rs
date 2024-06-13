@@ -12,7 +12,7 @@ use crate::{
             song::{Song, SongId},
         },
     },
-    errors::Error,
+    errors::StorageResult,
 };
 
 impl Playlist {
@@ -20,7 +20,7 @@ impl Playlist {
     pub async fn create<C: Connection>(
         db: &Surreal<C>,
         playlist: Self,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         Ok(db
             .create((TABLE_NAME, playlist.id.clone()))
             .content(playlist)
@@ -31,7 +31,7 @@ impl Playlist {
     pub async fn create_copy<C: Connection>(
         db: &Surreal<C>,
         id: PlaylistId,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         // first we get the playlist we're copying
         let Some(playlist) = Self::read(db, id.clone()).await? else {
             return Ok(None);
@@ -68,7 +68,7 @@ impl Playlist {
     }
 
     #[instrument]
-    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Self>, Error> {
+    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
         Ok(db.select(TABLE_NAME).await?)
     }
 
@@ -76,7 +76,7 @@ impl Playlist {
     pub async fn read<C: Connection>(
         db: &Surreal<C>,
         id: PlaylistId,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         Ok(db.select((TABLE_NAME, id)).await?)
     }
 
@@ -84,7 +84,7 @@ impl Playlist {
     pub async fn read_by_name<C: Connection>(
         db: &Surreal<C>,
         name: String,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         Ok(db
             .query(read_by_name())
             .bind(("name", name))
@@ -97,7 +97,7 @@ impl Playlist {
         db: &Surreal<C>,
         id: PlaylistId,
         changes: PlaylistChangeSet,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         Ok(db.update((TABLE_NAME, id)).merge(changes).await?)
     }
 
@@ -105,7 +105,7 @@ impl Playlist {
     pub async fn delete<C: Connection>(
         db: &Surreal<C>,
         id: PlaylistId,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         Ok(db.delete((TABLE_NAME, id)).await?)
     }
 
@@ -114,7 +114,7 @@ impl Playlist {
         db: &Surreal<C>,
         id: PlaylistId,
         song_ids: &[SongId],
-    ) -> Result<(), Error> {
+    ) -> StorageResult<()> {
         db.query(add_songs())
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
@@ -127,7 +127,7 @@ impl Playlist {
     pub async fn read_songs<C: Connection>(
         db: &Surreal<C>,
         id: PlaylistId,
-    ) -> Result<Vec<Song>, Error> {
+    ) -> StorageResult<Vec<Song>> {
         Ok(db.query(read_songs()).bind(("id", id)).await?.take(0)?)
     }
 
@@ -136,7 +136,7 @@ impl Playlist {
         db: &Surreal<C>,
         id: PlaylistId,
         song_ids: &[SongId],
-    ) -> Result<(), Error> {
+    ) -> StorageResult<()> {
         db.query(remove_songs())
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
@@ -151,7 +151,7 @@ impl Playlist {
     ///
     /// * `id` - the id of the playlist to repair
     #[instrument]
-    pub async fn repair<C: Connection>(db: &Surreal<C>, id: PlaylistId) -> Result<bool, Error> {
+    pub async fn repair<C: Connection>(db: &Surreal<C>, id: PlaylistId) -> StorageResult<bool> {
         let songs = Self::read_songs(db, id.clone()).await?;
 
         Self::update(
