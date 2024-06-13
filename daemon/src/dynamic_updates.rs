@@ -389,7 +389,7 @@ mod tests {
         )
         .expect("Failed to create music library watcher");
 
-        (music_lib, db, handler)
+        (music_lib, db.clone(), handler)
     }
 
     #[rstest]
@@ -402,7 +402,7 @@ mod tests {
         // let's call create_song_metadata to create a new song in our temporary music library, and get the metadata of that song
         let metadata = create_song_metadata(&music_lib, arb_song_case()()).unwrap();
 
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_secs(2)).await;
 
         // this should trigger the create event handler to add the song to the database, so let's see if it's there
         let path = metadata.path.clone();
@@ -428,7 +428,7 @@ mod tests {
         let metadata = create_song_metadata(&music_lib, arb_song_case()()).unwrap();
 
         // this should trigger the create event handler to add the song to the database, so let's see if it's there
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_secs(2)).await;
         let path = metadata.path.clone();
         assert!(!Song::read_all(&db).await.unwrap().is_empty());
         let song = Song::read_by_path(&db, path.clone())
@@ -479,7 +479,7 @@ mod tests {
         let metadata = create_song_metadata(&music_lib, arb_song_case()()).unwrap();
 
         // this should trigger the create event handler to add the song to the database, so let's see if it's there
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_secs(2)).await;
         let path = metadata.path.clone();
         assert!(!Song::read_all(&db).await.unwrap().is_empty());
         let song = Song::read_by_path(&db, path.clone())
@@ -514,7 +514,7 @@ mod tests {
         let metadata = create_song_metadata(&music_lib, arb_song_case()()).unwrap();
 
         // this should trigger the create event handler to add the song to the database, so let's see if it's there
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_secs(2)).await;
         let path = metadata.path.clone();
         assert!(!Song::read_all(&db).await.unwrap().is_empty());
         let song = Song::read_by_path(&db, path.clone())

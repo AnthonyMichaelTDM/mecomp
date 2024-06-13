@@ -13,7 +13,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["db"]
+default = ["db", "analysis"]
 db = [
     "serde",
     "one-or-many/surrealdb",
@@ -23,6 +23,7 @@ db = [
 ]
 serde = ["one-or-many/serde", "dep:serde"]
 test_utils = ["dep:tempfile", "dep:anyhow", "db"]
+analysis = ["dep:mecomp-analysis"]
 
 [dependencies]
 # shared dependencies
@@ -39,6 +40,7 @@ tempfile = { workspace = true, optional = true }
 
 
 # other dependencies
+mecomp-analysis = { workspace = true, optional = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 one-or-many = { workspace = true }
 

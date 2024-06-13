@@ -89,7 +89,7 @@ pub struct Song {
         feature = "db",
         field(dt = "option<array<float>>", index(vector(dim = 20)))
     )]
-    pub analysis: Box<[f32; 20]>,
+    pub analysis: [f32; 20],
 }
 
 impl Song {
@@ -425,7 +425,7 @@ mod tests {
             release_year: Some(2021),
             extension: Arc::from("mp3"),
             path: PathBuf::from("path"),
-            analysis: Box::new([0.; 20]),
+            analysis: [0.; 20],
         }
     }
 
@@ -478,7 +478,7 @@ mod tests {
         release_year: Some(2021),
         extension: Arc::from("mp3"),
         path: PathBuf::from("path"),
-        analysis: Box::new([0.; 20]),
+        analysis:[0.; 20],
     },
     SongChangeSet::default())]
     #[case::different(SongMetadata {
@@ -507,7 +507,7 @@ mod tests {
         release_year: Some(2021),
         extension: Arc::from("mp3"),
         path: PathBuf::from("path"),
-        analysis: Box::new([0.; 20]),
+        analysis: [0.; 20],
     },
     SongChangeSet{
         title: Some(Arc::from("song 2")),

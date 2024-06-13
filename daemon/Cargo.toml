@@ -19,11 +19,12 @@ bench = false
 doctest = false
 
 [features]
-default = ["cli", "dynamic_updates"]
+default = ["cli", "dynamic_updates", "analysis"]
 cli = ["dep:clap"]                                            # features needed for the CLI (binary crate)
 otel_tracing = ["mecomp-core/otel_tracing"]
 flame = ["mecomp-core/flame"]
 dynamic_updates = ["dep:notify-debouncer-full", "dep:notify"]
+analysis = ["mecomp-storage/analysis", "dep:mecomp-analysis"]
 
 [dependencies]
 # shared dependencies
@@ -38,7 +39,7 @@ serde = { workspace = true }
 surrealdb = { workspace = true }
 tap = { workspace = true }
 tarpc = { workspace = true }
-tokio = { workspace = true , features = ["rt-multi-thread"] }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing = { workspace = true }
 walkdir = { workspace = true }
 
@@ -49,6 +50,7 @@ one-or-many = { workspace = true }
 
 # server dependencies
 config = { version = "0.14.0", default-features = false, features = ["toml"] }
+mecomp-analysis = { workspace = true, optional = true }
 shellexpand = "3.1"
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 

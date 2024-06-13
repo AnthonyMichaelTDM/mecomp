@@ -130,6 +130,13 @@ impl Analysis {
         }
     }
 
+    /// Return the inner array of the analysis.
+    /// This is mostly useful if you want to store the features somewhere.
+    #[must_use]
+    pub const fn inner(&self) -> &[f32; NUMBER_FEATURES] {
+        &self.internal_analysis
+    }
+
     /// Return a `Vec<f32>` representing the analysis' features.
     ///
     /// Particularly useful if you want iterate through the values to store

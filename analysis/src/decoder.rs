@@ -54,7 +54,7 @@ pub trait Decoder {
     ///
     /// The error type returned should give a hint as to whether it was a
     /// decoding or an analysis error.
-    fn song_from_path<P: AsRef<Path>>(path: P) -> AnalysisResult<Analysis> {
+    fn analyze_path<P: AsRef<Path>>(path: P) -> AnalysisResult<Analysis> {
         Self::decode(path.as_ref())?.try_into()
     }
 
@@ -108,7 +108,7 @@ pub trait Decoder {
             let child = thread::spawn(move || {
                 for path in owned_chunk {
                     info!("Analyzing file '{:?}'", path);
-                    let song = Self::song_from_path(&path);
+                    let song = Self::analyze_path(&path);
                     tx_thread.send((path.clone(), song)).unwrap();
                 }
             });
