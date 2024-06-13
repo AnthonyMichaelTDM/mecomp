@@ -76,24 +76,11 @@ pub fn song_list(prefix: &str, songs: &[Song], indexed: bool) -> Result<String, 
 
     if indexed {
         for (i, song) in songs.iter().enumerate() {
-            writeln!(
-                output,
-                "\t{}: \"{}\" (id: {}, path: {}),",
-                i,
-                song.title,
-                song.id,
-                song.path.to_string_lossy()
-            )?;
+            writeln!(output, "\t{}: \"{}\" (id: {}),", i, song.title, song.id)?;
         }
     } else {
         for song in songs {
-            writeln!(
-                output,
-                "\t{}: \"{}\" (path: {}),",
-                song.id,
-                song.title,
-                song.path.to_string_lossy()
-            )?;
+            writeln!(output, "\t{}: \"{}\"", song.id, song.title)?;
         }
     }
 
@@ -106,13 +93,7 @@ pub fn song_brief_list(prefix: &str, songs: &[SongBrief]) -> Result<String, std:
     writeln!(output, "{prefix}:")?;
 
     for song in songs {
-        writeln!(
-            output,
-            "\t\"{}\" (id: {}, path: {}),",
-            song.title,
-            song.id,
-            song.path.to_string_lossy()
-        )?;
+        writeln!(output, "\t\"{}\" (id: {}),", song.title, song.id)?;
     }
 
     Ok(output)
