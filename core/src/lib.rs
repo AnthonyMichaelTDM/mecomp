@@ -1,3 +1,5 @@
+#[cfg(feature = "analysis")]
+pub mod analysis;
 pub mod audio;
 pub mod errors;
 pub mod logger;

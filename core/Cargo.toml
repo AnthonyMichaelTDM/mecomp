@@ -13,7 +13,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = []
+default = ["analysis"]
 rpc = ["tarpc"]
 otel_tracing = [
     "tracing-opentelemetry",
@@ -24,6 +24,14 @@ otel_tracing = [
 ]
 flame = ["tracing-flame"]
 verbose_tracing = []
+analysis = [
+    "dep:rubato",
+    "dep:bliss-audio-aubio-rs",
+    "dep:ndarray",
+    "dep:ndarray-stats",
+    "dep:noisy_float",
+    "dep:rustfft",
+]
 
 # for testing purposes, prevents actual playback of audio which is useful in CI environments where audio playback is not possible
 mock_playback = []
@@ -56,8 +64,20 @@ mecomp-storage = { workspace = true, features = ["serde"] }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 one-or-many = { workspace = true }
 
+# dependencies for the analysis feature
+rubato = { workspace = true, optional = true }
+strum = { version = "0.26.2", features = ["derive"] }
+bliss-audio-aubio-rs = { version = "0.2.2", optional = true, features = [
+    "static",
+] }
+ndarray = { version = "0.15.6", optional = true, features = ["rayon"] }
+ndarray-stats = { version = "0.5.1", optional = true }
+noisy_float = { version = "0.2.0", optional = true }
+rustfft = { version = "6.1", optional = true }
+
 [dev-dependencies]
 # shared dev dependencies
+ndarray-npy = { version = "0.8.1", default-features = false }
 anyhow = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
@@ -66,3 +86,4 @@ tempfile = { workspace = true }
 lofty = { workspace = true }
 mecomp-storage = { workspace = true, features = ["test_utils"] }
 surrealdb = { workspace = true }
+adler32 = "1.2"
