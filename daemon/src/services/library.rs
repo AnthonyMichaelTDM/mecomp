@@ -95,12 +95,12 @@ pub async fn rescan<C: Connection>(
             // if the metadata is the same, do nothing
             _ => {}
         }
+
         // now, add the path to the list of paths to skip so that we don't index the song again
         paths_to_skip.insert(path);
     }
     // now, index all the songs in the library that haven't been indexed yet
-    let mut visited_paths = HashSet::new();
-    visited_paths.extend(paths_to_skip);
+    let mut visited_paths = paths_to_skip;
 
     debug!("Indexing paths: {:?}", paths);
     for path in paths
