@@ -26,7 +26,6 @@ pub mod config;
 pub mod controller;
 #[cfg(feature = "dynamic_updates")]
 pub mod dynamic_updates;
-pub mod errors;
 pub mod services;
 #[cfg(test)]
 pub mod test_utils;

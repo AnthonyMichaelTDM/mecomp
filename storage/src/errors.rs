@@ -17,9 +17,6 @@ pub enum Error {
     SongIOError(#[from] SongIOError),
     #[error("Item not created.")]
     NotCreated,
-    #[cfg(feature = "analysis")]
-    #[error("Analysis error: {0}")]
-    AnalysisError(#[from] mecomp_analysis::errors::AnalysisError),
 }
 
 #[derive(Error, Debug)]

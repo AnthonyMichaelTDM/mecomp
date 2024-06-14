@@ -1,22 +1,12 @@
 #![allow(clippy::module_name_repetitions)]
-//--------------------------------------------------------------------------------- other libraries
 #[cfg(not(feature = "db"))]
 use super::Thing;
 #[cfg(feature = "db")]
-use surrealdb::sql::Thing;
-//----------------------------------------------------------------------------------- local modules and Mecomp libraries
-use mecomp_analysis::NUMBER_FEATURES;
+use surrealdb::sql::{Id, Thing};
 
 pub type AnalysisId = Thing;
 
 pub const TABLE_NAME: &str = "analysis";
-
-// TODO: make a new table, `SongFeatures`, with a relation to songs, and store the analysis there
-// this will allow for faster indexing of music libraries.
-// caveat:
-// - need to adjust `Song::delete` to also delete the associated `SongFeatures`
-// - need to start a worker thread when the daemon starts that finds all the songs without features, and gives them features
-// - need to add an endpoint to the daemon that also starts that worker thread (similar to rescan)
 
 /// This struct holds the [`Analysis`] of a particular [`Song`].
 /// An [`Analysis`] is the features extracted by the `mecomp-analysis` library and are used for recommendations (nearest neighbor search)
@@ -32,5 +22,13 @@ pub struct Analysis {
 
     /// The [`Song`]'s audio features.
     #[cfg_attr(feature = "db", field(dt = "array<float>", index(vector(dim = 20))))]
-    pub features: [f32; NUMBER_FEATURES],
+    pub features: [f32; 20],
+}
+
+impl Analysis {
+    #[must_use]
+    #[cfg(feature = "db")]
+    pub fn generate_id() -> AnalysisId {
+        Thing::from((TABLE_NAME, Id::ulid()))
+    }
 }

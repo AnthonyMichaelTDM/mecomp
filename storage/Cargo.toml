@@ -23,10 +23,11 @@ db = [
 ]
 serde = ["one-or-many/serde", "dep:serde"]
 test_utils = ["dep:tempfile", "dep:anyhow", "db"]
-analysis = ["dep:mecomp-analysis"]
+analysis = ["dep:futures"]
 
 [dependencies]
 # shared dependencies
+futures = { workspace = true, optional = true }
 lofty = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
@@ -40,7 +41,6 @@ tempfile = { workspace = true, optional = true }
 
 
 # other dependencies
-mecomp-analysis = { workspace = true, optional = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 one-or-many = { workspace = true }
 
