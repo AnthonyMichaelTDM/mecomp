@@ -46,6 +46,16 @@ pub async fn count_songs<C: Connection>(db: &Surreal<C>) -> Result<usize, Error>
     Ok(result.unwrap_or_default())
 }
 
+/// Count the number of songs without analysis in the database
+#[cfg(feature = "analysis")]
+#[instrument]
+pub async fn count_unanalyzed_songs<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
+    let result: usize = super::schemas::analysis::Analysis::read_songs_without_analysis(db)
+        .await?
+        .len();
+    Ok(result)
+}
+
 /// Count the number of orphaned albums in the database
 /// This is the number of albums that have no songs
 #[instrument]

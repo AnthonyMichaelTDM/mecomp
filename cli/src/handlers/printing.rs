@@ -9,6 +9,7 @@ use mecomp_storage::db::schemas::{
     collection::CollectionBrief,
     playlist::PlaylistBrief,
     song::{Song, SongBrief},
+    Thing,
 };
 
 pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
@@ -188,6 +189,16 @@ pub fn playlist_collection_list(
             "\t{}: \"{}\" ({} songs, {:?})",
             collection.id, collection.name, collection.songs, collection.runtime
         )?;
+    }
+
+    Ok(output)
+}
+
+pub fn thing_list(things: &[Thing]) -> Result<String, std::fmt::Error> {
+    let mut output = String::new();
+
+    for thing in things {
+        writeln!(output, "\t{thing}")?;
     }
 
     Ok(output)

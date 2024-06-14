@@ -13,7 +13,7 @@ use mecomp_storage::{
         health::{
             count_albums, count_artists, count_collections, count_orphaned_albums,
             count_orphaned_artists, count_orphaned_collections, count_orphaned_playlists,
-            count_playlists, count_songs,
+            count_playlists, count_songs, count_unanalyzed_songs,
         },
         schemas::{
             album::Album,
@@ -256,6 +256,10 @@ pub async fn health<C: Connection>(db: &Surreal<C>) -> Result<LibraryHealth, Err
         artists: count_artists(db).await?,
         albums: count_albums(db).await?,
         songs: count_songs(db).await?,
+        #[cfg(feature = "analysis")]
+        unanalyzed_songs: Some(count_unanalyzed_songs(db).await?),
+        #[cfg(not(feature = "analysis"))]
+        unanalyzed_songs: None,
         playlists: count_playlists(db).await?,
         collections: count_collections(db).await?,
         orphaned_artists: count_orphaned_artists(db).await?,
@@ -502,6 +506,10 @@ mod tests {
         assert_eq!(health.artists, 0);
         assert_eq!(health.albums, 0);
         assert_eq!(health.songs, 0);
+        #[cfg(feature = "analysis")]
+        assert_eq!(health.unanalyzed_songs, Some(0));
+        #[cfg(not(feature = "analysis"))]
+        assert_eq!(health.unanalyzed_songs, None);
         assert_eq!(health.playlists, 0);
         assert_eq!(health.collections, 0);
         assert_eq!(health.orphaned_artists, 0);

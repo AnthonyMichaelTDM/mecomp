@@ -364,24 +364,31 @@ pub enum CollectionCommand {
 #[derive(Debug, Subcommand)]
 pub enum RadioCommand {
     /// get the 'n' most similar songs to the given song
-    Songs {
+    Song {
         /// The id of the song
         id: String,
         /// The number of songs to get
-        n: usize,
+        n: u32,
     },
     /// get the 'n' most similar songs to the given artist
-    Artists {
+    Artist {
         /// The id of the artist
         id: String,
         /// The number of songs to get
-        n: usize,
+        n: u32,
     },
     /// get the 'n' most similar songs to the given album
-    Albums {
+    Album {
         /// The id of the album
         id: String,
         /// The number of songs to get
-        n: usize,
+        n: u32,
+    },
+    /// get the 'n' most similar songs to the given playlist
+    Playlist {
+        /// The id of the playlist
+        id: String,
+        /// The number of songs to get
+        n: u32,
     },
 }

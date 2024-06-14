@@ -45,6 +45,8 @@ pub fn uptime() -> u64 {
 #[cfg(not(tarpaulin_include))]
 pub fn init_logger(filter: log::LevelFilter) {
     // Initialize timer.
+
+    use crate::format_duration;
     let now = Lazy::force(&INIT_INSTANT);
 
     // If `RUST_LOG` isn't set, override it and disables
@@ -96,11 +98,11 @@ pub fn init_logger(filter: log::LevelFilter) {
                 //      Longest PATH ---|        |--- Longest file
                 //                      |        |
                 //                      v        v
-                "| {} | {: >9.3} | {: >30} @ {: <4} | {}",
+                "| {} | {} | {: >30} @ {: <4} | {}",
                 style.set_bold(true).value(level),
                 buf.style()
                     .set_dimmed(true)
-                    .value(now.elapsed().as_secs_f32()),
+                    .value(format_duration(&now.elapsed())),
                 buf.style()
                     .set_dimmed(true)
                     .value(record.file_static().unwrap_or("???")),

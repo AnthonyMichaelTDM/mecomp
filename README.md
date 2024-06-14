@@ -39,9 +39,17 @@ MECOMP is a local music player inspired by [festival](https://github.com/hinto-j
   - These collections are generated when the Music Library is scanned and will be updated when the Music Library is rescanned
   - [x] Users can "freeze" a collection, which will convert it to a playlist
 - [ ] allow users to start a "radio" based on a specific song, which will populate the queue with the `n` most similar songs to the current song
-  - uses HNSW nearest neighbor search to find similar songs. This is a fast approximate nearest neighbor search algorithm that is well suited for high dimensional data (like audio features)
-  - audio features are extracted by methods inspired by [bliss-rs](https://github.com/Polochon-street/bliss-rs), these are the same features we use for clustering
+  - [x] uses M-Tree index based nearest neighbor search to find similar songs. This is a fast approximate nearest neighbor search algorithm that is well suited for high dimensional data (like audio features)
+  - [x] audio features are extracted by methods inspired by [bliss-rs](https://github.com/Polochon-street/bliss-rs), these are the same features we use for clustering
+  - [x] supported at the daemon level
+  - [x] supported by the CLI
+  - [ ] supported by the TUI
+  - [ ] supported by the GUI
 - [ ] suggest songs to add to a playlist based on the current playlist (the average of the audio features of the songs in the playlist)
+  - [x] supported at the daemon level
+  - [x] supported by the CLI
+  - [ ] supported by the TUI
+  - [ ] supported by the GUI
 - [ ] if a song is missing important metadata, and there is an internet connection, attempt to fetch the metadata from the [MusicBrainz API](https://musicbrainz.org/doc/MusicBrainz_API).
 - [x] properly handle compilation albums (i.e. albums with multiple artists)
   - do this by simply showing the album multiple times, once for each artist. This is how iTunes handles it, and I think it's the best way to do it.

@@ -1032,14 +1032,27 @@ impl MusicPlayer for MusicPlayerServer {
     /// Collections: Recluster the users library, creating new collections.
     #[instrument]
     async fn collection_recluster(self, context: Context) -> Result<(), SerializableLibraryError> {
-        info!("Reclustering collections");
-        todo!()
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Reclustering collections");
+            todo!()
+        }
     }
     /// Collections: get a collection by its ID.
     #[instrument]
     async fn collection_get(self, context: Context, id: CollectionId) -> Option<Collection> {
         info!("Getting collection by ID: {id:?}");
-        todo!()
+        Collection::read(&self.db, id.into())
+            .await
+            .tap_err(|e| warn!("Error in collection_get: {e}"))
+            .ok()
+            .flatten()
     }
     /// Collections: freeze a collection (convert it to a playlist).
     #[instrument]
@@ -1057,35 +1070,101 @@ impl MusicPlayer for MusicPlayerServer {
 
     /// Radio: get the `n` most similar songs to the given song.
     #[instrument]
-    async fn radio_get_similar_songs(
+    async fn radio_get_similar_to_song(
         self,
         context: Context,
         song: SongId,
-        n: usize,
+        n: u32,
     ) -> Box<[SongId]> {
-        info!("Getting the {n} most similar songs to: {song:?}");
-        todo!()
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Getting the {n} most similar songs to: {song:?}");
+            services::radio::get_similar_to_song(&self.db, song.into(), n)
+                .await
+                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                .tap_err(|e| warn!("Error in radio_get_similar_songs: {e}"))
+                .unwrap_or_default()
+        }
     }
-    /// Radio: get the `n` most similar artists to the given artist.
+
+    /// Radio: get the `n` most similar songs to the given artist.
     #[instrument]
-    async fn radio_get_similar_artists(
+    async fn radio_get_similar_to_artist(
         self,
         context: Context,
         artist: ArtistId,
-        n: usize,
-    ) -> Box<[ArtistId]> {
-        info!("Getting the {n} most similar artists to: {artist:?}");
-        todo!()
+        n: u32,
+    ) -> Box<[SongId]> {
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Getting the {n} most similar songs to: {artist:?}");
+            services::radio::get_similar_to_artist(&self.db, artist.into(), n)
+                .await
+                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))
+                .unwrap_or_default()
+        }
     }
-    /// Radio: get the `n` most similar albums to the given album.
+
+    /// Radio: get the `n` most similar songs to the given album.
     #[instrument]
-    async fn radio_get_similar_albums(
+    async fn radio_get_similar_to_album(
         self,
         context: Context,
         album: AlbumId,
-        n: usize,
-    ) -> Box<[AlbumId]> {
-        info!("Getting the {n} most similar albums to: {album:?}");
-        todo!()
+        n: u32,
+    ) -> Box<[SongId]> {
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Getting the {n} most similar songs to: {album:?}");
+            services::radio::get_similar_to_album(&self.db, album.into(), n)
+                .await
+                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))
+                .unwrap_or_default()
+        }
+    }
+
+    /// Radio: get the `n` most similar songs to the given playlist.
+    #[instrument]
+    async fn radio_get_similar_to_playlist(
+        self,
+        context: Context,
+        playlist: PlaylistId,
+        n: u32,
+    ) -> Box<[SongId]> {
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Getting the {n} most similar songs to: {playlist:?}");
+            services::radio::get_similar_to_playlist(&self.db, playlist.into(), n)
+                .await
+                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))
+                .unwrap_or_default()
+        }
     }
 }

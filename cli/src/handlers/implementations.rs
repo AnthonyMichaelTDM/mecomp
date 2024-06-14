@@ -725,7 +725,7 @@ impl CommandHandler for super::CollectionCommand {
                         name.to_owned(),
                     )
                     .await??;
-                println!("Daemon response:\n{resp:?}");
+                println!("Daemon response:\n{resp}");
                 Ok(())
             }
         }
@@ -741,23 +741,23 @@ impl CommandHandler for super::RadioCommand {
         client: mecomp_core::rpc::MusicPlayerClient,
     ) -> Self::Output {
         match self {
-            Self::Songs { id, n } => {
+            Self::Song { id, n } => {
                 let resp: Box<[Thing]> = client
-                    .radio_get_similar_songs(
+                    .radio_get_similar_to_song(
                         ctx,
                         Thing {
-                            tb: artist::TABLE_NAME.to_owned(),
+                            tb: song::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
                         *n,
                     )
                     .await?;
-                println!("Daemon response:\n{resp:?}");
+                println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
-            Self::Artists { id, n } => {
+            Self::Artist { id, n } => {
                 let resp: Box<[Thing]> = client
-                    .radio_get_similar_artists(
+                    .radio_get_similar_to_artist(
                         ctx,
                         Thing {
                             tb: artist::TABLE_NAME.to_owned(),
@@ -766,21 +766,35 @@ impl CommandHandler for super::RadioCommand {
                         *n,
                     )
                     .await?;
-                println!("Daemon response:\n{resp:?}");
+                println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
-            Self::Albums { id, n } => {
+            Self::Album { id, n } => {
                 let resp: Box<[Thing]> = client
-                    .radio_get_similar_albums(
+                    .radio_get_similar_to_album(
                         ctx,
                         Thing {
-                            tb: artist::TABLE_NAME.to_owned(),
+                            tb: album::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
                         *n,
                     )
                     .await?;
-                println!("Daemon response:\n{resp:?}");
+                println!("Daemon response:\n{}", printing::thing_list(&resp)?);
+                Ok(())
+            }
+            Self::Playlist { id, n } => {
+                let resp: Box<[Thing]> = client
+                    .radio_get_similar_to_playlist(
+                        ctx,
+                        Thing {
+                            tb: playlist::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                        *n,
+                    )
+                    .await?;
+                println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
         }

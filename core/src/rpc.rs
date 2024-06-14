@@ -251,11 +251,13 @@ pub trait MusicPlayer {
 
     // Radio commands.
     /// Radio: get the `n` most similar songs to the given song.
-    async fn radio_get_similar_songs(song: SongId, n: usize) -> Box<[SongId]>;
-    /// Radio: get the `n` most similar artists to the given artist.
-    async fn radio_get_similar_artists(artist: ArtistId, n: usize) -> Box<[ArtistId]>;
-    /// Radio: get the `n` most similar albums to the given album.
-    async fn radio_get_similar_albums(album: AlbumId, n: usize) -> Box<[AlbumId]>;
+    async fn radio_get_similar_to_song(song: SongId, n: u32) -> Box<[SongId]>;
+    /// Radio: get the `n` most similar songs to the given artist.
+    async fn radio_get_similar_to_artist(artist: ArtistId, n: u32) -> Box<[SongId]>;
+    /// Radio: get the `n` most similar songs to the given album.
+    async fn radio_get_similar_to_album(album: AlbumId, n: u32) -> Box<[SongId]>;
+    /// Radio: get the `n` most similar songs to the given playlist.
+    async fn radio_get_similar_to_playlist(playlist: PlaylistId, n: u32) -> Box<[SongId]>;
 }
 
 /// Initialize the client
