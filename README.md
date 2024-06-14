@@ -38,13 +38,11 @@ MECOMP is a local music player inspired by [festival](https://github.com/hinto-j
   - I'm not sure how best to name these collections, may be "genres", "moods", "styles", etc. I'm not sure if these should be user editable or not, but I'm leaning towards not.
   - These collections are generated when the Music Library is scanned and will be updated when the Music Library is rescanned
   - [x] Users can "freeze" a collection, which will convert it to a playlist
-- [ ] allow users to start a "radio" based on a specific song, which will populate the queue with the `n` most similar songs to the current song
+- [x] allow users to start a "radio" based on a specific song, artist, or album, which will suggest songs similar to that input.
   - [x] uses M-Tree index based nearest neighbor search to find similar songs. This is a fast approximate nearest neighbor search algorithm that is well suited for high dimensional data (like audio features)
   - [x] audio features are extracted by methods inspired by [bliss-rs](https://github.com/Polochon-street/bliss-rs), these are the same features we use for clustering
   - [x] supported at the daemon level
-  - [x] supported by the CLI
-  - [ ] supported by the TUI
-  - [ ] supported by the GUI
+  - [ ] functionality to populate the queue with those suggestions
 - [ ] suggest songs to add to a playlist based on the current playlist (the average of the audio features of the songs in the playlist)
   - [x] supported at the daemon level
   - [x] supported by the CLI
