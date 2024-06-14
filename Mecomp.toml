@@ -12,7 +12,6 @@ library_paths = ["~/Music"]
 # If unset, will not split artists.
 artist_separator = ", "
 # how conflicting metadata should be resolved
-# "merge" - merge the metadata
 # "overwrite" - overwrite the metadata with new metadata
 # "skip" - skip the file (keep old metadata)
 conflict_resolution = "overwrite"
