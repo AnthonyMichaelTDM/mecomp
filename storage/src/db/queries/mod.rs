@@ -1,3 +1,17 @@
+use surrealdb::{
+    opt::IntoQuery,
+    sql::{statements::DefineStatement, Statement, Tokenizer},
+};
+
+pub mod album;
+#[cfg(feature = "analysis")]
+pub mod analysis;
+pub mod artist;
+pub mod collection;
+pub mod generic;
+pub mod playlist;
+pub mod song;
+
 // NOTE: blocked on https://github.com/surrealdb/surrealdb/pull/4156,
 // when merged, we can uncomment this
 // use surrealdb::sql::{
@@ -16,18 +30,6 @@
 //         comment: None,
 //     })
 // }
-
-use surrealdb::{
-    opt::IntoQuery,
-    sql::{statements::DefineStatement, Statement, Tokenizer},
-};
-
-pub mod album;
-pub mod artist;
-pub mod collection;
-pub mod generic;
-pub mod playlist;
-pub mod song;
 
 /// NOTE: for some reason, having more than one tokenizer causes the parser to fail, so we're just not going to support that for now
 #[allow(clippy::missing_panics_doc)]

@@ -1,5 +1,5 @@
 //! CRUD operations for the collection table
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use surrealdb::{Connection, Surreal};
 use tracing::instrument;
@@ -9,10 +9,11 @@ use crate::{
         queries::collection::{add_songs, read_songs, remove_songs},
         schemas::{
             collection::{Collection, CollectionChangeSet, CollectionId, TABLE_NAME},
+            playlist::Playlist,
             song::{Song, SongId},
         },
     },
-    errors::Error,
+    errors::{Error, StorageResult},
 };
 
 impl Collection {
@@ -20,7 +21,7 @@ impl Collection {
     pub async fn create<C: Connection>(
         db: &Surreal<C>,
         collection: Self,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         Ok(db
             .create((TABLE_NAME, collection.id.clone()))
             .content(collection)
@@ -28,7 +29,7 @@ impl Collection {
     }
 
     #[instrument]
-    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> Result<Vec<Self>, Error> {
+    pub async fn read_all<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
         Ok(db.select(TABLE_NAME).await?)
     }
 
@@ -36,7 +37,7 @@ impl Collection {
     pub async fn read<C: Connection>(
         db: &Surreal<C>,
         id: CollectionId,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         Ok(db.select((TABLE_NAME, id)).await?)
     }
 
@@ -45,7 +46,7 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
         changes: CollectionChangeSet,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         Ok(db.update((TABLE_NAME, id)).merge(changes).await?)
     }
 
@@ -53,7 +54,7 @@ impl Collection {
     pub async fn delete<C: Connection>(
         db: &Surreal<C>,
         id: CollectionId,
-    ) -> Result<Option<Self>, Error> {
+    ) -> StorageResult<Option<Self>> {
         Ok(db.delete((TABLE_NAME, id)).await?)
     }
 
@@ -62,7 +63,7 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
         song_ids: &[SongId],
-    ) -> Result<(), Error> {
+    ) -> StorageResult<()> {
         db.query(add_songs())
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
@@ -75,7 +76,7 @@ impl Collection {
     pub async fn read_songs<C: Connection>(
         db: &Surreal<C>,
         id: CollectionId,
-    ) -> Result<Vec<Song>, Error> {
+    ) -> StorageResult<Vec<Song>> {
         Ok(db.query(read_songs()).bind(("id", id)).await?.take(0)?)
     }
 
@@ -84,7 +85,7 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
         song_ids: &[SongId],
-    ) -> Result<(), Error> {
+    ) -> StorageResult<()> {
         db.query(remove_songs())
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
@@ -103,7 +104,7 @@ impl Collection {
     ///
     /// * `bool` - True if the collection is empty
     #[instrument]
-    pub async fn repair<C: Connection>(db: &Surreal<C>, id: CollectionId) -> Result<bool, Error> {
+    pub async fn repair<C: Connection>(db: &Surreal<C>, id: CollectionId) -> StorageResult<bool> {
         let songs = Self::read_songs(db, id.clone()).await?;
 
         Self::update(
@@ -118,6 +119,41 @@ impl Collection {
         .await?;
 
         Ok(songs.is_empty())
+    }
+
+    /// "Freeze" a collection, this will create a playlist with the given name that contains all the songs in the given collection
+    #[instrument]
+    pub async fn freeze<C: Connection>(
+        db: &Surreal<C>,
+        id: CollectionId,
+        name: Arc<str>,
+    ) -> StorageResult<Playlist> {
+        // create the new playlist
+        let playlist = Playlist::create(
+            db,
+            Playlist {
+                id: Playlist::generate_id(),
+                name,
+                runtime: Duration::default(),
+                song_count: 0,
+            },
+        )
+        .await?
+        .ok_or(Error::NotFound)?;
+
+        // get the songs in the collection
+        let songs = Self::read_songs(db, id.clone()).await?;
+        let song_ids = songs.iter().map(|song| song.id.clone()).collect::<Vec<_>>();
+
+        // add the songs to the playlist
+        Playlist::add_songs(db, playlist.id.clone(), &song_ids).await?;
+
+        // get the playlist
+        let playlist = Playlist::read(db, playlist.id.clone())
+            .await?
+            .ok_or(Error::NotFound)?;
+
+        Ok(playlist)
     }
 }
 
@@ -245,6 +281,29 @@ mod tests {
             .ok_or_else(|| anyhow!("Collection not found"))?;
         assert_eq!(read.song_count, 0);
         assert_eq!(read.runtime, Duration::from_secs(0));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_freeze() -> Result<()> {
+        let db = init_test_database().await?;
+        let collection = create_collection();
+        Collection::create(&db, collection.clone()).await?;
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+
+        Collection::add_songs(&db, collection.id.clone(), &[song.id.clone()]).await?;
+
+        let playlist =
+            Collection::freeze(&db, collection.id.clone(), "Frozen Playlist".into()).await?;
+
+        let songs = Playlist::read_songs(&db, playlist.id.clone()).await?;
+
+        assert_eq!(songs, vec![song.clone()]);
+        assert_eq!(playlist.song_count, 1);
+        assert_eq!(playlist.runtime, song.runtime);
+        assert_eq!(playlist.name, "Frozen Playlist".into());
 
         Ok(())
     }

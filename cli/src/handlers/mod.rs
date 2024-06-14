@@ -1,5 +1,6 @@
 pub mod implementations;
 pub mod printing;
+pub mod utils;
 
 use clap::{Subcommand, ValueEnum};
 
@@ -79,6 +80,8 @@ pub enum Command {
 pub enum LibraryCommand {
     /// Rescan the library
     Rescan,
+    /// Analyze the library
+    Analyze,
     /// Get brief library info
     Brief,
     /// Get detailed library info
@@ -262,6 +265,13 @@ pub enum QueueCommand {
         /// The index to set the current song to
         index: usize,
     },
+    /// Add a list of items to the queue (from a pipe)
+    /// ex:
+    /// ```sh, ignore
+    /// mecomp-cli search all "the beatles" -q | mecomp-cli queue pipe
+    /// ```
+    /// This will add all the results of the search to the queue
+    Pipe,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, ValueEnum)]
@@ -362,24 +372,31 @@ pub enum CollectionCommand {
 #[derive(Debug, Subcommand)]
 pub enum RadioCommand {
     /// get the 'n' most similar songs to the given song
-    Songs {
+    Song {
         /// The id of the song
         id: String,
         /// The number of songs to get
-        n: usize,
+        n: u32,
     },
     /// get the 'n' most similar songs to the given artist
-    Artists {
+    Artist {
         /// The id of the artist
         id: String,
         /// The number of songs to get
-        n: usize,
+        n: u32,
     },
     /// get the 'n' most similar songs to the given album
-    Albums {
+    Album {
         /// The id of the album
         id: String,
         /// The number of songs to get
-        n: usize,
+        n: u32,
+    },
+    /// get the 'n' most similar songs to the given playlist
+    Playlist {
+        /// The id of the playlist
+        id: String,
+        /// The number of songs to get
+        n: u32,
     },
 }

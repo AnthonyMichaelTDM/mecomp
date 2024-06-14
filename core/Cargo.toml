@@ -28,7 +28,6 @@ verbose_tracing = []
 # for testing purposes, prevents actual playback of audio which is useful in CI environments where audio playback is not possible
 mock_playback = []
 
-
 [dependencies]
 # shared dependencies
 env_logger = { workspace = true }

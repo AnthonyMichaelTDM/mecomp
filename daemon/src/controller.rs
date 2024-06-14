@@ -22,6 +22,7 @@ use mecomp_core::{
 };
 use mecomp_storage::{
     db::schemas::{
+        self,
         album::{Album, AlbumBrief},
         artist::{Artist, ArtistBrief},
         collection::{Collection, CollectionBrief},
@@ -38,6 +39,7 @@ mod locks {
     use tokio::sync::Mutex;
 
     pub static LIBRARY_RESCAN_LOCK: Mutex<()> = Mutex::const_new(());
+    pub static LIBRARY_ANALYZE_LOCK: Mutex<()> = Mutex::const_new(());
 }
 
 #[derive(Clone, Debug)]
@@ -60,7 +62,7 @@ impl MusicPlayer for MusicPlayerServer {
         "pong".to_string()
     }
 
-    /// Rescans the music library.
+    /// Rescans the music library, only error is if a rescan is already in progress.
     #[instrument]
     async fn library_rescan(self, context: Context) -> Result<(), SerializableLibraryError> {
         info!("Rescanning library");
@@ -92,6 +94,40 @@ impl MusicPlayer for MusicPlayerServer {
 
         Ok(())
     }
+    /// Analyze the music library, only error is if an analysis is already in progress.
+    #[instrument]
+    async fn library_analyze(self, context: Context) -> Result<(), SerializableLibraryError> {
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Analyzing library");
+
+            if locks::LIBRARY_ANALYZE_LOCK.try_lock().is_err() {
+                warn!("Library analysis already in progress");
+                return Err(SerializableLibraryError::AnalysisInProgress);
+            }
+
+            std::thread::Builder::new()
+                .name(String::from("Library Analysis"))
+                .spawn(move || {
+                    futures::executor::block_on(async {
+                        let _guard = locks::LIBRARY_ANALYZE_LOCK.lock().await;
+                        match services::library::analyze(&self.db).await {
+                            Ok(()) => info!("Library analysis complete"),
+                            Err(e) => error!("Error in library_analyze: {e}"),
+                        }
+                    });
+                })?;
+
+            Ok(())
+        }
+    }
+
     /// Returns brief information about the music library.
     #[instrument]
     async fn library_brief(
@@ -656,6 +692,66 @@ impl MusicPlayer for MusicPlayerServer {
 
         Ok(())
     }
+    /// add a list of things to the queue.
+    /// (if the queue is empty, it will start playing the first thing in the list.)
+    #[instrument]
+    async fn queue_add_list(
+        self,
+        context: Context,
+        list: Vec<mecomp_storage::db::schemas::Thing>,
+    ) -> Result<(), SerializableLibraryError> {
+        info!(
+            "Adding list to queue: ({})",
+            list.iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+
+        // go through the list, and get songs for each thing (depending on what it is)
+        let mut songs: OneOrMany<Song> = OneOrMany::None;
+        for thing in list {
+            match thing.tb.as_str() {
+                schemas::album::TABLE_NAME => {
+                    for song in Album::read_songs(&self.db, thing.clone().into()).await? {
+                        songs.push(song);
+                    }
+                }
+                schemas::artist::TABLE_NAME => {
+                    for song in Artist::read_songs(&self.db, thing.clone().into()).await? {
+                        songs.push(song);
+                    }
+                }
+                schemas::collection::TABLE_NAME => {
+                    for song in Collection::read_songs(&self.db, thing.clone().into()).await? {
+                        songs.push(song);
+                    }
+                }
+                schemas::playlist::TABLE_NAME => {
+                    for song in Playlist::read_songs(&self.db, thing.clone().into()).await? {
+                        songs.push(song);
+                    }
+                }
+                schemas::song::TABLE_NAME => songs.push(
+                    Song::read(&self.db, thing.clone().into())
+                        .await?
+                        .ok_or(Error::NotFound)?,
+                ),
+                _ => {
+                    warn!("Unknown thing type: {}", thing.tb);
+                }
+            }
+        }
+
+        // remove duplicates
+        songs.dedup_by_key(|song| song.id.clone());
+
+        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+            songs,
+        ))));
+
+        Ok(())
+    }
     /// add an album to the queue.
     /// (if the queue is empty, it will start playing the album.)
     #[instrument]
@@ -997,14 +1093,27 @@ impl MusicPlayer for MusicPlayerServer {
     /// Collections: Recluster the users library, creating new collections.
     #[instrument]
     async fn collection_recluster(self, context: Context) -> Result<(), SerializableLibraryError> {
-        info!("Reclustering collections");
-        todo!()
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Reclustering collections");
+            todo!()
+        }
     }
     /// Collections: get a collection by its ID.
     #[instrument]
     async fn collection_get(self, context: Context, id: CollectionId) -> Option<Collection> {
         info!("Getting collection by ID: {id:?}");
-        todo!()
+        Collection::read(&self.db, id.into())
+            .await
+            .tap_err(|e| warn!("Error in collection_get: {e}"))
+            .ok()
+            .flatten()
     }
     /// Collections: freeze a collection (convert it to a playlist).
     #[instrument]
@@ -1013,42 +1122,110 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         id: CollectionId,
         name: String,
-    ) -> PlaylistId {
+    ) -> Result<PlaylistId, SerializableLibraryError> {
         info!("Freezing collection: {id:?} ({name})");
-        todo!()
+        Ok(Collection::freeze(&self.db, id.into(), name.into())
+            .await
+            .map(|p| p.id.into())?)
     }
 
     /// Radio: get the `n` most similar songs to the given song.
     #[instrument]
-    async fn radio_get_similar_songs(
+    async fn radio_get_similar_to_song(
         self,
         context: Context,
         song: SongId,
-        n: usize,
+        n: u32,
     ) -> Box<[SongId]> {
-        info!("Getting the {n} most similar songs to: {song:?}");
-        todo!()
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Getting the {n} most similar songs to: {song:?}");
+            services::radio::get_similar_to_song(&self.db, song.into(), n)
+                .await
+                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                .tap_err(|e| warn!("Error in radio_get_similar_songs: {e}"))
+                .unwrap_or_default()
+        }
     }
-    /// Radio: get the `n` most similar artists to the given artist.
+
+    /// Radio: get the `n` most similar songs to the given artist.
     #[instrument]
-    async fn radio_get_similar_artists(
+    async fn radio_get_similar_to_artist(
         self,
         context: Context,
         artist: ArtistId,
-        n: usize,
-    ) -> Box<[ArtistId]> {
-        info!("Getting the {n} most similar artists to: {artist:?}");
-        todo!()
+        n: u32,
+    ) -> Box<[SongId]> {
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Getting the {n} most similar songs to: {artist:?}");
+            services::radio::get_similar_to_artist(&self.db, artist.into(), n)
+                .await
+                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))
+                .unwrap_or_default()
+        }
     }
-    /// Radio: get the `n` most similar albums to the given album.
+
+    /// Radio: get the `n` most similar songs to the given album.
     #[instrument]
-    async fn radio_get_similar_albums(
+    async fn radio_get_similar_to_album(
         self,
         context: Context,
         album: AlbumId,
-        n: usize,
-    ) -> Box<[AlbumId]> {
-        info!("Getting the {n} most similar albums to: {album:?}");
-        todo!()
+        n: u32,
+    ) -> Box<[SongId]> {
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Getting the {n} most similar songs to: {album:?}");
+            services::radio::get_similar_to_album(&self.db, album.into(), n)
+                .await
+                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))
+                .unwrap_or_default()
+        }
+    }
+
+    /// Radio: get the `n` most similar songs to the given playlist.
+    #[instrument]
+    async fn radio_get_similar_to_playlist(
+        self,
+        context: Context,
+        playlist: PlaylistId,
+        n: u32,
+    ) -> Box<[SongId]> {
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Getting the {n} most similar songs to: {playlist:?}");
+            services::radio::get_similar_to_playlist(&self.db, playlist.into(), n)
+                .await
+                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))
+                .unwrap_or_default()
+        }
     }
 }

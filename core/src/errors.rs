@@ -22,6 +22,8 @@ pub enum SerializableLibraryError {
     Decoder(String),
     #[error("Library Rescan already in progress.")]
     RescanInProgress,
+    #[error("Library Analysis already in progress.")]
+    AnalysisInProgress,
 }
 
 impl From<Error> for SerializableLibraryError {

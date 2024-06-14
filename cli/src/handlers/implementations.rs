@@ -1,10 +1,14 @@
-use std::time::Duration;
+use std::{
+    io::{BufRead, IsTerminal},
+    time::Duration,
+};
 
-use crate::handlers::printing;
+use crate::handlers::{printing, utils};
 
 use super::{
     Command, CommandHandler, CurrentTarget, LibraryCommand, LibraryGetTarget, LibraryListTarget,
-    PlaylistGetMethod, QueueCommand, RandTarget, SearchTarget, SeekCommand, VolumeCommand,
+    PlaylistGetMethod, QueueAddTarget, QueueCommand, RandTarget, SearchTarget, SeekCommand,
+    VolumeCommand,
 };
 
 use mecomp_core::state::{
@@ -152,6 +156,15 @@ impl CommandHandler for LibraryCommand {
                     println!("Daemon response:\n{e}");
                 } else {
                     println!("Daemon response:\nLibrary rescan started");
+                }
+                Ok(())
+            }
+            Self::Analyze => {
+                let resp: Result<(), _> = client.library_analyze(ctx).await?;
+                if let Err(e) = resp {
+                    println!("Daemon response:\n{e}");
+                } else {
+                    println!("Daemon response:\nLibrary analysis started");
                 }
                 Ok(())
             }
@@ -424,6 +437,7 @@ impl CommandHandler for VolumeCommand {
 impl CommandHandler for QueueCommand {
     type Output = anyhow::Result<()>;
 
+    #[allow(clippy::too_many_lines)]
     async fn handle(
         &self,
         ctx: tarpc::context::Context,
@@ -433,7 +447,6 @@ impl CommandHandler for QueueCommand {
             Self::Clear => {
                 client.playback_clear(ctx).await?;
                 println!("Daemon response:\nqueue cleared");
-                Ok(())
             }
             Self::List => {
                 let resp: Option<Box<[Song]>> = client.state_queue(ctx).await?;
@@ -445,12 +458,10 @@ impl CommandHandler for QueueCommand {
                 } else {
                     println!("Daemon response:\nNo queue available");
                 }
-
-                Ok(())
             }
             Self::Add { target, id } => {
                 let message: &str = match target {
-                    super::QueueAddTarget::Artist => client
+                    QueueAddTarget::Artist => client
                         .queue_add_artist(
                             ctx,
                             Thing {
@@ -460,7 +471,7 @@ impl CommandHandler for QueueCommand {
                         )
                         .await?
                         .map(|()| "artist added to queue"),
-                    super::QueueAddTarget::Album => client
+                    QueueAddTarget::Album => client
                         .queue_add_album(
                             ctx,
                             Thing {
@@ -470,7 +481,7 @@ impl CommandHandler for QueueCommand {
                         )
                         .await?
                         .map(|()| "album added to queue"),
-                    super::QueueAddTarget::Song => client
+                    QueueAddTarget::Song => client
                         .queue_add_song(
                             ctx,
                             Thing {
@@ -480,7 +491,7 @@ impl CommandHandler for QueueCommand {
                         )
                         .await?
                         .map(|()| "song added to queue"),
-                    super::QueueAddTarget::Playlist => client
+                    QueueAddTarget::Playlist => client
                         .queue_add_playlist(
                             ctx,
                             Thing {
@@ -490,7 +501,7 @@ impl CommandHandler for QueueCommand {
                         )
                         .await?
                         .map(|()| "playlist added to queue"),
-                    super::QueueAddTarget::Collection => client
+                    QueueAddTarget::Collection => client
                         .queue_add_collection(
                             ctx,
                             Thing {
@@ -503,20 +514,36 @@ impl CommandHandler for QueueCommand {
                 }?;
 
                 println!("Daemon response:\n{message}");
-
-                Ok(())
             }
             Self::Remove { start, end } => {
                 client.queue_remove_range(ctx, *start..*end).await?;
                 println!("Daemon response:\nitems removed from queue");
-                Ok(())
             }
             Self::Set { index } => {
                 client.queue_set_index(ctx, *index).await?;
                 println!("Daemon response:\ncurrent song set to index {index}");
-                Ok(())
+            }
+            Self::Pipe => {
+                let stdin = std::io::stdin();
+                if stdin.is_terminal() {
+                    println!("No input provided, this command is meant to be used with a pipe");
+                } else {
+                    let list: Vec<Thing> = utils::parse_things_from_lines(
+                        stdin.lock().lines().filter_map(|l| match l {
+                            Ok(line) => Some(line),
+                            Err(e) => {
+                                eprintln!("Error reading from stdin: {e}");
+                                None
+                            }
+                        }),
+                    );
+
+                    client.queue_add_list(ctx, list).await??;
+                    println!("Daemon response:\nitems added to queue");
+                }
             }
         }
+        Ok(())
     }
 }
 
@@ -715,8 +742,8 @@ impl CommandHandler for super::CollectionCommand {
                         },
                         name.to_owned(),
                     )
-                    .await?;
-                println!("Daemon response:\n{resp:?}");
+                    .await??;
+                println!("Daemon response:\n{resp}");
                 Ok(())
             }
         }
@@ -732,23 +759,23 @@ impl CommandHandler for super::RadioCommand {
         client: mecomp_core::rpc::MusicPlayerClient,
     ) -> Self::Output {
         match self {
-            Self::Songs { id, n } => {
+            Self::Song { id, n } => {
                 let resp: Box<[Thing]> = client
-                    .radio_get_similar_songs(
+                    .radio_get_similar_to_song(
                         ctx,
                         Thing {
-                            tb: artist::TABLE_NAME.to_owned(),
+                            tb: song::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
                         *n,
                     )
                     .await?;
-                println!("Daemon response:\n{resp:?}");
+                println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
-            Self::Artists { id, n } => {
+            Self::Artist { id, n } => {
                 let resp: Box<[Thing]> = client
-                    .radio_get_similar_artists(
+                    .radio_get_similar_to_artist(
                         ctx,
                         Thing {
                             tb: artist::TABLE_NAME.to_owned(),
@@ -757,21 +784,35 @@ impl CommandHandler for super::RadioCommand {
                         *n,
                     )
                     .await?;
-                println!("Daemon response:\n{resp:?}");
+                println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
-            Self::Albums { id, n } => {
+            Self::Album { id, n } => {
                 let resp: Box<[Thing]> = client
-                    .radio_get_similar_albums(
+                    .radio_get_similar_to_album(
                         ctx,
                         Thing {
-                            tb: artist::TABLE_NAME.to_owned(),
+                            tb: album::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
                         *n,
                     )
                     .await?;
-                println!("Daemon response:\n{resp:?}");
+                println!("Daemon response:\n{}", printing::thing_list(&resp)?);
+                Ok(())
+            }
+            Self::Playlist { id, n } => {
+                let resp: Box<[Thing]> = client
+                    .radio_get_similar_to_playlist(
+                        ctx,
+                        Thing {
+                            tb: playlist::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                        *n,
+                    )
+                    .await?;
+                println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
         }

@@ -35,6 +35,9 @@ pub struct LibraryHealth {
     pub albums: usize,
     /// The number of songs in the library
     pub songs: usize,
+    /// The number of unanalyzed songs in the library
+    /// Optional because the analysis feature may not be enabled for the daemon
+    pub unanalyzed_songs: Option<usize>,
     /// The number of playlists in the library
     pub playlists: usize,
     /// The number of collections in the library

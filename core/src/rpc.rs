@@ -46,6 +46,8 @@ pub trait MusicPlayer {
     // Music library.
     /// Rescans the music library, only error is if a rescan is already in progress.
     async fn library_rescan() -> Result<(), SerializableLibraryError>;
+    /// Analyze the music library, only error is if an analysis is already in progress.
+    async fn library_analyze() -> Result<(), SerializableLibraryError>;
     /// Returns brief information about the music library.
     async fn library_brief() -> Result<LibraryBrief, SerializableLibraryError>;
     /// Returns full information about the music library. (all songs, artists, albums, etc.)
@@ -166,6 +168,9 @@ pub trait MusicPlayer {
     /// add a song to the queue.
     /// (if the queue is empty, it will start playing the song.)
     async fn queue_add_song(song: SongId) -> Result<(), SerializableLibraryError>;
+    /// add a list of things to the queue.
+    /// (if the queue is empty, it will start playing the first thing in the list.)
+    async fn queue_add_list(list: Vec<Thing>) -> Result<(), SerializableLibraryError>;
     /// add an album to the queue.
     /// (if the queue is empty, it will start playing the album.)
     async fn queue_add_album(album: AlbumId) -> Result<(), SerializableLibraryError>;
@@ -242,15 +247,20 @@ pub trait MusicPlayer {
     /// Collections: get a collection by its ID.
     async fn collection_get(id: CollectionId) -> Option<Collection>;
     /// Collections: freeze a collection (convert it to a playlist).
-    async fn collection_freeze(id: CollectionId, name: String) -> PlaylistId;
+    async fn collection_freeze(
+        id: CollectionId,
+        name: String,
+    ) -> Result<PlaylistId, SerializableLibraryError>;
 
     // Radio commands.
     /// Radio: get the `n` most similar songs to the given song.
-    async fn radio_get_similar_songs(song: SongId, n: usize) -> Box<[SongId]>;
-    /// Radio: get the `n` most similar artists to the given artist.
-    async fn radio_get_similar_artists(artist: ArtistId, n: usize) -> Box<[ArtistId]>;
-    /// Radio: get the `n` most similar albums to the given album.
-    async fn radio_get_similar_albums(album: AlbumId, n: usize) -> Box<[AlbumId]>;
+    async fn radio_get_similar_to_song(song: SongId, n: u32) -> Box<[SongId]>;
+    /// Radio: get the `n` most similar songs to the given artist.
+    async fn radio_get_similar_to_artist(artist: ArtistId, n: u32) -> Box<[SongId]>;
+    /// Radio: get the `n` most similar songs to the given album.
+    async fn radio_get_similar_to_album(album: AlbumId, n: u32) -> Box<[SongId]>;
+    /// Radio: get the `n` most similar songs to the given playlist.
+    async fn radio_get_similar_to_playlist(playlist: PlaylistId, n: u32) -> Box<[SongId]>;
 }
 
 /// Initialize the client

@@ -34,3 +34,5 @@ pub enum SongIOError {
     #[error("couldn't read duration from metadata")]
     DurationReadError,
 }
+
+pub type StorageResult<T> = std::result::Result<T, Error>;

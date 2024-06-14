@@ -9,6 +9,7 @@ use mecomp_storage::db::schemas::{
     collection::CollectionBrief,
     playlist::PlaylistBrief,
     song::{Song, SongBrief},
+    Thing,
 };
 
 pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
@@ -52,13 +53,11 @@ pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
 
     writeln!(output, "\tQueue Position: {:?},", state.queue_position)?;
 
-    writeln!(output, "\tCurrent Song: {:?}", state.current_song)?;
-
-    writeln!(output, "\tRepeat Mode: {:?}", state.repeat_mode)?;
-
     if let Some(runtime) = state.runtime {
         writeln!(output, "\tRuntime: {runtime}")?;
     }
+
+    writeln!(output, "\tRepeat Mode: {:?}", state.repeat_mode)?;
 
     writeln!(output, "\tPaused: {:?}", state.paused)?;
 
@@ -76,24 +75,11 @@ pub fn song_list(prefix: &str, songs: &[Song], indexed: bool) -> Result<String, 
 
     if indexed {
         for (i, song) in songs.iter().enumerate() {
-            writeln!(
-                output,
-                "\t{}: \"{}\" (id: {}, path: {}),",
-                i,
-                song.title,
-                song.id,
-                song.path.to_string_lossy()
-            )?;
+            writeln!(output, "\t{}: \"{}\" (id: {}),", i, song.title, song.id)?;
         }
     } else {
         for song in songs {
-            writeln!(
-                output,
-                "\t{}: \"{}\" (path: {}),",
-                song.id,
-                song.title,
-                song.path.to_string_lossy()
-            )?;
+            writeln!(output, "\t{}: \"{}\"", song.id, song.title)?;
         }
     }
 
@@ -106,13 +92,7 @@ pub fn song_brief_list(prefix: &str, songs: &[SongBrief]) -> Result<String, std:
     writeln!(output, "{prefix}:")?;
 
     for song in songs {
-        writeln!(
-            output,
-            "\t\"{}\" (id: {}, path: {}),",
-            song.title,
-            song.id,
-            song.path.to_string_lossy()
-        )?;
+        writeln!(output, "\t\"{}\" (id: {}),", song.title, song.id)?;
     }
 
     Ok(output)
@@ -207,6 +187,16 @@ pub fn playlist_collection_list(
             "\t{}: \"{}\" ({} songs, {:?})",
             collection.id, collection.name, collection.songs, collection.runtime
         )?;
+    }
+
+    Ok(output)
+}
+
+pub fn thing_list(things: &[Thing]) -> Result<String, std::fmt::Error> {
+    let mut output = String::new();
+
+    for thing in things {
+        writeln!(output, "\t{thing}")?;
     }
 
     Ok(output)
