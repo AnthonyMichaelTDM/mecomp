@@ -1,6 +1,7 @@
 use std::{collections::HashSet, path::PathBuf};
 
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
+use mecomp_analysis::decoder::Decoder;
 use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
 use surrealdb::{Connection, Surreal};
 use tap::TapFallible;
@@ -16,6 +17,7 @@ use mecomp_storage::{
         },
         schemas::{
             album::Album,
+            analysis::Analysis,
             artist::Artist,
             collection::Collection,
             playlist::Playlist,
@@ -146,6 +148,65 @@ pub async fn rescan<C: Connection>(
 
     info!("Library rescan complete");
     info!("Library brief: {:?}", brief(db).await?);
+
+    Ok(())
+}
+
+/// Analyze the library.
+///
+/// In order, this function will:
+/// - get all the songs that aren't currently analyzed.
+/// - start analyzing those songs in batches.
+/// - update the database with the analyses.
+///
+/// # Errors
+///
+/// This function will return an error if there is an error reading from the database.
+pub async fn analyze<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
+    // get all the songs that don't have an analysis
+    let songs_to_analyze: Vec<Song> = Analysis::read_songs_without_analysis(db).await?;
+    // crate a hashmap mapping paths to song ids
+    let paths = songs_to_analyze
+        .iter()
+        .map(|song| (song.path.clone(), song.id.clone()))
+        .collect::<std::collections::HashMap<_, _>>();
+
+    // analyze the songs in batches
+    let analysis_iter = mecomp_analysis::decoder::MecompDecoder::analyze_paths(paths.keys());
+
+    // update the database with the analyses
+    for (song_path, maybe_analysis) in analysis_iter {
+        let Some(song_id) = paths.get(&song_path) else {
+            error!("No song id found for path: {}", song_path.to_string_lossy());
+            continue;
+        };
+
+        match maybe_analysis {
+            Ok(analysis) => {
+                if Analysis::create(
+                    db,
+                    song_id.clone(),
+                    Analysis {
+                        id: Analysis::generate_id(),
+                        features: *analysis.inner(),
+                    },
+                )
+                .await?
+                .is_some()
+                {
+                    debug!("Analyzed {}", song_path.to_string_lossy());
+                } else {
+                    warn!(
+                        "Error analyzing {}: song either wasn't found or already has an analysis",
+                        song_path.to_string_lossy()
+                    );
+                }
+            }
+            Err(e) => {
+                error!("Error analyzing {}: {}", song_path.to_string_lossy(), e);
+            }
+        }
+    }
 
     Ok(())
 }

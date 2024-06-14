@@ -46,6 +46,8 @@ pub trait MusicPlayer {
     // Music library.
     /// Rescans the music library, only error is if a rescan is already in progress.
     async fn library_rescan() -> Result<(), SerializableLibraryError>;
+    /// Analyze the music library, only error is if an analysis is already in progress.
+    async fn library_analyze() -> Result<(), SerializableLibraryError>;
     /// Returns brief information about the music library.
     async fn library_brief() -> Result<LibraryBrief, SerializableLibraryError>;
     /// Returns full information about the music library. (all songs, artists, albums, etc.)

@@ -155,6 +155,15 @@ impl CommandHandler for LibraryCommand {
                 }
                 Ok(())
             }
+            Self::Analyze => {
+                let resp: Result<(), _> = client.library_analyze(ctx).await?;
+                if let Err(e) = resp {
+                    println!("Daemon response:\n{e}");
+                } else {
+                    println!("Daemon response:\nLibrary analysis started");
+                }
+                Ok(())
+            }
             Self::Brief => {
                 let resp: Result<LibraryBrief, _> = client.library_brief(ctx).await?;
                 println!("Daemon response:\n{resp:#?}");

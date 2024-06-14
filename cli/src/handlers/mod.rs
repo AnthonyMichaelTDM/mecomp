@@ -79,6 +79,8 @@ pub enum Command {
 pub enum LibraryCommand {
     /// Rescan the library
     Rescan,
+    /// Analyze the library
+    Analyze,
     /// Get brief library info
     Brief,
     /// Get detailed library info

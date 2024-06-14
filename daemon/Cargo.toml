@@ -24,7 +24,7 @@ cli = ["dep:clap"]                                            # features needed 
 otel_tracing = ["mecomp-core/otel_tracing"]
 flame = ["mecomp-core/flame"]
 dynamic_updates = ["dep:notify-debouncer-full", "dep:notify"]
-analysis = ["mecomp-storage/analysis"]
+analysis = ["mecomp-storage/analysis", "mecomp-analysis"]
 
 [dependencies]
 # shared dependencies
@@ -46,6 +46,7 @@ walkdir = { workspace = true }
 # MECOMP dependencies
 mecomp-core = { workspace = true, features = ["rpc"] }
 mecomp-storage = { workspace = true, features = ["serde", "db"] }
+mecomp-analysis = { workspace = true, optional = true }
 one-or-many = { workspace = true }
 
 # server dependencies

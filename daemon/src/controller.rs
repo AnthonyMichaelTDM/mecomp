@@ -38,6 +38,7 @@ mod locks {
     use tokio::sync::Mutex;
 
     pub static LIBRARY_RESCAN_LOCK: Mutex<()> = Mutex::const_new(());
+    pub static LIBRARY_ANALYZE_LOCK: Mutex<()> = Mutex::const_new(());
 }
 
 #[derive(Clone, Debug)]
@@ -60,7 +61,7 @@ impl MusicPlayer for MusicPlayerServer {
         "pong".to_string()
     }
 
-    /// Rescans the music library.
+    /// Rescans the music library, only error is if a rescan is already in progress.
     #[instrument]
     async fn library_rescan(self, context: Context) -> Result<(), SerializableLibraryError> {
         info!("Rescanning library");
@@ -92,6 +93,40 @@ impl MusicPlayer for MusicPlayerServer {
 
         Ok(())
     }
+    /// Analyze the music library, only error is if an analysis is already in progress.
+    #[instrument]
+    async fn library_analyze(self, context: Context) -> Result<(), SerializableLibraryError> {
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Analyzing library");
+
+            if locks::LIBRARY_ANALYZE_LOCK.try_lock().is_err() {
+                warn!("Library analysis already in progress");
+                return Err(SerializableLibraryError::AnalysisInProgress);
+            }
+
+            std::thread::Builder::new()
+                .name(String::from("Library Analysis"))
+                .spawn(move || {
+                    futures::executor::block_on(async {
+                        let _guard = locks::LIBRARY_ANALYZE_LOCK.lock().await;
+                        match services::library::analyze(&self.db).await {
+                            Ok(()) => info!("Library analysis complete"),
+                            Err(e) => error!("Error in library_analyze: {e}"),
+                        }
+                    });
+                })?;
+
+            Ok(())
+        }
+    }
+
     /// Returns brief information about the music library.
     #[instrument]
     async fn library_brief(
