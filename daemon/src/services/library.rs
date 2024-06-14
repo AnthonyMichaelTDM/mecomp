@@ -297,11 +297,11 @@ mod tests {
             .unwrap();
         // also make some songs that are in the database
         //  - a song that whose file was deleted
-        let song_with_nonexistant_path = create_song_with_overrides(
+        let song_with_nonexistent_path = create_song_with_overrides(
             &db,
             arb_song_case()(),
             SongChangeSet {
-                path: Some(tempdir.path().join("nonexistant.mp3")),
+                path: Some(tempdir.path().join("nonexistent.mp3")),
                 ..Default::default()
             },
         )
@@ -327,9 +327,9 @@ mod tests {
         .unwrap();
 
         // check that everything was done correctly
-        // - `song_with_nonexistant_path` was deleted
+        // - `song_with_nonexistent_path` was deleted
         assert_eq!(
-            Song::read(&db, song_with_nonexistant_path.id)
+            Song::read(&db, song_with_nonexistent_path.id)
                 .await
                 .unwrap(),
             None

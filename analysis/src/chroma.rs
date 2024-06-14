@@ -324,7 +324,7 @@ pub fn pitch_tuning(
         .argmax()
         .map_err(|e| AnalysisError::AnalysisError(format!("in chroma: {e}")))?;
 
-    // Return the bin with the most reoccuring frequency.
+    // Return the bin with the most reoccurring frequency.
     #[allow(clippy::cast_precision_loss)]
     Ok((100. * resolution).mul_add(max_index as f64, -50.) / 100.)
 }
