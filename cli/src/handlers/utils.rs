@@ -19,20 +19,18 @@ where
             let tb = parts[0];
             let id = parts[1];
 
-            if (!matches!(
+            if (matches!(
                 tb,
                 artist::TABLE_NAME
                     | album::TABLE_NAME
                     | song::TABLE_NAME
                     | playlist::TABLE_NAME
                     | collection::TABLE_NAME
-            )) || id.len() != 26
-                || !id
+            )) && id.len() == 26
+                && id
                     .chars()
                     .all(|c| c.is_ascii_digit() || c.is_ascii_uppercase())
             {
-                eprintln!("Invalid input: {line}");
-            } else {
                 acc.push(Thing {
                     tb: tb.to_owned(),
                     id: Id::String(id.to_owned()),
