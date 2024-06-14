@@ -168,6 +168,9 @@ pub trait MusicPlayer {
     /// add a song to the queue.
     /// (if the queue is empty, it will start playing the song.)
     async fn queue_add_song(song: SongId) -> Result<(), SerializableLibraryError>;
+    /// add a list of things to the queue.
+    /// (if the queue is empty, it will start playing the first thing in the list.)
+    async fn queue_add_list(list: Vec<Thing>) -> Result<(), SerializableLibraryError>;
     /// add an album to the queue.
     /// (if the queue is empty, it will start playing the album.)
     async fn queue_add_album(album: AlbumId) -> Result<(), SerializableLibraryError>;

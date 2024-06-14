@@ -407,7 +407,9 @@ mod test {
 
         // read the songs without an analysis
         let result = Analysis::read_songs_without_analysis(&db).await?;
-        assert_eq!(result, vec![song1.clone(), song2.clone()]);
+        assert_eq!(result.len(), 2);
+        assert!(result.contains(&song1));
+        assert!(result.contains(&song2));
 
         let analysis1 = Analysis {
             id: Analysis::generate_id(),

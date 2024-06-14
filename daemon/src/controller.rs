@@ -22,6 +22,7 @@ use mecomp_core::{
 };
 use mecomp_storage::{
     db::schemas::{
+        self,
         album::{Album, AlbumBrief},
         artist::{Artist, ArtistBrief},
         collection::{Collection, CollectionBrief},
@@ -687,6 +688,66 @@ impl MusicPlayer for MusicPlayerServer {
 
         AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
             OneOrMany::One(song),
+        ))));
+
+        Ok(())
+    }
+    /// add a list of things to the queue.
+    /// (if the queue is empty, it will start playing the first thing in the list.)
+    #[instrument]
+    async fn queue_add_list(
+        self,
+        context: Context,
+        list: Vec<mecomp_storage::db::schemas::Thing>,
+    ) -> Result<(), SerializableLibraryError> {
+        info!(
+            "Adding list to queue: ({})",
+            list.iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+
+        // go through the list, and get songs for each thing (depending on what it is)
+        let mut songs: OneOrMany<Song> = OneOrMany::None;
+        for thing in list {
+            match thing.tb.as_str() {
+                schemas::album::TABLE_NAME => {
+                    for song in Album::read_songs(&self.db, thing.clone().into()).await? {
+                        songs.push(song);
+                    }
+                }
+                schemas::artist::TABLE_NAME => {
+                    for song in Artist::read_songs(&self.db, thing.clone().into()).await? {
+                        songs.push(song);
+                    }
+                }
+                schemas::collection::TABLE_NAME => {
+                    for song in Collection::read_songs(&self.db, thing.clone().into()).await? {
+                        songs.push(song);
+                    }
+                }
+                schemas::playlist::TABLE_NAME => {
+                    for song in Playlist::read_songs(&self.db, thing.clone().into()).await? {
+                        songs.push(song);
+                    }
+                }
+                schemas::song::TABLE_NAME => songs.push(
+                    Song::read(&self.db, thing.clone().into())
+                        .await?
+                        .ok_or(Error::NotFound)?,
+                ),
+                _ => {
+                    warn!("Unknown thing type: {}", thing.tb);
+                }
+            }
+        }
+
+        // remove duplicates
+        songs.dedup_by_key(|song| song.id.clone());
+
+        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+            songs,
         ))));
 
         Ok(())

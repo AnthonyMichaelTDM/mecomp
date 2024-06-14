@@ -53,13 +53,11 @@ pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
 
     writeln!(output, "\tQueue Position: {:?},", state.queue_position)?;
 
-    writeln!(output, "\tCurrent Song: {:?}", state.current_song)?;
-
-    writeln!(output, "\tRepeat Mode: {:?}", state.repeat_mode)?;
-
     if let Some(runtime) = state.runtime {
         writeln!(output, "\tRuntime: {runtime}")?;
     }
+
+    writeln!(output, "\tRepeat Mode: {:?}", state.repeat_mode)?;
 
     writeln!(output, "\tPaused: {:?}", state.paused)?;
 

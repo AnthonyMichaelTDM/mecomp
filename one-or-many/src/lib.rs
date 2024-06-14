@@ -161,6 +161,43 @@ impl<T> OneOrMany<T> {
             Self::None => OneOrMany::None,
         }
     }
+
+    /// remove duplicates from the `OneOrMany`
+    ///
+    /// internally converts to a `HashSet` and back
+    pub fn dedup(&mut self)
+    where
+        T: Clone + Eq + std::hash::Hash,
+    {
+        let mut set = std::collections::HashSet::new();
+        let mut new = Vec::new();
+        for t in self.as_slice() {
+            if set.insert(t) {
+                new.push(t.clone());
+            }
+        }
+        *self = Self::from(new);
+    }
+
+    /// remove duplicates from the `OneOrMany` by some key
+    ///
+    /// internally converts to a `HashSet` and back
+    pub fn dedup_by_key<F, K>(&mut self, mut key: F)
+    where
+        F: FnMut(&T) -> K,
+        K: Eq + std::hash::Hash,
+        T: Clone,
+    {
+        let mut set = std::collections::HashSet::new();
+        let mut new = Vec::new();
+        for t in self.as_slice() {
+            let key = key(t);
+            if set.insert(key) {
+                new.push(t.to_owned());
+            }
+        }
+        *self = Self::from(new);
+    }
 }
 
 impl<T> From<T> for OneOrMany<T> {
@@ -600,5 +637,33 @@ mod tests {
         T: PartialEq + std::fmt::Debug,
     {
         assert_ne!(input, other);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::<usize>::None)]
+    #[case::one(OneOrMany::One(1), OneOrMany::One(1))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]))]
+    #[case::many(OneOrMany::Many(vec![1, 1, 2, 3, 2]), OneOrMany::Many(vec![1, 2, 3]))]
+    #[case::many(OneOrMany::Many(vec![1, 1, 1]), OneOrMany::One(1))]
+    fn test_dedup<T>(#[case] mut input: OneOrMany<T>, #[case] expected: OneOrMany<T>)
+    where
+        T: Clone + Eq + std::hash::Hash + std::fmt::Debug,
+    {
+        input.dedup();
+        assert_eq!(input, expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::<usize>::None)]
+    #[case::one(OneOrMany::One(1), OneOrMany::One(1))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]))]
+    #[case::many(OneOrMany::Many(vec![1, 1, 2, 3, 2]), OneOrMany::Many(vec![1, 2, 3]))]
+    #[case::many(OneOrMany::Many(vec![1, 1, 1]), OneOrMany::One(1))]
+    fn test_dedup_by_key<T>(#[case] mut input: OneOrMany<T>, #[case] expected: OneOrMany<T>)
+    where
+        T: Clone + Eq + std::hash::Hash + std::fmt::Debug,
+    {
+        input.dedup_by_key(|x| x.clone());
+        assert_eq!(input, expected);
     }
 }

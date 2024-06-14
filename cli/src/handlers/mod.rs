@@ -1,5 +1,6 @@
 pub mod implementations;
 pub mod printing;
+pub mod utils;
 
 use clap::{Subcommand, ValueEnum};
 
@@ -264,6 +265,13 @@ pub enum QueueCommand {
         /// The index to set the current song to
         index: usize,
     },
+    /// Add a list of items to the queue (from a pipe)
+    /// ex:
+    /// ```sh, ignore
+    /// mecomp-cli search all "the beatles" -q | mecomp-cli queue pipe
+    /// ```
+    /// This will add all the results of the search to the queue
+    Pipe,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, ValueEnum)]
