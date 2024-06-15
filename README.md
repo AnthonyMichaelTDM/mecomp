@@ -18,8 +18,6 @@ MECOMP is a local music player inspired by [festival](https://github.com/hinto-j
 
 ## Features
 
-(this acts as a TODO list for now)
-
 - [x] Scan music collection from a directory (and it's subdirectories)
 - [ ] handle song and album art properly
 - [x] maintain a persistent state of the music collection (henceforth referred to as "Library" or "Music Library") that allows users to create playlists, track play counts, "like" songs, etc.
