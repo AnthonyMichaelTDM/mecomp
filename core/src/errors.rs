@@ -2,6 +2,16 @@ use mecomp_storage::errors::Error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// Errors that can occure with finding the config or data directories.
+#[derive(Error, Debug)]
+pub enum DirectoryError {
+    #[error("Unable to find the config directory for mecomp.")]
+    Config,
+    #[error("Unable to find the data directory for mecomp.")]
+    Data,
+}
+
+/// Errors that can occure with the library.
 #[derive(Error, Debug)]
 pub enum LibraryError {
     #[error("Database error: {0}")]

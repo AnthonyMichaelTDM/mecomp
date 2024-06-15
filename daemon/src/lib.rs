@@ -54,13 +54,14 @@ use crate::controller::MusicPlayerServer;
 pub async fn start_daemon(
     log_level: log::LevelFilter,
     settings: DaemonSettings,
+    db_dir: std::path::PathBuf,
 ) -> anyhow::Result<()> {
     // Throw the given settings into an Arc so we can share settings across threads.
     let settings = Arc::new(settings);
 
     // Initialize the logger, database, and tracing.
     init_logger(log_level);
-    set_database_path(settings.db_path.clone())?;
+    set_database_path(db_dir)?;
     let db = Arc::new(init_database().await?);
     tracing::subscriber::set_global_default(init_tracing())?;
 

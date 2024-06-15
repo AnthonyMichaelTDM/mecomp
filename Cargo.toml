@@ -13,6 +13,7 @@ members = [
     "surrealqlx/lib",
     "surrealqlx/macros",
     "surrealqlx/macros-impl",
+    "tui",
 ]
 exclude = ["external", "target", "assets", "scripts"]
 resolver = "2"
@@ -70,6 +71,7 @@ clap = { version = "4.5", default-features = false, features = [
     "suggestions",
     "derive",
 ] }
+directories = "5.0.1"
 env_logger = { version = "0.10.2", features = [
     "color",
 ], default-features = false }
