@@ -1,16 +1,21 @@
 //! implementation the search view
 
+use std::sync::Mutex;
+
 use crossterm::event::KeyCode;
 use mecomp_core::rpc::SearchResult;
+use mecomp_storage::db::schemas::Thing;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style, Stylize},
-    widgets::{Block, List, ListItem, ListState},
+    text::{Line, Span},
+    widgets::Block,
 };
 use tokio::sync::mpsc::UnboundedSender;
+use tui_tree_widget::{Tree, TreeItem, TreeState};
 
 use crate::{
-    state::action::Action,
+    state::action::{Action, AudioAction, QueueAction},
     ui::{
         components::{Component, ComponentRender, RenderProps},
         widgets::searchbar::{self, SearchBar},
@@ -24,8 +29,8 @@ pub struct SearchView {
     pub action_tx: UnboundedSender<Action>,
     /// Mapped Props from state
     pub props: Props,
-    /// list state
-    list_state: ListState,
+    /// tree state
+    tree_state: Mutex<TreeState<String>>,
     /// Search Bar
     search_bar: SearchBar,
     /// Is the search bar focused
@@ -56,7 +61,7 @@ impl Component for SearchView {
         Self {
             search_bar: SearchBar::new(state, action_tx.clone()),
             search_bar_focused: true,
-            list_state: ListState::default(),
+            tree_state: Mutex::new(TreeState::default()),
             action_tx,
             props,
         }
@@ -80,41 +85,23 @@ impl Component for SearchView {
     fn handle_key_event(&mut self, key: crossterm::event::KeyEvent) {
         // defer to the search box (except for the up and down keys)
         match key.code {
-            // move the selected index up
+            // arrow keys
             KeyCode::Up => {
-                if let Some(selected) = self.list_state.selected() {
-                    let new_selected = if selected == 0 {
-                        self.props.search_results.len() + 3 - 1
-                    } else {
-                        selected - 1
-                    };
-                    self.list_state.select(Some(new_selected));
-                } else if !self.props.search_results.is_empty() {
-                    self.list_state
-                        .select(Some(self.props.search_results.len() + 3 - 1));
-                } else {
-                    self.list_state.select(None);
-                }
+                self.tree_state.lock().unwrap().key_up();
             }
-            // move the selected index down
             KeyCode::Down => {
-                if let Some(selected) = self.list_state.selected() {
-                    let new_selected = if selected == self.props.search_results.len() + 3 - 1 {
-                        0
-                    } else {
-                        selected + 1
-                    };
-                    self.list_state.select(Some(new_selected));
-                } else if !self.props.search_results.is_empty() {
-                    self.list_state.select(Some(0));
-                } else {
-                    self.list_state.select(None);
-                }
+                self.tree_state.lock().unwrap().key_down();
+            }
+            KeyCode::Left => {
+                self.tree_state.lock().unwrap().key_left();
+            }
+            KeyCode::Right => {
+                self.tree_state.lock().unwrap().key_right();
             }
             // focus / unfocus the search bar
             KeyCode::Enter if self.search_bar_focused => {
                 self.search_bar_focused = false;
-                self.list_state.select(None);
+                self.tree_state.lock().unwrap().close_all();
                 if !self.search_bar.is_empty() {
                     self.action_tx
                         .send(Action::Search(self.search_bar.text().to_string()))
@@ -124,8 +111,25 @@ impl Component for SearchView {
             KeyCode::Char('/') if !self.search_bar_focused => {
                 self.search_bar_focused = true;
             }
-            // TODO: when searchbar unfocused, make the enter key open up a menu that let's you decide where to
-            // put the selected item
+            // when searchbar unfocused, enter key will open the selected node
+            KeyCode::Enter if !self.search_bar_focused => {
+                if self.tree_state.lock().unwrap().toggle_selected() {
+                    // TODO: instead of just adding to the queue, instead open the view for the selected item
+                    let things: Vec<Thing> = self
+                        .tree_state
+                        .lock()
+                        .unwrap()
+                        .selected()
+                        .iter()
+                        .filter_map(|id| id.parse::<Thing>().ok())
+                        .collect();
+                    if !things.is_empty() {
+                        self.action_tx
+                            .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
+                            .unwrap();
+                    }
+                }
+            }
 
             // defer to the search bar, if it is focused
             _ if self.search_bar_focused => {
@@ -137,6 +141,7 @@ impl Component for SearchView {
 }
 
 impl ComponentRender<RenderProps> for SearchView {
+    #[allow(clippy::too_many_lines)]
     fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
         let border_style = if props.is_focused {
             Style::default().fg(Color::LightRed)
@@ -145,63 +150,81 @@ impl ComponentRender<RenderProps> for SearchView {
         };
 
         // create list to hold results
-        let mut items = Vec::with_capacity(self.props.search_results.len() + 3);
-
-        // extend with song results
-        items.push(
-            ListItem::new(format!(
-                "Songs ({}):",
-                self.props.search_results.songs.len()
-            ))
-            .style(Style::default()),
-        );
-        items.extend(self.props.search_results.songs.iter().map(|song| {
-            let style = Style::default().fg(Color::Green);
-            ListItem::new(format!(
-                "- {}\n  by: {}",
-                song.title,
-                song.artist
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            ))
-            .style(style)
-        }));
-        // extend with album results
-        items.push(
-            ListItem::new(format!(
-                "Albums ({}):",
-                self.props.search_results.albums.len()
-            ))
-            .style(Style::default()),
-        );
-        items.extend(self.props.search_results.albums.iter().map(|album| {
-            let style = Style::default().fg(Color::Yellow).italic();
-            ListItem::new(format!(
-                "- {}\n  by: {}",
-                album.title,
-                album
-                    .artist
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            ))
-            .style(style)
-        }));
-        // extend with artist results
-        items.push(
-            ListItem::new(format!(
-                "Artists ({}):",
-                self.props.search_results.artists.len()
-            ))
-            .style(Style::default()),
-        );
-        items.extend(self.props.search_results.artists.iter().map(|artist| {
-            let style = Style::default().fg(Color::Blue);
-            ListItem::new(format!("- {}", artist.name)).style(style)
-        }));
+        let song_tree = TreeItem::new(
+            "Songs".to_string(),
+            format!("Songs ({}):", self.props.search_results.songs.len()),
+            self.props
+                .search_results
+                .songs
+                .iter()
+                .map(|song| {
+                    TreeItem::new_leaf(
+                        song.id.to_string(),
+                        Line::from(vec![
+                            Span::styled(song.title.to_string(), Style::default().bold()),
+                            Span::raw(" "),
+                            Span::styled(
+                                song.artist
+                                    .iter()
+                                    .map(ToString::to_string)
+                                    .collect::<Vec<String>>()
+                                    .join(", "),
+                                Style::default().italic(),
+                            ),
+                        ]),
+                    )
+                })
+                .collect(),
+        )
+        .unwrap();
+        let album_tree = TreeItem::new(
+            "Albums".to_string(),
+            format!("Albums ({}):", self.props.search_results.albums.len()),
+            self.props
+                .search_results
+                .albums
+                .iter()
+                .map(|album| {
+                    TreeItem::new_leaf(
+                        album.id.to_string(),
+                        Line::from(vec![
+                            Span::styled(album.title.to_string(), Style::default().bold()),
+                            Span::raw(" "),
+                            Span::styled(
+                                album
+                                    .artist
+                                    .iter()
+                                    .map(ToString::to_string)
+                                    .collect::<Vec<String>>()
+                                    .join(", "),
+                                Style::default().italic(),
+                            ),
+                        ]),
+                    )
+                })
+                .collect(),
+        )
+        .unwrap();
+        let artist_tree = TreeItem::new(
+            "Artists".to_string(),
+            format!("Artists ({}):", self.props.search_results.artists.len()),
+            self.props
+                .search_results
+                .artists
+                .iter()
+                .map(|artist| {
+                    TreeItem::new_leaf(
+                        artist.id.to_string(),
+                        Line::from(vec![Span::styled(
+                            artist.name.to_string(),
+                            Style::default().bold(),
+                        )]),
+                    )
+                })
+                .collect(),
+        )
+        .unwrap();
+        let items = &[song_tree, album_tree, artist_tree];
 
         let [search_bar_area, results_area] = *Layout::default()
             .direction(Direction::Vertical)
@@ -228,17 +251,24 @@ impl ComponentRender<RenderProps> for SearchView {
 
         // render the search results
         frame.render_stateful_widget(
-            List::new(items)
+            Tree::new(items)
+                .unwrap()
                 .block(
                     Block::bordered()
                         .title_top("Results")
-                        .title_bottom("Press / to focus search bar, then enter to search")
+                        .title_bottom(if self.search_bar_focused {
+                            "Enter: Search"
+                        } else {
+                            "/: Search | Enter: Open | ←/↑/↓/→: Navigate"
+                        })
                         .border_style(border_style),
                 )
                 .highlight_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
-                .direction(ratatui::widgets::ListDirection::TopToBottom),
+                .node_closed_symbol("▸")
+                .node_open_symbol("▾")
+                .node_no_children_symbol("▪"),
             results_area,
-            &mut self.list_state.clone(),
+            &mut self.tree_state.lock().unwrap(),
         );
     }
 }

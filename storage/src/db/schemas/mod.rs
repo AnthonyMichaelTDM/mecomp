@@ -103,7 +103,7 @@ impl FromStr for Thing {
                 .chars()
                 .all(|c| c.is_ascii_digit() || c.is_ascii_uppercase())
         {
-            Ok(Thing {
+            Ok(Self {
                 tb: parts[0].to_owned(),
                 id: Id::String(parts[1].to_owned()),
             })

@@ -43,6 +43,7 @@
 
 - [ ] maintains multiple auto-curated "Collections" created by K-Means clustering on the Music Library, these collections will represent the broad themes within your music collection, but are not tied to human defined genres
 - [x] Users can "freeze" a collection, which will convert it to a playlist
+- [ ] Functionality to actualy create the collections (recluster endpoit)
 
 ### Metadata
 
@@ -61,7 +62,66 @@
 
 ### MECOMP-TUI
 
-- [ ] Implement basic TUI
+- [x] Implement basic TUI
+- [ ] Checklist widget: a tree/list that allows for multiple items to be selected
+  - [ ] allow for multiple items to be selected
+  - [ ] function to get the selected items
+- [ ] Implement view pages for the following:
+  - [ ] search results
+    - [x] show the results of a search
+    - [ ] pressing enter on a result will take you to the appropriate view page for that result
+    - [ ] be able to select multiple results and add them to the queue, a playlist, start a radio, etc,
+  - [ ] radio results
+    - [ ] show the results of a radio search
+    - [ ] be able to select multiple results and add them to the queue, a playlist, start a radio, etc,
+  - [ ] albums
+    - [ ] display all albums
+    - [ ] be able to "enter" an to go to the album view page
+    - [ ] be able to select multiple albums and add them to the queue, a playlist, start a radio, etc,
+  - [ ] artists
+    - [ ] display all artists
+    - [ ] be able to "enter" an artist to go to the artist view page
+    - [ ] be able to select multiple artists and add them to the queue, a playlist, start a radio, etc,
+  - [ ] songs
+    - [ ] display all songs
+    - [ ] be able to "enter" a song to go to the song view page
+    - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
+  - [ ] playlists
+    - [ ] display all playlists
+    - [ ] be able to "enter" a playlist to go to the playlist view page
+  - [ ] collections
+    - [ ] display all collections
+    - [ ] be able to "enter" a collection to go to the collection view page
+  - [ ] a single album
+    - [ ] show info about the album, including all the songs contained
+    - [ ] be able to go to the artist view page for the artist of the album
+    - [ ] be able to go to the song view page for any of the album's songs
+    - [ ] be able to add the album to the queue, a playlist, etc,
+    - [ ] be able to start a radio from the album
+    - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
+  - [ ] a single artist
+    - [ ] show info about the artist, including all the albums and songs by the artist
+    - [ ] be able to go to the album view page for any of the artist's albums
+    - [ ] be able to go to the song view page for any of the artist's songs
+    - [ ] be able to add all the artist's songs to the queue, a playlist, etc,
+    - [ ] be able to select multiple albums and add them to the queue, a playlist, start a radio, etc,
+    - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
+  - [ ] a single song
+    - [ ] show information about the song
+    - [ ] have a "play" button
+    - [ ] be able to add the song to the queue, a playlist, etc,
+    - [ ] be able to start a radio from the song
+    - [ ] be able to go to the album view page for the song's album
+    - [ ] be able to go to the artist view page for the song's artist
+  - [ ] a single playlist
+    - [ ] show the playlist's name and contents
+    - [ ] be able to add the playlist to the queue
+    - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
+    - [ ] show song suggestions based on the playlist (radio)
+  - [ ] a single collection
+    - [ ] show the collection's contents
+    - [ ] be able to add the collection to the queue
+    - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
 
 ### MECOMP-GUI
 

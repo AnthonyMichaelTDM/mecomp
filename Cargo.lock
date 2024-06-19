@@ -2632,6 +2632,7 @@ dependencies = [
  "tarpc",
  "tokio",
  "tokio-stream",
+ "tui-tree-widget",
 ]
 
 [[package]]
@@ -5827,6 +5828,16 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
+
+[[package]]
+name = "tui-tree-widget"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6201de8ad8d88cb6cac4cfe3436d9a1ea31c0732a7aec4c2cc3b23186ad7dcc"
+dependencies = [
+ "ratatui",
+ "unicode-width",
+]
 
 [[package]]
 name = "tungstenite"
