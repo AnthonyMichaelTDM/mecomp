@@ -11,9 +11,12 @@ use super::{
     VolumeCommand,
 };
 
-use mecomp_core::state::{
-    library::{LibraryBrief, LibraryFull, LibraryHealth},
-    SeekType,
+use mecomp_core::{
+    rpc::SearchResult,
+    state::{
+        library::{LibraryBrief, LibraryFull, LibraryHealth},
+        SeekType,
+    },
 };
 use mecomp_storage::db::schemas::{
     album::{self, Album, AlbumBrief},
@@ -95,8 +98,11 @@ impl CommandHandler for Command {
             } => {
                 match target {
                     SearchTarget::All => {
-                        let (songs, albums, artists) =
-                            client.search(ctx, query.clone(), *limit).await?;
+                        let SearchResult {
+                            songs,
+                            albums,
+                            artists,
+                        } = client.search(ctx, query.clone(), *limit).await?;
                         println!(
                             "Daemon response:\n{}\n{}\n{}",
                             printing::song_list("Songs", &songs, false)?,

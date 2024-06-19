@@ -25,9 +25,10 @@ impl Display for SeekType {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum RepeatMode {
     /// No repeat: after the queue is finished the player stops
+    #[default]
     None,
     /// Repeat Once: after going through the queue once, the player goes back to `RepeatMode::None` and continues
     Once,
@@ -94,7 +95,7 @@ impl Display for StateRuntime {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct StateAudio {
     pub queue: Box<[Song]>,
     pub queue_position: Option<usize>,

@@ -17,6 +17,7 @@ use mecomp_storage::db::schemas::{
     Thing,
 };
 use one_or_many::OneOrMany;
+use serde::{Deserialize, Serialize};
 use tarpc::{client, tokio_serde::formats::Json};
 
 use crate::{
@@ -33,7 +34,12 @@ pub type AlbumId = Thing;
 pub type CollectionId = Thing;
 pub type PlaylistId = Thing;
 
-pub type SearchResult = (Box<[Song]>, Box<[Album]>, Box<[Artist]>);
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SearchResult {
+    pub songs: Box<[Song]>,
+    pub albums: Box<[Album]>,
+    pub artists: Box<[Artist]>,
+}
 
 // TODO: add commands for reading songs by artists, in albums, in playlists, in collections, etc.
 // TODO: commands for reading songs by paths, artists by name, etc.

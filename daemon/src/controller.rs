@@ -14,7 +14,7 @@ use mecomp_core::{
         AUDIO_KERNEL,
     },
     errors::SerializableLibraryError,
-    rpc::{AlbumId, ArtistId, CollectionId, MusicPlayer, PlaylistId, SongId},
+    rpc::{AlbumId, ArtistId, CollectionId, MusicPlayer, PlaylistId, SearchResult, SongId},
     state::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
         RepeatMode, SeekType, StateAudio, StateRuntime,
@@ -493,12 +493,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// returns a list of artists, albums, and songs matching the given search query.
     #[instrument]
     #[allow(clippy::type_complexity)]
-    async fn search(
-        self,
-        context: Context,
-        query: String,
-        limit: u32,
-    ) -> (Box<[Song]>, Box<[Album]>, Box<[Artist]>) {
+    async fn search(self, context: Context, query: String, limit: u32) -> SearchResult {
         info!("Searching for: {query}");
         // basic idea:
         // 1. search for songs
@@ -522,7 +517,11 @@ impl MusicPlayer for MusicPlayerServer {
             .tap_err(|e| warn!("Error in search: {e}"))
             .unwrap_or_default()
             .into();
-        (songs, albums, artists)
+        SearchResult {
+            songs,
+            albums,
+            artists,
+        }
     }
     /// returns a list of artists matching the given search query.
     #[instrument]
