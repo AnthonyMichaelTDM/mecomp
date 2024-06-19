@@ -16,7 +16,7 @@ pub struct LibraryBrief {
 
 /// A full representation of the library
 #[allow(clippy::module_name_repetitions)]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct LibraryFull {
     pub artists: Box<[Artist]>,
     pub albums: Box<[Album]>,
