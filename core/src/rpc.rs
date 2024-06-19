@@ -42,8 +42,14 @@ pub struct SearchResult {
 }
 
 impl SearchResult {
-    pub fn len(&self) -> usize {
+    #[must_use]
+    pub const fn len(&self) -> usize {
         self.songs.len() + self.albums.len() + self.artists.len()
+    }
+
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.songs.is_empty() && self.albums.is_empty() && self.artists.is_empty()
     }
 }
 

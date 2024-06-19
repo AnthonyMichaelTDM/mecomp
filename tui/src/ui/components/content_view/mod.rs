@@ -26,7 +26,7 @@ pub struct ContentView {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Props {
+pub struct Props {
     active_view: ActiveView,
 }
 
@@ -48,22 +48,27 @@ pub enum ActiveView {
     /// A view with all the songs in the users library.
     Songs,
     /// A view of a specific song.
+    #[allow(dead_code)]
     Song,
     /// A view with all the albums in the users library.
     Albums,
     /// A view of a specific album.
+    #[allow(dead_code)]
     Album,
     /// A view with all the artists in the users library.
     Artists,
     /// A view of a specific artist.
+    #[allow(dead_code)]
     Artist,
     /// A view with all the playlists in the users library.
     Playlists,
     /// A view of a specific playlist.
+    #[allow(dead_code)]
     Playlist,
     /// A view with all the collections in the users library.
     Collections,
     /// A view of a specific collection.
+    #[allow(dead_code)]
     Collection,
     // TODO: views for genres, settings, etc.
 }
@@ -112,10 +117,10 @@ impl Component for ContentView {
     where
         Self: Sized,
     {
-        ContentView {
+        Self {
             props: Props::from(state),
             none_view: NoneView::new(state, action_tx.clone()),
-            search_view: SearchView::new(state, action_tx.clone()),
+            search_view: SearchView::new(state, action_tx),
         }
         .move_with_state(state)
     }
@@ -124,7 +129,7 @@ impl Component for ContentView {
     where
         Self: Sized,
     {
-        ContentView {
+        Self {
             props: Props::from(state),
             none_view: self.none_view.move_with_state(state),
             search_view: self.search_view.move_with_state(state),
@@ -136,7 +141,7 @@ impl Component for ContentView {
     }
 
     fn handle_key_event(&mut self, key: crossterm::event::KeyEvent) {
-        self.get_active_view_component_mut().handle_key_event(key)
+        self.get_active_view_component_mut().handle_key_event(key);
     }
 }
 

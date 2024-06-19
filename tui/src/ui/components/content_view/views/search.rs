@@ -18,6 +18,7 @@ use crate::{
     },
 };
 
+#[allow(clippy::module_name_repetitions)]
 pub struct SearchView {
     /// Action Sender
     pub action_tx: UnboundedSender<Action>,
@@ -52,7 +53,7 @@ impl Component for SearchView {
         Self: Sized,
     {
         let props = Props::from(state);
-        SearchView {
+        Self {
             search_bar: SearchBar::new(state, action_tx.clone()),
             search_bar_focused: true,
             list_state: ListState::default(),
@@ -65,7 +66,7 @@ impl Component for SearchView {
     where
         Self: Sized,
     {
-        SearchView {
+        Self {
             search_bar: self.search_bar.move_with_state(state),
             props: Props::from(state),
             ..self
@@ -88,7 +89,7 @@ impl Component for SearchView {
                         selected - 1
                     };
                     self.list_state.select(Some(new_selected));
-                } else if self.props.search_results.len() > 0 {
+                } else if !self.props.search_results.is_empty() {
                     self.list_state
                         .select(Some(self.props.search_results.len() + 3 - 1));
                 } else {
@@ -104,7 +105,7 @@ impl Component for SearchView {
                         selected + 1
                     };
                     self.list_state.select(Some(new_selected));
-                } else if self.props.search_results.len() > 0 {
+                } else if !self.props.search_results.is_empty() {
                     self.list_state.select(Some(0));
                 } else {
                     self.list_state.select(None);
@@ -161,7 +162,7 @@ impl ComponentRender<RenderProps> for SearchView {
                 song.title,
                 song.artist
                     .iter()
-                    .map(|artist| artist.to_string())
+                    .map(ToString::to_string)
                     .collect::<Vec<String>>()
                     .join(", ")
             ))
@@ -183,7 +184,7 @@ impl ComponentRender<RenderProps> for SearchView {
                 album
                     .artist
                     .iter()
-                    .map(|artist| artist.to_string())
+                    .map(ToString::to_string)
                     .collect::<Vec<String>>()
                     .join(", ")
             ))

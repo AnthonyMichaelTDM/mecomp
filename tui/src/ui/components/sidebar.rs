@@ -1,6 +1,6 @@
 //! Implement the sidebar component.
 //!
-//! Responsible for allowing users to navigate between different ContentViews.
+//! Responsible for allowing users to navigate between different `ContentViews`.
 
 use std::fmt::Display;
 
@@ -24,6 +24,7 @@ use crate::{
 
 use super::content_view::ActiveView;
 
+#[allow(clippy::module_name_repetitions)]
 pub struct Sidebar {
     /// Action Sender
     pub action_tx: UnboundedSender<Action>,
@@ -32,6 +33,7 @@ pub struct Sidebar {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, EnumCount)]
+#[allow(clippy::module_name_repetitions)]
 pub enum SidebarItems {
     Search,
     LibraryRescan,
@@ -46,14 +48,14 @@ pub enum SidebarItems {
 impl Display for SidebarItems {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SidebarItems::Search => write!(f, "Search"),
-            SidebarItems::LibraryRescan => write!(f, "Library Rescan"),
-            SidebarItems::LibraryAnalyze => write!(f, "Library Analyze"),
-            SidebarItems::Songs => write!(f, "Songs"),
-            SidebarItems::Artists => write!(f, "Artists"),
-            SidebarItems::Albums => write!(f, "Albums"),
-            SidebarItems::Playlists => write!(f, "Playlists"),
-            SidebarItems::Collections => write!(f, "Collections"),
+            Self::Search => write!(f, "Search"),
+            Self::LibraryRescan => write!(f, "Library Rescan"),
+            Self::LibraryAnalyze => write!(f, "Library Analyze"),
+            Self::Songs => write!(f, "Songs"),
+            Self::Artists => write!(f, "Artists"),
+            Self::Albums => write!(f, "Albums"),
+            Self::Playlists => write!(f, "Playlists"),
+            Self::Collections => write!(f, "Collections"),
         }
     }
 }
@@ -63,7 +65,7 @@ impl Component for Sidebar {
     where
         Self: Sized,
     {
-        Sidebar {
+        Self {
             action_tx,
             list_state: ListState::default(),
         }

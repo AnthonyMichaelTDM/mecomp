@@ -1,5 +1,6 @@
 //! This module contains the actions that the user can perform through the UI.
 //! these actions are sent from the UI to the state stores, which then update the state accordingly.
+#![allow(clippy::module_name_repetitions)]
 
 use std::time::Duration;
 
@@ -57,6 +58,7 @@ pub enum VolumeAction {
 
 pub enum QueueAction {
     /// Add a list of things to the queue (by id)
+    #[allow(dead_code)]
     Add(Vec<Thing>),
     /// Remove something from the queue (by index)
     Remove(usize),
@@ -74,6 +76,7 @@ pub enum LibraryAction {
     /// Rescan the library
     Rescan,
     /// Tell the Library Store to get the latest library data
+    #[allow(dead_code)]
     Update,
     /// Analyze the library
     Analyze,

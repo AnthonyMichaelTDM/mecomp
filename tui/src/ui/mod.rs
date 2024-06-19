@@ -33,7 +33,7 @@ use tokio::sync::{
 use tokio_stream::StreamExt;
 
 use crate::{
-    state::{action::Action, StateReceivers},
+    state::{action::Action, Receivers},
     termination::Interrupted,
 };
 
@@ -48,6 +48,7 @@ pub struct AppState {
 
 const RENDERING_TICK_RATE: Duration = Duration::from_millis(250);
 
+#[allow(clippy::module_name_repetitions)]
 pub struct UiManager {
     action_tx: mpsc::UnboundedSender<Action>,
 }
@@ -61,16 +62,16 @@ impl UiManager {
 
     pub async fn main_loop(
         self,
-        mut state_rx: StateReceivers,
+        mut state_rx: Receivers,
         mut interrupt_rx: broadcast::Receiver<Interrupted>,
     ) -> anyhow::Result<Interrupted> {
         // consume the first state to initialize the ui app
         let mut state = AppState {
             active_component: ActiveComponent::default(),
-            audio: state_rx.audio_rx.recv().await.unwrap_or_default(),
-            search: state_rx.search_rx.recv().await.unwrap_or_default(),
-            library: state_rx.library_rx.recv().await.unwrap_or_default(),
-            view: state_rx.view_rx.recv().await.unwrap_or_default(),
+            audio: state_rx.audio.recv().await.unwrap_or_default(),
+            search: state_rx.search.recv().await.unwrap_or_default(),
+            library: state_rx.library.recv().await.unwrap_or_default(),
+            view: state_rx.view.recv().await.unwrap_or_default(),
         };
         let mut app = App::new(&state, self.action_tx.clone());
 
@@ -91,33 +92,33 @@ impl UiManager {
                     _ => (),
                 },
                 // Handle state updates
-                Some(audio) = state_rx.audio_rx.recv() => {
+                Some(audio) = state_rx.audio.recv() => {
                     state = AppState {
                         audio,
                         ..state
                     };
-                    app = app.move_with_audio(&state)
+                    app = app.move_with_audio(&state);
                 },
-                Some(search) = state_rx.search_rx.recv() => {
+                Some(search) = state_rx.search.recv() => {
                     state = AppState {
                         search,
                         ..state
                     };
-                    app = app.move_with_search(&state)
+                    app = app.move_with_search(&state);
                 },
-                Some(library) = state_rx.library_rx.recv() => {
+                Some(library) = state_rx.library.recv() => {
                     state = AppState {
                         library,
                         ..state
                     };
-                    app = app.move_with_library(&state)
+                    app = app.move_with_library(&state);
                 },
-                Some(view) = state_rx.view_rx.recv() => {
+                Some(view) = state_rx.view.recv() => {
                     state = AppState {
                         view,
                         ..state
                     };
-                    app = app.move_with_active_view(&state)
+                    app = app.move_with_active_view(&state);
                 },
                 // Catch and handle interrupt signal to gracefully shutdown
                 Ok(interrupted) = interrupt_rx.recv() => {

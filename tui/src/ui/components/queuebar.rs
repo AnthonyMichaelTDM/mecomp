@@ -46,7 +46,7 @@ impl Component for QueueBar {
         Self: Sized,
     {
         let props = Props::from(state);
-        QueueBar {
+        Self {
             action_tx,
             list_state: ListState::default().with_selected(props.current_position),
             props,
@@ -60,13 +60,13 @@ impl Component for QueueBar {
         let old_current_index = self.props.current_position;
         let new_current_index = state.audio.queue_position;
 
-        let list_state = if old_current_index != new_current_index {
-            self.list_state.with_selected(new_current_index)
-        } else {
+        let list_state = if old_current_index == new_current_index {
             self.list_state
+        } else {
+            self.list_state.with_selected(new_current_index)
         };
 
-        QueueBar {
+        Self {
             list_state,
             props: Props::from(state),
             ..self
@@ -87,7 +87,7 @@ impl Component for QueueBar {
                     } else {
                         index - 1
                     };
-                    self.list_state.select(Some(new_index))
+                    self.list_state.select(Some(new_index));
                 }
             }
             // Move the selected index down
@@ -98,7 +98,7 @@ impl Component for QueueBar {
                     } else {
                         index + 1
                     };
-                    self.list_state.select(Some(new_index))
+                    self.list_state.select(Some(new_index));
                 }
             }
             // Set the current song to the selected index
@@ -232,6 +232,7 @@ impl ComponentRender<RenderProps> for QueueBar {
                         .border_style(border_style),
                 )
                 .highlight_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                .scroll_padding(1)
                 .direction(ratatui::widgets::ListDirection::TopToBottom),
             middle,
             &mut self.list_state.clone(),

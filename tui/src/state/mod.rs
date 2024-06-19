@@ -30,31 +30,31 @@ pub struct Dispatcher {
 }
 
 /// a struct that centralized the receivers for all the state stores.
-pub struct StateReceivers {
-    pub audio_rx: UnboundedReceiver<StateAudio>,
-    pub search_rx: UnboundedReceiver<SearchResult>,
-    pub library_rx: UnboundedReceiver<LibraryFull>,
-    pub view_rx: UnboundedReceiver<ActiveView>,
+pub struct Receivers {
+    pub audio: UnboundedReceiver<StateAudio>,
+    pub search: UnboundedReceiver<SearchResult>,
+    pub library: UnboundedReceiver<LibraryFull>,
+    pub view: UnboundedReceiver<ActiveView>,
 }
 
 impl Dispatcher {
-    pub fn new() -> (Self, StateReceivers) {
+    pub fn new() -> (Self, Receivers) {
         let (audio, audio_rx) = audio::AudioState::new();
         let (search, search_rx) = search::SearchState::new();
         let (library, library_rx) = library::LibraryState::new();
         let (view, view_rx) = view::ViewStore::new();
 
-        let dispatcher = Dispatcher {
+        let dispatcher = Self {
             audio,
             search,
             library,
             view,
         };
-        let state_receivers = StateReceivers {
-            audio_rx,
-            search_rx,
-            library_rx,
-            view_rx,
+        let state_receivers = Receivers {
+            audio: audio_rx,
+            search: search_rx,
+            library: library_rx,
+            view: view_rx,
         };
 
         (dispatcher, state_receivers)

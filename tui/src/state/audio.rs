@@ -21,6 +21,7 @@ pub const TICK_RATE: Duration = Duration::from_millis(100);
 
 /// The audio state store.
 #[derive(Debug, Clone)]
+#[allow(clippy::module_name_repetitions)]
 pub struct AudioState {
     state_tx: UnboundedSender<StateAudio>,
 }
@@ -102,13 +103,13 @@ async fn handle_playback(
         PlaybackAction::Next => daemon.playback_skip_forward(ctx, 1).await?,
         PlaybackAction::Previous => daemon.playback_skip_backward(ctx, 1).await?,
         PlaybackAction::Seek(seek_type, duration) => {
-            daemon.playback_seek(ctx, seek_type, duration).await?
+            daemon.playback_seek(ctx, seek_type, duration).await?;
         }
         PlaybackAction::Volume(VolumeAction::Increase(amount)) => {
-            daemon.playback_volume_up(ctx, amount).await?
+            daemon.playback_volume_up(ctx, amount).await?;
         }
         PlaybackAction::Volume(VolumeAction::Decrease(amount)) => {
-            daemon.playback_volume_down(ctx, amount).await?
+            daemon.playback_volume_down(ctx, amount).await?;
         }
         PlaybackAction::ToggleMute => daemon.playback_volume_toggle_mute(ctx).await?,
     }
@@ -123,6 +124,7 @@ async fn handle_queue(daemon: Arc<MusicPlayerClient>, action: QueueAction) -> an
     match action {
         QueueAction::Add(ids) => daemon.queue_add_list(ctx, ids).await??,
         QueueAction::Remove(index) => {
+            #[allow(clippy::range_plus_one)]
             daemon.queue_remove_range(ctx, index..index + 1).await?;
         }
         QueueAction::SetPosition(index) => daemon.queue_set_index(ctx, index).await?,

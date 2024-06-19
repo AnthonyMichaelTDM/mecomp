@@ -48,21 +48,21 @@ pub enum ActiveComponent {
 }
 
 impl ActiveComponent {
-    pub fn next(&self) -> Self {
+    pub const fn next(self) -> Self {
         match self {
-            ActiveComponent::Sidebar => ActiveComponent::ContentView,
-            ActiveComponent::ContentView => ActiveComponent::QueueBar,
-            ActiveComponent::QueueBar => ActiveComponent::ControlPanel,
-            ActiveComponent::ControlPanel => ActiveComponent::Sidebar,
+            Self::Sidebar => Self::ContentView,
+            Self::ContentView => Self::QueueBar,
+            Self::QueueBar => Self::ControlPanel,
+            Self::ControlPanel => Self::Sidebar,
         }
     }
 
-    pub fn prev(&self) -> Self {
+    pub const fn prev(self) -> Self {
         match self {
-            ActiveComponent::Sidebar => ActiveComponent::ControlPanel,
-            ActiveComponent::ContentView => ActiveComponent::Sidebar,
-            ActiveComponent::QueueBar => ActiveComponent::ContentView,
-            ActiveComponent::ControlPanel => ActiveComponent::QueueBar,
+            Self::Sidebar => Self::ControlPanel,
+            Self::ContentView => Self::Sidebar,
+            Self::QueueBar => Self::ContentView,
+            Self::ControlPanel => Self::QueueBar,
         }
     }
 }
@@ -139,7 +139,7 @@ impl Component for App {
     where
         Self: Sized,
     {
-        App {
+        Self {
             action_tx: action_tx.clone(),
             props: Props {
                 active_component: state.active_component,
@@ -148,7 +148,7 @@ impl Component for App {
             sidebar: Sidebar::new(state, action_tx.clone()),
             queuebar: QueueBar::new(state, action_tx.clone()),
             control_panel: ControlPanel::new(state, action_tx.clone()),
-            content_view: ContentView::new(state, action_tx.clone()),
+            content_view: ContentView::new(state, action_tx),
         }
         .move_with_state(state)
     }
@@ -157,11 +157,11 @@ impl Component for App {
     where
         Self: Sized,
     {
-        App {
+        Self {
             sidebar: self.sidebar.move_with_state(state),
             queuebar: self.queuebar.move_with_state(state),
-            control_panel: self.control_panel.move_with_state(&state),
-            content_view: self.content_view.move_with_state(&state),
+            control_panel: self.control_panel.move_with_state(state),
+            content_view: self.content_view.move_with_state(state),
             ..self
         }
     }

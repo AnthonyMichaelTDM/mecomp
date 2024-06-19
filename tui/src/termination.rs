@@ -38,6 +38,7 @@ async fn terminate_by_unix_signal(mut terminator: Terminator) {
 }
 
 // create a broadcast channel for retrieving the application kill signal
+#[allow(clippy::module_name_repetitions)]
 pub fn create_termination() -> (Terminator, broadcast::Receiver<Interrupted>) {
     let (tx, rx) = broadcast::channel(1);
     let terminator = Terminator::new(tx);

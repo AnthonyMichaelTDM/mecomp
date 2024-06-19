@@ -34,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
         dispatcher.main_loop(daemon, terminator, action_rx, interrupt_rx.resubscribe()),
         ui_manager.main_loop(state_receivers, interrupt_rx.resubscribe())
     ) {
-        panic!("unexpected error: {:?}", e)
+        panic!("unexpected error: {e:?}")
     }
 
     if let Ok(reason) = interrupt_rx.recv().await {

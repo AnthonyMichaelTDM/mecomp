@@ -10,6 +10,7 @@ use crate::ui::{
     AppState,
 };
 
+#[allow(clippy::module_name_repetitions)]
 pub struct NoneView;
 
 impl Component for NoneView {

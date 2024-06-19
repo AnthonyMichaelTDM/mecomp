@@ -44,15 +44,13 @@ impl From<&AppState> for Props {
             song_title: value
                 .current_song
                 .as_ref()
-                .map_or(None, |song| Some(song.title.to_string())),
-            song_artist: value.current_song.as_ref().map_or(None, |song| {
-                Some(
-                    song.artist
-                        .iter()
-                        .map(|artist| artist.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", "),
-                )
+                .map(|song| song.title.to_string()),
+            song_artist: value.current_song.as_ref().map(|song| {
+                song.artist
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<String>>()
+                    .join(", ")
             }),
         }
     }
@@ -63,8 +61,8 @@ impl Component for ControlPanel {
     where
         Self: Sized,
     {
-        ControlPanel {
-            action_tx: action_tx.clone(),
+        Self {
+            action_tx,
             props: Props::from(state),
         }
         .move_with_state(state)
@@ -120,14 +118,14 @@ impl Component for ControlPanel {
                     ))))
                     .unwrap();
             }
-            KeyCode::Char('+') | KeyCode::Char('=') => {
+            KeyCode::Char('+' | '=') => {
                 self.action_tx
                     .send(Action::Audio(AudioAction::Playback(
                         PlaybackAction::Volume(VolumeAction::Increase(0.05)),
                     )))
                     .unwrap();
             }
-            KeyCode::Char('-') | KeyCode::Char('_') => {
+            KeyCode::Char('-' | '_') => {
                 self.action_tx
                     .send(Action::Audio(AudioAction::Playback(
                         PlaybackAction::Volume(VolumeAction::Decrease(0.05)),
@@ -148,6 +146,7 @@ impl Component for ControlPanel {
 }
 
 impl ComponentRender<RenderProps> for ControlPanel {
+    #[allow(clippy::too_many_lines)]
     fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
         let border_style = if props.is_focused {
             Style::default().fg(Color::LightRed)
@@ -225,9 +224,9 @@ impl ComponentRender<RenderProps> for ControlPanel {
         // play/pause indicator
         frame.render_widget(
             Line::from(if self.props.is_playing {
-                "▶  "
-            } else {
                 "❚❚ "
+            } else {
+                "▶  "
             })
             .style(Style::new().bold())
             .alignment(Alignment::Right),

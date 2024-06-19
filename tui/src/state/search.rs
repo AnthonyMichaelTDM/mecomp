@@ -16,6 +16,7 @@ use crate::termination::Interrupted;
 
 /// The audio state store.
 #[derive(Debug, Clone)]
+#[allow(clippy::module_name_repetitions)]
 pub struct SearchState {
     state_tx: UnboundedSender<SearchResult>,
 }
@@ -25,7 +26,7 @@ impl SearchState {
     pub fn new() -> (Self, UnboundedReceiver<SearchResult>) {
         let (state_tx, state_rx) = unbounded_channel::<SearchResult>();
 
-        (SearchState { state_tx }, state_rx)
+        (Self { state_tx }, state_rx)
     }
 
     /// a loop that updates the audio state every tick.

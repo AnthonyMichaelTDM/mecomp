@@ -17,6 +17,7 @@ use super::action::LibraryAction;
 
 /// The library state store.
 #[derive(Debug, Clone)]
+#[allow(clippy::module_name_repetitions)]
 pub struct LibraryState {
     state_tx: UnboundedSender<LibraryFull>,
 }
@@ -26,7 +27,7 @@ impl LibraryState {
     pub fn new() -> (Self, UnboundedReceiver<LibraryFull>) {
         let (state_tx, state_rx) = unbounded_channel::<LibraryFull>();
 
-        (LibraryState { state_tx }, state_rx)
+        (Self { state_tx }, state_rx)
     }
 
     /// a loop that updates the library state every tick.

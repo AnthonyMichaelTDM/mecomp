@@ -99,7 +99,7 @@ impl Component for SearchBar {
     where
         Self: Sized,
     {
-        Self { ..self }
+        self
     }
 
     fn name(&self) -> &str {
@@ -152,13 +152,14 @@ impl ComponentRender<RenderProps> for SearchBar {
         if props.show_cursor {
             // Make the cursor visible and ask ratatui to put it at the specified coordinates after
             // rendering
+            #[allow(clippy::cast_possible_truncation)]
             frame.set_cursor(
                 // Draw the cursor at the current position in the input field.
                 // This position is can be controlled via the left and right arrow key
                 props.area.x + self.cursor_position as u16 + 1,
                 // Move one line down, from the border to the input line
                 props.area.y + 1,
-            )
+            );
         }
     }
 }
