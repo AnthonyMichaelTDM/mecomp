@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 pub mod album;
 #[cfg(feature = "analysis")]
 pub mod analysis;
@@ -70,6 +72,44 @@ pub struct Thing {
 impl std::fmt::Display for Thing {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.tb, self.id)
+    }
+}
+
+impl FromStr for Thing {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // deserialize the thing from the string
+        // the line should follow the pattern:
+        // <table_name>:<26 character, upperalphanumeric id>
+        // anything else should be considered invalid, and ignored
+        //
+        // input may also look like:
+        //     <table_name>:<26 character, upperalphanumeric id>: <some other text>
+        // this is okay too, the extra text will be ignored
+        let parts: Vec<&str> = s.trim().split(':').collect();
+
+        if parts.len() >= 2
+            && (matches!(
+                parts[0],
+                artist::TABLE_NAME
+                    | album::TABLE_NAME
+                    | song::TABLE_NAME
+                    | playlist::TABLE_NAME
+                    | collection::TABLE_NAME
+            ))
+            && parts[1].len() == 26
+            && parts[1]
+                .chars()
+                .all(|c| c.is_ascii_digit() || c.is_ascii_uppercase())
+        {
+            Ok(Thing {
+                tb: parts[0].to_owned(),
+                id: Id::String(parts[1].to_owned()),
+            })
+        } else {
+            Err(())
+        }
     }
 }
 
