@@ -1,2 +1,6 @@
 [files]
 extend-exclude = ["mecomp-workspace-hack/*"]
+
+[default.extend-words]
+# don't correct the word "ratatui"" to "ratatouille"
+ratatui = "ratatui"

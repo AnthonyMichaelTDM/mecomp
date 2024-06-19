@@ -1,4 +1,4 @@
-//! Implemenation of the Queue Bar component, a scrollable list of the songs in the queue.
+//! Implementation of the Queue Bar component, a scrollable list of the songs in the queue.
 
 use crossterm::event::KeyCode;
 use mecomp_core::state::RepeatMode;

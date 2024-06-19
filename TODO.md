@@ -43,7 +43,7 @@
 
 - [ ] maintains multiple auto-curated "Collections" created by K-Means clustering on the Music Library, these collections will represent the broad themes within your music collection, but are not tied to human defined genres
 - [x] Users can "freeze" a collection, which will convert it to a playlist
-- [ ] Functionality to actualy create the collections (recluster endpoit)
+- [ ] Functionality to actually create the collections (recluster endpoit)
 
 ### Metadata
 
@@ -77,17 +77,21 @@
   - [ ] albums
     - [ ] display all albums
     - [ ] be able to "enter" an to go to the album view page
+    - [ ] ability to sort by name, artist, year, etc.
     - [ ] be able to select multiple albums and add them to the queue, a playlist, start a radio, etc,
   - [ ] artists
     - [ ] display all artists
     - [ ] be able to "enter" an artist to go to the artist view page
+    - [ ] ability to sort by name, etc.
     - [ ] be able to select multiple artists and add them to the queue, a playlist, start a radio, etc,
   - [ ] songs
     - [ ] display all songs
     - [ ] be able to "enter" a song to go to the song view page
+    - [ ] ability to sort by name, artist, album, year, etc.
     - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
   - [ ] playlists
     - [ ] display all playlists
+    - [ ] ability to sort by name, etc.
     - [ ] be able to "enter" a playlist to go to the playlist view page
   - [ ] collections
     - [ ] display all collections

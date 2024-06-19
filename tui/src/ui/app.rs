@@ -125,7 +125,7 @@ impl App {
     /// Move the app with the given state, but only update components that need to be updated.
     ///
     /// in this case, that is the content view
-    pub fn move_with_active_view(self, state: &AppState) -> Self {
+    pub fn move_with_view(self, state: &AppState) -> Self {
         let content_view = self.content_view.move_with_state(state);
         Self {
             content_view,

@@ -118,7 +118,7 @@ impl UiManager {
                         view,
                         ..state
                     };
-                    app = app.move_with_active_view(&state);
+                    app = app.move_with_view(&state);
                 },
                 // Catch and handle interrupt signal to gracefully shutdown
                 Ok(interrupted) = interrupt_rx.recv() => {
