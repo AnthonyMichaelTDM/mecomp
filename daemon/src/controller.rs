@@ -94,6 +94,11 @@ impl MusicPlayer for MusicPlayerServer {
 
         Ok(())
     }
+    /// Check if a rescan is in progress.
+    #[instrument]
+    async fn library_rescan_in_progress(self, context: Context) -> bool {
+        locks::LIBRARY_RESCAN_LOCK.try_lock().is_err()
+    }
     /// Analyze the music library, only error is if an analysis is already in progress.
     #[instrument]
     async fn library_analyze(self, context: Context) -> Result<(), SerializableLibraryError> {
@@ -127,7 +132,11 @@ impl MusicPlayer for MusicPlayerServer {
             Ok(())
         }
     }
-
+    /// Check if an analysis is in progress.
+    #[instrument]
+    async fn library_analyze_in_progress(self, context: Context) -> bool {
+        locks::LIBRARY_ANALYZE_LOCK.try_lock().is_err()
+    }
     /// Returns brief information about the music library.
     #[instrument]
     async fn library_brief(

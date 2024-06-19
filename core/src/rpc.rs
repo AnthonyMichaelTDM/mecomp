@@ -41,6 +41,12 @@ pub struct SearchResult {
     pub artists: Box<[Artist]>,
 }
 
+impl SearchResult {
+    pub fn len(&self) -> usize {
+        self.songs.len() + self.albums.len() + self.artists.len()
+    }
+}
+
 // TODO: add commands for reading songs by artists, in albums, in playlists, in collections, etc.
 // TODO: commands for reading songs by paths, artists by name, etc.
 
@@ -52,8 +58,12 @@ pub trait MusicPlayer {
     // Music library.
     /// Rescans the music library, only error is if a rescan is already in progress.
     async fn library_rescan() -> Result<(), SerializableLibraryError>;
+    /// Check if a rescan is in progress.
+    async fn library_rescan_in_progress() -> bool;
     /// Analyze the music library, only error is if an analysis is already in progress.
     async fn library_analyze() -> Result<(), SerializableLibraryError>;
+    /// Check if an analysis is in progress.
+    async fn library_analyze_in_progress() -> bool;
     /// Returns brief information about the music library.
     async fn library_brief() -> Result<LibraryBrief, SerializableLibraryError>;
     /// Returns full information about the music library. (all songs, artists, albums, etc.)
