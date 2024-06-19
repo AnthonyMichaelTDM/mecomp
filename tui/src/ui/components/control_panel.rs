@@ -7,7 +7,7 @@ use crossterm::event::{KeyCode, KeyEvent, MediaKeyCode};
 use mecomp_core::state::{SeekType, StateRuntime};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Style, Stylize},
+    style::{Color, Modifier, Style, Stylize},
     text::Line,
     widgets::{Block, Borders, LineGauge},
 };
@@ -249,6 +249,12 @@ impl ComponentRender<RenderProps> for ControlPanel {
                         )
                     },
                 ))
+                .gauge_style(
+                    Style::default()
+                        .fg(Color::White)
+                        .bg(Color::Black)
+                        .add_modifier(Modifier::BOLD),
+                )
                 .ratio(self.props.song_runtime.map_or(0.0, |runtime| {
                     runtime.seek_position.as_secs_f64() / runtime.duration.as_secs_f64()
                 })),
