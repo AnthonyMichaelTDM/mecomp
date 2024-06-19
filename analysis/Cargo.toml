@@ -23,7 +23,7 @@ rodio = { workspace = true }
 rubato = { workspace = true }
 rustfft = { version = "6.1" }
 serde = { workspace = true }
-strum = { version = "0.26.2", features = ["derive"] }
+strum.workspace = true
 thiserror = { workspace = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
