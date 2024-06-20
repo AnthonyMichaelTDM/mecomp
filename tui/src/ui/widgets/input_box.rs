@@ -17,14 +17,14 @@ use crate::{
     },
 };
 
-pub struct SearchBar {
+pub struct InputBox {
     /// Current value of the input box
     text: String,
     /// Position of cursor in the editor area.
     cursor_position: usize,
 }
 
-impl SearchBar {
+impl InputBox {
     pub fn text(&self) -> &str {
         &self.text
     }
@@ -86,7 +86,7 @@ impl SearchBar {
     }
 }
 
-impl Component for SearchBar {
+impl Component for InputBox {
     fn new(_state: &AppState, _action_tx: UnboundedSender<Action>) -> Self {
         Self {
             //
@@ -137,7 +137,7 @@ pub struct RenderProps {
     pub show_cursor: bool,
 }
 
-impl ComponentRender<RenderProps> for SearchBar {
+impl ComponentRender<RenderProps> for InputBox {
     fn render(&self, frame: &mut Frame, props: RenderProps) {
         let input = Paragraph::new(self.text.as_str())
             .style(Style::default().fg(props.text_color))

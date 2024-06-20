@@ -20,7 +20,7 @@ use crate::{
             BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
         },
         components::{Component, ComponentRender, RenderProps},
-        widgets::searchbar::{self, SearchBar},
+        widgets::input_box::{self, InputBox},
         AppState,
     },
 };
@@ -36,7 +36,7 @@ pub struct SearchView {
     /// tree state
     tree_state: Mutex<TreeState<String>>,
     /// Search Bar
-    search_bar: SearchBar,
+    search_bar: InputBox,
     /// Is the search bar focused
     search_bar_focused: bool,
 }
@@ -63,7 +63,7 @@ impl Component for SearchView {
     {
         let props = Props::from(state);
         Self {
-            search_bar: SearchBar::new(state, action_tx.clone()),
+            search_bar: InputBox::new(state, action_tx.clone()),
             search_bar_focused: true,
             tree_state: Mutex::new(TreeState::default()),
             action_tx,
@@ -183,7 +183,7 @@ impl ComponentRender<RenderProps> for SearchView {
         // render the search bar
         self.search_bar.render(
             frame,
-            searchbar::RenderProps {
+            input_box::RenderProps {
                 title: "Search".to_string(),
                 area: search_bar_area,
                 text_color: if self.search_bar_focused {

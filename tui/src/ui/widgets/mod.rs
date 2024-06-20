@@ -1,1 +1,1 @@
-pub mod searchbar;
+pub mod input_box;
