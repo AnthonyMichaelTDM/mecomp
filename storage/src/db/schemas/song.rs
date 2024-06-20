@@ -225,32 +225,6 @@ impl SongMetadata {
         self.path.exists() && self.path.is_file()
     }
 
-    /// Check if the metadata of this song is likely the same song as the metadata of the other song.
-    ///
-    /// doesn't check for exact equality (use `==` for that),
-    /// but is for checking if the song is the same song even if the metadata has been updated.
-    #[must_use]
-    #[allow(clippy::suspicious_operation_groupings)]
-    pub fn is_same_song(&self, other: &Self) -> bool {
-        // the title is the same
-        self.title == other.title
-            // the artist is the same
-            && self.artist == other.artist
-            // the album is the same
-            && self.album == other.album
-            // the duration is the same
-            && self.runtime == other.runtime
-            // the genre is the same, or the genre is not in self but is in other
-            && (self.genre == other.genre || (self.genre.is_none() && other.genre.is_some()))
-            // the track is the same, or the track is not in self but is in other
-            && (self.track == other.track || (self.track.is_none() && other.track.is_some()))
-            // the disc is the same, or the disc is not in self but is in other
-            && (self.disc == other.disc || (self.disc.is_none() && other.disc.is_some()))
-            // the release year is the same, or the release year is not in self but is in other
-            && (self.release_year == other.release_year
-                || (self.release_year.is_none() && other.release_year.is_some()))
-    }
-
     /// create a changeset from the difference between `self` and `song`
     #[instrument()]
     pub fn merge_with_song(&self, song: &Song) -> SongChangeSet {
@@ -323,7 +297,7 @@ impl SongMetadata {
             None => tagged_file.first_tag().ok_or(SongIOError::MissingTags)?,
         };
 
-        let artist: OneOrMany<Arc<str>> =
+        let mut artist: OneOrMany<Arc<str>> =
             tag.artist()
                 .as_deref()
                 .map_or(OneOrMany::One("Unknown Artist".into()), |a| {
@@ -338,6 +312,35 @@ impl SongMetadata {
                         OneOrMany::One(a.into())
                     }
                 });
+        artist.dedup();
+
+        let mut album_artist = tag.get_string(&ItemKey::AlbumArtist).map_or_else(
+            || OneOrMany::One(artist.get(0).unwrap().clone()),
+            |a| {
+                let a = a.replace('\0', "");
+                if let Some(sep) = artist_name_separator {
+                    if a.contains(sep) {
+                        OneOrMany::Many(a.split(&sep).map(Into::into).collect())
+                    } else {
+                        OneOrMany::One(a.into())
+                    }
+                } else {
+                    OneOrMany::One(a.into())
+                }
+            },
+        );
+        album_artist.dedup();
+
+        let mut genre: OneOrMany<_> = tag
+            .genre()
+            .map(|genre| match (genre_separator, genre) {
+                (Some(sep), genre) if genre.contains(sep) => {
+                    OneOrMany::Many(genre.replace('\0', "").split(sep).map(Into::into).collect())
+                }
+                (_, genre) => OneOrMany::One(genre.into()),
+            })
+            .into();
+        genre.dedup();
 
         Ok(Self {
             title: tag
@@ -351,31 +354,9 @@ impl SongMetadata {
                 .album()
                 .map_or("Unknown Album".into(), |x| x.replace('\0', ""))
                 .into(),
-            album_artist: tag.get_string(&ItemKey::AlbumArtist).map_or_else(
-                || OneOrMany::One(artist.get(0).unwrap().clone()),
-                |a| {
-                    let a = a.replace('\0', "");
-                    if let Some(sep) = artist_name_separator {
-                        if a.contains(sep) {
-                            OneOrMany::Many(a.split(&sep).map(Into::into).collect())
-                        } else {
-                            OneOrMany::One(a.into())
-                        }
-                    } else {
-                        OneOrMany::One(a.into())
-                    }
-                },
-            ),
+            album_artist,
             artist,
-            genre: tag
-                .genre()
-                .map(|genre| match (genre_separator, genre) {
-                    (Some(sep), genre) if genre.contains(sep) => OneOrMany::Many(
-                        genre.replace('\0', "").split(sep).map(Into::into).collect(),
-                    ),
-                    (_, genre) => OneOrMany::One(genre.into()),
-                })
-                .into(),
+            genre,
             runtime: properties.duration(),
             track: tag
                 .get_string(&ItemKey::TrackNumber)

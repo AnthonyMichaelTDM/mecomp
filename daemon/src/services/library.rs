@@ -65,7 +65,7 @@ pub async fn rescan<C: Connection>(
         ) {
             // if we have metadata and the metadata is different from the song's metadata, and we are in "overwrite" mode, update the song's metadata
             (Ok(metadata), MetadataConflictResolution::Overwrite)
-                if !metadata.is_same_song(&SongMetadata::from(&song)) =>
+                if metadata != SongMetadata::from(&song) =>
             {
                 info!(
                     "{} has conflicting metadata with index, resolving conflict",
@@ -76,12 +76,12 @@ pub async fn rescan<C: Connection>(
             }
             // if we have metadata and the metadata is different from the song's metadata, and we are in "skip" mode, do nothing
             (Ok(metadata), MetadataConflictResolution::Skip)
-                if !metadata.is_same_song(&SongMetadata::from(&song)) =>
+                if metadata != SongMetadata::from(&song) =>
             {
                 warn!(
-                            "{} has conflicting metadata with index, but conflict resolution mode is \"skip\", so we do nothing",
-                            path.to_string_lossy()
-                        );
+                    "{} has conflicting metadata with index, but conflict resolution mode is \"skip\", so we do nothing",
+                    path.to_string_lossy()
+                );
                 continue;
             }
             // if we have an error, delete the song from the library
