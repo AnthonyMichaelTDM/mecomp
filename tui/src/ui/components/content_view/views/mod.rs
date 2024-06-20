@@ -68,8 +68,6 @@ pub struct SongViewProps {
 pub struct RadioViewProps {
     /// The number of similar songs to get
     pub count: u32,
-    /// The things we are getting similar songs for
-    pub things: Vec<Thing>,
     /// The songs that are similar to the things
     pub songs: Box<[Song]>,
 }

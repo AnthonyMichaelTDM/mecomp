@@ -339,7 +339,6 @@ async fn handle_additional_view_data(
             {
                 Some(RadioViewProps {
                     count: *count,
-                    things: ids.clone(),
                     songs,
                 })
             } else {
