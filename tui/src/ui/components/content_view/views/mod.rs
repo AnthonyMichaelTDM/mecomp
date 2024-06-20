@@ -61,7 +61,9 @@ pub struct SongViewProps {
 }
 
 pub mod utils {
-    use mecomp_storage::db::schemas::{album::Album, artist::Artist, song::Song};
+    use mecomp_storage::db::schemas::{
+        album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song,
+    };
     use ratatui::{
         style::{Style, Stylize},
         text::{Line, Span},
@@ -118,6 +120,26 @@ pub mod utils {
             artist.id.to_string(),
             Line::from(vec![Span::styled(
                 artist.name.to_string(),
+                Style::default().bold(),
+            )]),
+        )
+    }
+
+    pub fn create_collection_tree_leaf(collection: &Collection) -> TreeItem<String> {
+        TreeItem::new_leaf(
+            collection.id.to_string(),
+            Line::from(vec![Span::styled(
+                collection.name.to_string(),
+                Style::default().bold(),
+            )]),
+        )
+    }
+
+    pub fn create_playlist_tree_leaf(playlist: &Playlist) -> TreeItem<String> {
+        TreeItem::new_leaf(
+            playlist.id.to_string(),
+            Line::from(vec![Span::styled(
+                playlist.name.to_string(),
                 Style::default().bold(),
             )]),
         )

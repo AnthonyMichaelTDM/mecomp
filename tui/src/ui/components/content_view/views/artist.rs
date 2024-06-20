@@ -134,7 +134,7 @@ impl ComponentRender<RenderProps> for ArtistView {
             let block_area = block.inner(props.area);
             frame.render_widget(block, props.area);
 
-            // create list to hold artist album and artists
+            // create list to hold artist albums and songs
             let album_tree = create_album_tree_item(&state.albums).unwrap();
             let song_tree = create_song_tree_item(&state.songs).unwrap();
             let items = &[album_tree, song_tree];
@@ -403,7 +403,6 @@ impl ComponentRender<RenderProps> for LibraryArtistsView {
         frame.render_widget(
             Block::new()
                 .borders(Borders::BOTTOM)
-                .title_bottom("q: add to queue")
                 .border_style(border_style),
             top,
         );

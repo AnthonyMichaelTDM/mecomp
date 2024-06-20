@@ -453,7 +453,6 @@ impl ComponentRender<RenderProps> for LibrarySongsView {
         frame.render_widget(
             Block::new()
                 .borders(Borders::BOTTOM)
-                .title_bottom("q: add to queue")
                 .border_style(border_style),
             top,
         );

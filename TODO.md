@@ -69,61 +69,68 @@
 ### MECOMP-TUI
 
 - [x] Implement basic TUI
-- [ ] Checklist widget: a tree/list that allows for multiple items to be selected
-  - [ ] allow for multiple items to be selected (e.g. for adding to the queue, a playlist, starting a radio, etc.)
+- [ ] ThingTree widget: a tree/list that allows for multiple items to be selected
+  - [ ] allow for multiple items to be selected and added to the queue, a playlist, or used to start a radio
   - [ ] function to get the selected items
 - [ ] Implement view pages for the following:
   - [ ] search results
     - [x] show the results of a search
     - [x] pressing enter on a result will take you to the appropriate view page for that result
-    - [ ] be able to select multiple results and add them to the queue, a playlist, start a radio, etc,
+    - [ ] use ThingTree widget instead of Tree
   - [ ] radio results
     - [ ] show the results of a radio search
-    - [ ] be able to select multiple results and add them to the queue, a playlist, start a radio, etc,
+    - [ ] use ThingTree widget instead of Tree
   - [ ] albums
     - [x] display all albums
     - [x] be able to "enter" an to go to the album view page
     - [x] ability to sort by name, artist, year, etc.
-    - [ ] be able to select multiple items and add them to the queue, a playlist, start a radio, etc,
+    - [ ] use ThingTree widget instead of Tree
   - [ ] artists
     - [x] display all artists
     - [x] be able to "enter" an artist to go to the artist view page
     - [x] ability to sort by name, etc.
-    - [ ] be able to select multiple items and add them to the queue, a playlist, start a radio, etc,
-  - [x] songs
+    - [ ] use ThingTree widget instead of Tree
+  - [ ] songs
     - [x] display all songs
     - [x] be able to "enter" a song to go to the song view page
     - [x] ability to sort by name, artist, album, year, etc.
-    - [ ] be able to select multiple items and add them to the queue, a playlist, start a radio, etc,
+    - [ ] use ThingTree widget instead of Tree
   - [ ] playlists
-    - [ ] display all playlists
-    - [ ] ability to sort by name, etc.
-    - [ ] be able to "enter" a playlist to go to the playlist view page
-  - [ ] collections
-    - [ ] display all collections
-    - [ ] be able to "enter" a collection to go to the collection view page
-  - [x] a single album
+    - [x] display all playlists
+    - [x] ability to sort by name, etc.
+    - [x] be able to "enter" a playlist to go to the playlist view page
+    - [ ] keybind to create a new playlist
+    - [ ] keybind to remove the selected playlist
+  - [x] collections
+    - [x] display all collections
+    - [x] be able to "enter" a collection to go to the collection view page
+  - [ ] a single album
     - [x] show info about the album, including all the songs contained
-    - [ ] be able to add the album to the queue, a playlist, etc,
-    - [ ] be able to start a radio from the album
-    - [ ] be able to select multiple items and add them to the queue, a playlist, start a radio, etc,
+    - [x] keybind to add to queue
+    - [ ] keybind to start a radio
+    - [ ] keybind to add to a playlist
+    - [ ] use ThingTree widget instead of Tree
   - [ ] a single artist
     - [x] show info about the artist, including all the albums and songs by the artist
-    - [ ] be able to add all the artist's songs to the queue, a playlist, etc,
-    - [ ] be able to select multiple items and add them to the queue, a playlist, start a radio, etc,
+    - [x] keybind to add to queue
+    - [ ] keybind to start a radio
+    - [ ] keybind to add to a playlist
+    - [ ] use ThingTree widget instead of Tree
   - [ ] a single song
     - [x] show information about the song
-    - [ ] be able to add the song to the queue, a playlist, etc,
-    - [ ] be able to start a radio from the song
+    - [x] keybind to add to queue
+    - [ ] keybind to start a radio
+    - [ ] keybind to add to a playlist
   - [ ] a single playlist
-    - [ ] show the playlist's name and contents
-    - [ ] be able to add the playlist to the queue
-    - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
+    - [x] show the playlist's name and contents
+    - [x] keybind to add to queue
+    - [ ] keybind to start a radio
+    - [ ] keybind to add to a playlist
     - [ ] show song suggestions based on the playlist (radio)
   - [ ] a single collection
-    - [ ] show the collection's contents
-    - [ ] be able to add the collection to the queue
-    - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
+    - [x] show the collection's contents
+    - [x] keybind to add to queue
+    - [ ] keybind to freeze into a playlist
 
 ### MECOMP-GUI
 
