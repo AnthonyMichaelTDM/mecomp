@@ -14,7 +14,7 @@ pub mod song;
 
 const RADIO_SIZE: u32 = 20;
 
-/// Data neaded by the views (that isn't directly handled by a state store)
+/// Data needed by the views (that isn't directly handled by a state store)
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, Default)]
 pub struct ViewData {
