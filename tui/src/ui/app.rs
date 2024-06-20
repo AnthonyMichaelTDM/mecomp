@@ -6,6 +6,8 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
+    style::{Style, Stylize},
+    text::Span,
     widgets::Block,
     Frame,
 };
@@ -14,6 +16,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::state::action::{Action, GeneralAction};
 
 use super::{
+    colors::{APP_BORDER, APP_BORDER_TEXT, TEXT_NORMAL},
     components::{
         content_view::ContentView, control_panel::ControlPanel, queuebar::QueueBar,
         sidebar::Sidebar, Component, ComponentRender, RenderProps,
@@ -199,8 +202,16 @@ impl Component for App {
 impl ComponentRender<()> for App {
     fn render(&self, frame: &mut Frame, _props: ()) {
         let block = Block::bordered()
-            .title_top("MECOMP")
-            .title_bottom("Tab/Shift+Tab to switch focus | Esc to quit");
+            .title_top(Span::styled(
+                "MECOMP",
+                Style::default().bold().fg(APP_BORDER_TEXT.into()),
+            ))
+            .title_bottom(Span::styled(
+                "Tab/Shift+Tab to switch focus | Esc to quit",
+                Style::default().fg(APP_BORDER_TEXT.into()),
+            ))
+            .border_style(Style::default().fg(APP_BORDER.into()))
+            .style(Style::default().fg(TEXT_NORMAL.into()));
         let area = block.inner(frame.size());
         frame.render_widget(block, frame.size());
 

@@ -5,6 +5,7 @@
 //! The app is updated every tick, and they use the state stores to get the latest state.
 
 pub mod app;
+pub mod colors;
 pub mod components;
 pub mod widgets;
 

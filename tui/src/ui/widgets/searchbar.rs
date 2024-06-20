@@ -3,7 +3,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     layout::Rect,
-    style::{Color, Style, Stylize},
+    style::{Style, Stylize},
     widgets::{Block, Borders, Paragraph},
     Frame,
 };
@@ -132,14 +132,15 @@ impl Component for SearchBar {
 pub struct RenderProps {
     pub title: String,
     pub area: Rect,
-    pub border_color: Color,
+    pub text_color: ratatui::style::Color,
+    pub border_color: ratatui::style::Color,
     pub show_cursor: bool,
 }
 
 impl ComponentRender<RenderProps> for SearchBar {
     fn render(&self, frame: &mut Frame, props: RenderProps) {
         let input = Paragraph::new(self.text.as_str())
-            .style(Style::default().fg(Color::Yellow))
+            .style(Style::default().fg(props.text_color))
             .block(
                 Block::default()
                     .borders(Borders::ALL)

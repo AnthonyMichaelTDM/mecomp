@@ -7,7 +7,7 @@ use mecomp_core::rpc::SearchResult;
 use mecomp_storage::db::schemas::Thing;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     widgets::{Block, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -16,6 +16,9 @@ use tui_tree_widget::{Tree, TreeState};
 use crate::{
     state::action::Action,
     ui::{
+        colors::{
+            BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
+        },
         components::{Component, ComponentRender, RenderProps},
         widgets::searchbar::{self, SearchBar},
         AppState,
@@ -158,9 +161,9 @@ impl ComponentRender<RenderProps> for SearchView {
     #[allow(clippy::too_many_lines)]
     fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
         let border_style = if props.is_focused {
-            Style::default().fg(Color::LightRed)
+            Style::default().fg(BORDER_FOCUSED.into())
         } else {
-            Style::default()
+            Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
         // create list to hold results
@@ -183,10 +186,15 @@ impl ComponentRender<RenderProps> for SearchView {
             searchbar::RenderProps {
                 title: "Search".to_string(),
                 area: search_bar_area,
-                border_color: if self.search_bar_focused && props.is_focused {
-                    Color::LightRed
+                text_color: if self.search_bar_focused {
+                    TEXT_HIGHLIGHT_ALT.into()
                 } else {
-                    Color::White
+                    TEXT_NORMAL.into()
+                },
+                border_color: if self.search_bar_focused && props.is_focused {
+                    BORDER_FOCUSED.into()
+                } else {
+                    BORDER_UNFOCUSED.into()
                 },
                 show_cursor: self.search_bar_focused,
             },
@@ -206,7 +214,11 @@ impl ComponentRender<RenderProps> for SearchView {
                         })
                         .border_style(border_style),
                 )
-                .highlight_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                .highlight_style(
+                    Style::default()
+                        .fg(TEXT_HIGHLIGHT.into())
+                        .add_modifier(Modifier::BOLD),
+                )
                 .node_closed_symbol("▸")
                 .node_open_symbol("▾")
                 .node_no_children_symbol("▪")

@@ -8,7 +8,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use mecomp_storage::db::schemas::{playlist::Playlist, Thing};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Modifier, Style, Stylize},
+    style::{Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
 };
@@ -18,6 +18,7 @@ use tui_tree_widget::{Tree, TreeState};
 use crate::{
     state::action::{Action, AudioAction, QueueAction},
     ui::{
+        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         AppState,
     },
@@ -150,9 +151,9 @@ impl ComponentRender<RenderProps> for PlaylistView {
     #[allow(clippy::too_many_lines)]
     fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
         let border_style = if props.is_focused {
-            Style::default().fg(Color::LightRed)
+            Style::default().fg(BORDER_FOCUSED.into())
         } else {
-            Style::default()
+            Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
         if let Some(state) = &self.props {
@@ -216,7 +217,11 @@ impl ComponentRender<RenderProps> for PlaylistView {
             frame.render_stateful_widget(
                 Tree::new(&items)
                     .unwrap()
-                    .highlight_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                    .highlight_style(
+                        Style::default()
+                            .fg(TEXT_HIGHLIGHT.into())
+                            .add_modifier(Modifier::BOLD),
+                    )
                     .node_closed_symbol("▸")
                     .node_open_symbol("▾")
                     .node_no_children_symbol("▪")
@@ -391,9 +396,9 @@ impl Component for LibraryPlaylistsView {
 impl ComponentRender<RenderProps> for LibraryPlaylistsView {
     fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
         let border_style = if props.is_focused {
-            Style::default().fg(Color::LightRed)
+            Style::default().fg(BORDER_FOCUSED.into())
         } else {
-            Style::default()
+            Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
         let block = Block::bordered()
@@ -432,7 +437,11 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
         frame.render_stateful_widget(
             Tree::new(&items)
                 .unwrap()
-                .highlight_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                .highlight_style(
+                    Style::default()
+                        .fg(TEXT_HIGHLIGHT.into())
+                        .add_modifier(Modifier::BOLD),
+                )
                 .node_closed_symbol("▸")
                 .node_open_symbol("▾")
                 .node_no_children_symbol("▪")

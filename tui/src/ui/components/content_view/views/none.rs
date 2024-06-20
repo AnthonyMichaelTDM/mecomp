@@ -1,11 +1,9 @@
 //! an empty view
 
-use ratatui::{
-    style::{Color, Style},
-    widgets::Block,
-};
+use ratatui::{layout::Alignment, style::Style, text::Line, widgets::Block};
 
 use crate::ui::{
+    colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_NORMAL},
     components::{Component, ComponentRender, RenderProps},
     AppState,
 };
@@ -43,9 +41,9 @@ impl Component for NoneView {
 impl ComponentRender<RenderProps> for NoneView {
     fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
         let border_style = if props.is_focused {
-            Style::default().fg(Color::LightRed)
+            Style::default().fg(BORDER_FOCUSED.into())
         } else {
-            Style::default()
+            Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
         let block = Block::bordered().border_style(border_style);
@@ -55,9 +53,9 @@ impl ComponentRender<RenderProps> for NoneView {
         let text = "No active view";
 
         frame.render_widget(
-            ratatui::widgets::Paragraph::new(text)
-                .style(ratatui::style::Style::default().fg(ratatui::style::Color::White))
-                .alignment(ratatui::layout::Alignment::Center),
+            Line::from(text)
+                .style(Style::default().fg(TEXT_NORMAL.into()))
+                .alignment(Alignment::Center),
             area,
         );
     }

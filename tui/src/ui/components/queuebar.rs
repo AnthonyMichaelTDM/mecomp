@@ -5,13 +5,18 @@ use mecomp_core::state::RepeatMode;
 use mecomp_storage::db::schemas::song::Song;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
 
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::state::action::{Action, AudioAction, QueueAction};
+use crate::{
+    state::action::{Action, AudioAction, QueueAction},
+    ui::colors::{
+        BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
+    },
+};
 
 use super::{AppState, Component, ComponentRender, RenderProps};
 
@@ -165,9 +170,9 @@ impl Component for QueueBar {
 impl ComponentRender<RenderProps> for QueueBar {
     fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
         let border_style = if props.is_focused {
-            Style::default().fg(Color::LightRed)
+            Style::default().fg(BORDER_FOCUSED.into())
         } else {
-            Style::default()
+            Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
         let items = self
@@ -177,9 +182,9 @@ impl ComponentRender<RenderProps> for QueueBar {
             .enumerate()
             .map(|(index, song)| {
                 let style = if Some(index) == self.props.current_position {
-                    Style::default().fg(Color::Green)
+                    Style::default().fg(TEXT_HIGHLIGHT_ALT.into())
                 } else {
-                    Style::default()
+                    Style::default().fg(TEXT_NORMAL.into())
                 };
 
                 ListItem::new(song.title.as_ref()).style(style)
@@ -218,7 +223,7 @@ impl ComponentRender<RenderProps> for QueueBar {
                         .title("Queue")
                         .border_style(border_style),
                 )
-                .style(Style::default().fg(Color::White))
+                .style(Style::default().fg(TEXT_NORMAL.into()))
                 .alignment(ratatui::layout::Alignment::Center),
             top,
         );
@@ -231,7 +236,11 @@ impl ComponentRender<RenderProps> for QueueBar {
                         .title(format!("Songs ({})", self.props.queue.len()))
                         .border_style(border_style),
                 )
-                .highlight_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                .highlight_style(
+                    Style::default()
+                        .fg(TEXT_HIGHLIGHT.into())
+                        .add_modifier(Modifier::BOLD),
+                )
                 .scroll_padding(1)
                 .direction(ratatui::widgets::ListDirection::TopToBottom),
             middle,
@@ -248,7 +257,7 @@ impl ComponentRender<RenderProps> for QueueBar {
                     .borders(Borders::LEFT | Borders::BOTTOM | Borders::RIGHT)
                     .border_style(border_style),
             )
-            .style(Style::default().fg(Color::White))
+            .style(Style::default().fg(TEXT_NORMAL.into()))
             .alignment(ratatui::layout::Alignment::Center),
             bottom,
         );

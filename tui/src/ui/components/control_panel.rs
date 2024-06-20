@@ -7,13 +7,19 @@ use crossterm::event::{KeyCode, KeyEvent, MediaKeyCode};
 use mecomp_core::state::{SeekType, StateRuntime};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Modifier, Style, Stylize},
+    style::{Style, Stylize},
     text::Line,
     widgets::{Block, Borders, LineGauge},
 };
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::state::action::{Action, AudioAction, PlaybackAction, VolumeAction};
+use crate::{
+    state::action::{Action, AudioAction, PlaybackAction, VolumeAction},
+    ui::colors::{
+        BORDER_FOCUSED, BORDER_UNFOCUSED, GAUGE_BACKGROUND, GAUGE_FOREGROUND, TEXT_HIGHLIGHT_ALT,
+        TEXT_NORMAL,
+    },
+};
 
 use super::{AppState, Component, ComponentRender, RenderProps};
 
@@ -149,9 +155,9 @@ impl ComponentRender<RenderProps> for ControlPanel {
     #[allow(clippy::too_many_lines)]
     fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
         let border_style = if props.is_focused {
-            Style::default().fg(Color::LightRed)
+            Style::default().fg(BORDER_FOCUSED.into())
         } else {
-            Style::default()
+            Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
         let block = Block::new()
@@ -187,14 +193,14 @@ impl ComponentRender<RenderProps> for ControlPanel {
             };
             frame.render_widget(
                 Line::from(song_title)
-                    .style(Style::new().bold())
+                    .style(Style::default().bold().fg(TEXT_HIGHLIGHT_ALT.into()))
                     .alignment(Alignment::Right),
                 song_title_area,
             );
             if let Some(song_artist) = self.props.song_artist.clone() {
                 frame.render_widget(
                     Line::from(song_artist)
-                        .style(Style::new().italic())
+                        .style(Style::default().italic().fg(TEXT_NORMAL.into()))
                         .alignment(Alignment::Left),
                     song_artist_area,
                 );
@@ -202,7 +208,7 @@ impl ComponentRender<RenderProps> for ControlPanel {
         } else {
             frame.render_widget(
                 Line::from("No Song Playing")
-                    .style(Style::new().bold())
+                    .style(Style::default().bold().fg(TEXT_NORMAL.into()))
                     .alignment(Alignment::Center),
                 top,
             );
@@ -228,7 +234,7 @@ impl ComponentRender<RenderProps> for ControlPanel {
             } else {
                 "▶  "
             })
-            .style(Style::new().bold())
+            .style(Style::default().bold().fg(TEXT_NORMAL.into()))
             .alignment(Alignment::Right),
             play_pause_area,
         );
@@ -236,23 +242,26 @@ impl ComponentRender<RenderProps> for ControlPanel {
         // song progress
         frame.render_widget(
             LineGauge::default()
-                .label(self.props.song_runtime.map_or_else(
-                    || String::from("0.0/0.0"),
-                    |runtime| {
-                        format!(
-                            "{}:{:04.1}/{}:{:04.1}",
-                            runtime.seek_position.as_secs() / 60,
-                            runtime.seek_position.as_secs_f32() % 60.0,
-                            runtime.duration.as_secs() / 60,
-                            runtime.duration.as_secs_f32() % 60.0
-                        )
-                    },
+                .label(Line::styled(
+                    self.props.song_runtime.map_or_else(
+                        || String::from("0.0/0.0"),
+                        |runtime| {
+                            format!(
+                                "{}:{:04.1}/{}:{:04.1}",
+                                runtime.seek_position.as_secs() / 60,
+                                runtime.seek_position.as_secs_f32() % 60.0,
+                                runtime.duration.as_secs() / 60,
+                                runtime.duration.as_secs_f32() % 60.0
+                            )
+                        },
+                    ),
+                    Style::default().fg(TEXT_NORMAL.into()),
                 ))
                 .gauge_style(
                     Style::default()
-                        .fg(Color::White)
-                        .bg(Color::Black)
-                        .add_modifier(Modifier::BOLD),
+                        .fg(GAUGE_FOREGROUND.into())
+                        .bg(GAUGE_BACKGROUND.into())
+                        .bold(),
                 )
                 .ratio(self.props.song_runtime.map_or(0.0, |runtime| {
                     runtime.seek_position.as_secs_f64() / runtime.duration.as_secs_f64()
@@ -268,7 +277,7 @@ impl ComponentRender<RenderProps> for ControlPanel {
                 if self.props.muted { "🔇" } else { "🔊" },
                 self.props.volume * 100.
             ))
-            .style(Style::new().bold())
+            .style(Style::default().bold().fg(TEXT_NORMAL.into()))
             .alignment(Alignment::Left),
             volume_area,
         );
@@ -278,7 +287,7 @@ impl ComponentRender<RenderProps> for ControlPanel {
             Line::from(
                 "n/p: next/previous | space: play/pause | m: mute | +/-: volume | ←/→: seek",
             )
-            .style(Style::new().italic())
+            .style(Style::default().italic().fg(TEXT_NORMAL.into()))
             .alignment(Alignment::Center),
             bottom,
         );

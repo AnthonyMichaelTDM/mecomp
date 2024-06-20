@@ -7,7 +7,8 @@ use std::fmt::Display;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::Layout,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
+    text::Span,
     widgets::{Block, Borders, List, ListItem, ListState},
     Frame,
 };
@@ -17,6 +18,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, LibraryAction},
     ui::{
+        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{Component, ComponentRender, RenderProps},
         AppState,
     },
@@ -36,13 +38,14 @@ pub struct Sidebar {
 #[allow(clippy::module_name_repetitions)]
 pub enum SidebarItems {
     Search,
-    LibraryRescan,
-    LibraryAnalyze,
     Songs,
     Artists,
     Albums,
     Playlists,
     Collections,
+    Space, // this is used to create space between the library actions and the other items
+    LibraryRescan,
+    LibraryAnalyze,
 }
 
 impl Display for SidebarItems {
@@ -56,6 +59,7 @@ impl Display for SidebarItems {
             Self::Albums => write!(f, "Albums"),
             Self::Playlists => write!(f, "Playlists"),
             Self::Collections => write!(f, "Collections"),
+            Self::Space => write!(f, ""),
         }
     }
 }
@@ -147,6 +151,7 @@ impl Component for Sidebar {
                             .action_tx
                             .send(Action::SetCurrentView(ActiveView::Collections))
                             .unwrap(),
+                        SidebarItems::Space => {}
                     }
                 }
             }
@@ -158,13 +163,18 @@ impl Component for Sidebar {
 impl ComponentRender<RenderProps> for Sidebar {
     fn render(&self, frame: &mut Frame, props: RenderProps) {
         let border_style = if props.is_focused {
-            Style::default().fg(Color::LightRed)
+            Style::default().fg(BORDER_FOCUSED.into())
         } else {
-            Style::default()
+            Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
         let items = SidebarItems::iter()
-            .map(|item| ListItem::new(item.to_string()))
+            .map(|item| {
+                ListItem::new(Span::styled(
+                    item.to_string(),
+                    Style::default().fg(TEXT_NORMAL.into()),
+                ))
+            })
             .collect::<Vec<_>>();
 
         let [top, bottom] = *Layout::default()
@@ -189,7 +199,11 @@ impl ComponentRender<RenderProps> for Sidebar {
                         .title_top("Sidebar")
                         .border_style(border_style),
                 )
-                .highlight_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                .highlight_style(
+                    Style::default()
+                        .fg(TEXT_HIGHLIGHT.into())
+                        .add_modifier(Modifier::BOLD),
+                )
                 .direction(ratatui::widgets::ListDirection::TopToBottom),
             top,
             &mut self.list_state.clone(),

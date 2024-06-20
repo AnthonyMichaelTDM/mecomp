@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style, Stylize},
+    style::{Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
     Frame,
@@ -17,6 +17,7 @@ use super::{none::NoneView, utils::create_song_tree_leaf, RadioViewProps};
 use crate::{
     state::action::{Action, AudioAction, QueueAction},
     ui::{
+        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
         components::{Component, ComponentRender, RenderProps},
         AppState,
     },
@@ -111,9 +112,9 @@ impl Component for RadioView {
 impl ComponentRender<RenderProps> for RadioView {
     fn render(&self, frame: &mut Frame, props: RenderProps) {
         let border_style = if props.is_focused {
-            Style::default().fg(Color::LightRed)
+            Style::default().fg(BORDER_FOCUSED.into())
         } else {
-            Style::default()
+            Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
         if let Some(state) = &self.props {
@@ -156,7 +157,11 @@ impl ComponentRender<RenderProps> for RadioView {
             frame.render_stateful_widget(
                 Tree::new(&items)
                     .unwrap()
-                    .highlight_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                    .highlight_style(
+                        Style::default()
+                            .fg(TEXT_HIGHLIGHT.into())
+                            .add_modifier(Modifier::BOLD),
+                    )
                     .node_closed_symbol("▸")
                     .node_open_symbol("▾")
                     .node_no_children_symbol("▪")
