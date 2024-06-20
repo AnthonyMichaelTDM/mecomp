@@ -1,3 +1,4 @@
+pub mod radio;
 use mecomp_storage::db::schemas::{
     album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song, Thing,
 };
@@ -11,6 +12,8 @@ pub mod playlist;
 pub mod search;
 pub mod song;
 
+const RADIO_SIZE: u32 = 20;
+
 /// Data neaded by the views (that isn't directly handled by a state store)
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, Default)]
@@ -20,6 +23,7 @@ pub struct ViewData {
     pub collection: Option<CollectionViewProps>,
     pub playlist: Option<PlaylistViewProps>,
     pub song: Option<SongViewProps>,
+    pub radio: Option<RadioViewProps>,
 }
 
 #[derive(Debug, Clone)]
@@ -58,6 +62,16 @@ pub struct SongViewProps {
     pub song: Song,
     pub artists: OneOrMany<Artist>,
     pub album: Album,
+}
+
+#[derive(Debug, Clone)]
+pub struct RadioViewProps {
+    /// The number of similar songs to get
+    pub count: u32,
+    /// The things we are getting similar songs for
+    pub things: Vec<Thing>,
+    /// The songs that are similar to the things
+    pub songs: Box<[Song]>,
 }
 
 pub mod utils {

@@ -78,7 +78,9 @@
     - [x] pressing enter on a result will take you to the appropriate view page for that result
     - [ ] use ThingTree widget instead of Tree
   - [ ] radio results
-    - [ ] show the results of a radio search
+    - [x] show the results of a radio search
+    - [x] keybind to add to queue
+    - [ ] keybind to add to a playlist
     - [ ] use ThingTree widget instead of Tree
   - [ ] albums
     - [x] display all albums
@@ -107,24 +109,24 @@
   - [ ] a single album
     - [x] show info about the album, including all the songs contained
     - [x] keybind to add to queue
-    - [ ] keybind to start a radio
+    - [x] keybind to start a radio
     - [ ] keybind to add to a playlist
     - [ ] use ThingTree widget instead of Tree
   - [ ] a single artist
     - [x] show info about the artist, including all the albums and songs by the artist
     - [x] keybind to add to queue
-    - [ ] keybind to start a radio
+    - [x] keybind to start a radio
     - [ ] keybind to add to a playlist
     - [ ] use ThingTree widget instead of Tree
   - [ ] a single song
     - [x] show information about the song
     - [x] keybind to add to queue
-    - [ ] keybind to start a radio
+    - [x] keybind to start a radio
     - [ ] keybind to add to a playlist
   - [ ] a single playlist
     - [x] show the playlist's name and contents
     - [x] keybind to add to queue
-    - [ ] keybind to start a radio
+    - [x] keybind to start a radio
     - [ ] keybind to add to a playlist
     - [ ] show song suggestions based on the playlist (radio)
   - [ ] a single collection

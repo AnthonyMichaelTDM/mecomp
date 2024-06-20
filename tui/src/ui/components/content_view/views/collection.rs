@@ -72,8 +72,24 @@ impl Component for CollectionView {
     fn handle_key_event(&mut self, key: KeyEvent) {
         match key.code {
             // arrow keys
+            KeyCode::PageUp => {
+                self.tree_state.lock().unwrap().select_relative(|current| {
+                    current.map_or(
+                        self.props
+                            .as_ref()
+                            .map_or(0, |p| p.songs.len().saturating_sub(1)),
+                        |c| c.saturating_sub(10),
+                    )
+                });
+            }
             KeyCode::Up => {
                 self.tree_state.lock().unwrap().key_up();
+            }
+            KeyCode::PageDown => {
+                self.tree_state
+                    .lock()
+                    .unwrap()
+                    .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
             }
             KeyCode::Down => {
                 self.tree_state.lock().unwrap().key_down();
@@ -185,14 +201,17 @@ impl ComponentRender<RenderProps> for CollectionView {
                 top,
             );
 
-            // render the collection collections / album
+            // render the collections songs
             frame.render_stateful_widget(
                 Tree::new(&items)
                     .unwrap()
                     .highlight_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
                     .node_closed_symbol("▸")
                     .node_open_symbol("▾")
-                    .node_no_children_symbol("▪"),
+                    .node_no_children_symbol("▪")
+                    .experimental_scrollbar(Some(Scrollbar::new(
+                        ScrollbarOrientation::VerticalRight,
+                    ))),
                 bottom,
                 &mut self.tree_state.lock().unwrap(),
             );
@@ -339,22 +358,6 @@ impl Component for LibraryCollectionsView {
                             .unwrap();
                     }
                 }
-            }
-            // Add collection to queue
-            KeyCode::Char('q') => {
-                let collections: Vec<Thing> = self
-                    .tree_state
-                    .lock()
-                    .unwrap()
-                    .selected()
-                    .iter()
-                    .filter_map(|id| id.parse::<Thing>().ok())
-                    .collect();
-                self.action_tx
-                    .send(Action::Audio(AudioAction::Queue(QueueAction::Add(
-                        collections,
-                    ))))
-                    .unwrap();
             }
             // Change sort mode
             KeyCode::Char('s') => {

@@ -18,7 +18,7 @@ use tui_tree_widget::{Tree, TreeState};
 use crate::{
     state::action::{Action, AudioAction, QueueAction},
     ui::{
-        components::{Component, ComponentRender, RenderProps},
+        components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         AppState,
     },
 };
@@ -26,7 +26,7 @@ use crate::{
 use super::{
     none::NoneView,
     utils::{create_playlist_tree_leaf, create_song_tree_leaf},
-    PlaylistViewProps,
+    PlaylistViewProps, RADIO_SIZE,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -72,8 +72,24 @@ impl Component for PlaylistView {
     fn handle_key_event(&mut self, key: KeyEvent) {
         match key.code {
             // arrow keys
+            KeyCode::PageUp => {
+                self.tree_state.lock().unwrap().select_relative(|current| {
+                    current.map_or(
+                        self.props
+                            .as_ref()
+                            .map_or(0, |p| p.songs.len().saturating_sub(1)),
+                        |c| c.saturating_sub(10),
+                    )
+                });
+            }
             KeyCode::Up => {
                 self.tree_state.lock().unwrap().key_up();
+            }
+            KeyCode::PageDown => {
+                self.tree_state
+                    .lock()
+                    .unwrap()
+                    .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
             }
             KeyCode::Down => {
                 self.tree_state.lock().unwrap().key_down();
@@ -111,6 +127,17 @@ impl Component for PlaylistView {
                         .send(Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
                             props.id.clone(),
                         ]))))
+                        .unwrap();
+                }
+            }
+            // Start radio from playlist
+            KeyCode::Char('r') => {
+                if let Some(props) = &self.props {
+                    self.action_tx
+                        .send(Action::SetCurrentView(ActiveView::Radio(
+                            vec![props.id.clone()],
+                            RADIO_SIZE,
+                        )))
                         .unwrap();
                 }
             }
@@ -178,21 +205,24 @@ impl ComponentRender<RenderProps> for PlaylistView {
                 .block(
                     Block::new()
                         .borders(Borders::BOTTOM)
-                        .title_bottom("q: add to queue")
+                        .title_bottom("q: add to queue | r: start radio")
                         .border_style(border_style),
                 )
                 .alignment(Alignment::Center),
                 top,
             );
 
-            // render the playlist playlists / album
+            // render the playlist songs
             frame.render_stateful_widget(
                 Tree::new(&items)
                     .unwrap()
                     .highlight_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
                     .node_closed_symbol("▸")
                     .node_open_symbol("▾")
-                    .node_no_children_symbol("▪"),
+                    .node_no_children_symbol("▪")
+                    .experimental_scrollbar(Some(Scrollbar::new(
+                        ScrollbarOrientation::VerticalRight,
+                    ))),
                 bottom,
                 &mut self.tree_state.lock().unwrap(),
             );
@@ -339,22 +369,6 @@ impl Component for LibraryPlaylistsView {
                             .unwrap();
                     }
                 }
-            }
-            // Add playlist to queue
-            KeyCode::Char('q') => {
-                let playlists: Vec<Thing> = self
-                    .tree_state
-                    .lock()
-                    .unwrap()
-                    .selected()
-                    .iter()
-                    .filter_map(|id| id.parse::<Thing>().ok())
-                    .collect();
-                self.action_tx
-                    .send(Action::Audio(AudioAction::Queue(QueueAction::Add(
-                        playlists,
-                    ))))
-                    .unwrap();
             }
             // Change sort mode
             KeyCode::Char('s') => {

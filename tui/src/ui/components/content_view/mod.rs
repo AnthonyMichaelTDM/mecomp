@@ -9,6 +9,7 @@ use views::{
     collection::{CollectionView, LibraryCollectionsView},
     none::NoneView,
     playlist::{LibraryPlaylistsView, PlaylistView},
+    radio::RadioView,
     search::SearchView,
     song::{LibrarySongsView, SongView},
 };
@@ -32,6 +33,7 @@ pub struct ContentView {
     pub(crate) playlist_view: PlaylistView,
     pub(crate) collections_view: LibraryCollectionsView,
     pub(crate) collection_view: CollectionView,
+    pub(crate) radio_view: RadioView,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,7 +76,9 @@ pub enum ActiveView {
     Collections,
     /// A view of a specific collection.
     Collection(Id),
-    // TODO: views for genres, settings, radios, etc.
+    /// A view of a radio
+    Radio(Vec<Thing>, u32),
+    // TODO: views for genres, settings, etc.
 }
 
 impl From<Thing> for ActiveView {
@@ -105,6 +109,7 @@ impl ContentView {
             ActiveView::Playlist(_) => &self.playlist_view,
             ActiveView::Collections => &self.collections_view,
             ActiveView::Collection(_) => &self.collection_view,
+            ActiveView::Radio(_, _) => &self.radio_view,
         }
     }
 
@@ -122,6 +127,7 @@ impl ContentView {
             ActiveView::Playlist(_) => &mut self.playlist_view,
             ActiveView::Collections => &mut self.collections_view,
             ActiveView::Collection(_) => &mut self.collection_view,
+            ActiveView::Radio(_, _) => &mut self.radio_view,
         }
     }
 }
@@ -147,7 +153,8 @@ impl Component for ContentView {
             playlists_view: LibraryPlaylistsView::new(state, action_tx.clone()),
             playlist_view: PlaylistView::new(state, action_tx.clone()),
             collections_view: LibraryCollectionsView::new(state, action_tx.clone()),
-            collection_view: CollectionView::new(state, action_tx),
+            collection_view: CollectionView::new(state, action_tx.clone()),
+            radio_view: RadioView::new(state, action_tx),
         }
         .move_with_state(state)
     }
@@ -170,6 +177,7 @@ impl Component for ContentView {
             playlist_view: self.playlist_view.move_with_state(state),
             collections_view: self.collections_view.move_with_state(state),
             collection_view: self.collection_view.move_with_state(state),
+            radio_view: self.radio_view.move_with_state(state),
         }
     }
 
@@ -197,6 +205,7 @@ impl ComponentRender<RenderProps> for ContentView {
             ActiveView::Playlist(_) => self.playlist_view.render(frame, props),
             ActiveView::Collections => self.collections_view.render(frame, props),
             ActiveView::Collection(_) => self.collection_view.render(frame, props),
+            ActiveView::Radio(_, _) => self.radio_view.render(frame, props),
         }
     }
 }

@@ -16,7 +16,7 @@ use tui_tree_widget::{Tree, TreeState};
 use crate::{
     state::action::{Action, AudioAction, QueueAction},
     ui::{
-        components::{Component, ComponentRender, RenderProps},
+        components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         AppState,
     },
 };
@@ -24,7 +24,7 @@ use crate::{
 use super::{
     none::NoneView,
     utils::{create_album_tree_item, create_artist_tree_leaf, create_song_tree_item},
-    ArtistViewProps,
+    ArtistViewProps, RADIO_SIZE,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -112,6 +112,17 @@ impl Component for ArtistView {
                         .unwrap();
                 }
             }
+            // Start radio from artist
+            KeyCode::Char('r') => {
+                if let Some(props) = &self.props {
+                    self.action_tx
+                        .send(Action::SetCurrentView(ActiveView::Radio(
+                            vec![props.id.clone()],
+                            RADIO_SIZE,
+                        )))
+                        .unwrap();
+                }
+            }
             _ => {}
         }
     }
@@ -179,7 +190,7 @@ impl ComponentRender<RenderProps> for ArtistView {
                 .block(
                     Block::new()
                         .borders(Borders::BOTTOM)
-                        .title_bottom("q: add to queue")
+                        .title_bottom("q: add to queue | r: start radio")
                         .border_style(border_style),
                 )
                 .alignment(Alignment::Center),
@@ -337,20 +348,6 @@ impl Component for LibraryArtistsView {
                             .unwrap();
                     }
                 }
-            }
-            // Add artist to queue
-            KeyCode::Char('q') => {
-                let artists: Vec<Thing> = self
-                    .tree_state
-                    .lock()
-                    .unwrap()
-                    .selected()
-                    .iter()
-                    .filter_map(|id| id.parse::<Thing>().ok())
-                    .collect();
-                self.action_tx
-                    .send(Action::Audio(AudioAction::Queue(QueueAction::Add(artists))))
-                    .unwrap();
             }
             // Change sort mode
             KeyCode::Char('s') => {

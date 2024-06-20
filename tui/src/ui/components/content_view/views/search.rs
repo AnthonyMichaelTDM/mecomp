@@ -86,16 +86,29 @@ impl Component for SearchView {
     fn handle_key_event(&mut self, key: crossterm::event::KeyEvent) {
         match key.code {
             // arrow keys
+            KeyCode::PageUp => {
+                self.tree_state.lock().unwrap().select_relative(|current| {
+                    current.map_or(self.props.search_results.len().saturating_sub(1), |c| {
+                        c.saturating_sub(10)
+                    })
+                });
+            }
             KeyCode::Up => {
                 self.tree_state.lock().unwrap().key_up();
+            }
+            KeyCode::PageDown => {
+                self.tree_state
+                    .lock()
+                    .unwrap()
+                    .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
             }
             KeyCode::Down => {
                 self.tree_state.lock().unwrap().key_down();
             }
-            KeyCode::Left if !self.search_bar_focused => {
+            KeyCode::Left => {
                 self.tree_state.lock().unwrap().key_left();
             }
-            KeyCode::Right if !self.search_bar_focused => {
+            KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
             }
             // focus / unfocus the search bar

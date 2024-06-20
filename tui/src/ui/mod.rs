@@ -19,8 +19,8 @@ use app::{ActiveComponent, App};
 use components::{
     content_view::{
         views::{
-            AlbumViewProps, ArtistViewProps, CollectionViewProps, PlaylistViewProps, SongViewProps,
-            ViewData,
+            AlbumViewProps, ArtistViewProps, CollectionViewProps, PlaylistViewProps,
+            RadioViewProps, SongViewProps, ViewData,
         },
         ActiveView,
     },
@@ -328,6 +328,25 @@ async fn handle_additional_view_data(
 
             Some(ViewData {
                 collection: collection_view_props,
+                ..state.additional_view_data.clone()
+            })
+        }
+        ActiveView::Radio(ids, count) => {
+            let radio_view_props = if let Ok(Ok(songs)) = daemon
+                .radio_get_similar(Context::current(), ids.clone(), *count)
+                .await
+            {
+                Some(RadioViewProps {
+                    count: *count,
+                    things: ids.clone(),
+                    songs,
+                })
+            } else {
+                None
+            };
+
+            Some(ViewData {
+                radio: radio_view_props,
                 ..state.additional_view_data.clone()
             })
         }
