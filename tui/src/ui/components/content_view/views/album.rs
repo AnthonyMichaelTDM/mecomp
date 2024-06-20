@@ -174,7 +174,10 @@ impl ComponentRender<RenderProps> for AlbumView {
                             Style::default().italic(),
                         ),
                         Span::raw("  Songs: "),
-                        Span::styled(state.songs.len().to_string(), Style::default().italic()),
+                        Span::styled(
+                            state.album.song_count.to_string(),
+                            Style::default().italic(),
+                        ),
                         Span::raw("  Duration: "),
                         Span::styled(
                             format!(

@@ -5,6 +5,7 @@ pub mod views;
 use mecomp_storage::db::schemas::{album, artist, collection, playlist, song, Id, Thing};
 use views::{
     album::{AlbumView, LibraryAlbumsView},
+    artist::{ArtistView, LibraryArtistsView},
     none::NoneView,
     search::SearchView,
     song::{LibrarySongsView, SongView},
@@ -23,8 +24,8 @@ pub struct ContentView {
     pub(crate) song_view: SongView,
     pub(crate) albums_view: LibraryAlbumsView,
     pub(crate) album_view: AlbumView,
-    // pub(crate) artists_view: LibraryArtistsView,
-    // pub(crate) artist_view: ArtistView,
+    pub(crate) artists_view: LibraryArtistsView,
+    pub(crate) artist_view: ArtistView,
     // pub(crate) playlists_view: LibraryPlaylistsView,
     // pub(crate) playlist_view: PlaylistView,
     // pub(crate) collections_view: LibraryCollectionsView,
@@ -96,8 +97,8 @@ impl ContentView {
             ActiveView::Song(_id) => &self.song_view,
             ActiveView::Albums => &self.albums_view,
             ActiveView::Album(_id) => &self.album_view,
-            ActiveView::Artists => todo!(),
-            ActiveView::Artist(_id) => todo!(),
+            ActiveView::Artists => &self.artists_view,
+            ActiveView::Artist(_id) => &self.artist_view,
             ActiveView::Playlists => todo!(),
             ActiveView::Playlist(_id) => todo!(),
             ActiveView::Collections => todo!(),
@@ -113,8 +114,8 @@ impl ContentView {
             ActiveView::Song(_id) => &mut self.song_view,
             ActiveView::Albums => &mut self.albums_view,
             ActiveView::Album(_id) => &mut self.album_view,
-            ActiveView::Artists => todo!(),
-            ActiveView::Artist(_id) => todo!(),
+            ActiveView::Artists => &mut self.artists_view,
+            ActiveView::Artist(_id) => &mut self.artist_view,
             ActiveView::Playlists => todo!(),
             ActiveView::Playlist(_id) => todo!(),
             ActiveView::Collections => todo!(),
@@ -138,7 +139,9 @@ impl Component for ContentView {
             songs_view: LibrarySongsView::new(state, action_tx.clone()),
             song_view: SongView::new(state, action_tx.clone()),
             albums_view: LibraryAlbumsView::new(state, action_tx.clone()),
-            album_view: AlbumView::new(state, action_tx),
+            album_view: AlbumView::new(state, action_tx.clone()),
+            artists_view: LibraryArtistsView::new(state, action_tx.clone()),
+            artist_view: ArtistView::new(state, action_tx),
         }
         .move_with_state(state)
     }
@@ -155,6 +158,8 @@ impl Component for ContentView {
             song_view: self.song_view.move_with_state(state),
             albums_view: self.albums_view.move_with_state(state),
             album_view: self.album_view.move_with_state(state),
+            artists_view: self.artists_view.move_with_state(state),
+            artist_view: self.artist_view.move_with_state(state),
         }
     }
 
@@ -176,8 +181,8 @@ impl ComponentRender<RenderProps> for ContentView {
             ActiveView::Song(_) => self.song_view.render(frame, props),
             ActiveView::Albums => self.albums_view.render(frame, props),
             ActiveView::Album(_) => self.album_view.render(frame, props),
-            ActiveView::Artists => todo!(),
-            ActiveView::Artist(_) => todo!(),
+            ActiveView::Artists => self.artists_view.render(frame, props),
+            ActiveView::Artist(_) => self.artist_view.render(frame, props),
             ActiveView::Playlists => todo!(),
             ActiveView::Playlist(_) => todo!(),
             ActiveView::Collections => todo!(),

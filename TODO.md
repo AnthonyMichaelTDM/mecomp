@@ -70,7 +70,7 @@
 
 - [x] Implement basic TUI
 - [ ] Checklist widget: a tree/list that allows for multiple items to be selected
-  - [ ] allow for multiple items to be selected
+  - [ ] allow for multiple items to be selected (e.g. for adding to the queue, a playlist, starting a radio, etc.)
   - [ ] function to get the selected items
 - [ ] Implement view pages for the following:
   - [ ] search results
@@ -81,20 +81,20 @@
     - [ ] show the results of a radio search
     - [ ] be able to select multiple results and add them to the queue, a playlist, start a radio, etc,
   - [ ] albums
-    - [ ] display all albums
-    - [ ] be able to "enter" an to go to the album view page
-    - [ ] ability to sort by name, artist, year, etc.
-    - [ ] be able to select multiple albums and add them to the queue, a playlist, start a radio, etc,
+    - [x] display all albums
+    - [x] be able to "enter" an to go to the album view page
+    - [x] ability to sort by name, artist, year, etc.
+    - [ ] be able to select multiple items and add them to the queue, a playlist, start a radio, etc,
   - [ ] artists
-    - [ ] display all artists
-    - [ ] be able to "enter" an artist to go to the artist view page
-    - [ ] ability to sort by name, etc.
-    - [ ] be able to select multiple artists and add them to the queue, a playlist, start a radio, etc,
+    - [x] display all artists
+    - [x] be able to "enter" an artist to go to the artist view page
+    - [x] ability to sort by name, etc.
+    - [ ] be able to select multiple items and add them to the queue, a playlist, start a radio, etc,
   - [x] songs
     - [x] display all songs
     - [x] be able to "enter" a song to go to the song view page
     - [x] ability to sort by name, artist, album, year, etc.
-    - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
+    - [ ] be able to select multiple items and add them to the queue, a playlist, start a radio, etc,
   - [ ] playlists
     - [ ] display all playlists
     - [ ] ability to sort by name, etc.
@@ -102,16 +102,15 @@
   - [ ] collections
     - [ ] display all collections
     - [ ] be able to "enter" a collection to go to the collection view page
-  - [ ] a single album
-    - [ ] show info about the album, including all the songs contained
+  - [x] a single album
+    - [x] show info about the album, including all the songs contained
     - [ ] be able to add the album to the queue, a playlist, etc,
     - [ ] be able to start a radio from the album
-    - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
+    - [ ] be able to select multiple items and add them to the queue, a playlist, start a radio, etc,
   - [ ] a single artist
-    - [ ] show info about the artist, including all the albums and songs by the artist
+    - [x] show info about the artist, including all the albums and songs by the artist
     - [ ] be able to add all the artist's songs to the queue, a playlist, etc,
-    - [ ] be able to select multiple albums and add them to the queue, a playlist, start a radio, etc,
-    - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
+    - [ ] be able to select multiple items and add them to the queue, a playlist, start a radio, etc,
   - [ ] a single song
     - [x] show information about the song
     - [ ] be able to add the song to the queue, a playlist, etc,
