@@ -8,7 +8,7 @@ use mecomp_storage::db::schemas::Thing;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    widgets::Block,
+    widgets::{Block, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
 use tui_tree_widget::{Tree, TreeState};
@@ -196,7 +196,8 @@ impl ComponentRender<RenderProps> for SearchView {
                 .highlight_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
                 .node_closed_symbol("▸")
                 .node_open_symbol("▾")
-                .node_no_children_symbol("▪"),
+                .node_no_children_symbol("▪")
+                .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             results_area,
             &mut self.tree_state.lock().unwrap(),
         );

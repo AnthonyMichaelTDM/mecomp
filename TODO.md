@@ -90,10 +90,10 @@
     - [ ] be able to "enter" an artist to go to the artist view page
     - [ ] ability to sort by name, etc.
     - [ ] be able to select multiple artists and add them to the queue, a playlist, start a radio, etc,
-  - [ ] songs
-    - [ ] display all songs
-    - [ ] be able to "enter" a song to go to the song view page
-    - [ ] ability to sort by name, artist, album, year, etc.
+  - [x] songs
+    - [x] display all songs
+    - [x] be able to "enter" a song to go to the song view page
+    - [x] ability to sort by name, artist, album, year, etc.
     - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
   - [ ] playlists
     - [ ] display all playlists
