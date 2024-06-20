@@ -288,14 +288,31 @@ pub trait MusicPlayer {
     async fn collection_get_songs(id: CollectionId) -> Option<Box<[Song]>>;
 
     // Radio commands.
+    /// Radio: get the `n` most similar songs to the given things.
+    async fn radio_get_similar(
+        things: Vec<Thing>,
+        n: u32,
+    ) -> Result<Box<[Song]>, SerializableLibraryError>;
     /// Radio: get the `n` most similar songs to the given song.
-    async fn radio_get_similar_to_song(song: SongId, n: u32) -> Box<[SongId]>;
+    async fn radio_get_similar_to_song(
+        song: SongId,
+        n: u32,
+    ) -> Result<Box<[SongId]>, SerializableLibraryError>;
     /// Radio: get the `n` most similar songs to the given artist.
-    async fn radio_get_similar_to_artist(artist: ArtistId, n: u32) -> Box<[SongId]>;
+    async fn radio_get_similar_to_artist(
+        artist: ArtistId,
+        n: u32,
+    ) -> Result<Box<[SongId]>, SerializableLibraryError>;
     /// Radio: get the `n` most similar songs to the given album.
-    async fn radio_get_similar_to_album(album: AlbumId, n: u32) -> Box<[SongId]>;
+    async fn radio_get_similar_to_album(
+        album: AlbumId,
+        n: u32,
+    ) -> Result<Box<[SongId]>, SerializableLibraryError>;
     /// Radio: get the `n` most similar songs to the given playlist.
-    async fn radio_get_similar_to_playlist(playlist: PlaylistId, n: u32) -> Box<[SongId]>;
+    async fn radio_get_similar_to_playlist(
+        playlist: PlaylistId,
+        n: u32,
+    ) -> Result<Box<[SongId]>, SerializableLibraryError>;
 }
 
 /// Initialize the client

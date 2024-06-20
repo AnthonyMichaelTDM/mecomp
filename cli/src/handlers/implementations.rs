@@ -775,7 +775,7 @@ impl CommandHandler for super::RadioCommand {
                         },
                         *n,
                     )
-                    .await?;
+                    .await??;
                 println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
@@ -789,7 +789,7 @@ impl CommandHandler for super::RadioCommand {
                         },
                         *n,
                     )
-                    .await?;
+                    .await??;
                 println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
@@ -803,7 +803,7 @@ impl CommandHandler for super::RadioCommand {
                         },
                         *n,
                     )
-                    .await?;
+                    .await??;
                 println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
@@ -817,7 +817,7 @@ impl CommandHandler for super::RadioCommand {
                         },
                         *n,
                     )
-                    .await?;
+                    .await??;
                 println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
