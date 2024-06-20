@@ -165,18 +165,7 @@ impl ComponentRender<RenderProps> for SongView {
                         ),
                     ]),
                     Line::from(vec![
-                        Span::raw("Genres: "),
-                        Span::styled(
-                            state
-                                .song
-                                .genre
-                                .iter()
-                                .map(ToString::to_string)
-                                .collect::<Vec<String>>()
-                                .join(", "),
-                            Style::default().italic(),
-                        ),
-                        Span::raw("  Track/Disc: "),
+                        Span::raw("Track/Disc: "),
                         Span::styled(
                             format!(
                                 "{}/{}",
@@ -192,6 +181,17 @@ impl ComponentRender<RenderProps> for SongView {
                                 state.song.runtime.as_secs() / 60,
                                 state.song.runtime.as_secs_f32() % 60.0,
                             ),
+                            Style::default().italic(),
+                        ),
+                        Span::raw("  Genre(s): "),
+                        Span::styled(
+                            state
+                                .song
+                                .genre
+                                .iter()
+                                .map(ToString::to_string)
+                                .collect::<Vec<String>>()
+                                .join(", "),
                             Style::default().italic(),
                         ),
                     ]),
