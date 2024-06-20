@@ -1,3 +1,6 @@
+use mecomp_storage::db::schemas::{album::Album, artist::Artist, song::Song, Thing};
+use one_or_many::OneOrMany;
+
 pub mod album;
 pub mod artist;
 pub mod collection;
@@ -5,6 +8,21 @@ pub mod none;
 pub mod playlist;
 pub mod search;
 pub mod song;
+
+/// Data neaded by the views (that isn't directly handled by a state store)
+#[allow(clippy::module_name_repetitions)]
+#[derive(Debug, Clone, Default)]
+pub struct ViewData {
+    pub song_view_props: Option<SongViewProps>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SongViewProps {
+    pub id: Thing,
+    pub song: Song,
+    pub artists: OneOrMany<Artist>,
+    pub album: Album,
+}
 
 pub mod utils {
     use mecomp_storage::db::schemas::{album::Album, artist::Artist, song::Song};

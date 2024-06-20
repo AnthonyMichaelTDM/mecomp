@@ -31,8 +31,13 @@ async fn main() -> anyhow::Result<()> {
     let (ui_manager, action_rx) = ui::UiManager::new();
 
     if let Err(e) = tokio::try_join!(
-        dispatcher.main_loop(daemon, terminator, action_rx, interrupt_rx.resubscribe()),
-        ui_manager.main_loop(state_receivers, interrupt_rx.resubscribe())
+        dispatcher.main_loop(
+            daemon.clone(),
+            terminator,
+            action_rx,
+            interrupt_rx.resubscribe()
+        ),
+        ui_manager.main_loop(daemon, state_receivers, interrupt_rx.resubscribe())
     ) {
         panic!("unexpected error: {e:?}")
     }

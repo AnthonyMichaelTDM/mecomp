@@ -10,22 +10,32 @@ pub mod widgets;
 
 use std::{
     io::{self, Stdout},
+    sync::Arc,
     time::Duration,
 };
 
-use anyhow::Context;
+use anyhow::Context as _;
 use app::{ActiveComponent, App};
-use components::{content_view::ActiveView, Component, ComponentRender};
+use components::{
+    content_view::{
+        views::{SongViewProps, ViewData},
+        ActiveView,
+    },
+    Component, ComponentRender,
+};
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture, Event, EventStream},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use mecomp_core::{
-    rpc::SearchResult,
+    rpc::{MusicPlayerClient, SearchResult},
     state::{library::LibraryFull, StateAudio},
 };
+use mecomp_storage::db::schemas::{song, Thing};
+use one_or_many::OneOrMany;
 use ratatui::prelude::*;
+use tarpc::context::Context;
 use tokio::sync::{
     broadcast,
     mpsc::{self, UnboundedReceiver},
@@ -43,7 +53,8 @@ pub struct AppState {
     pub audio: StateAudio,
     pub search: SearchResult,
     pub library: LibraryFull,
-    pub view: ActiveView,
+    pub active_view: ActiveView,
+    pub additional_view_data: ViewData,
 }
 
 const RENDERING_TICK_RATE: Duration = Duration::from_millis(250);
@@ -62,6 +73,7 @@ impl UiManager {
 
     pub async fn main_loop(
         self,
+        daemon: Arc<MusicPlayerClient>,
         mut state_rx: Receivers,
         mut interrupt_rx: broadcast::Receiver<Interrupted>,
     ) -> anyhow::Result<Interrupted> {
@@ -71,7 +83,8 @@ impl UiManager {
             audio: state_rx.audio.recv().await.unwrap_or_default(),
             search: state_rx.search.recv().await.unwrap_or_default(),
             library: state_rx.library.recv().await.unwrap_or_default(),
-            view: state_rx.view.recv().await.unwrap_or_default(),
+            active_view: state_rx.view.recv().await.unwrap_or_default(),
+            additional_view_data: ViewData::default(),
         };
         let mut app = App::new(&state, self.action_tx.clone());
 
@@ -113,9 +126,13 @@ impl UiManager {
                     };
                     app = app.move_with_library(&state);
                 },
-                Some(view) = state_rx.view.recv() => {
+                Some(active_view) = state_rx.view.recv() => {
+                    // update view_data
+                    let additional_view_data = handle_additional_view_data(daemon.clone(), &state, &active_view).await.unwrap_or(state.additional_view_data);
+
                     state = AppState {
-                        view,
+                        active_view,
+                        additional_view_data,
                         ..state
                     };
                     app = app.move_with_view(&state);
@@ -171,4 +188,55 @@ pub fn init_panic_hook() {
 
         original_hook(panic_info);
     }));
+}
+
+/// Returns `None` if new data is not needed
+async fn handle_additional_view_data(
+    daemon: Arc<MusicPlayerClient>,
+    _state: &AppState,
+    active_view: &ActiveView,
+) -> Option<ViewData> {
+    match active_view {
+        ActiveView::Song(id) => {
+            let song_id = Thing {
+                tb: song::TABLE_NAME.to_string(),
+                id: id.to_owned(),
+            };
+
+            let song_view_props = if let Ok((
+                Some(song),
+                artists @ (OneOrMany::Many(_) | OneOrMany::One(_)),
+                Some(album),
+            )) = tokio::try_join!(
+                daemon.library_song_get(Context::current(), song_id.clone()),
+                daemon.library_song_get_artist(Context::current(), song_id.clone()),
+                daemon.library_song_get_album(Context::current(), song_id.clone()),
+            ) {
+                Some(SongViewProps {
+                    id: song_id,
+                    song,
+                    artists,
+                    album,
+                })
+            } else {
+                None
+            };
+
+            Some(ViewData {
+                song_view_props,
+                // ..state.additional_view_data
+            })
+        }
+        ActiveView::Album(_) => todo!(),
+        ActiveView::Artist(_) => todo!(),
+        ActiveView::Playlist(_) => todo!(),
+        ActiveView::Collection(_) => todo!(),
+        ActiveView::None
+        | ActiveView::Search
+        | ActiveView::Songs
+        | ActiveView::Albums
+        | ActiveView::Artists
+        | ActiveView::Playlists
+        | ActiveView::Collections => None,
+    }
 }

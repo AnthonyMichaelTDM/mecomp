@@ -179,7 +179,7 @@ impl Component for App {
         // if it's a exit, or navigation command, handle it here.
         // otherwise, defer to the active component
         match key.code {
-            KeyCode::Char('q') | KeyCode::Esc => {
+            KeyCode::Esc => {
                 // exit the application
                 self.action_tx
                     .send(Action::General(GeneralAction::Exit))
@@ -200,7 +200,7 @@ impl ComponentRender<()> for App {
     fn render(&self, frame: &mut Frame, _props: ()) {
         let block = Block::bordered()
             .title_top("MECOMP")
-            .title_bottom("Tab/Shift+Tab to switch focus | q to quit");
+            .title_bottom("Tab/Shift+Tab to switch focus | Esc to quit");
         let area = block.inner(frame.size());
         frame.render_widget(block, frame.size());
 

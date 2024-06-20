@@ -75,7 +75,7 @@
 - [ ] Implement view pages for the following:
   - [ ] search results
     - [x] show the results of a search
-    - [ ] pressing enter on a result will take you to the appropriate view page for that result
+    - [x] pressing enter on a result will take you to the appropriate view page for that result
     - [ ] be able to select multiple results and add them to the queue, a playlist, start a radio, etc,
   - [ ] radio results
     - [ ] show the results of a radio search
@@ -104,25 +104,18 @@
     - [ ] be able to "enter" a collection to go to the collection view page
   - [ ] a single album
     - [ ] show info about the album, including all the songs contained
-    - [ ] be able to go to the artist view page for the artist of the album
-    - [ ] be able to go to the song view page for any of the album's songs
     - [ ] be able to add the album to the queue, a playlist, etc,
     - [ ] be able to start a radio from the album
     - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
   - [ ] a single artist
     - [ ] show info about the artist, including all the albums and songs by the artist
-    - [ ] be able to go to the album view page for any of the artist's albums
-    - [ ] be able to go to the song view page for any of the artist's songs
     - [ ] be able to add all the artist's songs to the queue, a playlist, etc,
     - [ ] be able to select multiple albums and add them to the queue, a playlist, start a radio, etc,
     - [ ] be able to select multiple songs and add them to the queue, a playlist, start a radio, etc,
   - [ ] a single song
-    - [ ] show information about the song
-    - [ ] have a "play" button
+    - [x] show information about the song
     - [ ] be able to add the song to the queue, a playlist, etc,
     - [ ] be able to start a radio from the song
-    - [ ] be able to go to the album view page for the song's album
-    - [ ] be able to go to the artist view page for the song's artist
   - [ ] a single playlist
     - [ ] show the playlist's name and contents
     - [ ] be able to add the playlist to the queue

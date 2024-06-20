@@ -24,6 +24,7 @@ tokio = { workspace = true, features = ["signal"] }
 tokio-stream = "0.1.15"
 
 # MECOMP dependencies
+one-or-many.workspace = true
 mecomp-core = { workspace = true, features = ["rpc"] }
 mecomp-storage = { workspace = true, features = ["serde"] }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }

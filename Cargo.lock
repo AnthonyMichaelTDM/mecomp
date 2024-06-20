@@ -2627,6 +2627,7 @@ dependencies = [
  "mecomp-core",
  "mecomp-storage",
  "mecomp-workspace-hack",
+ "one-or-many",
  "ratatui",
  "strum",
  "tarpc",
