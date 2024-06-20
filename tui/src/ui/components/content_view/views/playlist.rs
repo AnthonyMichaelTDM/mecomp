@@ -1,7 +1,5 @@
 //! Views for both a single playlist, and the library of playlists.
 
-// TODO: button to create or remove a playlist
-
 use std::{fmt::Display, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent};
@@ -16,10 +14,13 @@ use tokio::sync::mpsc::UnboundedSender;
 use tui_tree_widget::{Tree, TreeState};
 
 use crate::{
-    state::action::{Action, AudioAction, QueueAction},
+    state::action::{Action, AudioAction, LibraryAction, QueueAction},
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
+        colors::{
+            BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
+        },
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
+        widgets::input_box::{self, InputBox},
         AppState,
     },
 };
@@ -142,6 +143,28 @@ impl Component for PlaylistView {
                         .unwrap();
                 }
             }
+            // Delete selected song
+            KeyCode::Char('d') => {
+                if let Some(props) = &self.props {
+                    let things: Vec<Thing> = self
+                        .tree_state
+                        .lock()
+                        .unwrap()
+                        .selected()
+                        .iter()
+                        .filter_map(|id| id.parse::<Thing>().ok())
+                        .collect();
+                    if !things.is_empty() {
+                        debug_assert!(things.len() == 1);
+                        self.action_tx
+                            .send(Action::Library(LibraryAction::RemoveSongsFromPlaylist(
+                                props.id.clone(),
+                                things,
+                            )))
+                            .unwrap();
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -159,7 +182,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
         if let Some(state) = &self.props {
             let block = Block::bordered()
                 .title_top("Playlist View")
-                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate")
+                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | d: delete selected song")
                 .border_style(border_style);
             let block_area = block.inner(props.area);
             frame.render_widget(block, props.area);
@@ -244,6 +267,10 @@ pub struct LibraryPlaylistsView {
     props: Props,
     /// tree state
     tree_state: Mutex<TreeState<String>>,
+    /// Playlist Name Input Box
+    input_box: InputBox,
+    /// Is the input box visible
+    input_box_visible: bool,
 }
 
 struct Props {
@@ -301,6 +328,8 @@ impl Component for LibraryPlaylistsView {
         let mut playlists = state.library.playlists.clone();
         sort_mode.sort_playlists(&mut playlists);
         Self {
+            input_box: InputBox::new(state, action_tx.clone()),
+            input_box_visible: false,
             action_tx,
             props: Props {
                 playlists,
@@ -330,34 +359,93 @@ impl Component for LibraryPlaylistsView {
     }
 
     fn handle_key_event(&mut self, key: KeyEvent) {
-        match key.code {
-            // arrow keys
-            KeyCode::PageUp => {
-                self.tree_state.lock().unwrap().select_relative(|current| {
-                    current.map_or(self.props.playlists.len() - 1, |c| c.saturating_sub(10))
-                });
+        // this page has 2 distinct "modes",
+        // one for navigating the tree when the input box is not visible
+        // one for interacting with the input box when it is visible
+        if self.input_box_visible {
+            match key.code {
+                // if the user presses Enter, we try to create a new playlist with the given name
+                KeyCode::Enter => {
+                    let name = self.input_box.text();
+                    if !name.is_empty() {
+                        self.action_tx
+                            .send(Action::Library(LibraryAction::CreatePlaylist(
+                                name.to_string(),
+                            )))
+                            .unwrap();
+                    }
+                    self.input_box_visible = false;
+                }
+                // defer to the input box
+                _ => {
+                    self.input_box.handle_key_event(key);
+                }
             }
-            KeyCode::Up => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            KeyCode::PageDown => {
-                self.tree_state
-                    .lock()
-                    .unwrap()
-                    .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
-            }
-            KeyCode::Down => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            KeyCode::Left => {
-                self.tree_state.lock().unwrap().key_left();
-            }
-            KeyCode::Right => {
-                self.tree_state.lock().unwrap().key_right();
-            }
-            // Enter key opens selected view
-            KeyCode::Enter => {
-                if self.tree_state.lock().unwrap().toggle_selected() {
+        } else {
+            match key.code {
+                // arrow keys
+                KeyCode::PageUp => {
+                    self.tree_state.lock().unwrap().select_relative(|current| {
+                        current.map_or(self.props.playlists.len() - 1, |c| c.saturating_sub(10))
+                    });
+                }
+                KeyCode::Up => {
+                    self.tree_state.lock().unwrap().key_up();
+                }
+                KeyCode::PageDown => {
+                    self.tree_state
+                        .lock()
+                        .unwrap()
+                        .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
+                }
+                KeyCode::Down => {
+                    self.tree_state.lock().unwrap().key_down();
+                }
+                KeyCode::Left => {
+                    self.tree_state.lock().unwrap().key_left();
+                }
+                KeyCode::Right => {
+                    self.tree_state.lock().unwrap().key_right();
+                }
+                // Enter key opens selected view
+                KeyCode::Enter => {
+                    if self.tree_state.lock().unwrap().toggle_selected() {
+                        let things: Vec<Thing> = self
+                            .tree_state
+                            .lock()
+                            .unwrap()
+                            .selected()
+                            .iter()
+                            .filter_map(|id| id.parse::<Thing>().ok())
+                            .collect();
+                        if !things.is_empty() {
+                            debug_assert!(things.len() == 1);
+                            let thing = things[0].clone();
+                            self.action_tx
+                                .send(Action::SetCurrentView(thing.into()))
+                                .unwrap();
+                        }
+                    }
+                }
+                // Change sort mode
+                KeyCode::Char('s') => {
+                    self.props.sort_mode = self.props.sort_mode.next();
+                    self.props
+                        .sort_mode
+                        .sort_playlists(&mut self.props.playlists);
+                }
+                KeyCode::Char('S') => {
+                    self.props.sort_mode = self.props.sort_mode.prev();
+                    self.props
+                        .sort_mode
+                        .sort_playlists(&mut self.props.playlists);
+                }
+                // "n" key to create a new playlist
+                KeyCode::Char('n') => {
+                    self.input_box_visible = true;
+                }
+                // "d" key to delete the selected playlist
+                KeyCode::Char('d') => {
                     let things: Vec<Thing> = self
                         .tree_state
                         .lock()
@@ -370,25 +458,12 @@ impl Component for LibraryPlaylistsView {
                         debug_assert!(things.len() == 1);
                         let thing = things[0].clone();
                         self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
+                            .send(Action::Library(LibraryAction::RemovePlaylist(thing)))
                             .unwrap();
                     }
                 }
+                _ => {}
             }
-            // Change sort mode
-            KeyCode::Char('s') => {
-                self.props.sort_mode = self.props.sort_mode.next();
-                self.props
-                    .sort_mode
-                    .sort_playlists(&mut self.props.playlists);
-            }
-            KeyCode::Char('S') => {
-                self.props.sort_mode = self.props.sort_mode.prev();
-                self.props
-                    .sort_mode
-                    .sort_playlists(&mut self.props.playlists);
-            }
-            _ => {}
         }
     }
 }
@@ -407,14 +482,22 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
                 Span::raw(" sorted by: "),
                 Span::styled(self.props.sort_mode.to_string(), Style::default().italic()),
             ]))
-            .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | s/S: change sort")
+            .title_bottom(if self.input_box_visible {
+                ""
+            } else {
+                "Enter: Open | ←/↑/↓/→: Navigate | s/S: change sort"
+            })
             .border_style(border_style);
         let block_area = block.inner(props.area);
         frame.render_widget(block, props.area);
 
-        let [top, bottom] = *Layout::default()
+        let [top, middle, bottom] = *Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(1), Constraint::Min(4)])
+            .constraints([
+                Constraint::Length(if self.input_box_visible { 3 } else { 0 }),
+                Constraint::Length(1),
+                Constraint::Min(4),
+            ])
             .split(block_area)
         else {
             panic!("Failed to split library playlists view area");
@@ -427,13 +510,43 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
             .map(|playlist| create_playlist_tree_leaf(playlist))
             .collect::<Vec<_>>();
 
+        // render input box
+        if self.input_box_visible {
+            self.input_box.render(
+                frame,
+                input_box::RenderProps {
+                    area: top,
+                    text_color: if self.input_box_visible {
+                        TEXT_HIGHLIGHT_ALT.into()
+                    } else {
+                        TEXT_NORMAL.into()
+                    },
+                    border: Block::bordered().title("Enter Name:").border_style(
+                        Style::default().fg(if self.input_box_visible && props.is_focused {
+                            BORDER_FOCUSED.into()
+                        } else {
+                            BORDER_UNFOCUSED.into()
+                        }),
+                    ),
+                    show_cursor: self.input_box_visible,
+                },
+            );
+        }
+
+        // render instruction bar
         frame.render_widget(
             Block::new()
                 .borders(Borders::BOTTOM)
+                .title_bottom(if self.input_box_visible {
+                    "Enter: Create (cancel if empty)"
+                } else {
+                    "n: new playlist | d: delete playlist"
+                })
                 .border_style(border_style),
-            top,
+            middle,
         );
 
+        // render playlist list
         frame.render_stateful_widget(
             Tree::new(&items)
                 .unwrap()

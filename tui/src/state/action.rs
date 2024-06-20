@@ -80,4 +80,10 @@ pub enum LibraryAction {
     Update,
     /// Analyze the library
     Analyze,
+    /// Create a new playlist with the given name
+    CreatePlaylist(String),
+    /// Delete a playlist by id
+    RemovePlaylist(Thing),
+    /// Remove a song from a playlist (`PlaylistId`, `SongId`)
+    RemoveSongsFromPlaylist(Thing, Vec<Thing>),
 }

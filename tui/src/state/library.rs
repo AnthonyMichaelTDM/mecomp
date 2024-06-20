@@ -59,6 +59,31 @@ impl LibraryState {
                         LibraryAction::Analyze => {
                             analyze_library(daemon.clone()).await?;
                         }
+                        LibraryAction::CreatePlaylist(name) => {
+                            let ctx = tarpc::context::current();
+                            daemon.playlist_new(ctx, name).await??;
+                            state = get_library(daemon.clone()).await?;
+                            self.state_tx.send(state.clone())?;
+                        }
+                        LibraryAction::RemovePlaylist(id) => {
+                            debug_assert_eq!(
+                                id.tb,
+                                mecomp_storage::db::schemas::playlist::TABLE_NAME
+                            );
+                            let ctx = tarpc::context::current();
+                            daemon.playlist_remove(ctx, id).await??;
+                            state = get_library(daemon.clone()).await?;
+                            self.state_tx.send(state.clone())?;
+                        }
+                        LibraryAction::RemoveSongsFromPlaylist(playlist, songs) => {
+                            debug_assert_eq!(
+                                playlist.tb,
+                                mecomp_storage::db::schemas::playlist::TABLE_NAME
+                            );
+                            debug_assert!(songs.iter().all(|s| s.tb == mecomp_storage::db::schemas::song::TABLE_NAME));
+                            let ctx = tarpc::context::current();
+                            daemon.playlist_remove_songs(ctx, playlist, songs).await??;
+                        }
                     }
                 },
                 // Catch and handle interrupt signal to gracefully shutdown

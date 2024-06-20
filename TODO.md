@@ -72,6 +72,7 @@
 - [ ] ThingTree widget: a tree/list that allows for multiple items to be selected
   - [ ] allow for multiple items to be selected and added to the queue, a playlist, or used to start a radio
   - [ ] function to get the selected items
+- [ ] add confirmation dialogues for potentially destructive actions (e.g. deleting a playlist, initiating a rescan, etc.)
 - [ ] Implement view pages for the following:
   - [ ] search results
     - [x] show the results of a search
@@ -97,12 +98,12 @@
     - [x] be able to "enter" a song to go to the song view page
     - [x] ability to sort by name, artist, album, year, etc.
     - [ ] use ThingTree widget instead of Tree
-  - [ ] playlists
+  - [x] playlists
     - [x] display all playlists
     - [x] ability to sort by name, etc.
     - [x] be able to "enter" a playlist to go to the playlist view page
-    - [ ] keybind to create a new playlist
-    - [ ] keybind to remove the selected playlist
+    - [x] keybind to create a new playlist
+    - [x] keybind to remove the selected playlist
   - [x] collections
     - [x] display all collections
     - [x] be able to "enter" a collection to go to the collection view page
@@ -128,6 +129,7 @@
     - [x] keybind to add to queue
     - [x] keybind to start a radio
     - [ ] keybind to add to a playlist
+    - [x] keybind to remove a song from the playlist
     - [ ] show song suggestions based on the playlist (radio)
   - [ ] a single collection
     - [x] show the collection's contents
