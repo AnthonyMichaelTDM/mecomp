@@ -1,0 +1,58 @@
+# This checks out the code, and compiles and uploads the binaries.
+
+name: CD
+
+on:
+  push:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "full"
+
+concurrency:
+  group: CD-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build for Linux
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # TODO: if building fails due to missing dependencies, uncomment this block
+      # I forgot if these are build-time or run-time dependencies, so I'm experimenting
+      #   - name: Install dependencies
+      #     run: |
+      #       sudo apt update
+      #       sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev
+
+      - name: Set up mold linker
+        uses: rui314/setup-mold@v1
+
+      - name: Install Rust toolchain
+        run: |
+          rustup show
+          rustup -V
+          rustup set profile minimal
+          rustup toolchain install stable
+          rustup override set stable
+
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build every binary
+        run: ./x.sh b
+
+      - name: Upload project Binaries as artifacts
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          path: |
+            ./target/release/mecomp-cli
+            ./target/release/mecomp-tui
+            ./target/release/mecomp-daemon
