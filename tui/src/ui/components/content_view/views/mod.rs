@@ -1,4 +1,6 @@
-use mecomp_storage::db::schemas::{album::Album, artist::Artist, song::Song, Thing};
+use mecomp_storage::db::schemas::{
+    album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song, Thing,
+};
 use one_or_many::OneOrMany;
 
 pub mod album;
@@ -13,7 +15,41 @@ pub mod song;
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, Default)]
 pub struct ViewData {
-    pub song_view_props: Option<SongViewProps>,
+    pub album: Option<AlbumViewProps>,
+    pub artist: Option<ArtistViewProps>,
+    pub collection: Option<CollectionViewProps>,
+    pub playlist: Option<PlaylistViewProps>,
+    pub song: Option<SongViewProps>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AlbumViewProps {
+    pub id: Thing,
+    pub album: Album,
+    pub artists: OneOrMany<Artist>,
+    pub songs: Box<[Song]>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ArtistViewProps {
+    pub id: Thing,
+    pub artist: Artist,
+    pub albums: Box<[Album]>,
+    pub songs: Box<[Song]>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CollectionViewProps {
+    pub id: Thing,
+    pub collection: Collection,
+    pub songs: Box<[Song]>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlaylistViewProps {
+    pub id: Thing,
+    pub playlist: Playlist,
+    pub songs: Box<[Song]>,
 }
 
 #[derive(Debug, Clone)]

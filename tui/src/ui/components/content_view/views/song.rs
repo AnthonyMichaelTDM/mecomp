@@ -44,7 +44,7 @@ impl Component for SongView {
     {
         Self {
             action_tx,
-            props: state.additional_view_data.song_view_props.clone(),
+            props: state.additional_view_data.song.clone(),
             tree_state: Mutex::new(TreeState::default()),
         }
     }
@@ -53,7 +53,7 @@ impl Component for SongView {
     where
         Self: Sized,
     {
-        if let Some(props) = &state.additional_view_data.song_view_props {
+        if let Some(props) = &state.additional_view_data.song {
             Self {
                 props: Some(props.to_owned()),
                 ..self

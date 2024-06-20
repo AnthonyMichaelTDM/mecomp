@@ -18,7 +18,10 @@ use anyhow::Context as _;
 use app::{ActiveComponent, App};
 use components::{
     content_view::{
-        views::{SongViewProps, ViewData},
+        views::{
+            AlbumViewProps, ArtistViewProps, CollectionViewProps, PlaylistViewProps, SongViewProps,
+            ViewData,
+        },
         ActiveView,
     },
     Component, ComponentRender,
@@ -32,7 +35,7 @@ use mecomp_core::{
     rpc::{MusicPlayerClient, SearchResult},
     state::{library::LibraryFull, StateAudio},
 };
-use mecomp_storage::db::schemas::{song, Thing};
+use mecomp_storage::db::schemas::{album, artist, collection, playlist, song, Thing};
 use one_or_many::OneOrMany;
 use ratatui::prelude::*;
 use tarpc::context::Context;
@@ -191,9 +194,10 @@ pub fn init_panic_hook() {
 }
 
 /// Returns `None` if new data is not needed
+#[allow(clippy::too_many_lines)]
 async fn handle_additional_view_data(
     daemon: Arc<MusicPlayerClient>,
-    _state: &AppState,
+    state: &AppState,
     active_view: &ActiveView,
 ) -> Option<ViewData> {
     match active_view {
@@ -223,14 +227,110 @@ async fn handle_additional_view_data(
             };
 
             Some(ViewData {
-                song_view_props,
-                // ..state.additional_view_data
+                song: song_view_props,
+                ..state.additional_view_data.clone()
             })
         }
-        ActiveView::Album(_) => todo!(),
-        ActiveView::Artist(_) => todo!(),
-        ActiveView::Playlist(_) => todo!(),
-        ActiveView::Collection(_) => todo!(),
+        ActiveView::Album(id) => {
+            let album_id = Thing {
+                tb: album::TABLE_NAME.to_string(),
+                id: id.to_owned(),
+            };
+
+            let album_view_props = if let Ok((Some(album), artists, Some(songs))) = tokio::try_join!(
+                daemon.library_album_get(Context::current(), album_id.clone()),
+                daemon.library_album_get_artist(Context::current(), album_id.clone()),
+                daemon.library_album_get_songs(Context::current(), album_id.clone()),
+            ) {
+                Some(AlbumViewProps {
+                    id: album_id,
+                    album,
+                    artists,
+                    songs,
+                })
+            } else {
+                None
+            };
+
+            Some(ViewData {
+                album: album_view_props,
+                ..state.additional_view_data.clone()
+            })
+        }
+        ActiveView::Artist(id) => {
+            let artist_id = Thing {
+                tb: artist::TABLE_NAME.to_string(),
+                id: id.to_owned(),
+            };
+
+            let artist_view_props = if let Ok((Some(artist), Some(albums), Some(songs))) = tokio::try_join!(
+                daemon.library_artist_get(Context::current(), artist_id.clone()),
+                daemon.library_artist_get_albums(Context::current(), artist_id.clone()),
+                daemon.library_artist_get_songs(Context::current(), artist_id.clone()),
+            ) {
+                Some(ArtistViewProps {
+                    id: artist_id,
+                    artist,
+                    albums,
+                    songs,
+                })
+            } else {
+                None
+            };
+
+            Some(ViewData {
+                artist: artist_view_props,
+                ..state.additional_view_data.clone()
+            })
+        }
+        ActiveView::Playlist(id) => {
+            let playlist_id = Thing {
+                tb: playlist::TABLE_NAME.to_string(),
+                id: id.to_owned(),
+            };
+
+            let playlist_view_props = if let Ok((Some(playlist), Some(songs))) = tokio::try_join!(
+                daemon.playlist_get(Context::current(), playlist_id.clone()),
+                daemon.playlist_get_songs(Context::current(), playlist_id.clone()),
+            ) {
+                Some(PlaylistViewProps {
+                    id: playlist_id,
+                    playlist,
+                    songs,
+                })
+            } else {
+                None
+            };
+
+            Some(ViewData {
+                playlist: playlist_view_props,
+                ..state.additional_view_data.clone()
+            })
+        }
+        ActiveView::Collection(id) => {
+            let collection_id = Thing {
+                tb: collection::TABLE_NAME.to_string(),
+                id: id.to_owned(),
+            };
+
+            let collection_view_props = if let Ok((Some(collection), Some(songs))) = tokio::try_join!(
+                daemon.collection_get(Context::current(), collection_id.clone()),
+                daemon.collection_get_songs(Context::current(), collection_id.clone()),
+            ) {
+                Some(CollectionViewProps {
+                    id: collection_id,
+                    collection,
+                    songs,
+                })
+            } else {
+                None
+            };
+
+            Some(ViewData {
+                collection: collection_view_props,
+                ..state.additional_view_data.clone()
+            })
+        }
         ActiveView::None
         | ActiveView::Search
         | ActiveView::Songs
