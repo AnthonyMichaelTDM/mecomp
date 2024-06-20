@@ -184,18 +184,21 @@ impl ComponentRender<RenderProps> for SearchView {
         self.search_bar.render(
             frame,
             input_box::RenderProps {
-                title: "Search".to_string(),
                 area: search_bar_area,
                 text_color: if self.search_bar_focused {
                     TEXT_HIGHLIGHT_ALT.into()
                 } else {
                     TEXT_NORMAL.into()
                 },
-                border_color: if self.search_bar_focused && props.is_focused {
-                    BORDER_FOCUSED.into()
-                } else {
-                    BORDER_UNFOCUSED.into()
-                },
+                border: Block::bordered()
+                    .title("Search")
+                    .border_style(Style::default().fg(
+                        if self.search_bar_focused && props.is_focused {
+                            BORDER_FOCUSED.into()
+                        } else {
+                            BORDER_UNFOCUSED.into()
+                        },
+                    )),
                 show_cursor: self.search_bar_focused,
             },
         );

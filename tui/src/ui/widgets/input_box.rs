@@ -3,8 +3,8 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     layout::Rect,
-    style::{Style, Stylize},
-    widgets::{Block, Borders, Paragraph},
+    style::Style,
+    widgets::{Block, Paragraph},
     Frame,
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -129,24 +129,18 @@ impl Component for InputBox {
     }
 }
 
-pub struct RenderProps {
-    pub title: String,
+pub struct RenderProps<'a> {
+    pub border: Block<'a>,
     pub area: Rect,
     pub text_color: ratatui::style::Color,
-    pub border_color: ratatui::style::Color,
     pub show_cursor: bool,
 }
 
-impl ComponentRender<RenderProps> for InputBox {
+impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
     fn render(&self, frame: &mut Frame, props: RenderProps) {
         let input = Paragraph::new(self.text.as_str())
             .style(Style::default().fg(props.text_color))
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .fg(props.border_color)
-                    .title(props.title),
-            );
+            .block(props.border);
         frame.render_widget(input, props.area);
 
         // Cursor is hidden by default, so we need to make it visible if the input box is selected
