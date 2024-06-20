@@ -53,7 +53,6 @@ impl SearchResult {
     }
 }
 
-// TODO: add commands for reading songs by artists, in albums, in playlists, in collections, etc.
 // TODO: commands for reading songs by paths, artists by name, etc.
 
 #[tarpc::service]
@@ -92,12 +91,22 @@ pub trait MusicPlayer {
     // music library CRUD operations
     /// Get a song by its ID.
     async fn library_song_get(id: SongId) -> Option<Song>;
+    /// Get the artists of a song.
+    async fn library_song_get_artist(id: SongId) -> OneOrMany<Artist>;
+    /// Get the album of a song.
+    async fn library_song_get_album(id: SongId) -> Option<Album>;
     /// Get an album by its ID.
     async fn library_album_get(id: AlbumId) -> Option<Album>;
+    /// Get the artists of an album
+    async fn library_album_get_artist(id: AlbumId) -> OneOrMany<Artist>;
+    /// Get the songs of an album
+    async fn library_album_get_songs(id: AlbumId) -> Option<Box<[Song]>>;
     /// Get an artist by its ID.
     async fn library_artist_get(id: ArtistId) -> Option<Artist>;
-    /// Get a playlist by its ID.
-    async fn library_playlist_get(id: PlaylistId) -> Option<Playlist>;
+    /// Get the songs of an artist
+    async fn library_artist_get_songs(id: ArtistId) -> Option<Box<[Song]>>;
+    /// Get the albums of an artist
+    async fn library_artist_get_albums(id: ArtistId) -> Option<Box<[Album]>>;
 
     // Daemon control.
     /// tells the daemon to shutdown.
@@ -259,6 +268,8 @@ pub trait MusicPlayer {
     ) -> Result<(), SerializableLibraryError>;
     /// Get a playlist by its ID.
     async fn playlist_get(id: PlaylistId) -> Option<Playlist>;
+    /// Get the songs of a playlist
+    async fn playlist_get_songs(id: PlaylistId) -> Option<Box<[Song]>>;
 
     // Auto Curration commands.
     // (collections, radios, smart playlists, etc.)
@@ -273,6 +284,8 @@ pub trait MusicPlayer {
         id: CollectionId,
         name: String,
     ) -> Result<PlaylistId, SerializableLibraryError>;
+    /// Get the songs of a collection
+    async fn collection_get_songs(id: CollectionId) -> Option<Box<[Song]>>;
 
     // Radio commands.
     /// Radio: get the `n` most similar songs to the given song.

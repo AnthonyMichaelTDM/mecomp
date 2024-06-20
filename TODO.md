@@ -12,6 +12,9 @@
   - used when adding a new root directory to the music collection, or when there have been changes to the collection while the daemon was not running
 - [x] music library watcher that dynamically updates the library when songs are added, removed, or modified as long as the daemon is running
 - [x] properly handle compilation albums (i.e. albums with multiple artists)
+- [x] add commands for reading songs by artists, in albums, in playlists, in collections, etc.
+- [x] commands for reading the artist/album of songs
+- [x] commands for reading the artists of albums
 
 ### Search functionality
 
@@ -59,6 +62,9 @@
   - [ ] pipe to a new/existing playlist
   - [ ] pipe to library lookup
   - [ ] pipe to radio
+- [ ] add commands for reading songs by artists, in albums, in playlists, in collections, etc.
+- [ ] commands for reading the artist/album of songs
+- [ ] commands for reading the artists of albums
 
 ### MECOMP-TUI
 

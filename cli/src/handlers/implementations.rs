@@ -284,7 +284,7 @@ impl CommandHandler for LibraryCommand {
                     }
                     LibraryGetTarget::Playlist => {
                         let resp: Option<Playlist> = client
-                            .library_playlist_get(
+                            .playlist_get(
                                 ctx,
                                 Thing {
                                     tb: playlist::TABLE_NAME.to_owned(),

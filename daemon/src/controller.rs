@@ -2,7 +2,7 @@
 use std::{net::SocketAddr, ops::Range, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use rand::seq::SliceRandom;
 use surrealdb::{engine::local::Db, Surreal};
 use tap::TapFallible;
@@ -256,6 +256,28 @@ impl MusicPlayer for MusicPlayerServer {
             .ok()
             .flatten()
     }
+    /// Get the artists of a song.
+    #[instrument]
+    async fn library_song_get_artist(self, context: Context, id: SongId) -> OneOrMany<Artist> {
+        let id = id.into();
+        info!("Getting artist of: {id}");
+        Song::read_artist(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in library_song_get_artist: {e}"))
+            .ok()
+            .into()
+    }
+    /// Get the album of a song.
+    #[instrument]
+    async fn library_song_get_album(self, context: Context, id: SongId) -> Option<Album> {
+        let id = id.into();
+        info!("Getting album of: {id}");
+        Song::read_album(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in library_song_get_album: {e}"))
+            .ok()
+            .flatten()
+    }
     /// Get an album by its ID.
     #[instrument]
     async fn library_album_get(self, context: Context, id: AlbumId) -> Option<Album> {
@@ -266,6 +288,28 @@ impl MusicPlayer for MusicPlayerServer {
             .tap_err(|e| warn!("Error in library_album_get: {e}"))
             .ok()
             .flatten()
+    }
+    /// Get the artists of an album
+    #[instrument]
+    async fn library_album_get_artist(self, context: Context, id: AlbumId) -> OneOrMany<Artist> {
+        let id = id.into();
+        info!("Getting artists of: {id}");
+        Album::read_artist(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in library_album_get_artist: {e}"))
+            .ok()
+            .into()
+    }
+    /// Get the songs of an album
+    #[instrument]
+    async fn library_album_get_songs(self, context: Context, id: AlbumId) -> Option<Box<[Song]>> {
+        let id = id.into();
+        info!("Getting songs of: {id}");
+        Album::read_songs(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in library_album_get_songs: {e}"))
+            .ok()
+            .map(Into::into)
     }
     /// Get an artist by its ID.
     #[instrument]
@@ -278,16 +322,31 @@ impl MusicPlayer for MusicPlayerServer {
             .ok()
             .flatten()
     }
-    /// Get a playlist by its ID.
+    /// Get the songs of an artist
     #[instrument]
-    async fn library_playlist_get(self, context: Context, id: PlaylistId) -> Option<Playlist> {
+    async fn library_artist_get_songs(self, context: Context, id: ArtistId) -> Option<Box<[Song]>> {
         let id = id.into();
-        info!("Getting playlist by ID: {id}");
-        Playlist::read(&self.db, id)
+        info!("Getting songs of: {id}");
+        Artist::read_songs(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_playlist_get: {e}"))
+            .tap_err(|e| warn!("Error in library_artist_get_songs: {e}"))
             .ok()
-            .flatten()
+            .map(Into::into)
+    }
+    /// Get the albums of an artist
+    #[instrument]
+    async fn library_artist_get_albums(
+        self,
+        context: Context,
+        id: ArtistId,
+    ) -> Option<Box<[Album]>> {
+        let id = id.into();
+        info!("Getting albums of: {id}");
+        Artist::read_albums(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in library_artist_get_albums: {e}"))
+            .ok()
+            .map(Into::into)
     }
 
     /// tells the daemon to shutdown.
@@ -307,7 +366,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// returns full information about the current state of the audio player (queue, current song, etc.)
     #[instrument]
     async fn state_audio(self, context: Context) -> Option<StateAudio> {
-        info!("Getting state of audio player");
+        debug!("Getting state of audio player");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
@@ -1086,6 +1145,17 @@ impl MusicPlayer for MusicPlayerServer {
             .ok()
             .flatten()
     }
+    /// Get the songs of a playlist
+    #[instrument]
+    async fn playlist_get_songs(self, context: Context, id: PlaylistId) -> Option<Box<[Song]>> {
+        let id = id.into();
+        info!("Getting songs in: {id}");
+        Playlist::read_songs(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in playlist_get_songs: {e}"))
+            .ok()
+            .map(Into::into)
+    }
 
     /// Collections: Return brief information about the users auto curration collections.
     #[instrument]
@@ -1135,6 +1205,17 @@ impl MusicPlayer for MusicPlayerServer {
         Ok(Collection::freeze(&self.db, id.into(), name.into())
             .await
             .map(|p| p.id.into())?)
+    }
+    /// Get the songs of a collection
+    #[instrument]
+    async fn collection_get_songs(self, context: Context, id: CollectionId) -> Option<Box<[Song]>> {
+        let id = id.into();
+        info!("Getting songs in: {id}");
+        Collection::read_songs(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in collection_get_songs: {e}"))
+            .ok()
+            .map(Into::into)
     }
 
     /// Radio: get the `n` most similar songs to the given song.
