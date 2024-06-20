@@ -200,8 +200,6 @@ pub fn read_related_in<Target: AsRef<str>, Rel: AsRef<str>>(
 /// RETURN array::len((SELECT * FROM table))
 /// ```
 ///
-/// TODO: Maybe use `SELECT id FROM table` instead of `SELECT * FROM table`, it might be faster.
-///
 /// # Example
 ///
 /// ```ignore

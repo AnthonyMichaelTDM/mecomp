@@ -15,6 +15,8 @@
 - [x] add commands for reading songs by artists, in albums, in playlists, in collections, etc.
 - [x] commands for reading the artist/album of songs
 - [x] commands for reading the artists of albums
+- [ ] allow users to "like" songs
+- [ ] track play counts
 
 ### Search functionality
 
@@ -24,8 +26,6 @@
 ### Playlists
 
 - [x] allow users to create playlists
-- [ ] allow users to "like" songs
-- [ ] track play counts
 - [ ] allow users to create "smart playlists" that are automatically updated based on a set of criteria (e.g. "all songs with a play count greater than 10", "all songs by Green Day", "all songs with a similarity to Foo greater than X", etc.)
   - [ ] these criteria should be able to be combined with set/boolean logic (union (AND), intersection (OR), difference (NOT))
   - [ ] criteria can be scoped to allow for more complex queries
@@ -133,6 +133,7 @@
     - [x] show the collection's contents
     - [x] keybind to add to queue
     - [ ] keybind to freeze into a playlist
+- [ ] at startup, check if the daemon is running, and if it isn't then start it in a detached process
 
 ### MECOMP-GUI
 

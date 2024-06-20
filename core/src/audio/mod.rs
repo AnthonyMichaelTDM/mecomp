@@ -503,24 +503,27 @@ impl AudioKernel {
 
     #[instrument(skip(self))]
     fn remove_range_from_queue(&self, range: Range<usize>) {
-        let paused = if self.player.is_paused() {
-            true
-        } else if let Some(current_index) = self.queue.lock().unwrap().current_index() {
-            // still true if the current song is to be removed
-            range.start <= current_index && range.end > current_index
-        } else {
-            false
-        };
-        self.clear_player();
+        let paused = self.player.is_paused();
+        // if the current song is not being removed, we don't need to do anything special to the player
+        let current_to_be_removed = self
+            .queue
+            .lock()
+            .unwrap()
+            .current_index()
+            .map_or(false, |current_index| range.contains(&current_index));
 
         self.queue.lock().unwrap().remove_range(range);
 
-        if let Some(song) = self.get_current_song() {
-            if let Err(e) = self.append_song_to_player(&song) {
-                error!("Failed to append song to player: {e}");
-            }
-            if !paused {
-                self.play();
+        // if the current song was removed, clear the player and restart playback
+        if current_to_be_removed {
+            self.clear_player();
+            if let Some(song) = self.get_current_song() {
+                if let Err(e) = self.append_song_to_player(&song) {
+                    error!("Failed to append song to player: {e}");
+                }
+                if !paused {
+                    self.play();
+                }
             }
         }
     }
@@ -999,15 +1002,21 @@ mod tests {
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused);
 
-            // remove the current song from the queue, player should be paused
+            // pause the player
+            sender.send(AudioCommand::Pause);
+
+            // remove the current song from the queue, the player should still be paused
             sender.send(AudioCommand::Queue(QueueCommand::RemoveRange(0..1)));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.queue_position, None);
+            assert_eq!(state.queue_position, Some(0));
             assert!(state.paused);
             assert_eq!(state.queue.len(), 1);
             assert_eq!(state.queue[0], song2);
 
-            // add the song back to the queue, starts playback
+            // unpause the player
+            sender.send(AudioCommand::Play);
+
+            // add the song back to the queue, should be playing
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 OneOrMany::One(song1.clone()),
             ))));
