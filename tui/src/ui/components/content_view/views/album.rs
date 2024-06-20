@@ -23,9 +23,195 @@ use crate::{
 
 use super::{
     none::NoneView,
-    utils::{create_album_tree_item, create_album_tree_leaf, create_artist_tree_item},
+    utils::{create_album_tree_leaf, create_artist_tree_item, create_song_tree_item},
     AlbumViewProps,
 };
+
+#[allow(clippy::module_name_repetitions)]
+pub struct AlbumView {
+    /// Action Sender
+    pub action_tx: UnboundedSender<Action>,
+    /// Mapped Props from state
+    pub props: Option<AlbumViewProps>,
+    /// tree state
+    tree_state: Mutex<TreeState<String>>,
+}
+
+impl Component for AlbumView {
+    fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self
+    where
+        Self: Sized,
+    {
+        Self {
+            action_tx,
+            props: state.additional_view_data.album.clone(),
+            tree_state: Mutex::new(TreeState::default()),
+        }
+    }
+
+    fn move_with_state(self, state: &AppState) -> Self
+    where
+        Self: Sized,
+    {
+        if let Some(props) = &state.additional_view_data.album {
+            Self {
+                props: Some(props.to_owned()),
+                ..self
+            }
+        } else {
+            self
+        }
+    }
+
+    fn name(&self) -> &str {
+        "Song View"
+    }
+
+    fn handle_key_event(&mut self, key: KeyEvent) {
+        match key.code {
+            // arrow keys
+            KeyCode::Up => {
+                self.tree_state.lock().unwrap().key_up();
+            }
+            KeyCode::Down => {
+                self.tree_state.lock().unwrap().key_down();
+            }
+            KeyCode::Left => {
+                self.tree_state.lock().unwrap().key_left();
+            }
+            KeyCode::Right => {
+                self.tree_state.lock().unwrap().key_right();
+            }
+            // Enter key opens selected view
+            KeyCode::Enter => {
+                if self.tree_state.lock().unwrap().toggle_selected() {
+                    let things: Vec<Thing> = self
+                        .tree_state
+                        .lock()
+                        .unwrap()
+                        .selected()
+                        .iter()
+                        .filter_map(|id| id.parse::<Thing>().ok())
+                        .collect();
+                    if !things.is_empty() {
+                        debug_assert!(things.len() == 1);
+                        let thing = things[0].clone();
+                        self.action_tx
+                            .send(Action::SetCurrentView(thing.into()))
+                            .unwrap();
+                    }
+                }
+            }
+            // Add song to queue
+            KeyCode::Char('q') => {
+                if let Some(props) = &self.props {
+                    self.action_tx
+                        .send(Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
+                            props.id.clone(),
+                        ]))))
+                        .unwrap();
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+impl ComponentRender<RenderProps> for AlbumView {
+    #[allow(clippy::too_many_lines)]
+    fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+        let border_style = if props.is_focused {
+            Style::default().fg(Color::LightRed)
+        } else {
+            Style::default()
+        };
+
+        if let Some(state) = &self.props {
+            let block = Block::bordered()
+                .title_top("Song View")
+                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate")
+                .border_style(border_style);
+            let block_area = block.inner(props.area);
+            frame.render_widget(block, props.area);
+
+            // create list to hold song album and artists
+            let artist_tree = create_artist_tree_item(state.artists.as_slice()).unwrap();
+            let song_tree = create_song_tree_item(&state.songs).unwrap();
+            let items = &[artist_tree, song_tree];
+
+            let [top, bottom] = *Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(3), Constraint::Min(4)])
+                .split(block_area)
+            else {
+                panic!("Failed to split song view area")
+            };
+
+            // render the album info
+            frame.render_widget(
+                Paragraph::new(vec![
+                    Line::from(vec![
+                        Span::styled(state.album.title.to_string(), Style::default().bold()),
+                        Span::raw(" "),
+                        Span::styled(
+                            state
+                                .album
+                                .artist
+                                .iter()
+                                .map(ToString::to_string)
+                                .collect::<Vec<String>>()
+                                .join(", "),
+                            Style::default().italic(),
+                        ),
+                    ]),
+                    Line::from(vec![
+                        Span::raw("Release Year: "),
+                        Span::styled(
+                            state
+                                .album
+                                .release
+                                .map_or_else(|| "unknown".to_string(), |y| y.to_string()),
+                            Style::default().italic(),
+                        ),
+                        Span::raw("  Songs: "),
+                        Span::styled(state.songs.len().to_string(), Style::default().italic()),
+                        Span::raw("  Duration: "),
+                        Span::styled(
+                            format!(
+                                "{}:{:04.1}",
+                                state.album.runtime.as_secs() / 60,
+                                state.album.runtime.as_secs_f32() % 60.0,
+                            ),
+                            Style::default().italic(),
+                        ),
+                    ]),
+                ])
+                .block(
+                    Block::new()
+                        .borders(Borders::BOTTOM)
+                        .title_bottom("q: add to queue")
+                        .border_style(border_style),
+                )
+                .alignment(Alignment::Center),
+                top,
+            );
+
+            // render the song artists / album
+            frame.render_stateful_widget(
+                Tree::new(items)
+                    .unwrap()
+                    .highlight_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                    .node_closed_symbol("▸")
+                    .node_open_symbol("▾")
+                    .node_no_children_symbol("▪"),
+                bottom,
+                &mut self.tree_state.lock().unwrap(),
+            );
+        } else {
+            NoneView.render(frame, props);
+        }
+    }
+}
 
 pub struct LibraryAlbumsView {
     /// Action Sender
