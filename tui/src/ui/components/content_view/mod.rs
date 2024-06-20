@@ -4,6 +4,7 @@ pub mod views;
 
 use mecomp_storage::db::schemas::{album, artist, collection, playlist, song, Id, Thing};
 use views::{
+    album::LibraryAlbumsView,
     none::NoneView,
     search::SearchView,
     song::{LibrarySongsView, SongView},
@@ -20,7 +21,7 @@ pub struct ContentView {
     pub(crate) search_view: SearchView,
     pub(crate) songs_view: LibrarySongsView,
     pub(crate) song_view: SongView,
-    // pub(crate) albums_view: LibraryAlbumsView,
+    pub(crate) albums_view: LibraryAlbumsView,
     // pub(crate) album_view: AlbumView,
     // pub(crate) artists_view: LibraryArtistsView,
     // pub(crate) artist_view: ArtistView,
@@ -93,7 +94,7 @@ impl ContentView {
             ActiveView::Search => &self.search_view,
             ActiveView::Songs => &self.songs_view,
             ActiveView::Song(_id) => &self.song_view,
-            ActiveView::Albums => todo!(),
+            ActiveView::Albums => &self.albums_view,
             ActiveView::Album(_id) => todo!(),
             ActiveView::Artists => todo!(),
             ActiveView::Artist(_id) => todo!(),
@@ -110,7 +111,7 @@ impl ContentView {
             ActiveView::Search => &mut self.search_view,
             ActiveView::Songs => &mut self.songs_view,
             ActiveView::Song(_id) => &mut self.song_view,
-            ActiveView::Albums => todo!(),
+            ActiveView::Albums => &mut self.albums_view,
             ActiveView::Album(_id) => todo!(),
             ActiveView::Artists => todo!(),
             ActiveView::Artist(_id) => todo!(),
@@ -135,7 +136,8 @@ impl Component for ContentView {
             none_view: NoneView::new(state, action_tx.clone()),
             search_view: SearchView::new(state, action_tx.clone()),
             songs_view: LibrarySongsView::new(state, action_tx.clone()),
-            song_view: SongView::new(state, action_tx),
+            song_view: SongView::new(state, action_tx.clone()),
+            albums_view: LibraryAlbumsView::new(state, action_tx.clone()),
         }
         .move_with_state(state)
     }
@@ -150,6 +152,7 @@ impl Component for ContentView {
             search_view: self.search_view.move_with_state(state),
             songs_view: self.songs_view.move_with_state(state),
             song_view: self.song_view.move_with_state(state),
+            albums_view: self.albums_view.move_with_state(state),
         }
     }
 
@@ -169,7 +172,7 @@ impl ComponentRender<RenderProps> for ContentView {
             ActiveView::Search => self.search_view.render(frame, props),
             ActiveView::Songs => self.songs_view.render(frame, props),
             ActiveView::Song(_) => self.song_view.render(frame, props),
-            ActiveView::Albums => todo!(),
+            ActiveView::Albums => self.albums_view.render(frame, props),
             ActiveView::Album(_) => todo!(),
             ActiveView::Artists => todo!(),
             ActiveView::Artist(_) => todo!(),

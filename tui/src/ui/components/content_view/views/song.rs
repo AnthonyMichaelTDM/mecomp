@@ -1,4 +1,4 @@
-//! Views for both a single song, and a list of songs.
+//! Views for both a single song, and the library of songs.
 
 use std::{fmt::Display, sync::Mutex};
 
@@ -293,14 +293,16 @@ impl SortMode {
         match self {
             Self::Title => songs.sort_by_key(|song| key(&song.title)),
             Self::Artist => {
-                songs.sort_by_key(|song| song.artist.iter().map(key).collect::<Vec<_>>());
+                songs.sort_by_cached_key(|song| song.artist.iter().map(key).collect::<Vec<_>>());
             }
             Self::Album => songs.sort_by_key(|song| key(&song.album)),
             Self::AlbumArtist => {
-                songs.sort_by_key(|song| song.album_artist.iter().map(key).collect::<Vec<_>>());
+                songs.sort_by_cached_key(|song| {
+                    song.album_artist.iter().map(key).collect::<Vec<_>>()
+                });
             }
             Self::Genre => {
-                songs.sort_by_key(|song| song.genre.iter().map(key).collect::<Vec<_>>());
+                songs.sort_by_cached_key(|song| song.genre.iter().map(key).collect::<Vec<_>>());
             }
         }
     }
