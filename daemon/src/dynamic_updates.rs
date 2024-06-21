@@ -9,12 +9,25 @@ use futures::FutureExt;
 use futures::StreamExt;
 use log::{debug, error, info, trace, warn};
 use mecomp_storage::db::schemas::song::{Song, SongChangeSet, SongMetadata};
+#[cfg(target_os = "macos")]
+use notify::FsEventWatcher;
+#[cfg(target_os = "linux")]
+use notify::INotifyWatcher;
+#[cfg(target_os = "windows")]
+use notify::ReadDirectoryChangesWatcher;
 use notify::{
     event::{CreateKind, MetadataKind, ModifyKind, RemoveKind, RenameMode},
-    EventKind, INotifyWatcher, RecursiveMode, Watcher,
+    EventKind, RecursiveMode, Watcher,
 };
 use notify_debouncer_full::{new_debouncer, DebouncedEvent, Debouncer, FileIdMap};
 use surrealdb::{engine::local::Db, Surreal};
+
+#[cfg(target_os = "linux")]
+type WatcherType = INotifyWatcher;
+#[cfg(target_os = "macos")]
+type WatcherType = FsEventWatcher;
+#[cfg(target_os = "windows")]
+type WatcherType = ReadDirectoryChangesWatcher;
 
 const VALID_AUDIO_EXTENSIONS: [&str; 5] = ["flac", "mp3", "m4a", "ogg", "wav"];
 
@@ -87,7 +100,7 @@ pub fn init_music_library_watcher(
 
     // Select recommended watcher for debouncer.
     // Using a callback here, could also be a channel.
-    let mut debouncer: Debouncer<INotifyWatcher, FileIdMap> =
+    let mut debouncer: Debouncer<WatcherType, FileIdMap> =
         new_debouncer(MAX_DEBOUNCE_TIME, None, move |event| {
             let _ = tx.unbounded_send(event);
         })?;
@@ -111,7 +124,7 @@ pub fn init_music_library_watcher(
 }
 
 pub struct MusicLibEventHandlerGuard {
-    debouncer: Debouncer<INotifyWatcher, FileIdMap>,
+    debouncer: Debouncer<WatcherType, FileIdMap>,
     stop_tx: futures::channel::oneshot::Sender<()>,
 }
 
