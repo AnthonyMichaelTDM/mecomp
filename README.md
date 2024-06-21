@@ -4,6 +4,7 @@
 [![CI](https://github.com/AnthonyMichaelTDM/mecomp/actions/workflows/ci.yml/badge.svg)](https://github.com/AnthonyMichaelTDM/mecomp/actions/workflows/ci.yml)
 [![HitCount](https://img.shields.io/endpoint?url=https%3A%2F%2Fhits.dwyl.com%2FAnthonyMichaelTDM%2Fmecomp.json
 )](http://hits.dwyl.com/AnthonyMichaelTDM/mecomp)
+[![CD-Builds](https://github.com/AnthonyMichaelTDM/mecomp/actions/workflows/cd.yml/badge.svg)](https://github.com/AnthonyMichaelTDM/mecomp/actions/workflows/cd.yml)
 
 (name subject to change)
 
