@@ -126,6 +126,8 @@ impl UiManager {
                 Some(library) = state_rx.library.recv() => {
                     state = AppState {
                         library,
+                        // Fixes edge case where user has a playlist open, modifies that playlist, and tries to view it again without first viewing another playlist
+                        additional_view_data: handle_additional_view_data(daemon.clone(), &state, &state.active_view).await.unwrap_or(state.additional_view_data),
                         ..state
                     };
                     app = app.move_with_library(&state);

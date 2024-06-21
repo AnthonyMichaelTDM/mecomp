@@ -215,7 +215,7 @@ impl ComponentRender<RenderProps> for AlbumView {
                 .block(
                     Block::new()
                         .borders(Borders::BOTTOM)
-                        .title_bottom("q: add to queue | r: start radio")
+                        .title_bottom("q: add to queue | r: start radio | p: add to playlist")
                         .border_style(border_style),
                 )
                 .alignment(Alignment::Center),
