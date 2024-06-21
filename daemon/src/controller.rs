@@ -962,26 +962,37 @@ impl MusicPlayer for MusicPlayerServer {
             .unwrap_or_default()
     }
     /// create a new playlist.
+    /// if a playlist with the same name already exists, this will return that playlist's id in the error variant
     #[instrument]
     async fn playlist_new(
         self,
         context: Context,
         name: String,
-    ) -> Result<PlaylistId, SerializableLibraryError> {
+    ) -> Result<Result<PlaylistId, PlaylistId>, SerializableLibraryError> {
         info!("Creating new playlist: {name}");
 
-        Ok(Playlist::create(
-            &self.db,
-            Playlist {
-                id: Playlist::generate_id(),
-                name: name.into(),
-                runtime: Duration::from_secs(0),
-                song_count: 0,
-            },
-        )
-        .await?
-        .map(|playlist| playlist.id.into())
-        .ok_or(NotFound)?)
+        // see if a playlist with that name already exists
+        if let Some(playlist) = Playlist::read_by_name(&self.db, name.clone())
+            .await
+            .tap_err(|e| warn!("Error in playlist_new: {e}"))
+            .ok()
+            .flatten()
+        {
+            Ok(Ok(playlist.id.into()))
+        } else {
+            Ok(Err(Playlist::create(
+                &self.db,
+                Playlist {
+                    id: Playlist::generate_id(),
+                    name: name.into(),
+                    runtime: Duration::from_secs(0),
+                    song_count: 0,
+                },
+            )
+            .await?
+            .map(|playlist| playlist.id.into())
+            .ok_or(NotFound)?))
+        }
     }
     /// remove a playlist.
     #[instrument]

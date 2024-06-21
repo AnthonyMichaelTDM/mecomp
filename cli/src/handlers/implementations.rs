@@ -597,7 +597,10 @@ impl CommandHandler for super::PlaylistCommand {
                 Ok(())
             }
             Self::Create { name } => {
-                let resp: Result<Thing, _> = client.playlist_new(ctx, name.clone()).await?;
+                let resp: Thing = client
+                    .playlist_new(ctx, name.clone())
+                    .await??
+                    .map_or_else(|e| e, |o| o);
                 println!("Daemon response:\n{resp:#?}");
                 Ok(())
             }
