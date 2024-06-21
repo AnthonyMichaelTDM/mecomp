@@ -34,10 +34,10 @@ impl InputBox {
     //     self.cursor_position = self.text.len();
     // }
 
-    // pub fn reset(&mut self) {
-    //     self.cursor_position = 0;
-    //     self.text.clear();
-    // }
+    pub fn reset(&mut self) {
+        self.cursor_position = 0;
+        self.text.clear();
+    }
 
     pub fn is_empty(&self) -> bool {
         self.text.is_empty()

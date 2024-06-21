@@ -114,7 +114,7 @@ impl Component for SearchView {
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
             }
-            // focus / unfocus the search bar
+            // when searchbar focused, enter key will search
             KeyCode::Enter if self.search_bar_focused => {
                 self.search_bar_focused = false;
                 self.tree_state.lock().unwrap().close_all();
@@ -122,6 +122,7 @@ impl Component for SearchView {
                     self.action_tx
                         .send(Action::Search(self.search_bar.text().to_string()))
                         .unwrap();
+                    self.search_bar.reset();
                 }
             }
             KeyCode::Char('/') if !self.search_bar_focused => {
