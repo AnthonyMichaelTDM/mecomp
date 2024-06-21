@@ -33,7 +33,10 @@ use mecomp_storage::{
 };
 use one_or_many::OneOrMany;
 
-use crate::{config::DaemonSettings, services};
+use crate::{
+    config::DaemonSettings,
+    services::{self, get_songs_from_things},
+};
 
 mod locks {
     use tokio::sync::Mutex;
@@ -776,42 +779,7 @@ impl MusicPlayer for MusicPlayerServer {
         );
 
         // go through the list, and get songs for each thing (depending on what it is)
-        let mut songs: OneOrMany<Song> = OneOrMany::None;
-        for thing in list {
-            match thing.tb.as_str() {
-                schemas::album::TABLE_NAME => {
-                    for song in Album::read_songs(&self.db, thing.clone().into()).await? {
-                        songs.push(song);
-                    }
-                }
-                schemas::artist::TABLE_NAME => {
-                    for song in Artist::read_songs(&self.db, thing.clone().into()).await? {
-                        songs.push(song);
-                    }
-                }
-                schemas::collection::TABLE_NAME => {
-                    for song in Collection::read_songs(&self.db, thing.clone().into()).await? {
-                        songs.push(song);
-                    }
-                }
-                schemas::playlist::TABLE_NAME => {
-                    for song in Playlist::read_songs(&self.db, thing.clone().into()).await? {
-                        songs.push(song);
-                    }
-                }
-                schemas::song::TABLE_NAME => songs.push(
-                    Song::read(&self.db, thing.clone().into())
-                        .await?
-                        .ok_or(Error::NotFound)?,
-                ),
-                _ => {
-                    warn!("Unknown thing type: {}", thing.tb);
-                }
-            }
-        }
-
-        // remove duplicates
-        songs.dedup_by_key(|song| song.id.clone());
+        let songs: OneOrMany<Song> = get_songs_from_things(&self.db, list).await?;
 
         AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
             songs,
@@ -1133,6 +1101,33 @@ impl MusicPlayer for MusicPlayerServer {
 
         Ok(Playlist::add_songs(&self.db, playlist, &songs).await?)
     }
+    /// Add a list of things to a playlist.
+    #[instrument]
+    async fn playlist_add_list(
+        self,
+        context: Context,
+        playlist: PlaylistId,
+        list: Vec<mecomp_storage::db::schemas::Thing>,
+    ) -> Result<(), SerializableLibraryError> {
+        let playlist = playlist.into();
+        info!(
+            "Adding list to playlist: {playlist} ({})",
+            list.iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+
+        // go through the list, and get songs for each thing (depending on what it is)
+        let songs: OneOrMany<Song> = get_songs_from_things(&self.db, list).await?;
+
+        Ok(Playlist::add_songs(
+            &self.db,
+            playlist,
+            &songs.into_iter().map(|s| s.id).collect::<Vec<_>>(),
+        )
+        .await?)
+    }
     /// Get a playlist by its ID.
     #[instrument]
     async fn playlist_get(self, context: Context, id: PlaylistId) -> Option<Playlist> {
@@ -1235,12 +1230,10 @@ impl MusicPlayer for MusicPlayerServer {
         #[cfg(feature = "analysis")]
         {
             info!("Getting the {n} most similar songs to: {things:?}");
-            Ok(
-                services::radio::get_similar(&self.db, things.into_iter().map(Into::into), n)
-                    .await
-                    .map(Vec::into_boxed_slice)
-                    .tap_err(|e| warn!("Error in radio_get_similar: {e}"))?,
-            )
+            Ok(services::radio::get_similar(&self.db, things, n)
+                .await
+                .map(Vec::into_boxed_slice)
+                .tap_err(|e| warn!("Error in radio_get_similar: {e}"))?)
         }
     }
     /// Radio: get the `n` most similar songs to the given song.

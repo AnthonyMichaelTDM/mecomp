@@ -1,16 +1,17 @@
-use log::warn;
 use mecomp_storage::{
     db::schemas::{
-        album::{Album, AlbumId, TABLE_NAME as ALBUM_TABLE_NAME},
+        album::{Album, AlbumId},
         analysis::Analysis,
-        artist::{Artist, ArtistId, TABLE_NAME as ARTIST_TABLE_NAME},
-        collection::{Collection, TABLE_NAME as COLLECTION_TABLE_NAME},
-        playlist::{Playlist, PlaylistId, TABLE_NAME as PLAYLIST_TABLE_NAME},
-        song::{Song, SongId, TABLE_NAME as SONG_TABLE_NAME},
+        artist::{Artist, ArtistId},
+        playlist::{Playlist, PlaylistId},
+        song::{Song, SongId},
+        Thing,
     },
     errors::{Error, StorageResult},
 };
-use surrealdb::{sql::Thing, Connection, Surreal};
+use surrealdb::{Connection, Surreal};
+
+use super::get_songs_from_things;
 
 /// Get the 'n' most similar songs to the given list of things
 ///
@@ -19,44 +20,15 @@ use surrealdb::{sql::Thing, Connection, Surreal};
 /// Returns an error if there is an issue with the database
 pub async fn get_similar<C: Connection>(
     db: &Surreal<C>,
-    ids: impl Iterator<Item = Thing> + Clone + Send,
+    things: Vec<Thing>,
     n: u32,
 ) -> StorageResult<Vec<Song>> {
     // go through the list, and get songs for each thing (depending on what it is)
-    let mut songs: Vec<SongId> = Vec::new();
-    for thing in ids {
-        match thing.tb.as_str() {
-            ALBUM_TABLE_NAME => {
-                for song in Album::read_songs(db, thing.clone()).await? {
-                    songs.push(song.id);
-                }
-            }
-            ARTIST_TABLE_NAME => {
-                for song in Artist::read_songs(db, thing.clone()).await? {
-                    songs.push(song.id);
-                }
-            }
-            COLLECTION_TABLE_NAME => {
-                for song in Collection::read_songs(db, thing.clone()).await? {
-                    songs.push(song.id);
-                }
-            }
-            PLAYLIST_TABLE_NAME => {
-                for song in Playlist::read_songs(db, thing.clone()).await? {
-                    songs.push(song.id);
-                }
-            }
-            SONG_TABLE_NAME => songs.push(
-                Song::read(db, thing.clone())
-                    .await?
-                    .ok_or(Error::NotFound)?
-                    .id,
-            ),
-            _ => {
-                warn!("Unknown thing type: {}", thing.tb);
-            }
-        }
-    }
+    let songs: Vec<SongId> = get_songs_from_things(db, things)
+        .await?
+        .into_iter()
+        .map(|s| s.id)
+        .collect();
 
     let neighbors = Analysis::nearest_neighbors_to_many(
         db,

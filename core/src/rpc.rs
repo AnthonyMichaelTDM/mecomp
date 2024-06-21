@@ -266,6 +266,11 @@ pub trait MusicPlayer {
         playlist: PlaylistId,
         songs: Vec<SongId>,
     ) -> Result<(), SerializableLibraryError>;
+    /// Add a list of things to a playlist.
+    async fn playlist_add_list(
+        playlist: PlaylistId,
+        list: Vec<Thing>,
+    ) -> Result<(), SerializableLibraryError>;
     /// Get a playlist by its ID.
     async fn playlist_get(id: PlaylistId) -> Option<Playlist>;
     /// Get the songs of a playlist
