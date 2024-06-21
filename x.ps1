@@ -40,12 +40,43 @@ function help() {
     Write-Host "    b | build     build all packages"
 }
 
+# Clippy function (lint)
+function clippy() {
+    $components = @('mecomp-storage','mecomp-core','mecomp-cli','mecomp-tui','mecomp-daemon','one-or-many','surrealqlx','surrealqlx-macros','surrealqlx-macros-impl')
+    foreach ($component in $components) {
+        title "Clippy [$component]"
+        cargo clippy -p $component
+        if ($?) {
+            ok "Clippy [$component] OK"
+        }
+        else {
+            fail "Clippy [$component] FAIL"
+        }
+    }
+}
+
+# Test function
+function test() {
+    $components = @('mecomp-storage','mecomp-core','mecomp-cli','mecomp-tui','mecomp-daemon','one-or-many','surrealqlx-macros-impl')
+    foreach ($component in $components) {
+        title "Test [$component]"
+        cargo test -p $component
+        if ($?) {
+            ok "Test [$component] OK"
+        }
+        else {
+            fail "Test [$component] FAIL"
+        }
+    }
+}
+
 # Build function
 function build() {
     $components = @('mecomp-cli', 'mecomp-tui', 'mecomp-daemon')
     foreach ($component in $components) {
         title "Build [$component]"
-        if (cargo build -r -p $component) {
+        cargo build -r -p $component
+        if ($?) {
             ok "Build [$component] OK"
         }
         else {
@@ -57,16 +88,6 @@ function build() {
     Get-ChildItem -Path target/release/mecomp-daemon | Format-List -Property FullName
     Get-ChildItem -Path target/release/mecomp-cli | Format-List -Property FullName
     Get-ChildItem -Path target/release/mecomp-tui | Format-List -Property FullName
-}
-
-# Clippy function (lint)
-function clippy() {
-    # Implement clippy linting here
-}
-
-# Test function
-function test() {
-    # Implement testing here
 }
 
 # Do everything function
