@@ -85,9 +85,9 @@ function build() {
     }
 
     finish
-    Get-ChildItem -Path target/release/mecomp-daemon | Format-List -Property FullName
-    Get-ChildItem -Path target/release/mecomp-cli | Format-List -Property FullName
-    Get-ChildItem -Path target/release/mecomp-tui | Format-List -Property FullName
+    # Get-ChildItem -Path target/release/mecomp-daemon | Format-List -Property FullName
+    # Get-ChildItem -Path target/release/mecomp-cli | Format-List -Property FullName
+    # Get-ChildItem -Path target/release/mecomp-tui | Format-List -Property FullName
 }
 
 # Do everything function
