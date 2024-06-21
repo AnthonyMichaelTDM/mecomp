@@ -29,9 +29,10 @@ jobs:
             os: windows-latest
             target: x86_64-pc-windows-msvc
 
-          - os_name: Windows-aarch64
-            os: windows-latest
-            target: aarch64-pc-windows-msvc
+          # NOTE: once surrealdb-jsonwebtoken no longer depends on ring 0.16, we can re-add this
+          # - os_name: Windows-aarch64
+          #   os: windows-latest
+          #   target: aarch64-pc-windows-msvc
 
           - os_name: macOS-x86_64
             os: macOS-latest
