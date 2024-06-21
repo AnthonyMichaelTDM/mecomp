@@ -3,6 +3,7 @@
 use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent};
+use mecomp_storage::db::schemas::Thing;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Modifier, Style, Stylize},
@@ -94,6 +95,26 @@ impl Component for RadioView {
             }
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
+            }
+            // Enter key opens selected view
+            KeyCode::Enter => {
+                if self.tree_state.lock().unwrap().toggle_selected() {
+                    let things: Vec<Thing> = self
+                        .tree_state
+                        .lock()
+                        .unwrap()
+                        .selected()
+                        .iter()
+                        .filter_map(|id| id.parse::<Thing>().ok())
+                        .collect();
+                    if !things.is_empty() {
+                        debug_assert!(things.len() == 1);
+                        let thing = things[0].clone();
+                        self.action_tx
+                            .send(Action::SetCurrentView(thing.into()))
+                            .unwrap();
+                    }
+                }
             }
             // send radio to queue
             KeyCode::Char('q') => {
