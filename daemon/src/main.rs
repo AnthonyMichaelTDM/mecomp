@@ -23,6 +23,8 @@ struct Flags {
     config: Option<PathBuf>,
 }
 
+static DEFAULT_CONFIG: &str = include_str!("../../Mecomp.toml");
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let flags = Flags::try_parse()?;
@@ -31,10 +33,18 @@ async fn main() -> anyhow::Result<()> {
         Ok(config_dir) => config_dir.join("Mecomp.toml"),
         Err(e) => {
             eprintln!("Error: {e}");
-            // TODO: once this thing is released, maybe make this an actual error?
-            PathBuf::from("Mecomp.toml")
+            anyhow::bail!("Could not find the config directory")
         }
     };
+
+    if !config_file.exists() {
+        // create the directory if it doesn't exist
+        if let Some(parent) = config_file.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        // write the default config file
+        std::fs::write(&config_file, DEFAULT_CONFIG)?;
+    }
 
     let db_dir = match get_data_dir() {
         Ok(data_dir) => data_dir.join("db"),
