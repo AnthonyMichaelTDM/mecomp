@@ -5,12 +5,13 @@ use std::path::PathBuf;
 use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
+#[cfg(feature = "analysis")]
+use crate::db::schemas::analysis::Analysis;
 use crate::{
     db::{
         queries::song::{read_album, read_album_artist, read_artist, read_song_by_path},
         schemas::{
             album::Album,
-            analysis::Analysis,
             artist::Artist,
             song::{Song, SongChangeSet, SongId, SongMetadata, TABLE_NAME},
         },
@@ -169,6 +170,7 @@ impl Song {
     #[instrument]
     pub async fn delete<C: Connection>(db: &Surreal<C>, id: SongId) -> StorageResult<Option<Self>> {
         // delete the analysis for the song (if it exists)
+        #[cfg(feature = "analysis")]
         if let Ok(Some(analysis)) = Analysis::read_for_song(db, id.clone()).await {
             Analysis::delete(db, analysis.id).await?;
         }

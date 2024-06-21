@@ -17,6 +17,7 @@ use mecomp_storage::db::schemas::{
     Thing,
 };
 use one_or_many::OneOrMany;
+use serde::{Deserialize, Serialize};
 use tarpc::{client, tokio_serde::formats::Json};
 
 use crate::{
@@ -33,9 +34,25 @@ pub type AlbumId = Thing;
 pub type CollectionId = Thing;
 pub type PlaylistId = Thing;
 
-pub type SearchResult = (Box<[Song]>, Box<[Album]>, Box<[Artist]>);
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SearchResult {
+    pub songs: Box<[Song]>,
+    pub albums: Box<[Album]>,
+    pub artists: Box<[Artist]>,
+}
 
-// TODO: add commands for reading songs by artists, in albums, in playlists, in collections, etc.
+impl SearchResult {
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.songs.len() + self.albums.len() + self.artists.len()
+    }
+
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.songs.is_empty() && self.albums.is_empty() && self.artists.is_empty()
+    }
+}
+
 // TODO: commands for reading songs by paths, artists by name, etc.
 
 #[tarpc::service]
@@ -46,8 +63,12 @@ pub trait MusicPlayer {
     // Music library.
     /// Rescans the music library, only error is if a rescan is already in progress.
     async fn library_rescan() -> Result<(), SerializableLibraryError>;
+    /// Check if a rescan is in progress.
+    async fn library_rescan_in_progress() -> bool;
     /// Analyze the music library, only error is if an analysis is already in progress.
     async fn library_analyze() -> Result<(), SerializableLibraryError>;
+    /// Check if an analysis is in progress.
+    async fn library_analyze_in_progress() -> bool;
     /// Returns brief information about the music library.
     async fn library_brief() -> Result<LibraryBrief, SerializableLibraryError>;
     /// Returns full information about the music library. (all songs, artists, albums, etc.)
@@ -70,12 +91,22 @@ pub trait MusicPlayer {
     // music library CRUD operations
     /// Get a song by its ID.
     async fn library_song_get(id: SongId) -> Option<Song>;
+    /// Get the artists of a song.
+    async fn library_song_get_artist(id: SongId) -> OneOrMany<Artist>;
+    /// Get the album of a song.
+    async fn library_song_get_album(id: SongId) -> Option<Album>;
     /// Get an album by its ID.
     async fn library_album_get(id: AlbumId) -> Option<Album>;
+    /// Get the artists of an album
+    async fn library_album_get_artist(id: AlbumId) -> OneOrMany<Artist>;
+    /// Get the songs of an album
+    async fn library_album_get_songs(id: AlbumId) -> Option<Box<[Song]>>;
     /// Get an artist by its ID.
     async fn library_artist_get(id: ArtistId) -> Option<Artist>;
-    /// Get a playlist by its ID.
-    async fn library_playlist_get(id: PlaylistId) -> Option<Playlist>;
+    /// Get the songs of an artist
+    async fn library_artist_get_songs(id: ArtistId) -> Option<Box<[Song]>>;
+    /// Get the albums of an artist
+    async fn library_artist_get_albums(id: ArtistId) -> Option<Box<[Album]>>;
 
     // Daemon control.
     /// tells the daemon to shutdown.
@@ -204,7 +235,10 @@ pub trait MusicPlayer {
     /// Returns brief information about the users playlists.
     async fn playlist_list() -> Box<[PlaylistBrief]>;
     /// create a new playlist.
-    async fn playlist_new(name: String) -> Result<PlaylistId, SerializableLibraryError>;
+    /// if a playlist with the same name already exists, this will return that playlist's id in the error variant
+    async fn playlist_new(
+        name: String,
+    ) -> Result<Result<PlaylistId, PlaylistId>, SerializableLibraryError>;
     /// remove a playlist.
     async fn playlist_remove(id: PlaylistId) -> Result<(), SerializableLibraryError>;
     /// clone a playlist.
@@ -235,8 +269,15 @@ pub trait MusicPlayer {
         playlist: PlaylistId,
         songs: Vec<SongId>,
     ) -> Result<(), SerializableLibraryError>;
+    /// Add a list of things to a playlist.
+    async fn playlist_add_list(
+        playlist: PlaylistId,
+        list: Vec<Thing>,
+    ) -> Result<(), SerializableLibraryError>;
     /// Get a playlist by its ID.
     async fn playlist_get(id: PlaylistId) -> Option<Playlist>;
+    /// Get the songs of a playlist
+    async fn playlist_get_songs(id: PlaylistId) -> Option<Box<[Song]>>;
 
     // Auto Curration commands.
     // (collections, radios, smart playlists, etc.)
@@ -251,16 +292,35 @@ pub trait MusicPlayer {
         id: CollectionId,
         name: String,
     ) -> Result<PlaylistId, SerializableLibraryError>;
+    /// Get the songs of a collection
+    async fn collection_get_songs(id: CollectionId) -> Option<Box<[Song]>>;
 
     // Radio commands.
+    /// Radio: get the `n` most similar songs to the given things.
+    async fn radio_get_similar(
+        things: Vec<Thing>,
+        n: u32,
+    ) -> Result<Box<[Song]>, SerializableLibraryError>;
     /// Radio: get the `n` most similar songs to the given song.
-    async fn radio_get_similar_to_song(song: SongId, n: u32) -> Box<[SongId]>;
+    async fn radio_get_similar_to_song(
+        song: SongId,
+        n: u32,
+    ) -> Result<Box<[SongId]>, SerializableLibraryError>;
     /// Radio: get the `n` most similar songs to the given artist.
-    async fn radio_get_similar_to_artist(artist: ArtistId, n: u32) -> Box<[SongId]>;
+    async fn radio_get_similar_to_artist(
+        artist: ArtistId,
+        n: u32,
+    ) -> Result<Box<[SongId]>, SerializableLibraryError>;
     /// Radio: get the `n` most similar songs to the given album.
-    async fn radio_get_similar_to_album(album: AlbumId, n: u32) -> Box<[SongId]>;
+    async fn radio_get_similar_to_album(
+        album: AlbumId,
+        n: u32,
+    ) -> Result<Box<[SongId]>, SerializableLibraryError>;
     /// Radio: get the `n` most similar songs to the given playlist.
-    async fn radio_get_similar_to_playlist(playlist: PlaylistId, n: u32) -> Box<[SongId]>;
+    async fn radio_get_similar_to_playlist(
+        playlist: PlaylistId,
+        n: u32,
+    ) -> Result<Box<[SongId]>, SerializableLibraryError>;
 }
 
 /// Initialize the client

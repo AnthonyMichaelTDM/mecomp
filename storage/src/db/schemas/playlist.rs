@@ -23,7 +23,7 @@ pub struct Playlist {
     pub id: PlaylistId,
 
     /// The [`Playlist`]'s name.
-    #[cfg_attr(feature = "db", field(dt = "string"))]
+    #[cfg_attr(feature = "db", field(dt = "string", index(unique)))]
     pub name: Arc<str>,
 
     /// Total runtime.

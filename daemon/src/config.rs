@@ -22,8 +22,6 @@ pub struct DaemonSettings {
     /// Default is 6600.
     #[serde(default = "default_port")]
     pub rpc_port: u16,
-    /// The path to the database.
-    pub db_path: PathBuf,
     /// The root paths of the music library.
     pub library_paths: Box<[PathBuf]>,
     /// Sepators for artist names in song metadata.
@@ -43,7 +41,6 @@ impl Default for DaemonSettings {
     fn default() -> Self {
         Self {
             rpc_port: 6600,
-            db_path: shellexpand::tilde("/tmp/mecomp_db").into_owned().into(),
             library_paths: vec![shellexpand::tilde("~/Music/").into_owned().into()]
                 .into_boxed_slice(),
             artist_separator: None,

@@ -294,6 +294,25 @@ where
     }
 }
 
+// implement ord
+// None < One < Many
+impl<T> Ord for OneOrMany<T>
+where
+    T: Ord,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (Self::One(t1), Self::One(t2)) => t1.cmp(t2),
+            (Self::Many(t1), Self::Many(t2)) => t1.cmp(t2),
+            (Self::None, Self::None) => std::cmp::Ordering::Equal,
+            (Self::None, _) => std::cmp::Ordering::Less,
+            (_, Self::None) => std::cmp::Ordering::Greater,
+            (Self::One(_), _) => std::cmp::Ordering::Less,
+            (_, Self::One(_)) => std::cmp::Ordering::Greater,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -615,6 +634,30 @@ mod tests {
         T: std::fmt::Debug + PartialOrd,
     {
         assert_eq!(input.partial_cmp(&other), expected);
+    }
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::<usize>::None, std::cmp::Ordering::Equal)]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::One(1), std::cmp::Ordering::Less)]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::Many(vec![1, 2, 3]), std::cmp::Ordering::Less)]
+    #[case::one(OneOrMany::One(1), OneOrMany::<usize>::None, std::cmp::Ordering::Greater)]
+    #[case::one(OneOrMany::One(1), OneOrMany::One(1), std::cmp::Ordering::Equal)]
+    #[case::one(OneOrMany::One(1), OneOrMany::One(2), std::cmp::Ordering::Less)]
+    #[case::one(OneOrMany::One(1), OneOrMany::One(0), std::cmp::Ordering::Greater)]
+    #[case::one(OneOrMany::One(1), OneOrMany::Many(vec![1, 2, 3]), std::cmp::Ordering::Less)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::<usize>::None, std::cmp::Ordering::Greater)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::One(1), std::cmp::Ordering::Greater)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]), std::cmp::Ordering::Equal)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![2, 3]), std::cmp::Ordering::Less)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3, 4]), std::cmp::Ordering::Less)]
+    fn test_cmp<T>(
+        #[case] input: OneOrMany<T>,
+        #[case] other: OneOrMany<T>,
+        #[case] expected: std::cmp::Ordering,
+    ) where
+        T: std::fmt::Debug + Ord,
+    {
+        assert_eq!(input.cmp(&other), expected);
     }
 
     #[rstest]

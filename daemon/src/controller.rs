@@ -2,7 +2,7 @@
 use std::{net::SocketAddr, ops::Range, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use rand::seq::SliceRandom;
 use surrealdb::{engine::local::Db, Surreal};
 use tap::TapFallible;
@@ -14,7 +14,7 @@ use mecomp_core::{
         AUDIO_KERNEL,
     },
     errors::SerializableLibraryError,
-    rpc::{AlbumId, ArtistId, CollectionId, MusicPlayer, PlaylistId, SongId},
+    rpc::{AlbumId, ArtistId, CollectionId, MusicPlayer, PlaylistId, SearchResult, SongId},
     state::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
         RepeatMode, SeekType, StateAudio, StateRuntime,
@@ -33,7 +33,10 @@ use mecomp_storage::{
 };
 use one_or_many::OneOrMany;
 
-use crate::{config::DaemonSettings, services};
+use crate::{
+    config::DaemonSettings,
+    services::{self, get_songs_from_things},
+};
 
 mod locks {
     use tokio::sync::Mutex;
@@ -94,6 +97,11 @@ impl MusicPlayer for MusicPlayerServer {
 
         Ok(())
     }
+    /// Check if a rescan is in progress.
+    #[instrument]
+    async fn library_rescan_in_progress(self, context: Context) -> bool {
+        locks::LIBRARY_RESCAN_LOCK.try_lock().is_err()
+    }
     /// Analyze the music library, only error is if an analysis is already in progress.
     #[instrument]
     async fn library_analyze(self, context: Context) -> Result<(), SerializableLibraryError> {
@@ -127,7 +135,11 @@ impl MusicPlayer for MusicPlayerServer {
             Ok(())
         }
     }
-
+    /// Check if an analysis is in progress.
+    #[instrument]
+    async fn library_analyze_in_progress(self, context: Context) -> bool {
+        locks::LIBRARY_ANALYZE_LOCK.try_lock().is_err()
+    }
     /// Returns brief information about the music library.
     #[instrument]
     async fn library_brief(
@@ -247,6 +259,28 @@ impl MusicPlayer for MusicPlayerServer {
             .ok()
             .flatten()
     }
+    /// Get the artists of a song.
+    #[instrument]
+    async fn library_song_get_artist(self, context: Context, id: SongId) -> OneOrMany<Artist> {
+        let id = id.into();
+        info!("Getting artist of: {id}");
+        Song::read_artist(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in library_song_get_artist: {e}"))
+            .ok()
+            .into()
+    }
+    /// Get the album of a song.
+    #[instrument]
+    async fn library_song_get_album(self, context: Context, id: SongId) -> Option<Album> {
+        let id = id.into();
+        info!("Getting album of: {id}");
+        Song::read_album(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in library_song_get_album: {e}"))
+            .ok()
+            .flatten()
+    }
     /// Get an album by its ID.
     #[instrument]
     async fn library_album_get(self, context: Context, id: AlbumId) -> Option<Album> {
@@ -257,6 +291,28 @@ impl MusicPlayer for MusicPlayerServer {
             .tap_err(|e| warn!("Error in library_album_get: {e}"))
             .ok()
             .flatten()
+    }
+    /// Get the artists of an album
+    #[instrument]
+    async fn library_album_get_artist(self, context: Context, id: AlbumId) -> OneOrMany<Artist> {
+        let id = id.into();
+        info!("Getting artists of: {id}");
+        Album::read_artist(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in library_album_get_artist: {e}"))
+            .ok()
+            .into()
+    }
+    /// Get the songs of an album
+    #[instrument]
+    async fn library_album_get_songs(self, context: Context, id: AlbumId) -> Option<Box<[Song]>> {
+        let id = id.into();
+        info!("Getting songs of: {id}");
+        Album::read_songs(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in library_album_get_songs: {e}"))
+            .ok()
+            .map(Into::into)
     }
     /// Get an artist by its ID.
     #[instrument]
@@ -269,16 +325,31 @@ impl MusicPlayer for MusicPlayerServer {
             .ok()
             .flatten()
     }
-    /// Get a playlist by its ID.
+    /// Get the songs of an artist
     #[instrument]
-    async fn library_playlist_get(self, context: Context, id: PlaylistId) -> Option<Playlist> {
+    async fn library_artist_get_songs(self, context: Context, id: ArtistId) -> Option<Box<[Song]>> {
         let id = id.into();
-        info!("Getting playlist by ID: {id}");
-        Playlist::read(&self.db, id)
+        info!("Getting songs of: {id}");
+        Artist::read_songs(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_playlist_get: {e}"))
+            .tap_err(|e| warn!("Error in library_artist_get_songs: {e}"))
             .ok()
-            .flatten()
+            .map(Into::into)
+    }
+    /// Get the albums of an artist
+    #[instrument]
+    async fn library_artist_get_albums(
+        self,
+        context: Context,
+        id: ArtistId,
+    ) -> Option<Box<[Album]>> {
+        let id = id.into();
+        info!("Getting albums of: {id}");
+        Artist::read_albums(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in library_artist_get_albums: {e}"))
+            .ok()
+            .map(Into::into)
     }
 
     /// tells the daemon to shutdown.
@@ -298,7 +369,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// returns full information about the current state of the audio player (queue, current song, etc.)
     #[instrument]
     async fn state_audio(self, context: Context) -> Option<StateAudio> {
-        info!("Getting state of audio player");
+        debug!("Getting state of audio player");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
@@ -493,12 +564,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// returns a list of artists, albums, and songs matching the given search query.
     #[instrument]
     #[allow(clippy::type_complexity)]
-    async fn search(
-        self,
-        context: Context,
-        query: String,
-        limit: u32,
-    ) -> (Box<[Song]>, Box<[Album]>, Box<[Artist]>) {
+    async fn search(self, context: Context, query: String, limit: u32) -> SearchResult {
         info!("Searching for: {query}");
         // basic idea:
         // 1. search for songs
@@ -522,7 +588,11 @@ impl MusicPlayer for MusicPlayerServer {
             .tap_err(|e| warn!("Error in search: {e}"))
             .unwrap_or_default()
             .into();
-        (songs, albums, artists)
+        SearchResult {
+            songs,
+            albums,
+            artists,
+        }
     }
     /// returns a list of artists matching the given search query.
     #[instrument]
@@ -709,42 +779,7 @@ impl MusicPlayer for MusicPlayerServer {
         );
 
         // go through the list, and get songs for each thing (depending on what it is)
-        let mut songs: OneOrMany<Song> = OneOrMany::None;
-        for thing in list {
-            match thing.tb.as_str() {
-                schemas::album::TABLE_NAME => {
-                    for song in Album::read_songs(&self.db, thing.clone().into()).await? {
-                        songs.push(song);
-                    }
-                }
-                schemas::artist::TABLE_NAME => {
-                    for song in Artist::read_songs(&self.db, thing.clone().into()).await? {
-                        songs.push(song);
-                    }
-                }
-                schemas::collection::TABLE_NAME => {
-                    for song in Collection::read_songs(&self.db, thing.clone().into()).await? {
-                        songs.push(song);
-                    }
-                }
-                schemas::playlist::TABLE_NAME => {
-                    for song in Playlist::read_songs(&self.db, thing.clone().into()).await? {
-                        songs.push(song);
-                    }
-                }
-                schemas::song::TABLE_NAME => songs.push(
-                    Song::read(&self.db, thing.clone().into())
-                        .await?
-                        .ok_or(Error::NotFound)?,
-                ),
-                _ => {
-                    warn!("Unknown thing type: {}", thing.tb);
-                }
-            }
-        }
-
-        // remove duplicates
-        songs.dedup_by_key(|song| song.id.clone());
+        let songs: OneOrMany<Song> = get_songs_from_things(&self.db, list).await?;
 
         AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
             songs,
@@ -927,26 +962,37 @@ impl MusicPlayer for MusicPlayerServer {
             .unwrap_or_default()
     }
     /// create a new playlist.
+    /// if a playlist with the same name already exists, this will return that playlist's id in the error variant
     #[instrument]
     async fn playlist_new(
         self,
         context: Context,
         name: String,
-    ) -> Result<PlaylistId, SerializableLibraryError> {
+    ) -> Result<Result<PlaylistId, PlaylistId>, SerializableLibraryError> {
         info!("Creating new playlist: {name}");
 
-        Ok(Playlist::create(
-            &self.db,
-            Playlist {
-                id: Playlist::generate_id(),
-                name: name.into(),
-                runtime: Duration::from_secs(0),
-                song_count: 0,
-            },
-        )
-        .await?
-        .map(|playlist| playlist.id.into())
-        .ok_or(NotFound)?)
+        // see if a playlist with that name already exists
+        if let Some(playlist) = Playlist::read_by_name(&self.db, name.clone())
+            .await
+            .tap_err(|e| warn!("Error in playlist_new: {e}"))
+            .ok()
+            .flatten()
+        {
+            Ok(Ok(playlist.id.into()))
+        } else {
+            Ok(Err(Playlist::create(
+                &self.db,
+                Playlist {
+                    id: Playlist::generate_id(),
+                    name: name.into(),
+                    runtime: Duration::from_secs(0),
+                    song_count: 0,
+                },
+            )
+            .await?
+            .map(|playlist| playlist.id.into())
+            .ok_or(NotFound)?))
+        }
     }
     /// remove a playlist.
     #[instrument]
@@ -1066,6 +1112,33 @@ impl MusicPlayer for MusicPlayerServer {
 
         Ok(Playlist::add_songs(&self.db, playlist, &songs).await?)
     }
+    /// Add a list of things to a playlist.
+    #[instrument]
+    async fn playlist_add_list(
+        self,
+        context: Context,
+        playlist: PlaylistId,
+        list: Vec<mecomp_storage::db::schemas::Thing>,
+    ) -> Result<(), SerializableLibraryError> {
+        let playlist = playlist.into();
+        info!(
+            "Adding list to playlist: {playlist} ({})",
+            list.iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+
+        // go through the list, and get songs for each thing (depending on what it is)
+        let songs: OneOrMany<Song> = get_songs_from_things(&self.db, list).await?;
+
+        Ok(Playlist::add_songs(
+            &self.db,
+            playlist,
+            &songs.into_iter().map(|s| s.id).collect::<Vec<_>>(),
+        )
+        .await?)
+    }
     /// Get a playlist by its ID.
     #[instrument]
     async fn playlist_get(self, context: Context, id: PlaylistId) -> Option<Playlist> {
@@ -1077,6 +1150,17 @@ impl MusicPlayer for MusicPlayerServer {
             .tap_err(|e| warn!("Error in playlist_get: {e}"))
             .ok()
             .flatten()
+    }
+    /// Get the songs of a playlist
+    #[instrument]
+    async fn playlist_get_songs(self, context: Context, id: PlaylistId) -> Option<Box<[Song]>> {
+        let id = id.into();
+        info!("Getting songs in: {id}");
+        Playlist::read_songs(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in playlist_get_songs: {e}"))
+            .ok()
+            .map(Into::into)
     }
 
     /// Collections: Return brief information about the users auto curration collections.
@@ -1128,7 +1212,41 @@ impl MusicPlayer for MusicPlayerServer {
             .await
             .map(|p| p.id.into())?)
     }
+    /// Get the songs of a collection
+    #[instrument]
+    async fn collection_get_songs(self, context: Context, id: CollectionId) -> Option<Box<[Song]>> {
+        let id = id.into();
+        info!("Getting songs in: {id}");
+        Collection::read_songs(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in collection_get_songs: {e}"))
+            .ok()
+            .map(Into::into)
+    }
 
+    /// Radio: get the `n` most similar songs to the given things.
+    #[instrument]
+    async fn radio_get_similar(
+        self,
+        context: Context,
+        things: Vec<schemas::Thing>,
+        n: u32,
+    ) -> Result<Box<[Song]>, SerializableLibraryError> {
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Getting the {n} most similar songs to: {things:?}");
+            Ok(services::radio::get_similar(&self.db, things, n)
+                .await
+                .map(Vec::into_boxed_slice)
+                .tap_err(|e| warn!("Error in radio_get_similar: {e}"))?)
+        }
+    }
     /// Radio: get the `n` most similar songs to the given song.
     #[instrument]
     async fn radio_get_similar_to_song(
@@ -1136,7 +1254,7 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         song: SongId,
         n: u32,
-    ) -> Box<[SongId]> {
+    ) -> Result<Box<[SongId]>, SerializableLibraryError> {
         #[cfg(not(feature = "analysis"))]
         {
             warn!("Analysis is not enabled");
@@ -1146,11 +1264,12 @@ impl MusicPlayer for MusicPlayerServer {
         #[cfg(feature = "analysis")]
         {
             info!("Getting the {n} most similar songs to: {song:?}");
-            services::radio::get_similar_to_song(&self.db, song.into(), n)
-                .await
-                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
-                .tap_err(|e| warn!("Error in radio_get_similar_songs: {e}"))
-                .unwrap_or_default()
+            Ok(
+                services::radio::get_similar_to_song(&self.db, song.into(), n)
+                    .await
+                    .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                    .tap_err(|e| warn!("Error in radio_get_similar_songs: {e}"))?,
+            )
         }
     }
 
@@ -1161,7 +1280,7 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         artist: ArtistId,
         n: u32,
-    ) -> Box<[SongId]> {
+    ) -> Result<Box<[SongId]>, SerializableLibraryError> {
         #[cfg(not(feature = "analysis"))]
         {
             warn!("Analysis is not enabled");
@@ -1171,11 +1290,12 @@ impl MusicPlayer for MusicPlayerServer {
         #[cfg(feature = "analysis")]
         {
             info!("Getting the {n} most similar songs to: {artist:?}");
-            services::radio::get_similar_to_artist(&self.db, artist.into(), n)
-                .await
-                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
-                .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))
-                .unwrap_or_default()
+            Ok(
+                services::radio::get_similar_to_artist(&self.db, artist.into(), n)
+                    .await
+                    .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                    .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))?,
+            )
         }
     }
 
@@ -1186,7 +1306,7 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         album: AlbumId,
         n: u32,
-    ) -> Box<[SongId]> {
+    ) -> Result<Box<[SongId]>, SerializableLibraryError> {
         #[cfg(not(feature = "analysis"))]
         {
             warn!("Analysis is not enabled");
@@ -1196,11 +1316,12 @@ impl MusicPlayer for MusicPlayerServer {
         #[cfg(feature = "analysis")]
         {
             info!("Getting the {n} most similar songs to: {album:?}");
-            services::radio::get_similar_to_album(&self.db, album.into(), n)
-                .await
-                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
-                .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))
-                .unwrap_or_default()
+            Ok(
+                services::radio::get_similar_to_album(&self.db, album.into(), n)
+                    .await
+                    .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                    .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))?,
+            )
         }
     }
 
@@ -1211,7 +1332,7 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         playlist: PlaylistId,
         n: u32,
-    ) -> Box<[SongId]> {
+    ) -> Result<Box<[SongId]>, SerializableLibraryError> {
         #[cfg(not(feature = "analysis"))]
         {
             warn!("Analysis is not enabled");
@@ -1221,11 +1342,12 @@ impl MusicPlayer for MusicPlayerServer {
         #[cfg(feature = "analysis")]
         {
             info!("Getting the {n} most similar songs to: {playlist:?}");
-            services::radio::get_similar_to_playlist(&self.db, playlist.into(), n)
-                .await
-                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
-                .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))
-                .unwrap_or_default()
+            Ok(
+                services::radio::get_similar_to_playlist(&self.db, playlist.into(), n)
+                    .await
+                    .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                    .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))?,
+            )
         }
     }
 }

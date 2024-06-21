@@ -7,12 +7,9 @@ use tracing::instrument;
 
 use crate::{
     db::{
-        queries::{
-            album::{
-                add_songs, read_artist, read_by_name, read_by_name_and_album_artist, read_songs,
-                remove_songs,
-            },
-            generic::full_text_search,
+        queries::album::{
+            add_songs, read_artist, read_by_name, read_by_name_and_album_artist, read_songs,
+            remove_songs,
         },
         schemas::{
             album::{Album, AlbumChangeSet, AlbumId, TABLE_NAME},
@@ -73,8 +70,9 @@ impl Album {
         limit: i64,
     ) -> StorageResult<Vec<Self>> {
         Ok(db
-            .query(full_text_search(TABLE_NAME, "title", limit))
-            .bind(("title", query))
+            .query("SELECT *, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM album WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit")
+            .bind(("query", query))
+            .bind(("limit", limit))
             .await?
             .take(0)?)
     }

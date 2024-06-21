@@ -11,9 +11,12 @@ use super::{
     VolumeCommand,
 };
 
-use mecomp_core::state::{
-    library::{LibraryBrief, LibraryFull, LibraryHealth},
-    SeekType,
+use mecomp_core::{
+    rpc::SearchResult,
+    state::{
+        library::{LibraryBrief, LibraryFull, LibraryHealth},
+        SeekType,
+    },
 };
 use mecomp_storage::db::schemas::{
     album::{self, Album, AlbumBrief},
@@ -95,8 +98,11 @@ impl CommandHandler for Command {
             } => {
                 match target {
                     SearchTarget::All => {
-                        let (songs, albums, artists) =
-                            client.search(ctx, query.clone(), *limit).await?;
+                        let SearchResult {
+                            songs,
+                            albums,
+                            artists,
+                        } = client.search(ctx, query.clone(), *limit).await?;
                         println!(
                             "Daemon response:\n{}\n{}\n{}",
                             printing::song_list("Songs", &songs, false)?,
@@ -278,7 +284,7 @@ impl CommandHandler for LibraryCommand {
                     }
                     LibraryGetTarget::Playlist => {
                         let resp: Option<Playlist> = client
-                            .library_playlist_get(
+                            .playlist_get(
                                 ctx,
                                 Thing {
                                     tb: playlist::TABLE_NAME.to_owned(),
@@ -591,7 +597,10 @@ impl CommandHandler for super::PlaylistCommand {
                 Ok(())
             }
             Self::Create { name } => {
-                let resp: Result<Thing, _> = client.playlist_new(ctx, name.clone()).await?;
+                let resp: Thing = client
+                    .playlist_new(ctx, name.clone())
+                    .await??
+                    .unwrap_or_else(|e| e);
                 println!("Daemon response:\n{resp:#?}");
                 Ok(())
             }
@@ -769,7 +778,7 @@ impl CommandHandler for super::RadioCommand {
                         },
                         *n,
                     )
-                    .await?;
+                    .await??;
                 println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
@@ -783,7 +792,7 @@ impl CommandHandler for super::RadioCommand {
                         },
                         *n,
                     )
-                    .await?;
+                    .await??;
                 println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
@@ -797,7 +806,7 @@ impl CommandHandler for super::RadioCommand {
                         },
                         *n,
                     )
-                    .await?;
+                    .await??;
                 println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
@@ -811,7 +820,7 @@ impl CommandHandler for super::RadioCommand {
                         },
                         *n,
                     )
-                    .await?;
+                    .await??;
                 println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }

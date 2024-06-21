@@ -2,8 +2,6 @@
 
 # The port to listen on for RPC requests. (default: 6600, the default port for MPD)
 rpc_port = 6600
-# The path to the database.
-db_path = "/tmp/mecomp_db"
 # The root paths of the music library.
 library_paths = ["~/Music"]
 # Sepators for artist names in song metadata.

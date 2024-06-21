@@ -30,6 +30,7 @@ mock_playback = []
 
 [dependencies]
 # shared dependencies
+directories = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
 lazy_static = { workspace = true }

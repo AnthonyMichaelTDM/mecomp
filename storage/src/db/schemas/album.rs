@@ -27,7 +27,10 @@ pub struct Album {
     #[cfg_attr(feature = "db", field(dt = "string", index(text("custom_analyzer"))))]
     pub title: Arc<str>,
     /// Artist of the [`Album`]. (Can be multiple)
-    #[cfg_attr(feature = "db", field(dt = "option<set<string> | string>"))]
+    #[cfg_attr(
+        feature = "db",
+        field(dt = "option<set<string> | string>", index(text("custom_analyzer")))
+    )]
     #[cfg_attr(feature = "serde", serde(default))]
     pub artist: OneOrMany<Arc<str>>,
     /// Release year of this [`Album`].

@@ -220,10 +220,14 @@ impl Queue {
         self.songs.drain(range_start..range_end);
 
         if current_index >= range_start && current_index < range_end {
-            self.current_index = Some(range_start + 1);
+            // current index is within the range
+            self.current_index = Some(range_start);
         } else if current_index >= range_end {
+            // current index is after the range
             self.current_index = Some(current_index - (range_end - range_start));
         }
+
+        // if the current index was put out of bounds, set it to None
         if self.current_index.unwrap_or_default() >= self.songs.len() || self.is_empty() {
             self.current_index = None;
         }

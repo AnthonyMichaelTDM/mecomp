@@ -1,3 +1,5 @@
+use errors::DirectoryError;
+
 pub mod audio;
 pub mod errors;
 pub mod logger;
@@ -74,4 +76,42 @@ mod test {
     fn test_format_duration(#[case] duration: Duration, #[case] expected: &str) {
         assert_eq!(format_duration(&duration), expected);
     }
+}
+
+/// Get the data directory for the application.
+///
+/// Follows the XDG Base Directory Specification for linux, and the equivalents on other platforms.
+/// See the [`directories`](https://docs.rs/directories/latest/directories/) crate for more information.
+///
+/// # Errors
+///
+/// This function will return an error if the data directory could not be found.
+pub fn get_data_dir() -> Result<std::path::PathBuf, DirectoryError> {
+    let directory = if let Ok(s) = std::env::var("MECOMP_DATA") {
+        std::path::PathBuf::from(s)
+    } else if let Some(proj_dirs) = directories::ProjectDirs::from("com", "", "mecomp") {
+        proj_dirs.data_local_dir().to_path_buf()
+    } else {
+        return Err(DirectoryError::Data);
+    };
+    Ok(directory)
+}
+
+/// Get the config directory for the application.
+///
+/// Follows the XDG Base Directory Specification for linux, and the equivalents on other platforms.
+/// See the [`directories`](https://docs.rs/directories/latest/directories/) crate for more information.
+///
+/// # Errors
+///
+/// This function will return an error if the config directory could not be found.
+pub fn get_config_dir() -> Result<std::path::PathBuf, DirectoryError> {
+    let directory = if let Ok(s) = std::env::var("MECOMP_CONFIG") {
+        std::path::PathBuf::from(s)
+    } else if let Some(proj_dirs) = directories::ProjectDirs::from("com", "", "mecomp") {
+        proj_dirs.config_local_dir().to_path_buf()
+    } else {
+        return Err(DirectoryError::Config);
+    };
+    Ok(directory)
 }

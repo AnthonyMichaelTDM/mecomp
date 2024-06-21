@@ -4,6 +4,7 @@
 
 use std::path::PathBuf;
 
+use mecomp_core::{get_config_dir, get_data_dir};
 use mecomp_daemon::{config::DaemonSettings, start_daemon};
 
 use clap::Parser;
@@ -18,15 +19,33 @@ struct Flags {
     #[clap(long)]
     port: Option<u16>,
     /// config file path
-    #[clap(long, default_value = "Mecomp.toml")]
-    config: PathBuf,
+    #[clap(long)]
+    config: Option<PathBuf>,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let flags = Flags::try_parse()?;
 
-    let settings = DaemonSettings::init(flags.port, flags.config)?;
+    let config_file = match get_config_dir() {
+        Ok(config_dir) => config_dir.join("Mecomp.toml"),
+        Err(e) => {
+            eprintln!("Error: {e}");
+            // TODO: once this thing is released, maybe make this an actual error?
+            PathBuf::from("Mecomp.toml")
+        }
+    };
 
-    start_daemon(log::LevelFilter::Debug, settings).await
+    let db_dir = match get_data_dir() {
+        Ok(data_dir) => data_dir.join("db"),
+        Err(e) => {
+            eprintln!("Error: {e}");
+            eprintln!("Using a temporary directory for the database");
+            std::env::temp_dir().join("mecomp")
+        }
+    };
+
+    let settings = DaemonSettings::init(flags.port, flags.config.unwrap_or(config_file))?;
+
+    start_daemon(log::LevelFilter::Debug, settings, db_dir).await
 }

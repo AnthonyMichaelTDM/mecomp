@@ -1,0 +1,30 @@
+[package]
+name = "mecomp-tui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+crossterm = { version = "0.27.0", features = ["event-stream"] }
+material = { version = "0.1.1" }
+ratatui = { version = "0.26.3", features = ["all-widgets"] }
+# log.workspace = true
+tui-tree-widget = "0.20.0"
+strum.workspace = true
+tarpc.workspace = true
+tokio = { workspace = true, features = ["signal"] }
+tokio-stream = "0.1.15"
+
+# MECOMP dependencies
+one-or-many.workspace = true
+mecomp-core = { workspace = true, features = ["rpc"] }
+mecomp-storage = { workspace = true, features = ["serde"] }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
