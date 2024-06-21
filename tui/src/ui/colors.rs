@@ -24,6 +24,9 @@ pub const APP_BORDER_TEXT: Color = Color(colors::PINK_300);
 pub const BORDER_UNFOCUSED: Color = Color(colors::RED_900);
 pub const BORDER_FOCUSED: Color = Color(colors::RED_200);
 
+// Popup border colors
+pub const POPUP_BORDER: Color = Color(colors::LIGHT_BLUE_500);
+
 // text colors
 pub const TEXT_NORMAL: Color = Color(colors::WHITE);
 pub const TEXT_HIGHLIGHT: Color = Color(colors::RED_600);

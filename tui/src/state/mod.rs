@@ -5,6 +5,7 @@ use mecomp_core::{
     rpc::{MusicPlayerClient, SearchResult},
     state::{library::LibraryFull, StateAudio},
 };
+use ratatui::layout::Rect;
 use tokio::sync::{
     broadcast,
     mpsc::{self, UnboundedReceiver, UnboundedSender},
@@ -12,12 +13,13 @@ use tokio::sync::{
 
 use crate::{
     termination::{Interrupted, Terminator},
-    ui::components::content_view::ActiveView,
+    ui::{components::content_view::ActiveView, widgets::popups::Popup},
 };
 
 pub mod action;
 pub mod audio;
 pub mod library;
+pub mod popup;
 pub mod search;
 pub mod view;
 
@@ -26,7 +28,8 @@ pub struct Dispatcher {
     audio: audio::AudioState,
     search: search::SearchState,
     library: library::LibraryState,
-    view: view::ViewStore,
+    view: view::ViewState,
+    popup: popup::PopupState,
 }
 
 /// a struct that centralized the receivers for all the state stores.
@@ -35,6 +38,7 @@ pub struct Receivers {
     pub search: UnboundedReceiver<SearchResult>,
     pub library: UnboundedReceiver<LibraryFull>,
     pub view: UnboundedReceiver<ActiveView>,
+    pub popup: UnboundedReceiver<Option<(Box<dyn Popup>, Rect)>>,
 }
 
 impl Dispatcher {
@@ -42,19 +46,22 @@ impl Dispatcher {
         let (audio, audio_rx) = audio::AudioState::new();
         let (search, search_rx) = search::SearchState::new();
         let (library, library_rx) = library::LibraryState::new();
-        let (view, view_rx) = view::ViewStore::new();
+        let (view, view_rx) = view::ViewState::new();
+        let (popup, popup_rx) = popup::PopupState::new();
 
         let dispatcher = Self {
             audio,
             search,
             library,
             view,
+            popup,
         };
         let state_receivers = Receivers {
             audio: audio_rx,
             search: search_rx,
             library: library_rx,
             view: view_rx,
+            popup: popup_rx,
         };
 
         (dispatcher, state_receivers)
@@ -71,6 +78,7 @@ impl Dispatcher {
         let (search_action_tx, search_action_rx) = mpsc::unbounded_channel();
         let (library_action_tx, library_action_rx) = mpsc::unbounded_channel();
         let (view_action_tx, view_action_rx) = mpsc::unbounded_channel();
+        let (popup_action_tx, popup_action_rx) = mpsc::unbounded_channel();
 
         // run multiple tasks in parallel, and wait for all of them to finish.
         // the tasks are:
@@ -93,6 +101,9 @@ impl Dispatcher {
             // the view store
             self.view
                 .main_loop(view_action_rx, interrupt_rx.resubscribe()),
+            // the popup store
+            self.popup
+                .main_loop(popup_action_rx, interrupt_rx.resubscribe()),
             // the action dispatcher
             Self::action_dispatcher(
                 terminator,
@@ -101,6 +112,7 @@ impl Dispatcher {
                 search_action_tx,
                 library_action_tx,
                 view_action_tx,
+                popup_action_tx,
             ),
         )?;
 
@@ -114,6 +126,7 @@ impl Dispatcher {
         search_action_tx: UnboundedSender<String>,
         library_action_tx: UnboundedSender<action::LibraryAction>,
         view_action_tx: UnboundedSender<ActiveView>,
+        popup_action_tx: UnboundedSender<action::PopupAction>,
     ) -> anyhow::Result<()> {
         while let Some(action) = action_rx.recv().await {
             match action {
@@ -136,6 +149,7 @@ impl Dispatcher {
                 Action::SetCurrentView(view) => {
                     view_action_tx.send(view)?;
                 }
+                Action::Popup(popup) => popup_action_tx.send(popup)?,
             }
         }
 

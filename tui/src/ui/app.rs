@@ -5,7 +5,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::Span,
     widgets::Block,
@@ -13,7 +13,7 @@ use ratatui::{
 };
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::state::action::{Action, GeneralAction};
+use crate::state::action::{Action, GeneralAction, PopupAction};
 
 use super::{
     colors::{APP_BORDER, APP_BORDER_TEXT, TEXT_NORMAL},
@@ -21,6 +21,7 @@ use super::{
         content_view::ContentView, control_panel::ControlPanel, queuebar::QueueBar,
         sidebar::Sidebar, Component, ComponentRender, RenderProps,
     },
+    widgets::popups::Popup,
     AppState,
 };
 
@@ -34,6 +35,8 @@ pub struct App {
     queuebar: QueueBar,
     control_panel: ControlPanel,
     content_view: ContentView,
+    // (global) Components that are conditionally in view (popups)
+    popup: Option<(Box<dyn Popup>, Rect)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -135,6 +138,13 @@ impl App {
             ..self
         }
     }
+
+    /// Move the app with the given state, but only update components that need to be updated.
+    ///
+    /// in this case, that is the popup
+    pub fn move_with_popup(self, popup: Option<(Box<dyn Popup>, Rect)>) -> Self {
+        Self { popup, ..self }
+    }
 }
 
 impl Component for App {
@@ -152,6 +162,8 @@ impl Component for App {
             queuebar: QueueBar::new(state, action_tx.clone()),
             control_panel: ControlPanel::new(state, action_tx.clone()),
             content_view: ContentView::new(state, action_tx),
+            //
+            popup: None,
         }
         .move_with_state(state)
     }
@@ -179,6 +191,12 @@ impl Component for App {
             return;
         }
 
+        // if there is a popup, defer all key handling to it.
+        if let Some((popup, _)) = self.popup.as_mut() {
+            popup.handle_key_event(key, self.action_tx.clone());
+            return;
+        }
+
         // if it's a exit, or navigation command, handle it here.
         // otherwise, defer to the active component
         match key.code {
@@ -193,6 +211,17 @@ impl Component for App {
             }
             KeyCode::BackTab => {
                 self.props.active_component = self.props.active_component.prev();
+            }
+            // test, "O" opens a popup
+            KeyCode::Char('O') => {
+                self.action_tx
+                    .send(Action::Popup(PopupAction::Open(
+                        Box::new(super::widgets::popups::notification::Notification(
+                            "Hello World",
+                        )),
+                        Rect::new(10, 10, 20, 5),
+                    )))
+                    .unwrap();
             }
             _ => self.get_active_view_component_mut().handle_key_event(key),
         }
@@ -283,5 +312,10 @@ impl ComponentRender<()> for App {
                 is_focused: queuebar_focused,
             },
         );
+
+        // render the popup if there is one
+        if let Some((popup, area)) = &self.popup {
+            popup.render_popup(frame, *area);
+        }
     }
 }

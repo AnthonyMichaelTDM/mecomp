@@ -9,11 +9,11 @@ use crate::{termination::Interrupted, ui::components::content_view::ActiveView};
 
 /// The `ViewStore` is responsible for managing the `CurrentView` to be displayed.
 #[allow(clippy::module_name_repetitions)]
-pub struct ViewStore {
+pub struct ViewState {
     state_tx: UnboundedSender<ActiveView>,
 }
 
-impl ViewStore {
+impl ViewState {
     /// Create a new `ViewStore`.
     pub fn new() -> (Self, UnboundedReceiver<ActiveView>) {
         let (state_tx, state_rx) = unbounded_channel::<ActiveView>();

@@ -141,6 +141,9 @@ impl UiManager {
                     };
                     app = app.move_with_view(&state);
                 },
+                Some(popup) = state_rx.popup.recv() => {
+                    app = app.move_with_popup(popup);
+                }
                 // Catch and handle interrupt signal to gracefully shutdown
                 Ok(interrupted) = interrupt_rx.recv() => {
                     break Ok(interrupted);
