@@ -600,7 +600,7 @@ impl CommandHandler for super::PlaylistCommand {
                 let resp: Thing = client
                     .playlist_new(ctx, name.clone())
                     .await??
-                    .map_or_else(|e| e, |o| o);
+                    .unwrap_or_else(|e| e);
                 println!("Daemon response:\n{resp:#?}");
                 Ok(())
             }

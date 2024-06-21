@@ -14,13 +14,16 @@ use tokio::sync::mpsc::UnboundedSender;
 use tui_tree_widget::{Tree, TreeState};
 
 use crate::{
-    state::action::{Action, AudioAction, LibraryAction, QueueAction},
+    state::action::{Action, AudioAction, LibraryAction, PopupAction, QueueAction},
     ui::{
         colors::{
             BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
         },
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
-        widgets::input_box::{self, InputBox},
+        widgets::{
+            input_box::{self, InputBox},
+            popups::PopupType,
+        },
         AppState,
     },
 };
@@ -143,6 +146,16 @@ impl Component for PlaylistView {
                         .unwrap();
                 }
             }
+            // add playlist to playlist
+            KeyCode::Char('p') => {
+                if let Some(props) = &self.props {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                            props.id.clone(),
+                        ]))))
+                        .unwrap();
+                }
+            }
             // Delete selected song
             KeyCode::Char('d') => {
                 if let Some(props) = &self.props {
@@ -229,7 +242,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
                 .block(
                     Block::new()
                         .borders(Borders::BOTTOM)
-                        .title_bottom("q: add to queue | r: start radio")
+                        .title_bottom("q: add to queue | r: start radio | p: add to playlist")
                         .border_style(border_style),
                 )
                 .alignment(Alignment::Center),
@@ -273,9 +286,21 @@ pub struct LibraryPlaylistsView {
     input_box_visible: bool,
 }
 
-struct Props {
-    playlists: Box<[Playlist]>,
+pub struct Props {
+    pub playlists: Box<[Playlist]>,
     sort_mode: SortMode,
+}
+
+impl From<&AppState> for Props {
+    fn from(state: &AppState) -> Self {
+        let mut playlists = state.library.playlists.clone();
+        let sort_mode = SortMode::default();
+        sort_mode.sort_playlists(&mut playlists);
+        Self {
+            playlists,
+            sort_mode,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -324,17 +349,11 @@ impl Component for LibraryPlaylistsView {
     where
         Self: Sized,
     {
-        let sort_mode = SortMode::default();
-        let mut playlists = state.library.playlists.clone();
-        sort_mode.sort_playlists(&mut playlists);
         Self {
             input_box: InputBox::new(state, action_tx.clone()),
             input_box_visible: false,
             action_tx,
-            props: Props {
-                playlists,
-                sort_mode,
-            },
+            props: Props::from(state),
             tree_state: Mutex::new(TreeState::default()),
         }
     }
@@ -343,13 +362,8 @@ impl Component for LibraryPlaylistsView {
     where
         Self: Sized,
     {
-        let mut playlists = state.library.playlists.clone();
-        self.props.sort_mode.sort_playlists(&mut playlists);
         Self {
-            props: Props {
-                playlists,
-                ..self.props
-            },
+            props: Props::from(state),
             ..self
         }
     }

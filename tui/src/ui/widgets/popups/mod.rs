@@ -2,6 +2,7 @@ pub mod notification;
 pub mod playlist;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
+use mecomp_storage::db::schemas::Thing;
 use ratatui::{
     prelude::Rect,
     style::{Color, Style},
@@ -12,12 +13,14 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     state::action::{Action, PopupAction},
-    ui::{colors::POPUP_BORDER, components::ComponentRender},
+    ui::{colors::POPUP_BORDER, components::ComponentRender, AppState},
 };
 
 pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
     fn title(&self) -> Line;
     fn instructions(&self) -> Line;
+    /// The area needed for the popup to render.
+    fn area(&self, terminal_area: Rect) -> Rect;
 
     /// override this method to change the border color of the popup
     fn border_color(&self) -> Color {
@@ -51,9 +54,10 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
     ///
     /// It draws a border with the given title and instructions and
     /// renders the component implementing popup.
-    fn render_popup(&self, frame: &mut ratatui::Frame, area: Rect) {
+    fn render_popup(&self, frame: &mut ratatui::Frame) {
         let title = self.title();
         let instructions = self.instructions();
+        let area = self.area(frame.size());
 
         // clear the popup area
         frame.render_widget(Clear, area);
@@ -67,5 +71,26 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
         frame.render_widget(border, area);
 
         self.render(frame, component_area);
+    }
+}
+
+pub enum PopupType {
+    #[allow(dead_code)]
+    Notification(Line<'static>),
+    Playlist(Vec<Thing>),
+}
+
+impl PopupType {
+    pub fn into_popup(
+        self,
+        state: &AppState,
+        action_tx: UnboundedSender<Action>,
+    ) -> Box<dyn Popup> {
+        match self {
+            Self::Notification(line) => Box::new(notification::Notification(line)) as _,
+            Self::Playlist(items) => {
+                Box::new(playlist::PlaylistSelector::new(state, action_tx, items)) as _
+            }
+        }
     }
 }

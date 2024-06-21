@@ -14,10 +14,11 @@ use tokio::sync::mpsc::UnboundedSender;
 use tui_tree_widget::{Tree, TreeState};
 
 use crate::{
-    state::action::{Action, AudioAction, QueueAction},
+    state::action::{Action, AudioAction, PopupAction, QueueAction},
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
+        widgets::popups::PopupType,
         AppState,
     },
 };
@@ -103,7 +104,7 @@ impl Component for AlbumView {
                     }
                 }
             }
-            // Add song to queue
+            // Add album to queue
             KeyCode::Char('q') => {
                 if let Some(props) = &self.props {
                     self.action_tx
@@ -121,6 +122,16 @@ impl Component for AlbumView {
                             vec![props.id.clone()],
                             RADIO_SIZE,
                         )))
+                        .unwrap();
+                }
+            }
+            // add album to playlist
+            KeyCode::Char('p') => {
+                if let Some(props) = &self.props {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                            props.id.clone(),
+                        ]))))
                         .unwrap();
                 }
             }

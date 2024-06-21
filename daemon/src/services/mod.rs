@@ -17,6 +17,13 @@ pub mod library;
 #[cfg(feature = "analysis")]
 pub mod radio;
 
+/// Get the songs associated with every thing in the list.
+/// This function will go through the list of things and get the songs associated with each thing.
+/// It will then remove duplicates from the list of songs.
+///
+/// # Errors
+///
+/// This function will return an error if there is an issue reading the songs from the database.
 pub async fn get_songs_from_things<C: Connection>(
     db: &Surreal<C>,
     things: Vec<Thing>,

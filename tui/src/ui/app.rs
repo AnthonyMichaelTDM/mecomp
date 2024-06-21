@@ -5,7 +5,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout},
     style::{Style, Stylize},
     text::Span,
     widgets::Block,
@@ -13,7 +13,7 @@ use ratatui::{
 };
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::state::action::{Action, GeneralAction, PopupAction};
+use crate::state::action::{Action, GeneralAction};
 
 use super::{
     colors::{APP_BORDER, APP_BORDER_TEXT, TEXT_NORMAL},
@@ -36,7 +36,7 @@ pub struct App {
     control_panel: ControlPanel,
     content_view: ContentView,
     // (global) Components that are conditionally in view (popups)
-    popup: Option<(Box<dyn Popup>, Rect)>,
+    popup: Option<Box<dyn Popup>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -142,7 +142,7 @@ impl App {
     /// Move the app with the given state, but only update components that need to be updated.
     ///
     /// in this case, that is the popup
-    pub fn move_with_popup(self, popup: Option<(Box<dyn Popup>, Rect)>) -> Self {
+    pub fn move_with_popup(self, popup: Option<Box<dyn Popup>>) -> Self {
         Self { popup, ..self }
     }
 }
@@ -192,7 +192,7 @@ impl Component for App {
         }
 
         // if there is a popup, defer all key handling to it.
-        if let Some((popup, _)) = self.popup.as_mut() {
+        if let Some(popup) = self.popup.as_mut() {
             popup.handle_key_event(key, self.action_tx.clone());
             return;
         }
@@ -211,17 +211,6 @@ impl Component for App {
             }
             KeyCode::BackTab => {
                 self.props.active_component = self.props.active_component.prev();
-            }
-            // test, "O" opens a popup
-            KeyCode::Char('O') => {
-                self.action_tx
-                    .send(Action::Popup(PopupAction::Open(
-                        Box::new(super::widgets::popups::notification::Notification(
-                            "Hello World",
-                        )),
-                        Rect::new(10, 10, 20, 5),
-                    )))
-                    .unwrap();
             }
             _ => self.get_active_view_component_mut().handle_key_event(key),
         }
@@ -314,8 +303,8 @@ impl ComponentRender<()> for App {
         );
 
         // render the popup if there is one
-        if let Some((popup, area)) = &self.popup {
-            popup.render_popup(frame, *area);
+        if let Some(popup) = &self.popup {
+            popup.render_popup(frame);
         }
     }
 }

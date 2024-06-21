@@ -5,7 +5,6 @@ use mecomp_core::{
     rpc::{MusicPlayerClient, SearchResult},
     state::{library::LibraryFull, StateAudio},
 };
-use ratatui::layout::Rect;
 use tokio::sync::{
     broadcast,
     mpsc::{self, UnboundedReceiver, UnboundedSender},
@@ -13,7 +12,7 @@ use tokio::sync::{
 
 use crate::{
     termination::{Interrupted, Terminator},
-    ui::{components::content_view::ActiveView, widgets::popups::Popup},
+    ui::{components::content_view::ActiveView, widgets::popups::PopupType},
 };
 
 pub mod action;
@@ -38,7 +37,7 @@ pub struct Receivers {
     pub search: UnboundedReceiver<SearchResult>,
     pub library: UnboundedReceiver<LibraryFull>,
     pub view: UnboundedReceiver<ActiveView>,
-    pub popup: UnboundedReceiver<Option<(Box<dyn Popup>, Rect)>>,
+    pub popup: UnboundedReceiver<Option<PopupType>>,
 }
 
 impl Dispatcher {

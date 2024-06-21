@@ -15,10 +15,11 @@ use tui_tree_widget::{Tree, TreeState};
 
 use super::{none::NoneView, utils::create_song_tree_leaf, RadioViewProps};
 use crate::{
-    state::action::{Action, AudioAction, QueueAction},
+    state::action::{Action, AudioAction, PopupAction, QueueAction},
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
         components::{Component, ComponentRender, RenderProps},
+        widgets::popups::PopupType,
         AppState,
     },
 };
@@ -104,6 +105,16 @@ impl Component for RadioView {
                         .expect("failed to send action");
                 }
             }
+            // add radio to playlist
+            KeyCode::Char('p') => {
+                if let Some(props) = &self.props {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
+                            props.songs.iter().map(|s| s.id.clone().into()).collect(),
+                        ))))
+                        .expect("failed to send action");
+                }
+            }
             _ => {}
         }
     }
@@ -148,7 +159,7 @@ impl ComponentRender<RenderProps> for RadioView {
             frame.render_widget(
                 Block::new()
                     .borders(Borders::BOTTOM)
-                    .title_bottom("q: add to queue")
+                    .title_bottom("q: add to queue | p: add to playlist")
                     .border_style(border_style),
                 top,
             );

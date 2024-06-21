@@ -1,28 +1,27 @@
 //! This module implements the popup state store.
 //! Which handles opening and closing popups.
 
-use ratatui::layout::Rect;
 use tokio::sync::{
     broadcast,
     mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
 };
 
-use crate::{state::action::PopupAction, termination::Interrupted, ui::widgets::popups::Popup};
+use crate::{state::action::PopupAction, termination::Interrupted, ui::widgets::popups::PopupType};
 
 /// The popup state store.
 #[derive(Debug, Clone)]
 #[allow(clippy::module_name_repetitions)]
 pub struct PopupState {
-    state_tx: UnboundedSender<Option<(Box<dyn Popup>, Rect)>>,
+    state_tx: UnboundedSender<Option<PopupType>>,
 }
 
 #[allow(clippy::module_name_repetitions)]
-pub type PopupStateReceiver = UnboundedReceiver<Option<(Box<dyn Popup>, Rect)>>;
+pub type PopupStateReceiver = UnboundedReceiver<Option<PopupType>>;
 
 impl PopupState {
     /// create a new popup state store, and return the receiver for listening to state updates.
     pub fn new() -> (Self, PopupStateReceiver) {
-        let (state_tx, state_rx) = unbounded_channel::<Option<(Box<dyn Popup>, Rect)>>();
+        let (state_tx, state_rx) = unbounded_channel::<Option<PopupType>>();
 
         (Self { state_tx }, state_rx)
     }
@@ -42,8 +41,8 @@ impl PopupState {
                 // and process them to do async operations
                 Some(action) = action_rx.recv() => {
                     match action {
-                        PopupAction::Open(popup, area) => {
-                            self.state_tx.send(Some((popup, area)))?;
+                        PopupAction::Open(popup) => {
+                            self.state_tx.send(Some(popup))?;
                         }
                         PopupAction::Close => {
                             self.state_tx.send(None)?;

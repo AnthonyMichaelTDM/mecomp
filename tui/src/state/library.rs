@@ -61,7 +61,7 @@ impl LibraryState {
                         }
                         LibraryAction::CreatePlaylist(name) => {
                             let ctx = tarpc::context::current();
-                            daemon.playlist_new(ctx, name).await??;
+                            daemon.playlist_new(ctx, name).await??.ok();
                             state = get_library(daemon.clone()).await?;
                             self.state_tx.send(state.clone())?;
                         }
@@ -83,6 +83,21 @@ impl LibraryState {
                             debug_assert!(songs.iter().all(|s| s.tb == mecomp_storage::db::schemas::song::TABLE_NAME));
                             let ctx = tarpc::context::current();
                             daemon.playlist_remove_songs(ctx, playlist, songs).await??;
+                        }
+                        LibraryAction::AddThingsToPlaylist(playlist, things) => {
+                            debug_assert_eq!(
+                                playlist.tb,
+                                mecomp_storage::db::schemas::playlist::TABLE_NAME
+                            );
+                            let ctx = tarpc::context::current();
+                            daemon.playlist_add_list(ctx, playlist, things).await??;
+                        }
+                        LibraryAction::CreatePlaylistAndAddThings(name, things) => {
+                            let ctx = tarpc::context::current();
+                            let playlist = daemon.playlist_new(ctx, name).await??.unwrap_or_else(|e| e);
+                            daemon.playlist_add_list(ctx, playlist, things).await??;
+                            state = get_library(daemon.clone()).await?;
+                            self.state_tx.send(state.clone())?;
                         }
                     }
                 },

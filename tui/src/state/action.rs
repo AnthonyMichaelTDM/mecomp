@@ -6,9 +6,8 @@ use std::time::Duration;
 
 use mecomp_core::state::{RepeatMode, SeekType};
 use mecomp_storage::db::schemas::Thing;
-use ratatui::layout::Rect;
 
-use crate::ui::{components::content_view::ActiveView, widgets::popups::Popup};
+use crate::ui::{components::content_view::ActiveView, widgets::popups::PopupType};
 
 pub enum Action {
     /// General actions
@@ -87,13 +86,18 @@ pub enum LibraryAction {
     CreatePlaylist(String),
     /// Delete a playlist by id
     RemovePlaylist(Thing),
-    /// Remove a song from a playlist (`PlaylistId`, `SongId`)
+    /// Remove a song from a playlist (`PlaylistId`, Vec<`SongId`>)
     RemoveSongsFromPlaylist(Thing, Vec<Thing>),
+    /// Add a list of things to a playlist (`PlaylistId`, Vec<`SongId`>)
+    AddThingsToPlaylist(Thing, Vec<Thing>),
+    /// Create a new playlist with the given name (if it doesn't exist) and add the songs to it
+    /// (`PlaylistName`, Vec<`SongId`>)
+    CreatePlaylistAndAddThings(String, Vec<Thing>),
 }
 
 pub enum PopupAction {
     /// Open a popup
-    Open(Box<dyn Popup>, Rect),
+    Open(PopupType),
     /// Close the current popup
     Close,
 }

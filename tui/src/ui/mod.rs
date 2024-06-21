@@ -142,7 +142,9 @@ impl UiManager {
                     app = app.move_with_view(&state);
                 },
                 Some(popup) = state_rx.popup.recv() => {
-                    app = app.move_with_popup(popup);
+                     app = app.move_with_popup( popup.map(|popup| {
+                         popup.into_popup(&state, self.action_tx.clone())
+                     }));
                 }
                 // Catch and handle interrupt signal to gracefully shutdown
                 Ok(interrupted) = interrupt_rx.recv() => {

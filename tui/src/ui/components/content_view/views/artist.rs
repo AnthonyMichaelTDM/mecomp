@@ -14,10 +14,11 @@ use tokio::sync::mpsc::UnboundedSender;
 use tui_tree_widget::{Tree, TreeState};
 
 use crate::{
-    state::action::{Action, AudioAction, QueueAction},
+    state::action::{Action, AudioAction, PopupAction, QueueAction},
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
+        widgets::popups::PopupType,
         AppState,
     },
 };
@@ -124,6 +125,16 @@ impl Component for ArtistView {
                         .unwrap();
                 }
             }
+            // add artist to playlist
+            KeyCode::Char('p') => {
+                if let Some(props) = &self.props {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                            props.id.clone(),
+                        ]))))
+                        .unwrap();
+                }
+            }
             _ => {}
         }
     }
@@ -191,7 +202,7 @@ impl ComponentRender<RenderProps> for ArtistView {
                 .block(
                     Block::new()
                         .borders(Borders::BOTTOM)
-                        .title_bottom("q: add to queue | r: start radio")
+                        .title_bottom("q: add to queue | r: start radio | p: add to playlist")
                         .border_style(border_style),
                 )
                 .alignment(Alignment::Center),
