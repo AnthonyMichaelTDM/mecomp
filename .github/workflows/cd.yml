@@ -49,6 +49,11 @@ jobs:
 
       - name: Build every binary
         run: ./x.sh b
+        if: contains(matrix.os, 'ubuntu') || contains(matrix.os, 'macos')
+
+      - name: Build every binary
+        run: .\x.ps1 b
+        if: contains(matrix.os, 'windows')
 
       - name: Upload project Binaries as artifacts
         uses: actions/upload-artifact@v4.3.3

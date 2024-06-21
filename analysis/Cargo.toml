@@ -27,6 +27,11 @@ strum.workspace = true
 thiserror = { workspace = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
+# if we're building on macos, we need to link against the system's fftw3
+# library, which is not available on linux
+[target.'cfg(target_os = "macos")'.dependencies]
+bliss-audio-aubio-rs = { version = "0.2.2", features = ["static", "bindgen"] }
+
 [dev-dependencies]
 ndarray-npy = { version = "0.8.1", default-features = false }
 adler32 = "1.2"
