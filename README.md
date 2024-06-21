@@ -41,12 +41,11 @@ MECOMP is a local music player inspired by [festival](https://github.com/hinto-j
   - [x] uses M-Tree index based nearest neighbor search to find similar songs. This is a fast approximate nearest neighbor search algorithm that is well suited for high dimensional data (like audio features)
   - [x] audio features are extracted by methods inspired by [bliss-rs](https://github.com/Polochon-street/bliss-rs), these are the same features we use for clustering
   - [x] supported at the daemon level
-  - [ ] functionality to populate the queue with those suggestions
-- [ ] suggest songs to add to a playlist based on the current playlist (the average of the audio features of the songs in the playlist)
+  - [x] functionality to populate the queue with those suggestions
+- [x] suggest songs to add to a playlist based on the current playlist (the average of the audio features of the songs in the playlist)
   - [x] supported at the daemon level
   - [x] supported by the CLI
-  - [ ] supported by the TUI
-  - [ ] supported by the GUI
+  - [x] supported by the TUI
 - [ ] if a song is missing important metadata, and there is an internet connection, attempt to fetch the metadata from the [MusicBrainz API](https://musicbrainz.org/doc/MusicBrainz_API).
 - [x] properly handle compilation albums (i.e. albums with multiple artists)
   - do this by simply showing the album multiple times, once for each artist. This is how iTunes handles it, and I think it's the best way to do it.
