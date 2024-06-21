@@ -46,14 +46,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install toolchain if not cross-compiling
+      - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform.target }}
-        if: ${{ !matrix.platform.cross }}
 
       - name: Install musl-tools on Linux
-        run: sudo apt-get update --yes && sudo apt-get install --yes musl-tools
+        run: sudo apt-get update --yes && sudo apt-get install --yes musl-tools musl-dev
         if: contains(matrix.platform.os, 'ubuntu')
 
       - name: Install linux dependencies
@@ -67,11 +66,16 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Build binary (*nix)
+      - name: Build binary (Linux)
         shell: bash
         run: |
+          PKG_CONFIG_SYSROOT_DIR=/ cargo build --locked --release --target ${{ matrix.platform.target }} --package ${{ matrix.binary}} --bin ${{ matrix.binary }}
+        if: ${{ contains(matrix.platform.os, 'ubuntu') }}
+
+      - name: Build binary (macOS)
+        run: |
           cargo build --locked --release --target ${{ matrix.platform.target }} --package ${{ matrix.binary}} --bin ${{ matrix.binary }}
-        if: ${{ !contains(matrix.platform.os, 'windows') }}
+        if: ${{ contains(matrix.platform.os, 'macOS') }}
 
       - name: Build binary (Windows)
         # We have to use the platform's native shell. If we use bash on
