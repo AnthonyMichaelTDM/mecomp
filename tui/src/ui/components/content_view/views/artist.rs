@@ -183,7 +183,7 @@ impl ComponentRender<RenderProps> for ArtistView {
                             state.artist.album_count.to_string(),
                             Style::default().italic(),
                         ),
-                        Span::raw("Songs: "),
+                        Span::raw("  Songs: "),
                         Span::styled(
                             state.artist.song_count.to_string(),
                             Style::default().italic(),
