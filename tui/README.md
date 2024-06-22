@@ -2,6 +2,8 @@
 
 This is the TUI client for MECOMP. It is a terminal-based user interface that allows users to interact with the MECOMP daemon.
 
+![screenshot](../assets/tui-screenshot.jpg)
+
 ## Layout
 
 The TUI is divided into 2 main sections: the main view and the control panel.
