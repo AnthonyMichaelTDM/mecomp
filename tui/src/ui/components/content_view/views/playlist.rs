@@ -3,6 +3,7 @@
 use std::{fmt::Display, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent};
+use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::{playlist::Playlist, Thing};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
@@ -230,11 +231,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
                         ),
                         Span::raw("  Duration: "),
                         Span::styled(
-                            format!(
-                                "{}:{:04.1}",
-                                state.playlist.runtime.as_secs() / 60,
-                                state.playlist.runtime.as_secs_f32() % 60.0,
-                            ),
+                            format_duration(&state.playlist.runtime),
                             Style::default().italic(),
                         ),
                     ]),
