@@ -4,7 +4,7 @@ use std::{fmt::Display, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use mecomp_core::format_duration;
-use mecomp_storage::db::schemas::{album::Album, Thing};
+use mecomp_storage::db::schemas::album::Album;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Modifier, Style, Stylize},
@@ -26,7 +26,10 @@ use crate::{
 
 use super::{
     none::NoneView,
-    utils::{create_album_tree_leaf, create_artist_tree_item, create_song_tree_item},
+    utils::{
+        create_album_tree_leaf, create_artist_tree_item, create_song_tree_item,
+        get_selected_things_from_tree_state,
+    },
     AlbumViewProps, RADIO_SIZE,
 };
 
@@ -88,14 +91,9 @@ impl Component for AlbumView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things: Vec<Thing> = self
-                        .tree_state
-                        .lock()
-                        .unwrap()
-                        .selected()
-                        .iter()
-                        .filter_map(|id| id.parse::<Thing>().ok())
-                        .collect();
+                    let things =
+                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+
                     if !things.is_empty() {
                         debug_assert!(things.len() == 1);
                         let thing = things[0].clone();
@@ -375,14 +373,9 @@ impl Component for LibraryAlbumsView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things: Vec<Thing> = self
-                        .tree_state
-                        .lock()
-                        .unwrap()
-                        .selected()
-                        .iter()
-                        .filter_map(|id| id.parse::<Thing>().ok())
-                        .collect();
+                    let things =
+                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+
                     if !things.is_empty() {
                         debug_assert!(things.len() == 1);
                         let thing = things[0].clone();

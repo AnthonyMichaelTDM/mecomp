@@ -23,7 +23,9 @@ use tui_tree_widget::{Tree, TreeState};
 use crate::state::action::{Action, LibraryAction, PopupAction};
 use crate::ui::colors::{BORDER_FOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT};
 use crate::ui::components::content_view::views::playlist::Props;
-use crate::ui::components::content_view::views::utils::create_playlist_tree_leaf;
+use crate::ui::components::content_view::views::utils::{
+    create_playlist_tree_leaf, get_selected_things_from_tree_state,
+};
 use crate::ui::components::Component;
 use crate::ui::components::ComponentRender;
 use crate::ui::widgets::input_box::{InputBox, RenderProps};
@@ -171,14 +173,9 @@ impl Popup for PlaylistSelector {
                 // and closes the popup
                 KeyCode::Enter => {
                     if self.tree_state.lock().unwrap().toggle_selected() {
-                        let things: Vec<Thing> = self
-                            .tree_state
-                            .lock()
-                            .unwrap()
-                            .selected()
-                            .iter()
-                            .filter_map(|id| id.parse::<Thing>().ok())
-                            .collect();
+                        let things =
+                            get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+
                         if !things.is_empty() {
                             debug_assert!(things.len() == 1);
                             let thing = things[0].clone();

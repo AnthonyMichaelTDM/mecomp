@@ -74,13 +74,21 @@ pub struct RadioViewProps {
 
 pub mod utils {
     use mecomp_storage::db::schemas::{
-        album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song,
+        album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song, Thing,
     };
     use ratatui::{
         style::{Style, Stylize},
         text::{Line, Span},
     };
-    use tui_tree_widget::TreeItem;
+    use tui_tree_widget::{TreeItem, TreeState};
+
+    pub fn get_selected_things_from_tree_state(tree_state: &TreeState<String>) -> Vec<Thing> {
+        tree_state
+            .selected()
+            .iter()
+            .filter_map(|id| id.parse::<Thing>().ok())
+            .collect()
+    }
 
     pub fn create_album_tree_item(albums: &[Album]) -> Result<TreeItem<String>, std::io::Error> {
         TreeItem::new(

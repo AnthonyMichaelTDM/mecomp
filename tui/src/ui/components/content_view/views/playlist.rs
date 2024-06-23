@@ -4,7 +4,7 @@ use std::{fmt::Display, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use mecomp_core::format_duration;
-use mecomp_storage::db::schemas::{playlist::Playlist, Thing};
+use mecomp_storage::db::schemas::playlist::Playlist;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Modifier, Style, Stylize},
@@ -31,7 +31,9 @@ use crate::{
 
 use super::{
     none::NoneView,
-    utils::{create_playlist_tree_leaf, create_song_tree_leaf},
+    utils::{
+        create_playlist_tree_leaf, create_song_tree_leaf, get_selected_things_from_tree_state,
+    },
     PlaylistViewProps, RADIO_SIZE,
 };
 
@@ -128,14 +130,9 @@ impl Component for PlaylistView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things: Vec<Thing> = self
-                        .tree_state
-                        .lock()
-                        .unwrap()
-                        .selected()
-                        .iter()
-                        .filter_map(|id| id.parse::<Thing>().ok())
-                        .collect();
+                    let things =
+                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+
                     if !things.is_empty() {
                         debug_assert!(things.len() == 1);
                         let thing = things[0].clone();
@@ -179,14 +176,9 @@ impl Component for PlaylistView {
             // Delete selected song
             KeyCode::Char('d') => {
                 if let Some(props) = &self.props {
-                    let things: Vec<Thing> = self
-                        .tree_state
-                        .lock()
-                        .unwrap()
-                        .selected()
-                        .iter()
-                        .filter_map(|id| id.parse::<Thing>().ok())
-                        .collect();
+                    let things =
+                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+
                     if !things.is_empty() {
                         debug_assert!(things.len() == 1);
                         self.action_tx
@@ -457,14 +449,9 @@ impl Component for LibraryPlaylistsView {
                 // Enter key opens selected view
                 KeyCode::Enter => {
                     if self.tree_state.lock().unwrap().toggle_selected() {
-                        let things: Vec<Thing> = self
-                            .tree_state
-                            .lock()
-                            .unwrap()
-                            .selected()
-                            .iter()
-                            .filter_map(|id| id.parse::<Thing>().ok())
-                            .collect();
+                        let things =
+                            get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+
                         if !things.is_empty() {
                             debug_assert!(things.len() == 1);
                             let thing = things[0].clone();
@@ -493,14 +480,9 @@ impl Component for LibraryPlaylistsView {
                 }
                 // "d" key to delete the selected playlist
                 KeyCode::Char('d') => {
-                    let things: Vec<Thing> = self
-                        .tree_state
-                        .lock()
-                        .unwrap()
-                        .selected()
-                        .iter()
-                        .filter_map(|id| id.parse::<Thing>().ok())
-                        .collect();
+                    let things =
+                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+
                     if !things.is_empty() {
                         debug_assert!(things.len() == 1);
                         let thing = things[0].clone();
