@@ -43,6 +43,8 @@ pub struct PlaylistView {
     pub props: Option<PlaylistViewProps>,
     /// tree state
     tree_state: Mutex<TreeState<String>>,
+    /// sort mode
+    sort_mode: super::song::SortMode,
 }
 
 impl Component for PlaylistView {
@@ -54,6 +56,7 @@ impl Component for PlaylistView {
             action_tx,
             props: state.additional_view_data.playlist.clone(),
             tree_state: Mutex::new(TreeState::default()),
+            sort_mode: super::song::SortMode::default(),
         }
     }
 
@@ -62,8 +65,11 @@ impl Component for PlaylistView {
         Self: Sized,
     {
         if let Some(props) = &state.additional_view_data.playlist {
+            let mut props = props.clone();
+            self.sort_mode.sort_songs(&mut props.songs);
+
             Self {
-                props: Some(props.to_owned()),
+                props: Some(props),
                 ..self
             }
         } else {
@@ -105,6 +111,19 @@ impl Component for PlaylistView {
             }
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
+            }
+            // Change sort mode
+            KeyCode::Char('s') => {
+                self.sort_mode = self.sort_mode.next();
+                if let Some(props) = &mut self.props {
+                    self.sort_mode.sort_songs(&mut props.songs);
+                }
+            }
+            KeyCode::Char('S') => {
+                self.sort_mode = self.sort_mode.prev();
+                if let Some(props) = &mut self.props {
+                    self.sort_mode.sort_songs(&mut props.songs);
+                }
             }
             // Enter key opens selected view
             KeyCode::Enter => {
@@ -195,8 +214,12 @@ impl ComponentRender<RenderProps> for PlaylistView {
 
         if let Some(state) = &self.props {
             let block = Block::bordered()
-                .title_top("Playlist View")
-                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | d: delete selected song")
+                .title_top(Line::from(vec![
+                    Span::styled("Playlist View".to_string(), Style::default().bold()),
+                    Span::raw(" sorted by: "),
+                    Span::styled(self.sort_mode.to_string(), Style::default().italic()),
+                ]))
+                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate")
                 .border_style(border_style);
             let block_area = block.inner(props.area);
             frame.render_widget(block, props.area);
@@ -208,9 +231,13 @@ impl ComponentRender<RenderProps> for PlaylistView {
                 .map(|song| create_song_tree_leaf(song))
                 .collect::<Vec<_>>();
 
-            let [top, bottom] = *Layout::default()
+            let [top, middle, bottom] = *Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Length(3), Constraint::Min(4)])
+                .constraints([
+                    Constraint::Length(3),
+                    Constraint::Min(4),
+                    Constraint::Length(1),
+                ])
                 .split(block_area)
             else {
                 panic!("Failed to split playlist view area")
@@ -261,8 +288,17 @@ impl ComponentRender<RenderProps> for PlaylistView {
                     .experimental_scrollbar(Some(Scrollbar::new(
                         ScrollbarOrientation::VerticalRight,
                     ))),
-                bottom,
+                middle,
                 &mut self.tree_state.lock().unwrap(),
+            );
+
+            // render the instructions
+            frame.render_widget(
+                Block::new()
+                    .borders(Borders::TOP)
+                    .title_top("s/S: change sort | d: remove selected song")
+                    .border_style(border_style),
+                bottom,
             );
         } else {
             NoneView.render(frame, props);
