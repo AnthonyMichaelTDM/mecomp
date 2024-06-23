@@ -12,7 +12,6 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState},
     Frame,
 };
-use strum::{EnumCount, EnumIter, IntoEnumIterator};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
@@ -34,9 +33,9 @@ pub struct Sidebar {
     list_state: ListState,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, EnumCount)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
-pub enum SidebarItems {
+pub enum SidebarItem {
     Search,
     Songs,
     Artists,
@@ -48,7 +47,7 @@ pub enum SidebarItems {
     LibraryAnalyze,
 }
 
-impl Display for SidebarItems {
+impl Display for SidebarItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Search => write!(f, "Search"),
@@ -63,6 +62,19 @@ impl Display for SidebarItems {
         }
     }
 }
+
+const SIDEBAR_ITEMS: [SidebarItem; 10] = [
+    SidebarItem::Search,
+    SidebarItem::Space,
+    SidebarItem::Songs,
+    SidebarItem::Artists,
+    SidebarItem::Albums,
+    SidebarItem::Playlists,
+    SidebarItem::Collections,
+    SidebarItem::Space,
+    SidebarItem::LibraryRescan,
+    SidebarItem::LibraryAnalyze,
+];
 
 impl Component for Sidebar {
     fn new(_state: &AppState, action_tx: UnboundedSender<Action>) -> Self
@@ -92,19 +104,19 @@ impl Component for Sidebar {
             KeyCode::Up => {
                 if let Some(selected) = self.list_state.selected() {
                     let new_selected = if selected == 0 {
-                        SidebarItems::COUNT - 1
+                        SIDEBAR_ITEMS.len() - 1
                     } else {
                         selected - 1
                     };
                     self.list_state.select(Some(new_selected));
                 } else {
-                    self.list_state.select(Some(SidebarItems::COUNT - 1));
+                    self.list_state.select(Some(SIDEBAR_ITEMS.len() - 1));
                 }
             }
             // move the selected index down
             KeyCode::Down => {
                 if let Some(selected) = self.list_state.selected() {
-                    let new_selected = if selected == SidebarItems::COUNT - 1 {
+                    let new_selected = if selected == SIDEBAR_ITEMS.len() - 1 {
                         0
                     } else {
                         selected + 1
@@ -117,41 +129,41 @@ impl Component for Sidebar {
             // select the current item
             KeyCode::Enter => {
                 if let Some(selected) = self.list_state.selected() {
-                    let item = SidebarItems::iter().nth(selected).unwrap();
+                    let item = SIDEBAR_ITEMS[selected];
                     match item {
-                        SidebarItems::Search => self
+                        SidebarItem::Search => self
                             .action_tx
                             .send(Action::SetCurrentView(ActiveView::Search))
                             .unwrap(),
-                        SidebarItems::LibraryRescan => self
+                        SidebarItem::LibraryRescan => self
                             .action_tx
                             .send(Action::Library(LibraryAction::Rescan))
                             .unwrap(),
-                        SidebarItems::LibraryAnalyze => self
+                        SidebarItem::LibraryAnalyze => self
                             .action_tx
                             .send(Action::Library(LibraryAction::Analyze))
                             .unwrap(),
-                        SidebarItems::Songs => self
+                        SidebarItem::Songs => self
                             .action_tx
                             .send(Action::SetCurrentView(ActiveView::Songs))
                             .unwrap(),
-                        SidebarItems::Artists => self
+                        SidebarItem::Artists => self
                             .action_tx
                             .send(Action::SetCurrentView(ActiveView::Artists))
                             .unwrap(),
-                        SidebarItems::Albums => self
+                        SidebarItem::Albums => self
                             .action_tx
                             .send(Action::SetCurrentView(ActiveView::Albums))
                             .unwrap(),
-                        SidebarItems::Playlists => self
+                        SidebarItem::Playlists => self
                             .action_tx
                             .send(Action::SetCurrentView(ActiveView::Playlists))
                             .unwrap(),
-                        SidebarItems::Collections => self
+                        SidebarItem::Collections => self
                             .action_tx
                             .send(Action::SetCurrentView(ActiveView::Collections))
                             .unwrap(),
-                        SidebarItems::Space => {}
+                        SidebarItem::Space => {}
                     }
                 }
             }
@@ -168,7 +180,8 @@ impl ComponentRender<RenderProps> for Sidebar {
             Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
-        let items = SidebarItems::iter()
+        let items = SIDEBAR_ITEMS
+            .iter()
             .map(|item| {
                 ListItem::new(Span::styled(
                     item.to_string(),

@@ -18,7 +18,6 @@ material = { version = "0.1.1" }
 ratatui = { version = "0.26.3", features = ["all-widgets"] }
 # log.workspace = true
 tui-tree-widget = "0.20.0"
-strum.workspace = true
 tarpc.workspace = true
 tokio = { workspace = true, features = ["signal"] }
 tokio-stream = "0.1.15"
