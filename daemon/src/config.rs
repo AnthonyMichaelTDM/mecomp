@@ -16,6 +16,10 @@ const fn default_port() -> u16 {
     DEFAULT_PORT
 }
 
+const fn default_log_level() -> log::LevelFilter {
+    log::LevelFilter::Info
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct DaemonSettings {
     /// The port to listen on for RPC requests.
@@ -35,6 +39,10 @@ pub struct DaemonSettings {
     /// "overwrite" - overwrite the metadata with new metadata
     /// "skip" - skip the file (keep old metadata)
     pub conflict_resolution: MetadataConflictResolution,
+    /// What level of logging to use.
+    /// Default is "info".
+    #[serde(default = "default_log_level")]
+    pub log_level: log::LevelFilter,
 }
 
 impl Default for DaemonSettings {
@@ -46,6 +54,7 @@ impl Default for DaemonSettings {
             artist_separator: None,
             genre_separator: None,
             conflict_resolution: MetadataConflictResolution::Overwrite,
+            log_level: log::LevelFilter::Info,
         }
     }
 }
@@ -65,7 +74,11 @@ impl DaemonSettings {
     ///
     /// This function will return an error if the config file is not found or if the config file is
     /// invalid.
-    pub fn init(port: Option<u16>, config: PathBuf) -> Result<Self, ConfigError> {
+    pub fn init(
+        config: PathBuf,
+        port: Option<u16>,
+        log_level: Option<log::LevelFilter>,
+    ) -> Result<Self, ConfigError> {
         let s = Config::builder()
             .add_source(File::from(config))
             .add_source(Environment::with_prefix("MECOMP"))
@@ -81,6 +94,10 @@ impl DaemonSettings {
 
         if let Some(port) = port {
             settings.rpc_port = port;
+        }
+
+        if let Some(log_level) = log_level {
+            settings.log_level = log_level;
         }
 
         Ok(settings)

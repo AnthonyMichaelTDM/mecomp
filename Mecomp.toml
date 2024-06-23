@@ -13,3 +13,7 @@ artist_separator = ", "
 # "overwrite" - overwrite the metadata with new metadata
 # "skip" - skip the file (keep old metadata)
 conflict_resolution = "overwrite"
+#What level of logging to use.
+#Possible values are "trace", "debug", "info", "warn", "error".
+#Default is "info".
+log_level = "info"

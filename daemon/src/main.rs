@@ -21,6 +21,9 @@ struct Flags {
     /// config file path
     #[clap(long)]
     config: Option<PathBuf>,
+    /// log level
+    #[clap(long)]
+    log_level: Option<log::LevelFilter>,
 }
 
 static DEFAULT_CONFIG: &str = include_str!("../../Mecomp.toml");
@@ -55,7 +58,11 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let settings = DaemonSettings::init(flags.port, flags.config.unwrap_or(config_file))?;
+    let settings = DaemonSettings::init(
+        flags.config.unwrap_or(config_file),
+        flags.port,
+        flags.log_level,
+    )?;
 
-    start_daemon(log::LevelFilter::Debug, settings, db_dir).await
+    start_daemon(settings, db_dir).await
 }

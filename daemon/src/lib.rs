@@ -52,7 +52,6 @@ use crate::controller::MusicPlayerServer;
 ///
 /// Panics if the peer address of the underlying TCP transport cannot be determined.
 pub async fn start_daemon(
-    log_level: log::LevelFilter,
     settings: DaemonSettings,
     db_dir: std::path::PathBuf,
 ) -> anyhow::Result<()> {
@@ -60,7 +59,7 @@ pub async fn start_daemon(
     let settings = Arc::new(settings);
 
     // Initialize the logger, database, and tracing.
-    init_logger(log_level);
+    init_logger(settings.log_level);
     set_database_path(db_dir)?;
     let db = Arc::new(init_database().await?);
     tracing::subscriber::set_global_default(init_tracing())?;
