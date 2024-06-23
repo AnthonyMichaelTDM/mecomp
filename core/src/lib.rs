@@ -48,7 +48,8 @@ macro_rules! function_name {
     }};
 }
 
-pub(crate) fn format_duration(duration: &std::time::Duration) -> String {
+#[must_use]
+pub fn format_duration(duration: &std::time::Duration) -> String {
     let total_seconds = duration.as_secs();
     let hours = total_seconds / 3600;
     let minutes = (total_seconds % 3600) / 60;

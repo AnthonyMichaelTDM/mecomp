@@ -3,6 +3,7 @@
 use std::{fmt::Display, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent};
+use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::{album::Album, Thing};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
@@ -203,11 +204,7 @@ impl ComponentRender<RenderProps> for AlbumView {
                         ),
                         Span::raw("  Duration: "),
                         Span::styled(
-                            format!(
-                                "{}:{:04.1}",
-                                state.album.runtime.as_secs() / 60,
-                                state.album.runtime.as_secs_f32() % 60.0,
-                            ),
+                            format_duration(&state.album.runtime),
                             Style::default().italic(),
                         ),
                     ]),

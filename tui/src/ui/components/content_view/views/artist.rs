@@ -3,6 +3,7 @@
 use std::{fmt::Display, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent};
+use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::{artist::Artist, Thing};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
@@ -190,11 +191,7 @@ impl ComponentRender<RenderProps> for ArtistView {
                         ),
                         Span::raw("  Duration: "),
                         Span::styled(
-                            format!(
-                                "{}:{:04.1}",
-                                state.artist.runtime.as_secs() / 60,
-                                state.artist.runtime.as_secs_f32() % 60.0,
-                            ),
+                            format_duration(&state.artist.runtime),
                             Style::default().italic(),
                         ),
                     ]),
