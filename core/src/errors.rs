@@ -19,6 +19,7 @@ pub enum LibraryError {
     #[error("IO error: {0}")]
     IO(#[from] std::io::Error),
     #[error("Decoder error: {0}")]
+    #[cfg(feature = "audio")]
     Decoder(#[from] rodio::decoder::DecoderError),
 }
 
@@ -48,6 +49,7 @@ impl From<std::io::Error> for SerializableLibraryError {
     }
 }
 
+#[cfg(feature = "audio")]
 impl From<rodio::decoder::DecoderError> for SerializableLibraryError {
     fn from(e: rodio::decoder::DecoderError) -> Self {
         Self::Decoder(e.to_string())
@@ -59,6 +61,7 @@ impl From<LibraryError> for SerializableLibraryError {
         match e {
             LibraryError::Database(e) => Self::Database(e.to_string()),
             LibraryError::IO(e) => Self::IO(e.to_string()),
+            #[cfg(feature = "audio")]
             LibraryError::Decoder(e) => Self::Decoder(e.to_string()),
         }
     }
@@ -70,22 +73,21 @@ mod tests {
     use pretty_assertions::assert_str_eq;
     use rstest::rstest;
 
-    #[test]
-    fn test_serializable_library_error() {
-        let error = LibraryError::Database(Error::NoId);
-        let serializable_error: SerializableLibraryError = error.into();
-        assert_str_eq!(
-            serializable_error.to_string(),
-            "Database error: Item is missing an Id."
-        );
-
-        let error = LibraryError::IO(std::io::Error::new(std::io::ErrorKind::Other, "test"));
-        let serializable_error: SerializableLibraryError = error.into();
-        assert_str_eq!(serializable_error.to_string(), "IO error: test");
-
-        let error = LibraryError::Decoder(rodio::decoder::DecoderError::DecodeError("test"));
-        let serializable_error: SerializableLibraryError = error.into();
-        assert_str_eq!(serializable_error.to_string(), "Decoder error: test");
+    #[rstest]
+    #[case(
+        LibraryError::from(Error::NoId),
+        "Database error: Item is missing an Id."
+    )]
+    #[case(
+        LibraryError::from(std::io::Error::new(std::io::ErrorKind::Other, "test")),
+        "IO error: test"
+    )]
+    #[case(
+        LibraryError::from(rodio::decoder::DecoderError::DecodeError("test")),
+        "Decoder error: test"
+    )]
+    fn test_serializable_library_error(#[case] input: LibraryError, #[case] expected: String) {
+        assert_str_eq!(SerializableLibraryError::from(input).to_string(), expected);
     }
 
     #[rstest]

@@ -13,7 +13,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = []
+default = ["audio"]
 rpc = ["tarpc"]
 otel_tracing = [
     "tracing-opentelemetry",
@@ -22,6 +22,7 @@ otel_tracing = [
     "opentelemetry-semantic-conventions",
     "opentelemetry-otlp",
 ]
+audio = ["dep:rodio", "dep:tokio", "dep:rand", "dep:lazy_static"]
 flame = ["tracing-flame"]
 verbose_tracing = []
 
@@ -33,14 +34,14 @@ mock_playback = []
 directories = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
-lazy_static = { workspace = true }
+lazy_static = { workspace = true, optional = true }
 nutype = { workspace = true }
 once_cell = { workspace = true }
-rand = { workspace = true }
-rodio = { workspace = true }
+rand = { workspace = true, optional = true }
+rodio = { workspace = true, optional = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, optional = true }
 tarpc = { workspace = true, optional = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -53,8 +54,8 @@ opentelemetry-semantic-conventions = { workspace = true, optional = true }
 
 # MECOMP dependencies
 mecomp-storage = { workspace = true, features = ["serde"] }
-mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 one-or-many = { workspace = true }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
 # shared dev dependencies

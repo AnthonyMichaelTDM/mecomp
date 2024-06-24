@@ -38,11 +38,8 @@ surrealqlx = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tempfile = { workspace = true, optional = true }
-
-
-# other dependencies
-mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 one-or-many = { workspace = true }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 # dependencies for the test_utils feature
 anyhow = { workspace = true, optional = true }

@@ -1,5 +1,6 @@
 use errors::DirectoryError;
 
+#[cfg(feature = "audio")]
 pub mod audio;
 pub mod errors;
 pub mod logger;
