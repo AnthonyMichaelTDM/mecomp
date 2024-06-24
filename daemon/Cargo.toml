@@ -25,7 +25,6 @@ harness = false
 [[bench]]
 name = "analyze"
 harness = false
-features = ["analysis"]
 
 [features]
 default = ["cli", "dynamic_updates", "analysis"]
@@ -48,7 +47,7 @@ serde = { workspace = true }
 surrealdb = { workspace = true }
 tap = { workspace = true }
 tarpc = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio = { workspace = true }
 tracing = { workspace = true }
 walkdir = { workspace = true }
 
@@ -67,7 +66,7 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 criterion.workspace = true
 lofty = { workspace = true }
 mecomp-core = { workspace = true, features = ["rpc", "mock_playback"] }
-mecomp-storage = { workspace = true, features = ["test_utils"] }
+mecomp-storage = { workspace = true, features = ["serde", "db", "test_utils"] }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }
