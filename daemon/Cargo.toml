@@ -18,6 +18,14 @@ test = false
 bench = false
 doctest = false
 
+[[bench]]
+name = "rescan"
+harness = false
+
+[[bench]]
+name = "analyze"
+harness = false
+
 [features]
 default = ["cli", "dynamic_updates", "analysis"]
 cli = ["dep:clap"]                                            # features needed for the CLI (binary crate)
@@ -39,7 +47,7 @@ serde = { workspace = true }
 surrealdb = { workspace = true }
 tap = { workspace = true }
 tarpc = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio = { workspace = true }
 tracing = { workspace = true }
 walkdir = { workspace = true }
 
@@ -55,9 +63,10 @@ shellexpand = "3.1"
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
-tempfile = { workspace = true }
-mecomp-core = { workspace = true, features = ["rpc", "mock_playback"] }
-mecomp-storage = { workspace = true, features = ["test_utils"] }
+criterion.workspace = true
 lofty = { workspace = true }
-rstest = { workspace = true }
+mecomp-core = { workspace = true, features = ["rpc", "mock_playback"] }
+mecomp-storage = { workspace = true, features = ["serde", "db", "test_utils"] }
 pretty_assertions = { workspace = true }
+rstest = { workspace = true }
+tempfile = { workspace = true }

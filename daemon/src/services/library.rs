@@ -1,7 +1,10 @@
-use std::{collections::HashSet, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use log::{debug, error, info, warn};
-use mecomp_analysis::decoder::Decoder;
+use mecomp_analysis::decoder::{DecoderWithCallback, MecompDecoder};
 use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
 use surrealdb::{Connection, Surreal};
 use tap::TapFallible;
@@ -162,6 +165,10 @@ pub async fn rescan<C: Connection>(
 /// # Errors
 ///
 /// This function will return an error if there is an error reading from the database.
+///
+/// # Panics
+///
+/// This function will panic if the thread(s) that analyzes the songs panics.
 pub async fn analyze<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
     // get all the songs that don't have an analysis
     let songs_to_analyze: Vec<Song> = Analysis::read_songs_without_analysis(db).await?;
@@ -169,16 +176,21 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
     let paths = songs_to_analyze
         .iter()
         .map(|song| (song.path.clone(), song.id.clone()))
-        .collect::<std::collections::HashMap<_, _>>();
+        .collect::<HashMap<_, _>>();
+
+    let keys = paths.keys().cloned().collect::<Vec<_>>();
+
+    let (tx, rx) = std::sync::mpsc::channel();
 
     // analyze the songs in batches
-    let analysis_iter = mecomp_analysis::decoder::MecompDecoder::analyze_paths(paths.keys());
+    let handle = std::thread::spawn(move || {
+        MecompDecoder::analyze_paths_with_callback(keys, tx);
+    });
 
-    // update the database with the analyses
-    for (song_path, maybe_analysis) in analysis_iter {
+    for (song_path, maybe_analysis) in rx {
         let Some(song_id) = paths.get(&song_path) else {
             error!("No song id found for path: {}", song_path.to_string_lossy());
-            continue;
+            return Ok(());
         };
 
         match maybe_analysis {
@@ -207,6 +219,11 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
             }
         }
     }
+
+    handle.join().expect("Couldn't join thread");
+
+    info!("Library analysis complete");
+    info!("Library brief: {:?}", brief(db).await?);
 
     Ok(())
 }
@@ -277,7 +294,7 @@ mod tests {
     use mecomp_storage::db::schemas::song::{SongChangeSet, SongMetadata};
     use mecomp_storage::test_utils::{
         arb_song_case, arb_vec, create_song_metadata, create_song_with_overrides,
-        init_test_database, ARTIST_NAME_SEPARATOR,
+        init_test_database, SongCase, ARTIST_NAME_SEPARATOR,
     };
     use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
@@ -416,11 +433,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_analyze() {
+        init();
         let dir = tempfile::tempdir().unwrap();
         let db = init_test_database().await.unwrap();
 
         // load some songs into the database
         let song_cases = arb_vec(&arb_song_case(), 10..=15)();
+        let song_cases = song_cases.into_iter().enumerate().map(|(i, sc)| SongCase {
+            song: i as u8,
+            ..sc
+        });
         let metadatas = song_cases
             .into_iter()
             .map(|song_case| create_song_metadata(&dir, song_case))
@@ -479,6 +501,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_brief() {
+        init();
         let db = init_test_database().await.unwrap();
         let brief = brief(&db).await.unwrap();
         assert_eq!(brief.artists, 0);
@@ -490,6 +513,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_full() {
+        init();
         let db = init_test_database().await.unwrap();
         let full = full(&db).await.unwrap();
         assert_eq!(full.artists.len(), 0);
@@ -501,6 +525,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_health() {
+        init();
         let db = init_test_database().await.unwrap();
         let health = health(&db).await.unwrap();
         assert_eq!(health.artists, 0);
