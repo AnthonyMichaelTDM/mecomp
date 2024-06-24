@@ -18,6 +18,15 @@ test = false
 bench = false
 doctest = false
 
+[[bench]]
+name = "rescan"
+harness = false
+
+[[bench]]
+name = "analyze"
+harness = false
+features = ["analysis"]
+
 [features]
 default = ["cli", "dynamic_updates", "analysis"]
 cli = ["dep:clap"]                                            # features needed for the CLI (binary crate)
@@ -55,9 +64,10 @@ shellexpand = "3.1"
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
-tempfile = { workspace = true }
+criterion.workspace = true
+lofty = { workspace = true }
 mecomp-core = { workspace = true, features = ["rpc", "mock_playback"] }
 mecomp-storage = { workspace = true, features = ["test_utils"] }
-lofty = { workspace = true }
-rstest = { workspace = true }
 pretty_assertions = { workspace = true }
+rstest = { workspace = true }
+tempfile = { workspace = true }
