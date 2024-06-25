@@ -43,6 +43,7 @@ mod locks {
 
     pub static LIBRARY_RESCAN_LOCK: Mutex<()> = Mutex::const_new(());
     pub static LIBRARY_ANALYZE_LOCK: Mutex<()> = Mutex::const_new(());
+    pub static COLLECTION_RECLUSTER_LOCK: Mutex<()> = Mutex::const_new(());
 }
 
 #[derive(Clone, Debug)]
@@ -139,6 +140,44 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn library_analyze_in_progress(self, context: Context) -> bool {
         locks::LIBRARY_ANALYZE_LOCK.try_lock().is_err()
+    }
+    /// Recluster the music library, only error is if a recluster is already in progress.
+    #[instrument]
+    async fn library_recluster(self, context: Context) -> Result<(), SerializableLibraryError> {
+        #[cfg(not(feature = "analysis"))]
+        {
+            warn!("Analysis is not enabled");
+            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        }
+
+        #[cfg(feature = "analysis")]
+        {
+            info!("Reclustering collections");
+
+            if locks::COLLECTION_RECLUSTER_LOCK.try_lock().is_err() {
+                warn!("Collection reclustering already in progress");
+                return Err(SerializableLibraryError::ReclusterInProgress);
+            }
+
+            std::thread::Builder::new()
+                .name(String::from("Collection Recluster"))
+                .spawn(move || {
+                    futures::executor::block_on(async {
+                        let _guard = locks::COLLECTION_RECLUSTER_LOCK.lock().await;
+                        match services::library::recluster(&self.db).await {
+                            Ok(()) => info!("Collection reclustering complete"),
+                            Err(e) => error!("Error in collection_recluster: {e}"),
+                        }
+                    });
+                })?;
+
+            Ok(())
+        }
+    }
+    /// Check if a recluster is in progress.
+    #[instrument]
+    async fn library_recluster_in_progress(self, context: Context) -> bool {
+        locks::COLLECTION_RECLUSTER_LOCK.try_lock().is_err()
     }
     /// Returns brief information about the music library.
     #[instrument]
@@ -1173,21 +1212,6 @@ impl MusicPlayer for MusicPlayerServer {
             .ok()
             .map(|collections| collections.iter().map(std::convert::Into::into).collect())
             .unwrap_or_default()
-    }
-    /// Collections: Recluster the users library, creating new collections.
-    #[instrument]
-    async fn collection_recluster(self, context: Context) -> Result<(), SerializableLibraryError> {
-        #[cfg(not(feature = "analysis"))]
-        {
-            warn!("Analysis is not enabled");
-            return Err(SerializableLibraryError::AnalysisNotEnabled);
-        }
-
-        #[cfg(feature = "analysis")]
-        {
-            info!("Reclustering collections");
-            todo!()
-        }
     }
     /// Collections: get a collection by its ID.
     #[instrument]

@@ -1,10 +1,14 @@
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
+    time::Duration,
 };
 
 use log::{debug, error, info, warn};
-use mecomp_analysis::decoder::{DecoderWithCallback, MecompDecoder};
+use mecomp_analysis::{
+    clustering::{extract_clusters, KMeansHelper, KOptimal, NotInitialized},
+    decoder::{DecoderWithCallback, MecompDecoder},
+};
 use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
 use surrealdb::{Connection, Surreal};
 use tap::TapFallible;
@@ -169,6 +173,7 @@ pub async fn rescan<C: Connection>(
 /// # Panics
 ///
 /// This function will panic if the thread(s) that analyzes the songs panics.
+#[instrument]
 pub async fn analyze<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
     // get all the songs that don't have an analysis
     let songs_to_analyze: Vec<Song> = Analysis::read_songs_without_analysis(db).await?;
@@ -223,6 +228,84 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
     handle.join().expect("Couldn't join thread");
 
     info!("Library analysis complete");
+    info!("Library brief: {:?}", brief(db).await?);
+
+    Ok(())
+}
+
+/// Recluster the library.
+///
+/// This function will remove and recompute all the "collections" (clusters) in the library.
+///
+/// # Errors
+///
+/// This function will return an error if there is an error reading from the database.
+#[instrument]
+pub async fn recluster<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
+    // collect all the analyses
+    let samples = Analysis::read_all(db).await?;
+
+    #[cfg(debug_assertions)]
+    let b = 50;
+    #[cfg(debug_assertions)]
+    let k_max = 16;
+    #[cfg(debug_assertions)]
+    let max_iter = (count_songs(db).await? / 20).max(30);
+    #[cfg(not(debug_assertions))]
+    let b = 250;
+    #[cfg(not(debug_assertions))]
+    let k_max = 32;
+    #[cfg(not(debug_assertions))]
+    let max_iter = (count_songs(db).await? / 10).max(100);
+
+    // use k-means to cluster the analyses
+    let kmeans: KMeansHelper<NotInitialized<_>> =
+        KMeansHelper::new(samples, k_max, KOptimal::GapStatistic { b });
+
+    let kmeans = match kmeans.initialize() {
+        Err(e) => {
+            error!("There was an error initializing the k-means helper: {e}",);
+            return Ok(());
+        }
+        Ok(kmeans) => kmeans,
+    };
+
+    let clustering = kmeans.cluster(max_iter);
+
+    // delete all the collections
+    // NOTE: For some reason, if a collection has too many songs, it will fail to delete with "DbError(Db(Tx("Max transaction entries limit exceeded")))"
+    // (this was happening with 892 songs in a collection)
+    for collection in Collection::read_all(db).await? {
+        Collection::delete(db, collection.id.clone()).await?;
+    }
+
+    // get the clusters from the clustering
+    let clusters = extract_clusters(clustering);
+
+    // create the collections
+    for (i, cluster) in clusters.iter().filter(|c| !c.is_empty()).enumerate() {
+        let collection = Collection::create(
+            db,
+            Collection {
+                id: Collection::generate_id(),
+                name: format!("Collection {i}").into(),
+                runtime: Duration::default(),
+                song_count: Default::default(),
+            },
+        )
+        .await?
+        .ok_or(Error::NotCreated)?;
+
+        let mut songs = Vec::with_capacity(cluster.len());
+
+        for analysis in cluster {
+            songs.push(Analysis::read_song(db, analysis.id.clone()).await?.id);
+        }
+
+        Collection::add_songs(db, collection.id.clone(), &songs).await?;
+    }
+
+    info!("Library recluster complete");
     info!("Library brief: {:?}", brief(db).await?);
 
     Ok(())
@@ -291,6 +374,7 @@ mod tests {
     use super::*;
     use crate::test_utils::init;
 
+    use mecomp_storage::db::init_database;
     use mecomp_storage::db::schemas::song::{SongChangeSet, SongMetadata};
     use mecomp_storage::test_utils::{
         arb_song_case, arb_vec, create_song_metadata, create_song_with_overrides,
@@ -496,6 +580,42 @@ mod tests {
                     .collect::<HashSet<_>>()
                     .len()
             );
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "uses the real filesystem and database"]
+    async fn test_recluster() {
+        init();
+        mecomp_storage::db::set_database_path("/home/anthony/.local/share/mecomp/db".into())
+            .unwrap();
+        let db = init_database().await.unwrap();
+
+        // // load some songs into the database
+        // let song_cases = arb_vec(&arb_song_case(), 10..=15)();
+        // let metadatas = song_cases
+        //     .into_iter()
+        //     .map(|song_case| create_song_metadata(&tempfile::tempdir().unwrap(), song_case))
+        //     .collect::<Result<Vec<_>, _>>()
+        //     .unwrap();
+        // for metadata in &metadatas {
+        //     Song::try_load_into_db(&db, metadata.clone()).await.unwrap();
+        // }
+
+        // // analyze the library
+        // analyze(&db).await.unwrap();
+
+        // recluster the library
+        recluster(&db).await.unwrap();
+
+        // check that there are collections
+        let collections = Collection::read_all(&db).await.unwrap();
+        assert!(!collections.is_empty());
+        for collection in collections {
+            let songs = Collection::read_songs(&db, collection.id.clone())
+                .await
+                .unwrap();
+            assert!(!songs.is_empty());
         }
     }
 

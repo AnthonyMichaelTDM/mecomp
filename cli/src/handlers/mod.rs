@@ -82,6 +82,8 @@ pub enum LibraryCommand {
     Rescan,
     /// Analyze the library
     Analyze,
+    /// Recluster the library
+    Recluster,
     /// Get brief library info
     Brief,
     /// Get detailed library info
