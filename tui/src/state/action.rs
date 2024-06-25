@@ -82,6 +82,8 @@ pub enum LibraryAction {
     Update,
     /// Analyze the library
     Analyze,
+    /// Recluster the collection
+    Recluster,
     /// Create a new playlist with the given name
     CreatePlaylist(String),
     /// Delete a playlist by id
