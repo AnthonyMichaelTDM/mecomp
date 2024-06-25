@@ -55,6 +55,14 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
     ) -> StorageResult<Option<Self>> {
+        // first remove all the songs from the collection
+        let songs = Self::read_songs(db, id.clone())
+            .await?
+            .into_iter()
+            .map(|song| song.id)
+            .collect::<Vec<_>>();
+        Self::remove_songs(db, id.clone(), &songs).await?;
+
         Ok(db.delete((TABLE_NAME, id)).await?)
     }
 
