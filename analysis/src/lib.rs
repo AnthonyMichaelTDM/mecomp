@@ -76,6 +76,9 @@ pub enum AnalysisIndex {
     Chroma9,
     Chroma10,
 }
+
+/// The Type of individual features
+pub type Feature = f64;
 /// The number of features used in `Analysis`
 pub const NUMBER_FEATURES: usize = AnalysisIndex::COUNT;
 
@@ -95,13 +98,13 @@ pub const NUMBER_FEATURES: usize = AnalysisIndex::COUNT;
 /// on most of the features, except the chroma ones, which are documented
 /// directly in this code.
 pub struct Analysis {
-    pub(crate) internal_analysis: [f32; NUMBER_FEATURES],
+    pub(crate) internal_analysis: [Feature; NUMBER_FEATURES],
 }
 
 impl Index<AnalysisIndex> for Analysis {
-    type Output = f32;
+    type Output = Feature;
 
-    fn index(&self, index: AnalysisIndex) -> &f32 {
+    fn index(&self, index: AnalysisIndex) -> &Feature {
         &self.internal_analysis[index as usize]
     }
 }
@@ -124,7 +127,7 @@ impl Analysis {
     /// features somewhere, and need to recreate a Song with an already
     /// existing Analysis yourself.
     #[must_use]
-    pub const fn new(analysis: [f32; NUMBER_FEATURES]) -> Self {
+    pub const fn new(analysis: [Feature; NUMBER_FEATURES]) -> Self {
         Self {
             internal_analysis: analysis,
         }
@@ -133,7 +136,7 @@ impl Analysis {
     /// Return the inner array of the analysis.
     /// This is mostly useful if you want to store the features somewhere.
     #[must_use]
-    pub const fn inner(&self) -> &[f32; NUMBER_FEATURES] {
+    pub const fn inner(&self) -> &[Feature; NUMBER_FEATURES] {
         &self.internal_analysis
     }
 
@@ -142,7 +145,7 @@ impl Analysis {
     /// Particularly useful if you want iterate through the values to store
     /// them somewhere.
     #[must_use]
-    pub fn as_vec(&self) -> Vec<f32> {
+    pub fn as_vec(&self) -> Vec<Feature> {
         self.internal_analysis.to_vec()
     }
 
@@ -174,21 +177,22 @@ impl Analysis {
         }
 
         std::thread::scope(|s| -> AnalysisResult<Self> {
-            let child_tempo: std::thread::ScopedJoinHandle<AnalysisResult<f32>> = s.spawn(|| {
-                let mut tempo_desc = BPMDesc::new(SAMPLE_RATE)?;
-                let windows = audio
-                    .samples
-                    .windows(BPMDesc::WINDOW_SIZE)
-                    .step_by(BPMDesc::HOP_SIZE);
-
-                for window in windows {
-                    tempo_desc.do_(window)?;
-                }
-                Ok(tempo_desc.get_value())
-            });
-
-            let child_chroma: std::thread::ScopedJoinHandle<AnalysisResult<Vec<f32>>> =
+            let child_tempo: std::thread::ScopedJoinHandle<AnalysisResult<Feature>> =
                 s.spawn(|| {
+                    let mut tempo_desc = BPMDesc::new(SAMPLE_RATE)?;
+                    let windows = audio
+                        .samples
+                        .windows(BPMDesc::WINDOW_SIZE)
+                        .step_by(BPMDesc::HOP_SIZE);
+
+                    for window in windows {
+                        tempo_desc.do_(window)?;
+                    }
+                    Ok(tempo_desc.get_value())
+                });
+
+            let child_chroma: std::thread::ScopedJoinHandle<AnalysisResult<Vec<Feature>>> = s
+                .spawn(|| {
                     let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
                     chroma_desc.do_(&audio.samples)?;
                     Ok(chroma_desc.get_value())
@@ -196,7 +200,7 @@ impl Analysis {
 
             #[allow(clippy::type_complexity)]
             let child_timbral: std::thread::ScopedJoinHandle<
-                AnalysisResult<(Vec<f32>, Vec<f32>, Vec<f32>)>,
+                AnalysisResult<(Vec<Feature>, Vec<Feature>, Vec<Feature>)>,
             > = s.spawn(|| {
                 let mut spectral_desc = SpectralDesc::new(SAMPLE_RATE)?;
                 let windows = audio
@@ -212,14 +216,14 @@ impl Analysis {
                 Ok((centroid, rolloff, flatness))
             });
 
-            let child_zcr: std::thread::ScopedJoinHandle<AnalysisResult<f32>> = s.spawn(|| {
+            let child_zcr: std::thread::ScopedJoinHandle<AnalysisResult<Feature>> = s.spawn(|| {
                 let mut zcr_desc = ZeroCrossingRateDesc::default();
                 zcr_desc.do_(&audio.samples);
                 Ok(zcr_desc.get_value())
             });
 
-            let child_loudness: std::thread::ScopedJoinHandle<AnalysisResult<Vec<f32>>> =
-                s.spawn(|| {
+            let child_loudness: std::thread::ScopedJoinHandle<AnalysisResult<Vec<Feature>>> = s
+                .spawn(|| {
                     let mut loudness_desc = LoudnessDesc::default();
                     let windows = audio.samples.chunks(LoudnessDesc::WINDOW_SIZE);
 
@@ -242,7 +246,7 @@ impl Analysis {
             result.extend_from_slice(&flatness);
             result.extend_from_slice(&loudness);
             result.extend_from_slice(&chroma);
-            let array: [f32; NUMBER_FEATURES] = result
+            let array: [Feature; NUMBER_FEATURES] = result
                 .try_into()
                 .map_err(|_| AnalysisError::InvalidFeaturesLen)?;
             Ok(Self::new(array))

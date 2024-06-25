@@ -21,3 +21,6 @@ pub enum AnalysisError {
 }
 
 pub type AnalysisResult<T> = Result<T, AnalysisError>;
+
+#[derive(Error, Debug)]
+pub enum ClusteringError {}

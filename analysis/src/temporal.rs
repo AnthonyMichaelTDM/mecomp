@@ -3,6 +3,8 @@
 //! Contains functions to extract & summarize the temporal aspects
 //! of a given Song.
 
+use crate::Feature;
+
 use super::errors::{AnalysisError, AnalysisResult};
 use super::utils::Normalize;
 use bliss_audio_aubio_rs::{OnsetMode, Tempo};
@@ -74,7 +76,7 @@ impl BPMDesc {
      * - `song` Song to compute score from
      */
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
-    pub fn get_value(&mut self) -> f32 {
+    pub fn get_value(&mut self) -> Feature {
         if self.bpms.is_empty() {
             warn!("Set tempo value to zero because no beats were found.");
             return -1.;
@@ -90,8 +92,8 @@ impl BPMDesc {
 impl Normalize for BPMDesc {
     // See aubio/src/tempo/beattracking.c:387
     // Should really be 413, needs testing
-    const MAX_VALUE: f32 = 206.;
-    const MIN_VALUE: f32 = 0.;
+    const MAX_VALUE: Feature = 206.;
+    const MIN_VALUE: Feature = 0.;
 }
 
 #[cfg(test)]

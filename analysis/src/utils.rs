@@ -5,6 +5,8 @@ use rustfft::num_traits::Zero;
 use rustfft::FftPlanner;
 use std::f32::consts::PI;
 
+use crate::Feature;
+
 #[must_use]
 pub fn reflect_pad(array: &[f32], pad: usize) -> Vec<f32> {
     let prefix = array[1..=pad].iter().rev().copied().collect::<Vec<f32>>();
@@ -70,10 +72,10 @@ pub(crate) fn mean<T: Clone + Into<f32>>(input: &[T]) -> f32 {
 }
 
 pub(crate) trait Normalize {
-    const MAX_VALUE: f32;
-    const MIN_VALUE: f32;
+    const MAX_VALUE: Feature;
+    const MIN_VALUE: Feature;
 
-    fn normalize(&self, value: f32) -> f32 {
+    fn normalize(&self, value: Feature) -> Feature {
         2. * (value - Self::MIN_VALUE) / (Self::MAX_VALUE - Self::MIN_VALUE) - 1.
     }
 }

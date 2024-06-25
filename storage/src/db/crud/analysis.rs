@@ -172,7 +172,7 @@ impl Analysis {
                 .collect::<Result<Vec<Self>, Error>>()?;
 
         #[allow(clippy::cast_precision_loss)]
-        let num_analyses = analyses.len() as f32;
+        let num_analyses = analyses.len() as f64;
 
         let avg_features = analyses.iter().fold(vec![0.; 20], |acc, analysis| {
             acc.iter()

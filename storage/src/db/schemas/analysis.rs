@@ -22,7 +22,7 @@ pub struct Analysis {
 
     /// The [`Song`]'s audio features.
     #[cfg_attr(feature = "db", field(dt = "array<float>", index(vector(dim = 20))))]
-    pub features: [f32; 20],
+    pub features: [f64; 20],
 }
 
 impl Analysis {
