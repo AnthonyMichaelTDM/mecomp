@@ -12,6 +12,7 @@ license.workspace = true
 
 [features]
 default = []
+# plot_gap = ["dep:plotters"]
 
 [dependencies]
 bliss-audio-aubio-rs = { version = "0.2.2", features = ["static"] }
@@ -22,6 +23,7 @@ ndarray = { version = "0.15.6", features = ["rayon"] }
 ndarray-rand = "0.14.0"
 ndarray-stats = { version = "0.5.1" }
 noisy_float = { version = "0.2.0" }
+# plotters = { version = "0.3.0", optional = true }
 rand.workspace = true
 rayon = "1.10"
 rodio = { workspace = true }

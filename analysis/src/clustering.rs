@@ -10,6 +10,7 @@
 //! - The Davies-Bouldin index [wikipedia](https://en.wikipedia.org/wiki/Davies%E2%80%93Bouldin_index)
 
 use clustering::{kmeans, Clustering};
+use log::info;
 use ndarray::{Array, Array1, Array2, ArrayView1, ArrayView2, Axis};
 use ndarray_rand::RandomExt;
 use rand::distributions::Uniform;
@@ -77,7 +78,10 @@ pub enum KOptimal {
     DaviesBouldin,
 }
 
+#[cfg(debug_assertions)]
 const MAX_ITERATIONS: usize = 30;
+#[cfg(not(debug_assertions))]
+const MAX_ITERATIONS: usize = 50;
 
 pub struct KMeansHelper<S>
 where
@@ -161,7 +165,7 @@ impl<T: Sample> KMeansHelper<NotInitialized<T>> {
         let reference_data_sets =
             generate_reference_data_set(&convert_to_array(&self.state.samples).view(), b);
 
-        let (optimal_k, _) = (1..=self.state.k_max)
+        let mut results = (1..=self.state.k_max)
             .into_par_iter()
             // for each k, cluster the data into k clusters
             .map(|k| {
@@ -205,21 +209,30 @@ impl<T: Sample> KMeansHelper<NotInitialized<T>> {
 
                 (k, gap_k, s_k)
             })
-            // now, we fold over the iterator to find the optimal k
-            // but first, we have to bring the iterator back to a single thread
+            // now, we have to bring the iterator back to a single thread
             .collect::<Vec<_>>()
-            .into_iter()
-            .fold(
-                (None, None),
-                |(mut optimal_k, gap_k), (k, gap_k_plus_one, s_k_plus_one)| {
-                    if let Some(gap_k) = gap_k {
-                        if gap_k >= gap_k_plus_one - s_k_plus_one {
-                            optimal_k = Some(k);
-                        }
-                    }
-                    (optimal_k, Some(gap_k_plus_one))
-                },
-            );
+            .into_iter();
+
+        // // plot the gap_k (whisker with s_k) w.r.t. k
+        // #[cfg(feature = "plot_gap")]
+        // plot_gap_statistic(results.clone().collect::<Vec<_>>());
+
+        // finally, we go over the iterator to find the optimal k
+        let (mut optimal_k, mut gap_k_minus_one) =
+            (None, results.next().map(|(_, gap_k, _)| gap_k));
+
+        for (k, gap_k, s_k) in results {
+            info!("k: {k}, gap_k: {gap_k}, s_k: {s_k}");
+
+            if let Some(gap_k_minus_one) = gap_k_minus_one {
+                if gap_k_minus_one >= gap_k - s_k {
+                    info!("Optimal k found: {}", k - 1);
+                    optimal_k = Some(k - 1);
+                    break;
+                }
+            }
+            gap_k_minus_one = Some(gap_k);
+        }
 
         optimal_k.ok_or(ClusteringError::OptimalKNotFound(self.state.k_max))
     }
@@ -229,7 +242,6 @@ impl<T: Sample> KMeansHelper<NotInitialized<T>> {
     }
 }
 
-/// TODO: eventually we will want to not need to do this
 fn convert_to_array<T: Sample>(data: &[T]) -> Array2<f64> {
     // Convert vector to Array
     let shape = (data.len(), NUMBER_FEATURES);
@@ -405,3 +417,55 @@ mod tests {
         }
     }
 }
+
+// #[cfg(feature = "plot_gap")]
+// fn plot_gap_statistic(data: Vec<(usize, f64, f64)>) {
+//     use plotters::prelude::*;
+
+//     // Assuming data is a Vec<(usize, f64, f64)> of (k, gap_k, s_k)
+//     let root_area = BitMapBackend::new("gap_statistic_plot.png", (640, 480)).into_drawing_area();
+//     root_area.fill(&WHITE).unwrap();
+
+//     let max_gap_k = data
+//         .iter()
+//         .map(|(_, gap_k, _)| *gap_k)
+//         .fold(f64::MIN, f64::max);
+//     let min_gap_k = data
+//         .iter()
+//         .map(|(_, gap_k, _)| *gap_k)
+//         .fold(f64::MAX, f64::min);
+//     let max_k = data.iter().map(|(k, _, _)| *k).max().unwrap_or(0);
+
+//     let mut chart = ChartBuilder::on(&root_area)
+//         .caption("Gap Statistic Plot", ("sans-serif", 30))
+//         .margin(5)
+//         .x_label_area_size(30)
+//         .y_label_area_size(30)
+//         .build_cartesian_2d(0..max_k, min_gap_k..max_gap_k)
+//         .unwrap();
+
+//     chart.configure_mesh().draw().unwrap();
+
+//     for (k, gap_k, s_k) in data {
+//         chart
+//             .draw_series(PointSeries::of_element(
+//                 vec![(k, gap_k)],
+//                 5,
+//                 &RED,
+//                 &|coord, size, style| {
+//                     EmptyElement::at(coord) + Circle::new((0, 0), size, style.filled())
+//                 },
+//             ))
+//             .unwrap();
+
+//         // Drawing error bars
+//         chart
+//             .draw_series(LineSeries::new(
+//                 vec![(k, gap_k - s_k), (k, gap_k + s_k)],
+//                 &BLACK,
+//             ))
+//             .unwrap();
+//     }
+
+//     root_area.present().unwrap();
+// }
