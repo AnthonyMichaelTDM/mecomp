@@ -8,6 +8,7 @@
 //! We use rubato to resample the audio file to 22050 Hz.
 
 pub mod chroma;
+pub mod clustering;
 pub mod decoder;
 pub mod errors;
 pub mod misc;
@@ -106,6 +107,14 @@ impl Index<AnalysisIndex> for Analysis {
 
     fn index(&self, index: AnalysisIndex) -> &Feature {
         &self.internal_analysis[index as usize]
+    }
+}
+
+impl Index<usize> for Analysis {
+    type Output = Feature;
+
+    fn index(&self, index: usize) -> &Feature {
+        &self.internal_analysis[index]
     }
 }
 

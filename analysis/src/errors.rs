@@ -23,4 +23,9 @@ pub enum AnalysisError {
 pub type AnalysisResult<T> = Result<T, AnalysisError>;
 
 #[derive(Error, Debug)]
-pub enum ClusteringError {}
+pub enum ClusteringError {
+    #[error("Library too small to cluster")]
+    SmallLibrary,
+    #[error("Optimal k could not be found below k={0}")]
+    OptimalKNotFound(usize),
+}
