@@ -15,8 +15,8 @@ pub const TEXT_HIGHLIGHT: material::HexColor = material::RED_600;
 pub const TEXT_HIGHLIGHT_ALT: material::HexColor = material::RED_200;
 
 // gauge colors, such as song progress bar
-pub const GAUGE_FOREGROUND: material::HexColor = material::WHITE;
-pub const GAUGE_BACKGROUND: material::HexColor = material::BLACK;
+pub const GAUGE_FILLED: material::HexColor = material::WHITE;
+pub const GAUGE_UNFILLED: material::HexColor = material::BLACK;
 
 pub mod material {
     //! # Material Design Colors

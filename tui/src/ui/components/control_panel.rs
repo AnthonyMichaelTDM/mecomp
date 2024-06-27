@@ -16,7 +16,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, AudioAction, PlaybackAction, VolumeAction},
     ui::colors::{
-        BORDER_FOCUSED, BORDER_UNFOCUSED, GAUGE_BACKGROUND, GAUGE_FOREGROUND, TEXT_HIGHLIGHT_ALT,
+        BORDER_FOCUSED, BORDER_UNFOCUSED, GAUGE_FILLED, GAUGE_UNFILLED, TEXT_HIGHLIGHT_ALT,
         TEXT_NORMAL,
     },
 };
@@ -257,12 +257,8 @@ impl ComponentRender<RenderProps> for ControlPanel {
                     ),
                     Style::default().fg(TEXT_NORMAL.into()),
                 ))
-                .gauge_style(
-                    Style::default()
-                        .fg(GAUGE_FOREGROUND.into())
-                        .bg(GAUGE_BACKGROUND.into())
-                        .bold(),
-                )
+                .filled_style(Style::default().fg(GAUGE_FILLED.into()).bold())
+                .unfilled_style(Style::default().fg(GAUGE_UNFILLED.into()).bold())
                 .ratio(self.props.song_runtime.map_or(0.0, |runtime| {
                     runtime.seek_position.as_secs_f64() / runtime.duration.as_secs_f64()
                 })),
