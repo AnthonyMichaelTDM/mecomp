@@ -14,20 +14,20 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
-use tui_tree_widget::{Tree, TreeState};
 
 use crate::{
     state::action::{Action, AudioAction, QueueAction},
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
         components::{Component, ComponentRender, RenderProps},
+        widgets::tree::{state::CheckTreeState, CheckTree},
         AppState,
     },
 };
 
 use super::{
     none::NoneView,
-    utils::{
+    checktree_utils::{
         create_collection_tree_leaf, create_song_tree_leaf, get_selected_things_from_tree_state,
     },
     CollectionViewProps,
@@ -40,7 +40,7 @@ pub struct CollectionView {
     /// Mapped Props from state
     pub props: Option<CollectionViewProps>,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
     /// sort mode
     sort_mode: super::song::SortMode,
 }
@@ -53,7 +53,7 @@ impl Component for CollectionView {
         Self {
             action_tx,
             props: state.additional_view_data.collection.clone(),
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
             sort_mode: super::song::SortMode::default(),
         }
     }
@@ -109,6 +109,9 @@ impl Component for CollectionView {
             }
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
+            }
+            KeyCode::Char(' ') => {
+                self.tree_state.lock().unwrap().key_space();
             }
             // Change sort mode
             KeyCode::Char('s') => {
@@ -167,7 +170,7 @@ impl ComponentRender<RenderProps> for CollectionView {
                     Span::raw(" sorted by: "),
                     Span::styled(self.sort_mode.to_string(), Style::default().italic()),
                 ]))
-                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate")
+                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | \u{2423} Check")
                 .border_style(border_style);
             let block_area = block.inner(props.area);
             frame.render_widget(block, props.area);
@@ -223,16 +226,13 @@ impl ComponentRender<RenderProps> for CollectionView {
 
             // render the collections songs
             frame.render_stateful_widget(
-                Tree::new(&items)
+                CheckTree::new(&items)
                     .unwrap()
                     .highlight_style(
                         Style::default()
                             .fg(TEXT_HIGHLIGHT.into())
                             .add_modifier(Modifier::BOLD),
                     )
-                    .node_closed_symbol("▸")
-                    .node_open_symbol("▾")
-                    .node_no_children_symbol("▪")
                     .experimental_scrollbar(Some(Scrollbar::new(
                         ScrollbarOrientation::VerticalRight,
                     ))),
@@ -260,7 +260,7 @@ pub struct LibraryCollectionsView {
     /// Mapped Props from state
     props: Props,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
 }
 
 struct Props {
@@ -323,7 +323,7 @@ impl Component for LibraryCollectionsView {
                 collections,
                 sort_mode,
             },
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
         }
     }
 
@@ -372,6 +372,9 @@ impl Component for LibraryCollectionsView {
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
             }
+            KeyCode::Char(' ') => {
+                self.tree_state.lock().unwrap().key_space();
+            }
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
@@ -417,7 +420,7 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
                 Span::raw(" sorted by: "),
                 Span::styled(self.props.sort_mode.to_string(), Style::default().italic()),
             ]))
-            .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | s/S: change sort")
+            .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | \u{2423} Check | s/S: change sort")
             .border_style(border_style);
         let block_area = block.inner(props.area);
         frame.render_widget(block, props.area);
@@ -445,16 +448,13 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
         );
 
         frame.render_stateful_widget(
-            Tree::new(&items)
+            CheckTree::new(&items)
                 .unwrap()
                 .highlight_style(
                     Style::default()
                         .fg(TEXT_HIGHLIGHT.into())
                         .add_modifier(Modifier::BOLD),
                 )
-                .node_closed_symbol("▸")
-                .node_open_symbol("▾")
-                .node_no_children_symbol("▪")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             bottom,
             &mut self.tree_state.lock().unwrap(),

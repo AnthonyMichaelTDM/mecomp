@@ -11,21 +11,23 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
-use tui_tree_widget::{Tree, TreeState};
 
 use crate::{
     state::action::{Action, AudioAction, PopupAction, QueueAction},
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
-        widgets::popups::PopupType,
+        widgets::{
+            popups::PopupType,
+            tree::{state::CheckTreeState, CheckTree},
+        },
         AppState,
     },
 };
 
 use super::{
     none::NoneView,
-    utils::{
+    checktree_utils::{
         create_album_tree_leaf, create_artist_tree_item, create_song_tree_leaf,
         get_selected_things_from_tree_state,
     },
@@ -39,7 +41,7 @@ pub struct SongView {
     /// Mapped Props from state
     pub props: Option<SongViewProps>,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
 }
 
 impl Component for SongView {
@@ -50,7 +52,7 @@ impl Component for SongView {
         Self {
             action_tx,
             props: state.additional_view_data.song.clone(),
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
         }
     }
 
@@ -86,6 +88,9 @@ impl Component for SongView {
             }
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
+            }
+            KeyCode::Char(' ') => {
+                self.tree_state.lock().unwrap().key_space();
             }
             // Enter key opens selected view
             KeyCode::Enter => {
@@ -148,7 +153,7 @@ impl ComponentRender<RenderProps> for SongView {
         if let Some(state) = &self.props {
             let block = Block::bordered()
                 .title_top("Song View")
-                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate")
+                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | \u{2423} Check")
                 .border_style(border_style);
             let block_area = block.inner(props.area);
             frame.render_widget(block, props.area);
@@ -227,16 +232,11 @@ impl ComponentRender<RenderProps> for SongView {
 
             // render the song artists / album
             frame.render_stateful_widget(
-                Tree::new(items)
-                    .unwrap()
-                    .highlight_style(
-                        Style::default()
-                            .fg(TEXT_HIGHLIGHT.into())
-                            .add_modifier(Modifier::BOLD),
-                    )
-                    .node_closed_symbol("▸")
-                    .node_open_symbol("▾")
-                    .node_no_children_symbol("▪"),
+                CheckTree::new(items).unwrap().highlight_style(
+                    Style::default()
+                        .fg(TEXT_HIGHLIGHT.into())
+                        .add_modifier(Modifier::BOLD),
+                ),
                 bottom,
                 &mut self.tree_state.lock().unwrap(),
             );
@@ -252,7 +252,7 @@ pub struct LibrarySongsView {
     /// Mapped Props from state
     props: Props,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
 }
 
 struct Props {
@@ -342,7 +342,7 @@ impl Component for LibrarySongsView {
         Self {
             action_tx,
             props: Props { songs, sort_mode },
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
         }
     }
 
@@ -391,6 +391,9 @@ impl Component for LibrarySongsView {
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
             }
+            KeyCode::Char(' ') => {
+                self.tree_state.lock().unwrap().key_space();
+            }
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
@@ -432,7 +435,7 @@ impl ComponentRender<RenderProps> for LibrarySongsView {
                 Span::raw(" sorted by: "),
                 Span::styled(self.props.sort_mode.to_string(), Style::default().italic()),
             ]))
-            .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | s/S: change sort")
+            .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | \u{2423} Check | s/S: change sort")
             .border_style(border_style);
         let block_area = block.inner(props.area);
         frame.render_widget(block, props.area);
@@ -460,16 +463,13 @@ impl ComponentRender<RenderProps> for LibrarySongsView {
         );
 
         frame.render_stateful_widget(
-            Tree::new(&items)
+            CheckTree::new(&items)
                 .unwrap()
                 .highlight_style(
                     Style::default()
                         .fg(TEXT_HIGHLIGHT.into())
                         .add_modifier(Modifier::BOLD),
                 )
-                .node_closed_symbol("▸")
-                .node_open_symbol("▾")
-                .node_no_children_symbol("▪")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             bottom,
             &mut self.tree_state.lock().unwrap(),

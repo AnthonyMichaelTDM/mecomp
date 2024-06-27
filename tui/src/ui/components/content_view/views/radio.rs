@@ -11,11 +11,10 @@ use ratatui::{
     Frame,
 };
 use tokio::sync::mpsc::UnboundedSender;
-use tui_tree_widget::{Tree, TreeState};
 
 use super::{
     none::NoneView,
-    utils::{create_song_tree_leaf, get_selected_things_from_tree_state},
+    checktree_utils::{create_song_tree_leaf, get_selected_things_from_tree_state},
     RadioViewProps,
 };
 use crate::{
@@ -23,7 +22,10 @@ use crate::{
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
         components::{Component, ComponentRender, RenderProps},
-        widgets::popups::PopupType,
+        widgets::{
+            popups::PopupType,
+            tree::{state::CheckTreeState, CheckTree},
+        },
         AppState,
     },
 };
@@ -35,7 +37,7 @@ pub struct RadioView {
     /// Mapped Props from state
     pub props: Option<RadioViewProps>,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
 }
 
 impl Component for RadioView {
@@ -46,7 +48,7 @@ impl Component for RadioView {
         Self {
             action_tx,
             props: state.additional_view_data.radio.clone(),
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
         }
     }
 
@@ -98,6 +100,9 @@ impl Component for RadioView {
             }
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
+            }
+            KeyCode::Char(' ') => {
+                self.tree_state.lock().unwrap().key_space();
             }
             // Enter key opens selected view
             KeyCode::Enter => {
@@ -152,7 +157,7 @@ impl ComponentRender<RenderProps> for RadioView {
                     Span::raw(" "),
                     Span::styled(format!("top {}", state.count), Style::default().italic()),
                 ]))
-                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate")
+                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | \u{2423} Check")
                 .border_style(border_style);
             let block_area = block.inner(props.area);
             frame.render_widget(block, props.area);
@@ -183,16 +188,13 @@ impl ComponentRender<RenderProps> for RadioView {
 
             // render the radio results
             frame.render_stateful_widget(
-                Tree::new(&items)
+                CheckTree::new(&items)
                     .unwrap()
                     .highlight_style(
                         Style::default()
                             .fg(TEXT_HIGHLIGHT.into())
                             .add_modifier(Modifier::BOLD),
                     )
-                    .node_closed_symbol("▸")
-                    .node_open_symbol("▾")
-                    .node_no_children_symbol("▪")
                     .experimental_scrollbar(Some(Scrollbar::new(
                         ScrollbarOrientation::VerticalRight,
                     ))),

@@ -72,7 +72,7 @@ pub struct RadioViewProps {
     pub songs: Box<[Song]>,
 }
 
-pub mod utils {
+pub mod checktree_utils {
     use mecomp_storage::db::schemas::{
         album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song, Thing,
     };
@@ -80,9 +80,12 @@ pub mod utils {
         style::{Style, Stylize},
         text::{Line, Span},
     };
-    use tui_tree_widget::{TreeItem, TreeState};
 
-    pub fn get_selected_things_from_tree_state(tree_state: &TreeState<String>) -> Option<Thing> {
+    use crate::ui::widgets::tree::{item::CheckTreeItem, state::CheckTreeState};
+
+    pub fn get_selected_things_from_tree_state(
+        tree_state: &CheckTreeState<String>,
+    ) -> Option<Thing> {
         tree_state
             .selected()
             .iter()
@@ -90,22 +93,32 @@ pub mod utils {
             .next()
     }
 
-    pub fn create_album_tree_item(albums: &[Album]) -> Result<TreeItem<String>, std::io::Error> {
-        TreeItem::new(
+    fn create_dummy_leaf() -> CheckTreeItem<'static, String> {
+        CheckTreeItem::new_leaf("dummy".to_string(), "")
+    }
+
+    pub fn create_album_tree_item(
+        albums: &[Album],
+    ) -> Result<CheckTreeItem<String>, std::io::Error> {
+        let mut item = CheckTreeItem::new(
             "Albums".to_string(),
             format!("Albums ({}):", albums.len()),
             albums
                 .iter()
                 .map(|album| create_album_tree_leaf(album, None))
                 .collect(),
-        )
+        )?;
+        if item.children().is_empty() {
+            item.add_child(create_dummy_leaf()).unwrap();
+        }
+        Ok(item)
     }
 
     pub fn create_album_tree_leaf<'a>(
         album: &Album,
         prefix: Option<Span<'a>>,
-    ) -> TreeItem<'a, String> {
-        TreeItem::new_leaf(
+    ) -> CheckTreeItem<'a, String> {
+        CheckTreeItem::new_leaf(
             album.id.to_string(),
             Line::from(vec![
                 prefix.unwrap_or_default(),
@@ -124,19 +137,25 @@ pub mod utils {
         )
     }
 
-    pub fn create_artist_tree_item(artists: &[Artist]) -> Result<TreeItem<String>, std::io::Error> {
-        TreeItem::new(
+    pub fn create_artist_tree_item(
+        artists: &[Artist],
+    ) -> Result<CheckTreeItem<String>, std::io::Error> {
+        let mut item = CheckTreeItem::new(
             "Artists".to_string(),
             format!("Artists ({}):", artists.len()),
             artists
                 .iter()
                 .map(|artist| create_artist_tree_leaf(artist))
                 .collect(),
-        )
+        )?;
+        if item.children().is_empty() {
+            item.add_child(create_dummy_leaf()).unwrap();
+        }
+        Ok(item)
     }
 
-    pub fn create_artist_tree_leaf(artist: &Artist) -> TreeItem<String> {
-        TreeItem::new_leaf(
+    pub fn create_artist_tree_leaf(artist: &Artist) -> CheckTreeItem<String> {
+        CheckTreeItem::new_leaf(
             artist.id.to_string(),
             Line::from(vec![Span::styled(
                 artist.name.to_string(),
@@ -145,8 +164,8 @@ pub mod utils {
         )
     }
 
-    pub fn create_collection_tree_leaf(collection: &Collection) -> TreeItem<String> {
-        TreeItem::new_leaf(
+    pub fn create_collection_tree_leaf(collection: &Collection) -> CheckTreeItem<String> {
+        CheckTreeItem::new_leaf(
             collection.id.to_string(),
             Line::from(vec![Span::styled(
                 collection.name.to_string(),
@@ -155,8 +174,8 @@ pub mod utils {
         )
     }
 
-    pub fn create_playlist_tree_leaf(playlist: &Playlist) -> TreeItem<String> {
-        TreeItem::new_leaf(
+    pub fn create_playlist_tree_leaf(playlist: &Playlist) -> CheckTreeItem<String> {
+        CheckTreeItem::new_leaf(
             playlist.id.to_string(),
             Line::from(vec![Span::styled(
                 playlist.name.to_string(),
@@ -165,19 +184,23 @@ pub mod utils {
         )
     }
 
-    pub fn create_song_tree_item(songs: &[Song]) -> Result<TreeItem<String>, std::io::Error> {
-        TreeItem::new(
+    pub fn create_song_tree_item(songs: &[Song]) -> Result<CheckTreeItem<String>, std::io::Error> {
+        let mut item = CheckTreeItem::new(
             "Songs".to_string(),
             format!("Songs ({}):", songs.len()),
             songs
                 .iter()
                 .map(|song| create_song_tree_leaf(song))
                 .collect(),
-        )
+        )?;
+        if item.children().is_empty() {
+            item.add_child(create_dummy_leaf()).unwrap();
+        }
+        Ok(item)
     }
 
-    pub fn create_song_tree_leaf(song: &Song) -> TreeItem<String> {
-        TreeItem::new_leaf(
+    pub fn create_song_tree_leaf(song: &Song) -> CheckTreeItem<String> {
+        CheckTreeItem::new_leaf(
             song.id.to_string(),
             Line::from(vec![
                 Span::styled(song.title.to_string(), Style::default().bold()),

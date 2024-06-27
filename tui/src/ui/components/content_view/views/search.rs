@@ -10,7 +10,6 @@ use ratatui::{
     widgets::{Block, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
-use tui_tree_widget::{Tree, TreeState};
 
 use crate::{
     state::action::Action,
@@ -19,12 +18,15 @@ use crate::{
             BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
         },
         components::{Component, ComponentRender, RenderProps},
-        widgets::input_box::{self, InputBox},
+        widgets::{
+            input_box::{self, InputBox},
+            tree::{state::CheckTreeState, CheckTree},
+        },
         AppState,
     },
 };
 
-use super::utils::{
+use super::checktree_utils::{
     create_album_tree_item, create_artist_tree_item, create_song_tree_item,
     get_selected_things_from_tree_state,
 };
@@ -36,7 +38,7 @@ pub struct SearchView {
     /// Mapped Props from state
     pub props: Props,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
     /// Search Bar
     search_bar: InputBox,
     /// Is the search bar focused
@@ -67,7 +69,7 @@ impl Component for SearchView {
         Self {
             search_bar: InputBox::new(state, action_tx.clone()),
             search_bar_focused: true,
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
             action_tx,
             props,
         }
@@ -115,6 +117,9 @@ impl Component for SearchView {
             }
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
+            }
+            KeyCode::Char(' ') => {
+                self.tree_state.lock().unwrap().key_space();
             }
             // when searchbar focused, enter key will search
             KeyCode::Enter if self.search_bar_focused => {
@@ -201,7 +206,7 @@ impl ComponentRender<RenderProps> for SearchView {
 
         // render the search results
         frame.render_stateful_widget(
-            Tree::new(items)
+            CheckTree::new(items)
                 .unwrap()
                 .block(
                     Block::bordered()
@@ -209,7 +214,7 @@ impl ComponentRender<RenderProps> for SearchView {
                         .title_bottom(if self.search_bar_focused {
                             "Enter: Search"
                         } else {
-                            "/: Search | Enter: Open | ←/↑/↓/→: Navigate"
+                            "/: Search | Enter: Open | ←/↑/↓/→: Navigate | \u{2423} Check"
                         })
                         .border_style(border_style),
                 )
@@ -218,9 +223,6 @@ impl ComponentRender<RenderProps> for SearchView {
                         .fg(TEXT_HIGHLIGHT.into())
                         .add_modifier(Modifier::BOLD),
                 )
-                .node_closed_symbol("▸")
-                .node_open_symbol("▾")
-                .node_no_children_symbol("▪")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             results_area,
             &mut self.tree_state.lock().unwrap(),

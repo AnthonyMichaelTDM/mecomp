@@ -12,24 +12,33 @@ use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use mecomp_storage::db::schemas::Thing;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::text::Line;
-use ratatui::widgets::{Block, Scrollbar, ScrollbarOrientation};
-use ratatui::Frame;
-use tokio::sync::mpsc::UnboundedSender;
-use tui_tree_widget::{Tree, TreeState};
-
-use crate::state::action::{Action, LibraryAction, PopupAction};
-use crate::ui::colors::{BORDER_FOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT};
-use crate::ui::components::content_view::views::playlist::Props;
-use crate::ui::components::content_view::views::utils::{
-    create_playlist_tree_leaf, get_selected_things_from_tree_state,
+use ratatui::{
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Style, Stylize},
+    text::Line,
+    widgets::{Block, Scrollbar, ScrollbarOrientation},
+    Frame,
 };
-use crate::ui::components::Component;
-use crate::ui::components::ComponentRender;
-use crate::ui::widgets::input_box::{InputBox, RenderProps};
-use crate::ui::AppState;
+use tokio::sync::mpsc::UnboundedSender;
+
+use crate::{
+    state::action::{Action, LibraryAction, PopupAction},
+    ui::{
+        colors::{BORDER_FOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT},
+        components::{
+            content_view::views::{
+                checktree_utils::{create_playlist_tree_leaf, get_selected_things_from_tree_state},
+                playlist::Props,
+            },
+            Component, ComponentRender,
+        },
+        widgets::{
+            input_box::{InputBox, RenderProps},
+            tree::{state::CheckTreeState, CheckTree},
+        },
+        AppState,
+    },
+};
 
 use super::Popup;
 
@@ -45,7 +54,7 @@ pub struct PlaylistSelector {
     /// Mapped Props from state
     props: Props,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
     /// Playlist Name Input Box
     input_box: InputBox,
     /// Is the input box visible
@@ -61,7 +70,7 @@ impl PlaylistSelector {
             input_box_visible: false,
             action_tx,
             props: Props::from(state),
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
             items,
         }
     }
@@ -238,12 +247,12 @@ impl ComponentRender<Rect> for PlaylistSelector {
 
         // render playlist list
         frame.render_stateful_widget(
-            Tree::new(&playlists)
+            CheckTree::new(&playlists)
                 .unwrap()
                 .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
-                .node_closed_symbol("▸")
-                .node_open_symbol("▾")
-                .node_no_children_symbol("▪")
+                // we want this to be rendered like a normal tree, not a check tree, so we don't show the checkboxes
+                .node_unselected_symbol("▪ ")
+                .node_selected_symbol("▪ ")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             bottom,
             &mut self.tree_state.lock().unwrap(),

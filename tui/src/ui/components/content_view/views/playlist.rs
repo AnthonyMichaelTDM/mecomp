@@ -12,7 +12,6 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
-use tui_tree_widget::{Tree, TreeState};
 
 use crate::{
     state::action::{Action, AudioAction, LibraryAction, PopupAction, QueueAction},
@@ -24,16 +23,17 @@ use crate::{
         widgets::{
             input_box::{self, InputBox},
             popups::PopupType,
+            tree::{state::CheckTreeState, CheckTree},
         },
         AppState,
     },
 };
 
 use super::{
-    none::NoneView,
-    utils::{
+    checktree_utils::{
         create_playlist_tree_leaf, create_song_tree_leaf, get_selected_things_from_tree_state,
     },
+    none::NoneView,
     PlaylistViewProps, RADIO_SIZE,
 };
 
@@ -44,7 +44,7 @@ pub struct PlaylistView {
     /// Mapped Props from state
     pub props: Option<PlaylistViewProps>,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
     /// sort mode
     sort_mode: super::song::SortMode,
 }
@@ -57,7 +57,7 @@ impl Component for PlaylistView {
         Self {
             action_tx,
             props: state.additional_view_data.playlist.clone(),
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
             sort_mode: super::song::SortMode::default(),
         }
     }
@@ -113,6 +113,9 @@ impl Component for PlaylistView {
             }
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
+            }
+            KeyCode::Char(' ') => {
+                self.tree_state.lock().unwrap().key_space();
             }
             // Change sort mode
             KeyCode::Char('s') => {
@@ -208,7 +211,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
                     Span::raw(" sorted by: "),
                     Span::styled(self.sort_mode.to_string(), Style::default().italic()),
                 ]))
-                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate")
+                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | \u{2423} Check")
                 .border_style(border_style);
             let block_area = block.inner(props.area);
             frame.render_widget(block, props.area);
@@ -264,16 +267,13 @@ impl ComponentRender<RenderProps> for PlaylistView {
 
             // render the playlist songs
             frame.render_stateful_widget(
-                Tree::new(&items)
+                CheckTree::new(&items)
                     .unwrap()
                     .highlight_style(
                         Style::default()
                             .fg(TEXT_HIGHLIGHT.into())
                             .add_modifier(Modifier::BOLD),
                     )
-                    .node_closed_symbol("▸")
-                    .node_open_symbol("▾")
-                    .node_no_children_symbol("▪")
                     .experimental_scrollbar(Some(Scrollbar::new(
                         ScrollbarOrientation::VerticalRight,
                     ))),
@@ -301,7 +301,7 @@ pub struct LibraryPlaylistsView {
     /// Mapped Props from state
     props: Props,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
     /// Playlist Name Input Box
     input_box: InputBox,
     /// Is the input box visible
@@ -376,7 +376,7 @@ impl Component for LibraryPlaylistsView {
             input_box_visible: false,
             action_tx,
             props: Props::from(state),
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
         }
     }
 
@@ -456,6 +456,9 @@ impl Component for LibraryPlaylistsView {
                         }
                     }
                 }
+                KeyCode::Char(' ') => {
+                    self.tree_state.lock().unwrap().key_space();
+                }
                 // Change sort mode
                 KeyCode::Char('s') => {
                     self.props.sort_mode = self.props.sort_mode.next();
@@ -507,7 +510,7 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
             .title_bottom(if self.input_box_visible {
                 ""
             } else {
-                "Enter: Open | ←/↑/↓/→: Navigate | s/S: change sort"
+                "Enter: Open | ←/↑/↓/→: Navigate | \u{2423} Check | s/S: change sort"
             })
             .border_style(border_style);
         let block_area = block.inner(props.area);
@@ -570,16 +573,13 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
 
         // render playlist list
         frame.render_stateful_widget(
-            Tree::new(&items)
+            CheckTree::new(&items)
                 .unwrap()
                 .highlight_style(
                     Style::default()
                         .fg(TEXT_HIGHLIGHT.into())
                         .add_modifier(Modifier::BOLD),
                 )
-                .node_closed_symbol("▸")
-                .node_open_symbol("▾")
-                .node_no_children_symbol("▪")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             bottom,
             &mut self.tree_state.lock().unwrap(),
