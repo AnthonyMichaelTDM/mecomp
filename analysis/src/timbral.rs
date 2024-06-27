@@ -204,7 +204,7 @@ impl SpectralDesc {
             self.values_flatness.push(0.0);
             return Ok(());
         }
-        let flatness = geo_mean / mean(cvec.norm()) as f32;
+        let flatness = geo_mean / mean(cvec.norm());
         self.values_flatness.push(flatness);
         Ok(())
     }
