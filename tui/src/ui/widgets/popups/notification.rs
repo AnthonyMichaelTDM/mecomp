@@ -22,6 +22,8 @@ impl<'a> Popup for Notification<'a> {
         Line::from("Press ESC to close")
     }
 
+    fn update_with_state(&mut self, _: &crate::ui::AppState) {}
+
     fn area(&self, terminal_area: Rect) -> Rect {
         // put in the top left corner, give enough width to display the text (cap at 50% of the terminal width)
         let max_width = terminal_area.width / 2;

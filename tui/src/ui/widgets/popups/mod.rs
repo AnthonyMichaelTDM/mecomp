@@ -28,6 +28,7 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
     }
 
     // TODO: implement a way for popups to listen to application state changes
+    fn update_with_state(&mut self, state: &AppState);
 
     /// Key Event Handler for the inner component of the popup,
     /// this method is called when the key event is not the escape key.

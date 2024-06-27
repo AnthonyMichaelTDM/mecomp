@@ -80,6 +80,10 @@ impl Popup for PlaylistSelector {
         })
     }
 
+    fn update_with_state(&mut self, state: &AppState) {
+        self.props = Props::from(state);
+    }
+
     fn area(&self, terminal_area: Rect) -> Rect {
         let [_, horizontal_area, _] = *Layout::default()
             .direction(Direction::Horizontal)

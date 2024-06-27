@@ -177,6 +177,11 @@ impl Component for App {
             queuebar: self.queuebar.move_with_state(state),
             control_panel: self.control_panel.move_with_state(state),
             content_view: self.content_view.move_with_state(state),
+            popup: self.popup.map(|popup| {
+                let mut popup = popup;
+                popup.update_with_state(state);
+                popup
+            }),
             ..self
         }
     }
