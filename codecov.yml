@@ -36,6 +36,10 @@ component_management:
       name: OneOrMany
       paths:
         - one-or-many/**
+    - component_id: module_analysis
+      name: Analysis
+      paths:
+        - analysis/**
     - component_id: module_mecomp_cli_frontend
       name: MECOMP CLI
       paths:

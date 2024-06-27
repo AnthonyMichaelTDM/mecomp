@@ -5,6 +5,8 @@
 //! (minor / major).
 extern crate noisy_float;
 
+use crate::Feature;
+
 use super::errors::{AnalysisError, AnalysisResult};
 use super::utils::{hz_to_octs_inplace, stft, Normalize};
 use ndarray::{arr1, arr2, concatenate, s, Array, Array1, Array2, Axis, Zip};
@@ -31,8 +33,8 @@ pub struct ChromaDesc {
 }
 
 impl Normalize for ChromaDesc {
-    const MAX_VALUE: f32 = 0.12;
-    const MIN_VALUE: f32 = 0.;
+    const MAX_VALUE: Feature = 0.12;
+    const MIN_VALUE: Feature = 0.;
 }
 
 impl ChromaDesc {
@@ -78,10 +80,10 @@ impl ChromaDesc {
      * for more information ("Timbre-invariant Audio Features for Style Analysis of Classical
      * Music").
      */
-    pub fn get_value(&mut self) -> Vec<f32> {
+    pub fn get_value(&mut self) -> Vec<Feature> {
         #[allow(clippy::cast_possible_truncation)]
         chroma_interval_features(&self.values_chroma)
-            .mapv(|x| self.normalize(x as f32))
+            .mapv(|x| self.normalize(x as Feature))
             .to_vec()
     }
 }

@@ -61,15 +61,11 @@ pub enum Command {
         command: PlaylistCommand,
     },
     /// Collection control
-    /// TODO: clustering not implemented yet
-    #[clap(hide = true)]
     Collection {
         #[clap(subcommand)]
         command: CollectionCommand,
     },
     /// Radio control
-    /// TODO: not implemented
-    #[clap(hide = true)]
     Radio {
         #[clap(subcommand)]
         command: RadioCommand,
@@ -82,6 +78,8 @@ pub enum LibraryCommand {
     Rescan,
     /// Analyze the library
     Analyze,
+    /// Recluster the library
+    Recluster,
     /// Get brief library info
     Brief,
     /// Get detailed library info

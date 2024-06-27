@@ -8,6 +8,8 @@ use bliss_audio_aubio_rs::vec::CVec;
 use bliss_audio_aubio_rs::{bin_to_freq, PVoc, SpecDesc, SpecShape};
 use ndarray::{arr1, Axis};
 
+use crate::Feature;
+
 use super::errors::{AnalysisError, AnalysisResult};
 use super::utils::{geometric_mean, mean, number_crossings, Normalize};
 use super::SAMPLE_RATE;
@@ -54,14 +56,14 @@ impl SpectralDesc {
      *
      * The value range is between 0 and `sample_rate / 2`.
      */
-    pub fn get_centroid(&mut self) -> Vec<f32> {
+    pub fn get_centroid(&mut self) -> Vec<Feature> {
         vec![
-            self.normalize(mean(&self.values_centroid)),
-            self.normalize(
+            self.normalize(Feature::from(mean(&self.values_centroid))),
+            self.normalize(Feature::from(
                 arr1(&self.values_centroid)
                     .std_axis(Axis(0), 0.)
                     .into_scalar(),
-            ),
+            )),
         ]
     }
 
@@ -78,14 +80,14 @@ impl SpectralDesc {
      *
      * The value range is between 0 and `sample_rate / 2`
      */
-    pub fn get_rolloff(&mut self) -> Vec<f32> {
+    pub fn get_rolloff(&mut self) -> Vec<Feature> {
         vec![
-            self.normalize(mean(&self.values_rolloff)),
-            self.normalize(
+            self.normalize(Feature::from(mean(&self.values_rolloff))),
+            self.normalize(Feature::from(
                 arr1(&self.values_rolloff)
                     .std_axis(Axis(0), 0.)
                     .into_scalar(),
-            ),
+            )),
         ]
     }
 
@@ -105,17 +107,19 @@ impl SpectralDesc {
      * The value range is between 0 and 1, since the geometric mean is always less
      * than the arithmetic mean.
      */
-    pub fn get_flatness(&mut self) -> Vec<f32> {
+    pub fn get_flatness(&mut self) -> Vec<Feature> {
         let max_value = 1.;
         let min_value = 0.;
         // Range is different from the other spectral algorithms, so normalizing
         // manually here.
         vec![
-            2. * (mean(&self.values_flatness) - min_value) / (max_value - min_value) - 1.,
-            2. * (arr1(&self.values_flatness)
-                .std_axis(Axis(0), 0.)
-                .into_scalar()
-                - min_value)
+            2. * (Feature::from(mean(&self.values_flatness)) - min_value) / (max_value - min_value)
+                - 1.,
+            2. * (Feature::from(
+                arr1(&self.values_flatness)
+                    .std_axis(Axis(0), 0.)
+                    .into_scalar(),
+            ) - min_value)
                 / (max_value - min_value)
                 - 1.,
         ]
@@ -208,8 +212,8 @@ impl SpectralDesc {
 
 impl Normalize for SpectralDesc {
     #[allow(clippy::cast_precision_loss)]
-    const MAX_VALUE: f32 = SAMPLE_RATE as f32 / 2.;
-    const MIN_VALUE: f32 = 0.;
+    const MAX_VALUE: Feature = SAMPLE_RATE as Feature / 2.;
+    const MIN_VALUE: Feature = 0.;
 }
 
 /**
@@ -246,14 +250,16 @@ impl ZeroCrossingRateDesc {
     /// Sum the number of zero-crossings witnessed and divide by
     /// the total number of samples.
     #[allow(clippy::cast_precision_loss)]
-    pub fn get_value(&mut self) -> f32 {
-        self.normalize((self.values.iter().sum::<u32>()) as f32 / self.number_samples as f32)
+    pub fn get_value(&mut self) -> Feature {
+        self.normalize(
+            Feature::from(self.values.iter().sum::<u32>()) / self.number_samples as Feature,
+        )
     }
 }
 
 impl Normalize for ZeroCrossingRateDesc {
-    const MAX_VALUE: f32 = 1.;
-    const MIN_VALUE: f32 = 0.;
+    const MAX_VALUE: Feature = 1.;
+    const MIN_VALUE: Feature = 0.;
 }
 
 #[cfg(test)]

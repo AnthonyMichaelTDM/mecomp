@@ -12,20 +12,27 @@ license.workspace = true
 
 [features]
 default = []
+# plot_gap = ["dep:plotters"]
 
 [dependencies]
 bliss-audio-aubio-rs = { version = "0.2.2", features = ["static"] }
+clustering.workspace = true
 log = { workspace = true }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 ndarray = { version = "0.15.6", features = ["rayon"] }
+ndarray-rand = "0.14.0"
 ndarray-stats = { version = "0.5.1" }
 noisy_float = { version = "0.2.0" }
+# plotters = { version = "0.3.0", optional = true }
+rand.workspace = true
+rayon = "1.10"
 rodio = { workspace = true }
 rubato = { workspace = true }
 rustfft = { version = "6.1" }
 serde = { workspace = true }
+statrs = "0.17.1"
 strum.workspace = true
 thiserror = { workspace = true }
-mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 # if we're building on macos, we need to link against the system's fftw3
 # library, which is not available on linux

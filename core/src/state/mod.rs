@@ -3,7 +3,6 @@ pub mod library;
 use std::{fmt::Display, time::Duration};
 
 use mecomp_storage::db::schemas::song::Song;
-use nutype::nutype;
 use serde::{Deserialize, Serialize};
 
 use crate::format_duration;
@@ -63,11 +62,24 @@ impl RepeatMode {
     }
 }
 
-#[nutype(
-    sanitize(with = | n | if n.is_finite() { n.clamp(0.0, 100.0) } else { 0.0 }),
-    derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)
-)]
+#[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Percent(f32);
+
+impl Percent {
+    #[must_use]
+    pub fn new(value: f32) -> Self {
+        Self(if value.is_finite() {
+            value.clamp(0.0, 100.0)
+        } else {
+            0.0
+        })
+    }
+
+    #[must_use]
+    pub const fn into_inner(self) -> f32 {
+        self.0
+    }
+}
 
 impl Display for Percent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

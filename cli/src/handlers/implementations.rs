@@ -174,6 +174,15 @@ impl CommandHandler for LibraryCommand {
                 }
                 Ok(())
             }
+            Self::Recluster => {
+                let resp: Result<(), _> = client.library_recluster(ctx).await?;
+                if let Err(e) = resp {
+                    println!("Daemon response:\n{e}");
+                } else {
+                    println!("Daemon response:\nreclustering started");
+                }
+                Ok(())
+            }
             Self::Brief => {
                 let resp: Result<LibraryBrief, _> = client.library_brief(ctx).await?;
                 println!("Daemon response:\n{resp:#?}");
@@ -735,7 +744,7 @@ impl CommandHandler for super::CollectionCommand {
             }
             Self::Recluster => {
                 let resp: Result<&str, _> = client
-                    .collection_recluster(ctx)
+                    .library_recluster(ctx)
                     .await?
                     .map(|()| "reclustering started");
                 println!("Daemon response:\n{resp:?}");

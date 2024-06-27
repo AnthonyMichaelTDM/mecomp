@@ -59,6 +59,10 @@ impl LibraryState {
                         LibraryAction::Analyze => {
                             analyze_library(daemon.clone()).await?;
                         }
+                        LibraryAction::Recluster => {
+                            state = recluster_library(daemon.clone()).await?;
+                            self.state_tx.send(state.clone())?;
+                        }
                         LibraryAction::CreatePlaylist(name) => {
                             let ctx = tarpc::context::current();
                             daemon.playlist_new(ctx, name).await??.ok();
@@ -151,4 +155,23 @@ async fn analyze_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// initiate a recluster and wait until it's done
+async fn recluster_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<LibraryFull> {
+    let ctx = tarpc::context::current();
+
+    daemon.library_recluster(ctx).await??;
+
+    // wait for it to finish
+    while daemon
+        .library_recluster_in_progress(tarpc::context::current())
+        .await?
+    {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+
+    // return the new library
+    let ctx = tarpc::context::current();
+    Ok(daemon.library_full(ctx).await??)
 }

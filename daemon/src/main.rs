@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 
 use mecomp_core::{get_config_dir, get_data_dir};
-use mecomp_daemon::{config::DaemonSettings, start_daemon};
+use mecomp_daemon::{config::Settings, start_daemon};
 
 use clap::Parser;
 
@@ -58,7 +58,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let settings = DaemonSettings::init(
+    let settings = Settings::init(
         flags.config.unwrap_or(config_file),
         flags.port,
         flags.log_level,

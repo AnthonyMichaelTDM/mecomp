@@ -69,6 +69,10 @@ pub trait MusicPlayer {
     async fn library_analyze() -> Result<(), SerializableLibraryError>;
     /// Check if an analysis is in progress.
     async fn library_analyze_in_progress() -> bool;
+    /// Recluster the music library, only error is if a recluster is already in progress.
+    async fn library_recluster() -> Result<(), SerializableLibraryError>;
+    /// Check if a recluster is in progress.
+    async fn library_recluster_in_progress() -> bool;
     /// Returns brief information about the music library.
     async fn library_brief() -> Result<LibraryBrief, SerializableLibraryError>;
     /// Returns full information about the music library. (all songs, artists, albums, etc.)
@@ -283,8 +287,6 @@ pub trait MusicPlayer {
     // (collections, radios, smart playlists, etc.)
     /// Collections: Return brief information about the users auto curration collections.
     async fn collection_list() -> Box<[CollectionBrief]>;
-    /// Collections: Recluster the users library, creating new collections.
-    async fn collection_recluster() -> Result<(), SerializableLibraryError>;
     /// Collections: get a collection by its ID.
     async fn collection_get(id: CollectionId) -> Option<Collection>;
     /// Collections: freeze a collection (convert it to a playlist).

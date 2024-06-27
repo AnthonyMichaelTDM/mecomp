@@ -35,6 +35,8 @@ pub enum SerializableLibraryError {
     RescanInProgress,
     #[error("Library Analysis already in progress.")]
     AnalysisInProgress,
+    #[error("Collection Reclustering already in progress.")]
+    ReclusterInProgress,
 }
 
 impl From<Error> for SerializableLibraryError {
