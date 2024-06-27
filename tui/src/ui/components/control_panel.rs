@@ -281,7 +281,7 @@ impl ComponentRender<RenderProps> for ControlPanel {
         // bottom (instructions)
         frame.render_widget(
             Line::from(
-                "n/p: next/previous | space: play/pause | m: mute | +/-: volume | ←/→: seek",
+                "n/p: next/previous | \u{2423}: play/pause | m: mute | +/-: volume | ←/→: seek",
             )
             .style(Style::default().italic().fg(TEXT_NORMAL.into()))
             .alignment(Alignment::Center),
