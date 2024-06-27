@@ -94,9 +94,7 @@ impl Component for AlbumView {
                     let things =
                         get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
 
-                    if !things.is_empty() {
-                        debug_assert!(things.len() == 1);
-                        let thing = things[0].clone();
+                    if let Some(thing) = things {
                         self.action_tx
                             .send(Action::SetCurrentView(thing.into()))
                             .unwrap();
@@ -376,9 +374,7 @@ impl Component for LibraryAlbumsView {
                     let things =
                         get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
 
-                    if !things.is_empty() {
-                        debug_assert!(things.len() == 1);
-                        let thing = things[0].clone();
+                    if let Some(thing) = things {
                         self.action_tx
                             .send(Action::SetCurrentView(thing.into()))
                             .unwrap();

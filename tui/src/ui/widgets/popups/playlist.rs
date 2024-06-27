@@ -176,9 +176,7 @@ impl Popup for PlaylistSelector {
                         let things =
                             get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
 
-                        if !things.is_empty() {
-                            debug_assert!(things.len() == 1);
-                            let thing = things[0].clone();
+                        if let Some(thing) = things {
                             // add the items to the selected playlist
                             self.action_tx
                                 .send(Action::Library(LibraryAction::AddThingsToPlaylist(

@@ -82,12 +82,12 @@ pub mod utils {
     };
     use tui_tree_widget::{TreeItem, TreeState};
 
-    pub fn get_selected_things_from_tree_state(tree_state: &TreeState<String>) -> Vec<Thing> {
+    pub fn get_selected_things_from_tree_state(tree_state: &TreeState<String>) -> Option<Thing> {
         tree_state
             .selected()
             .iter()
             .filter_map(|id| id.parse::<Thing>().ok())
-            .collect()
+            .next()
     }
 
     pub fn create_album_tree_item(albums: &[Album]) -> Result<TreeItem<String>, std::io::Error> {
