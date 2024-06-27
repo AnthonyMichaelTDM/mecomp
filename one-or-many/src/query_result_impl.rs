@@ -11,17 +11,12 @@ where
 {
     /// we can't access the interior `results` field of `response` because it's private, so we can't
     /// implement this trait directly.
-    /// Instead, we'll implement use the impl's for `QueryResult` for `Vec<T>` and `Option<T>` to
+    /// Instead, we'll use the impl's for `QueryResult` for `Vec<T>` to
     /// implement this trait for `OneOrMany<T>`.
     fn query_result(self, response: &mut surrealdb::Response) -> surrealdb::Result<OneOrMany<T>> {
-        let vec: surrealdb::Result<Vec<T>> = self.query_result(response);
+        let vec: Vec<T> = self.query_result(response)?;
 
-        if let Ok(vec) = vec {
-            Ok(vec.into())
-        } else {
-            let one: Option<T> = self.query_result(response)?;
-            Ok(one.into())
-        }
+        Ok(vec.into())
     }
 }
 

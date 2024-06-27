@@ -45,15 +45,9 @@ impl<T> OneOrMany<T> {
     /// Returns the value at the given index, or `None` if the index is out of bounds.
     pub fn get(&self, index: usize) -> Option<&T> {
         match self {
-            Self::One(t) => {
-                if index == 0 {
-                    Some(t)
-                } else {
-                    None
-                }
-            }
+            Self::One(t) if index == 0 => Some(t),
+            Self::One(_) | Self::None => None,
             Self::Many(t) => t.get(index),
-            Self::None => None,
         }
     }
 
@@ -515,6 +509,17 @@ mod tests {
     #[case::none(None, OneOrMany::<usize>::None)]
     #[case::one(Some(1), OneOrMany::One(1))]
     fn test_from_option(#[case] input: Option<usize>, #[case] expected: OneOrMany<usize>) {
+        assert_eq!(OneOrMany::from(input), expected);
+    }
+
+    #[rstest]
+    #[case::none(None, OneOrMany::<usize>::None)]
+    #[case::one(Some(OneOrMany::One(1)), OneOrMany::One(1))]
+    #[case::many(Some(OneOrMany::Many(vec![1, 2, 3])), OneOrMany::Many(vec![1, 2, 3]))]
+    fn test_from_option_self(
+        #[case] input: Option<OneOrMany<usize>>,
+        #[case] expected: OneOrMany<usize>,
+    ) {
         assert_eq!(OneOrMany::from(input), expected);
     }
 
