@@ -268,7 +268,7 @@ pub fn extract_clusters<T: Elem + Sync>(clustering: Clustering<'_, T>) -> Vec<Ve
 
 /// Generate B reference data sets with a random uniform distribution
 ///
-/// (exerpt from reference paper)
+/// (excerpt from reference paper)
 /// """
 /// We consider two choices for the reference distribution:
 ///
@@ -280,7 +280,7 @@ pub fn extract_clusters<T: Elem + Sync>(clustering: Clustering<'_, T>) -> Vec<Ve
 ///    over the ranges of the columns of X', as in method (1) above.
 ///    Finally, we back-transform via Z=Z'V^T to give reference data Z.
 ///
-/// Method (1) has the advantage of simplicity. Method (b) takes into accound the shape of the
+/// Method (1) has the advantage of simplicity. Method (2) takes into account the shape of the
 /// data distribution and makes the procedure rotationally invariant, as long as the
 /// clustering method itself is invariant
 /// """
