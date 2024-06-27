@@ -371,11 +371,10 @@ mod tests {
     use super::*;
     use crate::test_utils::init;
 
-    use mecomp_storage::db::init_database;
     use mecomp_storage::db::schemas::song::{SongChangeSet, SongMetadata};
     use mecomp_storage::test_utils::{
-        arb_song_case, arb_vec, create_song_metadata, create_song_with_overrides,
-        init_test_database, SongCase, ARTIST_NAME_SEPARATOR,
+        arb_analysis_features, arb_song_case, arb_vec, create_song_metadata,
+        create_song_with_overrides, init_test_database, SongCase, ARTIST_NAME_SEPARATOR,
     };
     use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
@@ -581,31 +580,45 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "uses the real filesystem and database"]
     async fn test_recluster() {
         init();
-        mecomp_storage::db::set_database_path("/home/anthony/.local/share/mecomp/db".into())
+        let dir = tempfile::tempdir().unwrap();
+        let db = init_test_database().await.unwrap();
         let settings = ReclusterSettings {
             gap_statistic_reference_datasets: 50,
             max_clusters: 16,
             max_iterations: 30,
         };
+
+        // load some songs into the database
+        let song_cases = arb_vec(&arb_song_case(), 100..=150)();
+        let song_cases = song_cases.into_iter().enumerate().map(|(i, sc)| SongCase {
+            song: i as u8,
+            ..sc
+        });
+        let metadatas = song_cases
+            .into_iter()
+            .map(|song_case| create_song_metadata(&dir, song_case))
+            .collect::<Result<Vec<_>, _>>()
             .unwrap();
-        let db = init_database().await.unwrap();
+        let mut songs = Vec::with_capacity(metadatas.len());
+        for metadata in &metadatas {
+            songs.push(Song::try_load_into_db(&db, metadata.clone()).await.unwrap());
+        }
 
-        // // load some songs into the database
-        // let song_cases = arb_vec(&arb_song_case(), 10..=15)();
-        // let metadatas = song_cases
-        //     .into_iter()
-        //     .map(|song_case| create_song_metadata(&tempfile::tempdir().unwrap(), song_case))
-        //     .collect::<Result<Vec<_>, _>>()
-        //     .unwrap();
-        // for metadata in &metadatas {
-        //     Song::try_load_into_db(&db, metadata.clone()).await.unwrap();
-        // }
-
-        // // analyze the library
-        // analyze(&db).await.unwrap();
+        // load some dummy analyses into the database
+        for song in &songs {
+            Analysis::create(
+                &db,
+                song.id.clone(),
+                Analysis {
+                    id: Analysis::generate_id(),
+                    features: arb_analysis_features()(),
+                },
+            )
+            .await
+            .unwrap();
+        }
 
         // recluster the library
         recluster(&db, &settings).await.unwrap();

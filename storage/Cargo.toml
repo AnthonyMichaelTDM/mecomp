@@ -22,7 +22,7 @@ db = [
     "dep:tempfile",
 ]
 serde = ["one-or-many/serde", "dep:serde"]
-test_utils = ["dep:tempfile", "dep:anyhow", "db"]
+test_utils = ["dep:tempfile", "dep:anyhow", "db", "analysis"]
 analysis = ["dep:futures", "dep:mecomp-analysis"]
 
 [dependencies]

@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::Result;
 use lofty::{config::WriteOptions, file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
-use rand::seq::IteratorRandom;
+use rand::{seq::IteratorRandom, Rng};
 use surrealdb::{
     engine::local::{Db, Mem},
     sql::Id,
@@ -331,6 +331,17 @@ where
         .choose(rng);
 
         (vec, start..end, index)
+    }
+}
+
+pub fn arb_analysis_features() -> impl Fn() -> [f64; 20] {
+    move || {
+        let rng = &mut rand::thread_rng();
+        let mut features = [0.0; 20];
+        for feature in &mut features {
+            *feature = rng.gen_range(-1.0..1.0);
+        }
+        features
     }
 }
 
