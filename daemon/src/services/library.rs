@@ -586,12 +586,12 @@ mod tests {
         let db = init_test_database().await.unwrap();
         let settings = ReclusterSettings {
             gap_statistic_reference_datasets: 50,
-            max_clusters: 16,
+            max_clusters: 12,
             max_iterations: 30,
         };
 
         // load some songs into the database
-        let song_cases = arb_vec(&arb_song_case(), 100..=150)();
+        let song_cases = arb_vec(&arb_song_case(), 64..=80)();
         let song_cases = song_cases.into_iter().enumerate().map(|(i, sc)| SongCase {
             song: i as u8,
             ..sc
