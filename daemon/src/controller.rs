@@ -34,7 +34,7 @@ use mecomp_storage::{
 use one_or_many::OneOrMany;
 
 use crate::{
-    config::DaemonSettings,
+    config::Settings,
     services::{self, get_songs_from_things},
 };
 
@@ -50,12 +50,12 @@ mod locks {
 pub struct MusicPlayerServer {
     pub addr: SocketAddr,
     db: Arc<Surreal<Db>>,
-    settings: Arc<DaemonSettings>,
+    settings: Arc<Settings>,
 }
 
 impl MusicPlayerServer {
     #[must_use]
-    pub fn new(addr: SocketAddr, db: Arc<Surreal<Db>>, settings: Arc<DaemonSettings>) -> Self {
+    pub fn new(addr: SocketAddr, db: Arc<Surreal<Db>>, settings: Arc<Settings>) -> Self {
         Self { addr, db, settings }
     }
 }
@@ -83,10 +83,10 @@ impl MusicPlayer for MusicPlayerServer {
                     let _guard = locks::LIBRARY_RESCAN_LOCK.lock().await;
                     match services::library::rescan(
                         &self.db,
-                        &self.settings.library_paths,
-                        self.settings.artist_separator.as_deref(),
-                        self.settings.genre_separator.as_deref(),
-                        self.settings.conflict_resolution,
+                        &self.settings.daemon.library_paths,
+                        self.settings.daemon.artist_separator.as_deref(),
+                        self.settings.daemon.genre_separator.as_deref(),
+                        self.settings.daemon.conflict_resolution,
                     )
                     .await
                     {
@@ -164,7 +164,9 @@ impl MusicPlayer for MusicPlayerServer {
                 .spawn(move || {
                     futures::executor::block_on(async {
                         let _guard = locks::COLLECTION_RECLUSTER_LOCK.lock().await;
-                        match services::library::recluster(&self.db).await {
+                        match services::library::recluster(&self.db, &self.settings.reclustering)
+                            .await
+                        {
                             Ok(()) => info!("Collection reclustering complete"),
                             Err(e) => error!("Error in collection_recluster: {e}"),
                         }

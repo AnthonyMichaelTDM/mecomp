@@ -1,19 +1,45 @@
 # Example Settings File
 
-# The port to listen on for RPC requests. (default: 6600, the default port for MPD)
+# General Daemon Settings
+[daemon]
+## The port to listen on for RPC requests. (default: 6600, the default port for MPD)
 rpc_port = 6600
-# The root paths of the music library.
+## The root paths of the music library.
 library_paths = ["~/Music"]
-# Sepators for artist names in song metadata.
-# For example, "Foo, Bar, Baz" would be split into ["Foo", "Bar", "Baz"]. if the separator is ", ".
-# If the separator is not found, the entire string is considered as a single artist.
-# If unset, will not split artists.
+## Separators for artist names in song metadata.
+## For example, "Foo, Bar, Baz" would be split into ["Foo", "Bar", "Baz"]. if the separator is ", ".
+## If the separator is not found, the entire string is considered as a single artist.
+## If unset, will not split artists.
 artist_separator = ", "
-# how conflicting metadata should be resolved
-# "overwrite" - overwrite the metadata with new metadata
-# "skip" - skip the file (keep old metadata)
+## Separators for genres in song metadata.
+## For example, "Foo, Bar, Baz" would be split into ["Foo", "Bar", "Baz"]. if the separator is ", ".
+## If the separator is not found, the entire string is considered as a single genre.
+## If unset, will not split genres.
+genre_separator = ", "
+## how conflicting metadata should be resolved
+## "overwrite" - overwrite the metadata with new metadata
+## "skip" - skip the file (keep old metadata)
 conflict_resolution = "overwrite"
-#What level of logging to use.
-#Possible values are "trace", "debug", "info", "warn", "error".
-#Default is "info".
+## What level of logging to use.
+## Possible values are "trace", "debug", "info", "warn", "error".
+## Default is "info".
 log_level = "info"
+
+# Parameters for the reclustering algorithm.
+[reclustering]
+## The number of reference datasets to use for the gap statistic.
+## (which is used to determine the optimal number of clusters)
+## 50 will give a decent estimate but for the best results use more,
+## 500 will give a very good estimate but be very slow.
+## We default to 250 in release mode.
+gap_statistic_reference_datasets = 250
+## The maximum number of clusters to create.
+## This is the upper bound on the number of clusters that can be created.
+## Increase if you're getting a "could not find optimal k" error.
+## Default is 24.
+max_clusters = 24
+## The maximum number of iterations to run the k-means algorithm.
+## Shouldn't be less than 30, but can be increased.
+## A good value is the number of songs in your library, divided by 10.
+## Default is 120.
+max_iterations = 120

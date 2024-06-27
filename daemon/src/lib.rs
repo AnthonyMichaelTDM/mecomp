@@ -30,7 +30,7 @@ pub mod services;
 #[cfg(test)]
 pub mod test_utils;
 
-use crate::config::DaemonSettings;
+use crate::config::Settings;
 use crate::controller::MusicPlayerServer;
 
 // TODO: at some point, we should probably add a panic handler to the daemon to ensure graceful shutdown.
@@ -51,15 +51,12 @@ use crate::controller::MusicPlayerServer;
 /// # Panics
 ///
 /// Panics if the peer address of the underlying TCP transport cannot be determined.
-pub async fn start_daemon(
-    settings: DaemonSettings,
-    db_dir: std::path::PathBuf,
-) -> anyhow::Result<()> {
+pub async fn start_daemon(settings: Settings, db_dir: std::path::PathBuf) -> anyhow::Result<()> {
     // Throw the given settings into an Arc so we can share settings across threads.
     let settings = Arc::new(settings);
 
     // Initialize the logger, database, and tracing.
-    init_logger(settings.log_level);
+    init_logger(settings.daemon.log_level);
     set_database_path(db_dir)?;
     let db = Arc::new(init_database().await?);
     tracing::subscriber::set_global_default(init_tracing())?;
@@ -68,13 +65,13 @@ pub async fn start_daemon(
     #[cfg(feature = "dynamic_updates")]
     let guard = dynamic_updates::init_music_library_watcher(
         db.clone(),
-        &settings.library_paths,
-        settings.artist_separator.clone(),
-        settings.genre_separator.clone(),
+        &settings.daemon.library_paths,
+        settings.daemon.artist_separator.clone(),
+        settings.daemon.genre_separator.clone(),
     )?;
 
     // Start the RPC server.
-    let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.rpc_port);
+    let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.daemon.rpc_port);
 
     let mut listener = tarpc::serde_transport::tcp::listen(&server_addr, Json::default).await?;
     info!("Listening on {}", listener.local_addr());

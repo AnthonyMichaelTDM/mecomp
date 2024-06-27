@@ -35,6 +35,8 @@ use mecomp_storage::{
     util::MetadataConflictResolution,
 };
 
+use crate::config::ReclusterSettings;
+
 /// Index the library.
 ///
 /// # Errors
@@ -241,26 +243,21 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
 ///
 /// This function will return an error if there is an error reading from the database.
 #[instrument]
-pub async fn recluster<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
+pub async fn recluster<C: Connection>(
+    db: &Surreal<C>,
+    settings: &ReclusterSettings,
+) -> Result<(), Error> {
     // collect all the analyses
     let samples = Analysis::read_all(db).await?;
 
-    #[cfg(debug_assertions)]
-    let b = 50;
-    #[cfg(debug_assertions)]
-    let k_max = 16;
-    #[cfg(debug_assertions)]
-    let max_iter = (count_songs(db).await? / 20).max(30);
-    #[cfg(not(debug_assertions))]
-    let b = 250;
-    #[cfg(not(debug_assertions))]
-    let k_max = 32;
-    #[cfg(not(debug_assertions))]
-    let max_iter = (count_songs(db).await? / 10).max(100);
-
     // use k-means to cluster the analyses
-    let kmeans: KMeansHelper<NotInitialized<_>> =
-        KMeansHelper::new(samples, k_max, KOptimal::GapStatistic { b });
+    let kmeans: KMeansHelper<NotInitialized<_>> = KMeansHelper::new(
+        samples,
+        settings.max_clusters,
+        KOptimal::GapStatistic {
+            b: settings.gap_statistic_reference_datasets,
+        },
+    );
 
     let kmeans = match kmeans.initialize() {
         Err(e) => {
@@ -270,7 +267,7 @@ pub async fn recluster<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
         Ok(kmeans) => kmeans,
     };
 
-    let clustering = kmeans.cluster(max_iter);
+    let clustering = kmeans.cluster(settings.max_iterations);
 
     // delete all the collections
     // NOTE: For some reason, if a collection has too many songs, it will fail to delete with "DbError(Db(Tx("Max transaction entries limit exceeded")))"
@@ -588,6 +585,11 @@ mod tests {
     async fn test_recluster() {
         init();
         mecomp_storage::db::set_database_path("/home/anthony/.local/share/mecomp/db".into())
+        let settings = ReclusterSettings {
+            gap_statistic_reference_datasets: 50,
+            max_clusters: 16,
+            max_iterations: 30,
+        };
             .unwrap();
         let db = init_database().await.unwrap();
 
@@ -606,7 +608,7 @@ mod tests {
         // analyze(&db).await.unwrap();
 
         // recluster the library
-        recluster(&db).await.unwrap();
+        recluster(&db, &settings).await.unwrap();
 
         // check that there are collections
         let collections = Collection::read_all(&db).await.unwrap();
