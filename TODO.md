@@ -69,7 +69,7 @@
 ### MECOMP-TUI
 
 - [x] Implement basic TUI
-- [ ] ThingTree widget: a tree/list that allows for multiple items to be selected
+- [x] CheckTree widget: a tree/list that allows for multiple items to be selected
   - [ ] allow for multiple items to be selected and added to the queue, a playlist, or used to start a radio
   - [ ] function to get the selected items
 - [ ] add confirmation dialogues for potentially destructive actions (e.g. deleting a playlist, initiating a rescan, etc.)
@@ -77,27 +77,27 @@
   - [ ] search results
     - [x] show the results of a search
     - [x] pressing enter on a result will take you to the appropriate view page for that result
-    - [ ] use ThingTree widget instead of Tree
+    - [ ] use CheckTree widget instead of Tree
   - [ ] radio results
     - [x] show the results of a radio search
     - [x] keybind to add to queue
     - [x] keybind to add to a playlist
-    - [ ] use ThingTree widget instead of Tree
+    - [ ] use CheckTree widget instead of Tree
   - [ ] albums
     - [x] display all albums
     - [x] be able to "enter" an to go to the album view page
     - [x] ability to sort by name, artist, year, etc.
-    - [ ] use ThingTree widget instead of Tree
+    - [ ] use CheckTree widget instead of Tree
   - [ ] artists
     - [x] display all artists
     - [x] be able to "enter" an artist to go to the artist view page
     - [x] ability to sort by name, etc.
-    - [ ] use ThingTree widget instead of Tree
+    - [ ] use CheckTree widget instead of Tree
   - [ ] songs
     - [x] display all songs
     - [x] be able to "enter" a song to go to the song view page
     - [x] ability to sort by name, artist, album, year, etc.
-    - [ ] use ThingTree widget instead of Tree
+    - [ ] use CheckTree widget instead of Tree
   - [x] playlists
     - [x] display all playlists
     - [x] ability to sort by name, etc.
@@ -112,13 +112,13 @@
     - [x] keybind to add to queue
     - [x] keybind to start a radio
     - [x] keybind to add to a playlist
-    - [ ] use ThingTree widget instead of Tree
+    - [ ] use CheckTree widget instead of Tree
   - [ ] a single artist
     - [x] show info about the artist, including all the albums and songs by the artist
     - [x] keybind to add to queue
     - [x] keybind to start a radio
     - [x] keybind to add to a playlist
-    - [ ] use ThingTree widget instead of Tree
+    - [ ] use CheckTree widget instead of Tree
   - [x] a single song
     - [x] show information about the song
     - [x] keybind to add to queue
