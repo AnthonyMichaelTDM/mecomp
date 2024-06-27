@@ -34,7 +34,7 @@ MECOMP is a local music player inspired by [festival](https://github.com/hinto-j
 - [ ] allow users to create "smart playlists" that are automatically updated based on a set of criteria (e.g. "all songs with a play count greater than 10", "all songs by Green Day", "all songs with a similarity to Foo greater than X", etc.)
   - [ ] these criteria should be able to be combined with set/boolean logic (union (AND), intersection (OR), difference (NOT))
   - [ ] criteria can be scoped to allow for more complex queries
-- [ ] maintains multiple auto-curated "Collections" created by K-Means clustering on the Music Library, these collections will represent the broad themes within your music collection, but are not tied to human defined genres
+- [x] maintains multiple auto-curated "Collections" created by K-Means clustering on the Music Library, these collections will represent the broad themes within your music collection, but are not tied to human defined genres
   - I'm not sure how best to name these collections, may be "genres", "moods", "styles", etc. I'm not sure if these should be user editable or not, but I'm leaning towards not.
   - These collections are generated when the Music Library is scanned and will be updated when the Music Library is rescanned
   - [x] Users can "freeze" a collection, which will convert it to a playlist

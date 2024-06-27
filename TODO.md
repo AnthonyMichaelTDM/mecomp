@@ -44,9 +44,9 @@
 
 ### Collections
 
-- [ ] maintains multiple auto-curated "Collections" created by K-Means clustering on the Music Library, these collections will represent the broad themes within your music collection, but are not tied to human defined genres
+- [x] maintains multiple auto-curated "Collections" created by K-Means clustering on the Music Library, these collections will represent the broad themes within your music collection, but are not tied to human defined genres
 - [x] Users can "freeze" a collection, which will convert it to a playlist
-- [ ] Functionality to actually create the collections (recluster endpoit)
+- [x] Functionality to actually create the collections (recluster endpoit)
 
 ### Metadata
 

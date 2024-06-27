@@ -61,15 +61,11 @@ pub enum Command {
         command: PlaylistCommand,
     },
     /// Collection control
-    /// TODO: clustering not implemented yet
-    #[clap(hide = true)]
     Collection {
         #[clap(subcommand)]
         command: CollectionCommand,
     },
     /// Radio control
-    /// TODO: not implemented
-    #[clap(hide = true)]
     Radio {
         #[clap(subcommand)]
         command: RadioCommand,
