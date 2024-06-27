@@ -12,7 +12,6 @@ use std::{
     time::Duration,
 };
 
-use lazy_static::lazy_static;
 use log::{debug, error};
 use rodio::{source::SeekError, Decoder, Source};
 use tracing::instrument;
@@ -31,21 +30,6 @@ pub mod queue;
 use commands::{AudioCommand, QueueCommand, VolumeCommand};
 use queue::Queue;
 
-lazy_static! {
-    pub static ref AUDIO_KERNEL: Arc<AudioKernelSender> = {
-        let (tx, rx) = std::sync::mpsc::channel();
-        let tx_clone = tx.clone();
-        std::thread::Builder::new()
-            .name(String::from("Audio Kernel"))
-            .spawn(move || {
-                let kernel = AudioKernel::new();
-                kernel.init(tx_clone, rx);
-            })
-            .unwrap();
-        Arc::new(AudioKernelSender { tx })
-    };
-}
-
 const DURATION_WATCHER_TICK_MS: u64 = 50;
 const DURATION_WATCHER_NEXT_SONG_THRESHOLD_MS: u64 = 100;
 
@@ -55,8 +39,31 @@ pub struct AudioKernelSender {
 }
 
 impl AudioKernelSender {
+    /// Starts the audio kernel in a detached thread and returns a sender to be used to send commands to the audio kernel.
+    ///
+    /// # Returns
+    ///
+    /// A sender to be used to send commands to the audio kernel.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is an issue spawning the audio kernel thread (if the name contains null bytes, which it doesn't, so this should never happen)
     #[must_use]
-    pub const fn new(tx: Sender<(AudioCommand, tracing::Span)>) -> Self {
+    pub fn start() -> Arc<Self> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let tx_clone = tx.clone();
+        std::thread::Builder::new()
+            .name(String::from("Audio Kernel"))
+            .spawn(move || {
+                let kernel = AudioKernel::new();
+                kernel.init(tx_clone, rx);
+            })
+            .unwrap();
+        Arc::new(Self::new(tx))
+    }
+
+    #[must_use]
+    pub(crate) const fn new(tx: Sender<(AudioCommand, tracing::Span)>) -> Self {
         Self { tx }
     }
 
@@ -79,7 +86,7 @@ struct DurationInfo {
     current_duration: Duration,
 }
 
-pub struct AudioKernel {
+pub(crate) struct AudioKernel {
     /// this is not used, but is needed to keep the stream alive
     #[cfg(not(feature = "mock_playback"))]
     _music_output: (rodio::OutputStream, rodio::OutputStreamHandle),
@@ -103,7 +110,6 @@ pub struct AudioKernel {
 
 impl AudioKernel {
     /// this function initializes the audio kernel
-    /// it is not meant to be called directly, use `AUDIO_KERNEL` instead to send commands
     ///
     /// # Panics
     ///
@@ -129,7 +135,6 @@ impl AudioKernel {
     }
 
     /// this function initializes the audio kernel
-    /// it is not meant to be called directly, use `AUDIO_KERNEL` instead to send command
     ///
     /// this is the version for tests, where we don't create the actual audio stream since we don't need to play audio
     ///
@@ -651,7 +656,6 @@ mod tests {
 
     use super::*;
     use std::sync::mpsc;
-    use std::thread;
     use std::time::Duration;
 
     #[fixture]
@@ -660,18 +664,11 @@ mod tests {
     }
 
     #[fixture]
-    fn audio_kernel_sender() -> AudioKernelSender {
-        let (tx, rx) = mpsc::channel();
-        let tx_clone = tx.clone();
-        thread::spawn(move || {
-            let kernel = AudioKernel::new();
-            kernel.init(tx_clone, rx);
-        });
-
-        AudioKernelSender::new(tx)
+    fn audio_kernel_sender() -> Arc<AudioKernelSender> {
+        AudioKernelSender::start()
     }
 
-    async fn get_state(sender: AudioKernelSender) -> StateAudio {
+    async fn get_state(sender: Arc<AudioKernelSender>) -> StateAudio {
         let (tx, rx) = tokio::sync::oneshot::channel::<StateAudio>();
         sender.send(AudioCommand::ReportStatus(tx));
         rx.await.unwrap()
@@ -702,19 +699,11 @@ mod tests {
     #[rstest]
     #[timeout(Duration::from_secs(3))] // if the test takes longer than 3 seconds, this is a failure
     fn test_audio_player_kernel_spawn_and_exit(
-        #[from(audio_kernel_sender)] sender: AudioKernelSender,
+        #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
     ) {
         init();
 
         sender.send(AudioCommand::Exit);
-    }
-
-    #[rstest]
-    #[timeout(Duration::from_secs(3))] // if the test takes longer than 3 seconds, this is a failure
-    fn test_audio_player_global_kernel_exit() {
-        init();
-
-        AUDIO_KERNEL.send(AudioCommand::Exit);
     }
 
     #[rstest]
@@ -804,7 +793,7 @@ mod tests {
         #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_play_pause_toggle_restart(
-            #[from(audio_kernel_sender)] sender: AudioKernelSender,
+            #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
         ) {
             init();
             let db = init_test_database().await.unwrap();
@@ -912,7 +901,7 @@ mod tests {
         #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_audio_kernel_skip_forward_sender(
-            #[from(audio_kernel_sender)] sender: AudioKernelSender,
+            #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
         ) {
             // set up tracing
             init();
@@ -976,7 +965,7 @@ mod tests {
         #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_remove_range_from_queue(
-            #[from(audio_kernel_sender)] sender: AudioKernelSender,
+            #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
         ) {
             init();
             let db = init_test_database().await.unwrap();
@@ -1042,7 +1031,7 @@ mod tests {
         #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_audio_kernel_skip_backward(
-            #[from(audio_kernel_sender)] sender: AudioKernelSender,
+            #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
         ) {
             init();
             let db = init_test_database().await.unwrap();
@@ -1115,7 +1104,7 @@ mod tests {
         #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_audio_kernel_set_position(
-            #[from(audio_kernel_sender)] sender: AudioKernelSender,
+            #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
         ) {
             init();
             let db = init_test_database().await.unwrap();
@@ -1182,7 +1171,9 @@ mod tests {
         #[rstest]
         #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
-        async fn test_audio_kernel_clear(#[from(audio_kernel_sender)] sender: AudioKernelSender) {
+        async fn test_audio_kernel_clear(
+            #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
+        ) {
             init();
             let db = init_test_database().await.unwrap();
             let tempdir = tempfile::tempdir().unwrap();
@@ -1239,7 +1230,9 @@ mod tests {
         #[rstest]
         #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
-        async fn test_audio_kernel_shuffle(#[from(audio_kernel_sender)] sender: AudioKernelSender) {
+        async fn test_audio_kernel_shuffle(
+            #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
+        ) {
             init();
             let db = init_test_database().await.unwrap();
             let tempdir = tempfile::tempdir().unwrap();
@@ -1297,7 +1290,7 @@ mod tests {
         #[rstest]
         #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
-        async fn test_volume_commands(#[from(audio_kernel_sender)] sender: AudioKernelSender) {
+        async fn test_volume_commands(#[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>) {
             init();
 
             let state = get_state(sender.clone()).await;
@@ -1345,7 +1338,7 @@ mod tests {
         #[rstest]
         #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
-        async fn test_seek_commands(#[from(audio_kernel_sender)] sender: AudioKernelSender) {
+        async fn test_seek_commands(#[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>) {
             init();
             let db = init_test_database().await.unwrap();
             let tempdir = tempfile::tempdir().unwrap();

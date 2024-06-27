@@ -11,7 +11,7 @@ use tracing::instrument;
 use mecomp_core::{
     audio::{
         commands::{AudioCommand, QueueCommand, VolumeCommand},
-        AUDIO_KERNEL,
+        AudioKernelSender,
     },
     errors::SerializableLibraryError,
     rpc::{AlbumId, ArtistId, CollectionId, MusicPlayer, PlaylistId, SearchResult, SongId},
@@ -51,12 +51,19 @@ pub struct MusicPlayerServer {
     pub addr: SocketAddr,
     db: Arc<Surreal<Db>>,
     settings: Arc<Settings>,
+    audio_kernel: Arc<AudioKernelSender>,
 }
 
 impl MusicPlayerServer {
     #[must_use]
     pub fn new(addr: SocketAddr, db: Arc<Surreal<Db>>, settings: Arc<Settings>) -> Self {
-        Self { addr, db, settings }
+        let audio_kernel = AudioKernelSender::start();
+        Self {
+            addr,
+            db,
+            settings,
+            audio_kernel,
+        }
     }
 }
 
@@ -396,11 +403,12 @@ impl MusicPlayer for MusicPlayerServer {
     /// tells the daemon to shutdown.
     #[instrument]
     async fn daemon_shutdown(self, context: Context) {
+        let audio_kernel = self.audio_kernel.clone();
         std::thread::Builder::new()
             .name(String::from("Daemon Shutdown"))
-            .spawn(|| {
+            .spawn(move || {
                 std::thread::sleep(std::time::Duration::from_secs(1));
-                AUDIO_KERNEL.send(AudioCommand::Exit);
+                audio_kernel.send(AudioCommand::Exit);
                 std::process::exit(0);
             })
             .unwrap();
@@ -413,7 +421,7 @@ impl MusicPlayer for MusicPlayerServer {
         debug!("Getting state of audio player");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         rx.await
             .tap_err(|e| warn!("Error in state_audio: {e}"))
@@ -425,7 +433,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting state of queue");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         rx.await
             .tap_err(|e| warn!("Error in state_queue: {e}"))
@@ -438,7 +446,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting state of queue position");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         rx.await
             .tap_err(|e| warn!("Error in state_queue_position: {e}"))
@@ -451,7 +459,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting state of playing");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         rx.await
             .tap_err(|e| warn!("Error in state_playing: {e}"))
@@ -464,7 +472,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting state of repeat");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         rx.await
             .tap_err(|e| warn!("Error in state_repeat: {e}"))
@@ -477,7 +485,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting state of volume");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         rx.await
             .tap_err(|e| warn!("Error in state_volume: {e}"))
@@ -490,7 +498,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting state of volume muted");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         rx.await
             .tap_err(|e| warn!("Error in state_volume_muted: {e}"))
@@ -503,7 +511,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting state of runtime");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         rx.await
             .tap_err(|e| warn!("Error in state_runtime: {e}"))
@@ -517,7 +525,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting current artist");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         if let Some(song) = rx
             .await
@@ -540,7 +548,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting current album");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         if let Some(song) = rx
             .await
@@ -563,7 +571,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting current song");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        AUDIO_KERNEL.send(AudioCommand::ReportStatus(tx));
+        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         rx.await
             .tap_err(|e| warn!("Error in current_song: {e}"))
@@ -676,111 +684,123 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn playback_toggle(self, context: Context) {
         info!("Toggling playback");
-        AUDIO_KERNEL.send(AudioCommand::TogglePlayback);
+        self.audio_kernel.send(AudioCommand::TogglePlayback);
     }
     /// start playback (unpause).
     #[instrument]
     async fn playback_play(self, context: Context) {
         info!("Starting playback");
-        AUDIO_KERNEL.send(AudioCommand::Play);
+        self.audio_kernel.send(AudioCommand::Play);
     }
     /// pause playback.
     #[instrument]
     async fn playback_pause(self, context: Context) {
         info!("Pausing playback");
-        AUDIO_KERNEL.send(AudioCommand::Pause);
+        self.audio_kernel.send(AudioCommand::Pause);
     }
     /// set the current song to be the next song in the queue.
     #[instrument]
     async fn playback_next(self, context: Context) {
         info!("Playing next song");
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
     }
     /// restart the current song.
     #[instrument]
     async fn playback_restart(self, context: Context) {
         info!("Restarting current song");
-        AUDIO_KERNEL.send(AudioCommand::RestartSong);
+        self.audio_kernel.send(AudioCommand::RestartSong);
     }
     /// skip forward by the given amount of songs
     #[instrument]
     async fn playback_skip_forward(self, context: Context, amount: usize) {
         info!("Skipping forward by {amount} songs");
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::SkipForward(amount)));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::SkipForward(amount)));
     }
     /// go backwards by the given amount of songs.
     #[instrument]
     async fn playback_skip_backward(self, context: Context, amount: usize) {
         info!("Going back by {amount} songs");
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::SkipBackward(amount)));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::SkipBackward(amount)));
     }
     /// stop playback.
     /// (clears the queue and stops playback)
     #[instrument]
     async fn playback_clear_player(self, context: Context) {
         info!("Stopping playback");
-        AUDIO_KERNEL.send(AudioCommand::ClearPlayer);
+        self.audio_kernel.send(AudioCommand::ClearPlayer);
     }
     /// clear the queue.
     #[instrument]
     async fn playback_clear(self, context: Context) {
         info!("Clearing queue and stopping playback");
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::Clear));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::Clear));
     }
     /// seek forwards, backwards, or to an absolute second in the current song.
     #[instrument]
     async fn playback_seek(self, context: Context, seek: SeekType, duration: Duration) {
         info!("Seeking {seek} by {:.2}s", duration.as_secs_f32());
-        AUDIO_KERNEL.send(AudioCommand::Seek(seek, duration));
+        self.audio_kernel.send(AudioCommand::Seek(seek, duration));
     }
     /// set the repeat mode.
     #[instrument]
     async fn playback_repeat(self, context: Context, mode: RepeatMode) {
         info!("Setting repeat mode to: {}", mode);
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::SetRepeatMode(mode)));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::SetRepeatMode(mode)));
     }
     /// Shuffle the current queue, then start playing from the 1st Song in the queue.
     #[instrument]
     async fn playback_shuffle(self, context: Context) {
         info!("Shuffling queue");
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::Shuffle));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::Shuffle));
     }
     /// set the volume to the given value
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will multiply each sample by this value.
     #[instrument]
     async fn playback_volume(self, context: Context, volume: f32) {
         info!("Setting volume to: {volume}",);
-        AUDIO_KERNEL.send(AudioCommand::Volume(VolumeCommand::Set(volume)));
+        self.audio_kernel
+            .send(AudioCommand::Volume(VolumeCommand::Set(volume)));
     }
     /// increase the volume by the given amount
     #[instrument]
     async fn playback_volume_up(self, context: Context, amount: f32) {
         info!("Increasing volume by: {amount}",);
-        AUDIO_KERNEL.send(AudioCommand::Volume(VolumeCommand::Up(amount)));
+        self.audio_kernel
+            .send(AudioCommand::Volume(VolumeCommand::Up(amount)));
     }
     /// decrease the volume by the given amount
     #[instrument]
     async fn playback_volume_down(self, context: Context, amount: f32) {
         info!("Decreasing volume by: {amount}",);
-        AUDIO_KERNEL.send(AudioCommand::Volume(VolumeCommand::Down(amount)));
+        self.audio_kernel
+            .send(AudioCommand::Volume(VolumeCommand::Down(amount)));
     }
     /// toggle the volume mute.
     #[instrument]
     async fn playback_volume_toggle_mute(self, context: Context) {
         info!("Toggling volume mute");
-        AUDIO_KERNEL.send(AudioCommand::Volume(VolumeCommand::ToggleMute));
+        self.audio_kernel
+            .send(AudioCommand::Volume(VolumeCommand::ToggleMute));
     }
     /// mute the volume.
     #[instrument]
     async fn playback_mute(self, context: Context) {
         info!("Muting volume");
-        AUDIO_KERNEL.send(AudioCommand::Volume(VolumeCommand::Mute));
+        self.audio_kernel
+            .send(AudioCommand::Volume(VolumeCommand::Mute));
     }
     /// unmute the volume.
     #[instrument]
     async fn playback_unmute(self, context: Context) {
         info!("Unmuting volume");
-        AUDIO_KERNEL.send(AudioCommand::Volume(VolumeCommand::Unmute));
+        self.audio_kernel
+            .send(AudioCommand::Volume(VolumeCommand::Unmute));
     }
 
     /// add a song to the queue.
@@ -797,9 +817,10 @@ impl MusicPlayer for MusicPlayerServer {
             return Err(Error::NotFound.into());
         };
 
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-            OneOrMany::One(song),
-        ))));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                OneOrMany::One(song),
+            ))));
 
         Ok(())
     }
@@ -822,9 +843,10 @@ impl MusicPlayer for MusicPlayerServer {
         // go through the list, and get songs for each thing (depending on what it is)
         let songs: OneOrMany<Song> = get_songs_from_things(&self.db, list).await?;
 
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-            songs,
-        ))));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                songs,
+            ))));
 
         Ok(())
     }
@@ -841,9 +863,10 @@ impl MusicPlayer for MusicPlayerServer {
 
         let songs = Album::read_songs(&self.db, album).await?;
 
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-            songs.into(),
-        ))));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                songs.into(),
+            ))));
 
         Ok(())
     }
@@ -860,9 +883,10 @@ impl MusicPlayer for MusicPlayerServer {
 
         let songs = Artist::read_songs(&self.db, artist).await?;
 
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-            songs.into(),
-        ))));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                songs.into(),
+            ))));
 
         Ok(())
     }
@@ -879,9 +903,10 @@ impl MusicPlayer for MusicPlayerServer {
 
         let songs = Playlist::read_songs(&self.db, playlist).await?;
 
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-            songs.into(),
-        ))));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                songs.into(),
+            ))));
 
         Ok(())
     }
@@ -898,9 +923,10 @@ impl MusicPlayer for MusicPlayerServer {
 
         let songs = Collection::read_songs(&self.db, collection).await?;
 
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-            songs.into(),
-        ))));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                songs.into(),
+            ))));
 
         Ok(())
     }
@@ -916,9 +942,10 @@ impl MusicPlayer for MusicPlayerServer {
             .and_then(|songs| songs.choose(&mut rand::thread_rng()).cloned())
             .ok_or(NotFound)?;
 
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-            OneOrMany::One(song),
-        ))));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                OneOrMany::One(song),
+            ))));
 
         Ok(())
     }
@@ -942,9 +969,10 @@ impl MusicPlayer for MusicPlayerServer {
         .tap_err(|e| warn!("Error in rand_album (reading songs): {e}"))
         .map_err(|_| NotFound)?;
 
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-            OneOrMany::Many(songs),
-        ))));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                OneOrMany::Many(songs),
+            ))));
 
         Ok(())
     }
@@ -968,9 +996,10 @@ impl MusicPlayer for MusicPlayerServer {
         .tap_err(|e| warn!("Error in rand_artist (reading songs): {e}"))
         .map_err(|_| NotFound)?;
 
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-            OneOrMany::Many(songs),
-        ))));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+                OneOrMany::Many(songs),
+            ))));
 
         Ok(())
     }
@@ -980,7 +1009,8 @@ impl MusicPlayer for MusicPlayerServer {
     async fn queue_set_index(self, context: Context, index: usize) {
         info!("Setting queue index to: {index}");
 
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::SetPosition(index)));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::SetPosition(index)));
     }
     /// remove a range of songs from the queue.
     /// if the range is out of bounds, it will be clamped to the nearest valid range.
@@ -988,7 +1018,8 @@ impl MusicPlayer for MusicPlayerServer {
     async fn queue_remove_range(self, context: Context, range: Range<usize>) {
         info!("Removing queue range: {range:?}");
 
-        AUDIO_KERNEL.send(AudioCommand::Queue(QueueCommand::RemoveRange(range)));
+        self.audio_kernel
+            .send(AudioCommand::Queue(QueueCommand::RemoveRange(range)));
     }
 
     /// Returns brief information about the users playlists.
