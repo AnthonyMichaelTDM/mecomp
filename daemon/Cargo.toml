@@ -26,11 +26,15 @@ harness = false
 name = "analyze"
 harness = false
 
+[[bench]]
+name = "recluster"
+harness = false
+
 [features]
 default = ["cli", "dynamic_updates", "analysis"]
-cli = ["dep:clap"]                                            # features needed for the CLI (binary crate)
-otel_tracing = ["mecomp-core/otel_tracing"]
-flame = ["mecomp-core/flame"]
+cli = ["dep:clap"]                               # features needed for the CLI (binary crate)
+# otel_tracing = ["mecomp-core/otel_tracing"]
+# flame = ["mecomp-core/flame"]
 dynamic_updates = ["dep:notify-debouncer-full", "dep:notify"]
 analysis = ["mecomp-storage/analysis", "mecomp-analysis"]
 
