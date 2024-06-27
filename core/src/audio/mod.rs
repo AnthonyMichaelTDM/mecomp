@@ -186,27 +186,6 @@ impl AudioKernel {
     /// this function should be called in a detached thread to keep the audio kernel running,
     /// this function will block until the `Exit` command is received
     ///
-    /// # Example
-    ///
-    /// ```
-    /// use mecomp_core::audio::{AudioKernel, commands::AudioCommand, AudioKernelSender};
-    ///
-    /// // create a channel to send commands to the audio kernel
-    /// let (tx, rx) = std::sync::mpsc::channel();
-    /// let tx_clone = tx.clone();
-    /// // spawn the audio kernel in a detached thread
-    /// std::thread::spawn(move || {
-    ///    let kernel = AudioKernel::new();
-    ///    kernel.init(tx_clone, rx);
-    /// });
-    /// // create a sender to send commands to the audio kernel
-    /// let sender = AudioKernelSender::new(tx);
-    ///
-    /// // send a command to the audio kernel
-    /// // e.g. to shutdown the audio kernel:
-    /// sender.send(AudioCommand::Exit);
-    /// ```
-    ///
     /// # Arguments
     ///
     /// * `tx` - the transmitter used to send commands to the audio kernel (this is used by the duration watcher to tell the kernel when to skip to the next song)
