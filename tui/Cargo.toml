@@ -10,6 +10,11 @@ categories.workspace = true
 readme.workspace = true
 license.workspace = true
 
+[[bin]]
+name = "mecomp-tui"
+test = false
+bench = false
+
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
