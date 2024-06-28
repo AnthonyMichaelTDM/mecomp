@@ -51,7 +51,7 @@ use crate::{
     termination::Interrupted,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AppState {
     pub active_component: ActiveComponent,
     pub audio: StateAudio,
