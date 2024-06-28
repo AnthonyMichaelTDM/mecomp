@@ -114,6 +114,47 @@ mod test {
     #[case::one_hour_one_minute_one_second(Duration::from_secs(3661), "01:01:01.00")]
     #[case(Duration::from_secs(3600 + 120 + 1), "01:02:01.00")]
     fn test_format_duration(#[case] duration: Duration, #[case] expected: &str) {
-        assert_eq!(format_duration(&duration), expected);
+        let actual = format_duration(&duration);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_function_name() {
+        fn test_function() {
+            let result = super::function_name!();
+            assert!(result.ends_with("test_function"));
+        }
+
+        test_function();
+    }
+
+    #[test]
+    fn test_get_data_dir() {
+        let data_dir = super::get_data_dir().unwrap();
+        assert!(data_dir.is_dir());
+        assert_eq!(
+            data_dir
+                .components()
+                .last()
+                .unwrap()
+                .as_os_str()
+                .to_string_lossy(),
+            "mecomp"
+        );
+    }
+
+    #[test]
+    fn test_get_config_dir() {
+        let config_dir = super::get_config_dir().unwrap();
+        assert!(config_dir.is_dir());
+        assert_eq!(
+            config_dir
+                .components()
+                .last()
+                .unwrap()
+                .as_os_str()
+                .to_string_lossy(),
+            "mecomp"
+        );
     }
 }

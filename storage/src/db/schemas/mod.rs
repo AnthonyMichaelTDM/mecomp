@@ -251,6 +251,43 @@ mod thing {
             }
         );
     }
+
+    #[test]
+    fn test_from_str() {
+        let id = Id::ulid();
+
+        // valid things
+        let thing: Thing = format!("song:{}", id.clone()).parse().unwrap();
+        assert_eq!(thing, Thing::from(("song", id.clone())));
+        let thing: Thing = format!("song:{}: extra text", id.clone()).parse().unwrap();
+        assert_eq!(thing, Thing::from(("song", id.clone())));
+
+        // id too short
+        let thing: Result<Thing, ()> = "song:42".parse();
+        assert!(thing.is_err());
+        let thing: Result<Thing, ()> = "song:42:extra text:".parse();
+        assert!(thing.is_err());
+
+        // id too long
+        let thing: Result<Thing, ()> = format!("song:{}", "a".repeat(27)).parse();
+        assert!(thing.is_err());
+        let thing: Result<Thing, ()> = format!("song:{}: extra text", "a".repeat(27)).parse();
+        assert!(thing.is_err());
+
+        // extra text without colon
+        let thing: Result<Thing, ()> = format!("song:{} extra text", id.clone()).parse();
+        assert!(thing.is_err());
+
+        // invalid table name
+        let thing: Result<Thing, ()> = format!("table:{}", id.clone()).parse();
+        assert!(thing.is_err());
+        let thing: Result<Thing, ()> = format!("table:{}: extra text", id.clone()).parse();
+        assert!(thing.is_err());
+
+        // text is not a id at all
+        let thing: Result<Thing, ()> = "hello world!".parse();
+        assert!(thing.is_err());
+    }
 }
 
 #[cfg(all(test, feature = "db"))]

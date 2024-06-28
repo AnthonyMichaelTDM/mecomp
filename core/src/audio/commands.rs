@@ -314,8 +314,10 @@ mod tests {
         #[case] rhs: AudioCommand,
         #[case] expected: bool,
     ) {
-        assert_eq!(lhs == rhs, expected);
-        assert_eq!(rhs == lhs, expected);
+        let actual = lhs == rhs;
+        assert_eq!(actual, expected);
+        let actual = rhs == lhs;
+        assert_eq!(actual, expected);
     }
 
     // dummy song used for display tests, makes the tests more readable
@@ -401,6 +403,7 @@ mod tests {
         "Seek: Absolute 01:02:01.00 (HH:MM:SS)"
     )]
     fn test_audio_command_display(#[case] command: AudioCommand, #[case] expected: &str) {
-        assert_str_eq!(command.to_string(), expected);
+        let actual = command.to_string();
+        assert_str_eq!(actual, expected);
     }
 }
