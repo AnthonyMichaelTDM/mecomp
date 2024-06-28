@@ -82,10 +82,13 @@ pub mod checktree_utils {
     };
 
     use crate::{
-        state::action::{Action, AudioAction, QueueAction},
+        state::action::{Action, AudioAction, PopupAction, QueueAction},
         ui::{
             components::content_view::ActiveView,
-            widgets::tree::{item::CheckTreeItem, state::CheckTreeState},
+            widgets::{
+                popups::PopupType,
+                tree::{item::CheckTreeItem, state::CheckTreeState},
+            },
         },
     };
 
@@ -105,9 +108,9 @@ pub mod checktree_utils {
     ) -> Option<Action> {
         if checked_things.is_empty() {
             current_thing
-                .map(|id| Action::Audio(AudioAction::Queue(QueueAction::Add(vec![id.clone()]))))
+                .map(|id| Action::Popup(PopupAction::Open(PopupType::Playlist(vec![id.clone()]))))
         } else {
-            Some(Action::Audio(AudioAction::Queue(QueueAction::Add(
+            Some(Action::Popup(PopupAction::Open(PopupType::Playlist(
                 checked_things,
             ))))
         }
