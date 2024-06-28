@@ -26,6 +26,11 @@ pub enum Command {
         #[clap(subcommand)]
         command: LibraryCommand,
     },
+    /// Status commands (get the status of a running rescan, analysis, or reclustering)
+    Status {
+        #[clap(subcommand)]
+        command: StatusCommand,
+    },
     /// State commands
     State,
     /// Current (audio state)
@@ -137,6 +142,16 @@ pub enum SearchTarget {
     Artist,
     Album,
     Song,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum StatusCommand {
+    /// Get the status of a rescan
+    Rescan,
+    /// Get the status of an analysis
+    Analyze,
+    /// Get the status of a recluster
+    Recluster,
 }
 
 #[derive(Debug, Subcommand)]

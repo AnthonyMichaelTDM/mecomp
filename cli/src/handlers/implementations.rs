@@ -49,6 +49,7 @@ impl CommandHandler for Command {
                 Ok(())
             }
             Self::Library { command } => command.handle(ctx, client).await,
+            Self::Status { command } => command.handle(ctx, client).await,
             Self::State => {
                 if let Some(state) = client.state_audio(ctx).await? {
                     println!("{}", printing::audio_state(&state)?);
@@ -307,6 +308,41 @@ impl CommandHandler for LibraryCommand {
                 Ok(())
             }
         }
+    }
+}
+
+impl CommandHandler for super::StatusCommand {
+    type Output = anyhow::Result<()>;
+
+    async fn handle(
+        &self,
+        ctx: tarpc::context::Context,
+        client: mecomp_core::rpc::MusicPlayerClient,
+    ) -> Self::Output {
+        match self {
+            Self::Rescan => {
+                if client.library_rescan_in_progress(ctx).await? {
+                    println!("Daemon response:\nthere is a rescan in progress");
+                } else {
+                    println!("Daemon response:\nthere is not a rescan in progress");
+                }
+            }
+            Self::Analyze => {
+                if client.library_analyze_in_progress(ctx).await? {
+                    println!("Daemon response:\nthere is an analysis in progress");
+                } else {
+                    println!("Daemon response:\nthere is not an analysis in progress");
+                }
+            }
+            Self::Recluster => {
+                if client.library_recluster_in_progress(ctx).await? {
+                    println!("Daemon response:\nthere is a reclustering in progress");
+                } else {
+                    println!("Daemon response:\nthere is not a reclustering in progress");
+                }
+            }
+        }
+        Ok(())
     }
 }
 
