@@ -27,7 +27,9 @@ use crate::{
 
 use super::{
     checktree_utils::{
-        create_album_tree_leaf, create_artist_tree_item, create_song_tree_leaf,
+        construct_add_to_playlist_action, construct_add_to_queue_action,
+        construct_start_radio_action, create_album_tree_leaf, create_artist_tree_item,
+        create_song_tree_leaf, get_checked_things_from_tree_state,
         get_selected_things_from_tree_state,
     },
     SongViewProps, RADIO_SIZE,
@@ -104,35 +106,31 @@ impl Component for SongView {
                     }
                 }
             }
-            // Add song to queue
+            // if there are checked items, add them to the queue, otherwise send the song to the queue
             KeyCode::Char('q') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
-                            props.id.clone(),
-                        ]))))
-                        .unwrap();
+                if let Some(action) = construct_add_to_queue_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
-            // Start radio from song
+            // if there are checked items, start radio from checked items, otherwise start radio from song
             KeyCode::Char('r') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::SetCurrentView(ActiveView::Radio(
-                            vec![props.id.clone()],
-                            RADIO_SIZE,
-                        )))
-                        .unwrap();
+                if let Some(action) = construct_start_radio_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
-            // Add song to playlist
+            // if there are checked items, add them to playlist, otherwise add the song to playlist
             KeyCode::Char('p') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
-                            props.id.clone(),
-                        ]))))
-                        .unwrap();
+                if let Some(action) = construct_add_to_playlist_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
             _ => {}
@@ -224,6 +222,27 @@ impl ComponentRender<RenderProps> for SongView {
                 let border = Block::new()
                     .borders(Borders::TOP)
                     .title_top("q: add to queue | r: start radio | p: add to playlist")
+                    .border_style(border_style);
+                frame.render_widget(&border, content_area);
+                let content_area = border.inner(content_area);
+
+                // draw an additional border around the content area to indicate whether operations will be performed on the entire item, or just the checked items
+                let border = Block::default()
+                    .borders(Borders::TOP)
+                    .title_top(Line::from(vec![
+                        Span::raw("Performing operations on "),
+                        Span::raw(
+                            if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
+                                .is_empty()
+                            {
+                                "entire artist"
+                            } else {
+                                "checked items"
+                            },
+                        )
+                        .fg(TEXT_HIGHLIGHT),
+                    ]))
+                    .italic()
                     .border_style(border_style);
                 frame.render_widget(&border, content_area);
                 border.inner(content_area)
@@ -422,6 +441,37 @@ impl Component for LibrarySongsView {
                     }
                 }
             }
+            // when there are checked items, "q" will send the checked items to the queue
+            KeyCode::Char('q') => {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
+                        .unwrap();
+                }
+            }
+            // when there are checked items, "r" will start a radio with the checked items
+            KeyCode::Char('r') => {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::SetCurrentView(ActiveView::Radio(
+                            things, RADIO_SIZE,
+                        )))
+                        .unwrap();
+                }
+            }
+            // when there are checked items, "p" will send the checked items to the playlist
+            KeyCode::Char('p') => {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
+                            things,
+                        ))))
+                        .unwrap();
+                }
+            }
             // Change sort mode
             KeyCode::Char('s') => {
                 self.props.sort_mode = self.props.sort_mode.next();
@@ -459,6 +509,13 @@ impl ComponentRender<RenderProps> for LibrarySongsView {
         // draw an additional border around the content area to display additional instructions
         let border = Block::new()
             .borders(Borders::TOP | Borders::BOTTOM)
+            .title_top(
+                if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()).is_empty() {
+                    ""
+                } else {
+                    "q: add to queue | r: start radio | p: add to playlist "
+                },
+            )
             .title_bottom("s/S: change sort")
             .border_style(border_style);
         frame.render_widget(&border, content_area);

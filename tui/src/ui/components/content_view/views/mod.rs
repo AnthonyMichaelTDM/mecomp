@@ -81,8 +81,90 @@ pub mod checktree_utils {
         text::{Line, Span},
     };
 
-    use crate::ui::widgets::tree::{item::CheckTreeItem, state::CheckTreeState};
+    use crate::{
+        state::action::{Action, AudioAction, QueueAction},
+        ui::{
+            components::content_view::ActiveView,
+            widgets::tree::{item::CheckTreeItem, state::CheckTreeState},
+        },
+    };
 
+    use super::RADIO_SIZE;
+
+    /// Construct an `Action` to add the checked things to a playlist, if there are any,
+    /// otherwise add the thing being displayed by the view
+    ///
+    /// # Returns
+    ///
+    /// None - if there are no checked things and the current thing is None
+    /// Some(Action) - if there are checked things or the current thing is Some
+    pub fn construct_add_to_playlist_action(
+        checked_things: Vec<Thing>,
+        current_thing: Option<&Thing>,
+    ) -> Option<Action> {
+        if checked_things.is_empty() {
+            current_thing
+                .map(|id| Action::Audio(AudioAction::Queue(QueueAction::Add(vec![id.clone()]))))
+        } else {
+            Some(Action::Audio(AudioAction::Queue(QueueAction::Add(
+                checked_things,
+            ))))
+        }
+    }
+
+    /// Construct an `Action` to add the checked things to the queue if there are any,
+    /// otherwise add the thing being displayed by the view
+    ///
+    /// # Returns
+    ///
+    /// None - if there are no checked things and the current thing is None
+    /// Some(Action) - if there are checked things or the current thing is Some
+    pub fn construct_add_to_queue_action(
+        checked_things: Vec<Thing>,
+        current_thing: Option<&Thing>,
+    ) -> Option<Action> {
+        if checked_things.is_empty() {
+            current_thing
+                .map(|id| Action::Audio(AudioAction::Queue(QueueAction::Add(vec![id.clone()]))))
+        } else {
+            Some(Action::Audio(AudioAction::Queue(QueueAction::Add(
+                checked_things,
+            ))))
+        }
+    }
+
+    /// Construct an `Action` to start a radio from the checked things if there are any,
+    /// otherwise start a radio from the thing being displayed by the view
+    ///
+    /// # Returns
+    ///
+    /// None - if there are no checked things and the current thing is None
+    /// Some(Action) - if there are checked things or the current thing is Some
+    pub fn construct_start_radio_action(
+        checked_things: Vec<Thing>,
+        current_thing: Option<&Thing>,
+    ) -> Option<Action> {
+        if checked_things.is_empty() {
+            current_thing
+                .map(|id| Action::SetCurrentView(ActiveView::Radio(vec![id.clone()], RADIO_SIZE)))
+        } else {
+            Some(Action::SetCurrentView(ActiveView::Radio(
+                checked_things,
+                RADIO_SIZE,
+            )))
+        }
+    }
+
+    /// Get the checked things from the tree state
+    pub fn get_checked_things_from_tree_state(tree_state: &CheckTreeState<String>) -> Vec<Thing> {
+        tree_state
+            .checked()
+            .iter()
+            .filter_map(|id| id.iter().find_map(|id| id.parse::<Thing>().ok()))
+            .collect()
+    }
+
+    /// Get the selected thing from the tree state
     pub fn get_selected_things_from_tree_state(
         tree_state: &CheckTreeState<String>,
     ) -> Option<Thing> {

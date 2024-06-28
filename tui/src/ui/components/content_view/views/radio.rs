@@ -13,7 +13,10 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::{
-    checktree_utils::{create_song_tree_leaf, get_selected_things_from_tree_state},
+    checktree_utils::{
+        create_song_tree_leaf, get_checked_things_from_tree_state,
+        get_selected_things_from_tree_state,
+    },
     RadioViewProps,
 };
 use crate::{
@@ -116,9 +119,14 @@ impl Component for RadioView {
                     }
                 }
             }
-            // send radio to queue
+            // if there are checked items, send to queue, otherwise send whole radio to queue
             KeyCode::Char('q') => {
-                if let Some(props) = &self.props {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
+                        .unwrap();
+                } else if let Some(props) = &self.props {
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(QueueAction::Add(
                             props.songs.iter().map(|s| s.id.clone().into()).collect(),
@@ -126,9 +134,16 @@ impl Component for RadioView {
                         .expect("failed to send action");
                 }
             }
-            // add radio to playlist
+            // if there are checked items, add to playlist, otherwise add whole radio to playlist
             KeyCode::Char('p') => {
-                if let Some(props) = &self.props {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
+                            things,
+                        ))))
+                        .unwrap();
+                } else if let Some(props) = &self.props {
                     self.action_tx
                         .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
                             props.songs.iter().map(|s| s.id.clone().into()).collect(),
@@ -165,6 +180,27 @@ impl ComponentRender<RenderProps> for RadioView {
             let border = Block::default()
                 .borders(Borders::TOP)
                 .title_top("q: add to queue | p: add to playlist")
+                .border_style(border_style);
+            frame.render_widget(&border, content_area);
+            let content_area = border.inner(content_area);
+
+            // draw an additional border around the content area to indicate whether operations will be performed on the entire item, or just the checked items
+            let border = Block::default()
+                .borders(Borders::TOP)
+                .title_top(Line::from(vec![
+                    Span::raw("Performing operations on "),
+                    Span::raw(
+                        if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
+                            .is_empty()
+                        {
+                            "entire radio"
+                        } else {
+                            "checked items"
+                        },
+                    )
+                    .fg(TEXT_HIGHLIGHT),
+                ]))
+                .italic()
                 .border_style(border_style);
             frame.render_widget(&border, content_area);
             border.inner(content_area)

@@ -70,34 +70,33 @@
 
 - [x] Implement basic TUI
 - [x] CheckTree widget: a tree/list that allows for multiple items to be selected
-  - [ ] allow for multiple items to be selected and added to the queue, a playlist, or used to start a radio
-  - [ ] function to get the selected items
-- [ ] add confirmation dialogues for potentially destructive actions (e.g. deleting a playlist, initiating a rescan, etc.)
-- [ ] Implement view pages for the following:
-  - [ ] search results
+  - [x] allow for multiple items to be selected and added to the queue, a playlist, or used to start a radio
+  - [x] function to get the selected items
+- [x] Implement view pages for the following:
+  - [x] search results
     - [x] show the results of a search
     - [x] pressing enter on a result will take you to the appropriate view page for that result
-    - [ ] use CheckTree widget instead of Tree
-  - [ ] radio results
+    - [x] use CheckTree widget instead of Tree
+  - [x] radio results
     - [x] show the results of a radio search
     - [x] keybind to add to queue
     - [x] keybind to add to a playlist
-    - [ ] use CheckTree widget instead of Tree
-  - [ ] albums
+    - [x] use CheckTree widget instead of Tree
+  - [x] albums
     - [x] display all albums
     - [x] be able to "enter" an to go to the album view page
     - [x] ability to sort by name, artist, year, etc.
-    - [ ] use CheckTree widget instead of Tree
-  - [ ] artists
+    - [x] use CheckTree widget instead of Tree
+  - [x] artists
     - [x] display all artists
     - [x] be able to "enter" an artist to go to the artist view page
     - [x] ability to sort by name, etc.
-    - [ ] use CheckTree widget instead of Tree
-  - [ ] songs
+    - [x] use CheckTree widget instead of Tree
+  - [x] songs
     - [x] display all songs
     - [x] be able to "enter" a song to go to the song view page
     - [x] ability to sort by name, artist, album, year, etc.
-    - [ ] use CheckTree widget instead of Tree
+    - [x] use CheckTree widget instead of Tree
   - [x] playlists
     - [x] display all playlists
     - [x] ability to sort by name, etc.
@@ -107,33 +106,37 @@
   - [x] collections
     - [x] display all collections
     - [x] be able to "enter" a collection to go to the collection view page
-  - [ ] a single album
+  - [x] a single album
     - [x] show info about the album, including all the songs contained
     - [x] keybind to add to queue
     - [x] keybind to start a radio
     - [x] keybind to add to a playlist
-    - [ ] use CheckTree widget instead of Tree
-  - [ ] a single artist
+    - [x] use CheckTree widget instead of Tree
+  - [x] a single artist
     - [x] show info about the artist, including all the albums and songs by the artist
     - [x] keybind to add to queue
     - [x] keybind to start a radio
     - [x] keybind to add to a playlist
-    - [ ] use CheckTree widget instead of Tree
+    - [x] use CheckTree widget instead of Tree
   - [x] a single song
     - [x] show information about the song
     - [x] keybind to add to queue
     - [x] keybind to start a radio
     - [x] keybind to add to a playlist
+    - [x] use CheckTree widget instead of Tree
   - [x] a single playlist
     - [x] show the playlist's name and contents
     - [x] keybind to add to queue
     - [x] keybind to start a radio
     - [x] keybind to add to a playlist
     - [x] keybind to remove a song from the playlist
-  - [ ] a single collection
+    - [x] use CheckTree widget instead of Tree
+  - [x] a single collection
     - [x] show the collection's contents
     - [x] keybind to add to queue
-    - [ ] keybind to freeze into a playlist
+    - [x] use CheckTree widget instead of Tree
+- [ ] add confirmation dialogues for potentially destructive actions (e.g. deleting a playlist, initiating a rescan, etc.)
+- [ ] keybind to freeze a collection into a playlist
 - [ ] at startup, check if the daemon is running, and if it isn't then start it in a detached process
 
 ### MECOMP-GUI

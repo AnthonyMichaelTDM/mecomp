@@ -7,28 +7,32 @@ use mecomp_core::rpc::SearchResult;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Style, Stylize},
-    widgets::{Block, Scrollbar, ScrollbarOrientation},
+    widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::Action,
+    state::action::{Action, AudioAction, PopupAction, QueueAction},
     ui::{
         colors::{
             BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
         },
-        components::{Component, ComponentRender, RenderProps},
+        components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         widgets::{
             input_box::{self, InputBox},
+            popups::PopupType,
             tree::{state::CheckTreeState, CheckTree},
         },
         AppState,
     },
 };
 
-use super::checktree_utils::{
-    create_album_tree_item, create_artist_tree_item, create_song_tree_item,
-    get_selected_things_from_tree_state,
+use super::{
+    checktree_utils::{
+        create_album_tree_item, create_artist_tree_item, create_song_tree_item,
+        get_checked_things_from_tree_state, get_selected_things_from_tree_state,
+    },
+    RADIO_SIZE,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -148,6 +152,37 @@ impl Component for SearchView {
                     }
                 }
             }
+            // when search bar unfocused, and there are checked items, "q" will send the checked items to the queue
+            KeyCode::Char('q') if !self.search_bar_focused => {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
+                        .unwrap();
+                }
+            }
+            // when search bar unfocused, and there are checked items, "r" will start a radio with the checked items
+            KeyCode::Char('r') if !self.search_bar_focused => {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::SetCurrentView(ActiveView::Radio(
+                            things, RADIO_SIZE,
+                        )))
+                        .unwrap();
+                }
+            }
+            // when search bar unfocused, and there are checked items, "p" will send the checked items to the playlist
+            KeyCode::Char('p') if !self.search_bar_focused => {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
+                            things,
+                        ))))
+                        .unwrap();
+                }
+            }
 
             // defer to the search bar, if it is focused
             _ if self.search_bar_focused => {
@@ -209,6 +244,19 @@ impl ComponentRender<RenderProps> for SearchView {
             .border_style(border_style);
         let area = border.inner(content_area);
         frame.render_widget(border, content_area);
+
+        // if there are checked items, put an additional border around the content area to display additional instructions
+        let area =
+            if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()).is_empty() {
+                area
+            } else {
+                let border = Block::default()
+                    .borders(Borders::TOP)
+                    .title_top("q: add to queue | r: start radio | p: add to playlist ")
+                    .border_style(border_style);
+                frame.render_widget(&border, area);
+                border.inner(area)
+            };
 
         RenderProps { area, ..props }
     }

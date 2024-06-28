@@ -16,7 +16,7 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::{Action, AudioAction, QueueAction},
+    state::action::Action,
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{Component, ComponentRender, RenderProps},
@@ -27,7 +27,9 @@ use crate::{
 
 use super::{
     checktree_utils::{
-        create_collection_tree_leaf, create_song_tree_leaf, get_selected_things_from_tree_state,
+        construct_add_to_playlist_action, construct_add_to_queue_action,
+        create_collection_tree_leaf, create_song_tree_leaf, get_checked_things_from_tree_state,
+        get_selected_things_from_tree_state,
     },
     CollectionViewProps,
 };
@@ -138,14 +140,22 @@ impl Component for CollectionView {
                     }
                 }
             }
-            // Add collection to queue
+            // if there are checked items, add them to the queue, otherwise send the whole collection to the queue
             KeyCode::Char('q') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
-                            props.id.clone(),
-                        ]))))
-                        .unwrap();
+                if let Some(action) = construct_add_to_queue_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
+                }
+            }
+            // if there are checked items, add them to the playlist, otherwise send the whole collection to the playlist
+            KeyCode::Char('p') => {
+                if let Some(action) = construct_add_to_playlist_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
             _ => {}
@@ -209,8 +219,29 @@ impl ComponentRender<RenderProps> for CollectionView {
             // draw an additional border around the content area to display additionaly instructions
             let border = Block::new()
                 .borders(Borders::TOP | Borders::BOTTOM)
-                .title_top("q: add to queue")
-                .title_bottom("s/S: change sort | d: remove selected song")
+                .title_top("q: add to queue | p: add to playlist")
+                .title_bottom("s/S: change sort")
+                .border_style(border_style);
+            frame.render_widget(&border, content_area);
+            let content_area = border.inner(content_area);
+
+            // draw an additional border around the content area to indicate whether operations will be performed on the entire item, or just the checked items
+            let border = Block::default()
+                .borders(Borders::TOP)
+                .title_top(Line::from(vec![
+                    Span::raw("Performing operations on "),
+                    Span::raw(
+                        if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
+                            .is_empty()
+                        {
+                            "entire artist"
+                        } else {
+                            "checked items"
+                        },
+                    )
+                    .fg(TEXT_HIGHLIGHT),
+                ]))
+                .italic()
                 .border_style(border_style);
             frame.render_widget(&border, content_area);
             border.inner(content_area)
@@ -376,9 +407,6 @@ impl Component for LibraryCollectionsView {
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
             }
-            KeyCode::Char(' ') => {
-                self.tree_state.lock().unwrap().key_space();
-            }
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
@@ -425,15 +453,14 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
                 Span::raw(" sorted by: "),
                 Span::styled(self.props.sort_mode.to_string(), Style::default().italic()),
             ]))
-            .title_bottom(" \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check")
+            .title_bottom(" \u{23CE} : Open | ←/↑/↓/→: Navigate | s/S: change sort")
             .border_style(border_style);
         let content_area = border.inner(props.area);
         frame.render_widget(border, props.area);
 
         // draw additional border around content area to display additional instructions
         let border = Block::new()
-            .borders(Borders::TOP | Borders::BOTTOM)
-            .title_bottom("s/S: change sort")
+            .borders(Borders::TOP)
             .border_style(border_style);
         frame.render_widget(&border, content_area);
         let content_area = border.inner(content_area);
@@ -459,6 +486,9 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
             CheckTree::new(&items)
                 .unwrap()
                 .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
+                // we want this to be rendered like a normal tree, not a check tree, so we don't show the checkboxes
+                .node_unselected_symbol("▪ ")
+                .node_selected_symbol("▪ ")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             props.area,
             &mut self.tree_state.lock().unwrap(),

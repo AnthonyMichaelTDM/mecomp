@@ -14,13 +14,12 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::{Action, AudioAction, LibraryAction, PopupAction, QueueAction},
+    state::action::{Action, LibraryAction},
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT},
-        components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
+        components::{Component, ComponentRender, RenderProps},
         widgets::{
             input_box::{self, InputBox},
-            popups::PopupType,
             tree::{state::CheckTreeState, CheckTree},
         },
         AppState,
@@ -29,10 +28,12 @@ use crate::{
 
 use super::{
     checktree_utils::{
-        create_playlist_tree_leaf, create_song_tree_leaf, get_selected_things_from_tree_state,
+        construct_add_to_playlist_action, construct_add_to_queue_action,
+        construct_start_radio_action, create_playlist_tree_leaf, create_song_tree_leaf,
+        get_checked_things_from_tree_state, get_selected_things_from_tree_state,
     },
     none::NoneView,
-    PlaylistViewProps, RADIO_SIZE,
+    PlaylistViewProps,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -131,61 +132,55 @@ impl Component for PlaylistView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
-
-                    if let Some(thing) = things {
+                    if let Some(thing) =
+                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
+                    {
                         self.action_tx
                             .send(Action::SetCurrentView(thing.into()))
                             .unwrap();
                     }
                 }
             }
-            // Add playlist to queue
+            // if there are checked items, add them to the queue, otherwise send the whole playlist to the queue
             KeyCode::Char('q') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
-                            props.id.clone(),
-                        ]))))
-                        .unwrap();
+                if let Some(action) = construct_add_to_queue_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
-            // Start radio from playlist
+            // if there are checked items, start radio from checked items, otherwise start radio from the playlist
             KeyCode::Char('r') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::SetCurrentView(ActiveView::Radio(
-                            vec![props.id.clone()],
-                            RADIO_SIZE,
-                        )))
-                        .unwrap();
+                if let Some(action) = construct_start_radio_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
-            // add playlist to playlist
+            // if there are checked items, add them to the playlist, otherwise add the whole playlist to the playlist
             KeyCode::Char('p') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
-                            props.id.clone(),
-                        ]))))
-                        .unwrap();
+                if let Some(action) = construct_add_to_playlist_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
-            // Delete selected song
+            // if there are checked items, remove them from the playlist, otherwise remove the whole playlist
             KeyCode::Char('d') => {
-                if let Some(props) = &self.props {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
-
-                    if let Some(thing) = things {
-                        self.action_tx
-                            .send(Action::Library(LibraryAction::RemoveSongsFromPlaylist(
-                                props.id.clone(),
-                                vec![thing],
-                            )))
-                            .unwrap();
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if let Some(action) = self.props.as_ref().and_then(|props| {
+                    let id = props.id.clone();
+                    if things.is_empty() {
+                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
+                            .map(|thing| LibraryAction::RemoveSongsFromPlaylist(id, vec![thing]))
+                    } else {
+                        Some(LibraryAction::RemoveSongsFromPlaylist(id, things))
                     }
+                }) {
+                    self.action_tx.send(Action::Library(action)).unwrap();
                 }
             }
             _ => {}
@@ -250,7 +245,28 @@ impl ComponentRender<RenderProps> for PlaylistView {
             let border = Block::default()
                 .borders(Borders::TOP | Borders::BOTTOM)
                 .title_top("q: add to queue | r: start radio | p: add to playlist")
-                .title_bottom("s/S: change sort | d: remove selected song")
+                .title_bottom("s/S: change sort | d: remove selected")
+                .border_style(border_style);
+            frame.render_widget(&border, content_area);
+            let content_area = border.inner(content_area);
+
+            // draw an additional border around the content area to indicate whether operations will be performed on the entire item, or just the checked items
+            let border = Block::default()
+                .borders(Borders::TOP)
+                .title_top(Line::from(vec![
+                    Span::raw("Performing operations on "),
+                    Span::raw(
+                        if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
+                            .is_empty()
+                        {
+                            "entire artist"
+                        } else {
+                            "checked items"
+                        },
+                    )
+                    .fg(TEXT_HIGHLIGHT),
+                ]))
+                .italic()
                 .border_style(border_style);
             frame.render_widget(&border, content_area);
             border.inner(content_area)
@@ -452,9 +468,6 @@ impl Component for LibraryPlaylistsView {
                         }
                     }
                 }
-                KeyCode::Char(' ') => {
-                    self.tree_state.lock().unwrap().key_space();
-                }
                 // Change sort mode
                 KeyCode::Char('s') => {
                     self.props.sort_mode = self.props.sort_mode.next();
@@ -507,7 +520,7 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
             .title_bottom(if self.input_box_visible {
                 ""
             } else {
-                " \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check"
+                " \u{23CE} : Open | ←/↑/↓/→: Navigate | s/S: change sort"
             })
             .border_style(border_style);
         let content_area = border.inner(props.area);
@@ -544,13 +557,12 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
 
         // draw additional border around content area to display additional instructions
         let border = Block::new()
-            .borders(Borders::TOP | Borders::BOTTOM)
+            .borders(Borders::TOP)
             .title_top(if self.input_box_visible {
                 " \u{23CE} : Create (cancel if empty)"
             } else {
                 "n: new playlist | d: delete playlist"
             })
-            .title_bottom("s/S: change sort")
             .border_style(border_style);
         let area = border.inner(content_area);
         frame.render_widget(border, content_area);
@@ -572,6 +584,9 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
             CheckTree::new(&items)
                 .unwrap()
                 .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
+                // we want this to be rendered like a normal tree, not a check tree, so we don't show the checkboxes
+                .node_unselected_symbol("▪ ")
+                .node_selected_symbol("▪ ")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             props.area,
             &mut self.tree_state.lock().unwrap(),
