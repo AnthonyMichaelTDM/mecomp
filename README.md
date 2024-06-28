@@ -42,18 +42,14 @@ sudo pacman -S alsa-lib pkg-config wget ffmpeg
 
 ### Compiling from Source
 
-MECOMP is written in rust, so you will need to have the rust toolchain installed, you can install it by running:
-
-```sh
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
+MECOMP is written in rust, so you will need to have the rust toolchain installed, you can find installation instructions [here](https://www.rust-lang.org/tools/install).
 
 then clone the repository and compile the project, we provide an `x.sh` script that will compile the binaries for you:
 
 ```sh
 git clone https://github.com/AnthonyMichaelTDM/mecomp.git
 cd mecomp
-./x.sh b
+./x.sh b # or `cargo build --release --bins` if you don't want to use the script
 ```
 
 this will compile the project and place the binaries in the `target/release` directory.
