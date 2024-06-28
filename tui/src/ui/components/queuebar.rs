@@ -6,6 +6,7 @@ use mecomp_storage::db::schemas::song::Song;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Modifier, Style},
+    text::{Line, Text},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
 
@@ -168,13 +169,77 @@ impl Component for QueueBar {
 }
 
 impl ComponentRender<RenderProps> for QueueBar {
-    fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
         let border_style = if props.is_focused {
             Style::default().fg(BORDER_FOCUSED.into())
         } else {
             Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
+        let border = Block::bordered().title("Queue").border_style(border_style);
+        frame.render_widget(&border, props.area);
+        let area = border.inner(props.area);
+
+        // split up area
+        let [info_area, content_area, instructions_area] = *Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(
+                [
+                    Constraint::Length(2),
+                    Constraint::Min(0),
+                    Constraint::Length(3),
+                ]
+                .as_ref(),
+            )
+            .split(area)
+        else {
+            panic!("Failed to split queue bar area");
+        };
+
+        // border the content area
+        let border = Block::default()
+            .borders(Borders::TOP | Borders::BOTTOM)
+            .title(format!("Songs ({})", self.props.queue.len()))
+            .border_style(border_style);
+        frame.render_widget(&border, content_area);
+        let content_area = border.inner(content_area);
+
+        // render queue info chunk
+        let queue_info = format!(
+            "repeat: {}",
+            match self.props.repeat_mode {
+                RepeatMode::None => "none",
+                RepeatMode::Once => "once",
+                RepeatMode::Continuous => "continuous",
+            }
+        );
+        frame.render_widget(
+            Paragraph::new(queue_info)
+                .style(Style::default().fg(TEXT_NORMAL.into()))
+                .alignment(ratatui::layout::Alignment::Center),
+            info_area,
+        );
+
+        // render instructions
+        frame.render_widget(
+            Paragraph::new(Text::from(vec![
+                Line::from("↑/↓: Move | c: Clear"),
+                Line::from("\u{23CE} : Select | d: Delete"),
+                Line::from("s: Shuffle | r: Repeat"),
+            ]))
+            .style(Style::default().fg(TEXT_NORMAL.into()))
+            .alignment(ratatui::layout::Alignment::Center),
+            instructions_area,
+        );
+
+        // return the new props
+        RenderProps {
+            area: content_area,
+            is_focused: props.is_focused,
+        }
+    }
+
+    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
         let items = self
             .props
             .queue
@@ -191,51 +256,8 @@ impl ComponentRender<RenderProps> for QueueBar {
             })
             .collect::<Vec<_>>();
 
-        let [top, middle, bottom] = *Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(
-                [
-                    Constraint::Length(2),
-                    Constraint::Min(0),
-                    Constraint::Length(4),
-                ]
-                .as_ref(),
-            )
-            .split(props.area)
-        else {
-            panic!("Failed to split queue bar area");
-        };
-
-        // Top (queue info)
-        let queue_info = format!(
-            "repeat: {}",
-            match self.props.repeat_mode {
-                RepeatMode::None => "none",
-                RepeatMode::Once => "once",
-                RepeatMode::Continuous => "continuous",
-            }
-        );
-        frame.render_widget(
-            Paragraph::new(queue_info)
-                .block(
-                    Block::default()
-                        .borders(Borders::LEFT | Borders::TOP | Borders::RIGHT)
-                        .title("Queue")
-                        .border_style(border_style),
-                )
-                .style(Style::default().fg(TEXT_NORMAL.into()))
-                .alignment(ratatui::layout::Alignment::Center),
-            top,
-        );
-
-        // middle (queue list)
         frame.render_stateful_widget(
             List::new(items)
-                .block(
-                    Block::bordered()
-                        .title(format!("Songs ({})", self.props.queue.len()))
-                        .border_style(border_style),
-                )
                 .highlight_style(
                     Style::default()
                         .fg(TEXT_HIGHLIGHT.into())
@@ -243,23 +265,8 @@ impl ComponentRender<RenderProps> for QueueBar {
                 )
                 .scroll_padding(1)
                 .direction(ratatui::widgets::ListDirection::TopToBottom),
-            middle,
+            props.area,
             &mut self.list_state.clone(),
-        );
-
-        // Bottom (instructions)
-        frame.render_widget(
-            Paragraph::new(
-                "↑/↓: Move | c: Clear\nEnter: Select | d: Delete\ns: Shuffle | r: Repeat",
-            )
-            .block(
-                Block::default()
-                    .borders(Borders::LEFT | Borders::BOTTOM | Borders::RIGHT)
-                    .border_style(border_style),
-            )
-            .style(Style::default().fg(TEXT_NORMAL.into()))
-            .alignment(ratatui::layout::Alignment::Center),
-            bottom,
         );
     }
 }

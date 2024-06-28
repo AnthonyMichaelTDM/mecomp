@@ -6,7 +6,7 @@ use crossterm::event::KeyCode;
 use mecomp_core::rpc::SearchResult;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
-    style::{Modifier, Style},
+    style::{Style, Stylize},
     widgets::{Block, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -159,21 +159,15 @@ impl Component for SearchView {
 }
 
 impl ComponentRender<RenderProps> for SearchView {
-    #[allow(clippy::too_many_lines)]
-    fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
         let border_style = if props.is_focused {
             Style::default().fg(BORDER_FOCUSED.into())
         } else {
             Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
-        // create list to hold results
-        let song_tree = create_song_tree_item(&self.props.search_results.songs).unwrap();
-        let album_tree = create_album_tree_item(&self.props.search_results.albums).unwrap();
-        let artist_tree = create_artist_tree_item(&self.props.search_results.artists).unwrap();
-        let items = &[song_tree, album_tree, artist_tree];
-
-        let [search_bar_area, results_area] = *Layout::default()
+        // split view
+        let [search_bar_area, content_area] = *Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(3), Constraint::Min(4)].as_ref())
             .split(props.area)
@@ -204,27 +198,35 @@ impl ComponentRender<RenderProps> for SearchView {
             },
         );
 
+        // put a border around the content area
+        let border = Block::bordered()
+            .title_top("Results")
+            .title_bottom(if self.search_bar_focused {
+                " \u{23CE} : Search"
+            } else {
+                "/: Search |  \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check"
+            })
+            .border_style(border_style);
+        let area = border.inner(content_area);
+        frame.render_widget(border, content_area);
+
+        RenderProps { area, ..props }
+    }
+
+    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+        // create tree to hold results
+        let song_tree = create_song_tree_item(&self.props.search_results.songs).unwrap();
+        let album_tree = create_album_tree_item(&self.props.search_results.albums).unwrap();
+        let artist_tree = create_artist_tree_item(&self.props.search_results.artists).unwrap();
+        let items = &[song_tree, album_tree, artist_tree];
+
         // render the search results
         frame.render_stateful_widget(
             CheckTree::new(items)
                 .unwrap()
-                .block(
-                    Block::bordered()
-                        .title_top("Results")
-                        .title_bottom(if self.search_bar_focused {
-                            "Enter: Search"
-                        } else {
-                            "/: Search | Enter: Open | ←/↑/↓/→: Navigate | \u{2423} Check"
-                        })
-                        .border_style(border_style),
-                )
-                .highlight_style(
-                    Style::default()
-                        .fg(TEXT_HIGHLIGHT.into())
-                        .add_modifier(Modifier::BOLD),
-                )
+                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
-            results_area,
+            props.area,
             &mut self.tree_state.lock().unwrap(),
         );
     }

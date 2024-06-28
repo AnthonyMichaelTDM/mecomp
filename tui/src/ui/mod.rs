@@ -155,7 +155,7 @@ impl UiManager {
             }
 
             if let Err(err) = terminal
-                .draw(|frame| app.render(frame, ()))
+                .draw(|frame| app.render(frame, frame.size()))
                 .context("could not render to the terminal")
             {
                 break Err(err);

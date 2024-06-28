@@ -16,7 +16,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::Line,
-    widgets::{Block, Scrollbar, ScrollbarOrientation},
+    widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
     Frame,
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -83,9 +83,9 @@ impl Popup for PlaylistSelector {
 
     fn instructions(&self) -> ratatui::prelude::Line {
         Line::from(if self.input_box_visible {
-            "Enter: Create (cancel if empty)"
+            ""
         } else {
-            "Enter: Select | ↑/↓: Navigate | n: new playlist"
+            "  \u{23CE} : Select | ↑/↓: Up/Down"
         })
     }
 
@@ -211,31 +211,24 @@ impl Popup for PlaylistSelector {
 }
 
 impl ComponentRender<Rect> for PlaylistSelector {
-    fn render(&self, frame: &mut Frame, area: Rect) {
-        let [top, bottom] = *Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(if self.input_box_visible { 3 } else { 0 }),
-                Constraint::Min(4),
-            ])
-            .split(area)
-        else {
-            panic!("Failed to split library playlists view area");
-        };
+    fn render_border(&self, frame: &mut ratatui::Frame, area: Rect) -> Rect {
+        let area = self.render_popup_border(frame, area);
 
-        let playlists = self
-            .props
-            .playlists
-            .iter()
-            .map(create_playlist_tree_leaf)
-            .collect::<Vec<_>>();
+        let content_area = if self.input_box_visible {
+            // split content area to make room for the input box
+            let [input_box_area, content_area] = *Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(3), Constraint::Min(4)])
+                .split(area)
+            else {
+                panic!("Failed to split library playlists view area");
+            };
 
-        // render input box
-        if self.input_box_visible {
+            // render input box
             self.input_box.render(
                 frame,
                 RenderProps {
-                    area: top,
+                    area: input_box_area,
                     text_color: TEXT_HIGHLIGHT_ALT.into(),
                     border: Block::bordered()
                         .title("Enter Name:")
@@ -243,9 +236,35 @@ impl ComponentRender<Rect> for PlaylistSelector {
                     show_cursor: self.input_box_visible,
                 },
             );
-        }
 
-        // render playlist list
+            content_area
+        } else {
+            area
+        };
+
+        // draw additional border around content area to display additional instructions
+        let border = Block::new()
+            .borders(Borders::TOP)
+            .title_top(if self.input_box_visible {
+                "  \u{23CE} : Create (cancel if empty)"
+            } else {
+                "n: new playlist"
+            })
+            .border_style(Style::default().fg(self.border_color()));
+        frame.render_widget(&border, content_area);
+        border.inner(content_area)
+    }
+
+    fn render_content(&self, frame: &mut Frame, area: Rect) {
+        // create a tree for the playlists
+        let playlists = self
+            .props
+            .playlists
+            .iter()
+            .map(create_playlist_tree_leaf)
+            .collect::<Vec<_>>();
+
+        // render the playlists
         frame.render_stateful_widget(
             CheckTree::new(&playlists)
                 .unwrap()
@@ -254,7 +273,7 @@ impl ComponentRender<Rect> for PlaylistSelector {
                 .node_unselected_symbol("▪ ")
                 .node_selected_symbol("▪ ")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
-            bottom,
+            area,
             &mut self.tree_state.lock().unwrap(),
         );
     }

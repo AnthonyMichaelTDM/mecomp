@@ -8,7 +8,11 @@ use super::Popup;
 pub struct Notification<'a>(pub Line<'a>);
 
 impl<'a> ComponentRender<Rect> for Notification<'a> {
-    fn render(&self, frame: &mut ratatui::Frame, area: Rect) {
+    fn render_border(&self, frame: &mut ratatui::Frame, area: Rect) -> Rect {
+        self.render_popup_border(frame, area)
+    }
+
+    fn render_content(&self, frame: &mut ratatui::Frame, area: Rect) {
         frame.render_widget::<Line>(self.0.clone(), area);
     }
 }

@@ -33,18 +33,6 @@ where
         self.offset
     }
 
-    // #[must_use]
-    // fn is_identifier_a_leaf(&self, identifier: &[Identifier]) -> bool {
-    //     let mut items = self.items.clone();
-    //     for id in identifier {
-    //         let Some(item) = items.iter().find(|item| item.identifier() == id) else {
-    //             return false;
-    //         };
-    //         items = item.children();
-    //     }
-    //     items.is_empty()
-    // }
-
     #[must_use]
     pub const fn opened(&self) -> &HashSet<Vec<Identifier>> {
         &self.opened

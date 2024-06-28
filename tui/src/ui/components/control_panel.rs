@@ -152,8 +152,7 @@ impl Component for ControlPanel {
 }
 
 impl ComponentRender<RenderProps> for ControlPanel {
-    #[allow(clippy::too_many_lines)]
-    fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
         let border_style = if props.is_focused {
             Style::default().fg(BORDER_FOCUSED.into())
         } else {
@@ -166,6 +165,13 @@ impl ComponentRender<RenderProps> for ControlPanel {
         let block_area = block.inner(props.area);
         frame.render_widget(block, props.area);
 
+        RenderProps {
+            area: block_area,
+            ..props
+        }
+    }
+
+    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
         let [top, middle, bottom] = *Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -173,7 +179,7 @@ impl ComponentRender<RenderProps> for ControlPanel {
                 Constraint::Fill(1),
                 Constraint::Fill(1),
             ])
-            .split(block_area)
+            .split(props.area)
         else {
             panic!("main layout must have 3 children");
         };

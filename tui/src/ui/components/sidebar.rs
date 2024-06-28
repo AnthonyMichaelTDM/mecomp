@@ -6,9 +6,9 @@ use std::fmt::Display;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
-    layout::Layout,
+    layout::Alignment,
     style::{Modifier, Style},
-    text::Span,
+    text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState},
     Frame,
 };
@@ -180,13 +180,32 @@ impl Component for Sidebar {
 }
 
 impl ComponentRender<RenderProps> for Sidebar {
-    fn render(&self, frame: &mut Frame, props: RenderProps) {
+    fn render_border(&self, frame: &mut Frame, props: RenderProps) -> RenderProps {
         let border_style = if props.is_focused {
             Style::default().fg(BORDER_FOCUSED.into())
         } else {
             Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
+        let border = Block::bordered()
+            .title_top("Sidebar")
+            .title_bottom(Line::from("Enter: Select").alignment(Alignment::Center))
+            .border_style(border_style);
+        frame.render_widget(&border, props.area);
+        let area = border.inner(props.area);
+        let border = Block::default()
+            .borders(Borders::BOTTOM)
+            .title_bottom(Line::from("↑/↓: Move").alignment(Alignment::Center))
+            .border_style(border_style);
+        frame.render_widget(&border, area);
+        let area = border.inner(area);
+        RenderProps {
+            area,
+            is_focused: props.is_focused,
+        }
+    }
+
+    fn render_content(&self, frame: &mut Frame, props: RenderProps) {
         let items = SIDEBAR_ITEMS
             .iter()
             .map(|item| {
@@ -197,45 +216,16 @@ impl ComponentRender<RenderProps> for Sidebar {
             })
             .collect::<Vec<_>>();
 
-        let [top, bottom] = *Layout::default()
-            .direction(ratatui::layout::Direction::Vertical)
-            .constraints(
-                [
-                    ratatui::layout::Constraint::Min(4),
-                    ratatui::layout::Constraint::Length(2),
-                ]
-                .as_ref(),
-            )
-            .split(props.area)
-        else {
-            panic!("Failed to split frame into areas")
-        };
-
         frame.render_stateful_widget(
             List::new(items)
-                .block(
-                    Block::default()
-                        .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
-                        .title_top("Sidebar")
-                        .border_style(border_style),
-                )
                 .highlight_style(
                     Style::default()
                         .fg(TEXT_HIGHLIGHT.into())
                         .add_modifier(Modifier::BOLD),
                 )
                 .direction(ratatui::widgets::ListDirection::TopToBottom),
-            top,
+            props.area,
             &mut self.list_state.clone(),
-        );
-
-        frame.render_widget(
-            Block::bordered()
-                .title_alignment(ratatui::layout::Alignment::Center)
-                .title_top("↑/↓: Move")
-                .title_bottom("Enter: Select")
-                .border_style(border_style),
-            bottom,
         );
     }
 }

@@ -9,7 +9,7 @@ use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::collection::Collection;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Modifier, Style, Stylize},
+    style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
 };
@@ -18,7 +18,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, AudioAction, QueueAction},
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
+        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{Component, ComponentRender, RenderProps},
         widgets::tree::{state::CheckTreeState, CheckTree},
         AppState,
@@ -26,7 +26,6 @@ use crate::{
 };
 
 use super::{
-    none::NoneView,
     checktree_utils::{
         create_collection_tree_leaf, create_song_tree_leaf, get_selected_things_from_tree_state,
     },
@@ -155,41 +154,30 @@ impl Component for CollectionView {
 }
 
 impl ComponentRender<RenderProps> for CollectionView {
-    #[allow(clippy::too_many_lines)]
-    fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
         let border_style = if props.is_focused {
             Style::default().fg(BORDER_FOCUSED.into())
         } else {
             Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
-        if let Some(state) = &self.props {
-            let block = Block::bordered()
+        let area = if let Some(state) = &self.props {
+            let border = Block::bordered()
                 .title_top(Line::from(vec![
                     Span::styled("Collection View".to_string(), Style::default().bold()),
                     Span::raw(" sorted by: "),
                     Span::styled(self.sort_mode.to_string(), Style::default().italic()),
                 ]))
-                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | \u{2423} Check")
+                .title_bottom(" \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check")
                 .border_style(border_style);
-            let block_area = block.inner(props.area);
-            frame.render_widget(block, props.area);
+            frame.render_widget(&border, props.area);
+            let content_area = border.inner(props.area);
 
-            // create list to hold collection songs
-            let items = state
-                .songs
-                .iter()
-                .map(|song| create_song_tree_leaf(song))
-                .collect::<Vec<_>>();
-
-            let [top, middle, bottom] = *Layout::default()
+            // split content area to make room for the collection info
+            let [info_area, content_area] = *Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(3),
-                    Constraint::Min(4),
-                    Constraint::Length(1),
-                ])
-                .split(block_area)
+                .constraints([Constraint::Length(3), Constraint::Min(4)])
+                .split(content_area)
             else {
                 panic!("Failed to split collection view area")
             };
@@ -214,42 +202,58 @@ impl ComponentRender<RenderProps> for CollectionView {
                         ),
                     ]),
                 ])
-                .block(
-                    Block::new()
-                        .borders(Borders::BOTTOM)
-                        .title_bottom("q: add to queue")
-                        .border_style(border_style),
-                )
                 .alignment(Alignment::Center),
-                top,
+                info_area,
             );
+
+            // draw an additional border around the content area to display additionaly instructions
+            let border = Block::new()
+                .borders(Borders::TOP | Borders::BOTTOM)
+                .title_top("q: add to queue")
+                .title_bottom("s/S: change sort | d: remove selected song")
+                .border_style(border_style);
+            frame.render_widget(&border, content_area);
+            border.inner(content_area)
+        } else {
+            let border = Block::bordered()
+                .title_top("Collection View")
+                .border_style(border_style);
+            frame.render_widget(&border, props.area);
+            border.inner(props.area)
+        };
+
+        RenderProps { area, ..props }
+    }
+
+    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+        if let Some(state) = &self.props {
+            // create list to hold collection songs
+            let items = state
+                .songs
+                .iter()
+                .map(|song| create_song_tree_leaf(song))
+                .collect::<Vec<_>>();
 
             // render the collections songs
             frame.render_stateful_widget(
                 CheckTree::new(&items)
                     .unwrap()
-                    .highlight_style(
-                        Style::default()
-                            .fg(TEXT_HIGHLIGHT.into())
-                            .add_modifier(Modifier::BOLD),
-                    )
+                    .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
                     .experimental_scrollbar(Some(Scrollbar::new(
                         ScrollbarOrientation::VerticalRight,
                     ))),
-                middle,
+                props.area,
                 &mut self.tree_state.lock().unwrap(),
             );
-
-            // render the instructions
-            frame.render_widget(
-                Block::new()
-                    .borders(Borders::TOP)
-                    .title_top("s/S: change sort | d: remove selected song")
-                    .border_style(border_style),
-                bottom,
-            );
         } else {
-            NoneView.render(frame, props);
+            let text = "No active collection";
+
+            frame.render_widget(
+                Line::from(text)
+                    .style(Style::default().fg(TEXT_NORMAL.into()))
+                    .alignment(Alignment::Center),
+                props.area,
+            );
         }
     }
 }
@@ -407,32 +411,42 @@ impl Component for LibraryCollectionsView {
 }
 
 impl ComponentRender<RenderProps> for LibraryCollectionsView {
-    fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
         let border_style = if props.is_focused {
             Style::default().fg(BORDER_FOCUSED.into())
         } else {
             Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
-        let block = Block::bordered()
+        // render primary border
+        let border = Block::bordered()
             .title_top(Line::from(vec![
                 Span::styled("Library Collections".to_string(), Style::default().bold()),
                 Span::raw(" sorted by: "),
                 Span::styled(self.props.sort_mode.to_string(), Style::default().italic()),
             ]))
-            .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | \u{2423} Check | s/S: change sort")
+            .title_bottom(" \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check")
             .border_style(border_style);
-        let block_area = block.inner(props.area);
-        frame.render_widget(block, props.area);
+        let content_area = border.inner(props.area);
+        frame.render_widget(border, props.area);
 
-        let [top, bottom] = *Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(1), Constraint::Min(4)])
-            .split(block_area)
-        else {
-            panic!("Failed to split library collections view area");
-        };
+        // draw additional border around content area to display additional instructions
+        let border = Block::new()
+            .borders(Borders::TOP | Borders::BOTTOM)
+            .title_bottom("s/S: change sort")
+            .border_style(border_style);
+        frame.render_widget(&border, content_area);
+        let content_area = border.inner(content_area);
 
+        // return the content area
+        RenderProps {
+            area: content_area,
+            is_focused: props.is_focused,
+        }
+    }
+
+    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+        // create a tree to hold the collections
         let items = self
             .props
             .collections
@@ -440,23 +454,13 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
             .map(|collection| create_collection_tree_leaf(collection))
             .collect::<Vec<_>>();
 
-        frame.render_widget(
-            Block::new()
-                .borders(Borders::BOTTOM)
-                .border_style(border_style),
-            top,
-        );
-
+        // render the collections
         frame.render_stateful_widget(
             CheckTree::new(&items)
                 .unwrap()
-                .highlight_style(
-                    Style::default()
-                        .fg(TEXT_HIGHLIGHT.into())
-                        .add_modifier(Modifier::BOLD),
-                )
+                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
-            bottom,
+            props.area,
             &mut self.tree_state.lock().unwrap(),
         );
     }
