@@ -590,8 +590,8 @@ impl AudioKernel {
         // calculate the new time based on the seek type
         let new_time = match seek {
             SeekType::Absolute => duration,
-            SeekType::RelativeForwards => duration_info.time_played + duration,
-            SeekType::RelativeBackwards => duration_info.time_played - duration,
+            SeekType::RelativeForwards => duration_info.time_played.saturating_add(duration),
+            SeekType::RelativeBackwards => duration_info.time_played.saturating_sub(duration),
         };
         let new_time = if new_time > duration_info.current_duration {
             duration_info.current_duration
