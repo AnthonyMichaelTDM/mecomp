@@ -99,24 +99,24 @@ impl Popup for PlaylistSelector {
             .direction(Direction::Horizontal)
             .constraints([
                 Constraint::Percentage(50),
-                Constraint::Percentage(25),
-                Constraint::Percentage(25),
+                Constraint::Min(31),
+                Constraint::Percentage(19),
             ])
             .split(terminal_area)
         else {
-            panic!("Failed to split frame size");
+            panic!("Failed to split horizontal area");
         };
 
         let [_, area, _] = *Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Percentage(25),
-                Constraint::Percentage(50),
-                Constraint::Percentage(25),
+                Constraint::Max(10),
+                Constraint::Min(10),
+                Constraint::Max(10),
             ])
             .split(horizontal_area)
         else {
-            panic!("Failed to split horizontal area");
+            panic!("Failed to split vertical area");
         };
         area
     }
@@ -247,7 +247,7 @@ impl ComponentRender<Rect> for PlaylistSelector {
         let border = Block::new()
             .borders(Borders::TOP)
             .title_top(if self.input_box_visible {
-                "  \u{23CE} : Create (cancel if empty)"
+                " \u{23CE} : Create (cancel if empty)"
             } else {
                 "n: new playlist"
             })
@@ -277,5 +277,205 @@ impl ComponentRender<Rect> for PlaylistSelector {
             area,
             &mut self.tree_state.lock().unwrap(),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::*;
+    use crate::{
+        test_utils::setup_test_terminal,
+        ui::{
+            app::ActiveComponent,
+            components::content_view::{views::ViewData, ActiveView},
+        },
+    };
+    use anyhow::Result;
+    use mecomp_core::{
+        rpc::SearchResult,
+        state::{library::LibraryFull, StateAudio},
+    };
+    use mecomp_storage::db::schemas::playlist::Playlist;
+    use pretty_assertions::assert_eq;
+    use ratatui::{
+        buffer::Buffer,
+        style::{Color, Style},
+        text::Span,
+    };
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn state() -> AppState {
+        AppState {
+            active_component: ActiveComponent::default(),
+            audio: StateAudio::default(),
+            search: SearchResult::default(),
+            library: LibraryFull {
+                playlists: vec![Playlist {
+                    id: Playlist::generate_id(),
+                    name: "playlist 1".into(),
+                    runtime: Duration::default(),
+                    song_count: 0,
+                }]
+                .into_boxed_slice(),
+                ..Default::default()
+            },
+            active_view: ActiveView::default(),
+            additional_view_data: ViewData::default(),
+        }
+    }
+
+    #[fixture]
+    fn border_style() -> Style {
+        Style::reset().fg(Color::Rgb(3, 169, 244))
+    }
+
+    #[fixture]
+    fn input_box_style() -> Style {
+        Style::reset().fg(Color::Rgb(239, 154, 154))
+    }
+
+    #[rstest]
+    #[case::large((100, 100), Rect::new(50, 10, 31, 80))]
+    #[case::small((31, 10), Rect::new(0, 0, 31, 10))]
+    #[case::too_small((20, 5), Rect::new(0, 0, 20, 5))]
+    fn test_playlist_selector_area(
+        #[case] terminal_size: (u16, u16),
+        #[case] expected_area: Rect,
+        state: AppState,
+    ) -> Result<()> {
+        let terminal = setup_test_terminal(terminal_size.0, terminal_size.1);
+        let action_tx = tokio::sync::mpsc::unbounded_channel().0;
+        let items = vec![];
+        let area = PlaylistSelector::new(&state, action_tx, items).area(terminal.size()?);
+        assert_eq!(area, expected_area);
+
+        Ok(())
+    }
+
+    #[rstest]
+    fn test_playlist_selector_render(
+        state: AppState,
+        #[from(border_style)] style: Style,
+    ) -> Result<()> {
+        let mut terminal = setup_test_terminal(31, 10);
+        let action_tx = tokio::sync::mpsc::unbounded_channel().0;
+        let items = vec![];
+        let popup = PlaylistSelector::new(&state, action_tx, items);
+        let buffer = terminal
+            .draw(|frame| popup.render_popup(frame))?
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            Line::styled("┌Select a Playlist────────────┐", style),
+            Line::styled("│n: new playlist──────────────│", style),
+            Line::from(vec![
+                Span::styled("│", style),
+                Span::raw("▪ "),
+                Span::raw("playlist 1").bold(),
+                Span::raw("                 "),
+                Span::styled("│", style),
+            ]),
+            Line::from(vec![
+                Span::styled("│", style),
+                Span::raw("                             "),
+                Span::styled("│", style),
+            ]),
+            Line::from(vec![
+                Span::styled("│", style),
+                Span::raw("                             "),
+                Span::styled("│", style),
+            ]),
+            Line::from(vec![
+                Span::styled("│", style),
+                Span::raw("                             "),
+                Span::styled("│", style),
+            ]),
+            Line::from(vec![
+                Span::styled("│", style),
+                Span::raw("                             "),
+                Span::styled("│", style),
+            ]),
+            Line::from(vec![
+                Span::styled("│", style),
+                Span::raw("                             "),
+                Span::styled("│", style),
+            ]),
+            Line::from(vec![
+                Span::styled("│", style),
+                Span::raw("                             "),
+                Span::styled("│", style),
+            ]),
+            Line::styled("└  ⏎ : Select | ↑/↓: Up/Down──┘", style),
+        ]);
+
+        assert_eq!(buffer, expected);
+
+        Ok(())
+    }
+
+    #[rstest]
+    fn test_playlist_selector_render_input_box(
+        state: AppState,
+        border_style: Style,
+        input_box_style: Style,
+    ) -> Result<()> {
+        let mut terminal = setup_test_terminal(31, 10);
+        let action_tx = tokio::sync::mpsc::unbounded_channel().0;
+        let items = vec![];
+        let mut popup = PlaylistSelector::new(&state, action_tx, items);
+        popup.inner_handle_key_event(KeyEvent::from(KeyCode::Char('n')));
+        let buffer = terminal
+            .draw(|frame| popup.render_popup(frame))?
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            Line::styled("┌Select a Playlist────────────┐", border_style),
+            Line::from(vec![
+                Span::styled("│", border_style),
+                Span::styled("┌Enter Name:────────────────┐", input_box_style),
+                Span::styled("│", border_style),
+            ]),
+            Line::from(vec![
+                Span::styled("│", border_style),
+                Span::styled("│                           │", input_box_style),
+                Span::styled("│", border_style),
+            ]),
+            Line::from(vec![
+                Span::styled("│", border_style),
+                Span::styled("└───────────────────────────┘", input_box_style),
+                Span::styled("│", border_style),
+            ]),
+            Line::styled("│ ⏎ : Create (cancel if empty)│", border_style),
+            Line::from(vec![
+                Span::styled("│", border_style),
+                Span::raw("▪ "),
+                Span::raw("playlist 1").bold(),
+                Span::raw("                 "),
+                Span::styled("│", border_style),
+            ]),
+            Line::from(vec![
+                Span::styled("│", border_style),
+                Span::raw("                             "),
+                Span::styled("│", border_style),
+            ]),
+            Line::from(vec![
+                Span::styled("│", border_style),
+                Span::raw("                             "),
+                Span::styled("│", border_style),
+            ]),
+            Line::from(vec![
+                Span::styled("│", border_style),
+                Span::raw("                             "),
+                Span::styled("│", border_style),
+            ]),
+            Line::styled("└─────────────────────────────┘", border_style),
+        ]);
+
+        assert_eq!(buffer, expected);
+
+        Ok(())
     }
 }

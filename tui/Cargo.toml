@@ -34,3 +34,5 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
 pretty_assertions.workspace = true
+mecomp-storage = { workspace = true, features = ["serde", "test_utils"] }
+rstest.workspace = true
