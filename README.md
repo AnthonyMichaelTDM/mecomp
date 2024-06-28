@@ -1,5 +1,7 @@
 # Metadata Enhanced Collection Oriented Music Player (MECOMP)
 
+<!-- markdownlint-disable MD033 -->
+
 [![wakatime](https://wakatime.com/badge/github/AnthonyMichaelTDM/mecomp.svg)](https://wakatime.com/badge/github/AnthonyMichaelTDM/mecomp)
 [![codecov](https://codecov.io/gh/AnthonyMichaelTDM/mecomp/graph/badge.svg?token=BJAZ081TOE)](https://codecov.io/gh/AnthonyMichaelTDM/mecomp)
 [![CI](https://github.com/AnthonyMichaelTDM/mecomp/actions/workflows/ci.yml/badge.svg)](https://github.com/AnthonyMichaelTDM/mecomp/actions/workflows/ci.yml)
@@ -11,7 +13,7 @@
 
 ## Introduction
 
-MECOMP is a local music player inspired by [festival](https://github.com/hinto-janai/festival) that it is designed to solve a very specific problem:
+MECOMP is a local music player that it is designed to solve a very specific problem:
 
 > I have a large collection of music, organizing my music by artist and album is not enough, I want to be able to organize my music by other criteria, such as genre, mood, etc.
 > Typically, I would have to create a playlist for each of these criteria, but that is tedious and time consuming.
@@ -21,6 +23,22 @@ MECOMP is a local music player inspired by [festival](https://github.com/hinto-j
 ## Installation
 
 MECOMP is not yet ready for general distribution, but if you want to try it out there are 2 ways to do so:
+
+<details>
+<summary>Aside: Linux Dependencies</summary>
+
+On linux, you will need to have the following packages installed:
+
+`libasound2-dev` `pkg-config` `wget` `libavutil-dev` `libavformat-dev`
+
+```sh
+# debian/ubuntu
+sudo apt-get install libasound2-dev pkg-config wget libavutil-dev libavformat-dev
+# Arch (btw)
+sudo pacman -S alsa-lib pkg-config wget ffmpeg
+```
+
+</details>
 
 ### Compiling from Source
 
@@ -47,12 +65,52 @@ You can find these by navigating to the [actions tab](https://github.com/Anthony
 
 The artifacts you'll want to download are dependent on your platform:
 
-- If you are on an x86_64 Windows machine, you'll want the artifacts with "-Windows-x86_64" in the name.
-- If you are on an arm based Windows machine, you'll want the artifacts with "-Windows-aarch64" in the name.
-- If you are on a newer arm based (Apple Silicon) Mac, you'll want the artifacts with "-macOs-aarch64" in the name.
-- If you are on an older x86_64 (intel) Mac, you'll want the artifacts with "-macOs-x86_64" in the name.
-- If you are on an x86_64 linux machine, you'll want the artifacts with "-Linux-x86_64" in the name.
-- Otherwise, you'll have to compile from source.
+<details>
+<summary>x86_64 Windows</summary>
+
+- `mecomp-cli-Windows-x86_64`
+- `mecomp-daemon-Windows-x86_64`
+- `mecomp-tui-Windows-x86_64`
+
+</details>
+
+<details>
+<summary>arm Windows</summary>
+
+- `mecomp-cli-Windows-aarch64`
+- `mecomp-daemon-Windows-aarch64`
+- `mecomp-tui-Windows-aarch64`
+
+</details>
+
+<details>
+<summary>arm (Apple Silicon) Mac</summary>
+
+- `mecomp-cli-macOs-aarch64`
+- `mecomp-daemon-macOs-aarch64`
+- `mecomp-tui-macOs-aarch64`
+
+</details>
+
+<details>
+<summary>x86_64 (intel) Mac</summary>
+
+- `mecomp-cli-macOs-x86_64`
+- `mecomp-daemon-macOs-x86_64`
+- `mecomp-tui-macOs-x86_64`
+
+</details>
+
+<details>
+<summary>x86_64 Linux</summary>
+
+- `mecomp-cli-Linux-x86_64`
+- `mecomp-daemon-Linux-x86_64`
+- `mecomp-tui-Linux-x86_64`
+
+</details>
+
+Other platforms are not currently supported, but you can try compiling the binaries from source.
 
 ### Releases
 
