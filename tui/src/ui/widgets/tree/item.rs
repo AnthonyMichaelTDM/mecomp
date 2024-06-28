@@ -21,17 +21,19 @@ use ratatui::text::Text;
 /// Just like every file in a file system can be uniquely identified with its file and directory names each [`CheckTreeItem`] in a [`CheckTree`](super::CheckTree) can be with these identifiers.
 /// As an example the following two identifiers describe the main file in a Rust cargo project: `vec!["src", "main.rs"]`.
 #[derive(Debug, Clone)]
+#[allow(clippy::module_name_repetitions)]
 pub struct CheckTreeItem<'text, Identifier> {
     pub(super) identifier: Identifier,
     pub(super) text: Text<'text>,
     pub(super) children: Vec<Self>,
 }
 
+#[allow(dead_code)]
 impl<'text, Identifier> CheckTreeItem<'text, Identifier>
 where
     Identifier: Clone + PartialEq + Eq + core::hash::Hash,
 {
-    /// Create a new `TreeItem` without children.
+    /// Create a new `CheckTreeItem` without children.
     #[must_use]
     pub fn new_leaf<T>(identifier: Identifier, text: T) -> Self
     where
@@ -44,7 +46,7 @@ where
         }
     }
 
-    /// Create a new `TreeItem` with children.
+    /// Create a new `CheckTreeItem` with children.
     ///
     /// # Errors
     ///
@@ -90,7 +92,7 @@ where
 
     /// Get a mutable reference to a child by index.
     ///
-    /// When you choose to change the `identifier` the [`TreeState`](crate::TreeState) might not work as expected afterwards.
+    /// When you choose to change the `identifier` the [`CheckTreeState`](super::CheckTreeState) might not work as expected afterwards.
     #[must_use]
     pub fn child_mut(&mut self, index: usize) -> Option<&mut Self> {
         self.children.get_mut(index)
@@ -101,7 +103,7 @@ where
         self.text.height()
     }
 
-    /// Add a child to the `TreeItem`.
+    /// Add a child to the `CheckTreeItem`.
     ///
     /// # Errors
     ///

@@ -7,8 +7,9 @@ use super::{
     item::CheckTreeItem,
 };
 
-/// Keeps the state of what is currently selected and what was opened in a [`CheckTree`](super::Tree)
+/// Keeps the state of what is currently selected and what was opened in a [`CheckTree`](super::CheckTree)
 #[derive(Debug, Default)]
+#[allow(clippy::module_name_repetitions)]
 pub struct CheckTreeState<Identifier> {
     pub(super) offset: usize,
     pub(super) opened: HashSet<Vec<Identifier>>,
@@ -24,6 +25,7 @@ pub struct CheckTreeState<Identifier> {
     pub(super) last_rendered_identifiers: Vec<(u16, Vec<Identifier>)>,
 }
 
+#[allow(dead_code)]
 impl<Identifier> CheckTreeState<Identifier>
 where
     Identifier: Clone + PartialEq + Eq + core::hash::Hash,
@@ -46,11 +48,11 @@ where
 
     /// Refers to the current checked items.
     #[must_use]
-    pub fn checked(&self) -> &HashSet<Vec<Identifier>> {
+    pub const fn checked(&self) -> &HashSet<Vec<Identifier>> {
         &self.checked
     }
 
-    /// Get a flat list of all currently viewable (including by scrolling) [`TreeItem`]s with this `TreeState`.
+    /// Get a flat list of all currently viewable (including by scrolling) [`CheckTreeItem`]s with this `CheckTreeState`.
     #[must_use]
     pub fn flatten<'text>(
         &self,
@@ -64,12 +66,6 @@ where
     /// Returns `true` when the selection changed.
     ///
     /// Clear the selection by passing an empty identifier vector:
-    ///
-    /// ```rust
-    /// # use tui_tree_widget::TreeState;
-    /// # let mut state = TreeState::<usize>::default();
-    /// state.select(Vec::new());
-    /// ```
     pub fn select(&mut self, identifier: Vec<Identifier>) -> bool {
         self.ensure_selected_in_view_on_next_render = true;
         let changed = self.selected != identifier;
@@ -262,7 +258,7 @@ where
         }
     }
 
-    /// Ensure the selected [`TreeItem`] is in view on next render
+    /// Ensure the selected [`CheckTreeItem`] is in view on next render
     pub fn scroll_selected_into_view(&mut self) {
         self.ensure_selected_in_view_on_next_render = true;
     }
@@ -280,7 +276,7 @@ where
     /// Scroll the specified amount of lines down
     ///
     /// Returns `true` when the scroll position changed.
-    /// Returns `false` when the scrolling has reached the last [`TreeItem`].
+    /// Returns `false` when the scrolling has reached the last [`CheckTreeItem`].
     pub fn scroll_down(&mut self, lines: usize) -> bool {
         let before = self.offset;
         self.offset = self

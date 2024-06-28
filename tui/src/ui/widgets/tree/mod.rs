@@ -18,9 +18,10 @@ use unicode_width::UnicodeWidthStr;
 /// The generic argument `Identifier` is used to keep the state like the currently selected or opened [`CheckTreeItem`]s in the [`CheckTreeState`].
 /// For more information see [`CheckTreeItem`].
 ///
-/// This differs from the tui_tree_widget crate's `Tree` in that it allows for checkboxes to be rendered next to each leaf item.
+/// This differs from the `tui_tree_widget` crate's `Tree` in that it allows for checkboxes to be rendered next to each leaf item.
 /// This is useful for creating a tree of items that can be selected.
 #[derive(Debug, Clone)]
+#[allow(clippy::module_name_repetitions)]
 pub struct CheckTree<'a, Identifier> {
     items: &'a [CheckTreeItem<'a, Identifier>],
 
@@ -46,6 +47,7 @@ pub struct CheckTree<'a, Identifier> {
     _identifier: std::marker::PhantomData<Identifier>,
 }
 
+#[allow(dead_code)]
 impl<'a, Identifier> CheckTree<'a, Identifier>
 where
     Identifier: Clone + PartialEq + Eq + core::hash::Hash,
@@ -165,7 +167,7 @@ impl<'a, Identifier: 'a + Clone + PartialEq + Eq + core::hash::Hash> StatefulWid
             return;
         }
 
-        let visible = state.flatten(&self.items);
+        let visible = state.flatten(self.items);
         state.last_biggest_index = visible.len().saturating_sub(1);
         if visible.is_empty() {
             return;

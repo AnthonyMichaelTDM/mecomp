@@ -148,90 +148,87 @@ impl ComponentRender<RenderProps> for SongView {
             Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
+        let border = Block::bordered()
+            .title_top("Song View")
+            .border_style(border_style);
+        frame.render_widget(&border, props.area);
         // draw borders and get area for the content (album and artists of song)
-        let area = if let Some(state) = &self.props {
-            let border = Block::bordered()
-                .title_top("Song View")
-                .border_style(border_style);
-            let area = border.inner(props.area);
-            frame.render_widget(border, props.area);
+        let area = self.props.as_ref().map_or_else(
+            || border.inner(props.area),
+            |state| {
+                let area = border.inner(props.area);
 
-            // split area to make room for song info
-            let [info_area, content_area] = *Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Length(3), Constraint::Min(4)])
-                .split(area)
-            else {
-                panic!("Failed to split song view area")
-            };
+                // split area to make room for song info
+                let [info_area, content_area] = *Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Length(3), Constraint::Min(4)])
+                    .split(area)
+                else {
+                    panic!("Failed to split song view area")
+                };
 
-            // render the song info
-            frame.render_widget(
-                Paragraph::new(vec![
-                    Line::from(vec![
-                        Span::styled(state.song.title.to_string(), Style::default().bold()),
-                        Span::raw(" "),
-                        Span::styled(
-                            state
-                                .song
-                                .artist
-                                .iter()
-                                .map(ToString::to_string)
-                                .collect::<Vec<String>>()
-                                .join(", "),
-                            Style::default().italic(),
-                        ),
-                    ]),
-                    Line::from(vec![
-                        Span::raw("Track/Disc: "),
-                        Span::styled(
-                            format!(
-                                "{}/{}",
-                                state.song.track.unwrap_or_default(),
-                                state.song.disc.unwrap_or_default()
+                // render the song info
+                frame.render_widget(
+                    Paragraph::new(vec![
+                        Line::from(vec![
+                            Span::styled(state.song.title.to_string(), Style::default().bold()),
+                            Span::raw(" "),
+                            Span::styled(
+                                state
+                                    .song
+                                    .artist
+                                    .iter()
+                                    .map(ToString::to_string)
+                                    .collect::<Vec<String>>()
+                                    .join(", "),
+                                Style::default().italic(),
                             ),
-                            Style::default().italic(),
-                        ),
-                        Span::raw("  Duration: "),
-                        Span::styled(
-                            format!(
-                                "{}:{:04.1}",
-                                state.song.runtime.as_secs() / 60,
-                                state.song.runtime.as_secs_f32() % 60.0,
+                        ]),
+                        Line::from(vec![
+                            Span::raw("Track/Disc: "),
+                            Span::styled(
+                                format!(
+                                    "{}/{}",
+                                    state.song.track.unwrap_or_default(),
+                                    state.song.disc.unwrap_or_default()
+                                ),
+                                Style::default().italic(),
                             ),
-                            Style::default().italic(),
-                        ),
-                        Span::raw("  Genre(s): "),
-                        Span::styled(
-                            state
-                                .song
-                                .genre
-                                .iter()
-                                .map(ToString::to_string)
-                                .collect::<Vec<String>>()
-                                .join(", "),
-                            Style::default().italic(),
-                        ),
-                    ]),
-                ])
-                .alignment(Alignment::Center),
-                info_area,
-            );
+                            Span::raw("  Duration: "),
+                            Span::styled(
+                                format!(
+                                    "{}:{:04.1}",
+                                    state.song.runtime.as_secs() / 60,
+                                    state.song.runtime.as_secs_f32() % 60.0,
+                                ),
+                                Style::default().italic(),
+                            ),
+                            Span::raw("  Genre(s): "),
+                            Span::styled(
+                                state
+                                    .song
+                                    .genre
+                                    .iter()
+                                    .map(ToString::to_string)
+                                    .collect::<Vec<String>>()
+                                    .join(", "),
+                                Style::default().italic(),
+                            ),
+                        ]),
+                    ])
+                    .alignment(Alignment::Center),
+                    info_area,
+                );
 
-            // draw an additional border around the content area to display additional instructions
-            let border = Block::new()
-                .borders(Borders::TOP)
-                .title_top("q: add to queue | r: start radio | p: add to playlist")
-                .border_style(border_style);
-            frame.render_widget(&border, content_area);
-            border.inner(content_area)
-        } else {
-            let border = Block::bordered()
-                .title_top("Song View")
-                .border_style(border_style);
-            frame.render_widget(&border, props.area);
-            border.inner(props.area)
-        };
+                // draw an additional border around the content area to display additional instructions
+                let border = Block::new()
+                    .borders(Borders::TOP)
+                    .title_top("q: add to queue | r: start radio | p: add to playlist")
+                    .border_style(border_style);
+                frame.render_widget(&border, content_area);
+                border.inner(content_area)
+            },
+        );
 
         RenderProps { area, ..props }
     }

@@ -89,8 +89,7 @@ pub mod checktree_utils {
         tree_state
             .selected()
             .iter()
-            .filter_map(|id| id.parse::<Thing>().ok())
-            .next()
+            .find_map(|id| id.parse::<Thing>().ok())
     }
 
     fn create_dummy_leaf() -> CheckTreeItem<'static, String> {

@@ -1,12 +1,12 @@
 /**
-This is a snippet from the tui_tree_widget crate, with modifications. The original source can be found at:
-https://github.com/EdJoPaTo/tui-rs-tree-widget/blob/b5fc5ca6938421bc83cf2e22e5c32846ac0a6413/src/flatten.rs
+This is a snippet from the `tui_tree_widget` crate, with modifications. The original source can be found at:
+<https://github.com/EdJoPaTo/tui-rs-tree-widget/blob/b5fc5ca6938421bc83cf2e22e5c32846ac0a6413/src/flatten.rs>
 
 the original source code is under the following license:
 
 MIT License
 
-Copyright (c) EdJoPaTo
+Copyright (c) `EdJoPaTo`
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

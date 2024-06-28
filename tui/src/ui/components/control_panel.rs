@@ -8,7 +8,7 @@ use mecomp_core::state::{SeekType, StateRuntime};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Style, Stylize},
-    text::Line,
+    text::{Line, Span},
     widgets::{Block, Borders, LineGauge},
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -172,7 +172,7 @@ impl ComponentRender<RenderProps> for ControlPanel {
     }
 
     fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
-        let [top, middle, bottom] = *Layout::default()
+        let [song_info_area, playback_info_area, instructions_area] = *Layout::default()
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Fill(1),
@@ -186,37 +186,27 @@ impl ComponentRender<RenderProps> for ControlPanel {
 
         // top (song title and artist)
         if let Some(song_title) = self.props.song_title.clone() {
-            let [song_title_area, _, song_artist_area] = *Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([
-                    Constraint::Percentage(50),
-                    Constraint::Length(3),
-                    Constraint::Percentage(50),
-                ])
-                .split(top)
-            else {
-                panic!("top layout must have 3 children");
-            };
             frame.render_widget(
-                Line::from(song_title)
-                    .style(Style::default().bold().fg(TEXT_HIGHLIGHT_ALT.into()))
-                    .alignment(Alignment::Right),
-                song_title_area,
+                Line::from(vec![
+                    Span::styled(
+                        song_title,
+                        Style::default().bold().fg(TEXT_HIGHLIGHT_ALT.into()),
+                    ),
+                    Span::raw("   "),
+                    Span::styled(
+                        self.props.song_artist.clone().unwrap_or_default(),
+                        Style::default().italic().fg(TEXT_NORMAL.into()),
+                    ),
+                ])
+                .centered(),
+                song_info_area,
             );
-            if let Some(song_artist) = self.props.song_artist.clone() {
-                frame.render_widget(
-                    Line::from(song_artist)
-                        .style(Style::default().italic().fg(TEXT_NORMAL.into()))
-                        .alignment(Alignment::Left),
-                    song_artist_area,
-                );
-            }
         } else {
             frame.render_widget(
                 Line::from("No Song Playing")
                     .style(Style::default().bold().fg(TEXT_NORMAL.into()))
                     .alignment(Alignment::Center),
-                top,
+                song_info_area,
             );
         }
 
@@ -228,7 +218,7 @@ impl ComponentRender<RenderProps> for ControlPanel {
                 Constraint::Max(300), // song progress
                 Constraint::Min(20),  // volume indicator
             ])
-            .split(middle)
+            .split(playback_info_area)
         else {
             panic!("middle layout must have 3 children");
         };
@@ -240,7 +230,7 @@ impl ComponentRender<RenderProps> for ControlPanel {
             } else {
                 "▶  "
             })
-            .style(Style::default().bold().fg(TEXT_NORMAL.into()))
+            .bold()
             .alignment(Alignment::Right),
             play_pause_area,
         );
@@ -248,21 +238,18 @@ impl ComponentRender<RenderProps> for ControlPanel {
         // song progress
         frame.render_widget(
             LineGauge::default()
-                .label(Line::styled(
-                    self.props.song_runtime.map_or_else(
-                        || String::from("0.0/0.0"),
-                        |runtime| {
-                            format!(
-                                "{}:{:04.1}/{}:{:04.1}",
-                                runtime.seek_position.as_secs() / 60,
-                                runtime.seek_position.as_secs_f32() % 60.0,
-                                runtime.duration.as_secs() / 60,
-                                runtime.duration.as_secs_f32() % 60.0
-                            )
-                        },
-                    ),
-                    Style::default().fg(TEXT_NORMAL.into()),
-                ))
+                .label(Line::from(self.props.song_runtime.map_or_else(
+                    || String::from("0.0/0.0"),
+                    |runtime| {
+                        format!(
+                            "{}:{:04.1}/{}:{:04.1}",
+                            runtime.seek_position.as_secs() / 60,
+                            runtime.seek_position.as_secs_f32() % 60.0,
+                            runtime.duration.as_secs() / 60,
+                            runtime.duration.as_secs_f32() % 60.0
+                        )
+                    },
+                )))
                 .filled_style(Style::default().fg(GAUGE_FILLED.into()).bold())
                 .unfilled_style(Style::default().fg(GAUGE_UNFILLED.into()).bold())
                 .ratio(self.props.song_runtime.map_or(0.0, |runtime| {
@@ -289,9 +276,9 @@ impl ComponentRender<RenderProps> for ControlPanel {
             Line::from(
                 "n/p: next/previous | \u{2423}: play/pause | m: mute | +/-: volume | ←/→: seek",
             )
-            .style(Style::default().italic().fg(TEXT_NORMAL.into()))
+            .italic()
             .alignment(Alignment::Center),
-            bottom,
+            instructions_area,
         );
     }
 }
