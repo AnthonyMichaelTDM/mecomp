@@ -9,6 +9,7 @@ use std::{
 use anyhow::Result;
 use lofty::{config::WriteOptions, file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
 use rand::{seq::IteratorRandom, Rng};
+#[cfg(feature = "db")]
 use surrealdb::{
     engine::local::{Db, Mem},
     sql::Id,
@@ -35,6 +36,7 @@ pub const ARTIST_NAME_SEPARATOR: &str = ", ";
 /// # Errors
 ///
 /// This function will return an error if the database cannot be initialized.
+#[cfg(feature = "db")]
 pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
     let db = Surreal::new::<Mem>(()).await?;
     db.use_ns("test").use_db("test").await?;
@@ -56,6 +58,7 @@ pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
 /// # Panics
 ///
 /// Panics if the song can't be read from the database after creation.
+#[cfg(feature = "db")]
 pub async fn create_song_with_overrides<C: Connection>(
     db: &Surreal<C>,
     SongCase {
