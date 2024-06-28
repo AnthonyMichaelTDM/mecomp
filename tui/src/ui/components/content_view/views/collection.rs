@@ -234,7 +234,7 @@ impl ComponentRender<RenderProps> for CollectionView {
                         if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
                             .is_empty()
                         {
-                            "entire artist"
+                            "entire collection"
                         } else {
                             "checked items"
                         },

@@ -259,7 +259,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
                         if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
                             .is_empty()
                         {
-                            "entire artist"
+                            "entire playlist"
                         } else {
                             "checked items"
                         },

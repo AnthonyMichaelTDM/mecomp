@@ -235,7 +235,7 @@ impl ComponentRender<RenderProps> for SongView {
                             if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
                                 .is_empty()
                             {
-                                "entire artist"
+                                "the song"
                             } else {
                                 "checked items"
                             },
