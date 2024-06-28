@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 #[cfg(not(feature = "db"))]
-use super::Thing;
+use super::{Id, Thing};
 use std::time::Duration;
 #[cfg(feature = "db")]
 use surrealdb::sql::{Id, Thing};
@@ -44,7 +44,6 @@ pub struct Collection {
 
 impl Collection {
     #[must_use]
-    #[cfg(feature = "db")]
     pub fn generate_id() -> CollectionId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }

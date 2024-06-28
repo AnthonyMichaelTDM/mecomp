@@ -75,6 +75,15 @@ impl std::fmt::Display for Thing {
     }
 }
 
+impl<S: Into<String>, I: Into<Id>> From<(S, I)> for Thing {
+    fn from((tb, id): (S, I)) -> Self {
+        Self {
+            tb: tb.into(),
+            id: id.into(),
+        }
+    }
+}
+
 impl FromStr for Thing {
     type Err = ();
 
@@ -122,6 +131,14 @@ impl FromStr for Thing {
 pub enum Id {
     Number(i64),
     String(String),
+}
+
+impl Id {
+    /// Generate a new `Id::String` variant from a `Ulid`.
+    #[must_use]
+    pub fn ulid() -> Self {
+        Self::String(ulid::Ulid::new().to_string())
+    }
 }
 
 impl std::fmt::Display for Id {

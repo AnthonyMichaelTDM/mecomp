@@ -2617,6 +2617,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "ulid",
 ]
 
 [[package]]
@@ -2632,6 +2633,7 @@ dependencies = [
  "one-or-many",
  "pretty_assertions",
  "ratatui",
+ "rstest",
  "tarpc",
  "tokio",
  "tokio-stream",

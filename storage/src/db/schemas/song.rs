@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 //--------------------------------------------------------------------------------- other libraries
 #[cfg(not(feature = "db"))]
-use super::Thing;
+use super::{Id, Thing};
 use lofty::{file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
 use std::time::Duration;
 #[cfg(feature = "db")]
@@ -87,7 +87,6 @@ pub struct Song {
 
 impl Song {
     #[must_use]
-    #[cfg(feature = "db")]
     pub fn generate_id() -> SongId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }

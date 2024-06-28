@@ -1,6 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
 #[cfg(not(feature = "db"))]
-use super::Thing;
+use super::{Id, Thing};
 use mecomp_analysis::clustering::{Elem, Sample};
 #[cfg(feature = "db")]
 use surrealdb::sql::{Id, Thing};
@@ -28,7 +28,6 @@ pub struct Analysis {
 
 impl Analysis {
     #[must_use]
-    #[cfg(feature = "db")]
     pub fn generate_id() -> AnalysisId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
