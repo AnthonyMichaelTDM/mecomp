@@ -18,6 +18,112 @@ MECOMP is a local music player inspired by [festival](https://github.com/hinto-j
 > I want to have automatically curated playlists of similar songs (analogous to genres), dynamically updated playlists of songs that match a certain criteria (basically filters), and be able to create queues of songs that are similar to the current song (think Pandora).
 > There are some services that let you do most of these, like Spotify, but I want to be able to do this with my *local* music collection and not have to rely on a third party service.
 
+## Installation
+
+MECOMP is not yet ready for general distribution, but if you want to try it out there are 2 ways to do so:
+
+### Compiling from Source
+
+MECOMP is written in rust, so you will need to have the rust toolchain installed, you can install it by running:
+
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+then clone the repository and compile the project, we provide an `x.sh` script that will compile the binaries for you:
+
+```sh
+git clone https://github.com/AnthonyMichaelTDM/mecomp.git
+cd mecomp
+./x.sh b
+```
+
+this will compile the project and place the binaries in the `target/release` directory.
+
+### Using CD Builds
+
+As part of the CI/CD pipeline, we provide pre-compiled binaries for the latest commits on the `main` branch.
+You can find these by navigating to the [actions tab](https://github.com/AnthonyMichaelTDM/mecomp/actions/workflows/cd.yml) and downloading the artifacts for the latest successful build.
+
+The artifacts you'll want to download are dependent on your platform:
+
+- If you are on an x86_64 Windows machine, you'll want the artifacts with "-Windows-x86_64" in the name.
+- If you are on an arm based Windows machine, you'll want the artifacts with "-Windows-aarch64" in the name.
+- If you are on a newer arm based (Apple Silicon) Mac, you'll want the artifacts with "-macOs-aarch64" in the name.
+- If you are on an older x86_64 (intel) Mac, you'll want the artifacts with "-macOs-x86_64" in the name.
+- If you are on an x86_64 linux machine, you'll want the artifacts with "-Linux-x86_64" in the name.
+- Otherwise, you'll have to compile from source.
+
+### Releases
+
+MECOMP is not yet ready for general distribution, but when it is, we will provide pre-compiled binaries for the latest releases on the [releases page](https://github.com/AnthonyMichaelTDM/mecomp/releases).
+
+## Usage
+
+> Note: the following commands assume the MECOMP binaries are either in your `PATH` or in the current directory.
+>
+> If you compiled the binaries from source, you can `cd` into the `target/release` directory and run the commands from there.
+
+MECOMP is composed of a daemon and several clients that communicate with the daemon, the daemon is the core of the application and handles all the backend logic and state-management necessary for the application to function, the clients are simply frontends to this server.
+
+Before you can use MECOMP, you will need to start the daemon, you can do this by running the daemon binary:
+
+```sh
+./mecomp-daemon
+```
+
+this will start the daemon, which will listen for RPC requests on `localhost:6600` by default (the same port that [MPD](https://www.musicpd.org/) uses).
+
+Once the daemon starts, it will create a configuration file in the "mecomp" directory in your user's configuration directory:
+
+- `C:\Users\username\AppData\Roaming\mecomp` on windows
+- `$HOME/Library/Application Support/mecomp` on mac
+- `$XDG_CONFIG_HOME/mecomp` on linux
+
+You can use this file to configure things such as the root directory of your music collection, the port the daemon listens on, etc.
+
+Once you have things configured to your liking, you'll have to restart the daemon for the changes to take effect.
+
+Then, you'll have to tell the daemon to start scanning and analysing your music collection, you can do this (in a separate terminal) by running:
+
+```sh
+# Tell the daemon to start scanning your music collection
+./mecomp-cli library rescan
+# before moving on, wait for the daemon to finish scanning your music collection
+# it will tell you in the logs when it's done, but you can also check the status by running
+./mecomp-cli status rescan
+
+# once the daemon has finished scanning your music collection, you can tell it to start analysing your music collection
+./mecomp-cli library analyse
+# again, wait for the daemon to finish analysing your music collection, it will tell you in the logs when it's done,
+# and you can check the status by running
+./mecomp-cli status analyse
+
+# once the daemon has finished analysing your music collection, you can tell it to start clustering your music collection
+./mecomp-cli library recluster
+# again, wait for the daemon to finish clustering your music collection, it will tell you in the logs when it's done,
+# and you can check the status by running
+./mecomp-cli status recluster
+```
+
+Each of these commands will take some time to complete.
+
+Once the daemon is up and running and has finished scanning, analysing, and clustering your music collection, you can use the clients to interact with the daemon, the current most "user-friendly" client is the TUI, you can start the TUI by running:
+
+```sh
+./mecomp-tui
+```
+
+this will start the TUI in your console, which will allow you to interact with the daemon.
+
+## Have a question or need help?
+
+If you have a question or need help, feel free ask in the [discussions](https://github.com/AnthonyMichaelTDM/mecomp/discussions) section of the repository.
+
+If you encounter a bug or have a feature request, please open an issue in the [issues](https://github.com/AnthonyMichaelTDM/mecomp/issues) section of the repository.
+
+Note about bugs: if you encounter a bug, please provide as much information as possible, including the steps to reproduce the bug, the expected behavior, the actual behavior, and any error messages you see, without this information it will be very difficult to diagnose and fix the bug.
+
 ## Features
 
 - [x] Scan music collection from a directory (and it's subdirectories)
@@ -79,6 +185,10 @@ MECOMP-GUI is a graphical user interface for MECOMP, it provides a more user fri
 
 ## Tracings
 
+> Note: this section is only relevant if you are a developer working on MECOMP.
+
+### OpenTelemetry
+
 MECOMP uses open-telemetry for tracing, and is designed to integrate with a jaeger instance for distributed tracing.
 
 this can be enabled by enabling the `otel_tracing` feature.
@@ -87,7 +197,7 @@ this can be enabled by enabling the `otel_tracing` feature.
 cargo run --features otel_tracing
 ```
 
-### Jaeger
+#### Jaeger
 
 to run a jaeger instance, you can use the official docker image, for convenience there is a script that will run a jaeger instance in a docker container:
 
