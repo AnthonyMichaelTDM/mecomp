@@ -2197,6 +2197,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2621,11 +2630,12 @@ dependencies = [
  "mecomp-storage",
  "mecomp-workspace-hack",
  "one-or-many",
+ "pretty_assertions",
  "ratatui",
  "tarpc",
  "tokio",
  "tokio-stream",
- "tui-tree-widget",
+ "unicode-width",
 ]
 
 [[package]]
@@ -3833,19 +3843,20 @@ dependencies = [
 
 [[package]]
 name = "ratatui"
-version = "0.26.3"
+version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f44c9e68fd46eda15c646fbb85e1040b657a58cdc8c98db1d97a55930d991eef"
+checksum = "d16546c5b5962abf8ce6e2881e722b4e0ae3b6f1a08a26ae3573c55853ca68d3"
 dependencies = [
  "bitflags 2.5.0",
  "cassowary",
  "compact_str",
  "crossterm",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "lru",
  "paste",
  "stability",
  "strum",
+ "strum_macros",
  "time",
  "unicode-segmentation",
  "unicode-truncate",
@@ -5743,16 +5754,6 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
-
-[[package]]
-name = "tui-tree-widget"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6201de8ad8d88cb6cac4cfe3436d9a1ea31c0732a7aec4c2cc3b23186ad7dcc"
-dependencies = [
- "ratatui",
- "unicode-width",
-]
 
 [[package]]
 name = "typenum"

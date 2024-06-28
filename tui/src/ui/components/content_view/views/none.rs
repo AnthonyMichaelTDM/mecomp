@@ -39,7 +39,7 @@ impl Component for NoneView {
 }
 
 impl ComponentRender<RenderProps> for NoneView {
-    fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
         let border_style = if props.is_focused {
             Style::default().fg(BORDER_FOCUSED.into())
         } else {
@@ -50,13 +50,17 @@ impl ComponentRender<RenderProps> for NoneView {
         let area = block.inner(props.area);
         frame.render_widget(block, props.area);
 
+        RenderProps { area, ..props }
+    }
+
+    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
         let text = "No active view";
 
         frame.render_widget(
             Line::from(text)
                 .style(Style::default().fg(TEXT_NORMAL.into()))
                 .alignment(Alignment::Center),
-            area,
+            props.area,
         );
     }
 }

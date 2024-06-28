@@ -5,7 +5,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::Span,
     widgets::Block,
@@ -177,6 +177,11 @@ impl Component for App {
             queuebar: self.queuebar.move_with_state(state),
             control_panel: self.control_panel.move_with_state(state),
             content_view: self.content_view.move_with_state(state),
+            popup: self.popup.map(|popup| {
+                let mut popup = popup;
+                popup.update_with_state(state);
+                popup
+            }),
             ..self
         }
     }
@@ -217,8 +222,8 @@ impl Component for App {
     }
 }
 
-impl ComponentRender<()> for App {
-    fn render(&self, frame: &mut Frame, _props: ()) {
+impl ComponentRender<Rect> for App {
+    fn render_border(&self, frame: &mut Frame, area: Rect) -> Rect {
         let block = Block::bordered()
             .title_top(Span::styled(
                 "MECOMP",
@@ -230,9 +235,12 @@ impl ComponentRender<()> for App {
             ))
             .border_style(Style::default().fg(APP_BORDER.into()))
             .style(Style::default().fg(TEXT_NORMAL.into()));
-        let area = block.inner(frame.size());
-        frame.render_widget(block, frame.size());
+        let app_area = block.inner(area);
+        frame.render_widget(block, area);
+        app_area
+    }
 
+    fn render_content(&self, frame: &mut Frame, area: Rect) {
         let [main_views_area, control_panel_area] = *Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Min(10), Constraint::Length(4)].as_ref())

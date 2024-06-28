@@ -6,27 +6,30 @@ use crossterm::event::{KeyCode, KeyEvent};
 use mecomp_storage::db::schemas::song::Song;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Modifier, Style, Stylize},
+    style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
-use tui_tree_widget::{Tree, TreeState};
 
 use crate::{
     state::action::{Action, AudioAction, PopupAction, QueueAction},
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
+        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
-        widgets::popups::PopupType,
+        widgets::{
+            popups::PopupType,
+            tree::{state::CheckTreeState, CheckTree},
+        },
         AppState,
     },
 };
 
 use super::{
-    none::NoneView,
-    utils::{
-        create_album_tree_leaf, create_artist_tree_item, create_song_tree_leaf,
+    checktree_utils::{
+        construct_add_to_playlist_action, construct_add_to_queue_action,
+        construct_start_radio_action, create_album_tree_leaf, create_artist_tree_item,
+        create_song_tree_leaf, get_checked_things_from_tree_state,
         get_selected_things_from_tree_state,
     },
     SongViewProps, RADIO_SIZE,
@@ -39,7 +42,7 @@ pub struct SongView {
     /// Mapped Props from state
     pub props: Option<SongViewProps>,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
 }
 
 impl Component for SongView {
@@ -50,7 +53,7 @@ impl Component for SongView {
         Self {
             action_tx,
             props: state.additional_view_data.song.clone(),
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
         }
     }
 
@@ -87,50 +90,47 @@ impl Component for SongView {
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
             }
+            KeyCode::Char(' ') => {
+                self.tree_state.lock().unwrap().key_space();
+            }
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
                     let things =
                         get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
 
-                    if !things.is_empty() {
-                        debug_assert!(things.len() == 1);
-                        let thing = things[0].clone();
+                    if let Some(thing) = things {
                         self.action_tx
                             .send(Action::SetCurrentView(thing.into()))
                             .unwrap();
                     }
                 }
             }
-            // Add song to queue
+            // if there are checked items, add them to the queue, otherwise send the song to the queue
             KeyCode::Char('q') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
-                            props.id.clone(),
-                        ]))))
-                        .unwrap();
+                if let Some(action) = construct_add_to_queue_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
-            // Start radio from song
+            // if there are checked items, start radio from checked items, otherwise start radio from song
             KeyCode::Char('r') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::SetCurrentView(ActiveView::Radio(
-                            vec![props.id.clone()],
-                            RADIO_SIZE,
-                        )))
-                        .unwrap();
+                if let Some(action) = construct_start_radio_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
-            // Add song to playlist
+            // if there are checked items, add them to playlist, otherwise add the song to playlist
             KeyCode::Char('p') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
-                            props.id.clone(),
-                        ]))))
-                        .unwrap();
+                if let Some(action) = construct_add_to_playlist_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
             _ => {}
@@ -139,111 +139,143 @@ impl Component for SongView {
 }
 
 impl ComponentRender<RenderProps> for SongView {
-    #[allow(clippy::too_many_lines)]
-    fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
         let border_style = if props.is_focused {
             Style::default().fg(BORDER_FOCUSED.into())
         } else {
             Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
-        if let Some(state) = &self.props {
-            let block = Block::bordered()
-                .title_top("Song View")
-                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate")
-                .border_style(border_style);
-            let block_area = block.inner(props.area);
-            frame.render_widget(block, props.area);
+        let border = Block::bordered()
+            .title_top("Song View")
+            .border_style(border_style);
+        frame.render_widget(&border, props.area);
+        // draw borders and get area for the content (album and artists of song)
+        let area = self.props.as_ref().map_or_else(
+            || border.inner(props.area),
+            |state| {
+                let area = border.inner(props.area);
 
-            // create list to hold song album and artists
+                // split area to make room for song info
+                let [info_area, content_area] = *Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Length(3), Constraint::Min(4)])
+                    .split(area)
+                else {
+                    panic!("Failed to split song view area")
+                };
+
+                // render the song info
+                frame.render_widget(
+                    Paragraph::new(vec![
+                        Line::from(vec![
+                            Span::styled(state.song.title.to_string(), Style::default().bold()),
+                            Span::raw(" "),
+                            Span::styled(
+                                state
+                                    .song
+                                    .artist
+                                    .iter()
+                                    .map(ToString::to_string)
+                                    .collect::<Vec<String>>()
+                                    .join(", "),
+                                Style::default().italic(),
+                            ),
+                        ]),
+                        Line::from(vec![
+                            Span::raw("Track/Disc: "),
+                            Span::styled(
+                                format!(
+                                    "{}/{}",
+                                    state.song.track.unwrap_or_default(),
+                                    state.song.disc.unwrap_or_default()
+                                ),
+                                Style::default().italic(),
+                            ),
+                            Span::raw("  Duration: "),
+                            Span::styled(
+                                format!(
+                                    "{}:{:04.1}",
+                                    state.song.runtime.as_secs() / 60,
+                                    state.song.runtime.as_secs_f32() % 60.0,
+                                ),
+                                Style::default().italic(),
+                            ),
+                            Span::raw("  Genre(s): "),
+                            Span::styled(
+                                state
+                                    .song
+                                    .genre
+                                    .iter()
+                                    .map(ToString::to_string)
+                                    .collect::<Vec<String>>()
+                                    .join(", "),
+                                Style::default().italic(),
+                            ),
+                        ]),
+                    ])
+                    .alignment(Alignment::Center),
+                    info_area,
+                );
+
+                // draw an additional border around the content area to display additional instructions
+                let border = Block::new()
+                    .borders(Borders::TOP)
+                    .title_top("q: add to queue | r: start radio | p: add to playlist")
+                    .border_style(border_style);
+                frame.render_widget(&border, content_area);
+                let content_area = border.inner(content_area);
+
+                // draw an additional border around the content area to indicate whether operations will be performed on the entire item, or just the checked items
+                let border = Block::default()
+                    .borders(Borders::TOP)
+                    .title_top(Line::from(vec![
+                        Span::raw("Performing operations on "),
+                        Span::raw(
+                            if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
+                                .is_empty()
+                            {
+                                "entire artist"
+                            } else {
+                                "checked items"
+                            },
+                        )
+                        .fg(TEXT_HIGHLIGHT),
+                    ]))
+                    .italic()
+                    .border_style(border_style);
+                frame.render_widget(&border, content_area);
+                border.inner(content_area)
+            },
+        );
+
+        RenderProps { area, ..props }
+    }
+
+    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+        if let Some(state) = &self.props {
+            // create a tree to hold song album and artists
             let album_tree = create_album_tree_leaf(&state.album, Some(Span::raw("Album: ")));
             let artist_tree = create_artist_tree_item(state.artists.as_slice()).unwrap();
             let items = &[artist_tree, album_tree];
 
-            let [top, bottom] = *Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Length(3), Constraint::Min(4)])
-                .split(block_area)
-            else {
-                panic!("Failed to split song view area")
-            };
-
-            // render the song info
-            frame.render_widget(
-                Paragraph::new(vec![
-                    Line::from(vec![
-                        Span::styled(state.song.title.to_string(), Style::default().bold()),
-                        Span::raw(" "),
-                        Span::styled(
-                            state
-                                .song
-                                .artist
-                                .iter()
-                                .map(ToString::to_string)
-                                .collect::<Vec<String>>()
-                                .join(", "),
-                            Style::default().italic(),
-                        ),
-                    ]),
-                    Line::from(vec![
-                        Span::raw("Track/Disc: "),
-                        Span::styled(
-                            format!(
-                                "{}/{}",
-                                state.song.track.unwrap_or_default(),
-                                state.song.disc.unwrap_or_default()
-                            ),
-                            Style::default().italic(),
-                        ),
-                        Span::raw("  Duration: "),
-                        Span::styled(
-                            format!(
-                                "{}:{:04.1}",
-                                state.song.runtime.as_secs() / 60,
-                                state.song.runtime.as_secs_f32() % 60.0,
-                            ),
-                            Style::default().italic(),
-                        ),
-                        Span::raw("  Genre(s): "),
-                        Span::styled(
-                            state
-                                .song
-                                .genre
-                                .iter()
-                                .map(ToString::to_string)
-                                .collect::<Vec<String>>()
-                                .join(", "),
-                            Style::default().italic(),
-                        ),
-                    ]),
-                ])
-                .block(
-                    Block::new()
-                        .borders(Borders::BOTTOM)
-                        .title_bottom("q: add to queue | r: start radio | p: add to playlist")
-                        .border_style(border_style),
-                )
-                .alignment(Alignment::Center),
-                top,
-            );
-
-            // render the song artists / album
+            // render the song artists / album tree
             frame.render_stateful_widget(
-                Tree::new(items)
+                CheckTree::new(items)
                     .unwrap()
-                    .highlight_style(
-                        Style::default()
-                            .fg(TEXT_HIGHLIGHT.into())
-                            .add_modifier(Modifier::BOLD),
-                    )
-                    .node_closed_symbol("▸")
-                    .node_open_symbol("▾")
-                    .node_no_children_symbol("▪"),
-                bottom,
+                    .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold()),
+                props.area,
                 &mut self.tree_state.lock().unwrap(),
             );
         } else {
-            NoneView.render(frame, props);
+            let text = "No active song";
+
+            frame.render_widget(
+                Line::from(text)
+                    .style(Style::default().fg(TEXT_NORMAL.into()))
+                    .alignment(Alignment::Center),
+                props.area,
+            );
         }
     }
 }
@@ -254,7 +286,7 @@ pub struct LibrarySongsView {
     /// Mapped Props from state
     props: Props,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
 }
 
 struct Props {
@@ -344,7 +376,7 @@ impl Component for LibrarySongsView {
         Self {
             action_tx,
             props: Props { songs, sort_mode },
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
         }
     }
 
@@ -393,19 +425,51 @@ impl Component for LibrarySongsView {
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
             }
+            KeyCode::Char(' ') => {
+                self.tree_state.lock().unwrap().key_space();
+            }
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
                     let things =
                         get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
 
-                    if !things.is_empty() {
-                        debug_assert!(things.len() == 1);
-                        let thing = things[0].clone();
+                    if let Some(thing) = things {
                         self.action_tx
                             .send(Action::SetCurrentView(thing.into()))
                             .unwrap();
                     }
+                }
+            }
+            // when there are checked items, "q" will send the checked items to the queue
+            KeyCode::Char('q') => {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
+                        .unwrap();
+                }
+            }
+            // when there are checked items, "r" will start a radio with the checked items
+            KeyCode::Char('r') => {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::SetCurrentView(ActiveView::Radio(
+                            things, RADIO_SIZE,
+                        )))
+                        .unwrap();
+                }
+            }
+            // when there are checked items, "p" will send the checked items to the playlist
+            KeyCode::Char('p') => {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
+                            things,
+                        ))))
+                        .unwrap();
                 }
             }
             // Change sort mode
@@ -423,32 +487,48 @@ impl Component for LibrarySongsView {
 }
 
 impl ComponentRender<RenderProps> for LibrarySongsView {
-    fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
         let border_style = if props.is_focused {
             Style::default().fg(BORDER_FOCUSED.into())
         } else {
             Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
-        let block = Block::bordered()
+        // draw primary border
+        let border = Block::bordered()
             .title_top(Line::from(vec![
                 Span::styled("Library Songs".to_string(), Style::default().bold()),
                 Span::raw(" sorted by: "),
                 Span::styled(self.props.sort_mode.to_string(), Style::default().italic()),
             ]))
-            .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | s/S: change sort")
+            .title_bottom(" \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check")
             .border_style(border_style);
-        let block_area = block.inner(props.area);
-        frame.render_widget(block, props.area);
+        let content_area = border.inner(props.area);
+        frame.render_widget(border, props.area);
 
-        let [top, bottom] = *Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(1), Constraint::Min(4)])
-            .split(block_area)
-        else {
-            panic!("Failed to split library songs view area");
-        };
+        // draw an additional border around the content area to display additional instructions
+        let border = Block::new()
+            .borders(Borders::TOP | Borders::BOTTOM)
+            .title_top(
+                if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()).is_empty() {
+                    ""
+                } else {
+                    "q: add to queue | r: start radio | p: add to playlist "
+                },
+            )
+            .title_bottom("s/S: change sort")
+            .border_style(border_style);
+        frame.render_widget(&border, content_area);
+        let content_area = border.inner(content_area);
 
+        RenderProps {
+            area: content_area,
+            is_focused: props.is_focused,
+        }
+    }
+
+    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+        // create a tree to hold the songs
         let items = self
             .props
             .songs
@@ -456,26 +536,13 @@ impl ComponentRender<RenderProps> for LibrarySongsView {
             .map(|song| create_song_tree_leaf(song))
             .collect::<Vec<_>>();
 
-        frame.render_widget(
-            Block::new()
-                .borders(Borders::BOTTOM)
-                .border_style(border_style),
-            top,
-        );
-
+        // render the tree
         frame.render_stateful_widget(
-            Tree::new(&items)
+            CheckTree::new(&items)
                 .unwrap()
-                .highlight_style(
-                    Style::default()
-                        .fg(TEXT_HIGHLIGHT.into())
-                        .add_modifier(Modifier::BOLD),
-                )
-                .node_closed_symbol("▸")
-                .node_open_symbol("▾")
-                .node_no_children_symbol("▪")
+                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
-            bottom,
+            props.area,
             &mut self.tree_state.lock().unwrap(),
         );
     }

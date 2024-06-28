@@ -13,6 +13,7 @@ use tarpc::{
 };
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
+    audio::AudioKernelSender,
     logger::{init_logger, init_tracing},
     rpc::MusicPlayer as _,
 };
@@ -70,6 +71,9 @@ pub async fn start_daemon(settings: Settings, db_dir: std::path::PathBuf) -> any
         settings.daemon.genre_separator.clone(),
     )?;
 
+    // Start the audio kernel.
+    let audio_kernel = AudioKernelSender::start();
+
     // Start the RPC server.
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.daemon.rpc_port);
 
@@ -90,6 +94,7 @@ pub async fn start_daemon(settings: Settings, db_dir: std::path::PathBuf) -> any
                 channel.transport().peer_addr().unwrap(),
                 db.clone(),
                 settings.clone(),
+                audio_kernel.clone(),
             );
             channel.execute(server.serve()).for_each(spawn)
         })

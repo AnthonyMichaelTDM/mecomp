@@ -7,27 +7,30 @@ use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::artist::Artist;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Modifier, Style, Stylize},
+    style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
-use tui_tree_widget::{Tree, TreeState};
 
 use crate::{
     state::action::{Action, AudioAction, PopupAction, QueueAction},
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
+        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
-        widgets::popups::PopupType,
+        widgets::{
+            popups::PopupType,
+            tree::{state::CheckTreeState, CheckTree},
+        },
         AppState,
     },
 };
 
 use super::{
-    none::NoneView,
-    utils::{
-        create_album_tree_item, create_artist_tree_leaf, create_song_tree_item,
+    checktree_utils::{
+        construct_add_to_playlist_action, construct_add_to_queue_action,
+        construct_start_radio_action, create_album_tree_item, create_artist_tree_leaf,
+        create_song_tree_item, get_checked_things_from_tree_state,
         get_selected_things_from_tree_state,
     },
     ArtistViewProps, RADIO_SIZE,
@@ -40,7 +43,7 @@ pub struct ArtistView {
     /// Mapped Props from state
     pub props: Option<ArtistViewProps>,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
 }
 
 impl Component for ArtistView {
@@ -51,7 +54,7 @@ impl Component for ArtistView {
         Self {
             action_tx,
             props: state.additional_view_data.artist.clone(),
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
         }
     }
 
@@ -88,50 +91,47 @@ impl Component for ArtistView {
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
             }
+            KeyCode::Char(' ') => {
+                self.tree_state.lock().unwrap().key_space();
+            }
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
                     let things =
                         get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
 
-                    if !things.is_empty() {
-                        debug_assert!(things.len() == 1);
-                        let thing = things[0].clone();
+                    if let Some(thing) = things {
                         self.action_tx
                             .send(Action::SetCurrentView(thing.into()))
                             .unwrap();
                     }
                 }
             }
-            // Add artist to queue
+            // if there are checked items, add them to the queue, otherwise send the whole artist to the queue
             KeyCode::Char('q') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
-                            props.id.clone(),
-                        ]))))
-                        .unwrap();
+                if let Some(action) = construct_add_to_queue_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
-            // Start radio from artist
+            // if there are checked items, start radio from checked items, otherwise start radio from artist
             KeyCode::Char('r') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::SetCurrentView(ActiveView::Radio(
-                            vec![props.id.clone()],
-                            RADIO_SIZE,
-                        )))
-                        .unwrap();
+                if let Some(action) = construct_start_radio_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
-            // add artist to playlist
+            // if there are checked items, add them to playlist, otherwise add the whole artist to playlist
             KeyCode::Char('p') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
-                            props.id.clone(),
-                        ]))))
-                        .unwrap();
+                if let Some(action) = construct_add_to_playlist_action(
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    self.props.as_ref().map(|p| &p.id),
+                ) {
+                    self.action_tx.send(action).unwrap();
                 }
             }
             _ => {}
@@ -140,31 +140,27 @@ impl Component for ArtistView {
 }
 
 impl ComponentRender<RenderProps> for ArtistView {
-    #[allow(clippy::too_many_lines)]
-    fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
         let border_style = if props.is_focused {
             Style::default().fg(BORDER_FOCUSED.into())
         } else {
             Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
-        if let Some(state) = &self.props {
-            let block = Block::bordered()
+        // draw borders and get content area
+        let area = if let Some(state) = &self.props {
+            let border = Block::bordered()
                 .title_top("Artist View")
-                .title_bottom("Enter: Open | ←/↑/↓/→: Navigate")
+                .title_bottom(" \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check")
                 .border_style(border_style);
-            let block_area = block.inner(props.area);
-            frame.render_widget(block, props.area);
+            let content_area = border.inner(props.area);
+            frame.render_widget(border, props.area);
 
-            // create list to hold artist albums and songs
-            let album_tree = create_album_tree_item(&state.albums).unwrap();
-            let song_tree = create_song_tree_item(&state.songs).unwrap();
-            let items = &[album_tree, song_tree];
-
-            let [top, bottom] = *Layout::default()
+            // split the area to make room for the artist info
+            let [info_area, content_area] = *Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([Constraint::Length(3), Constraint::Min(4)])
-                .split(block_area)
+                .split(content_area)
             else {
                 panic!("Failed to split artist view area")
             };
@@ -194,33 +190,73 @@ impl ComponentRender<RenderProps> for ArtistView {
                         ),
                     ]),
                 ])
-                .block(
-                    Block::new()
-                        .borders(Borders::BOTTOM)
-                        .title_bottom("q: add to queue | r: start radio | p: add to playlist")
-                        .border_style(border_style),
-                )
                 .alignment(Alignment::Center),
-                top,
+                info_area,
             );
+
+            // draw an additional border around the content area to display additional instructions
+            let border = Block::default()
+                .borders(Borders::TOP)
+                .title_top("q: add to queue | r: start radio | p: add to playlist")
+                .border_style(border_style);
+            frame.render_widget(&border, content_area);
+            let content_area = border.inner(content_area);
+
+            // draw an additional border around the content area to indicate whether operations will be performed on the entire item, or just the checked items
+            let border = Block::default()
+                .borders(Borders::TOP)
+                .title_top(Line::from(vec![
+                    Span::raw("Performing operations on "),
+                    Span::raw(
+                        if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
+                            .is_empty()
+                        {
+                            "entire artist"
+                        } else {
+                            "checked items"
+                        },
+                    )
+                    .fg(TEXT_HIGHLIGHT),
+                ]))
+                .italic()
+                .border_style(border_style);
+            frame.render_widget(&border, content_area);
+            border.inner(content_area)
+        } else {
+            let border = Block::bordered()
+                .title_top("Artist View")
+                .border_style(border_style);
+            frame.render_widget(&border, props.area);
+            border.inner(props.area)
+        };
+
+        RenderProps { area, ..props }
+    }
+
+    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+        if let Some(state) = &self.props {
+            // create list to hold artist albums and songs
+            let album_tree = create_album_tree_item(&state.albums).unwrap();
+            let song_tree = create_song_tree_item(&state.songs).unwrap();
+            let items = &[album_tree, song_tree];
 
             // render the artist artists / album
             frame.render_stateful_widget(
-                Tree::new(items)
+                CheckTree::new(items)
                     .unwrap()
-                    .highlight_style(
-                        Style::default()
-                            .fg(TEXT_HIGHLIGHT.into())
-                            .add_modifier(Modifier::BOLD),
-                    )
-                    .node_closed_symbol("▸")
-                    .node_open_symbol("▾")
-                    .node_no_children_symbol("▪"),
-                bottom,
+                    .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold()),
+                props.area,
                 &mut self.tree_state.lock().unwrap(),
             );
         } else {
-            NoneView.render(frame, props);
+            let text = "No active artist";
+
+            frame.render_widget(
+                Line::from(text)
+                    .style(Style::default().fg(TEXT_NORMAL.into()))
+                    .alignment(Alignment::Center),
+                props.area,
+            );
         }
     }
 }
@@ -231,7 +267,7 @@ pub struct LibraryArtistsView {
     /// Mapped Props from state
     props: Props,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
 }
 
 struct Props {
@@ -291,7 +327,7 @@ impl Component for LibraryArtistsView {
         Self {
             action_tx,
             props: Props { artists, sort_mode },
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
         }
     }
 
@@ -340,19 +376,51 @@ impl Component for LibraryArtistsView {
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
             }
+            KeyCode::Char(' ') => {
+                self.tree_state.lock().unwrap().key_space();
+            }
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
                     let things =
                         get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
 
-                    if !things.is_empty() {
-                        debug_assert!(things.len() == 1);
-                        let thing = things[0].clone();
+                    if let Some(thing) = things {
                         self.action_tx
                             .send(Action::SetCurrentView(thing.into()))
                             .unwrap();
                     }
+                }
+            }
+            // when there are checked items, "q" will send the checked items to the queue
+            KeyCode::Char('q') => {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
+                        .unwrap();
+                }
+            }
+            // when there are checked items, "r" will start a radio with the checked items
+            KeyCode::Char('r') => {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::SetCurrentView(ActiveView::Radio(
+                            things, RADIO_SIZE,
+                        )))
+                        .unwrap();
+                }
+            }
+            // when there are checked items, "p" will send the checked items to the playlist
+            KeyCode::Char('p') => {
+                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if !things.is_empty() {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
+                            things,
+                        ))))
+                        .unwrap();
                 }
             }
             // Change sort mode
@@ -370,32 +438,45 @@ impl Component for LibraryArtistsView {
 }
 
 impl ComponentRender<RenderProps> for LibraryArtistsView {
-    fn render(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
         let border_style = if props.is_focused {
             Style::default().fg(BORDER_FOCUSED.into())
         } else {
             Style::default().fg(BORDER_UNFOCUSED.into())
         };
 
-        let block = Block::bordered()
+        // draw primary border
+        let border = Block::bordered()
             .title_top(Line::from(vec![
                 Span::styled("Library Artists".to_string(), Style::default().bold()),
                 Span::raw(" sorted by: "),
                 Span::styled(self.props.sort_mode.to_string(), Style::default().italic()),
             ]))
-            .title_bottom("Enter: Open | ←/↑/↓/→: Navigate | s/S: change sort")
+            .title_bottom(" \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check")
             .border_style(border_style);
-        let block_area = block.inner(props.area);
-        frame.render_widget(block, props.area);
+        let content_area = border.inner(props.area);
+        frame.render_widget(border, props.area);
 
-        let [top, bottom] = *Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(1), Constraint::Min(4)])
-            .split(block_area)
-        else {
-            panic!("Failed to split library artists view area");
-        };
+        // draw an additional border around the content area to display additional instructions
+        let border = Block::default()
+            .borders(Borders::TOP | Borders::BOTTOM)
+            .title_top(
+                if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()).is_empty() {
+                    ""
+                } else {
+                    "q: add to queue | r: start radio | p: add to playlist "
+                },
+            )
+            .title_bottom("s/S: change sort")
+            .border_style(border_style);
+        let area = border.inner(content_area);
+        frame.render_widget(border, content_area);
 
+        RenderProps { area, ..props }
+    }
+
+    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+        // create a tree for the artists
         let items = self
             .props
             .artists
@@ -403,26 +484,13 @@ impl ComponentRender<RenderProps> for LibraryArtistsView {
             .map(|artist| create_artist_tree_leaf(artist))
             .collect::<Vec<_>>();
 
-        frame.render_widget(
-            Block::new()
-                .borders(Borders::BOTTOM)
-                .border_style(border_style),
-            top,
-        );
-
+        // render the artists
         frame.render_stateful_widget(
-            Tree::new(&items)
+            CheckTree::new(&items)
                 .unwrap()
-                .highlight_style(
-                    Style::default()
-                        .fg(TEXT_HIGHLIGHT.into())
-                        .add_modifier(Modifier::BOLD),
-                )
-                .node_closed_symbol("▸")
-                .node_open_symbol("▾")
-                .node_no_children_symbol("▪")
+                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
-            bottom,
+            props.area,
             &mut self.tree_state.lock().unwrap(),
         );
     }

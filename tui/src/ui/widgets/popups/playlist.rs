@@ -12,24 +12,33 @@ use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use mecomp_storage::db::schemas::Thing;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::text::Line;
-use ratatui::widgets::{Block, Scrollbar, ScrollbarOrientation};
-use ratatui::Frame;
-use tokio::sync::mpsc::UnboundedSender;
-use tui_tree_widget::{Tree, TreeState};
-
-use crate::state::action::{Action, LibraryAction, PopupAction};
-use crate::ui::colors::{BORDER_FOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT};
-use crate::ui::components::content_view::views::playlist::Props;
-use crate::ui::components::content_view::views::utils::{
-    create_playlist_tree_leaf, get_selected_things_from_tree_state,
+use ratatui::{
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Style, Stylize},
+    text::Line,
+    widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
+    Frame,
 };
-use crate::ui::components::Component;
-use crate::ui::components::ComponentRender;
-use crate::ui::widgets::input_box::{InputBox, RenderProps};
-use crate::ui::AppState;
+use tokio::sync::mpsc::UnboundedSender;
+
+use crate::{
+    state::action::{Action, LibraryAction, PopupAction},
+    ui::{
+        colors::{BORDER_FOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT},
+        components::{
+            content_view::views::{
+                checktree_utils::{create_playlist_tree_leaf, get_selected_things_from_tree_state},
+                playlist::Props,
+            },
+            Component, ComponentRender,
+        },
+        widgets::{
+            input_box::{InputBox, RenderProps},
+            tree::{state::CheckTreeState, CheckTree},
+        },
+        AppState,
+    },
+};
 
 use super::Popup;
 
@@ -45,7 +54,7 @@ pub struct PlaylistSelector {
     /// Mapped Props from state
     props: Props,
     /// tree state
-    tree_state: Mutex<TreeState<String>>,
+    tree_state: Mutex<CheckTreeState<String>>,
     /// Playlist Name Input Box
     input_box: InputBox,
     /// Is the input box visible
@@ -61,7 +70,7 @@ impl PlaylistSelector {
             input_box_visible: false,
             action_tx,
             props: Props::from(state),
-            tree_state: Mutex::new(TreeState::default()),
+            tree_state: Mutex::new(CheckTreeState::default()),
             items,
         }
     }
@@ -74,10 +83,14 @@ impl Popup for PlaylistSelector {
 
     fn instructions(&self) -> ratatui::prelude::Line {
         Line::from(if self.input_box_visible {
-            "Enter: Create (cancel if empty)"
+            ""
         } else {
-            "Enter: Select | ↑/↓: Navigate | n: new playlist"
+            "  \u{23CE} : Select | ↑/↓: Up/Down"
         })
+    }
+
+    fn update_with_state(&mut self, state: &AppState) {
+        self.props = Props::from(state);
     }
 
     fn area(&self, terminal_area: Rect) -> Rect {
@@ -176,9 +189,7 @@ impl Popup for PlaylistSelector {
                         let things =
                             get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
 
-                        if !things.is_empty() {
-                            debug_assert!(things.len() == 1);
-                            let thing = things[0].clone();
+                        if let Some(thing) = things {
                             // add the items to the selected playlist
                             self.action_tx
                                 .send(Action::Library(LibraryAction::AddThingsToPlaylist(
@@ -200,31 +211,24 @@ impl Popup for PlaylistSelector {
 }
 
 impl ComponentRender<Rect> for PlaylistSelector {
-    fn render(&self, frame: &mut Frame, area: Rect) {
-        let [top, bottom] = *Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(if self.input_box_visible { 3 } else { 0 }),
-                Constraint::Min(4),
-            ])
-            .split(area)
-        else {
-            panic!("Failed to split library playlists view area");
-        };
+    fn render_border(&self, frame: &mut ratatui::Frame, area: Rect) -> Rect {
+        let area = self.render_popup_border(frame, area);
 
-        let playlists = self
-            .props
-            .playlists
-            .iter()
-            .map(create_playlist_tree_leaf)
-            .collect::<Vec<_>>();
+        let content_area = if self.input_box_visible {
+            // split content area to make room for the input box
+            let [input_box_area, content_area] = *Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(3), Constraint::Min(4)])
+                .split(area)
+            else {
+                panic!("Failed to split library playlists view area");
+            };
 
-        // render input box
-        if self.input_box_visible {
+            // render input box
             self.input_box.render(
                 frame,
                 RenderProps {
-                    area: top,
+                    area: input_box_area,
                     text_color: TEXT_HIGHLIGHT_ALT.into(),
                     border: Block::bordered()
                         .title("Enter Name:")
@@ -232,18 +236,44 @@ impl ComponentRender<Rect> for PlaylistSelector {
                     show_cursor: self.input_box_visible,
                 },
             );
-        }
 
-        // render playlist list
+            content_area
+        } else {
+            area
+        };
+
+        // draw additional border around content area to display additional instructions
+        let border = Block::new()
+            .borders(Borders::TOP)
+            .title_top(if self.input_box_visible {
+                "  \u{23CE} : Create (cancel if empty)"
+            } else {
+                "n: new playlist"
+            })
+            .border_style(Style::default().fg(self.border_color()));
+        frame.render_widget(&border, content_area);
+        border.inner(content_area)
+    }
+
+    fn render_content(&self, frame: &mut Frame, area: Rect) {
+        // create a tree for the playlists
+        let playlists = self
+            .props
+            .playlists
+            .iter()
+            .map(create_playlist_tree_leaf)
+            .collect::<Vec<_>>();
+
+        // render the playlists
         frame.render_stateful_widget(
-            Tree::new(&playlists)
+            CheckTree::new(&playlists)
                 .unwrap()
                 .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
-                .node_closed_symbol("▸")
-                .node_open_symbol("▾")
-                .node_no_children_symbol("▪")
+                // we want this to be rendered like a normal tree, not a check tree, so we don't show the checkboxes
+                .node_unselected_symbol("▪ ")
+                .node_selected_symbol("▪ ")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
-            bottom,
+            area,
             &mut self.tree_state.lock().unwrap(),
         );
     }

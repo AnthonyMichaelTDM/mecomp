@@ -56,8 +56,12 @@ pub struct MusicPlayerServer {
 
 impl MusicPlayerServer {
     #[must_use]
-    pub fn new(addr: SocketAddr, db: Arc<Surreal<Db>>, settings: Arc<Settings>) -> Self {
-        let audio_kernel = AudioKernelSender::start();
+    pub fn new(
+        addr: SocketAddr,
+        db: Arc<Surreal<Db>>,
+        settings: Arc<Settings>,
+        audio_kernel: Arc<AudioKernelSender>,
+    ) -> Self {
         Self {
             addr,
             db,

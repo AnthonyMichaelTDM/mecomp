@@ -129,6 +129,7 @@ impl Component for InputBox {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct RenderProps<'a> {
     pub border: Block<'a>,
     pub area: Rect,
@@ -137,10 +138,17 @@ pub struct RenderProps<'a> {
 }
 
 impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
-    fn render(&self, frame: &mut Frame, props: RenderProps) {
-        let input = Paragraph::new(self.text.as_str())
-            .style(Style::default().fg(props.text_color))
-            .block(props.border);
+    fn render_border(&self, frame: &mut Frame, props: RenderProps<'a>) -> RenderProps<'a> {
+        let view_area = props.border.inner(props.area);
+        frame.render_widget(&props.border, props.area);
+        RenderProps {
+            area: view_area,
+            ..props
+        }
+    }
+
+    fn render_content(&self, frame: &mut Frame, props: RenderProps<'a>) {
+        let input = Paragraph::new(self.text.as_str()).style(Style::default().fg(props.text_color));
         frame.render_widget(input, props.area);
 
         // Cursor is hidden by default, so we need to make it visible if the input box is selected
@@ -151,9 +159,8 @@ impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
             frame.set_cursor(
                 // Draw the cursor at the current position in the input field.
                 // This position is can be controlled via the left and right arrow key
-                props.area.x + self.cursor_position as u16 + 1,
-                // Move one line down, from the border to the input line
-                props.area.y + 1,
+                props.area.x + self.cursor_position as u16,
+                props.area.y,
             );
         }
     }
