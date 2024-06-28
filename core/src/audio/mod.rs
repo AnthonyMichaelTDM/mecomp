@@ -1343,6 +1343,16 @@ mod tests {
                 Duration::from_secs(10) + Duration::from_nanos(6)
             );
 
+            // skip to Zero
+            sender.send(AudioCommand::Seek(
+                SeekType::Absolute,
+                Duration::from_secs(0),
+            ));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(0));
+            assert_eq!(state.current_song, Some(song.clone()));
+            assert!(state.paused);
+
             // skip ahead a bit
             sender.send(AudioCommand::Seek(
                 SeekType::RelativeForwards,
