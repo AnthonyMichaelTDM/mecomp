@@ -272,7 +272,7 @@ impl ComponentRender<Rect> for App {
             .direction(Direction::Horizontal)
             .constraints(
                 [
-                    Constraint::Length(18),
+                    Constraint::Length(19),
                     Constraint::Fill(4),
                     Constraint::Min(25),
                 ]

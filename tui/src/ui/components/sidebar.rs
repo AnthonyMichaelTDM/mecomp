@@ -45,7 +45,7 @@ pub enum SidebarItem {
     Space, // this is used to create space between the library actions and the other items
     LibraryRescan,
     LibraryAnalyze,
-    CollectionRecluster,
+    LibraryRecluster,
 }
 
 impl Display for SidebarItem {
@@ -60,7 +60,7 @@ impl Display for SidebarItem {
             Self::Playlists => write!(f, "Playlists"),
             Self::Collections => write!(f, "Collections"),
             Self::Space => write!(f, ""),
-            Self::CollectionRecluster => write!(f, "Collection Recluster"),
+            Self::LibraryRecluster => write!(f, "Library Recluster"),
         }
     }
 }
@@ -76,7 +76,7 @@ const SIDEBAR_ITEMS: [SidebarItem; 11] = [
     SidebarItem::Space,
     SidebarItem::LibraryRescan,
     SidebarItem::LibraryAnalyze,
-    SidebarItem::CollectionRecluster,
+    SidebarItem::LibraryRecluster,
 ];
 
 impl Component for Sidebar {
@@ -146,7 +146,7 @@ impl Component for Sidebar {
                             .action_tx
                             .send(Action::Library(LibraryAction::Analyze))
                             .unwrap(),
-                        SidebarItem::CollectionRecluster => self
+                        SidebarItem::LibraryRecluster => self
                             .action_tx
                             .send(Action::Library(LibraryAction::Recluster))
                             .unwrap(),
