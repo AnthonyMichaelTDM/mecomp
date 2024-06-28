@@ -6,7 +6,7 @@ use mecomp_storage::db::schemas::Thing;
 use ratatui::{
     prelude::Rect,
     style::{Color, Style},
-    text::Line,
+    text::{Line, Text},
     widgets::{Block, Clear},
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -81,7 +81,7 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
 
 pub enum PopupType {
     #[allow(dead_code)]
-    Notification(Line<'static>),
+    Notification(Text<'static>),
     Playlist(Vec<Thing>),
 }
 
