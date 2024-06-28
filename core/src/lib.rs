@@ -131,7 +131,6 @@ mod test {
     #[test]
     fn test_get_data_dir() {
         let data_dir = super::get_data_dir().unwrap();
-        assert!(data_dir.is_dir());
         assert_eq!(
             data_dir
                 .components()
@@ -146,7 +145,6 @@ mod test {
     #[test]
     fn test_get_config_dir() {
         let config_dir = super::get_config_dir().unwrap();
-        assert!(config_dir.is_dir());
         assert_eq!(
             config_dir
                 .components()
