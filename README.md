@@ -233,6 +233,8 @@ MECOMP-CLI is a command line interface for MECOMP, it provides a simple way to i
 
 MECOMP-TUI is a terminal user interface for MECOMP, it provides a more user friendly way to interact with the daemon, but still in a terminal.
 
+![MECOMP-TUI](./assets/tui-screenshot.jpg)
+
 #### MECOMP-GUI
 
 MECOMP-GUI is a graphical user interface for MECOMP, it provides a more user friendly way to interact with the daemon.
