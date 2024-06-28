@@ -586,7 +586,7 @@ mod tests {
         let db = init_test_database().await.unwrap();
         let settings = ReclusterSettings {
             gap_statistic_reference_datasets: 50,
-            max_clusters: 12,
+            max_clusters: 16,
             max_iterations: 30,
         };
 
