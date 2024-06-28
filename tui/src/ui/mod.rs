@@ -69,12 +69,20 @@ pub struct UiManager {
 }
 
 impl UiManager {
+    #[must_use]
     pub fn new() -> (Self, UnboundedReceiver<Action>) {
         let (action_tx, action_rx) = mpsc::unbounded_channel();
 
         (Self { action_tx }, action_rx)
     }
 
+    /// Main loop for the UI manager.
+    ///
+    /// This function will run until the user exits the application.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if there was an issue rendering to the terminal.
     pub async fn main_loop(
         self,
         daemon: Arc<MusicPlayerClient>,

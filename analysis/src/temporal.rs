@@ -110,10 +110,10 @@ mod tests {
         let song = Decoder::decode(Path::new("data/s16_mono_22_5kHz.flac")).unwrap();
         let mut tempo_desc = BPMDesc::new(SAMPLE_RATE).unwrap();
         for chunk in song.samples.chunks_exact(BPMDesc::HOP_SIZE) {
-            tempo_desc.do_(&chunk).unwrap();
+            tempo_desc.do_(chunk).unwrap();
         }
         assert!(
-            0.01 > (0.378605 - tempo_desc.get_value()).abs(),
+            0.01 > (0.378_605 - tempo_desc.get_value()).abs(),
             "{} !~= 0.378605",
             tempo_desc.get_value()
         );
@@ -128,15 +128,15 @@ mod tests {
         let chunks = std::iter::repeat(one_chunk.iter())
             .take(100)
             .flatten()
-            .cloned()
+            .copied()
             .collect::<Vec<f32>>();
         for chunk in chunks.chunks_exact(BPMDesc::HOP_SIZE) {
-            tempo_desc.do_(&chunk).unwrap();
+            tempo_desc.do_(chunk).unwrap();
         }
 
         // -0.41 is 60 BPM normalized
         assert!(
-            0.01 > (-0.416853 - tempo_desc.get_value()).abs(),
+            0.01 > (-0.416_853 - tempo_desc.get_value()).abs(),
             "{} !~= -0.416853",
             tempo_desc.get_value()
         );
@@ -157,10 +157,10 @@ mod tests {
         let chunks = std::iter::repeat(one_chunk.iter())
             .take(500)
             .flatten()
-            .cloned()
+            .copied()
             .collect::<Vec<f32>>();
         for chunk in chunks.chunks_exact(BPMDesc::HOP_SIZE) {
-            tempo_desc.do_(&chunk).unwrap();
+            tempo_desc.do_(chunk).unwrap();
         }
         // 0.86 is 192BPM normalized
         assert!(

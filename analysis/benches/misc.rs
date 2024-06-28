@@ -3,7 +3,7 @@ use std::path::Path;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use mecomp_analysis::{
     decoder::{Decoder, MecompDecoder},
-    misc::*,
+    misc::LoudnessDesc,
 };
 
 fn bench_loudness_desc(c: &mut Criterion) {
@@ -22,7 +22,7 @@ fn bench_loudness_desc(c: &mut Criterion) {
             let mut loudness_desc = loudness_desc.clone();
             loudness_desc.do_(black_box(&signal));
             loudness_desc.get_value();
-        })
+        });
     });
 }
 

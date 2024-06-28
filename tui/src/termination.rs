@@ -14,10 +14,16 @@ pub struct Terminator {
 }
 
 impl Terminator {
+    #[must_use]
     pub fn new(interrupt_tx: broadcast::Sender<Interrupted>) -> Self {
         Self { interrupt_tx }
     }
 
+    /// Send an interrupt signal to the application.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the interrupt signal cannot be sent (e.g. the receiver has been dropped)
     pub fn terminate(&mut self, interrupted: Interrupted) -> anyhow::Result<()> {
         self.interrupt_tx.send(interrupted)?;
 
@@ -39,6 +45,7 @@ async fn terminate_by_unix_signal(mut terminator: Terminator) {
 
 // create a broadcast channel for retrieving the application kill signal
 #[allow(clippy::module_name_repetitions)]
+#[must_use]
 pub fn create_termination() -> (Terminator, broadcast::Receiver<Interrupted>) {
     let (tx, rx) = broadcast::channel(1);
     let terminator = Terminator::new(tx);

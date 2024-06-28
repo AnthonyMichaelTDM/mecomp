@@ -12,7 +12,7 @@ fn bench_mecomp_decoder_decode(c: &mut Criterion) {
     c.bench_function("mecomp-analysis: decoder.rs: MecompDecoder::decode", |b| {
         b.iter(|| {
             let _ = black_box(Decoder::decode(black_box(&path)));
-        })
+        });
     });
 }
 
@@ -27,7 +27,7 @@ fn bench_mecomp_decoder_analyze_path(c: &mut Criterion) {
         |b| {
             b.iter(|| {
                 let _ = black_box(Decoder::analyze_path(black_box(&path)));
-            })
+            });
         },
     );
 }
@@ -52,7 +52,7 @@ fn bench_mecomp_decoder_analyze_paths(c: &mut Criterion) {
         |b| {
             b.iter(|| {
                 let _ = black_box(Decoder::analyze_paths(black_box(&paths)));
-            })
+            });
         },
     );
 }

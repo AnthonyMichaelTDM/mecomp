@@ -23,6 +23,7 @@ pub struct SearchState {
 
 impl SearchState {
     /// create a new audio state store, and return the receiver for listening to state updates.
+    #[must_use]
     pub fn new() -> (Self, UnboundedReceiver<SearchResult>) {
         let (state_tx, state_rx) = unbounded_channel::<SearchResult>();
 
@@ -30,6 +31,11 @@ impl SearchState {
     }
 
     /// a loop that updates the audio state every tick.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the state cannot be sent
+    /// or if the daemon client can't connect to the server
     pub async fn main_loop(
         &self,
         daemon: Arc<MusicPlayerClient>,

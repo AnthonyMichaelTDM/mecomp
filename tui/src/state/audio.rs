@@ -28,6 +28,7 @@ pub struct AudioState {
 
 impl AudioState {
     /// create a new audio state store, and return the receiver for listening to state updates.
+    #[must_use]
     pub fn new() -> (Self, UnboundedReceiver<StateAudio>) {
         let (state_tx, state_rx) = unbounded_channel::<StateAudio>();
 
@@ -35,6 +36,10 @@ impl AudioState {
     }
 
     /// a loop that updates the audio state every tick.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the state cannot be sent
     pub async fn main_loop(
         &self,
         daemon: Arc<MusicPlayerClient>,

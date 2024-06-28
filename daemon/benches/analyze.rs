@@ -1,6 +1,5 @@
 //! Benchmark of the library analysis function.
 
-use criterion::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
 use mecomp_daemon::services::library::analyze;
 use mecomp_storage::db::schemas::song::Song;
@@ -39,9 +38,9 @@ fn benchmark_rescan(c: &mut Criterion) {
                 .unwrap()
             },
             |db| async move {
-                black_box(analyze(&db).await.unwrap());
+                analyze(&db).await.unwrap();
             },
-        )
+        );
     });
 }
 

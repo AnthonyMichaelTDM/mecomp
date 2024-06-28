@@ -41,6 +41,7 @@ pub struct Receivers {
 }
 
 impl Dispatcher {
+    #[must_use]
     pub fn new() -> (Self, Receivers) {
         let (audio, audio_rx) = audio::AudioState::new();
         let (search, search_rx) = search::SearchState::new();
@@ -66,6 +67,13 @@ impl Dispatcher {
         (dispatcher, state_receivers)
     }
 
+    /// the main loop for the dispatcher.
+    ///
+    /// the dispatcher will run until the user exits the application.
+    ///
+    /// # Errors
+    ///
+    /// if any of the state stores fail to run.
     pub async fn main_loop(
         &self,
         daemon: Arc<MusicPlayerClient>,

@@ -307,6 +307,7 @@ impl Display for SortMode {
 }
 
 impl SortMode {
+    #[must_use]
     pub const fn next(&self) -> Self {
         match self {
             Self::Title => Self::Artist,
@@ -315,6 +316,7 @@ impl SortMode {
         }
     }
 
+    #[must_use]
     pub const fn prev(&self) -> Self {
         match self {
             Self::Title => Self::ReleaseYear,

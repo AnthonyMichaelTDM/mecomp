@@ -322,7 +322,7 @@ mod tests {
         let db = init_test_database().await?;
         let artist = create_artist();
         let mut artist2 = create_artist();
-        artist2.name = format!("Test Artist 2").into();
+        artist2.name = "Test Artist 2".to_string().into();
 
         // test None
         let read = Artist::read_one_or_many(&db, OneOrMany::None).await?;
@@ -354,7 +354,7 @@ mod tests {
         let db = init_test_database().await?;
         let artist = create_artist();
         let mut artist2 = create_artist();
-        artist2.name = format!("Test Artist 2").into();
+        artist2.name = "Test Artist 2".to_string().into();
 
         let created = Artist::create(&db, artist.clone())
             .await?
@@ -400,7 +400,7 @@ mod tests {
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
         let changes = ArtistChangeSet {
-            name: Some(format!("New Name").into()),
+            name: Some("New Name".to_string().into()),
             ..Default::default()
         };
 
@@ -409,7 +409,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
 
-        assert_eq!(read.name, format!("New Name").into());
+        assert_eq!(read.name, "New Name".to_string().into());
         assert_eq!(Some(read), updated);
         Ok(())
     }
@@ -440,7 +440,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
-        let read = Artist::read_by_name(&db, &format!("Test Artist")).await?;
+        let read = Artist::read_by_name(&db, &"Test Artist".to_string()).await?;
         assert_eq!(read, Some(album));
         Ok(())
     }
@@ -450,11 +450,11 @@ mod tests {
     async fn test_read_or_create_by_name() -> Result<()> {
         let db = init_test_database().await?;
 
-        let created = Artist::read_or_create_by_name(&db, &format!("Test Artist"))
+        let created = Artist::read_or_create_by_name(&db, &"Test Artist".to_string())
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
-        let read = Artist::read_by_name(&db, &format!("Test Artist")).await?;
+        let read = Artist::read_by_name(&db, &"Test Artist".to_string()).await?;
         assert_eq!(read, Some(created));
         Ok(())
     }
@@ -624,9 +624,9 @@ mod tests {
         };
         let song = Song {
             id: Song::generate_id(),
-            title: format!("Test Song").into(),
+            title: "Test Song".to_string().into(),
             artist: OneOrMany::One(artist.name.clone()),
-            album: format!("Test Album ").into(),
+            album: "Test Album ".to_string().into(),
             runtime: Duration::from_secs(5),
             track: Some(1),
             disc: Some(1),

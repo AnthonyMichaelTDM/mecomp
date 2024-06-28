@@ -711,7 +711,7 @@ mod tests {
     where
         T: Clone + Eq + std::hash::Hash + std::fmt::Debug,
     {
-        input.dedup_by_key(|x| x.clone());
+        input.dedup_by_key(Clone::clone);
         assert_eq!(input, expected);
     }
 }

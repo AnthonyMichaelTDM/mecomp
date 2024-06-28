@@ -25,6 +25,7 @@ pub struct InputBox {
 }
 
 impl InputBox {
+    #[must_use]
     pub fn text(&self) -> &str {
         &self.text
     }
@@ -39,6 +40,7 @@ impl InputBox {
         self.text.clear();
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.text.is_empty()
     }

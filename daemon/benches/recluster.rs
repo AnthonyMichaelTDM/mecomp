@@ -3,7 +3,6 @@
 //! because it actually cares about what the audio features are, we'll be running this on
 //! my real music library
 
-use criterion::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
 use mecomp_daemon::config::ReclusterSettings;
 use mecomp_daemon::services::library::recluster;
@@ -30,7 +29,7 @@ fn benchmark_recluster(c: &mut Criterion) {
     // load some songs into the database
     let song_cases = arb_vec(&arb_song_case(), 100..=150)();
     let song_cases = song_cases.into_iter().enumerate().map(|(i, sc)| SongCase {
-        song: i as u8,
+        song: u8::try_from(i).unwrap_or(u8::MAX),
         ..sc
     });
     let metadatas = song_cases
@@ -67,9 +66,9 @@ fn benchmark_recluster(c: &mut Criterion) {
             },
             |db| async move {
                 let db = db.await;
-                black_box(recluster(&db, &settings).await.unwrap());
+                recluster(&db, &settings).await.unwrap();
             },
-        )
+        );
     });
 }
 

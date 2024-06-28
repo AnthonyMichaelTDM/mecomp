@@ -3,7 +3,7 @@ use std::path::Path;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use mecomp_analysis::{
     decoder::{Decoder, MecompDecoder},
-    timbral::*,
+    timbral::{SpectralDesc, ZeroCrossingRateDesc},
 };
 
 fn bench_spectral_desc(c: &mut Criterion) {
@@ -20,7 +20,7 @@ fn bench_spectral_desc(c: &mut Criterion) {
         b.iter(|| {
             let mut spectral_desc = SpectralDesc::new(10).unwrap();
             spectral_desc.do_(black_box(&signal)).unwrap();
-        })
+        });
     });
     c.bench_function(
         "mecomp-analysis: timbral.rs: SpectralDesc::get_centroid ",
@@ -29,7 +29,7 @@ fn bench_spectral_desc(c: &mut Criterion) {
                 let mut spectral_desc = SpectralDesc::new(10).unwrap();
                 spectral_desc.do_(black_box(&signal)).unwrap();
                 spectral_desc.get_centroid();
-            })
+            });
         },
     );
     c.bench_function(
@@ -39,7 +39,7 @@ fn bench_spectral_desc(c: &mut Criterion) {
                 let mut spectral_desc = SpectralDesc::new(10).unwrap();
                 spectral_desc.do_(black_box(&signal)).unwrap();
                 spectral_desc.get_rolloff();
-            })
+            });
         },
     );
     c.bench_function(
@@ -49,7 +49,7 @@ fn bench_spectral_desc(c: &mut Criterion) {
                 let mut spectral_desc = SpectralDesc::new(10).unwrap();
                 spectral_desc.do_(black_box(&signal)).unwrap();
                 spectral_desc.get_flatness();
-            })
+            });
         },
     );
 }
@@ -70,7 +70,7 @@ fn bench_zcr_desc(c: &mut Criterion) {
             let mut zcr_desc = zcr_desc.clone();
             zcr_desc.do_(black_box(&signal));
             zcr_desc.get_value();
-        })
+        });
     });
 }
 

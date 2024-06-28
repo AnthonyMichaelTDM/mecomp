@@ -25,6 +25,7 @@ use super::{
     AppState,
 };
 
+#[must_use]
 pub struct App {
     /// Action Sender
     pub action_tx: UnboundedSender<Action>,
@@ -54,6 +55,7 @@ pub enum ActiveComponent {
 }
 
 impl ActiveComponent {
+    #[must_use]
     pub const fn next(self) -> Self {
         match self {
             Self::Sidebar => Self::ContentView,
@@ -63,6 +65,7 @@ impl ActiveComponent {
         }
     }
 
+    #[must_use]
     pub const fn prev(self) -> Self {
         match self {
             Self::Sidebar => Self::ControlPanel,

@@ -20,6 +20,7 @@ pub type PopupStateReceiver = UnboundedReceiver<Option<PopupType>>;
 
 impl PopupState {
     /// create a new popup state store, and return the receiver for listening to state updates.
+    #[must_use]
     pub fn new() -> (Self, PopupStateReceiver) {
         let (state_tx, state_rx) = unbounded_channel::<Option<PopupType>>();
 
@@ -27,6 +28,10 @@ impl PopupState {
     }
 
     /// a loop that updates the popup state every tick.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the state cannot be sent
     pub async fn main_loop(
         &self,
         mut action_rx: UnboundedReceiver<PopupAction>,

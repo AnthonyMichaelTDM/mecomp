@@ -51,8 +51,8 @@ impl<Identifier> Flattened<'_, Identifier> {
 ///
 /// `current` starts empty: `&[]`
 #[must_use]
-pub fn flatten<'text, Identifier>(
-    open_identifiers: &HashSet<Vec<Identifier>>,
+pub fn flatten<'text, Identifier, S: ::std::hash::BuildHasher>(
+    open_identifiers: &HashSet<Vec<Identifier>, S>,
     items: &'text [CheckTreeItem<'text, Identifier>],
     current: &[Identifier],
 ) -> Vec<Flattened<'text, Identifier>>

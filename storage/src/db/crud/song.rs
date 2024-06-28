@@ -266,17 +266,17 @@ mod test {
 
         let song = Song {
             id: Song::generate_id(),
-            title: format!("Test Song").into(),
-            artist: vec![format!("Test Artist").into()].into(),
-            album_artist: vec![format!("Test Artist").into()].into(),
-            album: format!("Test Album").into(),
-            genre: OneOrMany::One(format!("Test Genre").into()),
+            title: "Test Song".to_string().into(),
+            artist: vec!["Test Artist".to_string().into()].into(),
+            album_artist: vec!["Test Artist".to_string().into()].into(),
+            album: "Test Album".to_string().into(),
+            genre: OneOrMany::One("Test Genre".to_string().into()),
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
             release_year: None,
             extension: "mp3".into(),
-            path: format!("song.mp3").into(),
+            path: "song.mp3".to_string().into(),
         };
 
         let created = Song::create(&db, song.clone()).await?;
@@ -469,7 +469,7 @@ mod test {
     async fn test_update_no_repair() -> Result<()> {
         let db = init_test_database().await?;
         let changes = SongChangeSet {
-            title: Some(format!("Updated Title ").into()),
+            title: Some("Updated Title ".to_string().into()),
             runtime: Some(Duration::from_secs(10)),
             track: Some(Some(2)),
             disc: Some(Some(2)),
@@ -495,7 +495,7 @@ mod test {
     async fn test_update_artist() -> Result<()> {
         let db = init_test_database().await?;
         let changes = SongChangeSet {
-            artist: Some(OneOrMany::One(format!("Updated Artist").into())),
+            artist: Some(OneOrMany::One("Updated Artist".to_string().into())),
             ..Default::default()
         };
         // test updating the artist
@@ -519,7 +519,7 @@ mod test {
     async fn test_update_album_artist() -> Result<()> {
         let db = init_test_database().await?;
         let changes = SongChangeSet {
-            album_artist: Some(OneOrMany::One(format!("Updated Album Artist").into())),
+            album_artist: Some(OneOrMany::One("Updated Album Artist".to_string().into())),
             ..Default::default()
         };
         // test updating the album artist
@@ -543,7 +543,7 @@ mod test {
     async fn test_update_album() -> Result<()> {
         let db = init_test_database().await?;
         let changes = SongChangeSet {
-            album: Some(format!("Updated Album").into()),
+            album: Some("Updated Album".to_string().into()),
             ..Default::default()
         };
         // test updating the album

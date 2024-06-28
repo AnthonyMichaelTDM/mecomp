@@ -24,6 +24,7 @@ pub struct LibraryState {
 
 impl LibraryState {
     /// create a new library state store, and return the receiver for listening to state updates.
+    #[must_use]
     pub fn new() -> (Self, UnboundedReceiver<LibraryFull>) {
         let (state_tx, state_rx) = unbounded_channel::<LibraryFull>();
 
@@ -31,6 +32,12 @@ impl LibraryState {
     }
 
     /// a loop that updates the library state every tick.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the state cannot be sent
+    /// or if the daemon client can't connect to the server
+    /// or if the daemon returns an error
     pub async fn main_loop(
         &self,
         daemon: Arc<MusicPlayerClient>,

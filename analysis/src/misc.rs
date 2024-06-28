@@ -72,9 +72,9 @@ mod tests {
         let song = Decoder::decode(Path::new("data/s16_mono_22_5kHz.flac")).unwrap();
         let mut loudness_desc = LoudnessDesc::default();
         for chunk in song.samples.chunks_exact(LoudnessDesc::WINDOW_SIZE) {
-            loudness_desc.do_(&chunk);
+            loudness_desc.do_(chunk);
         }
-        let expected_values = vec![0.271263, 0.2577181];
+        let expected_values = [0.271_263, 0.257_718_1];
         for (expected, actual) in expected_values.iter().zip(loudness_desc.get_value().iter()) {
             assert!(0.01 > (expected - actual).abs(), "{expected} !~= {actual}");
         }
@@ -85,10 +85,10 @@ mod tests {
         let mut loudness_desc = LoudnessDesc::default();
         let silence_chunk = vec![0.; 1024];
         loudness_desc.do_(&silence_chunk);
-        let expected_values = vec![-1., -1.];
+        let expected_values = [-1., -1.];
         for (expected, actual) in expected_values.iter().zip(loudness_desc.get_value().iter()) {
             assert!(
-                0.0000001 > (expected - actual).abs(),
+                0.000_000_1 > (expected - actual).abs(),
                 "{expected} !~= {actual}"
             );
         }
@@ -96,10 +96,10 @@ mod tests {
         let mut loudness_desc = LoudnessDesc::default();
         let silence_chunk = vec![1.; 1024];
         loudness_desc.do_(&silence_chunk);
-        let expected_values = vec![1., -1.];
+        let expected_values = [1., -1.];
         for (expected, actual) in expected_values.iter().zip(loudness_desc.get_value().iter()) {
             assert!(
-                0.0000001 > (expected - actual).abs(),
+                0.000_000_1 > (expected - actual).abs(),
                 "{expected} !~= {actual}"
             );
         }
@@ -107,10 +107,10 @@ mod tests {
         let mut loudness_desc = LoudnessDesc::default();
         let silence_chunk = vec![-1.; 1024];
         loudness_desc.do_(&silence_chunk);
-        let expected_values = vec![1., -1.];
+        let expected_values = [1., -1.];
         for (expected, actual) in expected_values.iter().zip(loudness_desc.get_value().iter()) {
             assert!(
-                0.0000001 > (expected - actual).abs(),
+                0.000_000_1 > (expected - actual).abs(),
                 "{expected} !~= {actual}"
             );
         }

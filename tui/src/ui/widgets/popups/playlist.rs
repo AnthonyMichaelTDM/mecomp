@@ -64,6 +64,7 @@ pub struct PlaylistSelector {
 }
 
 impl PlaylistSelector {
+    #[must_use]
     pub fn new(state: &AppState, action_tx: UnboundedSender<Action>, items: Vec<Thing>) -> Self {
         Self {
             input_box: InputBox::new(state, action_tx.clone()),

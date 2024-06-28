@@ -86,6 +86,7 @@ pub enum PopupType {
 }
 
 impl PopupType {
+    #[must_use]
     pub fn into_popup(
         self,
         state: &AppState,
