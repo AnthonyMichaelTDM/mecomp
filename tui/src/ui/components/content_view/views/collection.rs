@@ -216,7 +216,7 @@ impl ComponentRender<RenderProps> for CollectionView {
                 info_area,
             );
 
-            // draw an additional border around the content area to display additionaly instructions
+            // draw an additional border around the content area to display additionally instructions
             let border = Block::new()
                 .borders(Borders::TOP | Borders::BOTTOM)
                 .title_top("q: add to queue | p: add to playlist")
