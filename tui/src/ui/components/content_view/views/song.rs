@@ -284,14 +284,14 @@ pub struct LibrarySongsView {
     /// Action Sender
     pub action_tx: UnboundedSender<Action>,
     /// Mapped Props from state
-    props: Props,
+    pub(crate) props: Props,
     /// tree state
     tree_state: Mutex<CheckTreeState<String>>,
 }
 
-struct Props {
-    songs: Box<[Song]>,
-    sort_mode: SortMode,
+pub(crate) struct Props {
+    pub(crate) songs: Box<[Song]>,
+    pub(crate) sort_mode: SortMode,
 }
 
 #[derive(Default)]

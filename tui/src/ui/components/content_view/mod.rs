@@ -38,7 +38,7 @@ pub struct ContentView {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Props {
-    active_view: ActiveView,
+    pub(crate) active_view: ActiveView,
 }
 
 impl From<&AppState> for Props {

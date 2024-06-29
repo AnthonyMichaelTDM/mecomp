@@ -50,7 +50,7 @@ pub struct SearchView {
 }
 
 pub struct Props {
-    search_results: SearchResult,
+    pub(crate) search_results: SearchResult,
 }
 
 impl From<&AppState> for Props {

@@ -2,7 +2,7 @@
 use tokio::signal::unix::signal;
 use tokio::sync::broadcast;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Interrupted {
     OsSigInt,
     UserInt,
@@ -54,4 +54,26 @@ pub fn create_termination() -> (Terminator, broadcast::Receiver<Interrupted>) {
     tokio::spawn(terminate_by_unix_signal(terminator.clone()));
 
     (terminator, rx)
+}
+
+#[cfg(test)]
+mod test {
+    use std::time::Duration;
+
+    use super::*;
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    #[rstest]
+    #[timeout(Duration::from_secs(1))]
+    #[tokio::test]
+    async fn test_terminate() {
+        let (mut terminator, mut rx) = create_termination();
+
+        terminator
+            .terminate(Interrupted::UserInt)
+            .expect("failed to send interrupt signal");
+
+        assert_eq!(rx.recv().await, Ok(Interrupted::UserInt));
+    }
 }

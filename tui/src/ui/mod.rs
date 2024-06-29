@@ -176,6 +176,7 @@ impl UiManager {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 fn setup_terminal() -> anyhow::Result<Terminal<CrosstermBackend<Stdout>>> {
     let mut stdout = io::stdout();
 
@@ -186,6 +187,7 @@ fn setup_terminal() -> anyhow::Result<Terminal<CrosstermBackend<Stdout>>> {
     Ok(Terminal::new(CrosstermBackend::new(stdout))?)
 }
 
+#[cfg(not(tarpaulin_include))]
 fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> anyhow::Result<()> {
     disable_raw_mode()?;
 
@@ -198,6 +200,7 @@ fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> anyhow
     Ok(terminal.show_cursor()?)
 }
 
+#[cfg(not(tarpaulin_include))]
 pub fn init_panic_hook() {
     let original_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {

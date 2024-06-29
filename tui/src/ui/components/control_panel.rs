@@ -27,16 +27,16 @@ pub struct ControlPanel {
     /// Action Sender
     pub action_tx: UnboundedSender<Action>,
     /// Mapped Props from state
-    props: Props,
+    pub(crate) props: Props,
 }
 
-struct Props {
-    is_playing: bool,
-    muted: bool,
-    volume: f32,
-    song_runtime: Option<StateRuntime>,
-    song_title: Option<String>,
-    song_artist: Option<String>,
+pub struct Props {
+    pub(crate) is_playing: bool,
+    pub(crate) muted: bool,
+    pub(crate) volume: f32,
+    pub(crate) song_runtime: Option<StateRuntime>,
+    pub(crate) song_title: Option<String>,
+    pub(crate) song_artist: Option<String>,
 }
 
 impl From<&AppState> for Props {

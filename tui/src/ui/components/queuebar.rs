@@ -25,15 +25,15 @@ pub struct QueueBar {
     /// Action Sender
     pub action_tx: UnboundedSender<Action>,
     /// Mapped Props from state
-    props: Props,
+    pub(crate) props: Props,
     /// list state
     list_state: ListState,
 }
 
-struct Props {
-    queue: Box<[Song]>,
-    current_position: Option<usize>,
-    repeat_mode: RepeatMode,
+pub struct Props {
+    pub(crate) queue: Box<[Song]>,
+    pub(crate) current_position: Option<usize>,
+    pub(crate) repeat_mode: RepeatMode,
 }
 
 impl From<&AppState> for Props {

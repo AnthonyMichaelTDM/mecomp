@@ -79,6 +79,7 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PopupType {
     #[allow(dead_code)]
     Notification(Text<'static>),
