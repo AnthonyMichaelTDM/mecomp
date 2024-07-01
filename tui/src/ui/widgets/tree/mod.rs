@@ -218,21 +218,6 @@ impl<'a, Identifier: 'a + Clone + PartialEq + Eq + core::hash::Hash> StatefulWid
         state.offset = start;
         state.ensure_selected_in_view_on_next_render = false;
 
-        if let Some(scrollbar) = self.scrollbar {
-            let mut scrollbar_state = ScrollbarState::new(visible.len().saturating_sub(height))
-                .position(start)
-                .viewport_content_length(height);
-            let scrollbar_area = Rect {
-                // Inner height to be exactly as the content
-                y: area.y,
-                height: area.height,
-                // Outer width to stay on the right border
-                x: full_area.x,
-                width: full_area.width,
-            };
-            scrollbar.render(scrollbar_area, buf, &mut scrollbar_state);
-        }
-
         let blank_symbol = " ".repeat(self.highlight_symbol.width());
 
         let mut current_height = 0;
@@ -312,6 +297,24 @@ impl<'a, Identifier: 'a + Clone + PartialEq + Eq + core::hash::Hash> StatefulWid
                 .last_rendered_identifiers
                 .push((area.y, identifier.clone()));
         }
+
+        // render scrollbar last so it's on top
+        if let Some(scrollbar) = self.scrollbar {
+            let mut scrollbar_state = ScrollbarState::new(visible.len().saturating_sub(height))
+                .position(start)
+                .viewport_content_length(height);
+            let scrollbar_area = Rect {
+                // Inner height to be exactly as the content
+                y: area.y,
+                height: area.height,
+                // Outer width to stay on the right border
+                x: full_area.x,
+                width: full_area.width,
+            };
+            scrollbar.render(scrollbar_area, buf, &mut scrollbar_state);
+        }
+
+        // update state
         state.last_identifiers = visible
             .into_iter()
             .map(|flattened| flattened.identifier)
@@ -323,6 +326,7 @@ impl<'a, Identifier: 'a + Clone + PartialEq + Eq + core::hash::Hash> StatefulWid
 mod render_tests {
     use super::*;
     use pretty_assertions::assert_eq;
+    use ratatui::widgets::ScrollbarOrientation;
 
     #[must_use]
     #[track_caller]
@@ -350,6 +354,47 @@ mod render_tests {
         _ = render(10, 0, &mut CheckTreeState::default());
         _ = render(0, 10, &mut CheckTreeState::default());
         _ = render(10, 10, &mut CheckTreeState::default());
+    }
+
+    #[test]
+    fn scrollbar_renders_over_tree() {
+        let mut state = CheckTreeState::default();
+        state.open(vec!["b"]);
+        let items = CheckTreeItem::example();
+        let tree = CheckTree::new(&items)
+            .unwrap()
+            .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight)));
+        let area = Rect::new(0, 0, 10, 4);
+        let mut buffer = Buffer::empty(area);
+        StatefulWidget::render(tree, area, &mut buffer, &mut state);
+
+        #[rustfmt::skip]
+        let expected = Buffer::with_lines([
+            "☐ Alfa   ▲",
+            "▼ Bravo  █",
+            "  ☐ Charl█",
+            "  ▶ Delta▼",
+        ]);
+        assert_eq!(buffer, expected);
+    }
+
+    #[test]
+    fn renders_border() {
+        let mut state = CheckTreeState::default();
+        let items = CheckTreeItem::example();
+        let tree = CheckTree::new(&items).unwrap().block(Block::bordered());
+        let area = Rect::new(0, 0, 10, 5);
+        let mut buffer = Buffer::empty(area);
+        StatefulWidget::render(tree, area, &mut buffer, &mut state);
+
+        let expected = Buffer::with_lines([
+            "┌────────┐",
+            "│☐ Alfa  │",
+            "│▶ Bravo │",
+            "│☐ Hotel │",
+            "└────────┘",
+        ]);
+        assert_eq!(buffer, expected);
     }
 
     #[test]
@@ -448,6 +493,213 @@ mod render_tests {
             "  ☐ Golf       ",
             "☐ Hotel        ",
             "               ",
+        ]);
+        assert_eq!(buffer, expected);
+    }
+
+    // TODO: test CheckTreeState::select_relative, rendered_at
+    // key_up, key_down, key_left, key_right, and key_space
+
+    #[test]
+    fn test_select_first_last() {
+        let mut state = CheckTreeState::default();
+        let _ = render(15, 4, &mut state);
+        assert_eq!(state.select_first(), true);
+        assert_eq!(state.select_first(), false);
+        assert_eq!(state.selected(), &["a"]);
+        assert_eq!(state.select_last(), true);
+        assert_eq!(state.select_last(), false);
+        assert_eq!(state.selected(), &["h"]);
+    }
+
+    #[test]
+    fn test_scroll_selected_into_view() {
+        let mut state = CheckTreeState::default();
+        state.open(vec!["b"]);
+        state.open(vec!["b", "d"]);
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▼ Delta      ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        // selected is visible
+        state.select(vec!["b", "d"]);
+        state.scroll_selected_into_view();
+        let buffer = render(15, 4, &mut state);
+        assert_eq!(buffer, expected);
+
+        // selected is not visible
+        state.select(vec!["b", "g"]);
+        state.scroll_selected_into_view();
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "  ▼ Delta      ",
+            "    ☐ Echo     ",
+            "    ☐ Foxtrot  ",
+            "  ☐ Golf       ",
+        ]);
+        assert_eq!(buffer, expected);
+    }
+
+    #[test]
+    fn test_scroll() {
+        let mut state = CheckTreeState::default();
+        state.open(vec!["b"]);
+        state.open(vec!["b", "d"]);
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▼ Delta      ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        // scroll down works
+        assert_eq!(state.scroll_down(1), true);
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▼ Delta      ",
+            "    ☐ Echo     ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        // scroll down stops at boundary
+        assert_eq!(state.scroll_down(15), true);
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Hotel        ",
+            "               ",
+            "               ",
+            "               ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        // scroll down stops at boundary
+        assert_eq!(state.scroll_down(1), false);
+
+        // scroll up works
+        assert_eq!(state.scroll_up(1), true);
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "  ☐ Golf       ",
+            "☐ Hotel        ",
+            "               ",
+            "               ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        // scroll up stops at boundary
+        assert_eq!(state.scroll_up(15), true);
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▼ Delta      ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        // scroll up stops at boundary
+        assert_eq!(state.scroll_up(1), false);
+    }
+
+    #[test]
+    fn test_keys() {
+        let mut state = CheckTreeState::default();
+        state.open(vec!["b"]);
+        state.open(vec!["b", "d"]);
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▼ Delta      ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        // key_down works (if nothing selected, goes to top)
+        state.key_down();
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▼ Delta      ",
+        ]);
+        assert_eq!(state.selected(), &["a"]);
+        assert_eq!(buffer, expected);
+
+        // key_up works (if nothing selected, goes to bottom)
+        state.key_left();
+        state.key_up();
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "    ☐ Echo     ",
+            "    ☐ Foxtrot  ",
+            "  ☐ Golf       ",
+            "☐ Hotel        ",
+        ]);
+        assert_eq!(state.selected(), &["h"]);
+        assert_eq!(buffer, expected);
+
+        // key_left works
+        state.select_first();
+        state.scroll_selected_into_view();
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▼ Delta      ",
+        ]);
+        assert_eq!(state.selected(), &["a"]);
+        assert_eq!(buffer, expected);
+
+        state.key_down();
+        assert_eq!(state.selected(), &["b"]);
+        state.key_left();
+        assert_eq!(state.selected(), &["b"]);
+        let buffer = render(15, 4, &mut state);
+        #[rustfmt::skip]
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▶ Bravo        ",
+            "☐ Hotel        ",
+            "               ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        // key_right works
+        state.key_right();
+        assert_eq!(state.selected(), &["b"]);
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▼ Delta      ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        // key_space works
+        state.key_space();
+        assert_eq!(state.selected(), &["b"]);
+        state.key_down();
+        state.key_space();
+        assert_eq!(state.selected(), &["b", "c"]);
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☑ Charlie    ",
+            "  ▼ Delta      ",
         ]);
         assert_eq!(buffer, expected);
     }
