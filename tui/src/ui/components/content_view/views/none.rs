@@ -64,3 +64,45 @@ impl ComponentRender<RenderProps> for NoneView {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        test_utils::{assert_buffer_eq, setup_test_terminal, state_with_everything},
+        ui::components::content_view::ActiveView,
+    };
+    use anyhow::Result;
+    use ratatui::buffer::Buffer;
+
+    #[test]
+    fn test_render() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = NoneView::new(&AppState::default(), tx).move_with_state(&AppState {
+            active_view: ActiveView::None,
+            ..state_with_everything()
+        });
+
+        let mut terminal = setup_test_terminal(16, 3);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        #[rustfmt::skip]
+        let expected = Buffer::with_lines([
+            "┌──────────────┐",
+            "│No active view│",
+            "└──────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+}

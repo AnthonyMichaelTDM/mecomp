@@ -303,7 +303,7 @@ struct Props {
     sort_mode: SortMode,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SortMode {
     #[default]
     Name,
@@ -494,6 +494,411 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             props.area,
             &mut self.tree_state.lock().unwrap(),
+        );
+    }
+}
+
+#[cfg(test)]
+mod sort_mode_tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+    use std::time::Duration;
+
+    #[rstest]
+    #[case(SortMode::Name, SortMode::Name)]
+    fn test_sort_mode_next_prev(#[case] mode: SortMode, #[case] expected: SortMode) {
+        assert_eq!(mode.next(), expected);
+        assert_eq!(mode.next().prev(), mode);
+    }
+
+    #[rstest]
+    #[case(SortMode::Name, "Name")]
+    fn test_sort_mode_display(#[case] mode: SortMode, #[case] expected: &str) {
+        assert_eq!(mode.to_string(), expected);
+    }
+
+    #[rstest]
+    fn test_sort_collectionss() {
+        let mut songs = vec![
+            Collection {
+                id: Collection::generate_id(),
+                name: "C".into(),
+                song_count: 0,
+                runtime: Duration::from_secs(0),
+            },
+            Collection {
+                id: Collection::generate_id(),
+                name: "A".into(),
+                song_count: 0,
+                runtime: Duration::from_secs(0),
+            },
+            Collection {
+                id: Collection::generate_id(),
+                name: "B".into(),
+                song_count: 0,
+                runtime: Duration::from_secs(0),
+            },
+        ];
+
+        SortMode::Name.sort_collections(&mut songs);
+        assert_eq!(songs[0].name, "A".into());
+        assert_eq!(songs[1].name, "B".into());
+        assert_eq!(songs[2].name, "C".into());
+    }
+}
+
+#[cfg(test)]
+mod item_view_tests {
+    use super::*;
+    use crate::{
+        state::action::{AudioAction, PopupAction, QueueAction},
+        test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
+        ui::{components::content_view::ActiveView, widgets::popups::PopupType},
+    };
+    use anyhow::Result;
+    use pretty_assertions::assert_eq;
+    use ratatui::buffer::Buffer;
+
+    #[test]
+    fn test_new() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = state_with_everything();
+        let view = CollectionView::new(&state, tx);
+
+        assert_eq!(view.name(), "Collection View");
+        assert_eq!(
+            view.props,
+            Some(state.additional_view_data.collection.clone().unwrap())
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_move_with_state() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = AppState::default();
+        let new_state = state_with_everything();
+        let view = CollectionView::new(&state, tx).move_with_state(&new_state);
+
+        assert_eq!(
+            view.props,
+            Some(new_state.additional_view_data.collection.clone().unwrap())
+        );
+    }
+    #[test]
+    fn test_render_no_song() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = CollectionView::new(&AppState::default(), tx);
+
+        let mut terminal = setup_test_terminal(22, 3);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        #[rustfmt::skip]
+        let expected = Buffer::with_lines([
+            "┌Collection View─────┐",
+            "│No active collection│",
+            "└────────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = CollectionView::new(&state_with_everything(), tx);
+
+        let mut terminal = setup_test_terminal(60, 9);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Collection View sorted by: Artist─────────────────────────┐",
+            "│                       Collection 0                       │",
+            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                                                          │",
+            "│q: add to queue | p: add to playlist──────────────────────│",
+            "│Performing operations on entire collection────────────────│",
+            "│☐ Test Song Test Artist                                   │",
+            "│s/S: change sort──────────────────────────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_with_checked() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = CollectionView::new(&state_with_everything(), tx);
+        let mut terminal = setup_test_terminal(60, 9);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Collection View sorted by: Artist─────────────────────────┐",
+            "│                       Collection 0                       │",
+            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                                                          │",
+            "│q: add to queue | p: add to playlist──────────────────────│",
+            "│Performing operations on entire collection────────────────│",
+            "│☐ Test Song Test Artist                                   │",
+            "│s/S: change sort──────────────────────────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // select the album
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Collection View sorted by: Artist─────────────────────────┐",
+            "│                       Collection 0                       │",
+            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                                                          │",
+            "│q: add to queue | p: add to playlist──────────────────────│",
+            "│Performing operations on checked items────────────────────│",
+            "│☑ Test Song Test Artist                                   │",
+            "│s/S: change sort──────────────────────────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn smoke_navigation() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = CollectionView::new(&state_with_everything(), tx);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageUp));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageDown));
+        view.handle_key_event(KeyEvent::from(KeyCode::Left));
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+    }
+
+    #[test]
+    fn test_actions() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = CollectionView::new(&state_with_everything(), tx);
+
+        // need to render the view at least once to load the tree state
+        let mut terminal = setup_test_terminal(60, 9);
+        let area = terminal.size().unwrap();
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let _frame = terminal.draw(|frame| view.render(frame, props)).unwrap();
+
+        // we test the actions when:
+        // there are no checked items
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
+                "collection",
+                item_id()
+            )
+                .into()])))
+        );
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
+                "collection",
+                item_id()
+            )
+                .into()])))
+        );
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('d')));
+
+        // there are checked items
+        // first we need to select an item (the album)
+        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        let _frame = terminal.draw(|frame| view.render(frame, props)).unwrap();
+
+        // open the selected view
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Song(item_id()))
+        );
+
+        // check the artist
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        // add to queue
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
+                "song",
+                item_id()
+            )
+                .into()])))
+        );
+
+        // add to collection
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
+                "song",
+                item_id()
+            )
+                .into()])))
+        );
+    }
+}
+
+#[cfg(test)]
+mod library_view_tests {
+    use super::*;
+    use crate::{
+        test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
+        ui::components::content_view::ActiveView,
+    };
+    use anyhow::Result;
+    use pretty_assertions::assert_eq;
+    use ratatui::buffer::Buffer;
+
+    #[test]
+    fn test_new() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = state_with_everything();
+        let view = LibraryCollectionsView::new(&state, tx);
+
+        assert_eq!(view.name(), "Library Collections View");
+        assert_eq!(view.props.collections, state.library.collections);
+        Ok(())
+    }
+
+    #[test]
+    fn test_move_with_state() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = AppState::default();
+        let new_state = state_with_everything();
+        let view = LibraryCollectionsView::new(&state, tx).move_with_state(&new_state);
+
+        assert_eq!(view.props.collections, new_state.library.collections);
+    }
+
+    #[test]
+    fn test_render() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = LibraryCollectionsView::new(&state_with_everything(), tx);
+
+        let mut terminal = setup_test_terminal(60, 6);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Collections sorted by: Name───────────────────────┐",
+            "│──────────────────────────────────────────────────────────│",
+            "│▪ Collection 0                                            │",
+            "│                                                          │",
+            "│                                                          │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | s/S: change sort──────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sort_keys() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryCollectionsView::new(&state_with_everything(), tx);
+
+        assert_eq!(view.props.sort_mode, SortMode::Name);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
+        assert_eq!(view.props.sort_mode, SortMode::Name);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
+        assert_eq!(view.props.sort_mode, SortMode::Name);
+    }
+
+    #[test]
+    fn smoke_navigation() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryCollectionsView::new(&state_with_everything(), tx);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageUp));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageDown));
+        view.handle_key_event(KeyEvent::from(KeyCode::Left));
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+    }
+
+    #[test]
+    fn test_actions() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryCollectionsView::new(&state_with_everything(), tx);
+
+        // need to render the view at least once to load the tree state
+        let mut terminal = setup_test_terminal(60, 9);
+        let area = terminal.size().unwrap();
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        terminal.draw(|frame| view.render(frame, props)).unwrap();
+
+        // first we need to navigate to the collection
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+
+        // open the selected view
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Collection(item_id()))
         );
     }
 }

@@ -16,7 +16,9 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, LibraryAction},
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT},
+        colors::{
+            BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
+        },
         components::{Component, ComponentRender, RenderProps},
         widgets::{
             input_box::{self, InputBox},
@@ -32,7 +34,6 @@ use super::{
         construct_start_radio_action, create_playlist_tree_leaf, create_song_tree_leaf,
         get_checked_things_from_tree_state, get_selected_things_from_tree_state,
     },
-    none::NoneView,
     PlaylistViewProps,
 };
 
@@ -302,7 +303,14 @@ impl ComponentRender<RenderProps> for PlaylistView {
                 &mut self.tree_state.lock().unwrap(),
             );
         } else {
-            NoneView.render_content(frame, props);
+            let text = "No active playlist";
+
+            frame.render_widget(
+                Line::from(text)
+                    .style(Style::default().fg(TEXT_NORMAL.into()))
+                    .alignment(Alignment::Center),
+                props.area,
+            );
         }
     }
 }
@@ -337,7 +345,7 @@ impl From<&AppState> for Props {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SortMode {
     #[default]
     Name,
@@ -533,7 +541,7 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
             // split content area to make room for the input box
             let [input_box_area, content_area] = *Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Length(3), Constraint::Min(4)])
+                .constraints([Constraint::Length(3), Constraint::Min(1)])
                 .split(content_area)
             else {
                 panic!("Failed to split library playlists view area");
@@ -592,6 +600,496 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             props.area,
             &mut self.tree_state.lock().unwrap(),
+        );
+    }
+}
+
+#[cfg(test)]
+mod sort_mode_tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+    use std::time::Duration;
+
+    #[rstest]
+    #[case(SortMode::Name, SortMode::Name)]
+    fn test_sort_mode_next_prev(#[case] mode: SortMode, #[case] expected: SortMode) {
+        assert_eq!(mode.next(), expected);
+        assert_eq!(mode.next().prev(), mode);
+    }
+
+    #[rstest]
+    #[case(SortMode::Name, "Name")]
+    fn test_sort_mode_display(#[case] mode: SortMode, #[case] expected: &str) {
+        assert_eq!(mode.to_string(), expected);
+    }
+
+    #[rstest]
+    fn test_sort_playlists() {
+        let mut songs = vec![
+            Playlist {
+                id: Playlist::generate_id(),
+                name: "C".into(),
+                song_count: 0,
+                runtime: Duration::from_secs(0),
+            },
+            Playlist {
+                id: Playlist::generate_id(),
+                name: "A".into(),
+                song_count: 0,
+                runtime: Duration::from_secs(0),
+            },
+            Playlist {
+                id: Playlist::generate_id(),
+                name: "B".into(),
+                song_count: 0,
+                runtime: Duration::from_secs(0),
+            },
+        ];
+
+        SortMode::Name.sort_playlists(&mut songs);
+        assert_eq!(songs[0].name, "A".into());
+        assert_eq!(songs[1].name, "B".into());
+        assert_eq!(songs[2].name, "C".into());
+    }
+}
+
+#[cfg(test)]
+mod item_view_tests {
+    use super::*;
+    use crate::{
+        state::action::{AudioAction, PopupAction, QueueAction},
+        test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
+        ui::{
+            components::content_view::{views::RADIO_SIZE, ActiveView},
+            widgets::popups::PopupType,
+        },
+    };
+    use anyhow::Result;
+    use pretty_assertions::assert_eq;
+    use ratatui::buffer::Buffer;
+
+    #[test]
+    fn test_new() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = state_with_everything();
+        let view = PlaylistView::new(&state, tx);
+
+        assert_eq!(view.name(), "Playlist View");
+        assert_eq!(
+            view.props,
+            Some(state.additional_view_data.playlist.clone().unwrap())
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_move_with_state() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = AppState::default();
+        let new_state = state_with_everything();
+        let view = PlaylistView::new(&state, tx).move_with_state(&new_state);
+
+        assert_eq!(
+            view.props,
+            Some(new_state.additional_view_data.playlist.clone().unwrap())
+        );
+    }
+    #[test]
+    fn test_render_no_song() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = PlaylistView::new(&AppState::default(), tx);
+
+        let mut terminal = setup_test_terminal(20, 3);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        #[rustfmt::skip]
+        let expected = Buffer::with_lines([
+            "┌Playlist View─────┐",
+            "│No active playlist│",
+            "└──────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = PlaylistView::new(&state_with_everything(), tx);
+
+        let mut terminal = setup_test_terminal(60, 9);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Playlist View sorted by: Artist───────────────────────────┐",
+            "│                       Test Playlist                      │",
+            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on entire playlist──────────────────│",
+            "│☐ Test Song Test Artist                                   │",
+            "│s/S: change sort | d: remove selected─────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_with_checked() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = PlaylistView::new(&state_with_everything(), tx);
+        let mut terminal = setup_test_terminal(60, 9);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Playlist View sorted by: Artist───────────────────────────┐",
+            "│                       Test Playlist                      │",
+            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on entire playlist──────────────────│",
+            "│☐ Test Song Test Artist                                   │",
+            "│s/S: change sort | d: remove selected─────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // select the song
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Playlist View sorted by: Artist───────────────────────────┐",
+            "│                       Test Playlist                      │",
+            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on checked items────────────────────│",
+            "│☑ Test Song Test Artist                                   │",
+            "│s/S: change sort | d: remove selected─────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn smoke_navigation() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = PlaylistView::new(&state_with_everything(), tx);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageUp));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageDown));
+        view.handle_key_event(KeyEvent::from(KeyCode::Left));
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+    }
+
+    #[test]
+    fn test_actions() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = PlaylistView::new(&state_with_everything(), tx);
+
+        // need to render the view at least once to load the tree state
+        let mut terminal = setup_test_terminal(60, 9);
+        let area = terminal.size().unwrap();
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let _frame = terminal.draw(|frame| view.render(frame, props)).unwrap();
+
+        // we test the actions when:
+        // there are no checked items
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
+                "playlist",
+                item_id()
+            )
+                .into()])))
+        );
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Radio(
+                vec![("playlist", item_id()).into()],
+                RADIO_SIZE
+            ))
+        );
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
+                "playlist",
+                item_id()
+            )
+                .into()])))
+        );
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('d')));
+
+        // there are checked items
+        // first we need to select an item (the album)
+        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        let _frame = terminal.draw(|frame| view.render(frame, props)).unwrap();
+
+        // open the selected view
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Song(item_id()))
+        );
+
+        // check the artist
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        // add to queue
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
+                "song",
+                item_id()
+            )
+                .into()])))
+        );
+
+        // start radio
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Radio(
+                vec![("song", item_id()).into()],
+                RADIO_SIZE
+            ))
+        );
+
+        // add to playlist
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
+                "song",
+                item_id()
+            )
+                .into()])))
+        );
+
+        // remove from playlist
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('d')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Library(LibraryAction::RemoveSongsFromPlaylist(
+                ("playlist", item_id()).into(),
+                vec![("song", item_id()).into()]
+            ))
+        );
+    }
+}
+
+#[cfg(test)]
+mod library_view_tests {
+    use super::*;
+    use crate::{
+        test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
+        ui::components::content_view::ActiveView,
+    };
+    use anyhow::Result;
+    use pretty_assertions::assert_eq;
+    use ratatui::buffer::Buffer;
+
+    #[test]
+    fn test_new() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = state_with_everything();
+        let view = LibraryPlaylistsView::new(&state, tx);
+
+        assert_eq!(view.name(), "Library Playlists View");
+        assert_eq!(view.props.playlists, state.library.playlists);
+        Ok(())
+    }
+
+    #[test]
+    fn test_move_with_state() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = AppState::default();
+        let new_state = state_with_everything();
+        let view = LibraryPlaylistsView::new(&state, tx).move_with_state(&new_state);
+
+        assert_eq!(view.props.playlists, new_state.library.playlists);
+    }
+
+    #[test]
+    fn test_render() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = LibraryPlaylistsView::new(&state_with_everything(), tx);
+
+        let mut terminal = setup_test_terminal(60, 6);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Playlists sorted by: Name─────────────────────────┐",
+            "│n: new playlist | d: delete playlist──────────────────────│",
+            "│▪ Test Playlist                                           │",
+            "│                                                          │",
+            "│                                                          │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | s/S: change sort──────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_input_box() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryPlaylistsView::new(&state_with_everything(), tx);
+
+        // open the input box
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('n')));
+
+        let mut terminal = setup_test_terminal(60, 7);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Playlists sorted by: Name─────────────────────────┐",
+            "│┌Enter Name:─────────────────────────────────────────────┐│",
+            "││                                                        ││",
+            "│└────────────────────────────────────────────────────────┘│",
+            "│ ⏎ : Create (cancel if empty)─────────────────────────────│",
+            "│▪ Test Playlist                                           │",
+            "└──────────────────────────────────────────────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sort_keys() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryPlaylistsView::new(&state_with_everything(), tx);
+
+        assert_eq!(view.props.sort_mode, SortMode::Name);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
+        assert_eq!(view.props.sort_mode, SortMode::Name);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
+        assert_eq!(view.props.sort_mode, SortMode::Name);
+    }
+
+    #[test]
+    fn smoke_navigation() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryPlaylistsView::new(&state_with_everything(), tx);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageUp));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageDown));
+        view.handle_key_event(KeyEvent::from(KeyCode::Left));
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+    }
+
+    #[test]
+    fn test_actions() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryPlaylistsView::new(&state_with_everything(), tx);
+
+        // need to render the view at least once to load the tree state
+        let mut terminal = setup_test_terminal(60, 9);
+        let area = terminal.size().unwrap();
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        terminal.draw(|frame| view.render(frame, props)).unwrap();
+
+        // first we need to navigate to the playlist
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+
+        // open the selected view
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Playlist(item_id()))
+        );
+
+        // new playlist
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('n')));
+        assert_eq!(view.input_box_visible, true);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('a')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('b')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(view.input_box_visible, false);
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Library(LibraryAction::CreatePlaylist("ab".to_string()))
+        );
+
+        // delete playlist
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('d')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Library(LibraryAction::RemovePlaylist(
+                ("playlist", item_id()).into()
+            ))
         );
     }
 }

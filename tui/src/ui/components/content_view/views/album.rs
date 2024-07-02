@@ -73,7 +73,7 @@ impl Component for AlbumView {
     }
 
     fn name(&self) -> &str {
-        "Song View"
+        "Album View"
     }
 
     fn handle_key_event(&mut self, key: KeyEvent) {
@@ -288,7 +288,7 @@ struct Props {
     sort_mode: SortMode,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SortMode {
     Title,
     #[default]
@@ -524,6 +524,556 @@ impl ComponentRender<RenderProps> for LibraryAlbumsView {
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             props.area,
             &mut self.tree_state.lock().unwrap(),
+        );
+    }
+}
+
+#[cfg(test)]
+mod sort_mode_tests {
+    use super::*;
+    use one_or_many::OneOrMany;
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+    use std::time::Duration;
+
+    #[rstest]
+    #[case(SortMode::Title, SortMode::Artist)]
+    #[case(SortMode::Artist, SortMode::ReleaseYear)]
+    #[case(SortMode::ReleaseYear, SortMode::Title)]
+    fn test_sort_mode_next_prev(#[case] mode: SortMode, #[case] expected: SortMode) {
+        assert_eq!(mode.next(), expected);
+        assert_eq!(mode.next().prev(), mode);
+    }
+
+    #[rstest]
+    #[case(SortMode::Title, "Title")]
+    #[case(SortMode::Artist, "Artist")]
+    #[case(SortMode::ReleaseYear, "Year")]
+    fn test_sort_mode_display(#[case] mode: SortMode, #[case] expected: &str) {
+        assert_eq!(mode.to_string(), expected);
+    }
+
+    #[rstest]
+    fn test_sort_albums() {
+        let mut albums = vec![
+            Album {
+                id: Album::generate_id(),
+                title: "C".into(),
+                artist: OneOrMany::One("B".into()),
+                release: Some(2021),
+                song_count: 1,
+                runtime: Duration::from_secs(180),
+                discs: 1,
+                genre: OneOrMany::One("A".into()),
+            },
+            Album {
+                id: Album::generate_id(),
+                title: "B".into(),
+                artist: OneOrMany::One("A".into()),
+                release: Some(2022),
+                song_count: 1,
+                runtime: Duration::from_secs(180),
+                discs: 1,
+                genre: OneOrMany::One("C".into()),
+            },
+            Album {
+                id: Album::generate_id(),
+                title: "A".into(),
+                artist: OneOrMany::One("C".into()),
+                release: Some(2023),
+                song_count: 1,
+                runtime: Duration::from_secs(180),
+                discs: 1,
+                genre: OneOrMany::One("B".into()),
+            },
+        ];
+
+        SortMode::Title.sort_albums(&mut albums);
+        assert_eq!(albums[0].title, "A".into());
+        assert_eq!(albums[1].title, "B".into());
+        assert_eq!(albums[2].title, "C".into());
+
+        SortMode::Artist.sort_albums(&mut albums);
+        assert_eq!(albums[0].artist, OneOrMany::One("A".into()));
+        assert_eq!(albums[1].artist, OneOrMany::One("B".into()));
+        assert_eq!(albums[2].artist, OneOrMany::One("C".into()));
+
+        SortMode::ReleaseYear.sort_albums(&mut albums);
+        assert_eq!(albums[0].release, Some(2023));
+        assert_eq!(albums[1].release, Some(2022));
+        assert_eq!(albums[2].release, Some(2021));
+    }
+}
+
+#[cfg(test)]
+mod item_view_tests {
+    use super::*;
+    use crate::test_utils::{
+        assert_buffer_eq, item_id, setup_test_terminal, state_with_everything,
+    };
+    use anyhow::Result;
+    use pretty_assertions::assert_eq;
+    use ratatui::buffer::Buffer;
+
+    #[test]
+    fn test_new() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = state_with_everything();
+        let view = AlbumView::new(&state, tx);
+
+        assert_eq!(view.name(), "Album View");
+        assert_eq!(
+            view.props,
+            Some(state.additional_view_data.album.clone().unwrap())
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_move_with_state() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = AppState::default();
+        let new_state = state_with_everything();
+        let view = AlbumView::new(&state, tx).move_with_state(&new_state);
+
+        assert_eq!(
+            view.props,
+            Some(new_state.additional_view_data.album.clone().unwrap())
+        );
+    }
+
+    #[test]
+    fn test_render_no_album() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = AlbumView::new(&AppState::default(), tx);
+
+        let mut terminal = setup_test_terminal(17, 3);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        #[rustfmt::skip]
+        let expected = Buffer::with_lines([
+            "┌Album View─────┐",
+            "│No active album│",
+            "└───────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = AlbumView::new(&state_with_everything(), tx);
+
+        let mut terminal = setup_test_terminal(60, 9);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Album View────────────────────────────────────────────────┐",
+            "│                  Test Album Test Artist                  │",
+            "│    Release Year: 2021  Songs: 1  Duration: 00:03:00.00   │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on entire album─────────────────────│",
+            "│▶ Artists (1):                                            │",
+            "│▶ Songs (1):                                              │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_with_checked() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = AlbumView::new(&state_with_everything(), tx);
+        let mut terminal = setup_test_terminal(60, 9);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Album View────────────────────────────────────────────────┐",
+            "│                  Test Album Test Artist                  │",
+            "│    Release Year: 2021  Songs: 1  Duration: 00:03:00.00   │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on entire album─────────────────────│",
+            "│▶ Artists (1):                                            │",
+            "│▶ Songs (1):                                              │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // select the song
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+        let _frame = terminal.draw(|frame| view.render(frame, props)).unwrap();
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Album View────────────────────────────────────────────────┐",
+            "│                  Test Album Test Artist                  │",
+            "│    Release Year: 2021  Songs: 1  Duration: 00:03:00.00   │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on checked items────────────────────│",
+            "│▼ Songs (1):                                              │",
+            "│  ☑ Test Song Test Artist                                 │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn smoke_navigation() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = AlbumView::new(&state_with_everything(), tx);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageUp));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageDown));
+        view.handle_key_event(KeyEvent::from(KeyCode::Left));
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+    }
+
+    #[test]
+    fn test_actions() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = AlbumView::new(&state_with_everything(), tx);
+
+        // need to render the view at least once to load the tree state
+        let mut terminal = setup_test_terminal(60, 9);
+        let area = terminal.size().unwrap();
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let _frame = terminal.draw(|frame| view.render(frame, props)).unwrap();
+
+        // we test the actions when:
+        // there are no checked items
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
+                "album",
+                item_id()
+            )
+                .into()])))
+        );
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Radio(
+                vec![("album", item_id()).into()],
+                RADIO_SIZE
+            ))
+        );
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
+                "album",
+                item_id()
+            )
+                .into()])))
+        );
+
+        // there are checked items
+        // first we need to select an item
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+        let _frame = terminal.draw(|frame| view.render(frame, props)).unwrap();
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+
+        // open the selected view
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Song(item_id()))
+        );
+
+        // check the item
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        // add to queue
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
+                "song",
+                item_id()
+            )
+                .into()])))
+        );
+
+        // start radio
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Radio(
+                vec![("song", item_id()).into()],
+                RADIO_SIZE
+            ))
+        );
+
+        // add to playlist
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
+                "song",
+                item_id()
+            )
+                .into()])))
+        );
+    }
+}
+
+#[cfg(test)]
+mod library_view_tests {
+    use super::*;
+    use crate::test_utils::{
+        assert_buffer_eq, item_id, setup_test_terminal, state_with_everything,
+    };
+    use anyhow::Result;
+    use pretty_assertions::assert_eq;
+    use ratatui::buffer::Buffer;
+
+    #[test]
+    fn test_new() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = state_with_everything();
+        let view = LibraryAlbumsView::new(&state, tx);
+
+        assert_eq!(view.name(), "Library Albums View");
+        assert_eq!(view.props.albums, state.library.albums);
+        Ok(())
+    }
+
+    #[test]
+    fn test_move_with_state() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = AppState::default();
+        let new_state = state_with_everything();
+        let view = LibraryAlbumsView::new(&state, tx).move_with_state(&new_state);
+
+        assert_eq!(view.props.albums, new_state.library.albums);
+    }
+
+    #[test]
+    fn test_render() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = LibraryAlbumsView::new(&state_with_everything(), tx);
+
+        let mut terminal = setup_test_terminal(60, 6);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Albums sorted by: Artist──────────────────────────┐",
+            "│──────────────────────────────────────────────────────────│",
+            "│☐ Test Album Test Artist                                  │",
+            "│                                                          │",
+            "│s/S: change sort──────────────────────────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_with_checked() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryAlbumsView::new(&state_with_everything(), tx);
+        let mut terminal = setup_test_terminal(60, 6);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Albums sorted by: Artist──────────────────────────┐",
+            "│──────────────────────────────────────────────────────────│",
+            "│☐ Test Album Test Artist                                  │",
+            "│                                                          │",
+            "│s/S: change sort──────────────────────────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // check the first album
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Albums sorted by: Artist──────────────────────────┐",
+            "│q: add to queue | r: start radio | p: add to playlist ────│",
+            "│☑ Test Album Test Artist                                  │",
+            "│                                                          │",
+            "│s/S: change sort──────────────────────────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sort_keys() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryAlbumsView::new(&state_with_everything(), tx);
+
+        assert_eq!(view.props.sort_mode, SortMode::Artist);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
+        assert_eq!(view.props.sort_mode, SortMode::ReleaseYear);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
+        assert_eq!(view.props.sort_mode, SortMode::Title);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
+        assert_eq!(view.props.sort_mode, SortMode::Artist);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
+        assert_eq!(view.props.sort_mode, SortMode::Title);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
+        assert_eq!(view.props.sort_mode, SortMode::ReleaseYear);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
+        assert_eq!(view.props.sort_mode, SortMode::Artist);
+    }
+
+    #[test]
+    fn smoke_navigation() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryAlbumsView::new(&state_with_everything(), tx);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageUp));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageDown));
+        view.handle_key_event(KeyEvent::from(KeyCode::Left));
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+    }
+
+    #[test]
+    fn test_actions() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryAlbumsView::new(&state_with_everything(), tx);
+
+        // need to render the view at least once to load the tree state
+        let mut terminal = setup_test_terminal(60, 9);
+        let area = terminal.size().unwrap();
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        terminal.draw(|frame| view.render(frame, props)).unwrap();
+
+        // first we need to navigate to the album
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+
+        // now, we test the actions that require checked items when:
+        // there are no checked items (order is different so that if an action is performed, the assertion later will fail)
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        // open
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(action, Action::SetCurrentView(ActiveView::Album(item_id())));
+
+        // there are checked items
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        // add to queue
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(
+            action,
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
+                "album",
+                item_id()
+            )
+                .into()])))
+        );
+
+        // start radio
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(
+            action,
+            Action::SetCurrentView(ActiveView::Radio(
+                vec![("album", item_id()).into()],
+                RADIO_SIZE
+            ))
+        );
+
+        // add to playlist
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(
+            action,
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
+                "album",
+                item_id()
+            )
+                .into()])))
         );
     }
 }

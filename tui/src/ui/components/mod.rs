@@ -11,6 +11,7 @@ use crate::state::action::Action;
 
 use super::AppState;
 
+#[derive(Debug, Clone, Copy)]
 pub struct RenderProps {
     pub area: Rect,
     pub is_focused: bool,

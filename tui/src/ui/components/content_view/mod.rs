@@ -214,3 +214,95 @@ impl ComponentRender<RenderProps> for ContentView {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{item_id, setup_test_terminal, state_with_everything};
+    use anyhow::Result;
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case(ActiveView::None)]
+    #[case(ActiveView::Search)]
+    #[case(ActiveView::Songs)]
+    #[case(ActiveView::Song(item_id()))]
+    #[case(ActiveView::Albums)]
+    #[case(ActiveView::Album(item_id()))]
+    #[case(ActiveView::Artists)]
+    #[case(ActiveView::Artist(item_id()))]
+    #[case(ActiveView::Playlists)]
+    #[case(ActiveView::Playlist(item_id()))]
+    #[case(ActiveView::Collections)]
+    #[case(ActiveView::Collection(item_id()))]
+    #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))], 1))]
+    fn smoke_render(
+        #[case] active_view: ActiveView,
+        #[values(true, false)] is_focused: bool,
+    ) -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let content_view = ContentView::new(&AppState::default(), tx).move_with_state(&AppState {
+            active_view,
+            ..state_with_everything()
+        });
+
+        let mut terminal = setup_test_terminal(100, 100);
+        let area = terminal.size()?;
+        let completed_frame =
+            terminal.draw(|frame| content_view.render(frame, RenderProps { area, is_focused }));
+
+        assert!(completed_frame.is_ok());
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[case(ActiveView::None)]
+    #[case(ActiveView::Search)]
+    #[case(ActiveView::Songs)]
+    #[case(ActiveView::Song(item_id()))]
+    #[case(ActiveView::Albums)]
+    #[case(ActiveView::Album(item_id()))]
+    #[case(ActiveView::Artists)]
+    #[case(ActiveView::Artist(item_id()))]
+    #[case(ActiveView::Playlists)]
+    #[case(ActiveView::Playlist(item_id()))]
+    #[case(ActiveView::Collections)]
+    #[case(ActiveView::Collection(item_id()))]
+    #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))], 1))]
+    fn test_get_active_view_component(#[case] active_view: ActiveView) {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = AppState {
+            active_view: active_view.clone(),
+            ..state_with_everything()
+        };
+        let content_view = ContentView::new(&state, tx.clone());
+
+        let view = content_view.get_active_view_component();
+
+        match active_view {
+            ActiveView::None => assert_eq!(view.name(), "None"),
+            ActiveView::Search => assert_eq!(view.name(), "Search"),
+            ActiveView::Songs => assert_eq!(view.name(), "Library Songs View"),
+            ActiveView::Song(_) => assert_eq!(view.name(), "Song View"),
+            ActiveView::Albums => assert_eq!(view.name(), "Library Albums View"),
+            ActiveView::Album(_) => assert_eq!(view.name(), "Album View"),
+            ActiveView::Artists => assert_eq!(view.name(), "Library Artists View"),
+            ActiveView::Artist(_) => assert_eq!(view.name(), "Artist View"),
+            ActiveView::Playlists => assert_eq!(view.name(), "Library Playlists View"),
+            ActiveView::Playlist(_) => assert_eq!(view.name(), "Playlist View"),
+            ActiveView::Collections => assert_eq!(view.name(), "Library Collections View"),
+            ActiveView::Collection(_) => assert_eq!(view.name(), "Collection View"),
+            ActiveView::Radio(_, _) => assert_eq!(view.name(), "Radio"),
+        }
+
+        // assert that the two "get_active_view_component" methods return the same component
+        assert_eq!(
+            view.name(),
+            ContentView::new(&state, tx,)
+                .get_active_view_component_mut()
+                .name()
+        )
+    }
+}

@@ -16,7 +16,7 @@ const RADIO_SIZE: u32 = 20;
 
 /// Data needed by the views (that isn't directly handled by a state store)
 #[allow(clippy::module_name_repetitions)]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ViewData {
     pub album: Option<AlbumViewProps>,
     pub artist: Option<ArtistViewProps>,
@@ -26,7 +26,7 @@ pub struct ViewData {
     pub radio: Option<RadioViewProps>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AlbumViewProps {
     pub id: Thing,
     pub album: Album,
@@ -34,7 +34,7 @@ pub struct AlbumViewProps {
     pub songs: Box<[Song]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArtistViewProps {
     pub id: Thing,
     pub artist: Artist,
@@ -42,21 +42,21 @@ pub struct ArtistViewProps {
     pub songs: Box<[Song]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CollectionViewProps {
     pub id: Thing,
     pub collection: Collection,
     pub songs: Box<[Song]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlaylistViewProps {
     pub id: Thing,
     pub playlist: Playlist,
     pub songs: Box<[Song]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SongViewProps {
     pub id: Thing,
     pub song: Song,
@@ -64,7 +64,7 @@ pub struct SongViewProps {
     pub album: Album,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RadioViewProps {
     /// The number of similar songs to get
     pub count: u32,
