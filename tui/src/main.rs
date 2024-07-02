@@ -1,13 +1,12 @@
-mod state;
-mod termination;
-mod ui;
-
 use std::sync::Arc;
 
 use clap::Parser;
 use mecomp_core::rpc::init_client;
-use termination::{create_termination, Interrupted};
-use ui::init_panic_hook;
+use mecomp_tui::{
+    state::Dispatcher,
+    termination::{create_termination, Interrupted},
+    ui::{init_panic_hook, UiManager},
+};
 
 /// Options configurable via the CLI.
 #[derive(Debug, Parser)]
@@ -27,8 +26,8 @@ async fn main() -> anyhow::Result<()> {
     let daemon = Arc::new(init_client(flags.port).await?);
 
     let (terminator, mut interrupt_rx) = create_termination();
-    let (dispatcher, state_receivers) = state::Dispatcher::new();
-    let (ui_manager, action_rx) = ui::UiManager::new();
+    let (dispatcher, state_receivers) = Dispatcher::new();
+    let (ui_manager, action_rx) = UiManager::new();
 
     if let Err(e) = tokio::try_join!(
         dispatcher.main_loop(

@@ -16,7 +16,7 @@ const RADIO_SIZE: u32 = 20;
 
 /// Data needed by the views (that isn't directly handled by a state store)
 #[allow(clippy::module_name_repetitions)]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ViewData {
     pub album: Option<AlbumViewProps>,
     pub artist: Option<ArtistViewProps>,
@@ -26,7 +26,7 @@ pub struct ViewData {
     pub radio: Option<RadioViewProps>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AlbumViewProps {
     pub id: Thing,
     pub album: Album,
@@ -34,7 +34,7 @@ pub struct AlbumViewProps {
     pub songs: Box<[Song]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArtistViewProps {
     pub id: Thing,
     pub artist: Artist,
@@ -42,21 +42,21 @@ pub struct ArtistViewProps {
     pub songs: Box<[Song]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CollectionViewProps {
     pub id: Thing,
     pub collection: Collection,
     pub songs: Box<[Song]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlaylistViewProps {
     pub id: Thing,
     pub playlist: Playlist,
     pub songs: Box<[Song]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SongViewProps {
     pub id: Thing,
     pub song: Song,
@@ -64,7 +64,7 @@ pub struct SongViewProps {
     pub album: Album,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RadioViewProps {
     /// The number of similar songs to get
     pub count: u32,
@@ -82,10 +82,13 @@ pub mod checktree_utils {
     };
 
     use crate::{
-        state::action::{Action, AudioAction, QueueAction},
+        state::action::{Action, AudioAction, PopupAction, QueueAction},
         ui::{
             components::content_view::ActiveView,
-            widgets::tree::{item::CheckTreeItem, state::CheckTreeState},
+            widgets::{
+                popups::PopupType,
+                tree::{item::CheckTreeItem, state::CheckTreeState},
+            },
         },
     };
 
@@ -98,15 +101,16 @@ pub mod checktree_utils {
     ///
     /// None - if there are no checked things and the current thing is None
     /// Some(Action) - if there are checked things or the current thing is Some
+    #[must_use]
     pub fn construct_add_to_playlist_action(
         checked_things: Vec<Thing>,
         current_thing: Option<&Thing>,
     ) -> Option<Action> {
         if checked_things.is_empty() {
             current_thing
-                .map(|id| Action::Audio(AudioAction::Queue(QueueAction::Add(vec![id.clone()]))))
+                .map(|id| Action::Popup(PopupAction::Open(PopupType::Playlist(vec![id.clone()]))))
         } else {
-            Some(Action::Audio(AudioAction::Queue(QueueAction::Add(
+            Some(Action::Popup(PopupAction::Open(PopupType::Playlist(
                 checked_things,
             ))))
         }
@@ -119,6 +123,7 @@ pub mod checktree_utils {
     ///
     /// None - if there are no checked things and the current thing is None
     /// Some(Action) - if there are checked things or the current thing is Some
+    #[must_use]
     pub fn construct_add_to_queue_action(
         checked_things: Vec<Thing>,
         current_thing: Option<&Thing>,
@@ -140,6 +145,7 @@ pub mod checktree_utils {
     ///
     /// None - if there are no checked things and the current thing is None
     /// Some(Action) - if there are checked things or the current thing is Some
+    #[must_use]
     pub fn construct_start_radio_action(
         checked_things: Vec<Thing>,
         current_thing: Option<&Thing>,
@@ -156,6 +162,7 @@ pub mod checktree_utils {
     }
 
     /// Get the checked things from the tree state
+    #[must_use]
     pub fn get_checked_things_from_tree_state(tree_state: &CheckTreeState<String>) -> Vec<Thing> {
         tree_state
             .checked()
@@ -165,6 +172,7 @@ pub mod checktree_utils {
     }
 
     /// Get the selected thing from the tree state
+    #[must_use]
     pub fn get_selected_things_from_tree_state(
         tree_state: &CheckTreeState<String>,
     ) -> Option<Thing> {
@@ -178,6 +186,9 @@ pub mod checktree_utils {
         CheckTreeItem::new_leaf("dummy".to_string(), "")
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_album_tree_item(
         albums: &[Album],
     ) -> Result<CheckTreeItem<String>, std::io::Error> {
@@ -190,7 +201,7 @@ pub mod checktree_utils {
                 .collect(),
         )?;
         if item.children().is_empty() {
-            item.add_child(create_dummy_leaf()).unwrap();
+            item.add_child(create_dummy_leaf())?;
         }
         Ok(item)
     }
@@ -218,6 +229,9 @@ pub mod checktree_utils {
         )
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_artist_tree_item(
         artists: &[Artist],
     ) -> Result<CheckTreeItem<String>, std::io::Error> {
@@ -230,11 +244,12 @@ pub mod checktree_utils {
                 .collect(),
         )?;
         if item.children().is_empty() {
-            item.add_child(create_dummy_leaf()).unwrap();
+            item.add_child(create_dummy_leaf())?;
         }
         Ok(item)
     }
 
+    #[must_use]
     pub fn create_artist_tree_leaf(artist: &Artist) -> CheckTreeItem<String> {
         CheckTreeItem::new_leaf(
             artist.id.to_string(),
@@ -245,6 +260,7 @@ pub mod checktree_utils {
         )
     }
 
+    #[must_use]
     pub fn create_collection_tree_leaf(collection: &Collection) -> CheckTreeItem<String> {
         CheckTreeItem::new_leaf(
             collection.id.to_string(),
@@ -255,6 +271,7 @@ pub mod checktree_utils {
         )
     }
 
+    #[must_use]
     pub fn create_playlist_tree_leaf(playlist: &Playlist) -> CheckTreeItem<String> {
         CheckTreeItem::new_leaf(
             playlist.id.to_string(),
@@ -265,6 +282,9 @@ pub mod checktree_utils {
         )
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_song_tree_item(songs: &[Song]) -> Result<CheckTreeItem<String>, std::io::Error> {
         let mut item = CheckTreeItem::new(
             "Songs".to_string(),
@@ -275,7 +295,7 @@ pub mod checktree_utils {
                 .collect(),
         )?;
         if item.children().is_empty() {
-            item.add_child(create_dummy_leaf()).unwrap();
+            item.add_child(create_dummy_leaf())?;
         }
         Ok(item)
     }

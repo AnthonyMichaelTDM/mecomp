@@ -104,7 +104,8 @@ mod tests {
         T: std::fmt::Debug + Clone + std::cmp::PartialEq,
         I: Iterator<Item = T>,
     {
-        assert_eq!(input.collect::<OneOrMany<_>>(), expected);
+        let collected = input.collect::<OneOrMany<_>>();
+        assert_eq!(collected, expected);
     }
 
     #[rstest]
@@ -118,7 +119,8 @@ mod tests {
         let mut iter = input.iter();
 
         for item in expected {
-            assert_eq!(iter.next(), item.as_ref());
+            let next = iter.next();
+            assert_eq!(next, item.as_ref());
         }
     }
 
@@ -133,7 +135,8 @@ mod tests {
         let mut iter = input.into_iter();
 
         for item in expected {
-            assert_eq!(iter.next(), item);
+            let next = iter.next();
+            assert_eq!(next, item);
         }
     }
 

@@ -369,7 +369,7 @@ impl MusicLibEventHandler {
 
 #[cfg(test)]
 mod tests {
-    //! Tests for the dynamic_updates module.
+    //! Tests for the `dynamic_updates` module.
     //!
     //! These tests initialize the database, and create a temporary music library directory
     //!
@@ -405,7 +405,7 @@ mod tests {
         )
         .expect("Failed to create music library watcher");
 
-        (music_lib, db.clone(), handler)
+        (music_lib, db, handler)
     }
 
     #[rstest]

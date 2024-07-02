@@ -63,5 +63,10 @@ rstest = { workspace = true }
 rstest_reuse = { workspace = true }
 tempfile = { workspace = true }
 lofty = { workspace = true }
-mecomp-storage = { workspace = true, features = ["test_utils"] }
+mecomp-storage = { workspace = true, features = [
+    "serde",
+    "db",
+    "analysis",
+    "test_utils",
+] }
 surrealdb = { workspace = true }

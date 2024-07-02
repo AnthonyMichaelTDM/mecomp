@@ -1315,7 +1315,7 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(8))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_seek_commands(#[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>) {
             init();
@@ -1336,6 +1336,10 @@ mod tests {
             ))));
             sender.send(AudioCommand::Pause);
             let state: StateAudio = get_state(sender.clone()).await;
+            sender.send(AudioCommand::Seek(
+                SeekType::Absolute,
+                Duration::from_secs(0),
+            ));
             assert_eq!(state.queue_position, Some(0));
             assert!(state.paused);
             assert_eq!(

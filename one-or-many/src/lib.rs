@@ -318,7 +318,8 @@ mod tests {
     #[case::one(OneOrMany::One(1), 1)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 3)]
     fn test_len<T>(#[case] input: OneOrMany<T>, #[case] expected: usize) {
-        assert_eq!(input.len(), expected);
+        let actual = input.len();
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -326,7 +327,8 @@ mod tests {
     #[case::one(OneOrMany::One(1), false)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), false)]
     fn test_is_empty<T>(#[case] input: OneOrMany<T>, #[case] expected: bool) {
-        assert_eq!(input.is_empty(), expected);
+        let actual = input.is_empty();
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -342,7 +344,8 @@ mod tests {
     where
         T: PartialEq + std::fmt::Debug,
     {
-        assert_eq!(input.get(index), expected);
+        let actual = input.get(index);
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -353,7 +356,8 @@ mod tests {
     where
         T: PartialEq + std::fmt::Debug,
     {
-        assert_eq!(input.first(), expected);
+        let actual = input.first();
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -366,7 +370,8 @@ mod tests {
     where
         T: PartialEq + std::fmt::Debug,
     {
-        assert_eq!(input.contains(&value), expected);
+        let actual = input.contains(&value);
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -393,7 +398,8 @@ mod tests {
     ) where
         T: Clone + PartialEq + std::fmt::Debug,
     {
-        assert_eq!(input.pop(), expected);
+        let result = input.pop();
+        assert_eq!(result, expected);
         assert_eq!(input, expected_output);
     }
 
@@ -405,7 +411,8 @@ mod tests {
     where
         T: PartialEq + std::fmt::Debug,
     {
-        assert_eq!(input.is_none(), expected);
+        let actual = input.is_none();
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -416,7 +423,8 @@ mod tests {
     where
         T: PartialEq + std::fmt::Debug,
     {
-        assert_eq!(input.is_one(), expected);
+        let actual = input.is_one();
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -427,7 +435,8 @@ mod tests {
     where
         T: PartialEq + std::fmt::Debug,
     {
-        assert_eq!(input.is_many(), expected);
+        let actual = input.is_many();
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -438,7 +447,8 @@ mod tests {
     where
         T: PartialEq + std::fmt::Debug,
     {
-        assert_eq!(input.is_some(), expected);
+        let actual = input.is_some();
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -471,7 +481,8 @@ mod tests {
     where
         T: PartialEq + std::fmt::Debug,
     {
-        assert_eq!(input.as_ref(), expected);
+        let actual = input.as_ref();
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -480,7 +491,8 @@ mod tests {
     where
         T: Clone + PartialEq + std::fmt::Debug,
     {
-        assert_eq!(OneOrMany::from(input), expected);
+        let actual = OneOrMany::from(input);
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -491,7 +503,8 @@ mod tests {
     where
         T: PartialEq + std::fmt::Debug,
     {
-        assert_eq!(OneOrMany::from(input), expected);
+        let actual = OneOrMany::from(input);
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -502,14 +515,16 @@ mod tests {
     where
         T: PartialEq + std::fmt::Debug + Clone,
     {
-        assert_eq!(OneOrMany::from(input), expected);
+        let actual = OneOrMany::from(input);
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
     #[case::none(None, OneOrMany::<usize>::None)]
     #[case::one(Some(1), OneOrMany::One(1))]
     fn test_from_option(#[case] input: Option<usize>, #[case] expected: OneOrMany<usize>) {
-        assert_eq!(OneOrMany::from(input), expected);
+        let actual = OneOrMany::from(input);
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -520,7 +535,8 @@ mod tests {
         #[case] input: Option<OneOrMany<usize>>,
         #[case] expected: OneOrMany<usize>,
     ) {
-        assert_eq!(OneOrMany::from(input), expected);
+        let actual = OneOrMany::from(input);
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -528,7 +544,8 @@ mod tests {
     #[case::one(Some(vec![1]), OneOrMany::One(1))]
     #[case::many(Some(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]))]
     fn test_from_option_vec(#[case] input: Option<Vec<usize>>, #[case] expected: OneOrMany<usize>) {
-        assert_eq!(OneOrMany::from(input), expected);
+        let actual = OneOrMany::from(input);
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -536,7 +553,8 @@ mod tests {
     #[case::one(OneOrMany::One(1), vec![1])]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), vec![1, 2, 3])]
     fn test_into_vec(#[case] input: OneOrMany<usize>, #[case] expected: Vec<usize>) {
-        assert_eq!(Vec::from(input), expected);
+        let actual = Vec::from(input);
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -552,9 +570,10 @@ mod tests {
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 3, 4)]
     fn test_index<T>(#[case] input: OneOrMany<T>, #[case] index: usize, #[case] expected: T)
     where
-        T: PartialEq + std::fmt::Debug,
+        T: PartialEq + std::fmt::Debug + Copy,
     {
-        assert_eq!(input[index], expected);
+        let actual = input[index];
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -582,7 +601,8 @@ mod tests {
         T: PartialEq + std::fmt::Debug,
         I: std::slice::SliceIndex<[T], Output = [T]>,
     {
-        assert_eq!(&input[index], expected);
+        let actual = &input[index];
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -610,7 +630,8 @@ mod tests {
         T: PartialEq + std::fmt::Debug,
         I: std::slice::SliceIndex<[T], Output = [T]>,
     {
-        assert_eq!(&mut input[index], expected);
+        let actual = &mut input[index];
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -638,7 +659,8 @@ mod tests {
     ) where
         T: std::fmt::Debug + PartialOrd,
     {
-        assert_eq!(input.partial_cmp(&other), expected);
+        let actual = input.partial_cmp(&other);
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -662,7 +684,8 @@ mod tests {
     ) where
         T: std::fmt::Debug + Ord,
     {
-        assert_eq!(input.cmp(&other), expected);
+        let actual = input.cmp(&other);
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
@@ -711,7 +734,7 @@ mod tests {
     where
         T: Clone + Eq + std::hash::Hash + std::fmt::Debug,
     {
-        input.dedup_by_key(|x| x.clone());
+        input.dedup_by_key(Clone::clone);
         assert_eq!(input, expected);
     }
 }

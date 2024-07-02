@@ -24,7 +24,7 @@ fn benchmark_try_load_into_db(c: &mut Criterion) {
             .iter(|| async {
                 let db = init_test_database().await.unwrap();
                 let _song = Song::try_load_into_db(&db, metadata.clone()).await.unwrap();
-            })
+            });
     });
 }
 

@@ -15,12 +15,17 @@ pub struct ViewState {
 
 impl ViewState {
     /// Create a new `ViewStore`.
+    #[must_use]
     pub fn new() -> (Self, UnboundedReceiver<ActiveView>) {
         let (state_tx, state_rx) = unbounded_channel::<ActiveView>();
         (Self { state_tx }, state_rx)
     }
 
     /// A loop that updates the store when requested
+    ///
+    /// # Errors
+    ///
+    /// Fails if the state cannot be sent
     pub async fn main_loop(
         &self,
         mut action_rx: UnboundedReceiver<ActiveView>,

@@ -9,6 +9,11 @@ use crate::logger::{init_logger, init_tracing};
 
 static INIT: OnceLock<()> = OnceLock::new();
 
+/// Initialize the logger and tracing subscriber.
+///
+/// # Panics
+///
+/// Panics if the logger or tracing subscriber cannot be initialized.
 pub fn init() {
     INIT.get_or_init(|| {
         init_logger(log::LevelFilter::Debug);

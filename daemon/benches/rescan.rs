@@ -1,6 +1,5 @@
 //! Benchmark of the library rescan function.
 
-use criterion::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
 use mecomp_daemon::services::library::rescan;
 use mecomp_storage::test_utils::create_song_metadata;
@@ -89,18 +88,16 @@ fn benchmark_rescan(c: &mut Criterion) {
         b.to_async(tokio::runtime::Runtime::new().unwrap())
             .iter(|| async {
                 let db = init_test_database().await.unwrap();
-                black_box(
-                    rescan(
-                        &db,
-                        &[tempdir.path().to_path_buf()],
-                        Some(ARTIST_NAME_SEPARATOR),
-                        Some(ARTIST_NAME_SEPARATOR),
-                        MetadataConflictResolution::default(),
-                    )
-                    .await
-                    .unwrap(),
-                );
-            })
+                rescan(
+                    &db,
+                    &[tempdir.path().to_path_buf()],
+                    Some(ARTIST_NAME_SEPARATOR),
+                    Some(ARTIST_NAME_SEPARATOR),
+                    MetadataConflictResolution::default(),
+                )
+                .await
+                .unwrap();
+            });
     });
 }
 

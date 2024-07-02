@@ -59,27 +59,6 @@ pub fn format_duration(duration: &std::time::Duration) -> String {
     format!("{hours:02}:{minutes:02}:{seconds:05.2}")
 }
 
-#[cfg(test)]
-mod test {
-    use super::format_duration;
-    use pretty_assertions::assert_eq;
-    use rstest::rstest;
-    use std::time::Duration;
-
-    #[rstest]
-    #[case::zero(Duration::from_secs(0), "00:00:00.00")]
-    #[case::sub_second(Duration::from_millis(100), "00:00:00.10")]
-    #[case::sub_second(Duration::from_millis(101), "00:00:00.10")]
-    #[case::one_second(Duration::from_secs(1), "00:00:01.00")]
-    #[case::one_minute(Duration::from_secs(60), "00:01:00.00")]
-    #[case::one_hour(Duration::from_secs(3600), "01:00:00.00")]
-    #[case::one_hour_one_minute_one_second(Duration::from_secs(3661), "01:01:01.00")]
-    #[case(Duration::from_secs(3600 + 120 + 1), "01:02:01.00")]
-    fn test_format_duration(#[case] duration: Duration, #[case] expected: &str) {
-        assert_eq!(format_duration(&duration), expected);
-    }
-}
-
 /// Get the data directory for the application.
 ///
 /// Follows the XDG Base Directory Specification for linux, and the equivalents on other platforms.
@@ -116,4 +95,64 @@ pub fn get_config_dir() -> Result<std::path::PathBuf, DirectoryError> {
         return Err(DirectoryError::Config);
     };
     Ok(directory)
+}
+
+#[cfg(test)]
+mod test {
+    use super::format_duration;
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+    use std::time::Duration;
+
+    #[rstest]
+    #[case::zero(Duration::from_secs(0), "00:00:00.00")]
+    #[case::sub_second(Duration::from_millis(100), "00:00:00.10")]
+    #[case::sub_second(Duration::from_millis(101), "00:00:00.10")]
+    #[case::one_second(Duration::from_secs(1), "00:00:01.00")]
+    #[case::one_minute(Duration::from_secs(60), "00:01:00.00")]
+    #[case::one_hour(Duration::from_secs(3600), "01:00:00.00")]
+    #[case::one_hour_one_minute_one_second(Duration::from_secs(3661), "01:01:01.00")]
+    #[case(Duration::from_secs(3600 + 120 + 1), "01:02:01.00")]
+    fn test_format_duration(#[case] duration: Duration, #[case] expected: &str) {
+        let actual = format_duration(&duration);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_function_name() {
+        fn test_function() {
+            let result = super::function_name!();
+            assert!(result.ends_with("test_function"));
+        }
+
+        test_function();
+    }
+
+    #[test]
+    fn test_get_data_dir() {
+        let data_dir = super::get_data_dir().unwrap();
+        assert_eq!(
+            data_dir
+                .components()
+                .last()
+                .unwrap()
+                .as_os_str()
+                .to_string_lossy(),
+            "mecomp"
+        );
+    }
+
+    #[test]
+    fn test_get_config_dir() {
+        let config_dir = super::get_config_dir().unwrap();
+        assert_eq!(
+            config_dir
+                .components()
+                .last()
+                .unwrap()
+                .as_os_str()
+                .to_string_lossy(),
+            "mecomp"
+        );
+    }
 }

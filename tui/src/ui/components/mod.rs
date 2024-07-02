@@ -11,6 +11,7 @@ use crate::state::action::Action;
 
 use super::AppState;
 
+#[derive(Debug, Clone, Copy)]
 pub struct RenderProps {
     pub area: Rect,
     pub is_focused: bool,
@@ -20,6 +21,7 @@ pub trait Component {
     fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self
     where
         Self: Sized;
+    #[must_use]
     fn move_with_state(self, state: &AppState) -> Self
     where
         Self: Sized;

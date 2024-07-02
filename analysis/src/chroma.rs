@@ -408,12 +408,20 @@ mod test {
         let chroma = Array2::<f64>::read_npy(file).unwrap();
         let features = chroma_interval_features(&chroma);
         let expected_features = arr1(&[
-            0.03860284, 0.02185281, 0.04224379, 0.06385278, 0.07311148, 0.02512566, 0.00319899,
-            0.00311308, 0.00107433, 0.00241861,
+            0.038_602_84,
+            0.021_852_81,
+            0.042_243_79,
+            0.063_852_78,
+            0.073_111_48,
+            0.025_125_66,
+            0.003_198_99,
+            0.003_113_08,
+            0.001_074_33,
+            0.002_418_61,
         ]);
         for (expected, actual) in expected_features.iter().zip(&features) {
             assert!(
-                0.00000001 > (expected - actual.abs()),
+                0.000_000_01 > (expected - actual.abs()),
                 "{expected} !~= {actual}"
             );
         }
@@ -447,7 +455,7 @@ mod test {
             .zip(interval_features.iter())
         {
             assert!(
-                0.0000001 > (expected - actual).abs(),
+                0.000_000_1 > (expected - actual).abs(),
                 "{expected} !~= {actual}"
             );
         }
@@ -457,8 +465,8 @@ mod test {
     fn test_normalize_feature_sequence() {
         let array = arr2(&[[0.1, 0.3, 0.4], [1.1, 0.53, 1.01]]);
         let expected_array = arr2(&[
-            [0.08333333, 0.36144578, 0.28368794],
-            [0.91666667, 0.63855422, 0.71631206],
+            [0.083_333_33, 0.361_445_78, 0.283_687_94],
+            [0.916_666_67, 0.638_554_22, 0.716_312_06],
         ]);
 
         let normalized_array = normalize_feature_sequence(&array);
@@ -467,7 +475,7 @@ mod test {
 
         for (expected, actual) in normalized_array.iter().zip(expected_array.iter()) {
             assert!(
-                0.0000001 > (expected - actual).abs(),
+                0.000_000_1 > (expected - actual).abs(),
                 "{expected} !~= {actual}"
             );
         }
@@ -478,17 +486,17 @@ mod test {
         let song = Decoder::decode(Path::new("data/s16_mono_22_5kHz.flac")).unwrap();
         let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
         chroma_desc.do_(&song.samples).unwrap();
-        let expected_values = vec![
-            -0.35661936,
-            -0.63578653,
-            -0.29593682,
-            0.06421304,
-            0.21852458,
-            -0.581239,
-            -0.9466835,
-            -0.9481153,
-            -0.9820945,
-            -0.95968974,
+        let expected_values = [
+            -0.356_619_36,
+            -0.635_786_53,
+            -0.295_936_82,
+            0.064_213_04,
+            0.218_524_58,
+            -0.581_239,
+            -0.946_683_5,
+            -0.948_115_3,
+            -0.982_094_5,
+            -0.959_689_74,
         ];
         for (expected, actual) in expected_values.iter().zip(chroma_desc.get_value().iter()) {
             // original test wanted absolute error < 0.0000001
@@ -510,7 +518,7 @@ mod test {
         let file = File::open("data/chroma.npy").unwrap();
         let expected_chroma = Array2::<f64>::read_npy(file).unwrap();
 
-        let chroma = chroma_stft(22050, &mut stft, 8192, 12, -0.04999999999999999).unwrap();
+        let chroma = chroma_stft(22050, &mut stft, 8192, 12, -0.049_999_999_999_999_99).unwrap();
 
         assert!(!chroma.is_empty() && !expected_chroma.is_empty());
 
@@ -531,7 +539,7 @@ mod test {
 
         let tuning = estimate_tuning(22050, &arr, 2048, 0.01, 12).unwrap();
         assert!(
-            0.000001 > (-0.09999999999999998 - tuning).abs(),
+            0.000_001 > (-0.099_999_999_999_999_98 - tuning).abs(),
             "{tuning} !~= -0.09999999999999998"
         );
     }
@@ -550,7 +558,7 @@ mod test {
 
         let tuning = estimate_tuning(22050, &stft, 8192, 0.01, 12).unwrap();
         assert!(
-            0.000001 > (-0.04999999999999999 - tuning).abs(),
+            0.000_001 > (-0.049_999_999_999_999_99 - tuning).abs(),
             "{tuning} !~= -0.04999999999999999"
         );
     }
@@ -586,13 +594,13 @@ mod test {
 
         for (expected_pitches, actual_pitches) in expected_pitches.iter().zip(pitches.iter()) {
             assert!(
-                0.00000001 > (expected_pitches - actual_pitches).abs(),
+                0.000_000_01 > (expected_pitches - actual_pitches).abs(),
                 "{expected_pitches} !~= {actual_pitches}"
             );
         }
         for (expected_mags, actual_mags) in expected_mags.iter().zip(mags.iter()) {
             assert!(
-                0.00000001 > (expected_mags - actual_mags).abs(),
+                0.000_000_01 > (expected_mags - actual_mags).abs(),
                 "{expected_mags} !~= {actual_mags}"
             );
         }
@@ -607,7 +615,7 @@ mod test {
 
         for (expected, actual) in expected_filter.iter().zip(filter.iter()) {
             assert!(
-                0.000000001 > (expected - actual).abs(),
+                0.000_000_001 > (expected - actual).abs(),
                 "{expected} !~= {actual}"
             );
         }

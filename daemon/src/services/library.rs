@@ -467,7 +467,7 @@ mod tests {
             // the artists are linked to the song
             if let Ok(song_artists) = Song::read_artist(&db, song.id.clone()).await {
                 for artist in &artists {
-                    assert!(song_artists.contains(&artist));
+                    assert!(song_artists.contains(artist));
                 }
             } else {
                 panic!("Error reading song artists");

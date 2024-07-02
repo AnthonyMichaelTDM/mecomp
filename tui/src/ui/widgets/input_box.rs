@@ -25,20 +25,22 @@ pub struct InputBox {
 }
 
 impl InputBox {
+    #[must_use]
     pub fn text(&self) -> &str {
         &self.text
     }
 
-    // pub fn set_text(&mut self, new_text: &str) {
-    //     self.text = String::from(new_text);
-    //     self.cursor_position = self.text.len();
-    // }
+    pub fn set_text(&mut self, new_text: &str) {
+        self.text = String::from(new_text);
+        self.cursor_position = self.text.len();
+    }
 
     pub fn reset(&mut self) {
         self.cursor_position = 0;
         self.text.clear();
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.text.is_empty()
     }
@@ -163,5 +165,167 @@ impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
                 props.area.y,
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_utils::setup_test_terminal;
+
+    use super::*;
+    use anyhow::Result;
+    use pretty_assertions::assert_eq;
+    use ratatui::style::Color;
+    use rstest::rstest;
+
+    #[test]
+    fn test_input_box() {
+        let mut input_box = InputBox {
+            text: String::new(),
+            cursor_position: 0,
+        };
+
+        input_box.enter_char('a');
+        assert_eq!(input_box.text, "a");
+        assert_eq!(input_box.cursor_position, 1);
+
+        input_box.enter_char('b');
+        assert_eq!(input_box.text, "ab");
+        assert_eq!(input_box.cursor_position, 2);
+
+        input_box.enter_char('c');
+        assert_eq!(input_box.text, "abc");
+        assert_eq!(input_box.cursor_position, 3);
+
+        input_box.move_cursor_left();
+        assert_eq!(input_box.cursor_position, 2);
+
+        input_box.delete_char();
+        assert_eq!(input_box.text, "ac");
+        assert_eq!(input_box.cursor_position, 1);
+
+        input_box.enter_char('d');
+        assert_eq!(input_box.text, "adc");
+        assert_eq!(input_box.cursor_position, 2);
+
+        input_box.move_cursor_right();
+        assert_eq!(input_box.cursor_position, 3);
+
+        input_box.reset();
+        assert_eq!(input_box.text, "");
+        assert_eq!(input_box.cursor_position, 0);
+
+        input_box.delete_char();
+        assert_eq!(input_box.text, "");
+        assert_eq!(input_box.cursor_position, 0);
+
+        input_box.delete_char();
+        assert_eq!(input_box.text, "");
+        assert_eq!(input_box.cursor_position, 0);
+    }
+
+    #[test]
+    fn test_input_box_clamp_cursor() {
+        let input_box = InputBox {
+            text: String::new(),
+            cursor_position: 0,
+        };
+
+        assert_eq!(input_box.clamp_cursor(0), 0);
+        assert_eq!(input_box.clamp_cursor(1), 0);
+
+        let input_box = InputBox {
+            text: "abc".to_string(),
+            cursor_position: 3,
+        };
+
+        assert_eq!(input_box.clamp_cursor(3), 3);
+        assert_eq!(input_box.clamp_cursor(4), 3);
+    }
+
+    #[test]
+    fn test_input_box_is_empty() {
+        let input_box = InputBox {
+            text: String::new(),
+            cursor_position: 0,
+        };
+
+        assert!(input_box.is_empty());
+
+        let input_box = InputBox {
+            text: "abc".to_string(),
+            cursor_position: 3,
+        };
+
+        assert!(!input_box.is_empty());
+    }
+
+    #[test]
+    fn test_input_box_text() {
+        let input_box = InputBox {
+            text: "abc".to_string(),
+            cursor_position: 3,
+        };
+
+        assert_eq!(input_box.text(), "abc");
+    }
+
+    #[rstest]
+    fn test_input_box_render(
+        #[values(10, 20)] width: u16,
+        #[values(1, 2, 3, 4, 5, 6)] height: u16,
+        #[values(true, false)] show_cursor: bool,
+    ) -> Result<()> {
+        use ratatui::{buffer::Buffer, text::Line};
+
+        let mut terminal = setup_test_terminal(width, height);
+        let action_tx = tokio::sync::mpsc::unbounded_channel().0;
+        let mut input_box = InputBox::new(&AppState::default(), action_tx);
+        input_box.set_text("Hello, World!");
+        let props = RenderProps {
+            border: Block::bordered(),
+            area: Rect::new(0, 0, width, height),
+            text_color: Color::Reset,
+            show_cursor,
+        };
+        let buffer = terminal
+            .draw(|frame| input_box.render(frame, props))?
+            .buffer
+            .clone();
+
+        let line_top = Line::raw(String::from("┌") + &"─".repeat((width - 2).into()) + "┐");
+        let line_text = if width > 15 {
+            Line::raw(String::from("│Hello, World!") + &" ".repeat((width - 15).into()) + "│")
+        } else {
+            Line::raw(
+                "│Hello, World!"
+                    .chars()
+                    .take((width - 1).into())
+                    .collect::<String>()
+                    + "│",
+            )
+        };
+        let line_empty = Line::raw(String::from("│") + &" ".repeat((width - 2).into()) + "│");
+        let line_bottom = Line::raw(String::from("└") + &"─".repeat((width - 2).into()) + "┘");
+
+        let expected = Buffer::with_lines(match height {
+            0 => unreachable!(),
+            1 => vec![line_top].into_iter(),
+            2 => vec![line_top, line_bottom].into_iter(),
+            3 => vec![line_top, line_text, line_bottom].into_iter(),
+            other => vec![line_top, line_text]
+                .into_iter()
+                .chain(
+                    std::iter::repeat(line_empty)
+                        .take((other - 3).into())
+                        .chain(std::iter::once(line_bottom)),
+                )
+                .collect::<Vec<_>>()
+                .into_iter(),
+        });
+
+        assert_eq!(buffer, expected);
+
+        Ok(())
     }
 }

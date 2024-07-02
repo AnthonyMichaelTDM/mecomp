@@ -50,7 +50,7 @@ pub struct SearchView {
 }
 
 pub struct Props {
-    search_results: SearchResult,
+    pub(crate) search_results: SearchResult,
 }
 
 impl From<&AppState> for Props {
@@ -234,16 +234,28 @@ impl ComponentRender<RenderProps> for SearchView {
         );
 
         // put a border around the content area
-        let border = Block::bordered()
-            .title_top("Results")
-            .title_bottom(if self.search_bar_focused {
-                " \u{23CE} : Search"
-            } else {
-                "/: Search |  \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check"
-            })
-            .border_style(border_style);
-        let area = border.inner(content_area);
-        frame.render_widget(border, content_area);
+        let area = if self.search_bar_focused {
+            let border = Block::bordered()
+                .title_top("Results")
+                .title_bottom(" \u{23CE} : Search")
+                .border_style(border_style);
+            frame.render_widget(&border, content_area);
+            border.inner(content_area)
+        } else {
+            let border = Block::bordered()
+                .title_top("Results")
+                .title_bottom(" \u{23CE} : Open | ←/↑/↓/→: Navigate")
+                .border_style(border_style);
+            frame.render_widget(&border, content_area);
+            let content_area = border.inner(content_area);
+
+            let border = Block::default()
+                .borders(Borders::BOTTOM)
+                .title_bottom("/: Search | \u{2423} : Check")
+                .border_style(border_style);
+            frame.render_widget(&border, content_area);
+            border.inner(content_area)
+        };
 
         // if there are checked items, put an additional border around the content area to display additional instructions
         let area =
@@ -252,7 +264,7 @@ impl ComponentRender<RenderProps> for SearchView {
             } else {
                 let border = Block::default()
                     .borders(Borders::TOP)
-                    .title_top("q: add to queue | r: start radio | p: add to playlist ")
+                    .title_top("q: add to queue | r: start radio | p: add to playlist")
                     .border_style(border_style);
                 frame.render_widget(&border, area);
                 border.inner(area)
@@ -277,5 +289,257 @@ impl ComponentRender<RenderProps> for SearchView {
             props.area,
             &mut self.tree_state.lock().unwrap(),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
+        ui::components::content_view::ActiveView,
+    };
+    use anyhow::Result;
+    use crossterm::event::KeyEvent;
+    use pretty_assertions::assert_eq;
+    use ratatui::buffer::Buffer;
+
+    #[test]
+    fn test_render_search_focused() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
+            active_view: ActiveView::Search,
+            ..state_with_everything()
+        });
+
+        let mut terminal = setup_test_terminal(24, 8);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Search────────────────┐",
+            "│                      │",
+            "└──────────────────────┘",
+            "┌Results───────────────┐",
+            "│▶ Songs (1):          │",
+            "│▶ Albums (1):         │",
+            "│▶ Artists (1):        │",
+            "└ ⏎ : Search───────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_search_unfocused() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
+            active_view: ActiveView::Search,
+            ..state_with_everything()
+        });
+
+        let mut terminal = setup_test_terminal(32, 9);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Search────────────────────────┐",
+            "│                              │",
+            "└──────────────────────────────┘",
+            "┌Results───────────────────────┐",
+            "│▶ Songs (1):                  │",
+            "│▶ Albums (1):                 │",
+            "│▶ Artists (1):                │",
+            "│/: Search | ␣ : Check─────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate─┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn smoke_navigation() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
+            active_view: ActiveView::Search,
+            ..state_with_everything()
+        });
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageUp));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageDown));
+        view.handle_key_event(KeyEvent::from(KeyCode::Left));
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+    }
+
+    #[test]
+    fn test_keys() -> Result<()> {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
+            active_view: ActiveView::Search,
+            ..state_with_everything()
+        });
+
+        let mut terminal = setup_test_terminal(32, 10);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Search────────────────────────┐",
+            "│qrp                           │",
+            "└──────────────────────────────┘",
+            "┌Results───────────────────────┐",
+            "│▶ Songs (1):                  │",
+            "│▶ Albums (1):                 │",
+            "│▶ Artists (1):                │",
+            "│                              │",
+            "│                              │",
+            "└ ⏎ : Search───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(action, Action::Search("qrp".to_string()));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Search────────────────────────┐",
+            "│                              │",
+            "└──────────────────────────────┘",
+            "┌Results───────────────────────┐",
+            "│▶ Songs (1):                  │",
+            "│▶ Albums (1):                 │",
+            "│▶ Artists (1):                │",
+            "│                              │",
+            "│/: Search | ␣ : Check─────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate─┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('/')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        assert_buffer_eq(&buffer, &expected);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Search────────────────────────┐",
+            "│                              │",
+            "└──────────────────────────────┘",
+            "┌Results───────────────────────┐",
+            "│▼ Songs (1):                  │",
+            "│  ☐ Test Song Test Artist     │",
+            "│▶ Albums (1):                 │",
+            "│▶ Artists (1):                │",
+            "│/: Search | ␣ : Check─────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate─┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Search────────────────────────┐",
+            "│                              │",
+            "└──────────────────────────────┘",
+            "┌Results───────────────────────┐",
+            "│q: add to queue | r: start rad│",
+            "│▼ Songs (1):                 ▲│",
+            "│  ☑ Test Song Test Artist    █│",
+            "│▶ Albums (1):                ▼│",
+            "│/: Search | ␣ : Check─────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate─┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(
+            action,
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
+                "song",
+                item_id()
+            )
+                .into()])))
+        );
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(
+            action,
+            Action::SetCurrentView(ActiveView::Radio(
+                vec![("song", item_id()).into()],
+                RADIO_SIZE
+            ))
+        );
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(
+            action,
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
+                "song",
+                item_id()
+            )
+                .into()])))
+        );
+
+        Ok(())
     }
 }

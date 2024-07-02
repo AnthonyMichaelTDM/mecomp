@@ -34,7 +34,7 @@ pub type AlbumId = Thing;
 pub type CollectionId = Thing;
 pub type PlaylistId = Thing;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct SearchResult {
     pub songs: Box<[Song]>,
     pub albums: Box<[Album]>,

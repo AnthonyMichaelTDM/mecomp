@@ -229,3 +229,158 @@ impl ComponentRender<RenderProps> for Sidebar {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+    use ratatui::buffer::Buffer;
+
+    use super::*;
+    use crate::{
+        test_utils::{assert_buffer_eq, setup_test_terminal, state_with_everything},
+        ui::app::ActiveComponent,
+    };
+
+    #[test]
+    fn test_sidebar_item_display() {
+        assert_eq!(SidebarItem::Search.to_string(), "Search");
+        assert_eq!(SidebarItem::LibraryRescan.to_string(), "Library Rescan");
+        assert_eq!(SidebarItem::LibraryAnalyze.to_string(), "Library Analyze");
+        assert_eq!(SidebarItem::Songs.to_string(), "Songs");
+        assert_eq!(SidebarItem::Artists.to_string(), "Artists");
+        assert_eq!(SidebarItem::Albums.to_string(), "Albums");
+        assert_eq!(SidebarItem::Playlists.to_string(), "Playlists");
+        assert_eq!(SidebarItem::Collections.to_string(), "Collections");
+        assert_eq!(SidebarItem::Space.to_string(), "");
+        assert_eq!(
+            SidebarItem::LibraryRecluster.to_string(),
+            "Library Recluster"
+        );
+    }
+
+    #[test]
+    fn test_sidebar_render() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let sidebar = Sidebar::new(&AppState::default(), tx).move_with_state(&AppState {
+            active_component: ActiveComponent::Sidebar,
+            ..state_with_everything()
+        });
+
+        let mut terminal = setup_test_terminal(19, 14);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal.draw(|frame| sidebar.render(frame, props))?.buffer;
+        let expected = Buffer::with_lines([
+            "┌Sidebar──────────┐",
+            "│Search           │",
+            "│                 │",
+            "│Songs            │",
+            "│Artists          │",
+            "│Albums           │",
+            "│Playlists        │",
+            "│Collections      │",
+            "│                 │",
+            "│Library Rescan   │",
+            "│Library Analyze  │",
+            "│Library Recluster│",
+            "│────↑/↓: Move────│",
+            "└──Enter: Select──┘",
+        ]);
+
+        assert_buffer_eq(buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_navigation_wraps() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut sidebar = Sidebar::new(&AppState::default(), tx).move_with_state(&AppState {
+            active_component: ActiveComponent::Sidebar,
+            ..state_with_everything()
+        });
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Up));
+        assert_eq!(sidebar.list_state.selected(), Some(SIDEBAR_ITEMS.len() - 1));
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        assert_eq!(sidebar.list_state.selected(), Some(0));
+    }
+
+    #[test]
+    fn test_actions() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut sidebar = Sidebar::new(&AppState::default(), tx).move_with_state(&AppState {
+            active_component: ActiveComponent::Sidebar,
+            ..state_with_everything()
+        });
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Search)
+        );
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Songs)
+        );
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Artists)
+        );
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Albums)
+        );
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Playlists)
+        );
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Collections)
+        );
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Library(LibraryAction::Rescan)
+        );
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Library(LibraryAction::Analyze)
+        );
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Library(LibraryAction::Recluster)
+        );
+    }
+}

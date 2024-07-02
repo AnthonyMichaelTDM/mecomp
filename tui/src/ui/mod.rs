@@ -51,7 +51,7 @@ use crate::{
     termination::Interrupted,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AppState {
     pub active_component: ActiveComponent,
     pub audio: StateAudio,
@@ -69,12 +69,20 @@ pub struct UiManager {
 }
 
 impl UiManager {
+    #[must_use]
     pub fn new() -> (Self, UnboundedReceiver<Action>) {
         let (action_tx, action_rx) = mpsc::unbounded_channel();
 
         (Self { action_tx }, action_rx)
     }
 
+    /// Main loop for the UI manager.
+    ///
+    /// This function will run until the user exits the application.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if there was an issue rendering to the terminal.
     pub async fn main_loop(
         self,
         daemon: Arc<MusicPlayerClient>,
@@ -168,6 +176,7 @@ impl UiManager {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 fn setup_terminal() -> anyhow::Result<Terminal<CrosstermBackend<Stdout>>> {
     let mut stdout = io::stdout();
 
@@ -178,6 +187,7 @@ fn setup_terminal() -> anyhow::Result<Terminal<CrosstermBackend<Stdout>>> {
     Ok(Terminal::new(CrosstermBackend::new(stdout))?)
 }
 
+#[cfg(not(tarpaulin_include))]
 fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> anyhow::Result<()> {
     disable_raw_mode()?;
 
@@ -190,6 +200,7 @@ fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> anyhow
     Ok(terminal.show_cursor()?)
 }
 
+#[cfg(not(tarpaulin_include))]
 pub fn init_panic_hook() {
     let original_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {

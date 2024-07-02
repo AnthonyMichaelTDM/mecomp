@@ -89,7 +89,7 @@ mod tests {
     fn _test_decode(path: &Path, expected_hash: u32) {
         let song = Decoder::decode(path).unwrap();
         let mut hasher = RollingAdler32::new();
-        for sample in song.samples.iter() {
+        for sample in &song.samples {
             hasher.update_buffer(&sample.to_le_bytes());
         }
 
@@ -100,13 +100,13 @@ mod tests {
     // ffmpeg -i data/s16_stereo_22_5kHz.flac -ar 22050 -ac 1 -c:a pcm_f32le -f hash -hash adler32 -
     #[rstest]
     #[ignore = "fails when asked to convert stereo to mono, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
-    #[case::resample_multi(Path::new("data/s32_stereo_44_1_kHz.flac"), 0xbbcba1cf)]
+    #[case::resample_multi(Path::new("data/s32_stereo_44_1_kHz.flac"), 0xbbcb_a1cf)]
     #[ignore = "fails when asked to convert stereo to mono, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
-    #[case::resample_stereo(Path::new("data/s16_stereo_22_5kHz.flac"), 0x1d7b2d6d)]
-    #[case::decode_mono(Path::new("data/s16_mono_22_5kHz.flac"), 0x5e01930b)]
+    #[case::resample_stereo(Path::new("data/s16_stereo_22_5kHz.flac"), 0x1d7b_2d6d)]
+    #[case::decode_mono(Path::new("data/s16_mono_22_5kHz.flac"), 0x5e01_930b)]
     #[ignore = "fails when asked to convert stereo to mono, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
-    #[case::decode_mp3(Path::new("data/s32_stereo_44_1_kHz.mp3"), 0x69ca6906)]
-    #[case::decode_wav(Path::new("data/piano.wav"), 0xde831e82)]
+    #[case::decode_mp3(Path::new("data/s32_stereo_44_1_kHz.mp3"), 0x69ca_6906)]
+    #[case::decode_wav(Path::new("data/piano.wav"), 0xde83_1e82)]
     fn test_decode(#[case] path: &Path, #[case] expected_hash: u32) {
         _test_decode(path, expected_hash);
     }
@@ -114,13 +114,13 @@ mod tests {
     #[test]
     fn test_dont_panic_no_channel_layout() {
         let path = Path::new("data/no_channel.wav");
-        Decoder::decode(&path).unwrap();
+        Decoder::decode(path).unwrap();
     }
 
     #[test]
     fn test_decode_right_capacity_vec() {
         let path = Path::new("data/s16_mono_22_5kHz.flac");
-        let song = Decoder::decode(&path).unwrap();
+        let song = Decoder::decode(path).unwrap();
         let sample_array = song.samples;
         assert_eq!(
             sample_array.len(), // + SAMPLE_RATE as usize, // The + SAMPLE_RATE is because bliss-rs would add an extra second as a buffer, we don't need to because we know the exact length of the song
@@ -128,7 +128,7 @@ mod tests {
         );
 
         let path = Path::new("data/s32_stereo_44_1_kHz.flac");
-        let song = Decoder::decode(&path).unwrap();
+        let song = Decoder::decode(path).unwrap();
         let sample_array = song.samples;
         assert_eq!(
             sample_array.len(), // + SAMPLE_RATE as usize,
@@ -137,7 +137,7 @@ mod tests {
 
         // NOTE: originally used the .ogg file, but it was failing to decode with `DecodeError(IoError("end of stream"))`
         let path = Path::new("data/capacity_fix.wav");
-        let song = Decoder::decode(&path).unwrap();
+        let song = Decoder::decode(path).unwrap();
         let sample_array = song.samples;
         assert_eq!(
             sample_array.len(), // + SAMPLE_RATE as usize,

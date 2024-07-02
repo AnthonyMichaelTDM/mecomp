@@ -97,8 +97,6 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_as_query_result() -> anyhow::Result<()> {
-        let db = init_test_database().await?;
-
         async fn all_items(db: &Surreal<Db>) -> anyhow::Result<OneOrMany<TestStruct>> {
             Ok(db
                 .query(format!("SELECT * FROM {TABLE_NAME}"))
@@ -106,6 +104,7 @@ mod tests {
                 .take(0)?)
         }
 
+        let db = init_test_database().await?;
         // first, read a query that returns nothing
         assert_eq!(all_items(&db).await?, OneOrMany::None);
 

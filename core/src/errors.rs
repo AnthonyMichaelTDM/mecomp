@@ -89,7 +89,8 @@ mod tests {
         "Decoder error: test"
     )]
     fn test_serializable_library_error(#[case] input: LibraryError, #[case] expected: String) {
-        assert_str_eq!(SerializableLibraryError::from(input).to_string(), expected);
+        let actual = SerializableLibraryError::from(input).to_string();
+        assert_str_eq!(actual, expected);
     }
 
     #[rstest]
@@ -100,6 +101,7 @@ mod tests {
         #[case] from: T,
         #[case] to: SerializableLibraryError,
     ) {
-        assert_eq!(from.into(), to);
+        let actual = from.into();
+        assert_eq!(actual, to);
     }
 }

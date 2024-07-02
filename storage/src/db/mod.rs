@@ -13,8 +13,10 @@ use surrealdb::{
 };
 
 #[cfg(feature = "db")]
+#[cfg(not(tarpaulin_include))]
 static DB_DIR: once_cell::sync::OnceCell<std::path::PathBuf> = once_cell::sync::OnceCell::new();
 #[cfg(feature = "db")]
+#[cfg(not(tarpaulin_include))]
 static TEMP_DB_DIR: once_cell::sync::Lazy<tempfile::TempDir> = once_cell::sync::Lazy::new(|| {
     tempfile::tempdir().expect("Failed to create temporary directory")
 });

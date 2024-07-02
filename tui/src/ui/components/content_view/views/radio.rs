@@ -247,3 +247,229 @@ impl ComponentRender<RenderProps> for RadioView {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
+        ui::components::content_view::ActiveView,
+    };
+    use anyhow::Result;
+    use pretty_assertions::assert_eq;
+    use ratatui::buffer::Buffer;
+
+    #[test]
+    fn test_new() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = state_with_everything();
+        let view = RadioView::new(&state, tx);
+
+        assert_eq!(view.name(), "Radio");
+        assert_eq!(view.props, Some(state.additional_view_data.radio.unwrap()));
+    }
+
+    #[test]
+    fn test_move_with_state() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let state = AppState::default();
+        let new_state = state_with_everything();
+        let view = RadioView::new(&state, tx).move_with_state(&new_state);
+
+        assert_eq!(
+            view.props,
+            Some(new_state.additional_view_data.radio.unwrap())
+        );
+    }
+
+    #[test]
+    fn test_render_empty() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = RadioView::new(&AppState::default(), tx);
+
+        let mut terminal = setup_test_terminal(16, 3);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        #[rustfmt::skip]
+        let expected = Buffer::with_lines([
+            "┌Radio─────────┐",
+            "│ Empty Radio  │",
+            "└──────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = RadioView::new(&state_with_everything(), tx);
+
+        let mut terminal = setup_test_terminal(50, 6);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Radio top 1─────────────────────────────────────┐",
+            "│q: add to queue | p: add to playlist────────────│",
+            "│Performing operations on entire radio───────────│",
+            "│☐ Test Song Test Artist                         │",
+            "│                                                │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check─────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_with_checked() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = RadioView::new(&state_with_everything(), tx);
+        let mut terminal = setup_test_terminal(50, 6);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Radio top 1─────────────────────────────────────┐",
+            "│q: add to queue | p: add to playlist────────────│",
+            "│Performing operations on entire radio───────────│",
+            "│☐ Test Song Test Artist                         │",
+            "│                                                │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check─────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Radio top 1─────────────────────────────────────┐",
+            "│q: add to queue | p: add to playlist────────────│",
+            "│Performing operations on checked items──────────│",
+            "│☑ Test Song Test Artist                         │",
+            "│                                                │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check─────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn smoke_navigation() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = RadioView::new(&state_with_everything(), tx);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageUp));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageDown));
+        view.handle_key_event(KeyEvent::from(KeyCode::Left));
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+    }
+
+    #[test]
+    fn test_actions() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = RadioView::new(&state_with_everything(), tx);
+
+        // need to render the view at least once to load the tree state
+        let mut terminal = setup_test_terminal(50, 6);
+        let area = terminal.size().unwrap();
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let _frame = terminal.draw(|frame| view.render(frame, props)).unwrap();
+
+        // we test the actions when:
+        // there are no checked items
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
+                "song",
+                item_id()
+            )
+                .into()])))
+        );
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
+                "song",
+                item_id()
+            )
+                .into()])))
+        );
+
+        // there are checked items
+        // first we need to select an item (the album)
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        let _frame = terminal.draw(|frame| view.render(frame, props)).unwrap();
+
+        // open the selected view
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Song(item_id()))
+        );
+
+        // check the artist
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        // add to queue
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
+                "song",
+                item_id()
+            )
+                .into()])))
+        );
+
+        // add to playlist
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
+                "song",
+                item_id()
+            )
+                .into()])))
+        );
+    }
+}

@@ -8,7 +8,10 @@ use ndarray_npy::ReadNpyExt;
 use std::fs::File;
 use std::path::Path;
 
-use mecomp_analysis::chroma::*;
+use mecomp_analysis::chroma::{
+    chroma_filter, chroma_stft, estimate_tuning, normalize_feature_sequence, pip_track,
+    pitch_tuning, ChromaDesc,
+};
 
 fn bench_estimate_tuning(c: &mut Criterion) {
     let file = File::open("data/spectrum-chroma.npy").unwrap();
@@ -24,7 +27,7 @@ fn bench_estimate_tuning(c: &mut Criterion) {
                 black_box(12),
             )
             .unwrap();
-        })
+        });
     });
 }
 
@@ -40,7 +43,7 @@ fn bench_pitch_tuning(c: &mut Criterion) {
                 black_box(12),
             )
             .unwrap();
-        })
+        });
     });
 }
 
@@ -51,7 +54,7 @@ fn bench_pip_track(c: &mut Criterion) {
     c.bench_function("mecomp-analysis: chroma.rs: pip_track", |b| {
         b.iter(|| {
             pip_track(black_box(22050), black_box(&spectrum), black_box(2048)).unwrap();
-        })
+        });
     });
 }
 
@@ -65,7 +68,7 @@ fn bench_chroma_filter(c: &mut Criterion) {
                 black_box(-0.1),
             )
             .unwrap();
-        })
+        });
     });
 }
 
@@ -76,7 +79,7 @@ fn bench_normalize_feature_sequence(c: &mut Criterion) {
         |b| {
             b.iter(|| {
                 normalize_feature_sequence(black_box(&array));
-            })
+            });
         },
     );
 }
@@ -97,7 +100,7 @@ fn bench_chroma_desc(c: &mut Criterion) {
             let mut chroma_desc = chroma_desc.clone();
             chroma_desc.do_(black_box(&signal)).unwrap();
             chroma_desc.get_value();
-        })
+        });
     });
 }
 
@@ -120,10 +123,10 @@ fn bench_chroma_stft(c: &mut Criterion) {
                 black_box(&mut stft),
                 black_box(8192),
                 black_box(12),
-                black_box(-0.04999999999999999),
+                black_box(-0.049_999_999_999_999_99),
             )
             .unwrap();
-        })
+        });
     });
 }
 

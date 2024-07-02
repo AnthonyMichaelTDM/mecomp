@@ -62,7 +62,7 @@ impl RepeatMode {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize, Default)]
 pub struct Percent(f32);
 
 impl Percent {
@@ -88,7 +88,7 @@ impl Display for Percent {
 }
 
 /// Information about the runtime of the current song
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Default)]
 pub struct StateRuntime {
     pub seek_position: Duration,
     pub seek_percent: Percent,

@@ -75,6 +75,15 @@ impl std::fmt::Display for Thing {
     }
 }
 
+impl<S: Into<String>, I: Into<Id>> From<(S, I)> for Thing {
+    fn from((tb, id): (S, I)) -> Self {
+        Self {
+            tb: tb.into(),
+            id: id.into(),
+        }
+    }
+}
+
 impl FromStr for Thing {
     type Err = ();
 
@@ -122,6 +131,14 @@ impl FromStr for Thing {
 pub enum Id {
     Number(i64),
     String(String),
+}
+
+impl Id {
+    /// Generate a new `Id::String` variant from a `Ulid`.
+    #[must_use]
+    pub fn ulid() -> Self {
+        Self::String(ulid::Ulid::new().to_string())
+    }
 }
 
 impl std::fmt::Display for Id {
@@ -233,6 +250,43 @@ mod thing {
                 id: surrealdb::sql::Id::String("42".to_owned()),
             }
         );
+    }
+
+    #[test]
+    fn test_from_str() {
+        let id = Id::ulid();
+
+        // valid things
+        let thing: Thing = format!("song:{id}").parse().unwrap();
+        assert_eq!(thing, Thing::from(("song", id.clone())));
+        let thing: Thing = format!("song:{id}: extra text").parse().unwrap();
+        assert_eq!(thing, Thing::from(("song", id.clone())));
+
+        // id too short
+        let thing: Result<Thing, ()> = "song:42".parse();
+        assert!(thing.is_err());
+        let thing: Result<Thing, ()> = "song:42:extra text:".parse();
+        assert!(thing.is_err());
+
+        // id too long
+        let thing: Result<Thing, ()> = format!("song:{}", "a".repeat(27)).parse();
+        assert!(thing.is_err());
+        let thing: Result<Thing, ()> = format!("song:{}: extra text", "a".repeat(27)).parse();
+        assert!(thing.is_err());
+
+        // extra text without colon
+        let thing: Result<Thing, ()> = format!("song:{id} extra text").parse();
+        assert!(thing.is_err());
+
+        // invalid table name
+        let thing: Result<Thing, ()> = format!("table:{id}").parse();
+        assert!(thing.is_err());
+        let thing: Result<Thing, ()> = format!("table:{id}: extra text").parse();
+        assert!(thing.is_err());
+
+        // text is not a id at all
+        let thing: Result<Thing, ()> = "hello world!".parse();
+        assert!(thing.is_err());
     }
 }
 

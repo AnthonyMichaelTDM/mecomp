@@ -22,14 +22,16 @@ db = [
     "dep:tempfile",
 ]
 serde = ["one-or-many/serde", "dep:serde"]
-test_utils = ["dep:tempfile", "dep:anyhow", "db", "analysis"]
+test_utils = ["dep:tempfile", "dep:anyhow"]
 analysis = ["dep:futures", "dep:mecomp-analysis"]
 
 [dependencies]
 # shared dependencies
 lofty = { workspace = true }
 log = { workspace = true }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 once_cell = { workspace = true }
+one-or-many = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true, optional = true }
 surrealdb = { workspace = true, optional = true }
@@ -37,8 +39,7 @@ surrealqlx = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tempfile = { workspace = true, optional = true }
-one-or-many = { workspace = true }
-mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+ulid = "1.1"
 
 # dependencies for the analysis feature
 futures = { workspace = true, optional = true }

@@ -9,23 +9,22 @@ use std::{
 use anyhow::Result;
 use lofty::{config::WriteOptions, file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
 use rand::{seq::IteratorRandom, Rng};
+#[cfg(feature = "db")]
 use surrealdb::{
     engine::local::{Db, Mem},
     sql::Id,
     Connection, Surreal,
 };
 
-use crate::db::{
-    register_custom_analyzer,
-    schemas::{
-        album::Album,
-        artist::Artist,
-        collection::Collection,
-        playlist::Playlist,
-        song::{Song, SongChangeSet, SongMetadata},
-    },
+#[cfg(not(feature = "db"))]
+use crate::db::schemas::Id;
+use crate::db::schemas::{
+    album::Album,
+    artist::Artist,
+    collection::Collection,
+    playlist::Playlist,
+    song::{Song, SongChangeSet, SongMetadata},
 };
-use one_or_many::OneOrMany;
 
 pub const ARTIST_NAME_SEPARATOR: &str = ", ";
 
@@ -35,11 +34,12 @@ pub const ARTIST_NAME_SEPARATOR: &str = ", ";
 /// # Errors
 ///
 /// This function will return an error if the database cannot be initialized.
+#[cfg(feature = "db")]
 pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
     let db = Surreal::new::<Mem>(()).await?;
     db.use_ns("test").use_db("test").await?;
 
-    register_custom_analyzer(&db).await?;
+    crate::db::register_custom_analyzer(&db).await?;
     surrealqlx::register_tables!(&db, Album, Artist, Song, Collection, Playlist)?;
 
     Ok(db)
@@ -56,6 +56,7 @@ pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
 /// # Panics
 ///
 /// Panics if the song can't be read from the database after creation.
+#[cfg(feature = "db")]
 pub async fn create_song_with_overrides<C: Connection>(
     db: &Surreal<C>,
     SongCase {
@@ -84,7 +85,7 @@ pub async fn create_song_with_overrides<C: Connection>(
             .collect::<Vec<_>>()
             .into(),
         album: Arc::from(format!("Album {album}").as_str()),
-        genre: OneOrMany::One(Arc::from(format!("Genre {genre}").as_str())),
+        genre: one_or_many::OneOrMany::One(Arc::from(format!("Genre {genre}").as_str())),
         runtime: Duration::from_secs(120),
         track: None,
         disc: None,

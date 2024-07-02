@@ -9,6 +9,7 @@ use mecomp_storage::db::schemas::Thing;
 
 use crate::ui::{components::content_view::ActiveView, widgets::popups::PopupType};
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum Action {
     /// General actions
     General(GeneralAction),
@@ -24,11 +25,13 @@ pub enum Action {
     Popup(PopupAction),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GeneralAction {
     /// Exit the application.
     Exit,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum AudioAction {
     /// Playback Commands
     Playback(PlaybackAction),
@@ -36,6 +39,7 @@ pub enum AudioAction {
     Queue(QueueAction),
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum PlaybackAction {
     /// Toggle play/pause
     Toggle,
@@ -51,6 +55,7 @@ pub enum PlaybackAction {
     ToggleMute,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum VolumeAction {
     /// Increase the volume by a given amount (0 is mute, 100 is max)
     Increase(f32),
@@ -58,6 +63,7 @@ pub enum VolumeAction {
     Decrease(f32),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QueueAction {
     /// Add a list of things to the queue (by id)
     #[allow(dead_code)]
@@ -74,6 +80,7 @@ pub enum QueueAction {
     SetRepeatMode(RepeatMode),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LibraryAction {
     /// Rescan the library
     Rescan,
@@ -97,6 +104,7 @@ pub enum LibraryAction {
     CreatePlaylistAndAddThings(String, Vec<Thing>),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PopupAction {
     /// Open a popup
     Open(PopupType),

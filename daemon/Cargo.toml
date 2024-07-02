@@ -70,7 +70,12 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 criterion.workspace = true
 lofty = { workspace = true }
 mecomp-core = { workspace = true, features = ["rpc", "mock_playback"] }
-mecomp-storage = { workspace = true, features = ["serde", "db", "test_utils"] }
+mecomp-storage = { workspace = true, features = [
+    "serde",
+    "db",
+    "analysis",
+    "test_utils",
+] }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }

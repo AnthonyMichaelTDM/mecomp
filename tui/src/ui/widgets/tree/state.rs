@@ -241,23 +241,6 @@ where
             .map(|(_, identifier)| identifier.as_ref())
     }
 
-    /// Select what was rendered at the given position on last render.
-    /// When it is already selected, toggle it.
-    ///
-    /// Returns `true` when the state changed.
-    /// Returns `false` when there was nothing at the given position.
-    pub fn click_at(&mut self, position: Position) -> bool {
-        if let Some(identifier) = self.rendered_at(position) {
-            if identifier == self.selected {
-                self.toggle_selected()
-            } else {
-                self.select(identifier.to_vec())
-            }
-        } else {
-            false
-        }
-    }
-
     /// Ensure the selected [`CheckTreeItem`] is in view on next render
     pub fn scroll_selected_into_view(&mut self) {
         self.ensure_selected_in_view_on_next_render = true;
@@ -344,5 +327,196 @@ where
     /// Returns `true` when the selection changed.
     pub fn key_space(&mut self) -> bool {
         self.toggle_check_selected()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_select() {
+        let mut state: CheckTreeState<&str> = CheckTreeState::default();
+
+        let id: &[&str] = &[];
+        assert_eq!(state.select(id.to_vec()), false);
+        assert_eq!(state.selected(), id);
+
+        let id = &["a"];
+        assert_eq!(state.select(id.clone().to_vec()), true);
+        assert_eq!(state.selected(), id);
+
+        let id = &["a", "b"];
+        assert_eq!(state.select(id.clone().to_vec()), true);
+        assert_eq!(state.selected(), id);
+
+        let id: &[&str] = &[];
+        assert_eq!(state.select(id.to_vec()), true);
+        assert_eq!(state.selected(), id);
+
+        let id: &[&str] = &[];
+        assert_eq!(state.select(id.to_vec()), false);
+        assert_eq!(state.selected(), id);
+    }
+
+    #[test]
+    fn test_open() {
+        let mut state: CheckTreeState<&str> = CheckTreeState::default();
+        let mut expected: HashSet<Vec<&str>> = HashSet::default();
+
+        // at first, it's empty
+        assert_eq!(state.opened(), &expected);
+
+        // we get false if we "open" nothing
+        assert_eq!(state.open(vec![]), false);
+
+        // we get true if we open something that isn't already open
+        let id = vec!["a"];
+        assert_eq!(state.open(id.clone()), true);
+        expected.insert(id.clone());
+        assert_eq!(state.opened(), &expected);
+
+        // we get false if we open it again
+        let id = vec!["a"];
+        assert_eq!(state.open(id.clone()), false);
+        assert_eq!(state.opened(), &expected);
+    }
+
+    #[test]
+    fn test_close() {
+        let mut state: CheckTreeState<&str> = CheckTreeState::default();
+
+        assert_eq!(state.close(&["a"]), false);
+
+        state.open(vec!["a"]);
+
+        assert_eq!(state.close(&["a"]), true);
+        assert_eq!(state.close(&["a"]), false);
+    }
+
+    #[test]
+    fn test_close_all() {
+        let mut state: CheckTreeState<&str> = CheckTreeState::default();
+
+        assert_eq!(state.close_all(), false);
+
+        state.open(vec!["a"]);
+
+        assert_eq!(state.close_all(), true);
+        assert_eq!(state.close_all(), false);
+
+        state.open(vec!["a"]);
+        state.open(vec!["a", "b"]);
+
+        assert_eq!(state.close_all(), true);
+        assert_eq!(state.close_all(), false);
+    }
+
+    #[test]
+    fn test_check() {
+        let mut state: CheckTreeState<&str> = CheckTreeState::default();
+        let mut expected: HashSet<Vec<&str>> = HashSet::default();
+
+        // at first, it's empty
+        assert_eq!(state.checked(), &expected);
+
+        // we get false if we "check" nothing
+        assert_eq!(state.check(vec![]), false);
+
+        // we get true if we check something that isn't already open
+        let id = vec!["a"];
+        assert_eq!(state.check(id.clone()), true);
+        expected.insert(id.clone());
+        assert_eq!(state.checked(), &expected);
+
+        // we get false if we check it again
+        let id = vec!["a"];
+        assert_eq!(state.check(id.clone()), false);
+        assert_eq!(state.checked(), &expected);
+    }
+
+    #[test]
+    fn test_uncheck() {
+        let mut state: CheckTreeState<&str> = CheckTreeState::default();
+
+        assert_eq!(state.uncheck(&["a"]), false);
+
+        state.check(vec!["a"]);
+
+        assert_eq!(state.uncheck(&["a"]), true);
+        assert_eq!(state.uncheck(&["a"]), false);
+    }
+
+    #[test]
+    fn test_toggle() {
+        let mut state: CheckTreeState<&str> = CheckTreeState::default();
+        let mut expected: HashSet<Vec<&str>> = HashSet::default();
+
+        assert_eq!(state.toggle(vec![]), false);
+
+        let id = vec!["a"];
+        assert_eq!(state.toggle(id.clone()), true);
+        expected.insert(id.clone());
+        assert_eq!(state.opened(), &expected);
+
+        assert_eq!(state.toggle(id.clone()), true);
+        expected.remove(&id);
+        assert_eq!(state.opened(), &expected);
+    }
+
+    #[test]
+    fn test_toggle_selected() {
+        let mut state: CheckTreeState<&str> = CheckTreeState::default();
+        let mut expected: HashSet<Vec<&str>> = HashSet::default();
+
+        assert_eq!(state.toggle_selected(), false);
+
+        let id = vec!["a"];
+        state.select(id.clone());
+
+        assert_eq!(state.toggle_selected(), true);
+        expected.insert(id.clone());
+        assert_eq!(state.opened(), &expected);
+
+        assert_eq!(state.toggle_selected(), true);
+        expected.remove(&id);
+        assert_eq!(state.opened(), &expected);
+    }
+
+    #[test]
+    fn test_toggle_check() {
+        let mut state: CheckTreeState<&str> = CheckTreeState::default();
+        let mut expected: HashSet<Vec<&str>> = HashSet::default();
+
+        assert_eq!(state.toggle_check(vec![]), false);
+
+        let id = vec!["a"];
+        assert_eq!(state.toggle_check(id.clone()), true);
+        expected.insert(id.clone());
+        assert_eq!(state.checked(), &expected);
+
+        assert_eq!(state.toggle_check(id.clone()), true);
+        expected.remove(&id);
+        assert_eq!(state.checked(), &expected);
+    }
+
+    #[test]
+    fn test_toggle_selected_check() {
+        let mut state: CheckTreeState<&str> = CheckTreeState::default();
+        let mut expected: HashSet<Vec<&str>> = HashSet::default();
+
+        assert_eq!(state.toggle_check_selected(), false);
+
+        let id = vec!["a"];
+        state.select(id.clone());
+
+        assert_eq!(state.toggle_check_selected(), true);
+        expected.insert(id.clone());
+        assert_eq!(state.checked(), &expected);
+
+        assert_eq!(state.toggle_check_selected(), true);
+        expected.remove(&id);
+        assert_eq!(state.checked(), &expected);
     }
 }
