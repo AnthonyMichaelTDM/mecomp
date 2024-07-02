@@ -260,17 +260,13 @@ mod tests {
     use ratatui::buffer::Buffer;
 
     #[test]
-    fn test_new() -> Result<()> {
+    fn test_new() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let state = state_with_everything();
         let view = RadioView::new(&state, tx);
 
         assert_eq!(view.name(), "Radio");
-        assert_eq!(
-            view.props,
-            Some(state.additional_view_data.radio.clone().unwrap())
-        );
-        Ok(())
+        assert_eq!(view.props, Some(state.additional_view_data.radio.unwrap()));
     }
 
     #[test]
@@ -282,7 +278,7 @@ mod tests {
 
         assert_eq!(
             view.props,
-            Some(new_state.additional_view_data.radio.clone().unwrap())
+            Some(new_state.additional_view_data.radio.unwrap())
         );
     }
 

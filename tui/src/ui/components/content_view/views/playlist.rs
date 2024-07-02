@@ -670,7 +670,7 @@ mod item_view_tests {
     use ratatui::buffer::Buffer;
 
     #[test]
-    fn test_new() -> Result<()> {
+    fn test_new() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let state = state_with_everything();
         let view = PlaylistView::new(&state, tx);
@@ -678,9 +678,8 @@ mod item_view_tests {
         assert_eq!(view.name(), "Playlist View");
         assert_eq!(
             view.props,
-            Some(state.additional_view_data.playlist.clone().unwrap())
+            Some(state.additional_view_data.playlist.unwrap())
         );
-        Ok(())
     }
 
     #[test]
@@ -692,7 +691,7 @@ mod item_view_tests {
 
         assert_eq!(
             view.props,
-            Some(new_state.additional_view_data.playlist.clone().unwrap())
+            Some(new_state.additional_view_data.playlist.unwrap())
         );
     }
     #[test]
@@ -938,14 +937,13 @@ mod library_view_tests {
     use ratatui::buffer::Buffer;
 
     #[test]
-    fn test_new() -> Result<()> {
+    fn test_new() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let state = state_with_everything();
         let view = LibraryPlaylistsView::new(&state, tx);
 
         assert_eq!(view.name(), "Library Playlists View");
         assert_eq!(view.props.playlists, state.library.playlists);
-        Ok(())
     }
 
     #[test]

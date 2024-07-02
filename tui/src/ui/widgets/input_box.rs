@@ -297,13 +297,13 @@ mod tests {
         let line_text = if width > 15 {
             Line::raw(String::from("│Hello, World!") + &" ".repeat((width - 15).into()) + "│")
         } else {
-            Line::raw(String::from(
+            Line::raw(
                 "│Hello, World!"
                     .chars()
                     .take((width - 1).into())
                     .collect::<String>()
                     + "│",
-            ))
+            )
         };
         let line_empty = Line::raw(String::from("│") + &" ".repeat((width - 2).into()) + "│");
         let line_bottom = Line::raw(String::from("└") + &"─".repeat((width - 2).into()) + "┘");
@@ -318,8 +318,7 @@ mod tests {
                 .chain(
                     std::iter::repeat(line_empty)
                         .take((other - 3).into())
-                        .chain(std::iter::once(line_bottom))
-                        .into_iter(),
+                        .chain(std::iter::once(line_bottom)),
                 )
                 .collect::<Vec<_>>()
                 .into_iter(),

@@ -311,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    fn test_actions() -> Result<()> {
+    fn test_actions() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let mut sidebar = Sidebar::new(&AppState::default(), tx).move_with_state(&AppState {
             active_component: ActiveComponent::Sidebar,
@@ -382,7 +382,5 @@ mod tests {
             rx.blocking_recv().unwrap(),
             Action::Library(LibraryAction::Recluster)
         );
-
-        Ok(())
     }
 }

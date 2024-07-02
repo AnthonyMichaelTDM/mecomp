@@ -303,6 +303,6 @@ mod tests {
             ContentView::new(&state, tx,)
                 .get_active_view_component_mut()
                 .name()
-        )
+        );
     }
 }

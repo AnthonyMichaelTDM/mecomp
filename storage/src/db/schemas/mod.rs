@@ -257,9 +257,9 @@ mod thing {
         let id = Id::ulid();
 
         // valid things
-        let thing: Thing = format!("song:{}", id.clone()).parse().unwrap();
+        let thing: Thing = format!("song:{id}").parse().unwrap();
         assert_eq!(thing, Thing::from(("song", id.clone())));
-        let thing: Thing = format!("song:{}: extra text", id.clone()).parse().unwrap();
+        let thing: Thing = format!("song:{id}: extra text").parse().unwrap();
         assert_eq!(thing, Thing::from(("song", id.clone())));
 
         // id too short
@@ -275,13 +275,13 @@ mod thing {
         assert!(thing.is_err());
 
         // extra text without colon
-        let thing: Result<Thing, ()> = format!("song:{} extra text", id.clone()).parse();
+        let thing: Result<Thing, ()> = format!("song:{id} extra text").parse();
         assert!(thing.is_err());
 
         // invalid table name
-        let thing: Result<Thing, ()> = format!("table:{}", id.clone()).parse();
+        let thing: Result<Thing, ()> = format!("table:{id}").parse();
         assert!(thing.is_err());
-        let thing: Result<Thing, ()> = format!("table:{}: extra text", id.clone()).parse();
+        let thing: Result<Thing, ()> = format!("table:{id}: extra text").parse();
         assert!(thing.is_err());
 
         // text is not a id at all

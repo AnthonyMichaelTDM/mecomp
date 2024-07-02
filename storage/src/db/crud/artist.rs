@@ -440,7 +440,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
-        let read = Artist::read_by_name(&db, &"Test Artist".to_string()).await?;
+        let read = Artist::read_by_name(&db, "Test Artist").await?;
         assert_eq!(read, Some(album));
         Ok(())
     }
@@ -450,11 +450,11 @@ mod tests {
     async fn test_read_or_create_by_name() -> Result<()> {
         let db = init_test_database().await?;
 
-        let created = Artist::read_or_create_by_name(&db, &"Test Artist".to_string())
+        let created = Artist::read_or_create_by_name(&db, "Test Artist")
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
-        let read = Artist::read_by_name(&db, &"Test Artist".to_string()).await?;
+        let read = Artist::read_by_name(&db, "Test Artist").await?;
         assert_eq!(read, Some(created));
         Ok(())
     }
@@ -478,12 +478,12 @@ mod tests {
 
         assert_eq!(read.len(), 2);
 
-        if read[0].name != album.name {
-            assert_eq!(read[1], album);
-            assert_eq!(read[0], album2);
-        } else {
+        if read[0].name == album.name {
             assert_eq!(read[0], album);
             assert_eq!(read[1], album2);
+        } else {
+            assert_eq!(read[1], album);
+            assert_eq!(read[0], album2);
         }
 
         Ok(())

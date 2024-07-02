@@ -622,7 +622,7 @@ mod tests {
 
         let state = AppState {
             library: LibraryFull {
-                songs: vec![song.clone()].into_boxed_slice(),
+                songs: vec![song].into_boxed_slice(),
                 ..Default::default()
             },
             ..state
@@ -690,6 +690,6 @@ mod tests {
         assert_eq!(
             component.name(),
             App::new(&state, tx,).get_active_view_component_mut().name()
-        )
+        );
     }
 }

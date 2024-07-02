@@ -21,8 +21,7 @@ use crate::ui::{
 /// Panics if the terminal cannot be created.
 pub fn setup_test_terminal(width: u16, height: u16) -> Terminal<TestBackend> {
     let backend = TestBackend::new(width, height);
-    let terminal = Terminal::new(backend).unwrap();
-    terminal
+    Terminal::new(backend).unwrap()
 }
 
 /// check if the area and content (raw text) of two buffers are the same
@@ -71,7 +70,7 @@ pub fn state_with_everything() -> AppState {
     let artist = Artist {
         id: artist_id.clone().into(),
         name: song.artist[0].clone(),
-        runtime: song.runtime.clone(),
+        runtime: song.runtime,
         album_count: 1,
         song_count: 1,
     };
@@ -80,7 +79,7 @@ pub fn state_with_everything() -> AppState {
         title: song.album.clone(),
         artist: song.artist.clone(),
         release: song.release_year,
-        runtime: song.runtime.clone(),
+        runtime: song.runtime,
         song_count: 1,
         discs: 1,
         genre: song.genre.clone(),
@@ -88,13 +87,13 @@ pub fn state_with_everything() -> AppState {
     let collection = Collection {
         id: collection_id.clone().into(),
         name: "Collection 0".into(),
-        runtime: song.runtime.clone(),
+        runtime: song.runtime,
         song_count: 1,
     };
     let playlist = Playlist {
         id: playlist_id.clone().into(),
         name: "Test Playlist".into(),
-        runtime: song.runtime.clone(),
+        runtime: song.runtime,
         song_count: 1,
     };
 
@@ -109,29 +108,29 @@ pub fn state_with_everything() -> AppState {
         },
         additional_view_data: ViewData {
             album: Some(AlbumViewProps {
-                id: album_id.into(),
+                id: album_id,
                 album: album.clone(),
                 artists: OneOrMany::One(artist.clone()),
                 songs: vec![song.clone()].into_boxed_slice(),
             }),
             artist: Some(ArtistViewProps {
-                id: artist_id.into(),
+                id: artist_id,
                 artist: artist.clone(),
                 albums: vec![album.clone()].into_boxed_slice(),
                 songs: vec![song.clone()].into_boxed_slice(),
             }),
             collection: Some(CollectionViewProps {
-                id: collection_id.into(),
-                collection: collection.clone(),
+                id: collection_id,
+                collection,
                 songs: vec![song.clone()].into_boxed_slice(),
             }),
             playlist: Some(PlaylistViewProps {
-                id: playlist_id.into(),
-                playlist: playlist.clone(),
+                id: playlist_id,
+                playlist,
                 songs: vec![song.clone()].into_boxed_slice(),
             }),
             song: Some(SongViewProps {
-                id: song_id.into(),
+                id: song_id,
                 song: song.clone(),
                 artists: OneOrMany::One(artist.clone()),
                 album: album.clone(),
@@ -142,9 +141,9 @@ pub fn state_with_everything() -> AppState {
             }),
         },
         search: SearchResult {
-            songs: vec![song.clone()].into_boxed_slice(),
-            albums: vec![album.clone()].into_boxed_slice(),
-            artists: vec![artist.clone()].into_boxed_slice(),
+            songs: vec![song].into_boxed_slice(),
+            albums: vec![album].into_boxed_slice(),
+            artists: vec![artist].into_boxed_slice(),
         },
         ..Default::default()
     }
