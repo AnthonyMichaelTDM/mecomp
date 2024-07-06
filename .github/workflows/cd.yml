@@ -101,7 +101,7 @@ jobs:
           cd -
 
       - name: Publish build artifacts
-        uses: actions/upload-artifact@v4.3.3
+        uses: actions/upload-artifact@v4.3.4
         with:
           name: ${{ matrix.binary }}-${{ matrix.platform.os_name }}
           path: "${{ matrix.binary }}-${{ matrix.platform.os_name }}.*"
