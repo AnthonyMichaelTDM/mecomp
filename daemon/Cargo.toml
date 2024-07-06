@@ -62,7 +62,7 @@ mecomp-analysis = { workspace = true, optional = true }
 one-or-many = { workspace = true }
 
 # server dependencies
-config = { version = "0.14.0", default-features = false, features = ["toml"] }
+config.workspace = true
 shellexpand = "3.1"
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
