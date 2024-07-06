@@ -107,7 +107,7 @@ impl Component for AlbumView {
                     }
                 }
             }
-            // if there are checked items, add them to the queue, otherwise send the whole ablum to the queue
+            // if there are checked items, add them to the queue, otherwise send the whole album to the queue
             KeyCode::Char('q') => {
                 if let Some(action) = construct_add_to_queue_action(
                     get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
