@@ -46,6 +46,7 @@ jobs:
         run: cargo tarpaulin
           --out Xml --skip-clean
           --workspace
+          --profile tarpaulin
           --features mock_playback
 
       - name: Upload to codecov.io

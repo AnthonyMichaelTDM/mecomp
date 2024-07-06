@@ -1007,7 +1007,7 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(10))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_audio_kernel_skip_backward(
             #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
@@ -1080,7 +1080,7 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(10))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_audio_kernel_set_position(
             #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,

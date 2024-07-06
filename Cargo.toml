@@ -55,6 +55,10 @@ lto = false
 strip = "none"
 opt-level = 1
 
+[profile.tarpaulin]
+inherits = "test"
+opt-level = 0
+
 [workspace.dependencies]
 # shared dependencies
 anyhow = { version = "1.0", default-features = false }
