@@ -5,8 +5,9 @@ use std::sync::Mutex;
 use crossterm::event::KeyCode;
 use mecomp_core::rpc::SearchResult;
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout},
     style::{Style, Stylize},
+    text::Line,
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -274,6 +275,17 @@ impl ComponentRender<RenderProps> for SearchView {
     }
 
     fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+        // if there are no search results, render a message
+        if self.props.search_results.is_empty() {
+            frame.render_widget(
+                Line::from("No results found")
+                    .style(Style::default().fg(TEXT_NORMAL.into()))
+                    .alignment(Alignment::Center),
+                props.area,
+            );
+            return;
+        }
+
         // create tree to hold results
         let song_tree = create_song_tree_item(&self.props.search_results.songs).unwrap();
         let album_tree = create_album_tree_item(&self.props.search_results.albums).unwrap();
@@ -331,6 +343,42 @@ mod tests {
             "│▶ Songs (1):          │",
             "│▶ Albums (1):         │",
             "│▶ Artists (1):        │",
+            "└ ⏎ : Search───────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_empty() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
+            active_view: ActiveView::Search,
+            search: SearchResult::default(),
+            ..state_with_everything()
+        });
+
+        let mut terminal = setup_test_terminal(24, 8);
+        let area = terminal.size()?;
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Search────────────────┐",
+            "│                      │",
+            "└──────────────────────┘",
+            "┌Results───────────────┐",
+            "│   No results found   │",
+            "│                      │",
+            "│                      │",
             "└ ⏎ : Search───────────┘",
         ]);
 
