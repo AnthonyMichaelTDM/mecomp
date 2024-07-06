@@ -90,7 +90,7 @@ rand = { version = "0.8.5", features = ["small_rng"] }
 rodio = { version = "0.18.1", features = ["symphonia-all"] }
 rubato = { version = "0.15.0" }
 serde = { version = "1.0", features = ["derive", "rc"] }
-strum = { version = "0.26.2", features = ["derive"] }
+strum = { version = "0.26.3", features = ["derive"] }
 surrealdb = { version = "1.5", features = [
     "kv-mem",
     "kv-surrealkv",
