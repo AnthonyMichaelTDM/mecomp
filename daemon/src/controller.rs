@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------- std lib
-use std::{net::SocketAddr, ops::Range, sync::Arc, time::Duration};
+use std::{ops::Range, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
 use log::{debug, error, info, warn};
@@ -48,7 +48,6 @@ mod locks {
 
 #[derive(Clone, Debug)]
 pub struct MusicPlayerServer {
-    pub addr: SocketAddr,
     db: Arc<Surreal<Db>>,
     settings: Arc<Settings>,
     audio_kernel: Arc<AudioKernelSender>,
@@ -57,13 +56,11 @@ pub struct MusicPlayerServer {
 impl MusicPlayerServer {
     #[must_use]
     pub fn new(
-        addr: SocketAddr,
         db: Arc<Surreal<Db>>,
         settings: Arc<Settings>,
         audio_kernel: Arc<AudioKernelSender>,
     ) -> Self {
         Self {
-            addr,
             db,
             settings,
             audio_kernel,
