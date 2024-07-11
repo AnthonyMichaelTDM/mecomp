@@ -48,9 +48,12 @@
 - [x] Users can "freeze" a collection, which will convert it to a playlist
 - [x] Functionality to actually create the collections (recluster endpoit)
 
-### Metadata
+### Metadata Tagger
 
+- This will probably be done as a separate cli/tui tool
 - [ ] if a song is missing important metadata, and there is an internet connection, attempt to fetch the metadata from the [MusicBrainz API](https://musicbrainz.org/doc/MusicBrainz_API).
+  - [ ] we can use the [acousticid api](https://acoustid.org/webservice#lookup) to get the musicbrainz id of a song from an audio fingerprint, and then use the musicbrainz id to get the metadata from the musicbrainz api
+  - [ ] we can use the [rust-chromaprint](https://github.com/0xcaff/rust-chromaprint) crate to generate the audio fingerprint
 
 ## Clients
 
