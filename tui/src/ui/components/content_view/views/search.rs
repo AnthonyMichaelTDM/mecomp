@@ -123,7 +123,7 @@ impl Component for SearchView {
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
             }
-            KeyCode::Char(' ') => {
+            KeyCode::Char(' ') if !self.search_bar_focused => {
                 self.tree_state.lock().unwrap().key_space();
             }
             // when searchbar focused, enter key will search
