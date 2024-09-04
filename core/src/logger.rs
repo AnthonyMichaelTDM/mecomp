@@ -5,6 +5,8 @@ use std::time::Instant;
 use log::info;
 use once_cell::sync::Lazy;
 #[cfg(feature = "otel_tracing")]
+use opentelemetry::trace::TracerProvider as _;
+#[cfg(feature = "otel_tracing")]
 use opentelemetry::KeyValue;
 #[cfg(feature = "otel_tracing")]
 use opentelemetry_otlp::WithExportConfig as _;
@@ -159,7 +161,7 @@ pub fn init_tracing() -> impl tracing::Subscriber {
                 .with_endpoint("http://localhost:4317"),
         )
         .with_trace_config(
-            opentelemetry_sdk::trace::config()
+            opentelemetry_sdk::trace::Config::default()
                 .with_resource(Resource::new(vec![KeyValue::new(
                     opentelemetry_semantic_conventions::resource::SERVICE_NAME,
                     "mecomp-daemon",
@@ -168,7 +170,8 @@ pub fn init_tracing() -> impl tracing::Subscriber {
                 .with_sampler(opentelemetry_sdk::trace::Sampler::AlwaysOn),
         )
         .install_batch(opentelemetry_sdk::runtime::Tokio)
-        .expect("Failed to create tracing layer");
+        .expect("Failed to create tracing layer")
+        .tracer("mecomp-daemon");
 
     #[cfg(feature = "otel_tracing")]
     let subscriber = subscriber.with(

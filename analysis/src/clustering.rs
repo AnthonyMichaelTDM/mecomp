@@ -247,8 +247,9 @@ fn convert_to_array<T: Sample>(data: &[T]) -> Array2<f64> {
     let shape = (data.len(), NUMBER_FEATURES);
     //let mut array = Array2::zeros(shape);
     let data = Array1::from_iter(data.iter().flat_map(|v| *v.inner()))
-        .into_shape(shape)
-        .expect("Failed to reshape!");
+        .to_shape(shape)
+        .expect("Failed to reshape!")
+        .to_owned();
     data
 }
 
