@@ -109,7 +109,7 @@ pub async fn start_daemon(settings: Settings, db_dir: std::path::PathBuf) -> any
     Ok(())
 }
 
-/// Initialize a test client, sends and recieves messages over a channel / pipe.
+/// Initialize a test client, sends and receives messages over a channel / pipe.
 /// This is useful for testing the server without needing to start it.
 #[must_use]
 pub fn init_test_client_server(
