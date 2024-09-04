@@ -62,7 +62,7 @@ opt-level = 0
 [workspace.dependencies]
 # shared dependencies
 anyhow = { version = "1.0", default-features = false }
-lofty = { version = "0.19.2" }
+lofty = { version = "0.21.1" }
 clap = { version = "4.5", default-features = false, features = [
     "color",
     "error-context",
@@ -88,7 +88,7 @@ notify = { version = "6.1", default-features = false, features = [
 ] }
 once_cell = "1.19"
 rand = { version = "0.8.5", features = ["small_rng"] }
-rodio = { version = "0.18.1", features = ["symphonia-all"] }
+rodio = { version = "0.19.0", features = ["symphonia-all"] }
 rubato = { version = "0.15.0" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 strum = { version = "0.26.3", features = ["derive"] }
@@ -98,7 +98,7 @@ surrealdb = { version = "1.5", features = [
 ], default-features = false }
 tap = { version = "1.0" }
 thiserror = { version = "1.0" }
-tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.40", features = ["macros", "rt-multi-thread"] }
 walkdir = { version = "2.5" }
 tarpc = { version = "0.34.0", features = [
     "serde-transport",
@@ -107,11 +107,11 @@ tarpc = { version = "0.34.0", features = [
 ] }
 tracing = { version = "0.1.40" }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-tracing-opentelemetry = "0.24.0"
-opentelemetry = "0.23.0"
-opentelemetry_sdk = { version = "0.23.0", features = ["rt-tokio"] }
-opentelemetry-otlp = "0.16.0"
-opentelemetry-semantic-conventions = { version = "0.15.0" }
+tracing-opentelemetry = "0.25.0"
+opentelemetry = "0.24.0"
+opentelemetry_sdk = { version = "0.24.1", features = ["rt-tokio"] }
+opentelemetry-otlp = "0.17.0"
+opentelemetry-semantic-conventions = { version = "0.16.0" }
 tracing-flame = "0.2.0"
 
 # MECOMP packages
@@ -124,7 +124,7 @@ one-or-many = { path = "one-or-many" }
 
 # shared dev dependencies
 pretty_assertions = "1.4"
-rstest = "0.21.0"
+rstest = "0.22.0"
 rstest_reuse = { version = "0.7.0" }
 tempfile = { version = "3.10" }
 criterion = { version = "0.5.1", features = ["html_reports"] }

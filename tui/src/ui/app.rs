@@ -438,9 +438,7 @@ mod tests {
             tx,
         );
 
-        let mut terminal: ratatui::Terminal<ratatui::backend::TestBackend> =
-            setup_test_terminal(100, 100);
-        let area = terminal.size().unwrap();
+        let (mut terminal, area) = setup_test_terminal(100, 100);
         let completed_frame = terminal.draw(|frame| app.render(frame, area));
 
         assert!(completed_frame.is_ok());
@@ -461,15 +459,12 @@ mod tests {
             tx,
         );
 
-        let mut terminal = setup_test_terminal(100, 100);
-        let area = terminal.size().unwrap();
-        let pre_popup = terminal
-            .draw(|frame| app.render(frame, frame.size()))
-            .unwrap();
+        let (mut terminal, area) = setup_test_terminal(100, 100);
+        let pre_popup = terminal.draw(|frame| app.render(frame, area)).unwrap();
 
         let app = app.move_with_popup(Some(Box::new(Notification("Hello, World!".into()))));
 
-        let mut terminal = setup_test_terminal(100, 100);
+        let (mut terminal, area) = setup_test_terminal(100, 100);
         let post_popup = terminal.draw(|frame| app.render(frame, area)).unwrap();
 
         assert!(!pre_popup.buffer.diff(post_popup.buffer).is_empty());
@@ -491,14 +486,13 @@ mod tests {
             tx,
         );
 
-        let mut terminal = setup_test_terminal(100, 100);
-        let area = terminal.size().unwrap();
+        let (mut terminal, area) = setup_test_terminal(100, 100);
         let pre_popup = terminal.draw(|frame| app.render(frame, area)).unwrap();
 
         let popup = Box::new(Notification("Hello, World!".into()));
         app = app.move_with_popup(Some(popup));
 
-        let mut terminal = setup_test_terminal(100, 100);
+        let (mut terminal, area) = setup_test_terminal(100, 100);
         let post_popup = terminal.draw(|frame| app.render(frame, area)).unwrap();
 
         // assert that the popup is rendered
@@ -514,7 +508,7 @@ mod tests {
         // close the popup (the action handler isn't running so we have to do it manually)
         app = app.move_with_popup(None);
 
-        let mut terminal = setup_test_terminal(100, 100);
+        let (mut terminal, area) = setup_test_terminal(100, 100);
         let post_close = terminal.draw(|frame| app.render(frame, area)).unwrap();
 
         // assert that the popup is no longer rendered

@@ -27,7 +27,6 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
         POPUP_BORDER.into()
     }
 
-    // TODO: implement a way for popups to listen to application state changes
     fn update_with_state(&mut self, state: &AppState);
 
     /// Key Event Handler for the inner component of the popup,
@@ -70,7 +69,7 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
     /// It draws a border with the given title and instructions and
     /// renders the component implementing popup.
     fn render_popup(&self, frame: &mut ratatui::Frame) {
-        let area = self.area(frame.size());
+        let area = self.area(frame.area());
 
         // clear the popup area
         frame.render_widget(Clear, area);
