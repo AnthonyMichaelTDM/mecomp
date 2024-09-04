@@ -65,15 +65,15 @@ mod tests {
 
     #[test]
     fn test_notification_area() -> Result<()> {
-        let terminal = setup_test_terminal(100, 100);
-        let area = Notification(Text::from("Hello, World!")).area(terminal.size()?);
+        let (_, area) = setup_test_terminal(100, 100);
+        let area = Notification(Text::from("Hello, World!")).area(area);
         assert_eq!(area, Rect::new(0, 0, 20, 3));
         Ok(())
     }
 
     #[test]
     fn test_notification_render() -> Result<()> {
-        let mut terminal = setup_test_terminal(20, 3);
+        let (mut terminal, _) = setup_test_terminal(20, 3);
         let notification = Notification(Text::from("Hello, World!"));
         let buffer = terminal
             .draw(|frame| notification.render_popup(frame))?
@@ -95,7 +95,7 @@ mod tests {
 
     #[test]
     fn test_notification_render_small_terminal() -> Result<()> {
-        let mut terminal = setup_test_terminal(18, 2);
+        let (mut terminal, _) = setup_test_terminal(18, 2);
         let notification = Notification(Text::from("Hello, World!"));
         let buffer = terminal
             .draw(|frame| notification.render_popup(frame))?
@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn test_nofitication_render_multiline() -> Result<()> {
-        let mut terminal = setup_test_terminal(20, 5);
+        let (mut terminal, _) = setup_test_terminal(20, 5);
         let notification = Notification(Text::from("Hello,\nWorld!"));
         let buffer = terminal
             .draw(|frame| notification.render_popup(frame))?

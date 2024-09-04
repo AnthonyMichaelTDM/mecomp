@@ -3,7 +3,7 @@ use mecomp_storage::db::schemas::{
     album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song, Id, Thing,
 };
 use one_or_many::OneOrMany;
-use ratatui::{backend::TestBackend, Terminal};
+use ratatui::{backend::TestBackend, layout::Rect, Terminal};
 
 use crate::ui::{
     app::ActiveComponent,
@@ -19,9 +19,12 @@ use crate::ui::{
 /// # Panics
 ///
 /// Panics if the terminal cannot be created.
-pub fn setup_test_terminal(width: u16, height: u16) -> Terminal<TestBackend> {
+pub fn setup_test_terminal(width: u16, height: u16) -> (Terminal<TestBackend>, Rect) {
     let backend = TestBackend::new(width, height);
-    Terminal::new(backend).unwrap()
+    (
+        Terminal::new(backend).unwrap(),
+        Rect::new(0, 0, width, height),
+    )
 }
 
 /// check if the area and content (raw text) of two buffers are the same

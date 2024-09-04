@@ -324,8 +324,7 @@ mod tests {
             ..state_with_everything()
         });
 
-        let mut terminal = setup_test_terminal(24, 8);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(24, 8);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -360,8 +359,7 @@ mod tests {
             ..state_with_everything()
         });
 
-        let mut terminal = setup_test_terminal(24, 8);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(24, 8);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -395,8 +393,7 @@ mod tests {
             ..state_with_everything()
         });
 
-        let mut terminal = setup_test_terminal(32, 9);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(32, 9);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -449,8 +446,7 @@ mod tests {
             ..state_with_everything()
         });
 
-        let mut terminal = setup_test_terminal(32, 10);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(32, 10);
         let props = RenderProps {
             area,
             is_focused: true,
