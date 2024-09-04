@@ -158,11 +158,10 @@ impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
             // Make the cursor visible and ask ratatui to put it at the specified coordinates after
             // rendering
             #[allow(clippy::cast_possible_truncation)]
-            frame.set_cursor(
+            frame.set_cursor_position(
                 // Draw the cursor at the current position in the input field.
                 // This position is can be controlled via the left and right arrow key
-                props.area.x + self.cursor_position as u16,
-                props.area.y,
+                (props.area.x + self.cursor_position as u16, props.area.y),
             );
         }
     }
@@ -278,7 +277,7 @@ mod tests {
     ) -> Result<()> {
         use ratatui::{buffer::Buffer, text::Line};
 
-        let mut terminal = setup_test_terminal(width, height);
+        let (mut terminal, _) = setup_test_terminal(width, height);
         let action_tx = tokio::sync::mpsc::unbounded_channel().0;
         let mut input_box = InputBox::new(&AppState::default(), action_tx);
         input_box.set_text("Hello, World!");

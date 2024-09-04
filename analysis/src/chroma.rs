@@ -223,8 +223,9 @@ pub fn chroma_filter(
         uninit.set_len(wts.len());
     }
     let mut b = Array::from(uninit)
-        .into_shape(wts.dim())
-        .map_err(|e| AnalysisError::AnalysisError(format!("in chroma: {e}")))?;
+        .to_shape(wts.dim())
+        .map_err(|e| AnalysisError::AnalysisError(format!("in chroma: {e}")))?
+        .to_owned();
     b.slice_mut(s![-3.., ..]).assign(&wts.slice(s![..3, ..]));
     b.slice_mut(s![..-3, ..]).assign(&wts.slice(s![3.., ..]));
 

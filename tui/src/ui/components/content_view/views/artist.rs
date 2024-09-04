@@ -589,8 +589,7 @@ mod item_view_tests {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = ArtistView::new(&AppState::default(), tx);
 
-        let mut terminal = setup_test_terminal(18, 3);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(18, 3);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -617,8 +616,7 @@ mod item_view_tests {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = ArtistView::new(&state_with_everything(), tx);
 
-        let mut terminal = setup_test_terminal(60, 9);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(60, 9);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -649,8 +647,7 @@ mod item_view_tests {
     fn test_render_with_checked() -> Result<()> {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = ArtistView::new(&state_with_everything(), tx);
-        let mut terminal = setup_test_terminal(60, 9);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(60, 9);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -722,8 +719,7 @@ mod item_view_tests {
         let mut view = ArtistView::new(&state_with_everything(), tx);
 
         // need to render the view at least once to load the tree state
-        let mut terminal = setup_test_terminal(60, 9);
-        let area = terminal.size().unwrap();
+        let (mut terminal, area) = setup_test_terminal(60, 9);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -846,8 +842,7 @@ mod library_view_tests {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = LibraryArtistsView::new(&state_with_everything(), tx);
 
-        let mut terminal = setup_test_terminal(60, 6);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(60, 6);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -875,8 +870,7 @@ mod library_view_tests {
     fn test_render_with_checked() -> Result<()> {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = LibraryArtistsView::new(&state_with_everything(), tx);
-        let mut terminal = setup_test_terminal(60, 6);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(60, 6);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -950,8 +944,7 @@ mod library_view_tests {
         let mut view = LibraryArtistsView::new(&state_with_everything(), tx);
 
         // need to render the view at least once to load the tree state
-        let mut terminal = setup_test_terminal(60, 9);
-        let area = terminal.size().unwrap();
+        let (mut terminal, area) = setup_test_terminal(60, 9);
         let props = RenderProps {
             area,
             is_focused: true,

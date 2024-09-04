@@ -247,8 +247,7 @@ mod tests {
             ..state_with_everything()
         });
 
-        let mut terminal = setup_test_terminal(100, 100);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(100, 100);
         let completed_frame =
             terminal.draw(|frame| content_view.render(frame, RenderProps { area, is_focused }));
 

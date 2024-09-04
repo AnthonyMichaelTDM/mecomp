@@ -208,7 +208,10 @@ impl AudioKernel {
         let duration_info = self.duration_info.clone();
         let paused = self.paused.clone();
 
-        let _duration_water = std::thread::Builder::new().name(String::from("Duration Watcher")).spawn(move || {
+        // NOTE: as of rodio v0.19.0, we have access to the `get_pos` command, which allows us to get the current position of the audio stream
+        // it may seem like this means we don't need to have a duration watcher, but the key point is that we need to know when to skip to the next song
+        // the duration watcher both tracks the duration of the song, and skips to the next song when the song is over
+        let _duration_watcher = std::thread::Builder::new().name(String::from("Duration Watcher")).spawn(move || {
             let sleep_time = std::time::Duration::from_millis(DURATION_WATCHER_TICK_MS);
             let duration_threshold =
                 std::time::Duration::from_millis(DURATION_WATCHER_NEXT_SONG_THRESHOLD_MS);

@@ -346,10 +346,10 @@ mod tests {
         #[case] expected_area: Rect,
         state: AppState,
     ) -> Result<()> {
-        let terminal = setup_test_terminal(terminal_size.0, terminal_size.1);
+        let (_, area) = setup_test_terminal(terminal_size.0, terminal_size.1);
         let action_tx = tokio::sync::mpsc::unbounded_channel().0;
         let items = vec![];
-        let area = PlaylistSelector::new(&state, action_tx, items).area(terminal.size()?);
+        let area = PlaylistSelector::new(&state, action_tx, items).area(area);
         assert_eq!(area, expected_area);
 
         Ok(())
@@ -360,7 +360,7 @@ mod tests {
         state: AppState,
         #[from(border_style)] style: Style,
     ) -> Result<()> {
-        let mut terminal = setup_test_terminal(31, 10);
+        let (mut terminal, _) = setup_test_terminal(31, 10);
         let action_tx = tokio::sync::mpsc::unbounded_channel().0;
         let items = vec![];
         let popup = PlaylistSelector::new(&state, action_tx, items);
@@ -422,7 +422,7 @@ mod tests {
         border_style: Style,
         input_box_style: Style,
     ) -> Result<()> {
-        let mut terminal = setup_test_terminal(31, 10);
+        let (mut terminal, _) = setup_test_terminal(31, 10);
         let action_tx = tokio::sync::mpsc::unbounded_channel().0;
         let items = vec![];
         let mut popup = PlaylistSelector::new(&state, action_tx, items);

@@ -179,14 +179,15 @@ where
         self.check(self.selected.clone())
     }
 
-    /// Closes all open nodes.
+    /// Closes all open nodes, and uncheck all checked nodes.
     ///
-    /// Returns `true` when any node was closed.
-    pub fn close_all(&mut self) -> bool {
-        if self.opened.is_empty() {
+    /// Returns `true` when any node was closed or unchecked.
+    pub fn reset(&mut self) -> bool {
+        if self.opened.is_empty() && self.checked.is_empty() {
             false
         } else {
             self.opened.clear();
+            self.checked.clear();
             true
         }
     }
@@ -396,21 +397,21 @@ mod tests {
     }
 
     #[test]
-    fn test_close_all() {
+    fn test_reset() {
         let mut state: CheckTreeState<&str> = CheckTreeState::default();
 
-        assert_eq!(state.close_all(), false);
+        assert_eq!(state.reset(), false);
 
         state.open(vec!["a"]);
 
-        assert_eq!(state.close_all(), true);
-        assert_eq!(state.close_all(), false);
+        assert_eq!(state.reset(), true);
+        assert_eq!(state.reset(), false);
 
         state.open(vec!["a"]);
         state.open(vec!["a", "b"]);
 
-        assert_eq!(state.close_all(), true);
-        assert_eq!(state.close_all(), false);
+        assert_eq!(state.reset(), true);
+        assert_eq!(state.reset(), false);
     }
 
     #[test]

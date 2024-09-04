@@ -123,13 +123,13 @@ impl Component for SearchView {
             KeyCode::Right => {
                 self.tree_state.lock().unwrap().key_right();
             }
-            KeyCode::Char(' ') => {
+            KeyCode::Char(' ') if !self.search_bar_focused => {
                 self.tree_state.lock().unwrap().key_space();
             }
             // when searchbar focused, enter key will search
             KeyCode::Enter if self.search_bar_focused => {
                 self.search_bar_focused = false;
-                self.tree_state.lock().unwrap().close_all();
+                self.tree_state.lock().unwrap().reset();
                 if !self.search_bar.is_empty() {
                     self.action_tx
                         .send(Action::Search(self.search_bar.text().to_string()))
@@ -324,8 +324,7 @@ mod tests {
             ..state_with_everything()
         });
 
-        let mut terminal = setup_test_terminal(24, 8);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(24, 8);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -360,8 +359,7 @@ mod tests {
             ..state_with_everything()
         });
 
-        let mut terminal = setup_test_terminal(24, 8);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(24, 8);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -395,8 +393,7 @@ mod tests {
             ..state_with_everything()
         });
 
-        let mut terminal = setup_test_terminal(32, 9);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(32, 9);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -449,8 +446,7 @@ mod tests {
             ..state_with_everything()
         });
 
-        let mut terminal = setup_test_terminal(32, 10);
-        let area = terminal.size()?;
+        let (mut terminal, area) = setup_test_terminal(32, 10);
         let props = RenderProps {
             area,
             is_focused: true,

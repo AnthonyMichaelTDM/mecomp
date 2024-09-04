@@ -18,6 +18,8 @@ ignored = [
     "anyhow",
     "approx",
     "arrayvec",
+    "base64",
+    "byteorder",
     "clap",
     "clap_builder",
     "criterion",
@@ -33,7 +35,6 @@ ignored = [
     "getrandom",
     "hashbrown",
     "indexmap",
-    "itertools-5ef9efb8ec2df382",
     "itertools-93f6ce9d446188ac",
     "itertools-a6292c17cd707f01",
     "lalrpop-util",
@@ -54,10 +55,13 @@ ignored = [
     "semver",
     "serde",
     "serde_json",
+    "smallvec",
     "syn",
     "time",
     "toml_datetime",
+    "toml_edit",
     "tokio",
+    "tokio-stream",
     "tokio-util",
     "tracing",
     "tracing-core",
@@ -77,6 +81,8 @@ ahash = { version = "0.8" }
 anyhow = { version = "1" }
 approx = { version = "0.5" }
 arrayvec = { version = "0.7" }
+base64 = { version = "0.22" }
+byteorder = { version = "1" }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "usage"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "usage"] }
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
@@ -88,11 +94,10 @@ futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-sink = { version = "0.3" }
-futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
+futures-util = { version = "0.3", default-features = false, features = ["async-await-macro", "channel", "io", "sink"] }
 getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
 hashbrown = { version = "0.14", features = ["raw", "serde"] }
 indexmap = { version = "2", features = ["serde"] }
-itertools-5ef9efb8ec2df382 = { package = "itertools", version = "0.12", default-features = false, features = ["use_alloc"] }
 itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
@@ -113,11 +118,14 @@ regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
+smallvec = { version = "1", default-features = false, features = ["const_new"] }
 syn = { version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
 time = { version = "0.3", features = ["formatting", "local-offset", "macros", "parsing"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
 toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
+toml_edit = { version = "0.22", features = ["serde"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }
@@ -128,6 +136,8 @@ ahash = { version = "0.8" }
 anyhow = { version = "1" }
 approx = { version = "0.5" }
 arrayvec = { version = "0.7" }
+base64 = { version = "0.22" }
+byteorder = { version = "1" }
 cc = { version = "1", default-features = false, features = ["parallel"] }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "usage"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "usage"] }
@@ -140,11 +150,10 @@ futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-sink = { version = "0.3" }
-futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
+futures-util = { version = "0.3", default-features = false, features = ["async-await-macro", "channel", "io", "sink"] }
 getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
 hashbrown = { version = "0.14", features = ["raw", "serde"] }
 indexmap = { version = "2", features = ["serde"] }
-itertools-5ef9efb8ec2df382 = { package = "itertools", version = "0.12", default-features = false, features = ["use_alloc"] }
 itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
@@ -165,11 +174,14 @@ regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
+smallvec = { version = "1", default-features = false, features = ["const_new"] }
 syn = { version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
 time = { version = "0.3", features = ["formatting", "local-offset", "macros", "parsing"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
 toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
+toml_edit = { version = "0.22", features = ["serde"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }
