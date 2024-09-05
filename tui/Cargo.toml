@@ -23,7 +23,7 @@ ratatui = { version = "0.28.1", features = ["all-widgets"] }
 # log.workspace = true
 tarpc.workspace = true
 tokio = { workspace = true, features = ["signal"] }
-tokio-stream = "0.1.15"
+tokio-stream = "0.1.16"
 unicode-width = "0.1.13"
 
 # MECOMP dependencies
