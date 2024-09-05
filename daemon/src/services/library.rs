@@ -10,6 +10,7 @@ use mecomp_analysis::{
     decoder::{DecoderWithCallback, MecompDecoder},
 };
 use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
+use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
 use tap::TapFallible;
 use tracing::instrument;
@@ -48,7 +49,7 @@ use crate::config::ReclusterSettings;
 pub async fn rescan<C: Connection>(
     db: &Surreal<C>,
     paths: &[PathBuf],
-    artist_name_separator: Option<&str>,
+    artist_name_separator: &OneOrMany<String>,
     genre_separator: Option<&str>,
     conflict_resolution_mode: MetadataConflictResolution,
 ) -> Result<(), Error> {
@@ -416,7 +417,7 @@ mod tests {
         rescan(
             &db,
             &[tempdir.path().to_owned()],
-            Some(ARTIST_NAME_SEPARATOR),
+            &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
             Some(ARTIST_NAME_SEPARATOR),
             MetadataConflictResolution::Overwrite,
         )

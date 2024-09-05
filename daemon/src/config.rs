@@ -4,6 +4,7 @@
 //! setting up the logger.
 
 use config::{Config, ConfigError, Environment, File};
+use one_or_many::OneOrMany;
 use serde::Deserialize;
 
 use std::path::PathBuf;
@@ -78,8 +79,18 @@ pub struct DaemonSettings {
     /// For example, "Foo, Bar, Baz" would be split into \["Foo", "Bar", "Baz"\]. if the separator is ", ".
     /// If the separator is not found, the entire string is considered as a single artist.
     /// If unset, will not split artists.
-    #[serde(default)]
-    pub artist_separator: Option<String>,
+    ///
+    /// Users can provide one or many separators, and must provide them as either a single string or an array of strings.
+    ///
+    /// ```toml
+    /// [daemon]
+    /// artist_separator = " & "
+    /// artist_separator = [" & ", "; "]
+    ///
+    ///
+    /// ```
+    #[serde(default, deserialize_with = "de_artist_separator")]
+    pub artist_separator: OneOrMany<String>,
     #[serde(default)]
     pub genre_separator: Option<String>,
     /// how conflicting metadata should be resolved
@@ -91,6 +102,21 @@ pub struct DaemonSettings {
     /// Default is "info".
     #[serde(default = "default_log_level")]
     pub log_level: log::LevelFilter,
+}
+
+fn de_artist_separator<'de, D>(deserializer: D) -> Result<OneOrMany<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let v = OneOrMany::<String>::deserialize(deserializer)?
+        .into_iter()
+        .filter(|s| !s.is_empty())
+        .collect::<OneOrMany<String>>();
+    if v.is_empty() {
+        Ok(OneOrMany::None)
+    } else {
+        Ok(v)
+    }
 }
 
 const fn default_port() -> u16 {
@@ -110,7 +136,7 @@ impl Default for DaemonSettings {
         Self {
             rpc_port: default_port(),
             library_paths: default_library_paths(),
-            artist_separator: None,
+            artist_separator: OneOrMany::None,
             genre_separator: None,
             conflict_resolution: MetadataConflictResolution::Overwrite,
             log_level: default_log_level(),
