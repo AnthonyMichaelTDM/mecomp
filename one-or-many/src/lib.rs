@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 /// Especially useful when working with deserialing data
 ///
 /// To let it be useful in other contexts, it aims to implement many of the same traits and functions as `Vec<T>` and `Option<T>`.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Debug, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum OneOrMany<T> {
@@ -147,6 +147,8 @@ impl<T> OneOrMany<T> {
     }
 
     /// Convert a `&OneOrMany<T>` to an `OneOrMany<&T>`
+    ///
+    /// Note, this will unfortunately cause an allocation if the `OneOrMany` is `Many`
     #[inline]
     pub fn as_ref(&self) -> OneOrMany<&T> {
         match *self {
@@ -191,6 +193,16 @@ impl<T> OneOrMany<T> {
             }
         }
         *self = Self::from(new);
+    }
+}
+
+impl<T: Clone> Clone for OneOrMany<T> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::One(t) => Self::One(t.clone()),
+            Self::Many(t) => Self::Many(t.clone()),
+            Self::None => Self::None,
+        }
     }
 }
 

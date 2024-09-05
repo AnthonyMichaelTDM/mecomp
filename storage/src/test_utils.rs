@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::Result;
 use lofty::{config::WriteOptions, file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
+use one_or_many::OneOrMany;
 use rand::{seq::IteratorRandom, Rng};
 #[cfg(feature = "db")]
 use surrealdb::{
@@ -85,7 +86,7 @@ pub async fn create_song_with_overrides<C: Connection>(
             .collect::<Vec<_>>()
             .into(),
         album: Arc::from(format!("Album {album}").as_str()),
-        genre: one_or_many::OneOrMany::One(Arc::from(format!("Genre {genre}").as_str())),
+        genre: OneOrMany::One(Arc::from(format!("Genre {genre}").as_str())),
         runtime: Duration::from_secs(120),
         track: None,
         disc: None,
@@ -172,7 +173,7 @@ pub fn create_song_metadata(
     // now, we need to load a SongMetadata from the new file
     Ok(SongMetadata::load_from_path(
         new_path,
-        Some(ARTIST_NAME_SEPARATOR),
+        &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
         None,
     )?)
 }

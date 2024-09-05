@@ -92,7 +92,7 @@ impl MusicPlayer for MusicPlayerServer {
                     match services::library::rescan(
                         &self.db,
                         &self.settings.daemon.library_paths,
-                        self.settings.daemon.artist_separator.as_deref(),
+                        &self.settings.daemon.artist_separator,
                         self.settings.daemon.genre_separator.as_deref(),
                         self.settings.daemon.conflict_resolution,
                     )
