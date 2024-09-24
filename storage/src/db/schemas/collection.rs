@@ -19,7 +19,7 @@ pub const TABLE_NAME: &str = "collection";
 #[cfg_attr(feature = "db", Table("collection"))]
 pub struct Collection {
     /// the unique identifier for this [`Collection`].
-    #[cfg_attr(feature = "db", field(dt = "record"))]
+    #[cfg_attr(feature = "db", field("any"))]
     pub id: CollectionId,
 
     /// The name of the collection.

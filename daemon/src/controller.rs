@@ -1123,7 +1123,7 @@ impl MusicPlayer for MusicPlayerServer {
         let songs = songs.into_iter().map(Into::into).collect::<Vec<_>>();
         info!("Removing song from playlist: {playlist} ({songs:?})");
 
-        Ok(Playlist::remove_songs(&self.db, playlist, &songs).await?)
+        Ok(Playlist::remove_songs(&self.db, playlist, songs).await?)
     }
     /// Add an artist to a playlist.
     #[instrument]
@@ -1140,7 +1140,7 @@ impl MusicPlayer for MusicPlayerServer {
         Ok(Playlist::add_songs(
             &self.db,
             playlist,
-            &Artist::read_songs(&self.db, artist)
+            Artist::read_songs(&self.db, artist)
                 .await?
                 .iter()
                 .map(|song| song.id.clone())
@@ -1163,7 +1163,7 @@ impl MusicPlayer for MusicPlayerServer {
         Ok(Playlist::add_songs(
             &self.db,
             playlist,
-            &Album::read_songs(&self.db, album)
+            Album::read_songs(&self.db, album)
                 .await?
                 .iter()
                 .map(|song| song.id.clone())
@@ -1183,7 +1183,7 @@ impl MusicPlayer for MusicPlayerServer {
         let songs = songs.into_iter().map(Into::into).collect::<Vec<_>>();
         info!("Adding songs to playlist: {playlist} ({songs:?})");
 
-        Ok(Playlist::add_songs(&self.db, playlist, &songs).await?)
+        Ok(Playlist::add_songs(&self.db, playlist, songs).await?)
     }
     /// Add a list of things to a playlist.
     #[instrument]
@@ -1208,7 +1208,7 @@ impl MusicPlayer for MusicPlayerServer {
         Ok(Playlist::add_songs(
             &self.db,
             playlist,
-            &songs.into_iter().map(|s| s.id).collect::<Vec<_>>(),
+            songs.into_iter().map(|s| s.id).collect::<Vec<_>>(),
         )
         .await?)
     }

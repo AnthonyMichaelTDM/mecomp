@@ -18,7 +18,7 @@ pub const TABLE_NAME: &str = "analysis";
 #[cfg_attr(feature = "db", Table("analysis"))]
 pub struct Analysis {
     /// the unique identifier for this [`Analysis`].
-    #[cfg_attr(feature = "db", field(dt = "record"))]
+    #[cfg_attr(feature = "db", field("any"))]
     pub id: AnalysisId,
 
     /// The [`Song`]'s audio features.

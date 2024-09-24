@@ -25,7 +25,7 @@ pub const TABLE_NAME: &str = "song";
 #[cfg_attr(feature = "db", Table("song"))]
 pub struct Song {
     /// The unique identifier for this [`Song`].
-    #[cfg_attr(feature = "db", field(dt = "record"))]
+    #[cfg_attr(feature = "db", field("any"))]
     pub id: SongId,
     /// Title of the [`Song`].
     #[cfg_attr(feature = "db", field(dt = "string", index(text("custom_analyzer"))))]
@@ -153,16 +153,8 @@ impl From<Song> for SongBrief {
 
 impl From<&Song> for SongBrief {
     fn from(song: &Song) -> Self {
-        Self {
-            id: song.id.clone(),
-            title: song.title.clone(),
-            artist: song.artist.clone(),
-            album: song.album.clone(),
-            album_artist: song.album_artist.clone(),
-            release_year: song.release_year,
-            runtime: song.runtime,
-            path: song.path.clone(),
-        }
+        let song = song.clone();
+        Self::from(song)
     }
 }
 

@@ -21,7 +21,7 @@ pub const TABLE_NAME: &str = "album";
 #[cfg_attr(feature = "db", Table("album"))]
 pub struct Album {
     /// The unique identifier for this [`Album`].
-    #[cfg_attr(feature = "db", field(dt = "record"))]
+    #[cfg_attr(feature = "db", field("any"))]
     pub id: AlbumId,
     /// Title of the [`Album`].
     #[cfg_attr(feature = "db", field(dt = "string", index(text("custom_analyzer"))))]

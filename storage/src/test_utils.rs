@@ -17,6 +17,8 @@ use surrealdb::{
     Connection, Surreal,
 };
 
+#[cfg(feature = "analysis")]
+use crate::db::schemas::analysis::Analysis;
 #[cfg(not(feature = "db"))]
 use crate::db::schemas::Id;
 use crate::db::schemas::{
@@ -42,6 +44,8 @@ pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
 
     crate::db::register_custom_analyzer(&db).await?;
     surrealqlx::register_tables!(&db, Album, Artist, Song, Collection, Playlist)?;
+    #[cfg(feature = "analysis")]
+    surrealqlx::register_tables!(&db, Analysis)?;
 
     Ok(db)
 }
