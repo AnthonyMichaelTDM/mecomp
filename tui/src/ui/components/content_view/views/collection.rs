@@ -142,8 +142,10 @@ impl Component for CollectionView {
             }
             // if there are checked items, add them to the queue, otherwise send the whole collection to the queue
             KeyCode::Char('q') => {
+                let checked_things =
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
                 if let Some(action) = construct_add_to_queue_action(
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    checked_things,
                     self.props.as_ref().map(|p| &p.id),
                 ) {
                     self.action_tx.send(action).unwrap();
@@ -151,8 +153,10 @@ impl Component for CollectionView {
             }
             // if there are checked items, add them to the playlist, otherwise send the whole collection to the playlist
             KeyCode::Char('p') => {
+                let checked_things =
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
                 if let Some(action) = construct_add_to_playlist_action(
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    checked_things,
                     self.props.as_ref().map(|p| &p.id),
                 ) {
                     self.action_tx.send(action).unwrap();

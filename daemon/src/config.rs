@@ -48,7 +48,7 @@ impl Settings {
 
         let mut settings: Self = s.try_deserialize()?;
 
-        for path in settings.daemon.library_paths.iter_mut() {
+        for path in &mut settings.daemon.library_paths {
             *path = shellexpand::tilde(&path.to_string_lossy())
                 .into_owned()
                 .into();

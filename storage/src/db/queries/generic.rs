@@ -171,10 +171,11 @@ pub fn read_related_in<Target: AsRef<str>, Rel: AsRef<str>>(
 ///     "RETURN array::len((SELECT * FROM song))".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
 pub fn count<Table: AsRef<str>>(table: Table) -> impl IntoQuery {
     fn count_statement(table: &str) -> impl IntoQuery {
-        format!("RETURN array::len((SELECT * FROM {}))", table)
+        format!("RETURN array::len((SELECT * FROM {table}))")
             .into_query()
             .unwrap()
     }
@@ -203,18 +204,16 @@ pub fn count<Table: AsRef<str>>(table: Table) -> impl IntoQuery {
 ///     "RETURN array::len((SELECT * FROM album WHERE count(->album_to_song) = 0))".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
 pub fn count_orphaned<Table: AsRef<str>, Rel: AsRef<str>>(
     table: Table,
     rel: Rel,
 ) -> impl IntoQuery {
     fn count_orphaned_statement(table: &str, rel: &str) -> impl IntoQuery {
-        format!(
-            "RETURN array::len((SELECT * FROM {} WHERE count(->{}) = 0))",
-            table, rel
-        )
-        .into_query()
-        .unwrap()
+        format!("RETURN array::len((SELECT * FROM {table} WHERE count(->{rel}) = 0))")
+            .into_query()
+            .unwrap()
     }
 
     count_orphaned_statement(table.as_ref(), rel.as_ref())
@@ -242,6 +241,7 @@ pub fn count_orphaned<Table: AsRef<str>, Rel: AsRef<str>>(
 ///     "RETURN array::len((SELECT * FROM artist WHERE count(->artist_to_album) = 0 AND count(->artist_to_song) = 0))".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
 pub fn count_orphaned_both<Table: AsRef<str>, Rel1: AsRef<str>, Rel2: AsRef<str>>(
     table: Table,
@@ -250,8 +250,7 @@ pub fn count_orphaned_both<Table: AsRef<str>, Rel1: AsRef<str>, Rel2: AsRef<str>
 ) -> impl IntoQuery {
     fn count_orphaned_both_statement(table: &str, rel1: &str, rel2: &str) -> impl IntoQuery {
         format!(
-            "RETURN array::len((SELECT * FROM {} WHERE count(->{}) = 0 AND count(->{}) = 0))",
-            table, rel1, rel2
+            "RETURN array::len((SELECT * FROM {table} WHERE count(->{rel1}) = 0 AND count(->{rel2}) = 0))"
         )
     }
 
@@ -279,6 +278,7 @@ pub fn count_orphaned_both<Table: AsRef<str>, Rel1: AsRef<str>, Rel2: AsRef<str>
 ///   "SELECT * FROM song WHERE title @@ $title ORDER BY relevance DESC LIMIT 10".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
 pub fn full_text_search<Table: AsRef<str>, Field: AsRef<str>>(
     table: Table,
@@ -287,8 +287,7 @@ pub fn full_text_search<Table: AsRef<str>, Field: AsRef<str>>(
 ) -> impl IntoQuery {
     fn full_text_search_statement(table: &str, field: &str, limit: i64) -> impl IntoQuery {
         format!(
-            "SELECT * FROM {} WHERE {} @@ ${} ORDER BY relevance DESC LIMIT {}",
-            table, field, field, limit
+            "SELECT * FROM {table} WHERE {field} @@ ${field} ORDER BY relevance DESC LIMIT {limit}"
         )
         .into_query()
         .unwrap()

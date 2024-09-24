@@ -146,7 +146,7 @@ struct MusicLibEventHandler {
 
 impl MusicLibEventHandler {
     /// Creates a new `MusicLibEventHandler`.
-    pub fn new(
+    pub const fn new(
         db: Arc<Surreal<Db>>,
         artist_name_separator: OneOrMany<String>,
         genre_separator: Option<String>,
