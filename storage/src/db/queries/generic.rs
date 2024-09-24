@@ -1,8 +1,4 @@
-use surrealdb::sql::{
-    statements::{DeleteStatement, OutputStatement, RelateStatement, SelectStatement},
-    Cond, Dir, Expression, Fields, Graph, Ident, Idiom, Limit, Number, Operator, Order, Orders,
-    Param, Part, Subquery, Table, Tables, Value, Values,
-};
+use surrealdb::opt::IntoQuery;
 
 /// Query to add relations between two tables.
 ///
@@ -38,14 +34,11 @@ pub fn relate<Source: AsRef<str>, Target: AsRef<str>, Rel: AsRef<str>>(
     source: Source,
     target: Target,
     rel: Rel,
-) -> RelateStatement {
-    fn relate_statement(source: &str, target: &str, rel: &str) -> RelateStatement {
-        RelateStatement {
-            from: Value::Param(Param(Ident(source.into()))),
-            kind: Value::Table(Table(rel.into())),
-            with: Value::Param(Param(Ident(target.into()))),
-            ..Default::default()
-        }
+) -> impl IntoQuery {
+    fn relate_statement(source: &str, target: &str, rel: &str) -> impl IntoQuery {
+        format!("RELATE ${source}->{rel}->${target}")
+            .into_query()
+            .unwrap()
     }
 
     relate_statement(source.as_ref(), target.as_ref(), rel.as_ref())
@@ -77,25 +70,11 @@ pub fn unrelate<Source: AsRef<str>, Target: AsRef<str>, Rel: AsRef<str>>(
     source: Source,
     target: Target,
     rel: Rel,
-) -> DeleteStatement {
-    fn unrelate_statement(source: &str, target: &str, rel: &str) -> DeleteStatement {
-        DeleteStatement {
-            what: Values(vec![Value::Idiom(Idiom(vec![
-                Part::Start(Value::Param(Param(Ident(source.into())))),
-                Part::Graph(Graph {
-                    dir: Dir::Out,
-                    what: Tables(vec![Table(rel.into())]),
-                    expr: Fields::all(),
-                    ..Default::default()
-                }),
-            ]))]),
-            cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-                l: Value::Idiom(Idiom(vec![Part::Field(Ident("out".into()))])),
-                o: Operator::Inside,
-                r: Value::Param(Param(Ident(target.into()))),
-            })))),
-            ..Default::default()
-        }
+) -> impl IntoQuery {
+    fn unrelate_statement(source: &str, target: &str, rel: &str) -> impl IntoQuery {
+        format!("DELETE ${source}->{rel} WHERE out IN ${target}")
+            .into_query()
+            .unwrap()
     }
 
     unrelate_statement(source.as_ref(), target.as_ref(), rel.as_ref())
@@ -125,22 +104,11 @@ pub fn unrelate<Source: AsRef<str>, Target: AsRef<str>, Rel: AsRef<str>>(
 pub fn read_related_out<Source: AsRef<str>, Rel: AsRef<str>>(
     source: Source,
     rel: Rel,
-) -> SelectStatement {
-    fn read_related_statement(source: &str, rel: &str) -> SelectStatement {
-        SelectStatement {
-            expr: Fields::all(),
-            what: Values(vec![Value::Idiom(Idiom(vec![
-                Part::Start(Value::Param(Param(Ident(source.into())))),
-                Part::Graph(Graph {
-                    dir: Dir::Out,
-                    what: Tables(vec![Table(rel.into())]),
-                    expr: Fields::all(),
-                    ..Default::default()
-                }),
-                Part::Field(Ident("out".into())),
-            ]))]),
-            ..Default::default()
-        }
+) -> impl IntoQuery {
+    fn read_related_statement(source: &str, rel: &str) -> impl IntoQuery {
+        format!("SELECT * FROM ${source}->{rel}.out")
+            .into_query()
+            .unwrap()
     }
 
     read_related_statement(source.as_ref(), rel.as_ref())
@@ -172,22 +140,11 @@ pub fn read_related_out<Source: AsRef<str>, Rel: AsRef<str>>(
 pub fn read_related_in<Target: AsRef<str>, Rel: AsRef<str>>(
     target: Target,
     rel: Rel,
-) -> SelectStatement {
-    fn read_related_statement(target: &str, rel: &str) -> SelectStatement {
-        SelectStatement {
-            expr: Fields::all(),
-            what: Values(vec![Value::Idiom(Idiom(vec![
-                Part::Start(Value::Param(Param(Ident(target.into())))),
-                Part::Graph(Graph {
-                    dir: Dir::In,
-                    what: Tables(vec![Table(rel.into())]),
-                    expr: Fields::all(),
-                    ..Default::default()
-                }),
-                Part::Field(Ident("in".into())),
-            ]))]),
-            ..Default::default()
-        }
+) -> impl IntoQuery {
+    fn read_related_statement(target: &str, rel: &str) -> impl IntoQuery {
+        format!("SELECT * FROM ${target}<-{rel}.in")
+            .into_query()
+            .unwrap()
     }
 
     read_related_statement(target.as_ref(), rel.as_ref())
@@ -215,21 +172,11 @@ pub fn read_related_in<Target: AsRef<str>, Rel: AsRef<str>>(
 /// );
 /// ```
 #[must_use]
-pub fn count<Table: AsRef<str>>(table: Table) -> OutputStatement {
-    fn count_statement(table: &str) -> OutputStatement {
-        OutputStatement {
-            what: Value::Function(Box::new(surrealdb::sql::Function::Normal(
-                "array::len".into(),
-                vec![Value::Subquery(Box::new(Subquery::Select(
-                    SelectStatement {
-                        expr: Fields::all(),
-                        what: Values(vec![Value::Table(Table(table.into()))]),
-                        ..Default::default()
-                    },
-                )))],
-            ))),
-            ..Default::default()
-        }
+pub fn count<Table: AsRef<str>>(table: Table) -> impl IntoQuery {
+    fn count_statement(table: &str) -> impl IntoQuery {
+        format!("RETURN array::len((SELECT * FROM {}))", table)
+            .into_query()
+            .unwrap()
     }
 
     count_statement(table.as_ref())
@@ -260,34 +207,14 @@ pub fn count<Table: AsRef<str>>(table: Table) -> OutputStatement {
 pub fn count_orphaned<Table: AsRef<str>, Rel: AsRef<str>>(
     table: Table,
     rel: Rel,
-) -> OutputStatement {
-    fn count_orphaned_statement(table: &str, rel: &str) -> OutputStatement {
-        OutputStatement {
-            what: Value::Function(Box::new(surrealdb::sql::Function::Normal(
-                "array::len".into(),
-                vec![Value::Subquery(Box::new(Subquery::Select(
-                    SelectStatement {
-                        expr: Fields::all(),
-                        what: Values(vec![Value::Table(Table(table.into()))]),
-                        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-                            l: Value::Function(Box::new(surrealdb::sql::Function::Normal(
-                                "count".into(),
-                                vec![Value::Idiom(Idiom(vec![Part::Graph(Graph {
-                                    dir: Dir::Out,
-                                    what: Tables(vec![Table(rel.into())]),
-                                    expr: Fields::all(),
-                                    ..Default::default()
-                                })]))],
-                            ))),
-                            o: Operator::Equal,
-                            r: Value::Number(Number::Int(0)),
-                        })))),
-                        ..Default::default()
-                    },
-                )))],
-            ))),
-            ..Default::default()
-        }
+) -> impl IntoQuery {
+    fn count_orphaned_statement(table: &str, rel: &str) -> impl IntoQuery {
+        format!(
+            "RETURN array::len((SELECT * FROM {} WHERE count(->{}) = 0))",
+            table, rel
+        )
+        .into_query()
+        .unwrap()
     }
 
     count_orphaned_statement(table.as_ref(), rel.as_ref())
@@ -320,50 +247,12 @@ pub fn count_orphaned_both<Table: AsRef<str>, Rel1: AsRef<str>, Rel2: AsRef<str>
     table: Table,
     rel1: Rel1,
     rel2: Rel2,
-) -> OutputStatement {
-    fn count_orphaned_both_statement(table: &str, rel1: &str, rel2: &str) -> OutputStatement {
-        OutputStatement {
-            what: Value::Function(Box::new(surrealdb::sql::Function::Normal(
-                "array::len".into(),
-                vec![Value::Subquery(Box::new(Subquery::Select(
-                    SelectStatement {
-                        expr: Fields::all(),
-                        what: Values(vec![Value::Table(Table(table.into()))]),
-                        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-                            l: Value::Expression(Box::new(Expression::Binary {
-                                l: Value::Function(Box::new(surrealdb::sql::Function::Normal(
-                                    "count".into(),
-                                    vec![Value::Idiom(Idiom(vec![Part::Graph(Graph {
-                                        dir: Dir::Out,
-                                        what: Tables(vec![Table(rel1.into())]),
-                                        expr: Fields::all(),
-                                        ..Default::default()
-                                    })]))],
-                                ))),
-                                o: Operator::Equal,
-                                r: Value::Number(Number::Int(0)),
-                            })),
-                            o: Operator::And,
-                            r: Value::Expression(Box::new(Expression::Binary {
-                                l: Value::Function(Box::new(surrealdb::sql::Function::Normal(
-                                    "count".into(),
-                                    vec![Value::Idiom(Idiom(vec![Part::Graph(Graph {
-                                        dir: Dir::Out,
-                                        what: Tables(vec![Table(rel2.into())]),
-                                        expr: Fields::all(),
-                                        ..Default::default()
-                                    })]))],
-                                ))),
-                                o: Operator::Equal,
-                                r: Value::Number(Number::Int(0)),
-                            })),
-                        })))),
-                        ..Default::default()
-                    },
-                )))],
-            ))),
-            ..Default::default()
-        }
+) -> impl IntoQuery {
+    fn count_orphaned_both_statement(table: &str, rel1: &str, rel2: &str) -> impl IntoQuery {
+        format!(
+            "RETURN array::len((SELECT * FROM {} WHERE count(->{}) = 0 AND count(->{}) = 0))",
+            table, rel1, rel2
+        )
     }
 
     count_orphaned_both_statement(table.as_ref(), rel1.as_ref(), rel2.as_ref())
@@ -395,26 +284,14 @@ pub fn full_text_search<Table: AsRef<str>, Field: AsRef<str>>(
     table: Table,
     field: Field,
     limit: i64,
-) -> SelectStatement {
-    fn full_text_search_statement(table: &str, field: &str, limit: i64) -> SelectStatement {
-        SelectStatement {
-            expr: Fields::all(),
-            what: Values(vec![Value::Table(Table(table.into()))]),
-            cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-                l: Value::Idiom(Idiom(vec![Part::Field(Ident(field.into()))])),
-                o: Operator::Matches(None),
-                r: Value::Param(Param(Ident(field.into()))),
-            })))),
-            order: Some(Orders(vec![Order {
-                order: Idiom(vec![Part::Field(Ident("relevance".into()))]),
-                random: false,
-                collate: false,
-                numeric: false,
-                direction: false,
-            }])),
-            limit: Some(Limit(Value::Number(limit.into()))),
-            ..Default::default()
-        }
+) -> impl IntoQuery {
+    fn full_text_search_statement(table: &str, field: &str, limit: i64) -> impl IntoQuery {
+        format!(
+            "SELECT * FROM {} WHERE {} @@ ${} ORDER BY relevance DESC LIMIT {}",
+            table, field, field, limit
+        )
+        .into_query()
+        .unwrap()
     }
 
     full_text_search_statement(table.as_ref(), field.as_ref(), limit)

@@ -1,8 +1,5 @@
 use crate::db::schemas;
-use surrealdb::sql::{
-    statements::{DeleteStatement, RelateStatement, SelectStatement},
-    Cond, Expression, Fields, Ident, Idiom, Operator, Param, Table, Value, Values,
-};
+use surrealdb::opt::IntoQuery;
 
 use super::generic::{read_related_in, read_related_out, relate, unrelate};
 
@@ -27,19 +24,13 @@ use super::generic::{read_related_in, read_related_out, relate, unrelate};
 /// );
 /// ```
 #[must_use]
-pub fn read_by_name() -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Table(Table(
-            schemas::album::TABLE_NAME.to_string(),
-        ))]),
-        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-            l: Value::Idiom(Idiom(vec![Ident("title".into()).into()])),
-            o: Operator::Equal,
-            r: Value::Param(Param(Ident("name".into()))),
-        })))),
-        ..Default::default()
-    }
+pub fn read_by_name() -> impl IntoQuery {
+    format!(
+        "SELECT * FROM {} WHERE title=$name",
+        schemas::album::TABLE_NAME
+    )
+    .into_query()
+    .unwrap()
 }
 
 /// Query to read an album by its name and album artist.
@@ -63,27 +54,13 @@ pub fn read_by_name() -> SelectStatement {
 /// );
 /// ```
 #[must_use]
-pub fn read_by_name_and_album_artist() -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Table(Table(
-            schemas::album::TABLE_NAME.to_string(),
-        ))]),
-        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-            l: Value::Expression(Box::new(Expression::Binary {
-                l: Value::Idiom(Idiom(vec![Ident("title".into()).into()])),
-                o: surrealdb::sql::Operator::Equal,
-                r: Value::Param(Param(Ident("title".into()))),
-            })),
-            o: Operator::And,
-            r: Value::Expression(Box::new(Expression::Binary {
-                l: Value::Idiom(Idiom(vec![Ident("artist".into()).into()])),
-                o: Operator::Equal,
-                r: Value::Param(Param(Ident("artist".into()))),
-            })),
-        })))),
-        ..Default::default()
-    }
+pub fn read_by_name_and_album_artist() -> impl IntoQuery {
+    format!(
+        "SELECT * FROM {} WHERE title=$title AND artist=$artist",
+        schemas::album::TABLE_NAME
+    )
+    .into_query()
+    .unwrap()
 }
 
 /// Query to relate an album to its songs.
@@ -109,7 +86,7 @@ pub fn read_by_name_and_album_artist() -> SelectStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn add_songs() -> RelateStatement {
+pub fn add_songs() -> impl IntoQuery {
     relate("album", "songs", "album_to_song")
 }
 
@@ -136,7 +113,7 @@ pub fn add_songs() -> RelateStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_songs() -> SelectStatement {
+pub fn read_songs() -> impl IntoQuery {
     read_related_out("album", "album_to_song")
 }
 
@@ -162,7 +139,7 @@ pub fn read_songs() -> SelectStatement {
 /// );
 #[must_use]
 #[inline]
-pub fn remove_songs() -> DeleteStatement {
+pub fn remove_songs() -> impl IntoQuery {
     unrelate("album", "songs", "album_to_song")
 }
 
@@ -188,7 +165,7 @@ pub fn remove_songs() -> DeleteStatement {
 /// );
 #[must_use]
 #[inline]
-pub fn read_artist() -> SelectStatement {
+pub fn read_artist() -> impl IntoQuery {
     read_related_in("id", "artist_to_album")
 }
 

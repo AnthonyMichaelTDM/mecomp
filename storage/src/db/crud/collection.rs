@@ -1,7 +1,7 @@
 //! CRUD operations for the collection table
 use std::{sync::Arc, time::Duration};
 
-use surrealdb::{Connection, Surreal};
+use surrealdb::{Connection, RecordId, Surreal};
 use tracing::instrument;
 
 use crate::{
@@ -23,7 +23,7 @@ impl Collection {
         collection: Self,
     ) -> StorageResult<Option<Self>> {
         Ok(db
-            .create((TABLE_NAME, collection.id.clone()))
+            .create(RecordId::from_inner(collection.id.clone()))
             .content(collection)
             .await?)
     }
@@ -38,7 +38,7 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.select((TABLE_NAME, id)).await?)
+        Ok(db.select(RecordId::from_inner(id)).await?)
     }
 
     #[instrument]
@@ -47,7 +47,7 @@ impl Collection {
         id: CollectionId,
         changes: CollectionChangeSet,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.update((TABLE_NAME, id)).merge(changes).await?)
+        Ok(db.update(RecordId::from_inner(id)).merge(changes).await?)
     }
 
     #[instrument]
@@ -61,16 +61,16 @@ impl Collection {
             .into_iter()
             .map(|song| song.id)
             .collect::<Vec<_>>();
-        Self::remove_songs(db, id.clone(), &songs).await?;
+        Self::remove_songs(db, id.clone(), songs).await?;
 
-        Ok(db.delete((TABLE_NAME, id)).await?)
+        Ok(db.delete(RecordId::from_inner(id)).await?)
     }
 
     #[instrument]
     pub async fn add_songs<C: Connection>(
         db: &Surreal<C>,
         id: CollectionId,
-        song_ids: &[SongId],
+        song_ids: Vec<SongId>,
     ) -> StorageResult<()> {
         db.query(add_songs())
             .bind(("id", id.clone()))
@@ -92,7 +92,7 @@ impl Collection {
     pub async fn remove_songs<C: Connection>(
         db: &Surreal<C>,
         id: CollectionId,
-        song_ids: &[SongId],
+        song_ids: Vec<SongId>,
     ) -> StorageResult<()> {
         db.query(remove_songs())
             .bind(("id", id.clone()))
@@ -154,7 +154,7 @@ impl Collection {
         let song_ids = songs.iter().map(|song| song.id.clone()).collect::<Vec<_>>();
 
         // add the songs to the playlist
-        Playlist::add_songs(db, playlist.id.clone(), &song_ids).await?;
+        Playlist::add_songs(db, playlist.id.clone(), song_ids).await?;
 
         // get the playlist
         let playlist = Playlist::read(db, playlist.id.clone())
@@ -256,7 +256,7 @@ mod tests {
         let song =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        Collection::add_songs(&db, collection.id.clone(), &[song.id.clone()]).await?;
+        Collection::add_songs(&db, collection.id.clone(), vec![song.id.clone()]).await?;
 
         let result = Collection::read_songs(&db, collection.id.clone()).await?;
         assert_eq!(result, vec![song.clone()]);
@@ -278,8 +278,8 @@ mod tests {
         let song =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        Collection::add_songs(&db, collection.id.clone(), &[song.id.clone()]).await?;
-        Collection::remove_songs(&db, collection.id.clone(), &[song.id.clone()]).await?;
+        Collection::add_songs(&db, collection.id.clone(), vec![song.id.clone()]).await?;
+        Collection::remove_songs(&db, collection.id.clone(), vec![song.id.clone()]).await?;
 
         let result = Collection::read_songs(&db, collection.id.clone()).await?;
         assert_eq!(result, vec![]);
@@ -301,7 +301,7 @@ mod tests {
         let song =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        Collection::add_songs(&db, collection.id.clone(), &[song.id.clone()]).await?;
+        Collection::add_songs(&db, collection.id.clone(), vec![song.id.clone()]).await?;
 
         let playlist =
             Collection::freeze(&db, collection.id.clone(), "Frozen Playlist".into()).await?;

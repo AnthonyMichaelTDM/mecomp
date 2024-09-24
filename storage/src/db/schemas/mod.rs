@@ -153,10 +153,7 @@ impl std::fmt::Display for Id {
 #[cfg(feature = "db")]
 impl From<Thing> for surrealdb::sql::Thing {
     fn from(thing: Thing) -> Self {
-        Self {
-            tb: thing.tb,
-            id: thing.id.into(),
-        }
+        Self::from((thing.tb, surrealdb::sql::Id::from(thing.id)))
     }
 }
 
@@ -186,9 +183,7 @@ impl From<surrealdb::sql::Id> for Id {
         match id {
             surrealdb::sql::Id::Number(n) => Self::Number(n),
             surrealdb::sql::Id::String(s) => Self::String(s),
-            surrealdb::sql::Id::Array(_) => todo!(),
-            surrealdb::sql::Id::Object(_) => todo!(),
-            surrealdb::sql::Id::Generate(_) => todo!(),
+            _ => unimplemented!(),
         }
     }
 }
@@ -205,10 +200,8 @@ mod thing {
             id: Id::Number(42),
         };
         let serialized = serde_json::to_string(&thing).unwrap();
-        let expected = surrealdb::sql::Thing {
-            tb: "table".to_owned(),
-            id: surrealdb::sql::Id::Number(42),
-        };
+        let expected = surrealdb::sql::Thing::from(("table", surrealdb::sql::Id::from(42)));
+
         let expected = serde_json::to_string(&expected).unwrap();
         assert_eq!(serialized, expected);
 
@@ -217,10 +210,7 @@ mod thing {
             id: Id::String("42".to_owned()),
         };
         let serialized = serde_json::to_string(&thing).unwrap();
-        let expected = surrealdb::sql::Thing {
-            tb: "table".to_owned(),
-            id: surrealdb::sql::Id::String("42".to_owned()),
-        };
+        let expected = surrealdb::sql::Thing::from(("table", surrealdb::sql::Id::from("42")));
         let expected = serde_json::to_string(&expected).unwrap();
         assert_eq!(serialized, expected);
     }
@@ -245,10 +235,7 @@ mod thing {
         let thing: surrealdb::sql::Thing = serde_json::from_str(&serialized).unwrap();
         assert_eq!(
             thing,
-            surrealdb::sql::Thing {
-                tb: "table".to_owned(),
-                id: surrealdb::sql::Id::String("42".to_owned()),
-            }
+            surrealdb::sql::Thing::from(("table", surrealdb::sql::Id::from("42")))
         );
     }
 

@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "workspace-hack package, managed by hakari"
 # You can choose to publish this crate: see https://docs.rs/cargo-hakari/latest/cargo_hakari/publishing.
 publish = false
+edition = "2021"
 
 # The parts of the file between the BEGIN HAKARI SECTION and END HAKARI SECTION comments
 # are managed by hakari.
@@ -80,9 +81,9 @@ doc = false
 ahash = { version = "0.8" }
 anyhow = { version = "1" }
 approx = { version = "0.5" }
-arrayvec = { version = "0.7" }
-base64 = { version = "0.22" }
 byteorder = { version = "1" }
+bytes = { version = "1", features = ["serde"] }
+castaway = { version = "0.2" }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "usage"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "usage"] }
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
@@ -95,8 +96,7 @@ futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-sink = { version = "0.3" }
 futures-util = { version = "0.3", default-features = false, features = ["async-await-macro", "channel", "io", "sink"] }
-getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
-hashbrown = { version = "0.14", features = ["raw", "serde"] }
+hashbrown = { version = "0.14", features = ["raw"] }
 indexmap = { version = "2", features = ["serde"] }
 itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
@@ -109,6 +109,7 @@ num-bigint = { version = "0.4" }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
+phf_shared = { version = "0.11", features = ["unicase"] }
 proc-macro2 = { version = "1" }
 quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
@@ -119,11 +120,12 @@ semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
-syn = { version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
+string_cache = { version = "0.8" }
+syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 time = { version = "0.3", features = ["formatting", "local-offset", "macros", "parsing"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-stream = { version = "0.1", features = ["net"] }
-tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
+tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
 toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
 toml_edit = { version = "0.22", features = ["serde"] }
 tracing = { version = "0.1", features = ["log"] }
@@ -135,9 +137,9 @@ unicode-xid = { version = "0.2" }
 ahash = { version = "0.8" }
 anyhow = { version = "1" }
 approx = { version = "0.5" }
-arrayvec = { version = "0.7" }
-base64 = { version = "0.22" }
 byteorder = { version = "1" }
+bytes = { version = "1", features = ["serde"] }
+castaway = { version = "0.2" }
 cc = { version = "1", default-features = false, features = ["parallel"] }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "usage"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "usage"] }
@@ -151,8 +153,7 @@ futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-sink = { version = "0.3" }
 futures-util = { version = "0.3", default-features = false, features = ["async-await-macro", "channel", "io", "sink"] }
-getrandom = { version = "0.2", default-features = false, features = ["js", "rdrand", "std"] }
-hashbrown = { version = "0.14", features = ["raw", "serde"] }
+hashbrown = { version = "0.14", features = ["raw"] }
 indexmap = { version = "2", features = ["serde"] }
 itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
@@ -165,6 +166,7 @@ num-bigint = { version = "0.4" }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
+phf_shared = { version = "0.11", features = ["unicase"] }
 proc-macro2 = { version = "1" }
 quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
@@ -175,11 +177,12 @@ semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
-syn = { version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
+string_cache = { version = "0.8" }
+syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 time = { version = "0.3", features = ["formatting", "local-offset", "macros", "parsing"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-stream = { version = "0.1", features = ["net"] }
-tokio-util = { version = "0.7", features = ["codec", "io", "time"] }
+tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
 toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
 toml_edit = { version = "0.22", features = ["serde"] }
 tracing = { version = "0.1", features = ["log"] }

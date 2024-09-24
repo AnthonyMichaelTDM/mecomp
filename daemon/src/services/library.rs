@@ -300,7 +300,7 @@ pub async fn recluster<C: Connection>(
             songs.push(Analysis::read_song(db, analysis.id.clone()).await?.id);
         }
 
-        Collection::add_songs(db, collection.id.clone(), &songs).await?;
+        Collection::add_songs(db, collection.id.clone(), songs).await?;
     }
 
     info!("Library recluster complete");
@@ -453,7 +453,7 @@ mod tests {
             assert_eq!(SongMetadata::from(&song), metadata);
 
             // the song's artists were created
-            let artists = Artist::read_by_names(&db, &Vec::from(metadata.artist.clone()))
+            let artists = Artist::read_by_names(&db, Vec::from(metadata.artist.clone()))
                 .await
                 .unwrap();
             assert_eq!(artists.len(), metadata.artist.len());
@@ -497,7 +497,7 @@ mod tests {
 
             // the album's album artists were created
             let album_artists =
-                Artist::read_by_names(&db, &Vec::from(metadata.album_artist.clone()))
+                Artist::read_by_names(&db, Vec::from(metadata.album_artist.clone()))
                     .await
                     .unwrap();
             assert_eq!(album_artists.len(), metadata.album_artist.len());

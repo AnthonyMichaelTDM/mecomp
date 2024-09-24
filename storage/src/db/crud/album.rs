@@ -2,7 +2,7 @@
 use std::{sync::Arc, time::Duration};
 
 use log::warn;
-use surrealdb::{Connection, Surreal};
+use surrealdb::{Connection, RecordId, Surreal};
 use tracing::instrument;
 
 use crate::{
@@ -28,7 +28,7 @@ impl Album {
         album: Self,
     ) -> StorageResult<Option<Self>> {
         Ok(db
-            .create((TABLE_NAME, album.id.clone()))
+            .create(RecordId::from_inner(album.id.clone()))
             .content(album)
             .await?)
     }
@@ -40,7 +40,7 @@ impl Album {
 
     #[instrument()]
     pub async fn read<C: Connection>(db: &Surreal<C>, id: AlbumId) -> StorageResult<Option<Self>> {
-        Ok(db.select((TABLE_NAME, id)).await?)
+        Ok(db.select(RecordId::from_inner(id)).await?)
     }
 
     #[instrument]
@@ -48,7 +48,7 @@ impl Album {
         db: &Surreal<C>,
         id: AlbumId,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.delete((TABLE_NAME, id)).await?)
+        Ok(db.delete(RecordId::from_inner(id)).await?)
     }
 
     #[instrument()]
@@ -58,7 +58,7 @@ impl Album {
     ) -> StorageResult<Vec<Self>> {
         Ok(db
             .query(read_by_name())
-            .bind(("name", name))
+            .bind(("name", name.to_string()))
             .await?
             .take(0)?)
     }
@@ -71,7 +71,7 @@ impl Album {
     ) -> StorageResult<Vec<Self>> {
         Ok(db
             .query("SELECT *, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM album WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit")
-            .bind(("query", query))
+            .bind(("query", query.to_string()))
             .bind(("limit", limit))
             .await?
             .take(0)?)
@@ -83,7 +83,7 @@ impl Album {
         id: AlbumId,
         changes: AlbumChangeSet,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.update((TABLE_NAME, id)).merge(changes).await?)
+        Ok(db.update(RecordId::from_inner(id)).merge(changes).await?)
     }
 
     #[instrument()]
@@ -98,7 +98,7 @@ impl Album {
 
         Ok(db
             .query(read_by_name_and_album_artist())
-            .bind(("title", title))
+            .bind(("title", title.to_string()))
             .bind(("artist", album_artists))
             .await?
             .take(0)?)
@@ -135,7 +135,7 @@ impl Album {
             // we created a new album made by some artists, so we need to update those artists
             Artist::add_album_to_artists(
                 db,
-                &Artist::read_or_create_by_names(db, album_artists)
+                Artist::read_or_create_by_names(db, album_artists)
                     .await?
                     .into_iter()
                     .map(|a| a.id)
@@ -154,10 +154,10 @@ impl Album {
     pub async fn add_songs<C: Connection>(
         db: &Surreal<C>,
         id: AlbumId,
-        song_ids: &[SongId],
+        song_ids: Vec<SongId>,
     ) -> StorageResult<()> {
         db.query(add_songs())
-            .bind(("album", &id))
+            .bind(("album", id.clone()))
             .bind(("songs", song_ids))
             .await?;
 
@@ -171,17 +171,17 @@ impl Album {
         db: &Surreal<C>,
         id: AlbumId,
     ) -> StorageResult<Vec<Song>> {
-        Ok(db.query(read_songs()).bind(("album", &id)).await?.take(0)?)
+        Ok(db.query(read_songs()).bind(("album", id)).await?.take(0)?)
     }
 
     #[instrument()]
     pub async fn remove_songs<C: Connection>(
         db: &Surreal<C>,
         id: AlbumId,
-        song_ids: &[SongId],
+        song_ids: Vec<SongId>,
     ) -> StorageResult<()> {
         db.query(remove_songs())
-            .bind(("album", &id))
+            .bind(("album", id.clone()))
             .bind(("songs", song_ids))
             .await?;
         Self::repair(db, id).await?;
@@ -477,7 +477,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
-        Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
+        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
 
         let read = Album::read(&db, album.id.clone())
             .await?
@@ -514,7 +514,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
-        Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
+        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
 
         let read = Album::read_songs(&db, album.id.clone()).await?;
         assert_eq!(read.len(), 1);
@@ -549,8 +549,8 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
-        Album::add_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
-        Album::remove_songs(&db, album.id.clone(), &[song.id.clone()]).await?;
+        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        Album::remove_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
 
         let read = Album::read_songs(&db, album.id.clone()).await?;
         assert_eq!(read.len(), 0);

@@ -1,7 +1,7 @@
 //! CRUD operations for the analysis table
 
 use one_or_many::OneOrMany;
-use surrealdb::{Connection, Surreal};
+use surrealdb::{Connection, RecordId, Surreal};
 use tracing::instrument;
 
 use crate::{
@@ -34,7 +34,7 @@ impl Analysis {
 
         // create the analysis
         let result: Option<Self> = db
-            .create((TABLE_NAME, analysis.id.clone()))
+            .create(RecordId::from_inner(analysis.id.clone()))
             .content(analysis)
             .await?;
 
@@ -57,7 +57,7 @@ impl Analysis {
         db: &Surreal<C>,
         id: AnalysisId,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.select((TABLE_NAME, id)).await?)
+        Ok(db.select(RecordId::from_inner(id)).await?)
     }
 
     #[instrument]
@@ -131,7 +131,7 @@ impl Analysis {
         db: &Surreal<C>,
         id: AnalysisId,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.delete((TABLE_NAME, id)).await?)
+        Ok(db.delete(RecordId::from_inner(id)).await?)
     }
 
     /// Find the `n` nearest neighbors to an analysis
@@ -503,7 +503,7 @@ mod test {
         assert_eq!(result3, Some(analysis3.clone()));
 
         // find the nearest neighbor to analysis1
-        let result = Analysis::nearest_neighbors(&db, analysis1.id.clone(), 1).await?;
+        let result = Analysis::nearest_neighbors(&db, analysis1.id, 1).await?;
         assert_eq!(result, vec![analysis2.clone()]);
 
         Ok(())
