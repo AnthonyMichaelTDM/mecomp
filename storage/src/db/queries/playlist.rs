@@ -102,6 +102,10 @@ pub fn remove_songs() -> impl IntoQuery {
 ///     "SELECT * FROM playlist WHERE name = $name LIMIT 1".into_query().unwrap()
 /// );
 /// ```
+///
+/// # Panics
+///
+/// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
 pub fn read_by_name() -> impl IntoQuery {
     format!(

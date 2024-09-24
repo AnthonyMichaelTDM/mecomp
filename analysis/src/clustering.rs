@@ -104,7 +104,7 @@ pub struct Initialized<T: Sample> {
 /// Functions available for all states
 impl KMeansHelper<EntryPoint> {
     #[must_use]
-    pub fn new<T: Sample>(
+    pub const fn new<T: Sample>(
         raw_samples: Vec<T>,
         k_max: usize,
         optimizer: KOptimal,

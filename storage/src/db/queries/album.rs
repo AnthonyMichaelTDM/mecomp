@@ -23,6 +23,7 @@ use super::generic::{read_related_in, read_related_out, relate, unrelate};
 ///     "SELECT * FROM album WHERE title=$name".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
 pub fn read_by_name() -> impl IntoQuery {
     format!(
@@ -53,6 +54,7 @@ pub fn read_by_name() -> impl IntoQuery {
 ///     "SELECT * FROM album WHERE title=$title AND artist=$artist".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
 pub fn read_by_name_and_album_artist() -> impl IntoQuery {
     format!(

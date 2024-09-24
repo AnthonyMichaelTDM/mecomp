@@ -1,5 +1,7 @@
 use surrealdb::opt::IntoQuery;
 
+use crate::db::schemas;
+
 use super::generic::read_related_in;
 
 /// Query to read a song by its path
@@ -22,11 +24,18 @@ use super::generic::read_related_in;
 ///     "SELECT * FROM song WHERE path = $path LIMIT 1".into_query().unwrap()
 /// );
 /// ```
+///
+/// # Panics
+///
+/// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
 pub fn read_song_by_path() -> impl IntoQuery {
-    format!("SELECT * FROM {} WHERE path = $path LIMIT 1", "song")
-        .into_query()
-        .unwrap()
+    format!(
+        "SELECT * FROM {} WHERE path = $path LIMIT 1",
+        schemas::song::TABLE_NAME
+    )
+    .into_query()
+    .unwrap()
 }
 
 /// query to read the album of a song
@@ -101,9 +110,13 @@ pub fn read_artist() -> impl IntoQuery {
 ///     "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in".into_query().unwrap()
 /// );
 /// ```
+///
+/// # Panics
+///
+/// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
 pub fn read_album_artist() -> impl IntoQuery {
-    format!("SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in")
+    "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in"
         .into_query()
         .unwrap()
 }

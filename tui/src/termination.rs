@@ -15,7 +15,7 @@ pub struct Terminator {
 
 impl Terminator {
     #[must_use]
-    pub fn new(interrupt_tx: broadcast::Sender<Interrupted>) -> Self {
+    pub const fn new(interrupt_tx: broadcast::Sender<Interrupted>) -> Self {
         Self { interrupt_tx }
     }
 

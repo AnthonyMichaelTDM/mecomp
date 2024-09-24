@@ -55,7 +55,7 @@ pub struct MusicPlayerServer {
 
 impl MusicPlayerServer {
     #[must_use]
-    pub fn new(
+    pub const fn new(
         db: Arc<Surreal<Db>>,
         settings: Arc<Settings>,
         audio_kernel: Arc<AudioKernelSender>,

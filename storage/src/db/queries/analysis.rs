@@ -99,6 +99,7 @@ pub fn read_song() -> impl IntoQuery {
 /// );
 /// ```
 #[allow(clippy::module_name_repetitions)]
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
 pub fn read_songs_without_analysis() -> impl IntoQuery {
     format!(
@@ -129,6 +130,7 @@ pub fn read_songs_without_analysis() -> impl IntoQuery {
 ///     "SELECT * FROM analysis WHERE id IS NOT $id features <|5|> $target".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
 pub fn nearest_neighbors(n: u32) -> impl IntoQuery {
     format!(
@@ -158,6 +160,7 @@ pub fn nearest_neighbors(n: u32) -> impl IntoQuery {
 ///     "SELECT * FROM analysis WHERE id NOT IN $ids AND features <|5|> $target".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
 pub fn nearest_neighbors_to_many(n: u32) -> impl IntoQuery {
     format!(
