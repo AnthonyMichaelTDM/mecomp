@@ -20,6 +20,7 @@ use notify::{
     EventKind, RecursiveMode, Watcher,
 };
 use notify_debouncer_full::{new_debouncer, DebouncedEvent, Debouncer, FileIdMap};
+use one_or_many::OneOrMany;
 use surrealdb::{engine::local::Db, Surreal};
 
 #[cfg(target_os = "linux")]
@@ -55,7 +56,7 @@ pub const MAX_DEBOUNCE_TIME: Duration = Duration::from_millis(500);
 pub fn init_music_library_watcher(
     db: Arc<Surreal<Db>>,
     library_paths: &[PathBuf],
-    artist_name_separator: Option<String>,
+    artist_name_separator: OneOrMany<String>,
     genre_separator: Option<String>,
 ) -> anyhow::Result<MusicLibEventHandlerGuard> {
     let (tx, rx) = futures::channel::mpsc::unbounded();
@@ -139,15 +140,15 @@ impl MusicLibEventHandlerGuard {
 /// Handles incoming file Events.
 struct MusicLibEventHandler {
     db: Arc<Surreal<Db>>,
-    artist_name_separator: Option<String>,
+    artist_name_separator: OneOrMany<String>,
     genre_separator: Option<String>,
 }
 
 impl MusicLibEventHandler {
     /// Creates a new `MusicLibEventHandler`.
-    pub fn new(
+    pub const fn new(
         db: Arc<Surreal<Db>>,
-        artist_name_separator: Option<String>,
+        artist_name_separator: OneOrMany<String>,
         genre_separator: Option<String>,
     ) -> Self {
         Self {
@@ -240,7 +241,7 @@ impl MusicLibEventHandler {
 
                             let metadata = SongMetadata::load_from_path(
                                 path.to_owned(),
-                                self.artist_name_separator.as_deref(),
+                                &self.artist_name_separator,
                                 self.genre_separator.as_deref(),
                             )?;
 
@@ -286,7 +287,7 @@ impl MusicLibEventHandler {
 
                         let new_metadata: SongMetadata = SongMetadata::load_from_path(
                             path.to_owned(),
-                            self.artist_name_separator.as_deref(),
+                            &self.artist_name_separator,
                             self.genre_separator.as_deref(),
                         )?;
 
@@ -400,7 +401,7 @@ mod tests {
         let handler = init_music_library_watcher(
             db.clone(),
             &[music_lib.path().to_owned()],
-            Some(ARTIST_NAME_SEPARATOR.into()),
+            OneOrMany::One(ARTIST_NAME_SEPARATOR.into()),
             Some(ARTIST_NAME_SEPARATOR.into()),
         )
         .expect("Failed to create music library watcher");

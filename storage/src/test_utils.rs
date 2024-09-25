@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::Result;
 use lofty::{config::WriteOptions, file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
+use one_or_many::OneOrMany;
 use rand::{seq::IteratorRandom, Rng};
 #[cfg(feature = "db")]
 use surrealdb::{
@@ -16,6 +17,8 @@ use surrealdb::{
     Connection, Surreal,
 };
 
+#[cfg(feature = "analysis")]
+use crate::db::schemas::analysis::Analysis;
 #[cfg(not(feature = "db"))]
 use crate::db::schemas::Id;
 use crate::db::schemas::{
@@ -41,6 +44,8 @@ pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
 
     crate::db::register_custom_analyzer(&db).await?;
     surrealqlx::register_tables!(&db, Album, Artist, Song, Collection, Playlist)?;
+    #[cfg(feature = "analysis")]
+    surrealqlx::register_tables!(&db, Analysis)?;
 
     Ok(db)
 }
@@ -85,7 +90,7 @@ pub async fn create_song_with_overrides<C: Connection>(
             .collect::<Vec<_>>()
             .into(),
         album: Arc::from(format!("Album {album}").as_str()),
-        genre: one_or_many::OneOrMany::One(Arc::from(format!("Genre {genre}").as_str())),
+        genre: OneOrMany::One(Arc::from(format!("Genre {genre}").as_str())),
         runtime: Duration::from_secs(120),
         track: None,
         disc: None,
@@ -172,7 +177,7 @@ pub fn create_song_metadata(
     // now, we need to load a SongMetadata from the new file
     Ok(SongMetadata::load_from_path(
         new_path,
-        Some(ARTIST_NAME_SEPARATOR),
+        &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
         None,
     )?)
 }
@@ -188,7 +193,13 @@ pub struct SongCase {
 
 impl SongCase {
     #[must_use]
-    pub fn new(song: u8, artists: Vec<u8>, album_artists: Vec<u8>, album: u8, genre: u8) -> Self {
+    pub const fn new(
+        song: u8,
+        artists: Vec<u8>,
+        album_artists: Vec<u8>,
+        album: u8,
+        genre: u8,
+    ) -> Self {
         Self {
             song,
             artists,

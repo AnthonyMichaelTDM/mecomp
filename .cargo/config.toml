@@ -5,9 +5,6 @@ coverage = "tarpaulin --skip-clean --out Html --workspace --post-test-delay=5 --
 
 [build]
 rustflags = [
-    # to allow us to use surrealkv as the underlying key-value store
-    "--cfg",
-    "surrealdb_unstable",
     # for profiling
     # "-C",
     # "symbol-mangling-version=v0",

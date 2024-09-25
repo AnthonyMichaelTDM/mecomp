@@ -25,7 +25,7 @@ pub const TABLE_NAME: &str = "song";
 #[cfg_attr(feature = "db", Table("song"))]
 pub struct Song {
     /// The unique identifier for this [`Song`].
-    #[cfg_attr(feature = "db", field(dt = "record"))]
+    #[cfg_attr(feature = "db", field("any"))]
     pub id: SongId,
     /// Title of the [`Song`].
     #[cfg_attr(feature = "db", field(dt = "string", index(text("custom_analyzer"))))]
@@ -153,16 +153,8 @@ impl From<Song> for SongBrief {
 
 impl From<&Song> for SongBrief {
     fn from(song: &Song) -> Self {
-        Self {
-            id: song.id.clone(),
-            title: song.title.clone(),
-            artist: song.artist.clone(),
-            album: song.album.clone(),
-            album_artist: song.album_artist.clone(),
-            release_year: song.release_year,
-            runtime: song.runtime,
-            path: song.path.clone(),
-        }
+        let song = song.clone();
+        Self::from(song)
     }
 }
 
@@ -274,7 +266,7 @@ impl SongMetadata {
     #[instrument()]
     pub fn load_from_path(
         path: PathBuf,
-        artist_name_separator: Option<&str>,
+        artist_name_separator: &OneOrMany<String>,
         genre_separator: Option<&str>,
     ) -> Result<Self, SongIOError> {
         // check if the file exists
@@ -296,33 +288,36 @@ impl SongMetadata {
             None => tagged_file.first_tag().ok_or(SongIOError::MissingTags)?,
         };
 
-        let mut artist: OneOrMany<Arc<str>> =
-            tag.artist()
-                .as_deref()
-                .map_or(OneOrMany::One("Unknown Artist".into()), |a| {
-                    let a = a.replace('\0', "");
-                    if let Some(sep) = artist_name_separator {
-                        if a.contains(sep) {
-                            OneOrMany::Many(a.split(&sep).map(Into::into).collect())
-                        } else {
-                            OneOrMany::One(a.into())
-                        }
-                    } else {
-                        OneOrMany::One(a.into())
-                    }
-                });
+        let mut artist: OneOrMany<Arc<str>> = tag
+            .artist()
+            .as_deref()
+            // split the artist string into multiple artists using user provided separators
+            .map_or(OneOrMany::One("Unknown Artist".into()), |a| {
+                // first we remove null characters from the string
+                // then, we replace all instances of any separator with a single separator (in this case, the null character)
+                // I'll use a fold here to make that all nice and pretty.
+                let a = artist_name_separator
+                    .iter()
+                    .fold(a.replace('\0', ""), |a, sep| a.replace(sep, "\0"));
+
+                // now we split the string into multiple artists
+                if a.contains('\0') {
+                    OneOrMany::Many(a.split('\0').map(Into::into).collect())
+                } else {
+                    OneOrMany::One(a.into())
+                }
+            });
         artist.dedup();
 
         let mut album_artist = tag.get_string(&ItemKey::AlbumArtist).map_or_else(
             || OneOrMany::One(artist.get(0).unwrap().clone()),
             |a| {
-                let a = a.replace('\0', "");
-                if let Some(sep) = artist_name_separator {
-                    if a.contains(sep) {
-                        OneOrMany::Many(a.split(&sep).map(Into::into).collect())
-                    } else {
-                        OneOrMany::One(a.into())
-                    }
+                let a = artist_name_separator
+                    .iter()
+                    .fold(a.replace('\0', ""), |a, sep| a.replace(sep, "\0"));
+
+                if a.contains('\0') {
+                    OneOrMany::Many(a.split('\0').map(Into::into).collect())
                 } else {
                     OneOrMany::One(a.into())
                 }

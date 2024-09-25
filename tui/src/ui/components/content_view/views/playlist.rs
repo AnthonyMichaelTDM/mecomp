@@ -133,9 +133,9 @@ impl Component for PlaylistView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    if let Some(thing) =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
-                    {
+                    let selected_things =
+                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    if let Some(thing) = selected_things {
                         self.action_tx
                             .send(Action::SetCurrentView(thing.into()))
                             .unwrap();
@@ -144,8 +144,10 @@ impl Component for PlaylistView {
             }
             // if there are checked items, add them to the queue, otherwise send the whole playlist to the queue
             KeyCode::Char('q') => {
+                let checked_things =
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
                 if let Some(action) = construct_add_to_queue_action(
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    checked_things,
                     self.props.as_ref().map(|p| &p.id),
                 ) {
                     self.action_tx.send(action).unwrap();
@@ -153,17 +155,20 @@ impl Component for PlaylistView {
             }
             // if there are checked items, start radio from checked items, otherwise start radio from the playlist
             KeyCode::Char('r') => {
-                if let Some(action) = construct_start_radio_action(
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
-                    self.props.as_ref().map(|p| &p.id),
-                ) {
+                let checked_things =
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                if let Some(action) =
+                    construct_start_radio_action(checked_things, self.props.as_ref().map(|p| &p.id))
+                {
                     self.action_tx.send(action).unwrap();
                 }
             }
             // if there are checked items, add them to the playlist, otherwise add the whole playlist to the playlist
             KeyCode::Char('p') => {
+                let checked_things =
+                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
                 if let Some(action) = construct_add_to_playlist_action(
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()),
+                    checked_things,
                     self.props.as_ref().map(|p| &p.id),
                 ) {
                     self.action_tx.send(action).unwrap();

@@ -97,6 +97,13 @@ pub fn get_config_dir() -> Result<std::path::PathBuf, DirectoryError> {
     Ok(directory)
 }
 
+/// Check if a server is already running on localhost on the given port.
+/// If a server is already running, return true, otherwise return false.
+#[must_use]
+pub fn is_server_running(port: u16) -> bool {
+    std::net::TcpStream::connect(format!("localhost:{port}")).is_ok()
+}
+
 #[cfg(test)]
 mod test {
     use super::format_duration;

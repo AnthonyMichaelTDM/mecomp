@@ -15,9 +15,9 @@ use tarpc::{
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
     audio::AudioKernelSender,
+    is_server_running,
     logger::{init_logger, init_tracing},
-    rpc::MusicPlayer as _,
-    rpc::MusicPlayerClient,
+    rpc::{MusicPlayer as _, MusicPlayerClient},
 };
 use mecomp_storage::db::{init_database, set_database_path};
 
@@ -44,8 +44,10 @@ use crate::controller::MusicPlayerServer;
 ///
 /// # Arguments
 ///
-/// * `log_level` - The log level to use.
 /// * `settings` - The settings to use.
+/// * `db_dir` - The directory where the database is stored.
+///              If the directory does not exist, it will be created.
+/// * `log_file_path` - The path to the file where logs will be written.
 ///
 /// # Errors
 ///
@@ -54,12 +56,24 @@ use crate::controller::MusicPlayerServer;
 /// # Panics
 ///
 /// Panics if the peer address of the underlying TCP transport cannot be determined.
-pub async fn start_daemon(settings: Settings, db_dir: std::path::PathBuf) -> anyhow::Result<()> {
+pub async fn start_daemon(
+    settings: Settings,
+    db_dir: std::path::PathBuf,
+    log_file_path: Option<std::path::PathBuf>,
+) -> anyhow::Result<()> {
     // Throw the given settings into an Arc so we can share settings across threads.
     let settings = Arc::new(settings);
 
+    // check if a server is already running
+    if is_server_running(settings.daemon.rpc_port) {
+        anyhow::bail!(
+            "A server is already running on port {}",
+            settings.daemon.rpc_port
+        );
+    }
+
     // Initialize the logger, database, and tracing.
-    init_logger(settings.daemon.log_level);
+    init_logger(settings.daemon.log_level, log_file_path);
     set_database_path(db_dir)?;
     let db = Arc::new(init_database().await?);
     tracing::subscriber::set_global_default(init_tracing())?;

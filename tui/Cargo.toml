@@ -15,6 +15,10 @@ name = "mecomp-tui"
 test = false
 bench = false
 
+[features]
+default = ["autostart-daemon"]
+autostart-daemon = []
+
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
@@ -24,7 +28,7 @@ ratatui = { version = "0.28.1", features = ["all-widgets"] }
 tarpc.workspace = true
 tokio = { workspace = true, features = ["signal"] }
 tokio-stream = "0.1.15"
-unicode-width = "0.1.13"
+unicode-width = "0.2.0"
 
 # MECOMP dependencies
 one-or-many.workspace = true

@@ -1,7 +1,4 @@
-use surrealdb::sql::{
-    statements::{DeleteStatement, RelateStatement, SelectStatement},
-    Cond, Expression, Fields, Ident, Idiom, Limit, Operator, Param, Table, Value, Values,
-};
+use surrealdb::opt::IntoQuery;
 
 use crate::db::schemas;
 
@@ -29,7 +26,7 @@ use super::generic::{read_related_out, relate, unrelate};
 /// ```
 #[must_use]
 #[inline]
-pub fn add_songs() -> RelateStatement {
+pub fn add_songs() -> impl IntoQuery {
     relate("id", "songs", "playlist_to_song")
 }
 
@@ -55,7 +52,7 @@ pub fn add_songs() -> RelateStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_songs() -> SelectStatement {
+pub fn read_songs() -> impl IntoQuery {
     read_related_out("id", "playlist_to_song")
 }
 
@@ -81,7 +78,7 @@ pub fn read_songs() -> SelectStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn remove_songs() -> DeleteStatement {
+pub fn remove_songs() -> impl IntoQuery {
     unrelate("id", "songs", "playlist_to_song")
 }
 
@@ -105,21 +102,18 @@ pub fn remove_songs() -> DeleteStatement {
 ///     "SELECT * FROM playlist WHERE name = $name LIMIT 1".into_query().unwrap()
 /// );
 /// ```
+///
+/// # Panics
+///
+/// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
-pub fn read_by_name() -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Table(Table(
-            schemas::playlist::TABLE_NAME.to_string(),
-        ))]),
-        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-            l: Value::Idiom(Idiom(vec![Ident("name".into()).into()])),
-            o: Operator::Equal,
-            r: Value::Param(Param(Ident("name".into()))),
-        })))),
-        limit: Some(Limit(1.into())),
-        ..Default::default()
-    }
+pub fn read_by_name() -> impl IntoQuery {
+    format!(
+        "SELECT * FROM {} WHERE name = $name LIMIT 1",
+        schemas::playlist::TABLE_NAME
+    )
+    .into_query()
+    .unwrap()
 }
 
 #[cfg(test)]

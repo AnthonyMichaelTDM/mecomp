@@ -1,7 +1,6 @@
-use surrealdb::sql::{
-    statements::SelectStatement, Cond, Dir, Expression, Fields, Graph, Ident, Idiom, Limit,
-    Operator, Param, Part, Table, Tables, Value, Values,
-};
+use surrealdb::opt::IntoQuery;
+
+use crate::db::schemas;
 
 use super::generic::read_related_in;
 
@@ -25,19 +24,18 @@ use super::generic::read_related_in;
 ///     "SELECT * FROM song WHERE path = $path LIMIT 1".into_query().unwrap()
 /// );
 /// ```
+///
+/// # Panics
+///
+/// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
-pub fn read_song_by_path() -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Table(Table("song".into()))]),
-        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-            l: Value::Idiom(Idiom(vec![Ident("path".into()).into()])),
-            o: Operator::Equal,
-            r: Value::Param(Param(Ident("path".into()))),
-        })))),
-        limit: Some(Limit(1.into())),
-        ..Default::default()
-    }
+pub fn read_song_by_path() -> impl IntoQuery {
+    format!(
+        "SELECT * FROM {} WHERE path = $path LIMIT 1",
+        schemas::song::TABLE_NAME
+    )
+    .into_query()
+    .unwrap()
 }
 
 /// query to read the album of a song
@@ -62,7 +60,7 @@ pub fn read_song_by_path() -> SelectStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_album() -> SelectStatement {
+pub fn read_album() -> impl IntoQuery {
     read_related_in("id", "album_to_song")
 }
 
@@ -88,7 +86,7 @@ pub fn read_album() -> SelectStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_artist() -> SelectStatement {
+pub fn read_artist() -> impl IntoQuery {
     read_related_in("id", "artist_to_song")
 }
 
@@ -112,34 +110,15 @@ pub fn read_artist() -> SelectStatement {
 ///     "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in".into_query().unwrap()
 /// );
 /// ```
+///
+/// # Panics
+///
+/// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
-pub fn read_album_artist() -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Idiom(Idiom(vec![
-            Part::Start(Value::Param(Param(Ident("id".into())))),
-            Part::Graph(Graph {
-                dir: Dir::In,
-                what: Tables(vec![Table("album_to_song".into())]),
-                expr: Fields::all(),
-                ..Default::default()
-            }),
-            Part::Graph(Graph {
-                dir: Dir::In,
-                what: Tables(vec![Table("album".into())]),
-                expr: Fields::all(),
-                ..Default::default()
-            }),
-            Part::Graph(Graph {
-                dir: Dir::In,
-                what: Tables(vec![Table("artist_to_album".into())]),
-                expr: Fields::all(),
-                ..Default::default()
-            }),
-            Part::Field(Ident("in".into())),
-        ]))]),
-        ..Default::default()
-    }
+pub fn read_album_artist() -> impl IntoQuery {
+    "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in"
+        .into_query()
+        .unwrap()
 }
 
 #[cfg(test)]

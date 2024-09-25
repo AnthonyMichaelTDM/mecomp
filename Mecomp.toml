@@ -10,7 +10,16 @@ library_paths = ["~/Music"]
 ## For example, "Foo, Bar, Baz" would be split into ["Foo", "Bar", "Baz"]. if the separator is ", ".
 ## If the separator is not found, the entire string is considered as a single artist.
 ## If unset, will not split artists.
-artist_separator = "; "
+##
+## Users can provide one or many separators, and must provide them as either a single string or an array of strings.
+##
+## ```toml
+## [daemon]
+## artist_separator = " & "
+## # or
+## artist_separator = [" & ", "; "]
+## ```
+artist_separator = ["; ", ", ", " & ", " feat. ", " ft. "]
 ## Separators for genres in song metadata.
 ## For example, "Foo, Bar, Baz" would be split into ["Foo", "Bar", "Baz"]. if the separator is ", ".
 ## If the separator is not found, the entire string is considered as a single genre.

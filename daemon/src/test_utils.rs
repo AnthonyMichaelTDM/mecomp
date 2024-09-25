@@ -16,7 +16,7 @@ static INIT: OnceLock<()> = OnceLock::new();
 /// Panics if the logger or tracing subscriber cannot be initialized.
 pub fn init() {
     INIT.get_or_init(|| {
-        init_logger(log::LevelFilter::Debug);
+        init_logger(log::LevelFilter::Debug, None);
         if let Err(e) = tracing::subscriber::set_global_default(init_tracing()) {
             panic!("Error setting global default tracing subscriber: {e:?}")
         }

@@ -1,9 +1,5 @@
 use crate::db::schemas;
-use surrealdb::sql::{
-    statements::{RelateStatement, SelectStatement},
-    Cond, Dir, Expression, Fields, Graph, Ident, Idiom, Operator, Param, Part, Table, Tables,
-    Value, Values,
-};
+use surrealdb::opt::IntoQuery;
 
 use super::generic::{read_related_in, read_related_out, relate};
 
@@ -28,7 +24,7 @@ use super::generic::{read_related_in, read_related_out, relate};
 /// );
 /// ```
 #[must_use]
-pub fn add_to_song() -> RelateStatement {
+pub fn add_to_song() -> impl IntoQuery {
     relate("id", "song", "analysis_to_song")
 }
 
@@ -53,7 +49,7 @@ pub fn add_to_song() -> RelateStatement {
 /// );
 /// ```
 #[must_use]
-pub fn read_for_song() -> SelectStatement {
+pub fn read_for_song() -> impl IntoQuery {
     read_related_in("song", "analysis_to_song")
 }
 
@@ -78,7 +74,7 @@ pub fn read_for_song() -> SelectStatement {
 /// );
 /// ```
 #[must_use]
-pub fn read_song() -> SelectStatement {
+pub fn read_song() -> impl IntoQuery {
     read_related_out("id", "analysis_to_song")
 }
 
@@ -103,31 +99,15 @@ pub fn read_song() -> SelectStatement {
 /// );
 /// ```
 #[allow(clippy::module_name_repetitions)]
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
-pub fn read_songs_without_analysis() -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Table(Table(
-            schemas::song::TABLE_NAME.to_string(),
-        ))]),
-        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-            l: Value::Function(Box::new(surrealdb::sql::Function::Normal(
-                "count".to_string(),
-                vec![Value::Idiom(Idiom(vec![
-                    Part::Graph(Graph {
-                        dir: Dir::In,
-                        expr: Fields::all(),
-                        what: Tables(vec![Table("analysis_to_song".to_string())]),
-                        ..Default::default()
-                    }),
-                    Part::Field(Ident("in".to_string())),
-                ]))],
-            ))),
-            o: Operator::Equal,
-            r: Value::Number(surrealdb::sql::Number::Int(0)),
-        })))),
-        ..Default::default()
-    }
+pub fn read_songs_without_analysis() -> impl IntoQuery {
+    format!(
+        "SELECT * FROM {} WHERE count(<-analysis_to_song.in) = 0",
+        schemas::song::TABLE_NAME
+    )
+    .into_query()
+    .unwrap()
 }
 
 /// Query to find the `n` nearest neighbors to a given analysis
@@ -150,28 +130,15 @@ pub fn read_songs_without_analysis() -> SelectStatement {
 ///     "SELECT * FROM analysis WHERE id IS NOT $id features <|5|> $target".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
-pub fn nearest_neighbors(n: u32) -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Table(Table(
-            schemas::analysis::TABLE_NAME.to_string(),
-        ))]),
-        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-            l: Value::Expression(Box::new(Expression::Binary {
-                l: Value::Idiom(Idiom(vec![Part::Field(Ident("id".to_string()))])),
-                o: Operator::NotEqual,
-                r: Value::Param(Param(Ident("id".to_string()))),
-            })),
-            o: Operator::And,
-            r: Value::Expression(Box::new(Expression::Binary {
-                l: Value::Idiom(Idiom(vec![Part::Field(Ident("features".to_string()))])),
-                o: Operator::Knn(n, None),
-                r: Value::Param(Param(Ident("target".to_string()))),
-            })),
-        })))),
-        ..Default::default()
-    }
+pub fn nearest_neighbors(n: u32) -> impl IntoQuery {
+    format!(
+        "SELECT * FROM {} WHERE id IS NOT $id AND features <|{n}|> $target",
+        schemas::analysis::TABLE_NAME
+    )
+    .into_query()
+    .unwrap()
 }
 
 /// Query to find the `n` nearest neighbors to a list of analyses, excluding the given analyses
@@ -193,28 +160,15 @@ pub fn nearest_neighbors(n: u32) -> SelectStatement {
 ///     "SELECT * FROM analysis WHERE id NOT IN $ids AND features <|5|> $target".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
-pub fn nearest_neighbors_to_many(n: u32) -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Table(Table(
-            schemas::analysis::TABLE_NAME.to_string(),
-        ))]),
-        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-            l: Value::Expression(Box::new(Expression::Binary {
-                l: Value::Idiom(Idiom(vec![Part::Field(Ident("id".to_string()))])),
-                o: Operator::NotInside,
-                r: Value::Param(Param(Ident("ids".to_string()))),
-            })),
-            o: Operator::And,
-            r: Value::Expression(Box::new(Expression::Binary {
-                l: Value::Idiom(Idiom(vec![Part::Field(Ident("features".to_string()))])),
-                o: Operator::Knn(n, None),
-                r: Value::Param(Param(Ident("target".to_string()))),
-            })),
-        })))),
-        ..Default::default()
-    }
+pub fn nearest_neighbors_to_many(n: u32) -> impl IntoQuery {
+    format!(
+        "SELECT * FROM {} WHERE id NOT IN $ids AND features <|{n}|> $target",
+        schemas::analysis::TABLE_NAME
+    )
+    .into_query()
+    .unwrap()
 }
 
 #[cfg(test)]

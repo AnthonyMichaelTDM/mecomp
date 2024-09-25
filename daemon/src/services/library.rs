@@ -10,6 +10,7 @@ use mecomp_analysis::{
     decoder::{DecoderWithCallback, MecompDecoder},
 };
 use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
+use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
 use tap::TapFallible;
 use tracing::instrument;
@@ -48,7 +49,7 @@ use crate::config::ReclusterSettings;
 pub async fn rescan<C: Connection>(
     db: &Surreal<C>,
     paths: &[PathBuf],
-    artist_name_separator: Option<&str>,
+    artist_name_separator: &OneOrMany<String>,
     genre_separator: Option<&str>,
     conflict_resolution_mode: MetadataConflictResolution,
 ) -> Result<(), Error> {
@@ -299,7 +300,7 @@ pub async fn recluster<C: Connection>(
             songs.push(Analysis::read_song(db, analysis.id.clone()).await?.id);
         }
 
-        Collection::add_songs(db, collection.id.clone(), &songs).await?;
+        Collection::add_songs(db, collection.id.clone(), songs).await?;
     }
 
     info!("Library recluster complete");
@@ -416,7 +417,7 @@ mod tests {
         rescan(
             &db,
             &[tempdir.path().to_owned()],
-            Some(ARTIST_NAME_SEPARATOR),
+            &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
             Some(ARTIST_NAME_SEPARATOR),
             MetadataConflictResolution::Overwrite,
         )
@@ -452,7 +453,7 @@ mod tests {
             assert_eq!(SongMetadata::from(&song), metadata);
 
             // the song's artists were created
-            let artists = Artist::read_by_names(&db, &Vec::from(metadata.artist.clone()))
+            let artists = Artist::read_by_names(&db, Vec::from(metadata.artist.clone()))
                 .await
                 .unwrap();
             assert_eq!(artists.len(), metadata.artist.len());
@@ -496,7 +497,7 @@ mod tests {
 
             // the album's album artists were created
             let album_artists =
-                Artist::read_by_names(&db, &Vec::from(metadata.album_artist.clone()))
+                Artist::read_by_names(&db, Vec::from(metadata.album_artist.clone()))
                     .await
                     .unwrap();
             assert_eq!(album_artists.len(), metadata.album_artist.len());

@@ -5,6 +5,8 @@ use tokio::sync::broadcast;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Interrupted {
     OsSigInt,
+    OsSigQuit,
+    OsSigTerm,
     UserInt,
 }
 
@@ -15,7 +17,7 @@ pub struct Terminator {
 
 impl Terminator {
     #[must_use]
-    pub fn new(interrupt_tx: broadcast::Sender<Interrupted>) -> Self {
+    pub const fn new(interrupt_tx: broadcast::Sender<Interrupted>) -> Self {
         Self { interrupt_tx }
     }
 
@@ -35,12 +37,28 @@ impl Terminator {
 async fn terminate_by_unix_signal(mut terminator: Terminator) {
     let mut interrupt_signal = signal(tokio::signal::unix::SignalKind::interrupt())
         .expect("failed to create interrupt signal stream");
+    let mut term_signal = signal(tokio::signal::unix::SignalKind::terminate())
+        .expect("failed to create terminate signal stream");
+    let mut quit_signal = signal(tokio::signal::unix::SignalKind::quit())
+        .expect("failed to create quit signal stream");
 
-    interrupt_signal.recv().await;
-
-    terminator
-        .terminate(Interrupted::OsSigInt)
-        .expect("failed to send interrupt signal");
+    tokio::select! {
+        _ = interrupt_signal.recv() => {
+            terminator
+                .terminate(Interrupted::OsSigInt)
+                .expect("failed to send interrupt signal");
+        }
+        _ = term_signal.recv() => {
+            terminator
+                .terminate(Interrupted::OsSigTerm)
+                .expect("failed to send terminate signal");
+        }
+        _ = quit_signal.recv() => {
+            terminator
+                .terminate(Interrupted::OsSigQuit)
+                .expect("failed to send quit signal");
+        }
+    }
 }
 
 // create a broadcast channel for retrieving the application kill signal

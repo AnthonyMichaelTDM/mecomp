@@ -49,12 +49,13 @@ async fn main() -> anyhow::Result<()> {
         std::fs::write(&config_file, DEFAULT_CONFIG)?;
     }
 
-    let db_dir = match get_data_dir() {
-        Ok(data_dir) => data_dir.join("db"),
+    let (db_dir, log_file) = match get_data_dir() {
+        Ok(data_dir) => (data_dir.join("db"), data_dir.join("mecomp.log")),
         Err(e) => {
             eprintln!("Error: {e}");
             eprintln!("Using a temporary directory for the database");
-            std::env::temp_dir().join("mecomp")
+            let data_dir = std::env::temp_dir();
+            (data_dir.join("mecomp_db"), data_dir.join("mecomp.log"))
         }
     };
 
@@ -64,5 +65,5 @@ async fn main() -> anyhow::Result<()> {
         flags.log_level,
     )?;
 
-    start_daemon(settings, db_dir).await
+    start_daemon(settings, db_dir, Some(log_file)).await
 }

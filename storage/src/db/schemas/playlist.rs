@@ -19,7 +19,7 @@ pub const TABLE_NAME: &str = "playlist";
 #[cfg_attr(feature = "db", Table("playlist"))]
 pub struct Playlist {
     /// the unique identifier for this [`Playlist`].
-    #[cfg_attr(feature = "db", field(dt = "record"))]
+    #[cfg_attr(feature = "db", field("any"))]
     pub id: PlaylistId,
 
     /// The [`Playlist`]'s name.

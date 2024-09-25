@@ -7,6 +7,7 @@ use mecomp_storage::test_utils::init_test_database;
 use mecomp_storage::test_utils::SongCase;
 use mecomp_storage::test_utils::ARTIST_NAME_SEPARATOR;
 use mecomp_storage::util::MetadataConflictResolution;
+use one_or_many::OneOrMany;
 
 fn benchmark_rescan(c: &mut Criterion) {
     let tempdir = tempfile::tempdir().unwrap();
@@ -91,7 +92,7 @@ fn benchmark_rescan(c: &mut Criterion) {
                 rescan(
                     &db,
                     &[tempdir.path().to_path_buf()],
-                    Some(ARTIST_NAME_SEPARATOR),
+                    &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
                     Some(ARTIST_NAME_SEPARATOR),
                     MetadataConflictResolution::default(),
                 )

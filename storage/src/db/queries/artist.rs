@@ -1,10 +1,6 @@
 use crate::db::schemas;
 
-use surrealdb::sql::{
-    statements::{DeleteStatement, OutputStatement, RelateStatement, SelectStatement},
-    Cond, Dir, Expression, Fields, Graph, Ident, Idiom, Limit, Operator, Param, Part, Subquery,
-    Table, Tables, Value, Values,
-};
+use surrealdb::opt::IntoQuery;
 
 use super::generic::{read_related_out, relate, unrelate};
 
@@ -28,21 +24,15 @@ use super::generic::{read_related_out, relate, unrelate};
 ///     "SELECT * FROM artist WHERE name = $name LIMIT 1".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
-pub fn read_by_name() -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Table(Table(
-            schemas::artist::TABLE_NAME.to_string(),
-        ))]),
-        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-            l: Value::Idiom(Idiom(vec![Ident("name".into()).into()])),
-            o: Operator::Equal,
-            r: Value::Param(Param(Ident("name".into()))),
-        })))),
-        limit: Some(Limit(1.into())),
-        ..Default::default()
-    }
+pub fn read_by_name() -> impl IntoQuery {
+    format!(
+        "SELECT * FROM {} WHERE name = $name LIMIT 1",
+        schemas::artist::TABLE_NAME
+    )
+    .into_query()
+    .unwrap()
 }
 
 /// Query to read a artists by their names.
@@ -65,20 +55,15 @@ pub fn read_by_name() -> SelectStatement {
 ///     "SELECT * FROM artist WHERE name IN $names".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
-pub fn read_by_names() -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Table(Table(
-            schemas::artist::TABLE_NAME.into(),
-        ))]),
-        cond: Some(Cond(Value::Expression(Box::new(Expression::Binary {
-            l: Value::Idiom(Idiom(vec![Ident("name".into()).into()])),
-            o: Operator::Inside,
-            r: Value::Param(Param(Ident("names".into()))),
-        })))),
-        ..Default::default()
-    }
+pub fn read_by_names() -> impl IntoQuery {
+    format!(
+        "SELECT * FROM {} WHERE name IN $names",
+        schemas::artist::TABLE_NAME
+    )
+    .into_query()
+    .unwrap()
 }
 
 /// Query to read many artists
@@ -101,13 +86,10 @@ pub fn read_by_names() -> SelectStatement {
 ///     "SELECT * FROM $ids".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
-pub fn read_many() -> SelectStatement {
-    SelectStatement {
-        expr: Fields::all(),
-        what: Values(vec![Value::Param(Param(Ident("ids".into())))]),
-        ..Default::default()
-    }
+pub fn read_many() -> impl IntoQuery {
+    "SELECT * FROM $ids".into_query().unwrap()
 }
 
 /// Query to read the albums by an artist.
@@ -132,7 +114,7 @@ pub fn read_many() -> SelectStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_albums() -> SelectStatement {
+pub fn read_albums() -> impl IntoQuery {
     read_related_out("id", "artist_to_album")
 }
 
@@ -158,7 +140,7 @@ pub fn read_albums() -> SelectStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn add_album() -> RelateStatement {
+pub fn add_album() -> impl IntoQuery {
     relate("id", "album", "artist_to_album")
 }
 
@@ -184,7 +166,7 @@ pub fn add_album() -> RelateStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn add_album_to_artists() -> RelateStatement {
+pub fn add_album_to_artists() -> impl IntoQuery {
     relate("ids", "album", "artist_to_album")
 }
 
@@ -210,7 +192,7 @@ pub fn add_album_to_artists() -> RelateStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn add_songs() -> RelateStatement {
+pub fn add_songs() -> impl IntoQuery {
     relate("id", "songs", "artist_to_song")
 }
 
@@ -236,7 +218,7 @@ pub fn add_songs() -> RelateStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn remove_songs() -> DeleteStatement {
+pub fn remove_songs() -> impl IntoQuery {
     unrelate("artist", "songs", "artist_to_song")
 }
 
@@ -260,46 +242,10 @@ pub fn remove_songs() -> DeleteStatement {
 ///     "RETURN array::union((SELECT * FROM $artist->artist_to_song.out), (SELECT * FROM $artist->artist_to_album->album->album_to_song.out))".into_query().unwrap()
 /// );
 /// ```
+#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
-pub fn read_songs() -> OutputStatement {
-    OutputStatement {
-        what: Value::Function(Box::new(surrealdb::sql::Function::Normal(
-            "array::union".into(),
-            vec![
-                Value::Subquery(Box::new(Subquery::Select(read_related_out(
-                    "artist",
-                    "artist_to_song",
-                )))),
-                Value::Subquery(Box::new(Subquery::Select(SelectStatement {
-                    expr: Fields::all(),
-                    what: Values(vec![Value::Idiom(Idiom(vec![
-                        Part::Start(Value::Param(Param(Ident("artist".into())))),
-                        Part::Graph(Graph {
-                            dir: Dir::Out,
-                            what: Tables(vec![Table("artist_to_album".into())]),
-                            expr: Fields::all(),
-                            ..Default::default()
-                        }),
-                        Part::Graph(Graph {
-                            dir: Dir::Out,
-                            what: Tables(vec![Table(schemas::album::TABLE_NAME.into())]),
-                            expr: Fields::all(),
-                            ..Default::default()
-                        }),
-                        Part::Graph(Graph {
-                            dir: Dir::Out,
-                            what: Tables(vec![Table("album_to_song".into())]),
-                            expr: Fields::all(),
-                            ..Default::default()
-                        }),
-                        Part::Field(Ident("out".into())),
-                    ]))]),
-                    ..Default::default()
-                }))),
-            ],
-        ))),
-        ..Default::default()
-    }
+pub fn read_songs() -> impl IntoQuery {
+    "RETURN array::union((SELECT * FROM $artist->artist_to_song.out), (SELECT * FROM $artist->artist_to_album->album->album_to_song.out))".into_query().unwrap()
 }
 
 #[cfg(test)]

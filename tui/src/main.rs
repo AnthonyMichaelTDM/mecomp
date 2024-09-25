@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use clap::Parser;
+#[cfg(feature = "autostart-daemon")]
+use mecomp_core::is_server_running;
 use mecomp_core::rpc::init_client;
 use mecomp_tui::{
     state::Dispatcher,
@@ -23,8 +25,14 @@ async fn main() -> anyhow::Result<()> {
 
     let flags = Flags::parse();
 
+    // check if the server is running, and if it's not, try to start it
+    #[cfg(feature = "autostart-daemon")]
+    let server_process = MaybeDaemonHandler::start(flags.port).await?;
+
+    // initialize the client
     let daemon = Arc::new(init_client(flags.port).await?);
 
+    // initialize the signal handlers
     let (terminator, mut interrupt_rx) = create_termination();
     let (dispatcher, state_receivers) = Dispatcher::new();
     let (ui_manager, action_rx) = UiManager::new();
@@ -45,10 +53,78 @@ async fn main() -> anyhow::Result<()> {
         match reason {
             Interrupted::UserInt => println!("exited per user request"),
             Interrupted::OsSigInt => println!("exited because of an os sig int"),
+            Interrupted::OsSigTerm => println!("exited because of an os sig term"),
+            Interrupted::OsSigQuit => println!("exited because of an os sig quit"),
         }
     } else {
-        println!("exited because of an unexpected error");
+        eprintln!("exited because of an unexpected error");
     }
 
+    #[cfg(feature = "autostart-daemon")]
+    drop(server_process);
+
     Ok(())
+}
+
+/// Handler for the Daemon process, which will be started if the Daemon is not already running on the given port.
+///
+/// Used so we can ensure that the Daemon is stopped when the TUI is stopped, by defining a Drop implementation.
+#[cfg(feature = "autostart-daemon")]
+struct MaybeDaemonHandler {
+    process: Option<std::process::Child>,
+}
+
+#[cfg(feature = "autostart-daemon")]
+impl MaybeDaemonHandler {
+    /// Start the Daemon process if it is not already running on the given port.
+    async fn start(port: u16) -> anyhow::Result<Self> {
+        let process = if is_server_running(port) {
+            None
+        } else {
+            // if mecomp-daemon is in the path, start it, otherwise look for it in the same directory as this binary
+            eprintln!("starting mecomp-daemon");
+
+            let mut child = std::process::Command::new("mecomp-daemon")
+                .arg("--port")
+                .arg(port.to_string())
+                .stderr(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .spawn()
+                .or_else(|_| {
+                    let mut path = std::env::current_exe()?;
+                    path.pop();
+                    path.push("mecomp-daemon");
+
+                    std::process::Command::new(path)
+                        .arg("--port")
+                        .arg(port.to_string())
+                        .stderr(std::process::Stdio::null())
+                        .stdout(std::process::Stdio::null())
+                        .spawn()
+                })
+                .map_err(|e| anyhow::anyhow!("failed to start mecomp-daemon: {}", e))?;
+
+            println!("waiting for the server to start");
+
+            // give the server some time to start
+            while !is_server_running(port) && child.try_wait()?.is_none() {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+
+            Some(child)
+        };
+        Ok(Self { process })
+    }
+}
+
+#[cfg(feature = "autostart-daemon")]
+impl Drop for MaybeDaemonHandler {
+    fn drop(&mut self) {
+        if let Some(mut process) = self.process.take() {
+            println!("killing the server process");
+            if let Err(e) = process.kill() {
+                eprintln!("couldn't kill the server process: {e:?}");
+            }
+        }
+    }
 }

@@ -260,7 +260,7 @@ mod tests {
         let song = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
             .await
             .unwrap();
-        Collection::add_songs(&db, collection.id, &[song.id.clone()])
+        Collection::add_songs(&db, collection.id, vec![song.id.clone()])
             .await
             .unwrap();
         assert_eq!(count_collections(&db).await.unwrap(), 1);
@@ -290,7 +290,7 @@ mod tests {
         let song = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
             .await
             .unwrap();
-        Playlist::add_songs(&db, playlist.id, &[song.id.clone()])
+        Playlist::add_songs(&db, playlist.id, vec![song.id.clone()])
             .await
             .unwrap();
         assert_eq!(count_playlists(&db).await.unwrap(), 1);

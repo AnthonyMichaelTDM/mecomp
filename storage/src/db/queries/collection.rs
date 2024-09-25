@@ -1,4 +1,4 @@
-use surrealdb::sql::statements::{DeleteStatement, RelateStatement, SelectStatement};
+use surrealdb::opt::IntoQuery;
 
 use super::generic::{read_related_out, relate, unrelate};
 
@@ -24,7 +24,7 @@ use super::generic::{read_related_out, relate, unrelate};
 /// ```
 #[must_use]
 #[inline]
-pub fn add_songs() -> RelateStatement {
+pub fn add_songs() -> impl IntoQuery {
     relate("id", "songs", "collection_to_song")
 }
 
@@ -50,7 +50,7 @@ pub fn add_songs() -> RelateStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_songs() -> SelectStatement {
+pub fn read_songs() -> impl IntoQuery {
     read_related_out("id", "collection_to_song")
 }
 
@@ -76,7 +76,7 @@ pub fn read_songs() -> SelectStatement {
 /// ```
 #[must_use]
 #[inline]
-pub fn remove_songs() -> DeleteStatement {
+pub fn remove_songs() -> impl IntoQuery {
     unrelate("id", "songs", "collection_to_song")
 }
 

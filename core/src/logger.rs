@@ -45,11 +45,26 @@ pub fn uptime() -> u64 {
 /// # Panics
 /// This must only be called _once_.
 #[cfg(not(tarpaulin_include))]
-pub fn init_logger(filter: log::LevelFilter) {
+pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::PathBuf>) {
     // Initialize timer.
-
     use crate::format_duration;
     let now = Lazy::force(&INIT_INSTANT);
+
+    // create a new log file (if enabled).
+    let log_file = log_file_path.map(|path| {
+        let path = path
+            .is_dir()
+            .then(|| path.join("mecomp.log"))
+            .unwrap_or(path);
+
+        let log_file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .expect("Failed to create log file");
+
+        log_file
+    });
 
     // If `RUST_LOG` isn't set, override it and disables
     // all library crate logs except for mecomp and its sub-crates.
@@ -90,8 +105,8 @@ pub fn init_logger(filter: log::LevelFilter) {
                     "E"
                 }
             };
-            writeln!(
-                buf,
+
+            let log_line = format!(
                 // Longest PATH in the repo: `storage/src/db/schemas/collection.rs` - `36` characters
                 // Longest file in the repo: `daemon/src/controller.rs`             - `4` digits
                 //
@@ -112,7 +127,19 @@ pub fn init_logger(filter: log::LevelFilter) {
                     .set_dimmed(true)
                     .value(record.line().unwrap_or(0)),
                 record.args(),
-            )
+            );
+
+            writeln!(buf, "{log_line}")?;
+
+            // Write to log file (if enabled).
+            if let Some(log_file) = &log_file {
+                let mut log_file = log_file.try_clone().expect("Failed to clone log file");
+
+                writeln!(log_file, "{log_line}")?;
+                log_file.sync_all().expect("Failed to sync log file");
+            }
+
+            Ok(())
         })
         .write_style(env_logger::WriteStyle::Always)
         .parse_default_env()
