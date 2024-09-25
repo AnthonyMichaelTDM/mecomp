@@ -44,8 +44,10 @@ use crate::controller::MusicPlayerServer;
 ///
 /// # Arguments
 ///
-/// * `log_level` - The log level to use.
 /// * `settings` - The settings to use.
+/// * `db_dir` - The directory where the database is stored.
+///              If the directory does not exist, it will be created.
+/// * `log_file_path` - The path to the file where logs will be written.
 ///
 /// # Errors
 ///
@@ -54,7 +56,11 @@ use crate::controller::MusicPlayerServer;
 /// # Panics
 ///
 /// Panics if the peer address of the underlying TCP transport cannot be determined.
-pub async fn start_daemon(settings: Settings, db_dir: std::path::PathBuf) -> anyhow::Result<()> {
+pub async fn start_daemon(
+    settings: Settings,
+    db_dir: std::path::PathBuf,
+    log_file_path: Option<std::path::PathBuf>,
+) -> anyhow::Result<()> {
     // Throw the given settings into an Arc so we can share settings across threads.
     let settings = Arc::new(settings);
 
@@ -67,7 +73,7 @@ pub async fn start_daemon(settings: Settings, db_dir: std::path::PathBuf) -> any
     }
 
     // Initialize the logger, database, and tracing.
-    init_logger(settings.daemon.log_level);
+    init_logger(settings.daemon.log_level, log_file_path);
     set_database_path(db_dir)?;
     let db = Arc::new(init_database().await?);
     tracing::subscriber::set_global_default(init_tracing())?;
