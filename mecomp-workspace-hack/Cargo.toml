@@ -100,7 +100,7 @@ hashbrown = { version = "0.14", features = ["raw"] }
 indexmap = { version = "2", features = ["serde"] }
 itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
-lalrpop-util = { version = "0.20", features = ["lexer"] }
+lalrpop-util = { version = "0.21", features = ["lexer"] }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 matrixmultiply = { version = "0.3", features = ["cgemm"] }
 memchr = { version = "2" }
@@ -156,7 +156,7 @@ hashbrown = { version = "0.14", features = ["raw"] }
 indexmap = { version = "2", features = ["serde"] }
 itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
-lalrpop-util = { version = "0.20", features = ["lexer"] }
+lalrpop-util = { version = "0.21", features = ["lexer"] }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 matrixmultiply = { version = "0.3", features = ["cgemm"] }
 memchr = { version = "2" }
