@@ -124,7 +124,7 @@ lalrpop-util = { version = "0.20", features = ["lexer"] }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 matrixmultiply = { version = "0.3", features = ["cgemm"] }
 memchr = { version = "2" }
-ndarray = { version = "0.15", features = ["approx", "rayon"] }
+ndarray = { version = "0.16", features = ["approx", "rayon"] }
 num-bigint = { version = "0.4" }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
@@ -229,7 +229,7 @@ lalrpop-util = { version = "0.20", features = ["lexer"] }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 matrixmultiply = { version = "0.3", features = ["cgemm"] }
 memchr = { version = "2" }
-ndarray = { version = "0.15", features = ["approx", "rayon"] }
+ndarray = { version = "0.16", features = ["approx", "rayon"] }
 num-bigint = { version = "0.4" }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
