@@ -45,6 +45,8 @@ async fn main() -> anyhow::Result<()> {
         match reason {
             Interrupted::UserInt => println!("exited per user request"),
             Interrupted::OsSigInt => println!("exited because of an os sig int"),
+            Interrupted::OsSigTerm => println!("exited because of an os sig term"),
+            Interrupted::OsSigQuit => println!("exited because of an os sig quit"),
         }
     } else {
         println!("exited because of an unexpected error");
