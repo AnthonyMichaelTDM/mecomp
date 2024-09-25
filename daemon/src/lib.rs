@@ -15,9 +15,9 @@ use tarpc::{
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
     audio::AudioKernelSender,
+    is_server_running,
     logger::{init_logger, init_tracing},
-    rpc::MusicPlayer as _,
-    rpc::MusicPlayerClient,
+    rpc::{MusicPlayer as _, MusicPlayerClient},
 };
 use mecomp_storage::db::{init_database, set_database_path};
 
@@ -57,6 +57,14 @@ use crate::controller::MusicPlayerServer;
 pub async fn start_daemon(settings: Settings, db_dir: std::path::PathBuf) -> anyhow::Result<()> {
     // Throw the given settings into an Arc so we can share settings across threads.
     let settings = Arc::new(settings);
+
+    // check if a server is already running
+    if is_server_running(settings.daemon.rpc_port) {
+        anyhow::bail!(
+            "A server is already running on port {}",
+            settings.daemon.rpc_port
+        );
+    }
 
     // Initialize the logger, database, and tracing.
     init_logger(settings.daemon.log_level);

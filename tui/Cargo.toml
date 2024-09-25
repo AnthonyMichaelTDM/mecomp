@@ -15,6 +15,10 @@ name = "mecomp-tui"
 test = false
 bench = false
 
+[features]
+default = ["autostart-daemon"]
+autostart-daemon = []
+
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
