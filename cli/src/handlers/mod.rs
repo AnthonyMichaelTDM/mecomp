@@ -360,6 +360,16 @@ pub enum PlaylistAddCommand {
         /// The ids of the song(s) to add
         song_ids: Vec<String>,
     },
+    /// Add a list of items to the playlist (from a pipe)
+    /// ex:
+    /// ```sh, ignore
+    /// mecomp-cli search all "the beatles" -q | mecomp-cli playlist add pipe
+    /// ```
+    /// This will add all the results of the search to the playlist
+    Pipe {
+        /// The id of the playlist
+        id: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -409,6 +419,16 @@ pub enum RadioCommand {
     Playlist {
         /// The id of the playlist
         id: String,
+        /// The number of songs to get
+        n: u32,
+    },
+    /// Add a list of items to the radio (from a pipe)
+    /// ex:
+    /// ```sh, ignore
+    /// mecomp-cli search all "the beatles" -q | mecomp-cli radio pipe
+    /// ```
+    /// This will add all the results of the search to the radio
+    Pipe {
         /// The number of songs to get
         n: u32,
     },

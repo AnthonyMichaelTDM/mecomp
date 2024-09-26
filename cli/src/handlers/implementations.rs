@@ -11,6 +11,7 @@ use super::{
     VolumeCommand,
 };
 
+use anyhow::bail;
 use mecomp_core::{
     rpc::SearchResult,
     state::{
@@ -742,6 +743,32 @@ impl CommandHandler for super::PlaylistAddCommand {
                 )
                 .await?
                 .map(|()| "songs added to playlist"),
+            Self::Pipe { id } => {
+                let stdin = std::io::stdin();
+                if stdin.is_terminal() {
+                    bail!("No input provided, this command is meant to be used with a pipe");
+                }
+                let list: Vec<Thing> =
+                    utils::parse_things_from_lines(stdin.lock().lines().filter_map(|l| match l {
+                        Ok(line) => Some(line),
+                        Err(e) => {
+                            eprintln!("Error reading from stdin: {e}");
+                            None
+                        }
+                    }));
+
+                client
+                    .playlist_add_list(
+                        ctx,
+                        Thing {
+                            tb: playlist::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                        list,
+                    )
+                    .await?
+                    .map(|()| "items added to playlist")
+            }
         };
         println!("Daemon response:\n{resp:?}");
         Ok(())
@@ -866,6 +893,29 @@ impl CommandHandler for super::RadioCommand {
                         *n,
                     )
                     .await??;
+                println!("Daemon response:\n{}", printing::thing_list(&resp)?);
+                Ok(())
+            }
+            Self::Pipe { n } => {
+                let stdin = std::io::stdin();
+                if stdin.is_terminal() {
+                    bail!("No input provided, this command is meant to be used with a pipe");
+                }
+                let list: Vec<Thing> =
+                    utils::parse_things_from_lines(stdin.lock().lines().filter_map(|l| match l {
+                        Ok(line) => Some(line),
+                        Err(e) => {
+                            eprintln!("Error reading from stdin: {e}");
+                            None
+                        }
+                    }));
+
+                let resp: Box<[Thing]> = client
+                    .radio_get_similar(ctx, list, *n)
+                    .await??
+                    .iter()
+                    .map(|s| s.id.clone().into())
+                    .collect();
                 println!("Daemon response:\n{}", printing::thing_list(&resp)?);
                 Ok(())
             }
