@@ -164,14 +164,11 @@ pub struct ReclusterSettings {
     /// A good value is the number of songs in your library, divided by 10.
     /// Default is 120.
     #[serde(default = "default_max_iterations")]
-    pub max_iterations: usize,
+    pub max_iterations: u64,
 }
 
 const fn default_gap_statistic_reference_datasets() -> usize {
-    #[cfg(debug_assertions)]
-    return 50;
-    #[cfg(not(debug_assertions))]
-    return 250;
+    50
 }
 
 const fn default_max_clusters() -> usize {
@@ -181,7 +178,7 @@ const fn default_max_clusters() -> usize {
     return 24;
 }
 
-const fn default_max_iterations() -> usize {
+const fn default_max_iterations() -> u64 {
     #[cfg(debug_assertions)]
     return 30;
     #[cfg(not(debug_assertions))]

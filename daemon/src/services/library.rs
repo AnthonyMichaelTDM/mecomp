@@ -6,7 +6,7 @@ use std::{
 
 use log::{debug, error, info, warn};
 use mecomp_analysis::{
-    clustering::{extract_clusters, KMeansHelper, KOptimal, NotInitialized},
+    clustering::{AnalysisArray, KMeansHelper, KOptimal, NotInitialized},
     decoder::{DecoderWithCallback, MecompDecoder},
 };
 use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
@@ -252,13 +252,24 @@ pub async fn recluster<C: Connection>(
     let samples = Analysis::read_all(db).await?;
 
     // use k-means to cluster the analyses
-    let kmeans: KMeansHelper<NotInitialized<_>> = KMeansHelper::new(
-        samples,
+    let kmeans: KMeansHelper<NotInitialized> = match KMeansHelper::new(
+        AnalysisArray::from(
+            samples
+                .iter()
+                .map(Into::into)
+                .collect::<Vec<mecomp_analysis::Analysis>>(),
+        ),
         settings.max_clusters,
         KOptimal::GapStatistic {
             b: settings.gap_statistic_reference_datasets,
         },
-    );
+    ) {
+        Err(e) => {
+            error!("There was an error creating the k-means helper: {e}",);
+            return Ok(());
+        }
+        Ok(kmeans) => kmeans,
+    };
 
     let kmeans = match kmeans.initialize() {
         Err(e) => {
@@ -268,7 +279,13 @@ pub async fn recluster<C: Connection>(
         Ok(kmeans) => kmeans,
     };
 
-    let clustering = kmeans.cluster(settings.max_iterations);
+    let kmeans = match kmeans.cluster(settings.max_iterations) {
+        Err(e) => {
+            error!("There was an error clustering the analyses: {e}",);
+            return Ok(());
+        }
+        Ok(kmeans) => kmeans,
+    };
 
     // delete all the collections
     // NOTE: For some reason, if a collection has too many songs, it will fail to delete with "DbError(Db(Tx("Max transaction entries limit exceeded")))"
@@ -278,7 +295,7 @@ pub async fn recluster<C: Connection>(
     }
 
     // get the clusters from the clustering
-    let clusters = extract_clusters(clustering);
+    let clusters = kmeans.extract_analysis_clusters(samples);
 
     // create the collections
     for (i, cluster) in clusters.iter().filter(|c| !c.is_empty()).enumerate() {

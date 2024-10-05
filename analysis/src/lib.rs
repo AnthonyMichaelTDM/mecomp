@@ -142,6 +142,20 @@ impl Analysis {
         }
     }
 
+    /// Creates a new `Analysis` object from a `Vec<Feature>`.
+    ///
+    /// invariant: `features.len() == NUMBER_FEATURES`
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the length of the features is not equal to `NUMBER_FEATURES`.
+    pub fn from_vec(features: Vec<Feature>) -> Result<Self, AnalysisError> {
+        features
+            .try_into()
+            .map_err(|_| AnalysisError::InvalidFeaturesLen)
+            .map(Self::new)
+    }
+
     /// Return the inner array of the analysis.
     /// This is mostly useful if you want to store the features somewhere.
     #[must_use]
