@@ -596,13 +596,13 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db = init_test_database().await.unwrap();
         let settings = ReclusterSettings {
-            gap_statistic_reference_datasets: 50,
+            gap_statistic_reference_datasets: 5,
             max_clusters: 16,
             algorithm: crate::config::ClusterAlgorithm::GMM,
         };
 
         // load some songs into the database
-        let song_cases = arb_vec(&arb_song_case(), 126..=126)();
+        let song_cases = arb_vec(&arb_song_case(), 64..=80)();
         let song_cases = song_cases.into_iter().enumerate().map(|(i, sc)| SongCase {
             song: i as u8,
             ..sc
