@@ -251,8 +251,8 @@ pub async fn recluster<C: Connection>(
     // collect all the analyses
     let samples = Analysis::read_all(db).await?;
 
-    // use k-means to cluster the analyses
-    let kmeans: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
+    // use clustering algorithm to cluster the analyses
+    let model: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
         AnalysisArray::from(
             samples
                 .iter()
@@ -266,15 +266,15 @@ pub async fn recluster<C: Connection>(
         settings.algorithm.into(),
     ) {
         Err(e) => {
-            error!("There was an error creating the k-means helper: {e}",);
+            error!("There was an error creating the clustering helper: {e}",);
             return Ok(());
         }
         Ok(kmeans) => kmeans,
     };
 
-    let kmeans = match kmeans.initialize() {
+    let model = match model.initialize() {
         Err(e) => {
-            error!("There was an error initializing the k-means helper: {e}",);
+            error!("There was an error initializing the clustering helper: {e}",);
             return Ok(());
         }
         Ok(kmeans) => kmeans.cluster(),
@@ -288,7 +288,7 @@ pub async fn recluster<C: Connection>(
     }
 
     // get the clusters from the clustering
-    let clusters = kmeans.extract_analysis_clusters(samples);
+    let clusters = model.extract_analysis_clusters(samples);
 
     // create the collections
     for (i, cluster) in clusters.iter().filter(|c| !c.is_empty()).enumerate() {
