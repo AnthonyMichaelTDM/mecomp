@@ -40,15 +40,13 @@ log_level = "info"
 ## (which is used to determine the optimal number of clusters)
 ## 50 will give a decent estimate but for the best results use more,
 ## 500 will give a very good estimate but be very slow.
-## We default to 250 in release mode.
-gap_statistic_reference_datasets = 250
+## We default to 50.
+gap_statistic_reference_datasets = 50
 ## The maximum number of clusters to create.
 ## This is the upper bound on the number of clusters that can be created.
 ## Increase if you're getting a "could not find optimal k" error.
 ## Default is 24.
 max_clusters = 24
-## The maximum number of iterations to run the k-means algorithm.
-## Shouldn't be less than 30, but can be increased.
-## A good value is the number of songs in your library, divided by 10.
-## Default is 120.
-max_iterations = 120
+## The clustering algorithm to use.
+## Either "kmeans" or "gmm".
+algorithm = "gmm"

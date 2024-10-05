@@ -6,7 +6,7 @@ use std::{
 
 use log::{debug, error, info, warn};
 use mecomp_analysis::{
-    clustering::{extract_clusters, KMeansHelper, KOptimal, NotInitialized},
+    clustering::{AnalysisArray, ClusteringHelper, KOptimal, NotInitialized},
     decoder::{DecoderWithCallback, MecompDecoder},
 };
 use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
@@ -251,24 +251,34 @@ pub async fn recluster<C: Connection>(
     // collect all the analyses
     let samples = Analysis::read_all(db).await?;
 
-    // use k-means to cluster the analyses
-    let kmeans: KMeansHelper<NotInitialized<_>> = KMeansHelper::new(
-        samples,
+    // use clustering algorithm to cluster the analyses
+    let model: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
+        AnalysisArray::from(
+            samples
+                .iter()
+                .map(Into::into)
+                .collect::<Vec<mecomp_analysis::Analysis>>(),
+        ),
         settings.max_clusters,
         KOptimal::GapStatistic {
             b: settings.gap_statistic_reference_datasets,
         },
-    );
-
-    let kmeans = match kmeans.initialize() {
+        settings.algorithm.into(),
+    ) {
         Err(e) => {
-            error!("There was an error initializing the k-means helper: {e}",);
+            error!("There was an error creating the clustering helper: {e}",);
             return Ok(());
         }
         Ok(kmeans) => kmeans,
     };
 
-    let clustering = kmeans.cluster(settings.max_iterations);
+    let model = match model.initialize() {
+        Err(e) => {
+            error!("There was an error initializing the clustering helper: {e}",);
+            return Ok(());
+        }
+        Ok(kmeans) => kmeans.cluster(),
+    };
 
     // delete all the collections
     // NOTE: For some reason, if a collection has too many songs, it will fail to delete with "DbError(Db(Tx("Max transaction entries limit exceeded")))"
@@ -278,7 +288,7 @@ pub async fn recluster<C: Connection>(
     }
 
     // get the clusters from the clustering
-    let clusters = extract_clusters(clustering);
+    let clusters = model.extract_analysis_clusters(samples);
 
     // create the collections
     for (i, cluster) in clusters.iter().filter(|c| !c.is_empty()).enumerate() {
@@ -586,9 +596,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db = init_test_database().await.unwrap();
         let settings = ReclusterSettings {
-            gap_statistic_reference_datasets: 50,
+            gap_statistic_reference_datasets: 5,
             max_clusters: 16,
-            max_iterations: 30,
+            algorithm: crate::config::ClusterAlgorithm::GMM,
         };
 
         // load some songs into the database

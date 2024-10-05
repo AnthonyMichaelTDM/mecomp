@@ -1,7 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
 #[cfg(not(feature = "db"))]
 use super::{Id, Thing};
-use mecomp_analysis::clustering::{Elem, Sample};
 #[cfg(feature = "db")]
 use surrealdb::sql::{Id, Thing};
 
@@ -33,18 +32,14 @@ impl Analysis {
     }
 }
 
-impl Elem for Analysis {
-    fn dimensions(&self) -> usize {
-        20
-    }
-
-    fn at(&self, i: usize) -> f64 {
-        self.features[i]
+impl From<&Analysis> for mecomp_analysis::Analysis {
+    fn from(analysis: &Analysis) -> Self {
+        Self::new(analysis.features)
     }
 }
 
-impl Sample for Analysis {
-    fn inner(&self) -> &[f64; 20] {
-        &self.features
+impl From<Analysis> for mecomp_analysis::Analysis {
+    fn from(analysis: Analysis) -> Self {
+        Self::new(analysis.features)
     }
 }

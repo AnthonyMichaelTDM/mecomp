@@ -144,6 +144,25 @@ impl Default for DaemonSettings {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Default)]
+pub enum ClusterAlgorithm {
+    #[serde(rename = "kmeans")]
+    KMeans,
+    #[default]
+    #[serde(rename = "gmm")]
+    GMM,
+}
+
+#[cfg(feature = "analysis")]
+impl From<ClusterAlgorithm> for mecomp_analysis::clustering::ClusteringMethod {
+    fn from(algo: ClusterAlgorithm) -> Self {
+        match algo {
+            ClusterAlgorithm::KMeans => Self::KMeans,
+            ClusterAlgorithm::GMM => Self::GaussianMixtureModel,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize)]
 pub struct ReclusterSettings {
     /// The number of reference datasets to use for the gap statistic.
@@ -159,19 +178,14 @@ pub struct ReclusterSettings {
     /// Default is 24.
     #[serde(default = "default_max_clusters")]
     pub max_clusters: usize,
-    /// The maximum number of iterations to run the k-means algorithm.
-    /// Shouldn't be less than 30, but can be increased.
-    /// A good value is the number of songs in your library, divided by 10.
-    /// Default is 120.
-    #[serde(default = "default_max_iterations")]
-    pub max_iterations: usize,
+    /// The clustering algorithm to use.
+    /// Either "kmeans" or "gmm".
+    #[serde(default)]
+    pub algorithm: ClusterAlgorithm,
 }
 
 const fn default_gap_statistic_reference_datasets() -> usize {
-    #[cfg(debug_assertions)]
-    return 50;
-    #[cfg(not(debug_assertions))]
-    return 250;
+    50
 }
 
 const fn default_max_clusters() -> usize {
@@ -181,19 +195,12 @@ const fn default_max_clusters() -> usize {
     return 24;
 }
 
-const fn default_max_iterations() -> usize {
-    #[cfg(debug_assertions)]
-    return 30;
-    #[cfg(not(debug_assertions))]
-    return 120;
-}
-
 impl Default for ReclusterSettings {
     fn default() -> Self {
         Self {
             gap_statistic_reference_datasets: default_gap_statistic_reference_datasets(),
             max_clusters: default_max_clusters(),
-            max_iterations: default_max_iterations(),
+            algorithm: ClusterAlgorithm::default(),
         }
     }
 }

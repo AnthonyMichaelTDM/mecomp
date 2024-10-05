@@ -9,67 +9,77 @@
 //! - The gap statistic [R. Tibshirani, G. Walther, and T. Hastie (Standford University, 2001)](https://hastie.su.domains/Papers/gap.pdf)
 //! - The Davies-Bouldin index [wikipedia](https://en.wikipedia.org/wiki/Davies%E2%80%93Bouldin_index)
 
-use clustering::{kmeans, Clustering};
-use log::info;
+use linfa::prelude::*;
+use linfa_clustering::{GaussianMixtureModel, KMeans};
+use linfa_nn::distance::{Distance, L2Dist};
+use linfa_tsne::TSneParams;
+use log::{debug, info};
 use ndarray::{Array, Array1, Array2, ArrayView1, ArrayView2, Axis};
 use ndarray_rand::RandomExt;
 use rand::distributions::Uniform;
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use statrs::statistics::Statistics;
 
 use crate::{errors::ClusteringError, Analysis, Feature, NUMBER_FEATURES};
 
-// re-export of the Elem trait from the clustering crate
-pub use clustering::Elem;
+pub struct AnalysisArray(pub(crate) Array2<Feature>);
 
-pub trait Sample: Elem + Sync {
-    fn inner(&self) -> &[f64; NUMBER_FEATURES];
-}
+impl From<Vec<Analysis>> for AnalysisArray {
+    fn from(data: Vec<Analysis>) -> Self {
+        let shape = (data.len(), NUMBER_FEATURES);
+        debug_assert_eq!(shape, (data.len(), data[0].inner().len()));
 
-impl Elem for Analysis {
-    fn dimensions(&self) -> usize {
-        NUMBER_FEATURES
-    }
-
-    fn at(&self, i: usize) -> f64 {
-        self.internal_analysis[i]
+        Self(
+            Array2::from_shape_vec(shape, data.into_iter().flat_map(|a| *a.inner()).collect())
+                .expect("Failed to convert to array, shape mismatch"),
+        )
     }
 }
 
-impl Sample for Analysis {
-    fn inner(&self) -> &[f64; NUMBER_FEATURES] {
-        &self.internal_analysis
+impl From<Vec<[Feature; NUMBER_FEATURES]>> for AnalysisArray {
+    fn from(data: Vec<[Feature; NUMBER_FEATURES]>) -> Self {
+        let shape = (data.len(), NUMBER_FEATURES);
+        debug_assert_eq!(shape, (data.len(), data[0].len()));
+
+        Self(
+            Array2::from_shape_vec(shape, data.into_iter().flatten().collect())
+                .expect("Failed to convert to array, shape mismatch"),
+        )
     }
 }
 
-/// use to cluster on ndarray arrays without having to convert them fully to vectors every time
-struct AnalysisArray1<'a>(ArrayView1<'a, f64>);
-impl<'a> From<ArrayView1<'a, f64>> for AnalysisArray1<'a> {
-    fn from(array: ArrayView1<'a, f64>) -> Self {
-        AnalysisArray1(array)
+#[derive(Clone, Copy, Debug)]
+#[allow(clippy::module_name_repetitions)]
+pub enum ClusteringMethod {
+    KMeans,
+    GaussianMixtureModel,
+}
+
+impl ClusteringMethod {
+    /// Fit the clustering method to the samples and get the labels
+    #[must_use]
+    fn fit(self, k: usize, samples: &Array2<Feature>) -> Array1<usize> {
+        match self {
+            Self::KMeans => {
+                let model = KMeans::params(k)
+                    // .max_n_iterations(MAX_ITERATIONS)
+                    .fit(&Dataset::from(samples.clone()))
+                    .unwrap();
+                model.predict(samples)
+            }
+            Self::GaussianMixtureModel => {
+                let model = GaussianMixtureModel::params(k)
+                    .init_method(linfa_clustering::GmmInitMethod::KMeans)
+                    .n_runs(10)
+                    .fit(&Dataset::from(samples.clone()))
+                    .unwrap();
+                model.predict(samples)
+            }
+        }
     }
 }
 
-impl<'a> Elem for AnalysisArray1<'a> {
-    fn dimensions(&self) -> usize {
-        self.0.len()
-    }
-
-    fn at(&self, i: usize) -> f64 {
-        self.0[i]
-    }
-}
-
-impl<'a> Sample for AnalysisArray1<'a> {
-    fn inner(&self) -> &[f64; NUMBER_FEATURES] {
-        self.0
-            .as_slice()
-            .unwrap()
-            .try_into()
-            .expect("Failed to convert to array")
-    }
-}
-
+#[derive(Clone, Copy, Debug)]
 pub enum KOptimal {
     GapStatistic {
         /// The number of reference datasets to generate
@@ -78,12 +88,20 @@ pub enum KOptimal {
     DaviesBouldin,
 }
 
-#[cfg(debug_assertions)]
-const MAX_ITERATIONS: usize = 30;
-#[cfg(not(debug_assertions))]
-const MAX_ITERATIONS: usize = 50;
+// log the number of features
+const EMBEDDING_SIZE: usize =
+    //  2;
+    {
+        let log2 = usize::ilog2(NUMBER_FEATURES) as usize;
+        if log2 < 2 {
+            2
+        } else {
+            log2
+        }
+    };
 
-pub struct KMeansHelper<S>
+#[allow(clippy::module_name_repetitions)]
+pub struct ClusteringHelper<S>
 where
     S: Sized,
 {
@@ -91,48 +109,86 @@ where
 }
 
 pub struct EntryPoint;
-pub struct NotInitialized<T: Sample> {
-    samples: Vec<T>,
+pub struct NotInitialized {
+    /// The embeddings of our input, as a Nx`EMBEDDING_SIZE` array
+    embeddings: Array2<Feature>,
     pub k_max: usize,
     pub optimizer: KOptimal,
+    pub clustering_method: ClusteringMethod,
 }
-pub struct Initialized<T: Sample> {
-    samples: Vec<T>,
+pub struct Initialized {
+    /// The embeddings of our input, as a Nx`EMBEDDING_SIZE` array
+    embeddings: Array2<Feature>,
+    pub k: usize,
+    pub clustering_method: ClusteringMethod,
+}
+pub struct Finished {
+    /// The labelings of the samples, as a Nx1 array.
+    /// Each element is the cluster that the corresponding sample belongs to.
+    labels: Array1<usize>,
     pub k: usize,
 }
 
 /// Functions available for all states
-impl KMeansHelper<EntryPoint> {
-    #[must_use]
-    pub const fn new<T: Sample>(
-        raw_samples: Vec<T>,
+impl ClusteringHelper<EntryPoint> {
+    /// Create a new `KMeansHelper` object
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if there was an error projecting the data into a lower-dimensional space
+    pub fn new(
+        samples: AnalysisArray,
         k_max: usize,
         optimizer: KOptimal,
-    ) -> KMeansHelper<NotInitialized<T>> {
-        // finally, we can create the kmeans object
-        KMeansHelper {
+        clustering_method: ClusteringMethod,
+    ) -> Result<ClusteringHelper<NotInitialized>, ClusteringError> {
+        // first use the t-SNE algorithm to project the data into a lower-dimensional space
+        debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using t-SNE",);
+
+        #[allow(clippy::cast_precision_loss)]
+        let mut embeddings = TSneParams::embedding_size(EMBEDDING_SIZE)
+            .perplexity(f64::max(samples.0.nrows() as f64 / 20., 5.))
+            .approx_threshold(0.5)
+            .transform(samples.0)?;
+
+        debug!("Embeddings shape: {:?}", embeddings.shape());
+
+        // normalize the embeddings so each dimension is between -1 and 1
+        debug!("Normalizing embeddings");
+        for i in 0..EMBEDDING_SIZE {
+            let min = embeddings.column(i).min();
+            let max = embeddings.column(i).max();
+            let range = max - min;
+            embeddings
+                .column_mut(i)
+                .mapv_inplace(|v| ((v - min) / range).mul_add(2., -1.));
+        }
+
+        Ok(ClusteringHelper {
             state: NotInitialized {
-                samples: raw_samples,
+                embeddings,
                 k_max,
                 optimizer,
+                clustering_method,
             },
-        }
+        })
     }
 }
 
 /// Functions available for `NotInitialized` state
-impl<T: Sample> KMeansHelper<NotInitialized<T>> {
+impl ClusteringHelper<NotInitialized> {
     /// Initialize the `KMeansHelper` object
     ///
     /// # Errors
     ///
     /// Will return an error if there was an error calculating the optimal number of clusters
-    pub fn initialize(self) -> Result<KMeansHelper<Initialized<T>>, ClusteringError> {
+    pub fn initialize(self) -> Result<ClusteringHelper<Initialized>, ClusteringError> {
         let k = self.get_optimal_k()?;
-        Ok(KMeansHelper {
+        Ok(ClusteringHelper {
             state: Initialized {
-                samples: self.state.samples,
+                embeddings: self.state.embeddings,
                 k,
+                clustering_method: self.state.clustering_method,
             },
         })
     }
@@ -162,35 +218,33 @@ impl<T: Sample> KMeansHelper<NotInitialized<T>> {
     ///    `Gap(k)≥Gap(k + 1)−s_{k + 1}`.
     fn get_optimal_k_gap_statistic(&self, b: usize) -> Result<usize, ClusteringError> {
         // our reference data sets
-        let reference_data_sets =
-            generate_reference_data_set(&convert_to_array(&self.state.samples).view(), b);
+        let reference_data_sets = generate_reference_data_set(self.state.embeddings.view(), b);
 
-        let mut results = (1..=self.state.k_max)
-            .into_par_iter()
+        let results = (1..=self.state.k_max)
             // for each k, cluster the data into k clusters
             .map(|k| {
-                (
-                    k,
-                    extract_clusters(kmeans(k, &self.state.samples, MAX_ITERATIONS)),
-                )
+                debug!("Fitting k-means to embeddings with k={k}");
+                let labels = self.state.clustering_method.fit(k, &self.state.embeddings);
+                (k, labels)
             })
             // for each k, calculate the gap statistic, and the standard deviation of the statistics
-            .map(|(k, clusters)| {
+            .map(|(k, labels)| {
                 // first, we calculate the within intra-cluster variation for the observed data
-                let pairwise_distances = calc_pairwise_distances(&clusters);
-                let w_k = calc_within_dispersion(&clusters, &pairwise_distances);
+                let pairwise_distances =
+                    calc_pairwise_distances(self.state.embeddings.view(), k, labels.view());
+                let w_k = calc_within_dispersion(labels.view(), k, pairwise_distances.view());
 
                 // then, we calculate the within intra-cluster variation for the reference data sets
+                debug!(
+                    "Calculating within intra-cluster variation for reference data sets with k={k}"
+                );
                 let w_kb = reference_data_sets.par_iter().map(|ref_data| {
                     // cluster the reference data into k clusters
-                    let binding = ref_data
-                        .axis_iter(Axis(0))
-                        .map(AnalysisArray1::from)
-                        .collect::<Vec<_>>();
-                    let ref_clusters = extract_clusters(kmeans(k, &binding, MAX_ITERATIONS));
+                    let ref_labels = self.state.clustering_method.fit(k, ref_data);
                     // calculate the within intra-cluster variation for the reference data
-                    let ref_pairwise_distances = calc_pairwise_distances(&ref_clusters);
-                    calc_within_dispersion(&ref_clusters, &ref_pairwise_distances)
+                    let ref_pairwise_distances =
+                        calc_pairwise_distances(ref_data.view(), k, ref_labels.view());
+                    calc_within_dispersion(ref_labels.view(), k, ref_pairwise_distances.view())
                 });
 
                 // finally, we calculate the gap statistic
@@ -208,18 +262,14 @@ impl<T: Sample> KMeansHelper<NotInitialized<T>> {
                 let s_k = standard_deviation * (1.0 + 1.0 / b as f64).sqrt();
 
                 (k, gap_k, s_k)
-            })
-            // now, we have to bring the iterator back to a single thread
-            .collect::<Vec<_>>()
-            .into_iter();
+            });
 
         // // plot the gap_k (whisker with s_k) w.r.t. k
         // #[cfg(feature = "plot_gap")]
         // plot_gap_statistic(results.clone().collect::<Vec<_>>());
 
         // finally, we go over the iterator to find the optimal k
-        let (mut optimal_k, mut gap_k_minus_one) =
-            (None, results.next().map(|(_, gap_k, _)| gap_k));
+        let (mut optimal_k, mut gap_k_minus_one) = (None, None);
 
         for (k, gap_k, s_k) in results {
             info!("k: {k}, gap_k: {gap_k}, s_k: {s_k}");
@@ -242,29 +292,21 @@ impl<T: Sample> KMeansHelper<NotInitialized<T>> {
     }
 }
 
-fn convert_to_array<T: Sample>(data: &[T]) -> Array2<f64> {
+/// Convert a vector of Analyses into a 2D array
+///
+/// # Panics
+///
+/// Will panic if the shape of the data does not match the number of features, should never happen
+#[must_use]
+pub fn convert_to_array(data: Vec<Analysis>) -> AnalysisArray {
     // Convert vector to Array
     let shape = (data.len(), NUMBER_FEATURES);
-    //let mut array = Array2::zeros(shape);
-    let data = Array1::from_iter(data.iter().flat_map(|v| *v.inner()))
-        .to_shape(shape)
-        .expect("Failed to reshape!")
-        .to_owned();
-    data
-}
+    debug_assert_eq!(shape, (data.len(), data[0].inner().len()));
 
-/// extract the clusters from the given clustering
-#[allow(clippy::needless_pass_by_value)]
-#[must_use]
-pub fn extract_clusters<T: Elem + Sync>(clustering: Clustering<'_, T>) -> Vec<Vec<&T>> {
-    let mut clusters = vec![Vec::new(); clustering.centroids.len()];
-
-    // NOTE: if clusters.membership[i] = y, then clusters.elements[i] belongs to cluster y.
-    for (i, elem) in clustering.elements.iter().enumerate() {
-        clusters[clustering.membership[i]].push(elem);
-    }
-
-    clusters
+    AnalysisArray(
+        Array2::from_shape_vec(shape, data.into_iter().flat_map(|a| *a.inner()).collect())
+            .expect("Failed to convert to array, shape mismatch"),
+    )
 }
 
 /// Generate B reference data sets with a random uniform distribution
@@ -290,7 +332,7 @@ pub fn extract_clusters<T: Elem + Sync>(clustering: Clustering<'_, T>) -> Vec<Ve
 /// and we know that our data is already normalized and that
 /// the ordering of features is important, meaning that we can't
 /// rotate the data anyway.
-fn generate_reference_data_set(samples: &ArrayView2<Feature>, b: usize) -> Vec<Array2<f64>> {
+fn generate_reference_data_set(samples: ArrayView2<Feature>, b: usize) -> Vec<Array2<f64>> {
     let mut reference_data_sets = Vec::with_capacity(b);
     for _ in 0..b {
         reference_data_sets.push(generate_ref_single(samples));
@@ -298,7 +340,7 @@ fn generate_reference_data_set(samples: &ArrayView2<Feature>, b: usize) -> Vec<A
 
     reference_data_sets
 }
-fn generate_ref_single(samples: &ArrayView2<Feature>) -> Array2<f64> {
+fn generate_ref_single(samples: ArrayView2<Feature>) -> Array2<f64> {
     let feature_distributions = samples
         .axis_iter(Axis(1))
         .map(|feature| Array::random(feature.dim(), Uniform::new(feature.min(), feature.max())))
@@ -316,61 +358,126 @@ fn generate_ref_single(samples: &ArrayView2<Feature>) -> Array2<f64> {
 /// Calculate `W_k`, the within intra-cluster variation for the given clustering
 ///
 /// `W_k = \sum_{r=1}^{k} \frac{D_r}{2*n_r}`
-fn calc_within_dispersion<T: Elem + Sync>(clusters: &[Vec<&T>], pairwise_distances: &[f64]) -> f64 {
-    #[allow(clippy::cast_precision_loss)]
-    clusters
+fn calc_within_dispersion(
+    labels: ArrayView1<usize>,
+    k: usize,
+    pairwise_distances: ArrayView1<Feature>,
+) -> Feature {
+    debug_assert_eq!(k, labels.iter().max().unwrap() + 1);
+
+    // we first need to convert our list of labels into a list of the number of samples in each cluster
+    let counts = labels.iter().fold(vec![0; k], |mut counts, &label| {
+        counts[label] += 1;
+        counts
+    });
+    // then, we calculate the within intra-cluster variation
+    counts
         .iter()
         .zip(pairwise_distances.iter())
-        .map(|(cluster, distance)| distance / (2.0 * cluster.len() as f64))
+        .map(|(&count, distance)| distance / (2.0 * f64::from(count)))
         .sum()
 }
 
 /// Calculate the `D_r` array, the sum of the pairwise distances in cluster r, for all clusters in the given clustering
-fn calc_pairwise_distances<T: Elem + Sync>(clusters: &[Vec<&T>]) -> Vec<f64> {
-    let mut distances = vec![0.0; clusters.len()];
+///
+/// # Arguments
+///
+/// - `samples`: The samples in the dataset
+/// - `k`: The number of clusters
+/// - `labels`: The cluster labels for each sample
+fn calc_pairwise_distances(
+    samples: ArrayView2<Feature>,
+    k: usize,
+    labels: ArrayView1<usize>,
+) -> Array1<Feature> {
+    debug_assert_eq!(
+        samples.nrows(),
+        labels.len(),
+        "Samples and labels must have the same length"
+    );
+    debug_assert_eq!(
+        k,
+        labels.iter().max().unwrap() + 1,
+        "Labels must be in the range 0..k"
+    );
 
-    // for each cluster
-    for (i, cluster) in clusters.iter().enumerate() {
-        // for each element in the cluster
-        for (a, b) in cluster.iter().enumerate() {
-            for c in cluster.iter().skip(a + 1) {
-                distances[i] += distance(*b, *c);
-            }
-        }
-    }
-
-    distances
-}
-
-/// Calculate the euclidean distance between two elements
-fn distance<T: Elem + Sync>(a: &T, b: &T) -> f64 {
-    let mut sum = 0.0;
-    for i in 0..a.dimensions() {
-        let diff = a.at(i) - b.at(i);
-        sum += diff * diff;
-    }
-    sum.sqrt()
+    // for each cluster, calculate the sum of the pairwise distances between samples in that cluster
+    (0..k)
+        .map(|k| {
+            (
+                k,
+                samples
+                    .outer_iter()
+                    .zip(labels.iter())
+                    .filter_map(|(s, &l)| (l == k).then_some(s))
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .fold(Array1::zeros(k), |mut distances, (label, cluster)| {
+            distances[label] += cluster
+                .iter()
+                .enumerate()
+                .map(|(i, &a)| {
+                    cluster
+                        .iter()
+                        .skip(i + 1)
+                        .map(|&b| L2Dist.distance(a, b))
+                        .sum::<Feature>()
+                })
+                .sum::<Feature>();
+            distances
+        })
 }
 
 /// Functions available for Initialized state
-impl<T: Sample> KMeansHelper<Initialized<T>> {
+impl ClusteringHelper<Initialized> {
+    /// Cluster the data into k clusters
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if the clustering fails
     #[must_use]
-    pub fn cluster(&self, max_iterations: usize) -> Clustering<'_, T> {
-        kmeans(self.state.k, &self.state.samples, max_iterations)
+    pub fn cluster(self) -> ClusteringHelper<Finished> {
+        let labels = self
+            .state
+            .clustering_method
+            .fit(self.state.k, &self.state.embeddings);
+
+        ClusteringHelper {
+            state: Finished {
+                labels,
+                k: self.state.k,
+            },
+        }
+    }
+}
+
+/// Functions available for Finished state
+impl ClusteringHelper<Finished> {
+    /// use the labels to reorganize the provided samples into clusters
+    #[must_use]
+    pub fn extract_analysis_clusters<T: Clone>(&self, samples: Vec<T>) -> Vec<Vec<T>> {
+        let mut clusters = vec![Vec::new(); self.state.k];
+
+        for (sample, &label) in samples.into_iter().zip(self.state.labels.iter()) {
+            clusters[label].push(sample);
+        }
+
+        clusters
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::{arr2, s};
+    use ndarray::{arr1, arr2, s};
     use pretty_assertions::assert_eq;
 
     #[test]
     fn test_generate_reference_data_set() {
         let data = arr2(&[[10.0, -10.0], [20.0, -20.0], [30.0, -30.0]]);
 
-        let ref_data = generate_ref_single(&data.view());
+        let ref_data = generate_ref_single(data.view());
 
         // First column all vals between 10.0 and 30.0
         assert!(ref_data
@@ -392,6 +499,24 @@ mod tests {
     }
 
     #[test]
+    fn test_pairwise_distances() {
+        let samples = arr2(&[[1.0, 1.0], [1.0, 1.0], [2.0, 2.0], [2.0, 2.0]]);
+        let labels = arr1(&[0, 0, 1, 1]);
+
+        let pairwise_distances = calc_pairwise_distances(samples.view(), 2, labels.view());
+
+        assert_eq!(pairwise_distances[0], 0.0);
+        assert_eq!(pairwise_distances[1], 0.0);
+
+        let samples = arr2(&[[1.0, 2.0], [1.0, 1.0], [2.0, 2.0], [2.0, 3.0]]);
+
+        let pairwise_distances = calc_pairwise_distances(samples.view(), 2, labels.view());
+
+        assert_eq!(pairwise_distances[0], 1.0);
+        assert_eq!(pairwise_distances[1], 1.0);
+    }
+
+    #[test]
     fn test_convert_to_vec() {
         let data = vec![
             Analysis::new([1.0; NUMBER_FEATURES]),
@@ -399,21 +524,21 @@ mod tests {
             Analysis::new([3.0; NUMBER_FEATURES]),
         ];
 
-        let array = convert_to_array(&data);
+        let array = convert_to_array(data.clone());
 
-        assert_eq!(array.shape(), &[3, NUMBER_FEATURES]);
-        assert_eq!(array[[0, 0]], 1.0);
-        assert_eq!(array[[1, 0]], 2.0);
-        assert_eq!(array[[2, 0]], 3.0);
+        assert_eq!(array.0.shape(), &[3, NUMBER_FEATURES]);
+        assert_eq!(array.0[[0, 0]], 1.0);
+        assert_eq!(array.0[[1, 0]], 2.0);
+        assert_eq!(array.0[[2, 0]], 3.0);
 
         // check that axis iteration works how we expect
         // axis 0
-        let mut iter = array.axis_iter(Axis(0));
+        let mut iter = array.0.axis_iter(Axis(0));
         assert_eq!(iter.next().unwrap().to_vec(), vec![1.0; NUMBER_FEATURES]);
         assert_eq!(iter.next().unwrap().to_vec(), vec![2.0; NUMBER_FEATURES]);
         assert_eq!(iter.next().unwrap().to_vec(), vec![3.0; NUMBER_FEATURES]);
         // axis 1
-        for column in array.axis_iter(Axis(1)) {
+        for column in array.0.axis_iter(Axis(1)) {
             assert_eq!(column.to_vec(), vec![1.0, 2.0, 3.0]);
         }
     }

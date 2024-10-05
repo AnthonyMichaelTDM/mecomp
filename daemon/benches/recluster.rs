@@ -23,7 +23,7 @@ fn benchmark_recluster(c: &mut Criterion) {
     let settings = ReclusterSettings {
         gap_statistic_reference_datasets: 50,
         max_clusters: 16,
-        max_iterations: 30,
+        algorithm: mecomp_daemon::config::ClusterAlgorithm::GMM,
     };
 
     // load some songs into the database
@@ -58,7 +58,25 @@ fn benchmark_recluster(c: &mut Criterion) {
         .unwrap();
     }
 
-    c.bench_function("mecomp_daemon: recluster", |b| {
+    c.bench_function("mecomp_daemon: recluster (gmm)", |b| {
+        b.to_async(Runtime::new().unwrap()).iter_with_setup(
+            || async {
+                let _: Vec<Collection> = db.delete(TABLE_NAME).await.unwrap();
+                db.clone()
+            },
+            |db| async move {
+                let db = db.await;
+                recluster(&db, &settings).await.unwrap();
+            },
+        );
+    });
+
+    let settings = ReclusterSettings {
+        algorithm: mecomp_daemon::config::ClusterAlgorithm::KMeans,
+        ..settings
+    };
+
+    c.bench_function("mecomp_daemon: recluster (kmeans)", |b| {
         b.to_async(Runtime::new().unwrap()).iter_with_setup(
             || async {
                 let _: Vec<Collection> = db.delete(TABLE_NAME).await.unwrap();

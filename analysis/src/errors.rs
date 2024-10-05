@@ -28,4 +28,6 @@ pub enum ClusteringError {
     SmallLibrary,
     #[error("Optimal k could not be found below k={0}")]
     OptimalKNotFound(usize),
+    #[error("Failed to project data: {0}")]
+    ProjectionError(#[from] linfa_tsne::TSneError),
 }

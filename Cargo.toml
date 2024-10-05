@@ -72,8 +72,6 @@ clap = { version = "4.5", default-features = false, features = [
     "suggestions",
     "derive",
 ] }
-# TODO: once portable-simd is stable, use the kmeans crate
-clustering = { version = "0.2.1", features = ["parallel"] }
 config = { version = "0.14.0", default-features = false, features = ["toml"] }
 directories = "5.0.1"
 env_logger = { version = "0.10.2", features = [

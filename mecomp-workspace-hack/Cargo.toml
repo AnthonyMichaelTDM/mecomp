@@ -17,7 +17,8 @@ edition = "2021"
 ignored = [
     "ahash",
     "anyhow",
-    "approx",
+    "approx-9fbad63c4bcf4a8f",
+    "approx-d8f496e17d97b5cb",
     "byteorder",
     "bytes",
     "castaway",
@@ -35,12 +36,14 @@ ignored = [
     "futures-util",
     "hashbrown",
     "indexmap",
-    "itertools-594e8ee84c453af0",
+    "itertools-93f6ce9d446188ac",
     "itertools-a6292c17cd707f01",
     "lalrpop-util",
+    "linfa-linalg",
     "log",
     "matrixmultiply",
     "memchr",
+    "ndarray",
     "num-bigint",
     "num-complex",
     "num-integer",
@@ -80,7 +83,8 @@ doc = false
 [dependencies]
 ahash = { version = "0.8" }
 anyhow = { version = "1" }
-approx = { version = "0.5" }
+approx-9fbad63c4bcf4a8f = { package = "approx", version = "0.4" }
+approx-d8f496e17d97b5cb = { package = "approx", version = "0.5" }
 byteorder = { version = "1" }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
@@ -98,12 +102,14 @@ futures-sink = { version = "0.3" }
 futures-util = { version = "0.3", default-features = false, features = ["async-await-macro", "channel", "io", "sink"] }
 hashbrown = { version = "0.14", features = ["raw"] }
 indexmap = { version = "2", features = ["serde"] }
-itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
+itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
+linfa-linalg = { version = "0.1" }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 matrixmultiply = { version = "0.3", features = ["cgemm"] }
 memchr = { version = "2" }
+ndarray = { version = "0.15", features = ["approx", "rayon"] }
 num-bigint = { version = "0.4" }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
@@ -135,7 +141,8 @@ unicode-xid = { version = "0.2" }
 [build-dependencies]
 ahash = { version = "0.8" }
 anyhow = { version = "1" }
-approx = { version = "0.5" }
+approx-9fbad63c4bcf4a8f = { package = "approx", version = "0.4" }
+approx-d8f496e17d97b5cb = { package = "approx", version = "0.5" }
 byteorder = { version = "1" }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
@@ -154,12 +161,14 @@ futures-sink = { version = "0.3" }
 futures-util = { version = "0.3", default-features = false, features = ["async-await-macro", "channel", "io", "sink"] }
 hashbrown = { version = "0.14", features = ["raw"] }
 indexmap = { version = "2", features = ["serde"] }
-itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
+itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
+linfa-linalg = { version = "0.1" }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 matrixmultiply = { version = "0.3", features = ["cgemm"] }
 memchr = { version = "2" }
+ndarray = { version = "0.15", features = ["approx", "rayon"] }
 num-bigint = { version = "0.4" }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
