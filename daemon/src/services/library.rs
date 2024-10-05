@@ -6,7 +6,7 @@ use std::{
 
 use log::{debug, error, info, warn};
 use mecomp_analysis::{
-    clustering::{AnalysisArray, KMeansHelper, KOptimal, NotInitialized},
+    clustering::{AnalysisArray, ClusteringHelper, KOptimal, NotInitialized},
     decoder::{DecoderWithCallback, MecompDecoder},
 };
 use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
@@ -252,7 +252,7 @@ pub async fn recluster<C: Connection>(
     let samples = Analysis::read_all(db).await?;
 
     // use k-means to cluster the analyses
-    let kmeans: KMeansHelper<NotInitialized> = match KMeansHelper::new(
+    let kmeans: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
         AnalysisArray::from(
             samples
                 .iter()
@@ -263,6 +263,7 @@ pub async fn recluster<C: Connection>(
         KOptimal::GapStatistic {
             b: settings.gap_statistic_reference_datasets,
         },
+        settings.algorithm.into(),
     ) {
         Err(e) => {
             error!("There was an error creating the k-means helper: {e}",);
@@ -276,15 +277,7 @@ pub async fn recluster<C: Connection>(
             error!("There was an error initializing the k-means helper: {e}",);
             return Ok(());
         }
-        Ok(kmeans) => kmeans,
-    };
-
-    let kmeans = match kmeans.cluster(settings.max_iterations) {
-        Err(e) => {
-            error!("There was an error clustering the analyses: {e}",);
-            return Ok(());
-        }
-        Ok(kmeans) => kmeans,
+        Ok(kmeans) => kmeans.cluster(),
     };
 
     // delete all the collections
@@ -605,11 +598,11 @@ mod tests {
         let settings = ReclusterSettings {
             gap_statistic_reference_datasets: 50,
             max_clusters: 16,
-            max_iterations: 30,
+            algorithm: crate::config::ClusterAlgorithm::GMM,
         };
 
         // load some songs into the database
-        let song_cases = arb_vec(&arb_song_case(), 64..=80)();
+        let song_cases = arb_vec(&arb_song_case(), 126..=126)();
         let song_cases = song_cases.into_iter().enumerate().map(|(i, sc)| SongCase {
             song: i as u8,
             ..sc

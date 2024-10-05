@@ -10,7 +10,7 @@
 //! - The Davies-Bouldin index [wikipedia](https://en.wikipedia.org/wiki/Davies%E2%80%93Bouldin_index)
 
 use linfa::prelude::*;
-use linfa_clustering::KMeans;
+use linfa_clustering::{GaussianMixtureModel, KMeans};
 use linfa_nn::distance::{Distance, L2Dist};
 use linfa_tsne::TSneParams;
 use log::{debug, info};
@@ -48,6 +48,38 @@ impl From<Vec<[Feature; NUMBER_FEATURES]>> for AnalysisArray {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+#[allow(clippy::module_name_repetitions)]
+pub enum ClusteringMethod {
+    KMeans,
+    GaussianMixtureModel,
+}
+
+impl ClusteringMethod {
+    /// Fit the clustering method to the samples and get the labels
+    #[must_use]
+    fn fit(self, k: usize, samples: &Array2<Feature>) -> Array1<usize> {
+        match self {
+            Self::KMeans => {
+                let model = KMeans::params(k)
+                    // .max_n_iterations(MAX_ITERATIONS)
+                    .fit(&Dataset::from(samples.clone()))
+                    .unwrap();
+                model.predict(samples)
+            }
+            Self::GaussianMixtureModel => {
+                let model = GaussianMixtureModel::params(k)
+                    .init_method(linfa_clustering::GmmInitMethod::KMeans)
+                    .n_runs(10)
+                    .fit(&Dataset::from(samples.clone()))
+                    .unwrap();
+                model.predict(samples)
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 pub enum KOptimal {
     GapStatistic {
         /// The number of reference datasets to generate
@@ -57,22 +89,19 @@ pub enum KOptimal {
 }
 
 // log the number of features
-const EMBEDDING_SIZE: usize = 2;
-// {
-//     let log2 = usize::ilog2(NUMBER_FEATURES) as usize;
-//     if log2 < 2 {
-//         2
-//     } else {
-//         log2
-//     }
-// };
+const EMBEDDING_SIZE: usize =
+    //  2;
+    {
+        let log2 = usize::ilog2(NUMBER_FEATURES) as usize;
+        if log2 < 2 {
+            2
+        } else {
+            log2
+        }
+    };
 
-// #[cfg(debug_assertions)]
-// const MAX_ITERATIONS: u64 = 50;
-// #[cfg(not(debug_assertions))]
-// const MAX_ITERATIONS: u64 = 100;
-
-pub struct KMeansHelper<S>
+#[allow(clippy::module_name_repetitions)]
+pub struct ClusteringHelper<S>
 where
     S: Sized,
 {
@@ -85,11 +114,13 @@ pub struct NotInitialized {
     embeddings: Array2<Feature>,
     pub k_max: usize,
     pub optimizer: KOptimal,
+    pub clustering_method: ClusteringMethod,
 }
 pub struct Initialized {
     /// The embeddings of our input, as a Nx`EMBEDDING_SIZE` array
     embeddings: Array2<Feature>,
     pub k: usize,
+    pub clustering_method: ClusteringMethod,
 }
 pub struct Finished {
     /// The labelings of the samples, as a Nx1 array.
@@ -99,7 +130,7 @@ pub struct Finished {
 }
 
 /// Functions available for all states
-impl KMeansHelper<EntryPoint> {
+impl ClusteringHelper<EntryPoint> {
     /// Create a new `KMeansHelper` object
     ///
     /// # Errors
@@ -109,15 +140,15 @@ impl KMeansHelper<EntryPoint> {
         samples: AnalysisArray,
         k_max: usize,
         optimizer: KOptimal,
-    ) -> Result<KMeansHelper<NotInitialized>, ClusteringError> {
+        clustering_method: ClusteringMethod,
+    ) -> Result<ClusteringHelper<NotInitialized>, ClusteringError> {
         // first use the t-SNE algorithm to project the data into a lower-dimensional space
         debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using t-SNE",);
 
         #[allow(clippy::cast_precision_loss)]
         let mut embeddings = TSneParams::embedding_size(EMBEDDING_SIZE)
-            .perplexity(f64::clamp(samples.0.nrows() as f64 / 100., 5.0, 50.0))
+            .perplexity(f64::max(samples.0.nrows() as f64 / 20., 5.))
             .approx_threshold(0.5)
-            .max_iter(1000)
             .transform(samples.0)?;
 
         debug!("Embeddings shape: {:?}", embeddings.shape());
@@ -133,29 +164,31 @@ impl KMeansHelper<EntryPoint> {
                 .mapv_inplace(|v| ((v - min) / range).mul_add(2., -1.));
         }
 
-        Ok(KMeansHelper {
+        Ok(ClusteringHelper {
             state: NotInitialized {
                 embeddings,
                 k_max,
                 optimizer,
+                clustering_method,
             },
         })
     }
 }
 
 /// Functions available for `NotInitialized` state
-impl KMeansHelper<NotInitialized> {
+impl ClusteringHelper<NotInitialized> {
     /// Initialize the `KMeansHelper` object
     ///
     /// # Errors
     ///
     /// Will return an error if there was an error calculating the optimal number of clusters
-    pub fn initialize(self) -> Result<KMeansHelper<Initialized>, ClusteringError> {
+    pub fn initialize(self) -> Result<ClusteringHelper<Initialized>, ClusteringError> {
         let k = self.get_optimal_k()?;
-        Ok(KMeansHelper {
+        Ok(ClusteringHelper {
             state: Initialized {
                 embeddings: self.state.embeddings,
                 k,
+                clustering_method: self.state.clustering_method,
             },
         })
     }
@@ -187,16 +220,11 @@ impl KMeansHelper<NotInitialized> {
         // our reference data sets
         let reference_data_sets = generate_reference_data_set(self.state.embeddings.view(), b);
 
-        let mut results = (1..=self.state.k_max)
+        let results = (1..=self.state.k_max)
             // for each k, cluster the data into k clusters
             .map(|k| {
-                let embedding_dataset = Dataset::from(self.state.embeddings.clone());
                 debug!("Fitting k-means to embeddings with k={k}");
-                let model = KMeans::params(k)
-                    // .max_n_iterations(MAX_ITERATIONS)
-                    .fit(&embedding_dataset)
-                    .unwrap();
-                let labels = model.predict(&self.state.embeddings);
+                let labels = self.state.clustering_method.fit(k, &self.state.embeddings);
                 (k, labels)
             })
             // for each k, calculate the gap statistic, and the standard deviation of the statistics
@@ -212,12 +240,7 @@ impl KMeansHelper<NotInitialized> {
                 );
                 let w_kb = reference_data_sets.par_iter().map(|ref_data| {
                     // cluster the reference data into k clusters
-                    let binding = Dataset::from(ref_data.clone());
-                    let ref_labels = KMeans::params(k)
-                        // .max_n_iterations(MAX_ITERATIONS)
-                        .fit(&binding)
-                        .unwrap()
-                        .predict(ref_data);
+                    let ref_labels = self.state.clustering_method.fit(k, ref_data);
                     // calculate the within intra-cluster variation for the reference data
                     let ref_pairwise_distances =
                         calc_pairwise_distances(ref_data.view(), k, ref_labels.view());
@@ -240,17 +263,13 @@ impl KMeansHelper<NotInitialized> {
 
                 (k, gap_k, s_k)
             });
-        // // now, we have to bring the iterator back to a single thread
-        // .collect::<Vec<_>>()
-        // .into_iter();
 
         // // plot the gap_k (whisker with s_k) w.r.t. k
         // #[cfg(feature = "plot_gap")]
         // plot_gap_statistic(results.clone().collect::<Vec<_>>());
 
         // finally, we go over the iterator to find the optimal k
-        let (mut optimal_k, mut gap_k_minus_one) =
-            (None, results.next().map(|(_, gap_k, _)| gap_k));
+        let (mut optimal_k, mut gap_k_minus_one) = (None, None);
 
         for (k, gap_k, s_k) in results {
             info!("k: {k}, gap_k: {gap_k}, s_k: {s_k}");
@@ -382,7 +401,7 @@ fn calc_pairwise_distances(
         "Labels must be in the range 0..k"
     );
 
-    // for each cluster, calculate the sum of the pairwise distances betweeen samples in that cluster
+    // for each cluster, calculate the sum of the pairwise distances between samples in that cluster
     (0..k)
         .map(|k| {
             (
@@ -411,29 +430,30 @@ fn calc_pairwise_distances(
 }
 
 /// Functions available for Initialized state
-impl KMeansHelper<Initialized> {
+impl ClusteringHelper<Initialized> {
     /// Cluster the data into k clusters
     ///
     /// # Errors
     ///
     /// Will return an error if the clustering fails
-    pub fn cluster(self, max_iterations: u64) -> Result<KMeansHelper<Finished>, ClusteringError> {
-        let model = KMeans::params(self.state.k)
-            .max_n_iterations(max_iterations)
-            .fit(&Dataset::from(self.state.embeddings.clone()))?;
-        let labels = model.predict(&self.state.embeddings);
+    #[must_use]
+    pub fn cluster(self) -> ClusteringHelper<Finished> {
+        let labels = self
+            .state
+            .clustering_method
+            .fit(self.state.k, &self.state.embeddings);
 
-        Ok(KMeansHelper {
+        ClusteringHelper {
             state: Finished {
                 labels,
                 k: self.state.k,
             },
-        })
+        }
     }
 }
 
 /// Functions available for Finished state
-impl KMeansHelper<Finished> {
+impl ClusteringHelper<Finished> {
     /// use the labels to reorganize the provided samples into clusters
     #[must_use]
     pub fn extract_analysis_clusters<T: Clone>(&self, samples: Vec<T>) -> Vec<Vec<T>> {
