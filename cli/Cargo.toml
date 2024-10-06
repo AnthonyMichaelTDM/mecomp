@@ -22,6 +22,20 @@ tokio = { workspace = true }
 
 # MECOMP dependencies
 mecomp-core = { workspace = true, features = ["rpc"] }
-mecomp-storage = { workspace = true, features = ["serde"] }
+mecomp-storage = { workspace = true, features = ["serde", "analysis"] }
 one-or-many = { workspace = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+mecomp-core = { workspace = true, features = ["rpc", "mock_playback"] }
+mecomp-storage = { workspace = true, features = [
+    "serde",
+    "db",
+    "analysis",
+    "test_utils",
+] }
+surrealdb = { workspace = true }
+rstest = { workspace = true }
+tempfile = { workspace = true }
+mecomp-daemon = { workspace = true }
