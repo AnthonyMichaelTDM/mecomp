@@ -70,3 +70,6 @@ mecomp-storage = { workspace = true, features = [
     "test_utils",
 ] }
 surrealdb = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }

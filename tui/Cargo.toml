@@ -40,3 +40,6 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 pretty_assertions.workspace = true
 mecomp-storage = { workspace = true, features = ["serde", "test_utils"] }
 rstest.workspace = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }

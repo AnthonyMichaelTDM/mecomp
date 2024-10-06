@@ -39,3 +39,6 @@ surrealdb = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }
 mecomp-daemon = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
