@@ -2685,10 +2685,15 @@ dependencies = [
  "anyhow",
  "clap",
  "mecomp-core",
+ "mecomp-daemon",
  "mecomp-storage",
  "mecomp-workspace-hack",
  "one-or-many",
+ "pretty_assertions",
+ "rstest",
+ "surrealdb",
  "tarpc",
+ "tempfile",
  "tokio",
 ]
 

@@ -2,6 +2,9 @@ pub mod implementations;
 pub mod printing;
 pub mod utils;
 
+#[cfg(test)]
+mod smoke_tests;
+
 use clap::{Subcommand, ValueEnum};
 
 pub trait CommandHandler {
