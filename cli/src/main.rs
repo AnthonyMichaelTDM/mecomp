@@ -17,6 +17,7 @@ struct Flags {
 }
 
 #[tokio::main(flavor = "current_thread")]
+#[cfg(not(tarpaulin_include))]
 async fn main() -> anyhow::Result<()> {
     let flags = Flags::parse();
 

@@ -61,3 +61,6 @@ criterion = { workspace = true, features = ["async_tokio"] }
 [[bench]]
 name = "song"
 harness = false
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
