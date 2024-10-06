@@ -122,7 +122,7 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
                     .value(format_duration(&now.elapsed())),
                 buf.style()
                     .set_dimmed(true)
-                    .value(record.file_static().unwrap_or("???")),
+                    .value(process_file_static(record.file_static().unwrap_or("???"))),
                 buf.style()
                     .set_dimmed(true)
                     .value(record.line().unwrap_or(0)),
@@ -149,6 +149,15 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
         info!("Log Level (Flag) ... {}", filter);
     } else {
         info!("Log Level (RUST_LOG) ... {}", env);
+    }
+}
+
+/// Sometimes the file paths we get are full file paths, in this case we don't care about anything before (and including) the `/mecomp/` part.
+fn process_file_static(file_static: &'static str) -> &'static str {
+    if file_static.contains("mecomp/") {
+        file_static.split("mecomp/").last().unwrap_or(file_static)
+    } else {
+        file_static
     }
 }
 
