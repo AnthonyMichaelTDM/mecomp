@@ -196,7 +196,7 @@ impl Component for SearchView {
 
 impl ComponentRender<RenderProps> for SearchView {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
+        let border_style = if props.is_focused && !self.search_bar_focused {
             Style::default().fg(BORDER_FOCUSED.into())
         } else {
             Style::default().fg(BORDER_UNFOCUSED.into())
