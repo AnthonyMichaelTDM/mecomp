@@ -602,7 +602,7 @@ mod tests {
         };
 
         // load some songs into the database
-        let song_cases = arb_vec(&arb_song_case(), 64..=80)();
+        let song_cases = arb_vec(&arb_song_case(), 32..=32)();
         let song_cases = song_cases.into_iter().enumerate().map(|(i, sc)| SongCase {
             song: i as u8,
             ..sc

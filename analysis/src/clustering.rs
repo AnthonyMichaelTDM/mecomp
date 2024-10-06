@@ -145,6 +145,10 @@ impl ClusteringHelper<EntryPoint> {
         // first use the t-SNE algorithm to project the data into a lower-dimensional space
         debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using t-SNE",);
 
+        if samples.0.nrows() <= 15 {
+            return Err(ClusteringError::SmallLibrary);
+        }
+
         #[allow(clippy::cast_precision_loss)]
         let mut embeddings = TSneParams::embedding_size(EMBEDDING_SIZE)
             .perplexity(f64::max(samples.0.nrows() as f64 / 20., 5.))
