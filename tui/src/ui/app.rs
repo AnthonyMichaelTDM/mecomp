@@ -202,6 +202,38 @@ impl Component for App {
     }
 }
 
+fn split_area(area: Rect) -> (Rect, Rect, Rect, Rect) {
+    let [main_views_area, control_panel_area] = *Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(10), Constraint::Length(4)].as_ref())
+        .split(area)
+    else {
+        panic!("Failed to split frame into areas")
+    };
+
+    let [sidebar_area, content_view_area, queuebar_area] = *Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(
+            [
+                Constraint::Length(19),
+                Constraint::Fill(4),
+                Constraint::Min(25),
+            ]
+            .as_ref(),
+        )
+        .split(main_views_area)
+    else {
+        panic!("Failed to split main views area")
+    };
+
+    (
+        control_panel_area,
+        sidebar_area,
+        content_view_area,
+        queuebar_area,
+    )
+}
+
 impl ComponentRender<Rect> for App {
     fn render_border(&self, frame: &mut Frame, area: Rect) -> Rect {
         let block = Block::bordered()
@@ -221,13 +253,7 @@ impl ComponentRender<Rect> for App {
     }
 
     fn render_content(&self, frame: &mut Frame, area: Rect) {
-        let [main_views_area, control_panel_area] = *Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Min(10), Constraint::Length(4)].as_ref())
-            .split(area)
-        else {
-            panic!("Failed to split frame into areas")
-        };
+        let (control_panel_area, sidebar_area, content_view_area, queuebar_area) = split_area(area);
 
         // figure out the active component, and give it a different colored border
         let (control_panel_focused, sidebar_focused, content_view_focused, queuebar_focused) =
@@ -246,22 +272,6 @@ impl ComponentRender<Rect> for App {
                 is_focused: control_panel_focused,
             },
         );
-
-        // render the main view
-        let [sidebar_area, content_view_area, queuebar_area] = *Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(
-                [
-                    Constraint::Length(19),
-                    Constraint::Fill(4),
-                    Constraint::Min(25),
-                ]
-                .as_ref(),
-            )
-            .split(main_views_area)
-        else {
-            panic!("Failed to split main views area")
-        };
 
         // render the sidebar
         self.sidebar.render(
@@ -339,10 +349,7 @@ mod tests {
 
     #[rstest]
     #[case::tab(KeyCode::Tab, Action::ActiveComponent(ComponentAction::Next))]
-    #[case::back_tab(
-        KeyCode::BackTab,
-        Action::ActiveComponent(ComponentAction::Previous)
-    )]
+    #[case::back_tab(KeyCode::BackTab, Action::ActiveComponent(ComponentAction::Previous))]
     #[case::esc(KeyCode::Esc, Action::General(GeneralAction::Exit))]
     fn test_actions(#[case] key_code: KeyCode, #[case] expected: Action) {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
