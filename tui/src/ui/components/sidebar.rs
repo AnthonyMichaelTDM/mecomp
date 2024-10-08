@@ -237,8 +237,8 @@ mod tests {
 
     use super::*;
     use crate::{
+        state::component::ActiveComponent,
         test_utils::{assert_buffer_eq, setup_test_terminal, state_with_everything},
-        ui::app::ActiveComponent,
     };
 
     #[test]

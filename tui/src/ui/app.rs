@@ -13,7 +13,10 @@ use ratatui::{
 };
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::state::action::{Action, GeneralAction};
+use crate::state::{
+    action::{Action, ComponentAction, GeneralAction},
+    component::ActiveComponent,
+};
 
 use super::{
     colors::{APP_BORDER, APP_BORDER_TEXT, TEXT_NORMAL},
@@ -29,8 +32,8 @@ use super::{
 pub struct App {
     /// Action Sender
     pub action_tx: UnboundedSender<Action>,
-    /// Props
-    props: Props,
+    /// active component
+    active_component: ActiveComponent,
     // Components that are always in view
     sidebar: Sidebar,
     queuebar: QueueBar,
@@ -40,45 +43,9 @@ pub struct App {
     popup: Option<Box<dyn Popup>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct Props {
-    active_component: ActiveComponent,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ActiveComponent {
-    #[default]
-    Sidebar,
-    QueueBar,
-    ControlPanel,
-    ContentView,
-}
-
-impl ActiveComponent {
-    #[must_use]
-    pub const fn next(self) -> Self {
-        match self {
-            Self::Sidebar => Self::ContentView,
-            Self::ContentView => Self::QueueBar,
-            Self::QueueBar => Self::ControlPanel,
-            Self::ControlPanel => Self::Sidebar,
-        }
-    }
-
-    #[must_use]
-    pub const fn prev(self) -> Self {
-        match self {
-            Self::Sidebar => Self::ControlPanel,
-            Self::ContentView => Self::Sidebar,
-            Self::QueueBar => Self::ContentView,
-            Self::ControlPanel => Self::QueueBar,
-        }
-    }
-}
-
 impl App {
     fn get_active_view_component(&self) -> &dyn Component {
-        match self.props.active_component {
+        match self.active_component {
             ActiveComponent::Sidebar => &self.sidebar,
             ActiveComponent::QueueBar => &self.queuebar,
             ActiveComponent::ControlPanel => &self.control_panel,
@@ -87,7 +54,7 @@ impl App {
     }
 
     fn get_active_view_component_mut(&mut self) -> &mut dyn Component {
-        match self.props.active_component {
+        match self.active_component {
             ActiveComponent::Sidebar => &mut self.sidebar,
             ActiveComponent::QueueBar => &mut self.queuebar,
             ActiveComponent::ControlPanel => &mut self.control_panel,
@@ -144,6 +111,16 @@ impl App {
 
     /// Move the app with the given state, but only update components that need to be updated.
     ///
+    /// in this case, that is the active component
+    pub fn move_with_component(self, state: &AppState) -> Self {
+        Self {
+            active_component: state.active_component,
+            ..self
+        }
+    }
+
+    /// Move the app with the given state, but only update components that need to be updated.
+    ///
     /// in this case, that is the popup
     pub fn move_with_popup(self, popup: Option<Box<dyn Popup>>) -> Self {
         Self { popup, ..self }
@@ -157,9 +134,7 @@ impl Component for App {
     {
         Self {
             action_tx: action_tx.clone(),
-            props: Props {
-                active_component: state.active_component,
-            },
+            active_component: state.active_component,
             //
             sidebar: Sidebar::new(state, action_tx.clone()),
             queuebar: QueueBar::new(state, action_tx.clone()),
@@ -214,12 +189,14 @@ impl Component for App {
                     .send(Action::General(GeneralAction::Exit))
                     .unwrap();
             }
-            KeyCode::Tab => {
-                self.props.active_component = self.props.active_component.next();
-            }
-            KeyCode::BackTab => {
-                self.props.active_component = self.props.active_component.prev();
-            }
+            KeyCode::Tab => self
+                .action_tx
+                .send(Action::ActiveComponent(ComponentAction::Next))
+                .unwrap(),
+            KeyCode::BackTab => self
+                .action_tx
+                .send(Action::ActiveComponent(ComponentAction::Previous))
+                .unwrap(),
             _ => self.get_active_view_component_mut().handle_key_event(key),
         }
     }
@@ -254,7 +231,7 @@ impl ComponentRender<Rect> for App {
 
         // figure out the active component, and give it a different colored border
         let (control_panel_focused, sidebar_focused, content_view_focused, queuebar_focused) =
-            match self.props.active_component {
+            match self.active_component {
                 ActiveComponent::ControlPanel => (true, false, false, false),
                 ActiveComponent::Sidebar => (false, true, false, false),
                 ActiveComponent::ContentView => (false, false, true, false),
@@ -361,66 +338,21 @@ mod tests {
     }
 
     #[rstest]
-    #[case::tab(ActiveComponent::Sidebar, ActiveComponent::ContentView)]
-    #[case::tab(ActiveComponent::ContentView, ActiveComponent::QueueBar)]
-    #[case::tab(ActiveComponent::QueueBar, ActiveComponent::ControlPanel)]
-    #[case::tab(ActiveComponent::ControlPanel, ActiveComponent::Sidebar)]
-    fn test_handle_key_event_tab(
-        #[case] active_component: ActiveComponent,
-        #[case] expected: ActiveComponent,
-    ) {
-        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let mut app = App::new(
-            &AppState {
-                active_component,
-                ..Default::default()
-            },
-            tx,
-        );
-
-        app.handle_key_event(KeyEvent::from(KeyCode::Tab));
-
-        assert_eq!(app.props.active_component, expected);
-    }
-
-    #[rstest]
-    #[case::back_tab(ActiveComponent::Sidebar, ActiveComponent::ControlPanel)]
-    #[case::back_tab(ActiveComponent::ContentView, ActiveComponent::Sidebar)]
-    #[case::back_tab(ActiveComponent::QueueBar, ActiveComponent::ContentView)]
-    #[case::back_tab(ActiveComponent::ControlPanel, ActiveComponent::QueueBar)]
-    fn test_handle_key_event_back_tab(
-        #[case] active_component: ActiveComponent,
-        #[case] expected: ActiveComponent,
-    ) {
-        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let mut app = App::new(
-            &AppState {
-                active_component,
-                ..Default::default()
-            },
-            tx,
-        );
-
-        app.handle_key_event(KeyEvent::from(KeyCode::BackTab));
-
-        assert_eq!(app.props.active_component, expected);
-    }
-
-    #[rstest]
-    #[tokio::test]
-    #[case::exit(KeyCode::Esc, GeneralAction::Exit)]
-    async fn test_handle_key_event_exit(
-        #[case] key_code: KeyCode,
-        #[case] expected: GeneralAction,
-    ) {
+    #[case::tab(KeyCode::Tab, Action::ActiveComponent(ComponentAction::Next))]
+    #[case::back_tab(
+        KeyCode::BackTab,
+        Action::ActiveComponent(ComponentAction::Previous)
+    )]
+    #[case::esc(KeyCode::Esc, Action::General(GeneralAction::Exit))]
+    fn test_actions(#[case] key_code: KeyCode, #[case] expected: Action) {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let mut app = App::new(&AppState::default(), tx);
 
         app.handle_key_event(KeyEvent::from(key_code));
 
-        let action = rx.recv().await.unwrap();
+        let action = rx.blocking_recv().unwrap();
 
-        assert_eq!(action, Action::General(expected));
+        assert_eq!(action, expected);
     }
 
     #[rstest]

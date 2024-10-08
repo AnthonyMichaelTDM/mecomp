@@ -286,11 +286,9 @@ mod tests {
 
     use super::*;
     use crate::{
+        state::component::ActiveComponent,
         test_utils::setup_test_terminal,
-        ui::{
-            app::ActiveComponent,
-            components::content_view::{views::ViewData, ActiveView},
-        },
+        ui::components::content_view::{views::ViewData, ActiveView},
     };
     use anyhow::Result;
     use mecomp_core::{
