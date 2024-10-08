@@ -16,7 +16,7 @@ use std::{
 };
 
 use anyhow::Context as _;
-use app::{ActiveComponent, App};
+use app::App;
 use components::{
     content_view::{
         views::{
@@ -47,7 +47,7 @@ use tokio::sync::{
 use tokio_stream::StreamExt;
 
 use crate::{
-    state::{action::Action, Receivers},
+    state::{action::Action, component::ActiveComponent, Receivers},
     termination::Interrupted,
 };
 
@@ -150,6 +150,13 @@ impl UiManager {
                         ..state
                     };
                     app = app.move_with_view(&state);
+                },
+                Some(active_component) = state_rx.component.recv() => {
+                    state = AppState {
+                        active_component,
+                        ..state
+                    };
+                    app = app.move_with_component(&state);
                 },
                 Some(popup) = state_rx.popup.recv() => {
                      app = app.move_with_popup( popup.map(|popup| {

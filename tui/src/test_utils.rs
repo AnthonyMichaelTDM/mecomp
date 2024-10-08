@@ -5,13 +5,15 @@ use mecomp_storage::db::schemas::{
 use one_or_many::OneOrMany;
 use ratatui::{backend::TestBackend, layout::Rect, Terminal};
 
-use crate::ui::{
-    app::ActiveComponent,
-    components::content_view::views::{
-        AlbumViewProps, ArtistViewProps, CollectionViewProps, PlaylistViewProps, RadioViewProps,
-        SongViewProps, ViewData,
+use crate::{
+    state::component::ActiveComponent,
+    ui::{
+        components::content_view::views::{
+            AlbumViewProps, ArtistViewProps, CollectionViewProps, PlaylistViewProps,
+            RadioViewProps, SongViewProps, ViewData,
+        },
+        AppState,
     },
-    AppState,
 };
 
 /// Setup a test terminal with the given width and height.

@@ -9,6 +9,8 @@ use mecomp_storage::db::schemas::Thing;
 
 use crate::ui::{components::content_view::ActiveView, widgets::popups::PopupType};
 
+use super::component::ActiveComponent;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
     /// General actions
@@ -23,6 +25,8 @@ pub enum Action {
     SetCurrentView(ActiveView),
     /// Actions regarding popups
     Popup(PopupAction),
+    /// Actions that change the active component
+    ActiveComponent(ComponentAction),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -110,4 +114,14 @@ pub enum PopupAction {
     Open(PopupType),
     /// Close the current popup
     Close,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComponentAction {
+    /// Move to the next component
+    Next,
+    /// Move to the previous component
+    Previous,
+    /// Set the active component
+    Set(ActiveComponent),
 }

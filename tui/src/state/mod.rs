@@ -17,6 +17,7 @@ use crate::{
 
 pub mod action;
 pub mod audio;
+pub mod component;
 pub mod library;
 pub mod popup;
 pub mod search;
@@ -29,6 +30,17 @@ pub struct Dispatcher {
     library: library::LibraryState,
     view: view::ViewState,
     popup: popup::PopupState,
+    component: component::ComponentState,
+}
+
+/// a struct that centralized the senders for all the state stores.
+struct Senders {
+    pub audio: UnboundedSender<action::AudioAction>,
+    pub search: UnboundedSender<String>,
+    pub library: UnboundedSender<action::LibraryAction>,
+    pub view: UnboundedSender<ActiveView>,
+    pub popup: UnboundedSender<action::PopupAction>,
+    pub component: UnboundedSender<action::ComponentAction>,
 }
 
 /// a struct that centralized the receivers for all the state stores.
@@ -38,6 +50,7 @@ pub struct Receivers {
     pub library: UnboundedReceiver<LibraryFull>,
     pub view: UnboundedReceiver<ActiveView>,
     pub popup: UnboundedReceiver<Option<PopupType>>,
+    pub component: UnboundedReceiver<component::ActiveComponent>,
 }
 
 impl Dispatcher {
@@ -48,6 +61,7 @@ impl Dispatcher {
         let (library, library_rx) = library::LibraryState::new();
         let (view, view_rx) = view::ViewState::new();
         let (popup, popup_rx) = popup::PopupState::new();
+        let (active_component, active_component_rx) = component::ComponentState::new();
 
         let dispatcher = Self {
             audio,
@@ -55,6 +69,7 @@ impl Dispatcher {
             library,
             view,
             popup,
+            component: active_component,
         };
         let state_receivers = Receivers {
             audio: audio_rx,
@@ -62,6 +77,7 @@ impl Dispatcher {
             library: library_rx,
             view: view_rx,
             popup: popup_rx,
+            component: active_component_rx,
         };
 
         (dispatcher, state_receivers)
@@ -86,6 +102,7 @@ impl Dispatcher {
         let (library_action_tx, library_action_rx) = mpsc::unbounded_channel();
         let (view_action_tx, view_action_rx) = mpsc::unbounded_channel();
         let (popup_action_tx, popup_action_rx) = mpsc::unbounded_channel();
+        let (component_action_tx, component_action_rx) = mpsc::unbounded_channel();
 
         // run multiple tasks in parallel, and wait for all of them to finish.
         // the tasks are:
@@ -111,15 +128,21 @@ impl Dispatcher {
             // the popup store
             self.popup
                 .main_loop(popup_action_rx, interrupt_rx.resubscribe()),
+            // the active component store
+            self.component
+                .main_loop(component_action_rx, interrupt_rx.resubscribe()),
             // the action dispatcher
             Self::action_dispatcher(
                 terminator,
                 action_rx,
-                audio_action_tx,
-                search_action_tx,
-                library_action_tx,
-                view_action_tx,
-                popup_action_tx,
+                Senders {
+                    audio: audio_action_tx,
+                    search: search_action_tx,
+                    library: library_action_tx,
+                    view: view_action_tx,
+                    popup: popup_action_tx,
+                    component: component_action_tx,
+                },
             ),
         )?;
 
@@ -129,19 +152,15 @@ impl Dispatcher {
     async fn action_dispatcher(
         mut terminator: Terminator,
         mut action_rx: UnboundedReceiver<Action>,
-        audio_action_tx: UnboundedSender<action::AudioAction>,
-        search_action_tx: UnboundedSender<String>,
-        library_action_tx: UnboundedSender<action::LibraryAction>,
-        view_action_tx: UnboundedSender<ActiveView>,
-        popup_action_tx: UnboundedSender<action::PopupAction>,
+        senders: Senders,
     ) -> anyhow::Result<()> {
         while let Some(action) = action_rx.recv().await {
             match action {
                 Action::Audio(action) => {
-                    audio_action_tx.send(action)?;
+                    senders.audio.send(action)?;
                 }
                 Action::Search(query) => {
-                    search_action_tx.send(query)?;
+                    senders.search.send(query)?;
                 }
                 Action::General(action) => match action {
                     action::GeneralAction::Exit => {
@@ -151,12 +170,15 @@ impl Dispatcher {
                     }
                 },
                 Action::Library(action) => {
-                    library_action_tx.send(action)?;
+                    senders.library.send(action)?;
                 }
                 Action::SetCurrentView(view) => {
-                    view_action_tx.send(view)?;
+                    senders.view.send(view)?;
                 }
-                Action::Popup(popup) => popup_action_tx.send(popup)?,
+                Action::Popup(popup) => senders.popup.send(popup)?,
+                Action::ActiveComponent(action) => {
+                    senders.component.send(action)?;
+                }
             }
         }
 
