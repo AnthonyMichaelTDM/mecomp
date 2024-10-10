@@ -76,6 +76,8 @@ where
     /// Open a tree node.
     /// Returns `true` when it was closed and has been opened.
     /// Returns `false` when it was already open.
+    ///
+    /// TODO: This should return `false` when it was a leaf node.
     pub fn open(&mut self, identifier: Vec<Identifier>) -> bool {
         if identifier.is_empty() {
             false
@@ -87,6 +89,8 @@ where
     /// Close a tree node.
     /// Returns `true` when it was open and has been closed.
     /// Returns `false` when it was already closed.
+    ///
+    /// TODO: This should return `false` when it was a leaf node.
     pub fn close(&mut self, identifier: &[Identifier]) -> bool {
         self.opened.remove(identifier)
     }
@@ -94,6 +98,8 @@ where
     /// Check a tree node
     /// Returns `true` when it was unchecked and has been checked.
     /// Returns `false` when it was already checked.
+    ///
+    /// TODO: This should return `false` when it was not a leaf node.
     pub fn check(&mut self, identifier: Vec<Identifier>) -> bool {
         if identifier.is_empty() {
             false
@@ -106,6 +112,8 @@ where
     /// Uncheck a tree node
     /// Returns `true` when it was checked and has been unchecked.
     /// Returns `false` when it was already unchecked.
+    ///
+    /// TODO: This should return `false` when it was not a leaf node.
     pub fn uncheck(&mut self, identifier: &[Identifier]) -> bool {
         self.checked.remove(identifier)
     }
@@ -115,6 +123,8 @@ where
     ///
     /// Returns `true` when a node is opened / closed.
     /// As toggle always changes something, this only returns `false` when an empty identifier is given.
+    ///
+    /// TODO: This should return `false` when it was a leaf node.
     pub fn toggle(&mut self, identifier: Vec<Identifier>) -> bool {
         if identifier.is_empty() {
             false
@@ -130,6 +140,8 @@ where
     ///
     /// Returns `true` when a node is opened / closed.
     /// As toggle always changes something, this only returns `false` when nothing is selected.
+    ///
+    /// TODO: This should return `false` when it was a leaf node.
     pub fn toggle_selected(&mut self) -> bool {
         if self.selected.is_empty() {
             return false;
@@ -151,6 +163,8 @@ where
     ///
     /// Returns `true` when a node is checked / unchecked.
     /// As toggle always changes something, this only returns `false` when an empty identifier is given.
+    ///
+    /// TODO: This should return `false` when it was not a leaf node.
     pub fn toggle_check(&mut self, identifier: Vec<Identifier>) -> bool {
         if identifier.is_empty() {
             false
@@ -165,6 +179,8 @@ where
     /// See also [`toggle_check`](Self::toggle_check)
     /// Returns `true` when a node is checked / unchecked.
     /// As toggle always changes something, this only returns `false` when nothing is selected.
+    ///
+    /// TODO: This should return `false` when it was not a leaf node.
     pub fn toggle_check_selected(&mut self) -> bool {
         if self.selected.is_empty() {
             return false;
@@ -328,6 +344,23 @@ where
     /// Returns `true` when the selection changed.
     pub fn key_space(&mut self) -> bool {
         self.toggle_check_selected()
+    }
+
+    /// Handles a mouse click.
+    /// If the item is a leaf, it checks it.
+    /// It the item is a branch, it toggles it open/closed.
+    ///
+    /// Returns `true` when the selection or the open state changed.
+    /// Returns `false` when nothing was selected.
+    pub fn mouse_click(&mut self, position: Position) -> bool {
+        let Some(identifier) = self.rendered_at(position) else {
+            return false;
+        };
+        self.select(identifier.to_vec());
+
+        self.ensure_selected_in_view_on_next_render = true;
+
+        self.toggle_check_selected() && self.toggle_selected()
     }
 }
 

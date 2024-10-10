@@ -133,13 +133,13 @@ where
     }
 
     #[must_use]
-    pub const fn node_selected_symbol(mut self, symbol: &'a str) -> Self {
+    pub const fn node_checked_symbol(mut self, symbol: &'a str) -> Self {
         self.node_checked_symbol = symbol;
         self
     }
 
     #[must_use]
-    pub const fn node_unselected_symbol(mut self, symbol: &'a str) -> Self {
+    pub const fn node_unchecked_symbol(mut self, symbol: &'a str) -> Self {
         self.node_unchecked_symbol = symbol;
         self
     }
@@ -326,7 +326,7 @@ impl<'a, Identifier: 'a + Clone + PartialEq + Eq + core::hash::Hash> StatefulWid
 mod render_tests {
     use super::*;
     use pretty_assertions::assert_eq;
-    use ratatui::widgets::ScrollbarOrientation;
+    use ratatui::{layout::Position, widgets::ScrollbarOrientation};
 
     #[must_use]
     #[track_caller]
@@ -701,6 +701,86 @@ mod render_tests {
             "  ☑ Charlie    ",
             "  ▼ Delta      ",
         ]);
+        assert_eq!(buffer, expected);
+    }
+
+    #[test]
+    fn test_mouse() {
+        let mut state = CheckTreeState::default();
+        state.open(vec!["b"]);
+        state.open(vec!["b", "d"]);
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▼ Delta      ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        // click on first item
+        // check that the item is checked
+        state.mouse_click(Position::new(0, 0));
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☑ Alfa         ",
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▼ Delta      ",
+        ]);
+        assert_eq!(state.selected(), &["a"]);
+        assert_eq!(buffer, expected);
+
+        // click on second item
+        // check that the branch is closed
+        state.mouse_click(Position::new(0, 1));
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☑ Alfa         ",
+            "▶ Bravo        ",
+            "☐ Hotel        ",
+            "               ",
+        ]);
+        assert_eq!(state.selected(), &["b"]);
+        assert_eq!(buffer, expected);
+
+        // click on the first item again
+        // check that the item is unchecked
+        state.mouse_click(Position::new(0, 0));
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▶ Bravo        ",
+            "☐ Hotel        ",
+            "               ",
+        ]);
+        assert_eq!(state.selected(), &["a"]);
+        assert_eq!(buffer, expected);
+
+        // click on the second item again
+        // check that the branch is opened
+        state.mouse_click(Position::new(0, 1));
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▼ Delta      ",
+        ]);
+        assert_eq!(state.selected(), &["b"]);
+        assert_eq!(buffer, expected);
+
+        // click on the third item
+        // check that the item is checked
+        state.mouse_click(Position::new(0, 2));
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☑ Charlie    ",
+            "  ▼ Delta      ",
+        ]);
+        assert_eq!(state.selected(), &["b", "c"]);
         assert_eq!(buffer, expected);
     }
 }
