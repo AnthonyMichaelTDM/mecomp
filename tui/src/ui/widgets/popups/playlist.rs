@@ -10,10 +10,10 @@
 
 use std::sync::Mutex;
 
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_storage::db::schemas::Thing;
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Position, Rect},
     style::{Style, Stylize},
     text::Line,
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
@@ -48,6 +48,7 @@ use super::Popup;
 /// and if the user wants to create a new playlist, they can press the "n" key,
 /// which will make an input box appear for the user to type the name of the new playlist.
 #[allow(clippy::module_name_repetitions)]
+#[derive(Debug)]
 pub struct PlaylistSelector {
     /// Action Sender
     action_tx: UnboundedSender<Action>,
@@ -209,6 +210,39 @@ impl Popup for PlaylistSelector {
             }
         }
     }
+
+    /// Mouse Event Handler for the inner component of the popup,
+    /// when an item in the list is clicked, it will be selected.
+    fn inner_handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        let MouseEvent {
+            kind, column, row, ..
+        } = mouse;
+        let mouse_position = Position::new(column, row);
+
+        match kind {
+            MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
+                self.tree_state.lock().unwrap().mouse_click(mouse_position);
+            }
+            MouseEventKind::ScrollDown if area.contains(mouse_position) => {
+                self.tree_state.lock().unwrap().scroll_down(1);
+            }
+            MouseEventKind::ScrollUp if area.contains(mouse_position) => {
+                self.tree_state.lock().unwrap().scroll_up(1);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn split_area(area: Rect) -> [Rect; 2] {
+    let [input_box_area, content_area] = *Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(4)])
+        .split(area)
+    else {
+        panic!("Failed to split playlist selector area");
+    };
+    [input_box_area, content_area]
 }
 
 impl ComponentRender<Rect> for PlaylistSelector {
@@ -217,13 +251,7 @@ impl ComponentRender<Rect> for PlaylistSelector {
 
         let content_area = if self.input_box_visible {
             // split content area to make room for the input box
-            let [input_box_area, content_area] = *Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Length(3), Constraint::Min(4)])
-                .split(area)
-            else {
-                panic!("Failed to split library playlists view area");
-            };
+            let [input_box_area, content_area] = split_area(area);
 
             // render input box
             self.input_box.render(
