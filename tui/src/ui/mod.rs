@@ -113,6 +113,11 @@ impl UiManager {
                     Some(Ok(Event::Key(key)))  => {
                         app.handle_key_event(key);
                     },
+                    Some(Ok(Event::Mouse(mouse))) => {
+                        let terminal_size = terminal.size().context("could not get terminal size")?;
+                        let area = Rect::new(0, 0, terminal_size.width, terminal_size.height);
+                        app.handle_mouse_event(mouse, area);
+                    },
                     None => break Ok(Interrupted::UserInt),
                     _ => (),
                 },

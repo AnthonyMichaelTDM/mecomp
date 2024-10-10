@@ -5,7 +5,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Position, Rect},
     style::{Style, Stylize},
     text::Span,
     widgets::Block,
@@ -200,10 +200,45 @@ impl Component for App {
             _ => self.get_active_view_component_mut().handle_key_event(key),
         }
     }
+
+    fn handle_mouse_event(&mut self, mouse: crossterm::event::MouseEvent, area: Rect) {
+        // if there is a popup, defer all mouse handling to it.
+        if let Some(popup) = self.popup.as_mut() {
+            popup.handle_mouse_event(mouse, popup.area(area), self.action_tx.clone());
+            return;
+        }
+
+        // defer to the component that the mouse is in
+        let mouse_position = Position::new(mouse.column, mouse.row);
+        let Areas {
+            control_panel,
+            sidebar,
+            content_view,
+            queuebar,
+        } = split_area(area);
+
+        if control_panel.contains(mouse_position) {
+            self.control_panel.handle_mouse_event(mouse, control_panel);
+        } else if sidebar.contains(mouse_position) {
+            self.sidebar.handle_mouse_event(mouse, sidebar);
+        } else if content_view.contains(mouse_position) {
+            self.content_view.handle_mouse_event(mouse, content_view);
+        } else if queuebar.contains(mouse_position) {
+            self.queuebar.handle_mouse_event(mouse, queuebar);
+        }
+    }
 }
 
-fn split_area(area: Rect) -> (Rect, Rect, Rect, Rect) {
-    let [main_views_area, control_panel_area] = *Layout::default()
+#[derive(Debug)]
+struct Areas {
+    pub control_panel: Rect,
+    pub sidebar: Rect,
+    pub content_view: Rect,
+    pub queuebar: Rect,
+}
+
+fn split_area(area: Rect) -> Areas {
+    let [main_views, control_panel] = *Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(10), Constraint::Length(4)].as_ref())
         .split(area)
@@ -211,7 +246,7 @@ fn split_area(area: Rect) -> (Rect, Rect, Rect, Rect) {
         panic!("Failed to split frame into areas")
     };
 
-    let [sidebar_area, content_view_area, queuebar_area] = *Layout::default()
+    let [sidebar, content_view, queuebar] = *Layout::default()
         .direction(Direction::Horizontal)
         .constraints(
             [
@@ -221,17 +256,17 @@ fn split_area(area: Rect) -> (Rect, Rect, Rect, Rect) {
             ]
             .as_ref(),
         )
-        .split(main_views_area)
+        .split(main_views)
     else {
         panic!("Failed to split main views area")
     };
 
-    (
-        control_panel_area,
-        sidebar_area,
-        content_view_area,
-        queuebar_area,
-    )
+    Areas {
+        control_panel,
+        sidebar,
+        content_view,
+        queuebar,
+    }
 }
 
 impl ComponentRender<Rect> for App {
@@ -253,7 +288,12 @@ impl ComponentRender<Rect> for App {
     }
 
     fn render_content(&self, frame: &mut Frame, area: Rect) {
-        let (control_panel_area, sidebar_area, content_view_area, queuebar_area) = split_area(area);
+        let Areas {
+            control_panel,
+            sidebar,
+            content_view,
+            queuebar,
+        } = split_area(area);
 
         // figure out the active component, and give it a different colored border
         let (control_panel_focused, sidebar_focused, content_view_focused, queuebar_focused) =
@@ -268,7 +308,7 @@ impl ComponentRender<Rect> for App {
         self.control_panel.render(
             frame,
             RenderProps {
-                area: control_panel_area,
+                area: control_panel,
                 is_focused: control_panel_focused,
             },
         );
@@ -277,7 +317,7 @@ impl ComponentRender<Rect> for App {
         self.sidebar.render(
             frame,
             RenderProps {
-                area: sidebar_area,
+                area: sidebar,
                 is_focused: sidebar_focused,
             },
         );
@@ -286,7 +326,7 @@ impl ComponentRender<Rect> for App {
         self.content_view.render(
             frame,
             RenderProps {
-                area: content_view_area,
+                area: content_view,
                 is_focused: content_view_focused,
             },
         );
@@ -295,7 +335,7 @@ impl ComponentRender<Rect> for App {
         self.queuebar.render(
             frame,
             RenderProps {
-                area: queuebar_area,
+                area: queuebar,
                 is_focused: queuebar_focused,
             },
         );
@@ -328,6 +368,7 @@ mod tests {
     use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
+    use tokio::sync::mpsc::unbounded_channel;
 
     #[fixture]
     fn song() -> Song {
@@ -401,7 +442,10 @@ mod tests {
         let (mut terminal, area) = setup_test_terminal(100, 100);
         let pre_popup = terminal.draw(|frame| app.render(frame, area)).unwrap();
 
-        let app = app.move_with_popup(Some(Box::new(Notification("Hello, World!".into()))));
+        let app = app.move_with_popup(Some(Box::new(Notification::new(
+            "Hello, World!".into(),
+            unbounded_channel().0,
+        ))));
 
         let (mut terminal, area) = setup_test_terminal(100, 100);
         let post_popup = terminal.draw(|frame| app.render(frame, area)).unwrap();
@@ -428,7 +472,10 @@ mod tests {
         let (mut terminal, area) = setup_test_terminal(100, 100);
         let pre_popup = terminal.draw(|frame| app.render(frame, area)).unwrap();
 
-        let popup = Box::new(Notification("Hello, World!".into()));
+        let popup = Box::new(Notification::new(
+            "Hello, World!".into(),
+            unbounded_channel().0,
+        ));
         app = app.move_with_popup(Some(popup));
 
         let (mut terminal, area) = setup_test_terminal(100, 100);
@@ -591,7 +638,10 @@ mod tests {
 
         assert!(app.popup.is_none());
 
-        let popup = Box::new(Notification("Hello, World!".into()));
+        let popup = Box::new(Notification::new(
+            "Hello, World!".into(),
+            unbounded_channel().0,
+        ));
         let app = app.move_with_popup(Some(popup));
 
         assert!(app.popup.is_some());

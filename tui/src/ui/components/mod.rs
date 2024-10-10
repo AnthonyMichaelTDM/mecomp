@@ -3,7 +3,7 @@ pub mod control_panel;
 pub mod queuebar;
 pub mod sidebar;
 
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyEvent, MouseEvent};
 use ratatui::{layout::Rect, Frame};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -29,6 +29,8 @@ pub trait Component {
     fn name(&self) -> &str;
 
     fn handle_key_event(&mut self, key: KeyEvent);
+
+    fn handle_mouse_event(&mut self, _mouse: MouseEvent, _area: Rect) {}
 }
 
 pub trait ComponentRender<Props> {

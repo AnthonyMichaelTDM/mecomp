@@ -333,6 +333,7 @@ pub struct LibraryPlaylistsView {
     input_box_visible: bool,
 }
 
+#[derive(Debug)]
 pub struct Props {
     pub playlists: Box<[Playlist]>,
     sort_mode: SortMode,

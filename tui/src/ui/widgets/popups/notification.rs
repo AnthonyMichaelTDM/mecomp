@@ -1,14 +1,29 @@
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyEvent, MouseButton, MouseEventKind};
 use ratatui::{
     prelude::Rect,
     text::{Line, Text},
 };
+use tokio::sync::mpsc::UnboundedSender;
 
-use crate::ui::components::ComponentRender;
+use crate::{
+    state::action::{Action, PopupAction},
+    ui::components::ComponentRender,
+};
 
 use super::Popup;
 
-pub struct Notification<'a>(pub Text<'a>);
+#[derive(Debug)]
+pub struct Notification<'a> {
+    pub line: Text<'a>,
+    pub action_tx: UnboundedSender<Action>,
+}
+
+impl Notification<'_> {
+    #[must_use]
+    pub const fn new(line: Text, action_tx: UnboundedSender<Action>) -> Notification {
+        Notification { line, action_tx }
+    }
+}
 
 impl<'a> ComponentRender<Rect> for Notification<'a> {
     fn render_border(&self, frame: &mut ratatui::Frame, area: Rect) -> Rect {
@@ -16,7 +31,7 @@ impl<'a> ComponentRender<Rect> for Notification<'a> {
     }
 
     fn render_content(&self, frame: &mut ratatui::Frame, area: Rect) {
-        frame.render_widget::<Text>(self.0.clone(), area);
+        frame.render_widget::<Text>(self.line.clone(), area);
     }
 }
 
@@ -34,7 +49,7 @@ impl<'a> Popup for Notification<'a> {
     fn area(&self, terminal_area: Rect) -> Rect {
         // put in the top left corner, give enough width/height to display the text, and add 2 for the border
         let width = u16::try_from(
-            self.0
+            self.line
                 .width()
                 .max(self.instructions().width())
                 .max(self.title().width())
@@ -42,13 +57,20 @@ impl<'a> Popup for Notification<'a> {
         )
         .unwrap_or(terminal_area.width)
         .min(terminal_area.width);
-        let height = u16::try_from(self.0.height() + 2)
+        let height = u16::try_from(self.line.height() + 2)
             .unwrap_or(terminal_area.height)
             .min(terminal_area.height);
         Rect::new(0, 0, width, height)
     }
 
     fn inner_handle_key_event(&mut self, _key: KeyEvent) {}
+
+    fn inner_handle_mouse_event(&mut self, mouse: crossterm::event::MouseEvent, _: Rect) {
+        // Close the popup when the mouse is clicked
+        if mouse.kind == MouseEventKind::Down(MouseButton::Left) {
+            self.action_tx.send(Action::Popup(PopupAction::Close)).ok();
+        }
+    }
 }
 
 #[cfg(test)]
@@ -62,11 +84,12 @@ mod tests {
         style::{Color, Style},
         text::Span,
     };
+    use tokio::sync::mpsc::unbounded_channel;
 
     #[test]
     fn test_notification_area() -> Result<()> {
         let (_, area) = setup_test_terminal(100, 100);
-        let area = Notification(Text::from("Hello, World!")).area(area);
+        let area = Notification::new(Text::from("Hello, World!"), unbounded_channel().0).area(area);
         assert_eq!(area, Rect::new(0, 0, 20, 3));
         Ok(())
     }
@@ -74,7 +97,7 @@ mod tests {
     #[test]
     fn test_notification_render() -> Result<()> {
         let (mut terminal, _) = setup_test_terminal(20, 3);
-        let notification = Notification(Text::from("Hello, World!"));
+        let notification = Notification::new(Text::from("Hello, World!"), unbounded_channel().0);
         let buffer = terminal
             .draw(|frame| notification.render_popup(frame))?
             .buffer
@@ -96,7 +119,7 @@ mod tests {
     #[test]
     fn test_notification_render_small_terminal() -> Result<()> {
         let (mut terminal, _) = setup_test_terminal(18, 2);
-        let notification = Notification(Text::from("Hello, World!"));
+        let notification = Notification::new(Text::from("Hello, World!"), unbounded_channel().0);
         let buffer = terminal
             .draw(|frame| notification.render_popup(frame))?
             .buffer
@@ -113,7 +136,7 @@ mod tests {
     #[test]
     fn test_nofitication_render_multiline() -> Result<()> {
         let (mut terminal, _) = setup_test_terminal(20, 5);
-        let notification = Notification(Text::from("Hello,\nWorld!"));
+        let notification = Notification::new(Text::from("Hello,\nWorld!"), unbounded_channel().0);
         let buffer = terminal
             .draw(|frame| notification.render_popup(frame))?
             .buffer

@@ -17,6 +17,7 @@ use crate::{
     },
 };
 
+#[derive(Debug)]
 pub struct InputBox {
     /// Current value of the input box
     text: String,
