@@ -1,9 +1,10 @@
 pub mod notification;
 pub mod playlist;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_storage::db::schemas::Thing;
 use ratatui::{
+    layout::Position,
     prelude::Rect,
     style::{Color, Style},
     text::{Line, Text},
@@ -50,6 +51,30 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
         }
     }
 
+    /// Mouse Event Handler for the inner component of the popup,
+    /// this method is called when the mouse event is inside the popup area.
+    ///
+    /// The default behavior is to close the popup when the mouse is clicked.
+    fn inner_handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect);
+
+    /// popup, but
+    /// it handles making the escape key close the popup.
+    fn handle_mouse_event(
+        &mut self,
+        mouse: MouseEvent,
+        area: Rect,
+        action_tx: UnboundedSender<Action>,
+    ) {
+        if area.contains(Position::new(mouse.column, mouse.row)) {
+            self.inner_handle_mouse_event(mouse, area);
+        }
+
+        // Close the popup when the mouse is clicked outside the popup
+        if mouse.kind == MouseEventKind::Down(MouseButton::Left) {
+            action_tx.send(Action::Popup(PopupAction::Close)).ok();
+        }
+    }
+
     fn render_popup_border(&self, frame: &mut ratatui::Frame, area: Rect) -> Rect {
         let title = self.title();
         let instructions = self.instructions();
@@ -93,7 +118,9 @@ impl PopupType {
         action_tx: UnboundedSender<Action>,
     ) -> Box<dyn Popup> {
         match self {
-            Self::Notification(line) => Box::new(notification::Notification(line)) as _,
+            Self::Notification(line) => {
+                Box::new(notification::Notification::new(line, action_tx)) as _
+            }
             Self::Playlist(items) => {
                 Box::new(playlist::PlaylistSelector::new(state, action_tx, items)) as _
             }

@@ -188,6 +188,16 @@ impl Component for ContentView {
     fn handle_key_event(&mut self, key: crossterm::event::KeyEvent) {
         self.get_active_view_component_mut().handle_key_event(key);
     }
+
+    fn handle_mouse_event(
+        &mut self,
+        mouse: crossterm::event::MouseEvent,
+        area: ratatui::prelude::Rect,
+    ) {
+        // defer to active view
+        self.get_active_view_component_mut()
+            .handle_mouse_event(mouse, area);
+    }
 }
 
 impl ComponentRender<RenderProps> for ContentView {
