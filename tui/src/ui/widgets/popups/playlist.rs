@@ -271,8 +271,8 @@ impl ComponentRender<Rect> for PlaylistSelector {
                 .unwrap()
                 .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
                 // we want this to be rendered like a normal tree, not a check tree, so we don't show the checkboxes
-                .node_unselected_symbol("▪ ")
-                .node_selected_symbol("▪ ")
+                .node_unchecked_symbol("▪ ")
+                .node_checked_symbol("▪ ")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             area,
             &mut self.tree_state.lock().unwrap(),
