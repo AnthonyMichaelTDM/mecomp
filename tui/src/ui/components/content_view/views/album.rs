@@ -143,6 +143,60 @@ impl Component for AlbumView {
             _ => {}
         }
     }
+
+    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        let MouseEvent {
+            kind, column, row, ..
+        } = mouse;
+        let mouse_position = Position::new(column, row);
+
+        // adjust the area to account for the border
+        let area = area.inner(Margin::new(1, 1));
+        let [_, content_area] = split_area(area);
+        let content_area = Rect {
+            y: content_area.y + 2,
+            height: content_area.height - 2,
+            ..content_area
+        };
+
+        match kind {
+            MouseEventKind::Down(MouseButton::Left) if content_area.contains(mouse_position) => {
+                let selected_things =
+                    get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                self.tree_state.lock().unwrap().mouse_click(mouse_position);
+
+                // if the selection didn't change, open the selected view
+                if selected_things
+                    == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
+                {
+                    if let Some(thing) = selected_things {
+                        self.action_tx
+                            .send(Action::SetCurrentView(thing.into()))
+                            .unwrap();
+                    }
+                }
+            }
+            MouseEventKind::ScrollDown if content_area.contains(mouse_position) => {
+                self.tree_state.lock().unwrap().scroll_down(1);
+            }
+            MouseEventKind::ScrollUp if content_area.contains(mouse_position) => {
+                self.tree_state.lock().unwrap().scroll_up(1);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn split_area(area: Rect) -> [Rect; 2] {
+    let [info_area, content_area] = *Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(4)])
+        .split(area)
+    else {
+        panic!("Failed to split album view area")
+    };
+
+    [info_area, content_area]
 }
 
 impl ComponentRender<RenderProps> for AlbumView {
@@ -163,13 +217,7 @@ impl ComponentRender<RenderProps> for AlbumView {
             frame.render_widget(border, props.area);
 
             // split area to make room for album info
-            let [info_area, content_area] = *Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Length(3), Constraint::Min(4)])
-                .split(content_area)
-            else {
-                panic!("Failed to split song view area")
-            };
+            let [info_area, content_area] = split_area(content_area);
 
             // render the album info
             frame.render_widget(
@@ -661,6 +709,7 @@ mod item_view_tests {
         assert_buffer_eq, item_id, setup_test_terminal, state_with_everything,
     };
     use anyhow::Result;
+    use crossterm::event::KeyModifiers;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -908,6 +957,130 @@ mod item_view_tests {
                 .into()])))
         );
     }
+
+    #[test]
+    fn test_mouse() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = AlbumView::new(&state_with_everything(), tx);
+
+        // need to render the view at least once to load the tree state
+        let (mut terminal, area) = setup_test_terminal(60, 9);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Album View────────────────────────────────────────────────┐",
+            "│                  Test Album Test Artist                  │",
+            "│    Release Year: 2021  Songs: 1  Duration: 00:03:00.00   │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on entire album─────────────────────│",
+            "│▶ Artists (1):                                            │",
+            "│▶ Songs (1):                                              │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // click on the artist dropdown
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 6,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Album View────────────────────────────────────────────────┐",
+            "│                  Test Album Test Artist                  │",
+            "│    Release Year: 2021  Songs: 1  Duration: 00:03:00.00   │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on entire album─────────────────────│",
+            "│▼ Artists (1):                                            │",
+            "│  ☐ Test Artist                                           │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // scroll down
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                column: 2,
+                row: 6,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        assert_buffer_eq(&buffer, &expected);
+
+        // click down the artist item (which is already selected thanks to the scroll)
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 7,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Artist(item_id()))
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Album View────────────────────────────────────────────────┐",
+            "│                  Test Album Test Artist                  │",
+            "│    Release Year: 2021  Songs: 1  Duration: 00:03:00.00   │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on checked items────────────────────│",
+            "│▼ Artists (1):                                            │",
+            "│  ☑ Test Artist                                           │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // scroll up
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollUp,
+                column: 2,
+                row: 7,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        assert_buffer_eq(&buffer, &expected);
+    }
 }
 
 #[cfg(test)]
@@ -917,6 +1090,7 @@ mod library_view_tests {
         assert_buffer_eq, item_id, setup_test_terminal, state_with_everything,
     };
     use anyhow::Result;
+    use crossterm::event::KeyModifiers;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -1111,6 +1285,107 @@ mod library_view_tests {
                 item_id()
             )
                 .into()])))
+        );
+    }
+
+    #[test]
+    fn test_mouse() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryAlbumsView::new(&state_with_everything(), tx);
+
+        // need to render the view at least once to load the tree state
+        let (mut terminal, area) = setup_test_terminal(60, 6);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Albums sorted by: Artist──────────────────────────┐",
+            "│──────────────────────────────────────────────────────────│",
+            "│☐ Test Album Test Artist                                  │",
+            "│                                                          │",
+            "│s/S: change sort──────────────────────────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // click on the album
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 2,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Albums sorted by: Artist──────────────────────────┐",
+            "│q: add to queue | r: start radio | p: add to playlist ────│",
+            "│☑ Test Album Test Artist                                  │",
+            "│                                                          │",
+            "│s/S: change sort──────────────────────────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // scroll down
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                column: 2,
+                row: 2,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        assert_buffer_eq(&buffer, &expected);
+
+        // scroll up
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollUp,
+                column: 2,
+                row: 2,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        assert_buffer_eq(&buffer, &expected);
+
+        // click down on selected item
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 3,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Album(item_id()))
         );
     }
 }

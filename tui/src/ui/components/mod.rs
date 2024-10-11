@@ -30,7 +30,7 @@ pub trait Component {
 
     fn handle_key_event(&mut self, key: KeyEvent);
 
-    fn handle_mouse_event(&mut self, _mouse: MouseEvent, _area: Rect) {}
+    fn handle_mouse_event(&mut self, _mouse: MouseEvent, _area: Rect);
 }
 
 pub trait ComponentRender<Props> {

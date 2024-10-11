@@ -2,9 +2,9 @@
 
 use std::sync::Mutex;
 
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{
-    layout::Alignment,
+    layout::{Alignment, Margin, Position, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
@@ -155,6 +155,47 @@ impl Component for RadioView {
             _ => {}
         }
     }
+
+    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        let MouseEvent {
+            kind, column, row, ..
+        } = mouse;
+        let mouse_position = Position::new(column, row);
+
+        // adjust the area to account for the border
+        let area = area.inner(Margin::new(1, 1));
+        let area = Rect {
+            y: area.y + 2,
+            height: area.height - 2,
+            ..area
+        };
+
+        match kind {
+            MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
+                let selected_things =
+                    get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                self.tree_state.lock().unwrap().mouse_click(mouse_position);
+
+                // if the selection didn't change, open the selected view
+                if selected_things
+                    == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
+                {
+                    if let Some(thing) = selected_things {
+                        self.action_tx
+                            .send(Action::SetCurrentView(thing.into()))
+                            .unwrap();
+                    }
+                }
+            }
+            MouseEventKind::ScrollDown if area.contains(mouse_position) => {
+                self.tree_state.lock().unwrap().scroll_down(1);
+            }
+            MouseEventKind::ScrollUp if area.contains(mouse_position) => {
+                self.tree_state.lock().unwrap().scroll_up(1);
+            }
+            _ => {}
+        }
+    }
 }
 
 impl ComponentRender<RenderProps> for RadioView {
@@ -257,6 +298,7 @@ mod tests {
         ui::components::content_view::ActiveView,
     };
     use anyhow::Result;
+    use crossterm::event::KeyModifiers;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -467,6 +509,84 @@ mod tests {
                 item_id()
             )
                 .into()])))
+        );
+    }
+
+    #[test]
+    fn test_mouse() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = RadioView::new(&state_with_everything(), tx);
+
+        // need to render the view at least once to load the tree state
+        let (mut terminal, area) = setup_test_terminal(50, 6);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Radio top 1─────────────────────────────────────┐",
+            "│q: add to queue | p: add to playlist────────────│",
+            "│Performing operations on entire radio───────────│",
+            "│☐ Test Song Test Artist                         │",
+            "│                                                │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check─────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // scroll down
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                column: 2,
+                row: 4,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+
+        // click on the first item
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 4,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Song(item_id()))
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Radio top 1─────────────────────────────────────┐",
+            "│q: add to queue | p: add to playlist────────────│",
+            "│Performing operations on checked items──────────│",
+            "│☑ Test Song Test Artist                         │",
+            "│                                                │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check─────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // scroll up
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollUp,
+                column: 2,
+                row: 4,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
         );
     }
 }
