@@ -36,6 +36,10 @@ impl Component for NoneView {
     fn handle_key_event(&mut self, _key: crossterm::event::KeyEvent) {
         // do nothing
     }
+
+    fn handle_mouse_event(&mut self, _: crossterm::event::MouseEvent, _: ratatui::layout::Rect) {
+        // do nothing
+    }
 }
 
 impl ComponentRender<RenderProps> for NoneView {

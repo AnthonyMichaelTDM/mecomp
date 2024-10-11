@@ -2,11 +2,11 @@
 
 use std::{fmt::Display, sync::Mutex};
 
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::playlist::Playlist;
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
@@ -524,6 +524,75 @@ impl Component for LibraryPlaylistsView {
             }
         }
     }
+
+    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        let MouseEvent {
+            kind, column, row, ..
+        } = mouse;
+        let mouse_position = Position::new(column, row);
+
+        // adjust the area to account for the border
+        let area = area.inner(Margin::new(1, 1));
+
+        if self.input_box_visible {
+            let [input_box_area, content_area] = split_area(area);
+            let content_area = Rect {
+                y: content_area.y + 1,
+                height: content_area.height - 1,
+                ..content_area
+            };
+            if input_box_area.contains(mouse_position) {
+                self.input_box.handle_mouse_event(mouse, input_box_area);
+            } else if content_area.contains(mouse_position)
+                && kind == MouseEventKind::Down(MouseButton::Left)
+            {
+                self.input_box_visible = false;
+            }
+        } else {
+            let area = Rect {
+                y: area.y + 1,
+                height: area.height - 1,
+                ..area
+            };
+
+            match kind {
+                MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
+                    let selected_things =
+                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    self.tree_state.lock().unwrap().mouse_click(mouse_position);
+
+                    // if the selection didn't change, open the selected view
+                    if selected_things
+                        == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
+                    {
+                        if let Some(thing) = selected_things {
+                            self.action_tx
+                                .send(Action::SetCurrentView(thing.into()))
+                                .unwrap();
+                        }
+                    }
+                }
+                MouseEventKind::ScrollDown if area.contains(mouse_position) => {
+                    self.tree_state.lock().unwrap().scroll_down(1);
+                }
+                MouseEventKind::ScrollUp if area.contains(mouse_position) => {
+                    self.tree_state.lock().unwrap().scroll_up(1);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn split_area(area: Rect) -> [Rect; 2] {
+    let [input_box_area, content_area] = *Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(1)])
+        .split(area)
+    else {
+        panic!("Failed to split library playlists view area");
+    };
+    [input_box_area, content_area]
 }
 
 impl ComponentRender<RenderProps> for LibraryPlaylistsView {
@@ -553,13 +622,7 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
         // render input box (if visible)
         let content_area = if self.input_box_visible {
             // split content area to make room for the input box
-            let [input_box_area, content_area] = *Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Length(3), Constraint::Min(1)])
-                .split(content_area)
-            else {
-                panic!("Failed to split library playlists view area");
-            };
+            let [input_box_area, content_area] = split_area(content_area);
 
             // render the input box
             self.input_box.render(
