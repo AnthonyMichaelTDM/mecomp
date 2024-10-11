@@ -33,24 +33,32 @@ async fn main() -> anyhow::Result<()> {
     let flags = Flags::try_parse()?;
 
     let config_file = match get_config_dir() {
-        Ok(config_dir) => config_dir.join("Mecomp.toml"),
+        Ok(config_dir) => {
+            // if the config directory does not exist, create it
+            if !config_dir.exists() {
+                std::fs::create_dir_all(&config_dir)?;
+            }
+            config_dir.join("Mecomp.toml")
+        }
         Err(e) => {
             eprintln!("Error: {e}");
             anyhow::bail!("Could not find the config directory")
         }
     };
 
+    // write the default config file if one does not exist
     if !config_file.exists() {
-        // create the directory if it doesn't exist
-        if let Some(parent) = config_file.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        // write the default config file
         std::fs::write(&config_file, DEFAULT_CONFIG)?;
     }
 
     let (db_dir, log_file) = match get_data_dir() {
-        Ok(data_dir) => (data_dir.join("db"), data_dir.join("mecomp.log")),
+        Ok(data_dir) => {
+            // if the data directory does not exist, create it
+            if !data_dir.exists() {
+                std::fs::create_dir_all(&data_dir)?;
+            }
+            (data_dir.join("db"), data_dir.join("mecomp.log"))
+        }
         Err(e) => {
             eprintln!("Error: {e}");
             eprintln!("Using a temporary directory for the database");
