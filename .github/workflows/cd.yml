@@ -144,18 +144,6 @@ jobs:
           fi
           cd -
 
-      - name: Generate checksums
-        run: |
-          cd target/${{ matrix.platform.target }}/release
-          if [[ "${{ matrix.platform.os }}" == "macOS-latest" ]]; then
-            md5 ${{ matrix.binary }} > ../../../${{ matrix.binary }}-${{ matrix.platform.os_name }}.md5
-          elif [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
-            certutil -hashfile ${{ matrix.binary }} MD5 > ../../../${{ matrix.binary }}-${{ matrix.platform.os_name }}.md5
-          else
-            md5sum ${{ matrix.binary }} | awk '{print $1}' > ../../../${{ matrix.binary }}-${{ matrix.platform.os_name }}.md5
-          cd -
-        shell: bash
-
       - name: Publish build artifacts
         uses: actions/upload-artifact@v4.4.0
         with:
@@ -181,6 +169,18 @@ jobs:
       - name: List files
         run: ls -R ${{ steps.download_artifacts.outputs.download-path }}
 
+      - name: Generate checksums
+        id: checksums
+        run: |
+          cd ${{ steps.download_artifacts.outputs.download-path }}
+          for dir in $(ls -d */); do
+            cd $dir
+            for file in $(ls *.tar.gz *.zip); do
+              sha256sum $file > $file.sha256
+            done
+            cd -
+          done
+
       - name: Get the release tag
         id: get_release_tag
         run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
@@ -190,13 +190,12 @@ jobs:
         shell: bash
         run: |
           echo "Release for ${{ steps.get_release_tag.outputs.RELEASE_TAG }}" >> $GITHUB_OUTPUT
-          echo "MD5 Checksums:" >> $GITHUB_OUTPUT
+          echo "SHA256 Checksums:" >> $GITHUB_OUTPUT
           echo '```' >> $GITHUB_OUTPUT
-          for file in ${{ steps.download_artifacts.outputs.download-path }}/*.md5; do
-            echo "- $(basename $file .md5): $(cat $file)" >> $GITHUB_OUTPUT
+          for file in ${{ steps.download_artifacts.outputs.download-path }}/**/*.sha256; do
+            echo "$(cat $file)" >> $GITHUB_OUTPUT
           done
           echo '```' >> $GITHUB_OUTPUT
-          echo "The above checksums are for the files in the attached archives." >> $GITHUB_OUTPUT
 
       - name: Create or Update GitHub Release
         id: create_release
@@ -208,6 +207,6 @@ jobs:
           generate_release_notes: true
           body: ${{ steps.body.outputs.GITHUB_OUTPUT }}
           files: |
-            ${{ steps.download_artifacts.outputs.download-path }}/*.tar.gz
-            ${{ steps.download_artifacts.outputs.download-path }}/*.zip
-            ${{ steps.download_artifacts.outputs.download-path }}/*.sha256
+            ${{ steps.download_artifacts.outputs.download-path }}/**/*.tar.gz
+            ${{ steps.download_artifacts.outputs.download-path }}/**/*.zip
+            ${{ steps.download_artifacts.outputs.download-path }}/**/*.sha256
