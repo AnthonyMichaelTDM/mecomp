@@ -232,7 +232,7 @@ impl AudioKernel {
                                     // if we aren't paused, increment the time played
                                     duration_info.time_played += sleep_time;
                                     // if we're within the threshold of the end of the song, signal to the audio kernel to skip to the next song
-                                    if duration_info.time_played >= duration_info.current_duration - duration_threshold {
+                                    if duration_info.time_played >= duration_info.current_duration.saturating_sub(duration_threshold) {
                                         if let Err(e) = tx.send((AudioCommand::Queue(QueueCommand::SkipForward(1)), tracing::Span::current())) {
                                             error!("Failed to send command to audio kernel: {e}");
                                             panic!("Failed to send command to audio kernel: {e}");
