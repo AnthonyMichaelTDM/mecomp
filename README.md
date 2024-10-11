@@ -177,6 +177,57 @@ Once the daemon is up and running and has finished scanning, analysing, and clus
 
 this will start the TUI in your console, which will allow you to interact with the daemon.
 
+### Adding Music
+
+To add music to the app, simply put the music files into one of the directories configured in the daemon's configuration file, then tell the daemon to rescan your music collection. By default, this includes your users Music directory, but you can add more directories by editing the configuration file.
+
+#### Aside: How do I get music?
+
+You can get music from a variety of sources, such as:
+
+- ripping CDs
+- purchasing/downloading music from an artist's website
+- purchasing/downloading music from bandcamp, soundcloud, etc.
+- downloading music from youtube
+- etc.
+
+For example, you can use a tool like [yt-dlp](https://github.com/yt-dlp/yt-dlp) to download music from youtube music
+
+```sh
+# example, downloads a playlist from YouTube Music, and converts it to mp3
+yt-dlp --extract-audio --audio-format mp3 --yes-playlist --embed-thumbnail --embed-metadata --concurrent-fragments 4 -o '%(title)s.%(ext)s' <playlist-url>
+```
+
+(replace `<playlist-url>` with the url of the playlist you want to download)
+
+you can then use an audio tagger such as [MusicBrainz Picard](https://picard.musicbrainz.org/) to tag the music files with missing metadata.
+
+## Architecture
+
+MECOMP is designed to be modular and extensible, and is composed of a daemon (which is the core of the application), and several clients that communicate with the daemon.
+
+### MECOMP-Daemon
+
+MECOMP-Daemon is a long-running RPC server that is the core of the application, it handles all the backend logic and state-management necessary for the application to function. the MECOMP clients are simply frontends to this server. It is written in rust and uses google's [tarpc](https://github.com/google/tarpc) library for inter-process communication via RPC.
+
+### Clients
+
+#### MECOMP-CLI
+
+MECOMP-CLI is a command line interface for MECOMP, it provides a simple way to interact with the daemon.
+
+#### MECOMP-TUI
+
+MECOMP-TUI is a terminal user interface for MECOMP, it provides a more user friendly way to interact with the daemon, but still in a terminal.
+
+![MECOMP-TUI](./assets/tui-screenshot.jpg)
+
+#### MECOMP-GUI
+
+MECOMP-GUI is a graphical user interface for MECOMP, it provides a more user friendly way to interact with the daemon.
+
+the GUI is not currently implemented, but is planned for the future.
+
 ## Have a question or need help?
 
 If you have a question or need help, feel free ask in the [discussions](https://github.com/AnthonyMichaelTDM/mecomp/discussions) section of the repository.
@@ -221,30 +272,6 @@ Note about bugs: if you encounter a bug, please provide as much information as p
   - mark the song as being by multiple artists, but only show it for the artist(s) that are identified by the "album artist" tag in the metadata (if it exists)\
 - [x] properly handle songs with multiple genres (i.e. "Rock; Metal")
   - show the song for each genre
-
-## Architecture
-
-MECOMP is designed to be modular and extensible, and is composed of a daemon (which is the core of the application), and several clients that communicate with the daemon.
-
-### MECOMP-Daemon
-
-MECOMP-Daemon is a long-running RPC server that is the core of the application, it handles all the backend logic and state-management necessary for the application to function. the MECOMP clients are simply frontends to this server. It is written in rust and uses google's [tarpc](https://github.com/google/tarpc) library for inter-process communication via RPC.
-
-### Clients
-
-#### MECOMP-CLI
-
-MECOMP-CLI is a command line interface for MECOMP, it provides a simple way to interact with the daemon.
-
-#### MECOMP-TUI
-
-MECOMP-TUI is a terminal user interface for MECOMP, it provides a more user friendly way to interact with the daemon, but still in a terminal.
-
-![MECOMP-TUI](./assets/tui-screenshot.jpg)
-
-#### MECOMP-GUI
-
-MECOMP-GUI is a graphical user interface for MECOMP, it provides a more user friendly way to interact with the daemon.
 
 ## Tracings
 
@@ -292,6 +319,14 @@ cat tracing.folded | inferno-flamegraph > tracing-flamegraph.svg
 cat tracing.folded | inferno-flamegraph --flamechart > tracing-flamechart.svg
 ```
 
+## Testing
+
+MECOMP uses [`cargo-nextest`](https://nexte.st/) for testing (`cargo test` will work too, but is slower), to run the test suite:
+
+```sh
+cargo nextest run
+```
+
 ## Test Coverage
 
 [![codecov](https://codecov.io/gh/AnthonyMichaelTDM/mecomp/graph/badge.svg?token=BJAZ081TOE)](https://codecov.io/gh/AnthonyMichaelTDM/mecomp)
@@ -299,7 +334,7 @@ cat tracing.folded | inferno-flamegraph --flamechart > tracing-flamechart.svg
 MECOMP uses `tarpaulin` to generate test coverage reports, to generate a test coverage report, run:
 
 ```sh
-cargo tarpaulin --all --out Html --all-features
+cargo coverage
 ```
 
 this will generate a file called `tarpaulin-report.html` in the current directory, which can be viewed in your browser.
