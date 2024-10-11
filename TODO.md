@@ -62,9 +62,9 @@
 - [x] Implement basic functionality (mirror the daemon's functionality). Basically a direct translation of the daemon's API to a CLI.
 - [ ] Allow users to pipe results of searches, radios, etc. to other commands (e.g. `mecomp-cli search "Green Day" | mecomp-cli radio`)
   - [x] pipe to the queue (append): `mecomp-cli search "Green Day" | mecomp-cli queue`
-  - [ ] pipe to a new/existing playlist
+  - [x] pipe to a new/existing playlist
   - [ ] pipe to library lookup
-  - [ ] pipe to radio
+  - [x] pipe to radio
 - [ ] add commands for reading songs by artists, in albums, in playlists, in collections, etc.
 - [ ] commands for reading the artist/album of songs
 - [ ] commands for reading the artists of albums
@@ -75,6 +75,7 @@
 - [x] CheckTree widget: a tree/list that allows for multiple items to be selected
   - [x] allow for multiple items to be selected and added to the queue, a playlist, or used to start a radio
   - [x] function to get the selected items
+- [x] Implement mouse support
 - [x] Implement view pages for the following:
   - [x] search results
     - [x] show the results of a search
@@ -139,8 +140,8 @@
     - [x] keybind to add to queue
     - [x] use CheckTree widget instead of Tree
 - [ ] add confirmation dialogues for potentially destructive actions (e.g. deleting a playlist, initiating a rescan, etc.)
-- [ ] keybind to freeze a collection into a playlist
-- [ ] at startup, check if the daemon is running, and if it isn't then start it in a detached process
+- [x] keybind to freeze a collection into a playlist
+- [x] at startup, check if the daemon is running, and if it isn't then start it in a detached process
 
 ### MECOMP-GUI
 

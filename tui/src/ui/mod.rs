@@ -242,16 +242,22 @@ async fn handle_additional_view_data(
                 Some(song),
                 artists @ (OneOrMany::Many(_) | OneOrMany::One(_)),
                 Some(album),
+                playlists,
+                collections,
             )) = tokio::try_join!(
                 daemon.library_song_get(Context::current(), song_id.clone()),
                 daemon.library_song_get_artist(Context::current(), song_id.clone()),
                 daemon.library_song_get_album(Context::current(), song_id.clone()),
+                daemon.library_song_get_playlists(Context::current(), song_id.clone()),
+                daemon.library_song_get_collections(Context::current(), song_id.clone()),
             ) {
                 Some(SongViewProps {
                     id: song_id,
                     song,
                     artists,
                     album,
+                    playlists,
+                    collections,
                 })
             } else {
                 None

@@ -62,6 +62,8 @@ pub struct SongViewProps {
     pub song: Song,
     pub artists: OneOrMany<Artist>,
     pub album: Album,
+    pub playlists: Box<[Playlist]>,
+    pub collections: Box<[Collection]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -271,6 +273,26 @@ pub mod checktree_utils {
         )
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
+    pub fn create_collection_tree_item(
+        collections: &[Collection],
+    ) -> Result<CheckTreeItem<String>, std::io::Error> {
+        let mut item = CheckTreeItem::new(
+            "Collections".to_string(),
+            format!("Collections ({}):", collections.len()),
+            collections
+                .iter()
+                .map(|collection| create_collection_tree_leaf(collection))
+                .collect(),
+        )?;
+        if item.children().is_empty() {
+            item.add_child(create_dummy_leaf())?;
+        }
+        Ok(item)
+    }
+
     #[must_use]
     pub fn create_playlist_tree_leaf(playlist: &Playlist) -> CheckTreeItem<String> {
         CheckTreeItem::new_leaf(
@@ -280,6 +302,26 @@ pub mod checktree_utils {
                 Style::default().bold(),
             )]),
         )
+    }
+
+    /// # Errors
+    ///
+    /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
+    pub fn create_playlist_tree_item(
+        playlists: &[Playlist],
+    ) -> Result<CheckTreeItem<String>, std::io::Error> {
+        let mut item = CheckTreeItem::new(
+            "Playlists".to_string(),
+            format!("Playlists ({}):", playlists.len()),
+            playlists
+                .iter()
+                .map(|playlist| create_playlist_tree_leaf(playlist))
+                .collect(),
+        )?;
+        if item.children().is_empty() {
+            item.add_child(create_dummy_leaf())?;
+        }
+        Ok(item)
     }
 
     /// # Errors

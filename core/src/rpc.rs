@@ -99,6 +99,10 @@ pub trait MusicPlayer {
     async fn library_song_get_artist(id: SongId) -> OneOrMany<Artist>;
     /// Get the album of a song.
     async fn library_song_get_album(id: SongId) -> Option<Album>;
+    /// Get the Playlists a song is in.
+    async fn library_song_get_playlists(id: SongId) -> Box<[Playlist]>;
+    /// Get the Collections a song is in.
+    async fn library_song_get_collections(id: SongId) -> Box<[Collection]>;
     /// Get an album by its ID.
     async fn library_album_get(id: AlbumId) -> Option<Album>;
     /// Get the artists of an album

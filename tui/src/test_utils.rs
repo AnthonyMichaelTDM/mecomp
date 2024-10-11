@@ -124,6 +124,14 @@ pub fn state_with_everything() -> AppState {
                 albums: vec![album.clone()].into_boxed_slice(),
                 songs: vec![song.clone()].into_boxed_slice(),
             }),
+            song: Some(SongViewProps {
+                id: song_id,
+                song: song.clone(),
+                artists: OneOrMany::One(artist.clone()),
+                album: album.clone(),
+                playlists: vec![playlist.clone()].into_boxed_slice(),
+                collections: vec![collection.clone()].into_boxed_slice(),
+            }),
             collection: Some(CollectionViewProps {
                 id: collection_id,
                 collection,
@@ -133,12 +141,6 @@ pub fn state_with_everything() -> AppState {
                 id: playlist_id,
                 playlist,
                 songs: vec![song.clone()].into_boxed_slice(),
-            }),
-            song: Some(SongViewProps {
-                id: song_id,
-                song: song.clone(),
-                artists: OneOrMany::One(artist.clone()),
-                album: album.clone(),
             }),
             radio: Some(RadioViewProps {
                 count: 1,
