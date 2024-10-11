@@ -13,7 +13,7 @@ use std::sync::Mutex;
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_storage::db::schemas::Thing;
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Position, Rect},
+    layout::{Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
     text::Line,
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
@@ -219,17 +219,32 @@ impl Popup for PlaylistSelector {
         } = mouse;
         let mouse_position = Position::new(column, row);
 
-        match kind {
-            MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().mouse_click(mouse_position);
+        // adjust the area to account for the border
+        let area = area.inner(Margin::new(1, 1));
+
+        // defer to input box if it's visible
+        if self.input_box_visible {
+            let [input_box_area, content_area] = split_area(area);
+            if input_box_area.contains(mouse_position) {
+                self.input_box.handle_mouse_event(mouse, input_box_area);
+            } else if content_area.contains(mouse_position)
+                && kind == MouseEventKind::Down(MouseButton::Left)
+            {
+                self.input_box_visible = false;
             }
-            MouseEventKind::ScrollDown if area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().scroll_down(1);
+        } else {
+            match kind {
+                MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
+                    self.tree_state.lock().unwrap().mouse_click(mouse_position);
+                }
+                MouseEventKind::ScrollDown if area.contains(mouse_position) => {
+                    self.tree_state.lock().unwrap().scroll_down(1);
+                }
+                MouseEventKind::ScrollUp if area.contains(mouse_position) => {
+                    self.tree_state.lock().unwrap().scroll_up(1);
+                }
+                _ => {}
             }
-            MouseEventKind::ScrollUp if area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().scroll_up(1);
-            }
-            _ => {}
         }
     }
 }
