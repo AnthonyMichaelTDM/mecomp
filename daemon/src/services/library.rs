@@ -597,7 +597,7 @@ mod tests {
         let db = init_test_database().await.unwrap();
         let settings = ReclusterSettings {
             gap_statistic_reference_datasets: 5,
-            max_clusters: 16,
+            max_clusters: 18,
             algorithm: crate::config::ClusterAlgorithm::GMM,
         };
 

@@ -365,6 +365,7 @@ mod tests {
             widgets::popups::notification::Notification,
         },
     };
+    use crossterm::event::KeyModifiers;
     use mecomp_core::{
         rpc::SearchResult,
         state::{library::LibraryFull, Percent, RepeatMode, StateAudio, StateRuntime},
@@ -636,6 +637,22 @@ mod tests {
         assert_eq!(app.content_view.props.active_view, state.active_view);
     }
 
+    #[test]
+    fn test_move_with_component() {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let app = App::new(&AppState::default(), tx);
+
+        assert_eq!(app.active_component, ActiveComponent::Sidebar);
+
+        let state = AppState {
+            active_component: ActiveComponent::QueueBar,
+            ..Default::default()
+        };
+        let app = app.move_with_component(&state);
+
+        assert_eq!(app.active_component, ActiveComponent::QueueBar);
+    }
+
     #[rstest]
     fn test_move_with_popup() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
@@ -678,6 +695,71 @@ mod tests {
         assert_eq!(
             component.name(),
             App::new(&state, tx,).get_active_view_component_mut().name()
+        );
+    }
+
+    #[test]
+    fn test_click_to_focus() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut app = App::new(&AppState::default(), tx);
+
+        let (mut terminal, area) = setup_test_terminal(100, 100);
+        let _frame = terminal.draw(|frame| app.render(frame, area)).unwrap();
+
+        let mouse = crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            column: 2,
+            row: 2,
+            modifiers: KeyModifiers::empty(),
+        };
+        app.handle_mouse_event(mouse, area);
+
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(
+            action,
+            Action::ActiveComponent(ComponentAction::Set(ActiveComponent::Sidebar))
+        );
+
+        let mouse = crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            column: 50,
+            row: 10,
+            modifiers: KeyModifiers::empty(),
+        };
+        app.handle_mouse_event(mouse, area);
+
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(
+            action,
+            Action::ActiveComponent(ComponentAction::Set(ActiveComponent::ContentView))
+        );
+
+        let mouse = crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            column: 90,
+            row: 10,
+            modifiers: KeyModifiers::empty(),
+        };
+        app.handle_mouse_event(mouse, area);
+
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(
+            action,
+            Action::ActiveComponent(ComponentAction::Set(ActiveComponent::QueueBar))
+        );
+
+        let mouse = crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            column: 60,
+            row: 98,
+            modifiers: KeyModifiers::empty(),
+        };
+        app.handle_mouse_event(mouse, area);
+
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(
+            action,
+            Action::ActiveComponent(ComponentAction::Set(ActiveComponent::ControlPanel))
         );
     }
 }
