@@ -19,7 +19,7 @@ use crate::{
     state::action::Action,
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
-        components::{Component, ComponentRender, RenderProps},
+        components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         widgets::tree::{state::CheckTreeState, CheckTree},
         AppState,
     },
@@ -69,6 +69,7 @@ impl Component for CollectionView {
 
             Self {
                 props: Some(props),
+                tree_state: Mutex::new(CheckTreeState::default()),
                 ..self
             }
         } else {
@@ -374,11 +375,18 @@ impl Component for LibraryCollectionsView {
     {
         let mut collections = state.library.collections.clone();
         self.props.sort_mode.sort_collections(&mut collections);
+        let tree_state = if state.active_view == ActiveView::Collections {
+            self.tree_state
+        } else {
+            Mutex::new(CheckTreeState::default())
+        };
+
         Self {
             props: Props {
                 collections,
                 ..self.props
             },
+            tree_state,
             ..self
         }
     }

@@ -19,7 +19,7 @@ use crate::{
         colors::{
             BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
         },
-        components::{Component, ComponentRender, RenderProps},
+        components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         widgets::{
             input_box::{self, InputBox},
             tree::{state::CheckTreeState, CheckTree},
@@ -72,6 +72,7 @@ impl Component for PlaylistView {
 
             Self {
                 props: Some(props),
+                tree_state: Mutex::new(CheckTreeState::default()),
                 ..self
             }
         } else {
@@ -412,8 +413,15 @@ impl Component for LibraryPlaylistsView {
     where
         Self: Sized,
     {
+        let tree_state = if state.active_view == ActiveView::Playlists {
+            self.tree_state
+        } else {
+            Mutex::new(CheckTreeState::default())
+        };
+
         Self {
             props: Props::from(state),
+            tree_state,
             ..self
         }
     }
