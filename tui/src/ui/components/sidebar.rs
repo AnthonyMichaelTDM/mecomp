@@ -16,12 +16,13 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     state::{
-        action::{Action, ComponentAction, LibraryAction},
+        action::{Action, ComponentAction, LibraryAction, PopupAction},
         component::ActiveComponent,
     },
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{Component, ComponentRender, RenderProps},
+        widgets::popups::PopupType,
         AppState,
     },
 };
@@ -155,6 +156,19 @@ impl Component for Sidebar {
                 if let Some(selected) = self.list_state.selected() {
                     let item = SIDEBAR_ITEMS[selected];
                     if let Some(action) = item.to_action() {
+                        if matches!(
+                            item,
+                            SidebarItem::LibraryAnalyze
+                                | SidebarItem::LibraryRescan
+                                | SidebarItem::LibraryRecluster
+                        ) {
+                            self.action_tx
+                                .send(Action::Popup(PopupAction::Open(PopupType::Notification(
+                                    format!(" {item} Started ").into(),
+                                ))))
+                                .unwrap();
+                        }
+
                         self.action_tx.send(action).unwrap();
                     }
                 }
@@ -386,6 +400,12 @@ mod tests {
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::Notification(
+                " Library Rescan Started ".into()
+            )))
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
             Action::Library(LibraryAction::Rescan)
         );
 
@@ -393,11 +413,23 @@ mod tests {
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::Notification(
+                " Library Analyze Started ".into()
+            )))
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
             Action::Library(LibraryAction::Analyze)
         );
 
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::Notification(
+                " Library Recluster Started ".into()
+            )))
+        );
         assert_eq!(
             rx.blocking_recv().unwrap(),
             Action::Library(LibraryAction::Recluster)
