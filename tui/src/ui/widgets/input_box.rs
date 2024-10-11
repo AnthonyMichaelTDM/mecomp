@@ -1,8 +1,8 @@
 //! Implementation of a search bar
 
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseEvent};
 use ratatui::{
-    layout::Rect,
+    layout::{Position, Rect},
     style::Style,
     widgets::{Block, Paragraph},
     Frame,
@@ -128,6 +128,27 @@ impl Component for InputBox {
                 self.move_cursor_right();
             }
             _ => {}
+        }
+    }
+
+    /// Handle mouse events
+    ///
+    /// moves the cursor to the clicked position
+    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        let MouseEvent {
+            kind, column, row, ..
+        } = mouse;
+        let mouse_position = Position::new(column, row);
+
+        if !area.contains(mouse_position) {
+            return;
+        }
+
+        if kind == crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) {
+            // NOTE: this assumes that the border is 1 character wide, which may not necessarily be true
+            let mouse_x = mouse_position.x.saturating_sub(area.x + 1) as usize;
+
+            self.cursor_position = self.clamp_cursor(mouse_x);
         }
     }
 }
