@@ -189,13 +189,17 @@ jobs:
         id: body
         shell: bash
         run: |
-          echo "Release for ${{ steps.get_release_tag.outputs.RELEASE_TAG }}" >> $GITHUB_OUTPUT
-          echo "SHA256 Checksums:" >> $GITHUB_OUTPUT
-          echo '```' >> $GITHUB_OUTPUT
+          touch body.txt
+          echo "Release for ${{ steps.get_release_tag.outputs.RELEASE_TAG }}" >> body.txt
+          echo "SHA256 Checksums:" >> body.txt
+          echo '```' >> body.txt
           for file in ${{ steps.download_artifacts.outputs.download-path }}/**/*.sha256; do
-            echo "$(cat $file)" >> $GITHUB_OUTPUT
+            echo "$(cat $file)" >> body.txt
           done
-          echo '```' >> $GITHUB_OUTPUT
+          echo '```' >> body.txt
+          echo "BODY<<EOF" >> $GITHUB_OUTPUT
+          cat body.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create or Update GitHub Release
         id: create_release
@@ -205,7 +209,7 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          body: ${{ steps.body.outputs.GITHUB_OUTPUT }}
+          body: ${{ steps.body.outputs.BODY }}
           files: |
             ${{ steps.download_artifacts.outputs.download-path }}/**/*.tar.gz
             ${{ steps.download_artifacts.outputs.download-path }}/**/*.zip
