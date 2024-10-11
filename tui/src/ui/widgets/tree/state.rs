@@ -347,6 +347,7 @@ where
     }
 
     /// Handles a mouse click.
+    /// Selects the item at the given position.
     /// If the item is a leaf, it checks it.
     /// It the item is a branch, it toggles it open/closed.
     ///

@@ -61,6 +61,7 @@ impl Component for RadioView {
         if let Some(props) = &state.additional_view_data.radio {
             Self {
                 props: Some(props.to_owned()),
+                tree_state: Mutex::new(CheckTreeState::default()),
                 ..self
             }
         } else {

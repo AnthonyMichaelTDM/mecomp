@@ -65,6 +65,7 @@ impl Component for ArtistView {
         if let Some(props) = &state.additional_view_data.artist {
             Self {
                 props: Some(props.to_owned()),
+                tree_state: Mutex::new(CheckTreeState::default()),
                 ..self
             }
         } else {
@@ -344,11 +345,18 @@ impl Component for LibraryArtistsView {
     {
         let mut artists = state.library.artists.clone();
         self.props.sort_mode.sort_artists(&mut artists);
+        let tree_state = if state.active_view == ActiveView::Artists {
+            self.tree_state
+        } else {
+            Mutex::new(CheckTreeState::default())
+        };
+
         Self {
             props: Props {
                 artists,
                 ..self.props
             },
+            tree_state,
             ..self
         }
     }

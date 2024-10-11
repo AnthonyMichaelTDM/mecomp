@@ -87,6 +87,7 @@ impl Component for SearchView {
         Self {
             search_bar: self.search_bar.move_with_state(state),
             props: Props::from(state),
+            tree_state: Mutex::new(CheckTreeState::default()),
             ..self
         }
     }

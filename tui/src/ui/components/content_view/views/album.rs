@@ -65,6 +65,7 @@ impl Component for AlbumView {
         if let Some(props) = &state.additional_view_data.album {
             Self {
                 props: Some(props.to_owned()),
+                tree_state: Mutex::new(CheckTreeState::default()),
                 ..self
             }
         } else {
@@ -374,11 +375,18 @@ impl Component for LibraryAlbumsView {
     {
         let mut albums = state.library.albums.clone();
         self.props.sort_mode.sort_albums(&mut albums);
+        let tree_state = if state.active_view == ActiveView::Albums {
+            self.tree_state
+        } else {
+            Mutex::new(CheckTreeState::default())
+        };
+
         Self {
             props: Props {
                 albums,
                 ..self.props
             },
+            tree_state,
             ..self
         }
     }
