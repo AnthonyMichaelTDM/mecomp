@@ -144,18 +144,18 @@ jobs:
           fi
           cd -
 
+      - name: Generate checksums
+        run: |
+          cd target/${{ matrix.platform.target }}/release
+          md5sum ${{ matrix.binary }} | awk '{print $1}' > ../../../${{ matrix.binary }}-${{ matrix.platform.os_name }}.md5
+          cd -
+        shell: bash
+
       - name: Publish build artifacts
         uses: actions/upload-artifact@v4.4.0
         with:
           name: ${{ matrix.binary }}-${{ matrix.platform.os_name }}
           path: "${{ matrix.binary }}-${{ matrix.platform.os_name }}.*"
-
-      - name: Publish checksums
-        run: |
-          cd target/${{ matrix.platform.target }}/release
-          sha256sum ${{ matrix.binary }} > ../../../${{ matrix.binary }}-${{ matrix.platform.os_name }}.sha256
-          cd -
-        shell: bash
 
   gh-release:
     if: startsWith(github.ref, 'refs/tags/')
@@ -185,10 +185,10 @@ jobs:
         shell: bash
         run: |
           echo "Release for ${{ steps.get_release_tag.outputs.RELEASE_TAG }}" >> $GITHUB_OUTPUT
-          echo "Checksums:" >> $GITHUB_OUTPUT
+          echo "MD5 Checksums:" >> $GITHUB_OUTPUT
           echo '```' >> $GITHUB_OUTPUT
-          for file in ${{ steps.download_artifacts.outputs.download-path }}/*.sha256; do
-            echo "- $(basename $file .sha256): $(cat $file)" >> $GITHUB_OUTPUT
+          for file in ${{ steps.download_artifacts.outputs.download-path }}/*.md5; do
+            echo "- $(basename $file .md5): $(cat $file)" >> $GITHUB_OUTPUT
           done
           echo '```' >> $GITHUB_OUTPUT
           echo "The above checksums are for the files in the attached archives." >> $GITHUB_OUTPUT
