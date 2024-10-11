@@ -5,7 +5,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Position, Rect},
+    layout::{Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
     text::Span,
     widgets::Block,
@@ -208,6 +208,9 @@ impl Component for App {
             return;
         }
 
+        // adjust area to exclude the border
+        let area = area.inner(Margin::new(1, 1));
+
         // defer to the component that the mouse is in
         let mouse_position = Position::new(mouse.column, mouse.row);
         let Areas {
@@ -283,6 +286,8 @@ impl ComponentRender<Rect> for App {
             .border_style(Style::default().fg(APP_BORDER.into()))
             .style(Style::default().fg(TEXT_NORMAL.into()));
         let app_area = block.inner(area);
+        debug_assert_eq!(area.inner(Margin::new(1, 1)), app_area);
+
         frame.render_widget(block, area);
         app_area
     }
