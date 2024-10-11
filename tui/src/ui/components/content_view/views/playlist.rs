@@ -223,10 +223,10 @@ impl Component for PlaylistView {
                 }
             }
             MouseEventKind::ScrollDown if content_area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().scroll_down(1);
+                self.tree_state.lock().unwrap().key_down();
             }
             MouseEventKind::ScrollUp if content_area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().scroll_up(1);
+                self.tree_state.lock().unwrap().key_up();
             }
             _ => {}
         }
@@ -617,10 +617,10 @@ impl Component for LibraryPlaylistsView {
                     }
                 }
                 MouseEventKind::ScrollDown if area.contains(mouse_position) => {
-                    self.tree_state.lock().unwrap().scroll_down(1);
+                    self.tree_state.lock().unwrap().key_down();
                 }
                 MouseEventKind::ScrollUp if area.contains(mouse_position) => {
-                    self.tree_state.lock().unwrap().scroll_up(1);
+                    self.tree_state.lock().unwrap().key_up();
                 }
                 _ => {}
             }
