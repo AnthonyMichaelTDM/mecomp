@@ -1,6 +1,6 @@
 # This checks formatting, runs tests, and builds the project.
 
-name: CI
+name: Continuous Integration
 
 on:
   push:
