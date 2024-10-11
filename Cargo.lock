@@ -2666,7 +2666,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-analysis"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "adler32",
  "bliss-audio-aubio-rs",
@@ -2697,7 +2697,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -2716,7 +2716,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "directories",
@@ -2750,7 +2750,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-daemon"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -2782,7 +2782,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-storage"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "criterion",
@@ -2809,7 +2809,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-tui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -5246,7 +5246,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "mecomp-workspace-hack",
  "surrealdb",
@@ -5255,7 +5255,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx-macros"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "mecomp-workspace-hack",
  "surrealqlx-macros-impl",
@@ -5264,7 +5264,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx-macros-impl"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "mecomp-workspace-hack",
  "pretty_assertions",
