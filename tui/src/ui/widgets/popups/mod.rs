@@ -66,7 +66,7 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
         action_tx: UnboundedSender<Action>,
     ) {
         if area.contains(Position::new(mouse.column, mouse.row)) {
-            self.inner_handle_mouse_event(mouse, area);
+            return self.inner_handle_mouse_event(mouse, area);
         }
 
         // Close the popup when the mouse is clicked outside the popup
