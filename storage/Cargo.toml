@@ -29,7 +29,6 @@ analysis = ["dep:futures", "dep:mecomp-analysis"]
 # shared dependencies
 lofty = { workspace = true }
 log = { workspace = true }
-mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 once_cell = { workspace = true }
 one-or-many = { workspace = true }
 rand = { workspace = true }
@@ -47,6 +46,7 @@ mecomp-analysis = { workspace = true, optional = true }
 
 # dependencies for the test_utils feature
 anyhow = { workspace = true, optional = true }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
 anyhow = { workspace = true }

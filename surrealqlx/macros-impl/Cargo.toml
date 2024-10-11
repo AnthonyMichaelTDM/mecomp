@@ -7,14 +7,14 @@ description = "SurrealQLX macros implementation"
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
-readme.workspace = true
+readme = "../README.md"
 license.workspace = true
 
 
 [dependencies]
 proc-macro2 = { version = "1.0", default-features = false }
 quote = { version = "1.0", default-features = false }
-syn = { version = "2.0", default-features = false }
+syn = { version = "2.0", features = ["parsing", "derive", "full"] }
 mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
 
 [dev-dependencies]

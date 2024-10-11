@@ -7,7 +7,7 @@ description = "Macros for surrealqlx"
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
-readme.workspace = true
+readme = "../README.md"
 license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -20,5 +20,5 @@ bench = false
 
 [dependencies]
 syn = { version = "2.0", default-features = false }
+surrealqlx-macros-impl = { path = "../macros-impl", version = "0.1" }
 mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
-surrealqlx-macros-impl = { path = "../macros-impl" }

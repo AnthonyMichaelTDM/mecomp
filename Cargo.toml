@@ -96,7 +96,12 @@ surrealdb = { version = "2.0", features = [
 ], default-features = false }
 tap = { version = "1.0" }
 thiserror = { version = "1.0" }
-tokio = { version = "1.40", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.40", features = [
+    "macros",
+    "rt-multi-thread",
+    "sync",
+    "time",
+] }
 walkdir = { version = "2.5" }
 tarpc = { version = "0.34.0", features = [
     "serde-transport",
@@ -113,12 +118,12 @@ opentelemetry-semantic-conventions = { version = "0.16.0" }
 tracing-flame = "0.2.0"
 
 # MECOMP packages
-mecomp-analysis = { path = "analysis" }
-mecomp-core = { path = "core", default-features = false }
-mecomp-daemon = { path = "daemon" }
-mecomp-storage = { path = "storage", default-features = false }
-surrealqlx = { path = "surrealqlx/lib", features = ["macros"] }
-one-or-many = { path = "one-or-many" }
+mecomp-analysis = { path = "analysis", version = "0.1" }
+mecomp-core = { path = "core", default-features = false, version = "0.1" }
+mecomp-daemon = { path = "daemon", version = "0.1" }
+mecomp-storage = { path = "storage", default-features = false, version = "0.1" }
+surrealqlx = { path = "surrealqlx/lib", features = ["macros"], version = "0.1" }
+one-or-many = { path = "one-or-many", version = "0.1" }
 
 # shared dev dependencies
 pretty_assertions = "1.4"

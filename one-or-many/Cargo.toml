@@ -7,7 +7,7 @@ description = "Utility container for working with data that can either be null, 
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
-readme.workspace = true
+readme = "README.md"
 license.workspace = true
 
 [features]

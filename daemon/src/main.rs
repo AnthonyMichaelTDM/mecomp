@@ -26,7 +26,7 @@ struct Flags {
     log_level: Option<log::LevelFilter>,
 }
 
-static DEFAULT_CONFIG: &str = include_str!("../../Mecomp.toml");
+static DEFAULT_CONFIG: &str = include_str!("../Mecomp.toml");
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

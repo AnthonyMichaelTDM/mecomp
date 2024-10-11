@@ -22,8 +22,6 @@ MECOMP is a local music player that it is designed to solve a very specific prob
 
 ## Installation
 
-MECOMP is not yet ready for general distribution, but if you want to try it out there are 2 ways to do so:
-
 <details>
 <summary>Aside: Linux Dependencies</summary>
 
@@ -110,7 +108,16 @@ Other platforms are not currently supported, but you can try compiling the binar
 
 ### Releases
 
-MECOMP is not yet ready for general distribution, but when it is, we will provide pre-compiled binaries for the latest releases on the [releases page](https://github.com/AnthonyMichaelTDM/mecomp/releases).
+Precompiled binaries for the latest releases can be found on the [releases page](https://github.com/AnthonyMichaelTDM/mecomp/releases).
+Checksums for the binaries are attached to the release notes.
+
+### Crates.io
+
+MECOMP is published on crates.io, you can install the binaries by running:
+
+```sh
+cargo install mecomp-daemon mecomp-cli mecomp-tui
+```
 
 ## Usage
 
