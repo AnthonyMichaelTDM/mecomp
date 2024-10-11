@@ -1,10 +1,10 @@
 //! Implementation of the Queue Bar component, a scrollable list of the songs in the queue.
 
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::state::RepeatMode;
 use mecomp_storage::db::schemas::song::Song;
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Position, Rect},
     style::{Modifier, Style},
     text::{Line, Text},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
@@ -13,7 +13,10 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::{Action, AudioAction, QueueAction},
+    state::{
+        action::{Action, AudioAction, ComponentAction, QueueAction},
+        component::ActiveComponent,
+    },
     ui::colors::{
         BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
     },
@@ -83,7 +86,7 @@ impl Component for QueueBar {
         "Queue"
     }
 
-    fn handle_key_event(&mut self, key: crossterm::event::KeyEvent) {
+    fn handle_key_event(&mut self, key: KeyEvent) {
         match key.code {
             // Move the selected index up
             KeyCode::Up => {
@@ -163,6 +166,31 @@ impl Component for QueueBar {
                         .unwrap();
                 }
             },
+            _ => {}
+        }
+    }
+
+    // TODO: refactor QueueBar to use a CheckTree for better mouse handling
+    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        let MouseEvent {
+            kind, column, row, ..
+        } = mouse;
+        let mouse_position = Position::new(column, row);
+
+        match kind {
+            // TODO: refactor Sidebar to use a CheckTree for better mouse handling
+            MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
+                // make this the active component
+                self.action_tx
+                    .send(Action::ActiveComponent(ComponentAction::Set(
+                        ActiveComponent::QueueBar,
+                    )))
+                    .unwrap();
+
+                // TODO: when we have better mouse handling, we can use this to select an item
+            }
+            MouseEventKind::ScrollDown => self.handle_key_event(KeyEvent::from(KeyCode::Down)),
+            MouseEventKind::ScrollUp => self.handle_key_event(KeyEvent::from(KeyCode::Up)),
             _ => {}
         }
     }
