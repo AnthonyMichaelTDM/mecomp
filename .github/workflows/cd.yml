@@ -36,6 +36,7 @@ jobs:
             mecomp-tui,
           ]
       max-parallel: 1
+      fail-fast: false # Continue with other crates even if one fails, this is necessary because not all crates need to be published for any given release
     runs-on: ubuntu-latest
     env:
       CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
