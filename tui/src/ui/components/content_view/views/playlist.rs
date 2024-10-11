@@ -193,6 +193,56 @@ impl Component for PlaylistView {
             _ => {}
         }
     }
+
+    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        let MouseEvent {
+            kind, column, row, ..
+        } = mouse;
+        let mouse_position = Position::new(column, row);
+
+        // adjust the area to account for the border
+        let area = area.inner(Margin::new(1, 1));
+        let [_, content_area] = split_area(area);
+        let content_area = content_area.inner(Margin::new(0, 1));
+
+        match kind {
+            MouseEventKind::Down(MouseButton::Left) if content_area.contains(mouse_position) => {
+                let selected_things =
+                    get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                self.tree_state.lock().unwrap().mouse_click(mouse_position);
+
+                // if the selection didn't change, open the selected view
+                if selected_things
+                    == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
+                {
+                    if let Some(thing) = selected_things {
+                        self.action_tx
+                            .send(Action::SetCurrentView(thing.into()))
+                            .unwrap();
+                    }
+                }
+            }
+            MouseEventKind::ScrollDown if content_area.contains(mouse_position) => {
+                self.tree_state.lock().unwrap().scroll_down(1);
+            }
+            MouseEventKind::ScrollUp if content_area.contains(mouse_position) => {
+                self.tree_state.lock().unwrap().scroll_up(1);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn split_area(area: Rect) -> [Rect; 2] {
+    let [info_area, content_area] = *Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(4)])
+        .split(area)
+    else {
+        panic!("Failed to split playlist view area")
+    };
+
+    [info_area, content_area]
 }
 
 impl ComponentRender<RenderProps> for PlaylistView {
@@ -216,13 +266,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
             let content_area = border.inner(props.area);
 
             // split content area to make room for playlist info
-            let [info_area, content_area] = *Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Length(3), Constraint::Min(4)])
-                .split(content_area)
-            else {
-                panic!("Failed to split playlist view area")
-            };
+            let [info_area, content_area] = split_area(content_area);
 
             // render the playlist info
             frame.render_widget(
@@ -535,7 +579,7 @@ impl Component for LibraryPlaylistsView {
         let area = area.inner(Margin::new(1, 1));
 
         if self.input_box_visible {
-            let [input_box_area, content_area] = split_area(area);
+            let [input_box_area, content_area] = lib_split_area(area);
             let content_area = Rect {
                 y: content_area.y + 1,
                 height: content_area.height - 1,
@@ -584,7 +628,7 @@ impl Component for LibraryPlaylistsView {
     }
 }
 
-fn split_area(area: Rect) -> [Rect; 2] {
+fn lib_split_area(area: Rect) -> [Rect; 2] {
     let [input_box_area, content_area] = *Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(1)])
@@ -622,7 +666,7 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
         // render input box (if visible)
         let content_area = if self.input_box_visible {
             // split content area to make room for the input box
-            let [input_box_area, content_area] = split_area(content_area);
+            let [input_box_area, content_area] = lib_split_area(content_area);
 
             // render the input box
             self.input_box.render(
@@ -743,6 +787,7 @@ mod item_view_tests {
         },
     };
     use anyhow::Result;
+    use crossterm::event::KeyModifiers;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -996,6 +1041,129 @@ mod item_view_tests {
             ))
         );
     }
+
+    #[test]
+    fn test_mouse_event() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = PlaylistView::new(&state_with_everything(), tx);
+
+        // need to render the view at least once to load the tree state
+        let (mut terminal, area) = setup_test_terminal(60, 9);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Playlist View sorted by: Artist───────────────────────────┐",
+            "│                       Test Playlist                      │",
+            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on entire playlist──────────────────│",
+            "│☐ Test Song Test Artist                                   │",
+            "│s/S: change sort | d: remove selected─────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // click on the song (selecting it)
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 6,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Playlist View sorted by: Artist───────────────────────────┐",
+            "│                       Test Playlist                      │",
+            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on checked items────────────────────│",
+            "│☑ Test Song Test Artist                                   │",
+            "│s/S: change sort | d: remove selected─────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // click down the song (opening it)
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 6,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Song(item_id()))
+        );
+        let expected = Buffer::with_lines([
+            "┌Playlist View sorted by: Artist───────────────────────────┐",
+            "│                       Test Playlist                      │",
+            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on entire playlist──────────────────│",
+            "│☐ Test Song Test Artist                                   │",
+            "│s/S: change sort | d: remove selected─────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        assert_buffer_eq(&buffer, &expected);
+
+        // scroll down
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                column: 2,
+                row: 6,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        assert_buffer_eq(&buffer, &expected);
+        // scroll up
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollUp,
+                column: 2,
+                row: 7,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        assert_buffer_eq(&buffer, &expected);
+    }
 }
 
 #[cfg(test)]
@@ -1006,6 +1174,7 @@ mod library_view_tests {
         ui::components::content_view::ActiveView,
     };
     use anyhow::Result;
+    use crossterm::event::KeyModifiers;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -1158,6 +1327,79 @@ mod library_view_tests {
             Action::Library(LibraryAction::RemovePlaylist(
                 ("playlist", item_id()).into()
             ))
+        );
+    }
+
+    #[test]
+    fn test_mouse_event() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = LibraryPlaylistsView::new(&state_with_everything(), tx);
+
+        // need to render the view at least once to load the tree state
+        let (mut terminal, area) = setup_test_terminal(60, 9);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Playlists sorted by: Name─────────────────────────┐",
+            "│n: new playlist | d: delete playlist──────────────────────│",
+            "│▪ Test Playlist                                           │",
+            "│                                                          │",
+            "│                                                          │",
+            "│                                                          │",
+            "│                                                          │",
+            "│                                                          │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | s/S: change sort──────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // scroll down (selecting the collection)
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                column: 2,
+                row: 2,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+
+        // click down the collection (opening it)
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 3,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Playlist(item_id()))
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        assert_buffer_eq(&buffer, &expected);
+
+        // scroll up
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollUp,
+                column: 2,
+                row: 3,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
         );
     }
 }

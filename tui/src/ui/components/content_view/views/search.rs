@@ -2,10 +2,10 @@
 
 use std::sync::Mutex;
 
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::rpc::SearchResult;
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
     text::Line,
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
@@ -193,6 +193,75 @@ impl Component for SearchView {
             _ => {}
         }
     }
+
+    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        let MouseEvent {
+            kind, column, row, ..
+        } = mouse;
+        let mouse_position = Position::new(column, row);
+
+        // adjust the area to account for the border
+        let [search_bar_area, content_area] = split_area(area);
+        let content_area = content_area.inner(Margin::new(1, 1));
+
+        if self.search_bar_focused {
+            if search_bar_area.contains(mouse_position) {
+                self.search_bar.handle_mouse_event(mouse, search_bar_area);
+            } else if content_area.contains(mouse_position)
+                && kind == MouseEventKind::Down(MouseButton::Left)
+            {
+                self.search_bar_focused = false;
+            }
+        } else {
+            let content_area = Rect {
+                height: content_area.height.saturating_sub(1),
+                ..content_area
+            };
+            match kind {
+                MouseEventKind::Down(MouseButton::Left)
+                    if search_bar_area.contains(mouse_position) =>
+                {
+                    self.search_bar_focused = true;
+                }
+                MouseEventKind::Down(MouseButton::Left)
+                    if content_area.contains(mouse_position) =>
+                {
+                    let selected_things =
+                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    self.tree_state.lock().unwrap().mouse_click(mouse_position);
+
+                    // if the selection didn't change, open the selected view
+                    if selected_things
+                        == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
+                    {
+                        if let Some(thing) = selected_things {
+                            self.action_tx
+                                .send(Action::SetCurrentView(thing.into()))
+                                .unwrap();
+                        }
+                    }
+                }
+                MouseEventKind::ScrollDown if content_area.contains(mouse_position) => {
+                    self.tree_state.lock().unwrap().scroll_down(1);
+                }
+                MouseEventKind::ScrollUp if content_area.contains(mouse_position) => {
+                    self.tree_state.lock().unwrap().scroll_up(1);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn split_area(area: Rect) -> [Rect; 2] {
+    let [search_bar_area, content_area] = *Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(4)].as_ref())
+        .split(area)
+    else {
+        panic!("Failed to split search view area");
+    };
+    [search_bar_area, content_area]
 }
 
 impl ComponentRender<RenderProps> for SearchView {
@@ -204,13 +273,7 @@ impl ComponentRender<RenderProps> for SearchView {
         };
 
         // split view
-        let [search_bar_area, content_area] = *Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(3), Constraint::Min(4)].as_ref())
-            .split(props.area)
-        else {
-            panic!("Failed to split search view area");
-        };
+        let [search_bar_area, content_area] = split_area(props.area);
 
         // render the search bar
         self.search_bar.render(
@@ -314,6 +377,7 @@ mod tests {
     };
     use anyhow::Result;
     use crossterm::event::KeyEvent;
+    use crossterm::event::KeyModifiers;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -586,5 +650,234 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_mouse() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut view = SearchView::new(&state_with_everything(), tx);
+
+        let (mut terminal, area) = setup_test_terminal(32, 10);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Search────────────────────────┐",
+            "│                              │",
+            "└──────────────────────────────┘",
+            "┌Results───────────────────────┐",
+            "│▶ Songs (1):                  │",
+            "│▶ Albums (1):                 │",
+            "│▶ Artists (1):                │",
+            "│                              │",
+            "│                              │",
+            "└ ⏎ : Search───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // put some text in the search bar
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('a')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('b')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('c')));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Search────────────────────────┐",
+            "│abc                           │",
+            "└──────────────────────────────┘",
+            "┌Results───────────────────────┐",
+            "│▶ Songs (1):                  │",
+            "│▶ Albums (1):                 │",
+            "│▶ Artists (1):                │",
+            "│                              │",
+            "│                              │",
+            "└ ⏎ : Search───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // click in the search bar and ensure the cursor is moved to the right place
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 1,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('c')));
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Search────────────────────────┐",
+            "│acbc                          │",
+            "└──────────────────────────────┘",
+            "┌Results───────────────────────┐",
+            "│▶ Songs (1):                  │",
+            "│▶ Albums (1):                 │",
+            "│▶ Artists (1):                │",
+            "│                              │",
+            "│                              │",
+            "└ ⏎ : Search───────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+
+        // click out of the search bar
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 5,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+
+        // scroll down
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                column: 2,
+                row: 4,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                column: 2,
+                row: 4,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+
+        // click on the selected dropdown
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 5,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        let expected = Buffer::with_lines([
+            "┌Search────────────────────────┐",
+            "│acbc                          │",
+            "└──────────────────────────────┘",
+            "┌Results───────────────────────┐",
+            "│▶ Songs (1):                  │",
+            "│▼ Albums (1):                 │",
+            "│  ☐ Test Album Test Artist    │",
+            "│▶ Artists (1):                │",
+            "│/: Search | ␣ : Check─────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate─┘",
+        ]);
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        assert_buffer_eq(&buffer, &expected);
+
+        // scroll up
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollUp,
+                column: 2,
+                row: 4,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+
+        // click on the selected dropdown
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 4,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        let expected = Buffer::with_lines([
+            "┌Search────────────────────────┐",
+            "│acbc                          │",
+            "└──────────────────────────────┘",
+            "┌Results───────────────────────┐",
+            "│▼ Songs (1):                 ▲│",
+            "│  ☐ Test Song Test Artist    █│",
+            "│▼ Albums (1):                █│",
+            "│  ☐ Test Album Test Artist   ▼│",
+            "│/: Search | ␣ : Check─────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate─┘",
+        ]);
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        assert_buffer_eq(&buffer, &expected);
+
+        // scroll down
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                column: 2,
+                row: 4,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+
+        // click on the selected item
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 5,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::SetCurrentView(ActiveView::Song(item_id()))
+        );
+        let expected = Buffer::with_lines([
+            "┌Search────────────────────────┐",
+            "│acbc                          │",
+            "└──────────────────────────────┘",
+            "┌Results───────────────────────┐",
+            "│q: add to queue | r: start rad│",
+            "│▼ Songs (1):                 ▲│",
+            "│  ☑ Test Song Test Artist    █│",
+            "│▼ Albums (1):                ▼│",
+            "│/: Search | ␣ : Check─────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate─┘",
+        ]);
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        assert_buffer_eq(&buffer, &expected);
     }
 }
