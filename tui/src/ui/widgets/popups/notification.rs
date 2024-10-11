@@ -78,6 +78,7 @@ mod tests {
     use super::*;
     use crate::test_utils::setup_test_terminal;
     use anyhow::Result;
+    use crossterm::event::{KeyModifiers, MouseEvent};
     use pretty_assertions::assert_eq;
     use ratatui::{
         buffer::Buffer,
@@ -159,5 +160,29 @@ mod tests {
         ]);
         assert_eq!(buffer, expected);
         Ok(())
+    }
+
+    #[test]
+    fn test_click_to_close() {
+        let (mut terminal, area) = setup_test_terminal(20, 3);
+        let (action_tx, mut action_rx) = unbounded_channel();
+        let mut notification = Notification::new(Text::from("Hello, World!"), action_tx.clone());
+        terminal
+            .draw(|frame| notification.render_popup(frame))
+            .unwrap();
+        notification.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 0,
+                row: 0,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+            action_tx,
+        );
+        assert_eq!(
+            action_rx.try_recv().unwrap(),
+            Action::Popup(PopupAction::Close)
+        );
     }
 }
