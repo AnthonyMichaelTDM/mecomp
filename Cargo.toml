@@ -87,7 +87,7 @@ notify = { version = "6.1", default-features = false, features = [
 once_cell = "1.19"
 rand = { version = "0.8.5", features = ["small_rng"] }
 rodio = { version = "0.19.0", features = ["symphonia-all"] }
-rubato = { version = "0.15.0" }
+rubato = { version = "0.16.0" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 strum = { version = "0.26.3", features = ["derive"] }
 surrealdb = { version = "2.0", features = [
@@ -127,7 +127,7 @@ one-or-many = { path = "one-or-many", version = "0.1" }
 
 # shared dev dependencies
 pretty_assertions = "1.4"
-rstest = "0.22.0"
+rstest = "0.23.0"
 rstest_reuse = { version = "0.7.0" }
 tempfile = { version = "3.10" }
 criterion = { version = "0.5.1", features = ["html_reports"] }
