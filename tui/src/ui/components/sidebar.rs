@@ -4,9 +4,9 @@
 
 use std::fmt::Display;
 
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{
-    layout::Alignment,
+    layout::{Alignment, Margin, Position, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState},
@@ -15,7 +15,10 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::{Action, LibraryAction},
+    state::{
+        action::{Action, ComponentAction, LibraryAction},
+        component::ActiveComponent,
+    },
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{Component, ComponentRender, RenderProps},
@@ -46,6 +49,24 @@ pub enum SidebarItem {
     LibraryRescan,
     LibraryAnalyze,
     LibraryRecluster,
+}
+
+impl SidebarItem {
+    #[must_use]
+    pub const fn to_action(&self) -> Option<Action> {
+        match self {
+            Self::Search => Some(Action::SetCurrentView(ActiveView::Search)),
+            Self::LibraryRescan => Some(Action::Library(LibraryAction::Rescan)),
+            Self::LibraryAnalyze => Some(Action::Library(LibraryAction::Analyze)),
+            Self::LibraryRecluster => Some(Action::Library(LibraryAction::Recluster)),
+            Self::Songs => Some(Action::SetCurrentView(ActiveView::Songs)),
+            Self::Artists => Some(Action::SetCurrentView(ActiveView::Artists)),
+            Self::Albums => Some(Action::SetCurrentView(ActiveView::Albums)),
+            Self::Playlists => Some(Action::SetCurrentView(ActiveView::Playlists)),
+            Self::Collections => Some(Action::SetCurrentView(ActiveView::Collections)),
+            Self::Space => None,
+        }
+    }
 }
 
 impl Display for SidebarItem {
@@ -133,47 +154,47 @@ impl Component for Sidebar {
             KeyCode::Enter => {
                 if let Some(selected) = self.list_state.selected() {
                     let item = SIDEBAR_ITEMS[selected];
-                    match item {
-                        SidebarItem::Search => self
-                            .action_tx
-                            .send(Action::SetCurrentView(ActiveView::Search))
-                            .unwrap(),
-                        SidebarItem::LibraryRescan => self
-                            .action_tx
-                            .send(Action::Library(LibraryAction::Rescan))
-                            .unwrap(),
-                        SidebarItem::LibraryAnalyze => self
-                            .action_tx
-                            .send(Action::Library(LibraryAction::Analyze))
-                            .unwrap(),
-                        SidebarItem::LibraryRecluster => self
-                            .action_tx
-                            .send(Action::Library(LibraryAction::Recluster))
-                            .unwrap(),
-                        SidebarItem::Songs => self
-                            .action_tx
-                            .send(Action::SetCurrentView(ActiveView::Songs))
-                            .unwrap(),
-                        SidebarItem::Artists => self
-                            .action_tx
-                            .send(Action::SetCurrentView(ActiveView::Artists))
-                            .unwrap(),
-                        SidebarItem::Albums => self
-                            .action_tx
-                            .send(Action::SetCurrentView(ActiveView::Albums))
-                            .unwrap(),
-                        SidebarItem::Playlists => self
-                            .action_tx
-                            .send(Action::SetCurrentView(ActiveView::Playlists))
-                            .unwrap(),
-                        SidebarItem::Collections => self
-                            .action_tx
-                            .send(Action::SetCurrentView(ActiveView::Collections))
-                            .unwrap(),
-                        SidebarItem::Space => {}
+                    if let Some(action) = item.to_action() {
+                        self.action_tx.send(action).unwrap();
                     }
                 }
             }
+            _ => {}
+        }
+    }
+
+    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        let MouseEvent {
+            kind, column, row, ..
+        } = mouse;
+        let mouse_position = Position::new(column, row);
+
+        // adjust area to exclude the border
+        let area = area.inner(Margin::new(1, 1));
+
+        match kind {
+            // TODO: refactor Sidebar to use a CheckTree for better mouse handling
+            MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
+                // make this the active component
+                self.action_tx
+                    .send(Action::ActiveComponent(ComponentAction::Set(
+                        ActiveComponent::Sidebar,
+                    )))
+                    .unwrap();
+
+                // adjust the mouse position so that it is relative to the area of the list
+                let adjusted_mouse_y = mouse_position.y - area.y;
+
+                // select the item at the mouse position
+                let new_selection = adjusted_mouse_y as usize;
+                if self.list_state.selected() == Some(new_selection) {
+                    self.handle_key_event(KeyEvent::from(KeyCode::Enter));
+                } else if new_selection < SIDEBAR_ITEMS.len() {
+                    self.list_state.select(Some(new_selection));
+                }
+            }
+            MouseEventKind::ScrollDown => self.handle_key_event(KeyEvent::from(KeyCode::Down)),
+            MouseEventKind::ScrollUp => self.handle_key_event(KeyEvent::from(KeyCode::Up)),
             _ => {}
         }
     }
