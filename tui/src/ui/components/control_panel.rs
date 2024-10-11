@@ -3,10 +3,11 @@
 
 use std::time::Duration;
 
-use crossterm::event::{KeyCode, KeyEvent, MediaKeyCode};
+use crossterm::event::{KeyCode, KeyEvent, MediaKeyCode, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::state::{SeekType, StateRuntime};
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Position},
+    prelude::Rect,
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, LineGauge},
@@ -14,7 +15,10 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::{Action, AudioAction, PlaybackAction, VolumeAction},
+    state::{
+        action::{Action, AudioAction, ComponentAction, PlaybackAction, VolumeAction},
+        component::ActiveComponent,
+    },
     ui::colors::{
         BORDER_FOCUSED, BORDER_UNFOCUSED, GAUGE_FILLED, GAUGE_UNFILLED, TEXT_HIGHLIGHT_ALT,
         TEXT_NORMAL,
@@ -149,6 +153,167 @@ impl Component for ControlPanel {
             _ => {}
         }
     }
+
+    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        let MouseEvent {
+            kind, column, row, ..
+        } = mouse;
+        let mouse_position = Position::new(column, row);
+
+        // adjust area to exclude the border
+        let area = Rect {
+            y: area.y + 1,
+            height: area.height - 1,
+            ..area
+        };
+
+        // split the area into sub-areas
+        let Areas {
+            play_pause,
+            song_progress,
+            volume,
+            ..
+        } = split_area(area);
+
+        // adjust song_progress area to exclude the runtime label
+        let runtime_string_len =
+            u16::try_from(runtime_string(self.props.song_runtime).len()).unwrap_or(u16::MAX);
+        let song_progress = Rect {
+            x: song_progress.x + runtime_string_len,
+            width: song_progress.width - runtime_string_len,
+            ..song_progress
+        };
+        // adjust play/pause area to only include the icon
+        let play_pause = Rect {
+            x: play_pause.x + play_pause.width - 3,
+            width: 2,
+            ..play_pause
+        };
+        // adjust volume area to only include the label
+        let volume = Rect {
+            width: u16::try_from(volume_string(self.props.muted, self.props.volume).len())
+                .unwrap_or(u16::MAX),
+            ..volume
+        };
+
+        if kind == MouseEventKind::Down(MouseButton::Left) && area.contains(mouse_position) {
+            self.action_tx
+                .send(Action::ActiveComponent(ComponentAction::Set(
+                    ActiveComponent::ControlPanel,
+                )))
+                .unwrap();
+        }
+
+        match kind {
+            MouseEventKind::Down(MouseButton::Left) if play_pause.contains(mouse_position) => {
+                self.action_tx
+                    .send(Action::Audio(AudioAction::Playback(PlaybackAction::Toggle)))
+                    .unwrap();
+            }
+            MouseEventKind::Down(MouseButton::Left) if song_progress.contains(mouse_position) => {
+                // calculate the ratio of the click position to the song progress bar
+                #[allow(clippy::cast_lossless)]
+                let ratio =
+                    (mouse_position.x - song_progress.x) as f64 / song_progress.width as f64;
+                self.action_tx
+                    .send(Action::Audio(AudioAction::Playback(PlaybackAction::Seek(
+                        SeekType::Absolute,
+                        Duration::from_secs_f64(
+                            self.props
+                                .song_runtime
+                                .map_or(0.0, |runtime| runtime.duration.as_secs_f64())
+                                * ratio,
+                        ),
+                    ))))
+                    .unwrap();
+            }
+            MouseEventKind::Down(MouseButton::Left) if volume.contains(mouse_position) => {
+                self.action_tx
+                    .send(Action::Audio(AudioAction::Playback(
+                        PlaybackAction::ToggleMute,
+                    )))
+                    .unwrap();
+            }
+            MouseEventKind::ScrollUp if volume.contains(mouse_position) => {
+                self.action_tx
+                    .send(Action::Audio(AudioAction::Playback(
+                        PlaybackAction::Volume(VolumeAction::Increase(0.05)),
+                    )))
+                    .unwrap();
+            }
+            MouseEventKind::ScrollDown if volume.contains(mouse_position) => {
+                self.action_tx
+                    .send(Action::Audio(AudioAction::Playback(
+                        PlaybackAction::Volume(VolumeAction::Decrease(0.05)),
+                    )))
+                    .unwrap();
+            }
+            _ => {}
+        }
+    }
+}
+
+fn runtime_string(runtime: Option<StateRuntime>) -> String {
+    runtime.map_or_else(
+        || String::from("0.0/0.0"),
+        |runtime| {
+            format!(
+                "{}:{:04.1}/{}:{:04.1}",
+                runtime.seek_position.as_secs() / 60,
+                runtime.seek_position.as_secs_f32() % 60.0,
+                runtime.duration.as_secs() / 60,
+                runtime.duration.as_secs_f32() % 60.0
+            )
+        },
+    )
+}
+
+fn volume_string(muted: bool, volume: f32) -> String {
+    format!(" {}: {:.1}", if muted { "🔇" } else { "🔊" }, volume * 100.)
+}
+
+#[derive(Debug)]
+struct Areas {
+    song_info: Rect,
+    play_pause: Rect,
+    song_progress: Rect,
+    volume: Rect,
+    instructions: Rect,
+}
+
+fn split_area(area: Rect) -> Areas {
+    let [song_info, playback_info_area, instructions] = *Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Fill(1),
+            Constraint::Fill(1),
+            Constraint::Fill(1),
+        ])
+        .split(area)
+    else {
+        panic!("Failed to split frame into areas");
+    };
+
+    // middle (song progress, volume, and paused/playing indicator)
+    let [play_pause, song_progress, volume] = *Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Min(20),  // play/pause indicator
+            Constraint::Max(300), // song progress
+            Constraint::Min(20),  // volume indicator
+        ])
+        .split(playback_info_area)
+    else {
+        panic!("Failed to split frame into areas");
+    };
+
+    Areas {
+        song_info,
+        play_pause,
+        song_progress,
+        volume,
+        instructions,
+    }
 }
 
 impl ComponentRender<RenderProps> for ControlPanel {
@@ -172,17 +337,13 @@ impl ComponentRender<RenderProps> for ControlPanel {
     }
 
     fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
-        let [song_info_area, playback_info_area, instructions_area] = *Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Fill(1),
-                Constraint::Fill(1),
-                Constraint::Fill(1),
-            ])
-            .split(props.area)
-        else {
-            panic!("main layout must have 3 children");
-        };
+        let Areas {
+            song_info,
+            play_pause,
+            song_progress,
+            volume,
+            instructions,
+        } = split_area(props.area);
 
         // top (song title and artist)
         if let Some(song_title) = self.props.song_title.clone() {
@@ -199,30 +360,18 @@ impl ComponentRender<RenderProps> for ControlPanel {
                     ),
                 ])
                 .centered(),
-                song_info_area,
+                song_info,
             );
         } else {
             frame.render_widget(
                 Line::from("No Song Playing")
                     .style(Style::default().bold().fg(TEXT_NORMAL.into()))
                     .alignment(Alignment::Center),
-                song_info_area,
+                song_info,
             );
         }
 
         // middle (song progress, volume, and paused/playing indicator)
-        let [play_pause_area, song_progress_area, volume_area] = *Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Min(20),  // play/pause indicator
-                Constraint::Max(300), // song progress
-                Constraint::Min(20),  // volume indicator
-            ])
-            .split(playback_info_area)
-        else {
-            panic!("middle layout must have 3 children");
-        };
-
         // play/pause indicator
         frame.render_widget(
             Line::from(if self.props.is_playing {
@@ -232,43 +381,28 @@ impl ComponentRender<RenderProps> for ControlPanel {
             })
             .bold()
             .alignment(Alignment::Right),
-            play_pause_area,
+            play_pause,
         );
 
         // song progress
         frame.render_widget(
             LineGauge::default()
-                .label(Line::from(self.props.song_runtime.map_or_else(
-                    || String::from("0.0/0.0"),
-                    |runtime| {
-                        format!(
-                            "{}:{:04.1}/{}:{:04.1}",
-                            runtime.seek_position.as_secs() / 60,
-                            runtime.seek_position.as_secs_f32() % 60.0,
-                            runtime.duration.as_secs() / 60,
-                            runtime.duration.as_secs_f32() % 60.0
-                        )
-                    },
-                )))
+                .label(Line::from(runtime_string(self.props.song_runtime)))
                 .filled_style(Style::default().fg(GAUGE_FILLED.into()).bold())
                 .unfilled_style(Style::default().fg(GAUGE_UNFILLED.into()).bold())
                 .ratio(self.props.song_runtime.map_or(0.0, |runtime| {
                     runtime.seek_position.as_secs_f64() / runtime.duration.as_secs_f64()
                 })),
-            song_progress_area,
+            song_progress,
         );
 
         // volume indicator
         frame.render_widget(
             // muted icon if muted, otherwise a volume icon.
-            Line::from(format!(
-                " {}: {:.1}",
-                if self.props.muted { "🔇" } else { "🔊" },
-                self.props.volume * 100.
-            ))
-            .style(Style::default().bold().fg(TEXT_NORMAL.into()))
-            .alignment(Alignment::Left),
-            volume_area,
+            Line::from(volume_string(self.props.muted, self.props.volume))
+                .style(Style::default().bold().fg(TEXT_NORMAL.into()))
+                .alignment(Alignment::Left),
+            volume,
         );
 
         // bottom (instructions)
@@ -278,7 +412,7 @@ impl ComponentRender<RenderProps> for ControlPanel {
             )
             .italic()
             .alignment(Alignment::Center),
-            instructions_area,
+            instructions,
         );
     }
 }
