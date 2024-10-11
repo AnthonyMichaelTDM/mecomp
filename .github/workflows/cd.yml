@@ -147,7 +147,12 @@ jobs:
       - name: Generate checksums
         run: |
           cd target/${{ matrix.platform.target }}/release
-          md5sum ${{ matrix.binary }} | awk '{print $1}' > ../../../${{ matrix.binary }}-${{ matrix.platform.os_name }}.md5
+          if [[ "${{ matrix.platform.os }}" == "macOS-latest" ]]; then
+            md5 ${{ matrix.binary }} > ../../../${{ matrix.binary }}-${{ matrix.platform.os_name }}.md5
+          elif [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
+            certutil -hashfile ${{ matrix.binary }} MD5 > ../../../${{ matrix.binary }}-${{ matrix.platform.os_name }}.md5
+          else
+            md5sum ${{ matrix.binary }} | awk '{print $1}' > ../../../${{ matrix.binary }}-${{ matrix.platform.os_name }}.md5
           cd -
         shell: bash
 
