@@ -238,10 +238,10 @@ impl Popup for PlaylistSelector {
                     self.tree_state.lock().unwrap().mouse_click(mouse_position);
                 }
                 MouseEventKind::ScrollDown if area.contains(mouse_position) => {
-                    self.tree_state.lock().unwrap().scroll_down(1);
+                    self.tree_state.lock().unwrap().key_down();
                 }
                 MouseEventKind::ScrollUp if area.contains(mouse_position) => {
-                    self.tree_state.lock().unwrap().scroll_up(1);
+                    self.tree_state.lock().unwrap().key_up();
                 }
                 _ => {}
             }
