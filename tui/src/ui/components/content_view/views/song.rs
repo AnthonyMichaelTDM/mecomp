@@ -2,10 +2,10 @@
 
 use std::{fmt::Display, sync::Mutex};
 
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_storage::db::schemas::song::Song;
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
@@ -494,6 +494,42 @@ impl Component for LibrarySongsView {
             KeyCode::Char('S') => {
                 self.props.sort_mode = self.props.sort_mode.prev();
                 self.props.sort_mode.sort_songs(&mut self.props.songs);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        let MouseEvent {
+            kind, column, row, ..
+        } = mouse;
+        let mouse_position = Position::new(column, row);
+
+        // adjust the area to account for the border
+        let area = area.inner(Margin::new(1, 2));
+
+        match kind {
+            MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
+                let selected_things =
+                    get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                self.tree_state.lock().unwrap().mouse_click(mouse_position);
+
+                // if the selection didn't change, open the selected view
+                if selected_things
+                    == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
+                {
+                    if let Some(thing) = selected_things {
+                        self.action_tx
+                            .send(Action::SetCurrentView(thing.into()))
+                            .unwrap();
+                    }
+                }
+            }
+            MouseEventKind::ScrollDown if area.contains(mouse_position) => {
+                self.tree_state.lock().unwrap().scroll_down(1);
+            }
+            MouseEventKind::ScrollUp if area.contains(mouse_position) => {
+                self.tree_state.lock().unwrap().scroll_up(1);
             }
             _ => {}
         }

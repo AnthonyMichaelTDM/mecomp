@@ -8,7 +8,7 @@ use super::{
 };
 
 /// Keeps the state of what is currently selected and what was opened in a [`CheckTree`](super::CheckTree)
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 #[allow(clippy::module_name_repetitions)]
 pub struct CheckTreeState<Identifier> {
     pub(super) offset: usize,

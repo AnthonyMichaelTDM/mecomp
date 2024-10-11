@@ -2,7 +2,10 @@
 
 pub mod views;
 
+use crossterm::event::{MouseButton, MouseEventKind};
 use mecomp_storage::db::schemas::{album, artist, collection, playlist, song, Id, Thing};
+use ratatui::layout::Position;
+use tokio::sync::mpsc::UnboundedSender;
 use views::{
     album::{AlbumView, LibraryAlbumsView},
     artist::{ArtistView, LibraryArtistsView},
@@ -14,7 +17,13 @@ use views::{
     song::{LibrarySongsView, SongView},
 };
 
-use crate::ui::AppState;
+use crate::{
+    state::{
+        action::{Action, ComponentAction},
+        component::ActiveComponent,
+    },
+    ui::AppState,
+};
 
 use super::{Component, ComponentRender, RenderProps};
 
@@ -34,6 +43,8 @@ pub struct ContentView {
     pub(crate) collections_view: LibraryCollectionsView,
     pub(crate) collection_view: CollectionView,
     pub(crate) radio_view: RadioView,
+    //
+    pub(crate) action_tx: UnboundedSender<Action>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -133,10 +144,7 @@ impl ContentView {
 }
 
 impl Component for ContentView {
-    fn new(
-        state: &AppState,
-        action_tx: tokio::sync::mpsc::UnboundedSender<crate::state::action::Action>,
-    ) -> Self
+    fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self
     where
         Self: Sized,
     {
@@ -154,7 +162,8 @@ impl Component for ContentView {
             playlist_view: PlaylistView::new(state, action_tx.clone()),
             collections_view: LibraryCollectionsView::new(state, action_tx.clone()),
             collection_view: CollectionView::new(state, action_tx.clone()),
-            radio_view: RadioView::new(state, action_tx),
+            radio_view: RadioView::new(state, action_tx.clone()),
+            action_tx,
         }
         .move_with_state(state)
     }
@@ -178,6 +187,7 @@ impl Component for ContentView {
             collections_view: self.collections_view.move_with_state(state),
             collection_view: self.collection_view.move_with_state(state),
             radio_view: self.radio_view.move_with_state(state),
+            action_tx: self.action_tx,
         }
     }
 
@@ -194,6 +204,16 @@ impl Component for ContentView {
         mouse: crossterm::event::MouseEvent,
         area: ratatui::prelude::Rect,
     ) {
+        if mouse.kind == MouseEventKind::Down(MouseButton::Left)
+            && area.contains(Position::new(mouse.column, mouse.row))
+        {
+            self.action_tx
+                .send(Action::ActiveComponent(ComponentAction::Set(
+                    ActiveComponent::ContentView,
+                )))
+                .unwrap();
+        }
+
         // defer to active view
         self.get_active_view_component_mut()
             .handle_mouse_event(mouse, area);
