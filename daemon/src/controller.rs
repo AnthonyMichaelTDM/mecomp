@@ -330,6 +330,31 @@ impl MusicPlayer for MusicPlayerServer {
             .ok()
             .flatten()
     }
+    /// Get the Playlists a song is in.
+    #[instrument]
+    async fn library_song_get_playlists(self, context: Context, id: SongId) -> Box<[Playlist]> {
+        let id = id.into();
+        info!("Getting playlists of: {id}");
+        Song::read_playlists(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in library_song_get_playlists: {e}"))
+            .ok()
+            .unwrap_or_default()
+            .into()
+    }
+    /// Get the Collections a song is in.
+    #[instrument]
+    async fn library_song_get_collections(self, context: Context, id: SongId) -> Box<[Collection]> {
+        let id = id.into();
+        info!("Getting collections of: {id}");
+        Song::read_collections(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in library_song_get_collections: {e}"))
+            .ok()
+            .unwrap_or_default()
+            .into()
+    }
+
     /// Get an album by its ID.
     #[instrument]
     async fn library_album_get(self, context: Context, id: AlbumId) -> Option<Album> {

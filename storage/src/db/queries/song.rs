@@ -121,6 +121,66 @@ pub fn read_album_artist() -> impl IntoQuery {
         .unwrap()
 }
 
+/// Query to read the playlists a song is in
+///
+/// Compiles to:
+///
+/// ```sql, ignore
+/// SELECT * FROM $id<-playlist_to_song.in
+/// ```
+///
+/// # Example
+///
+/// ```ignore
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::song::read_playlists;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = read_playlists();
+/// assert_eq!(
+///    statement.into_query().unwrap(),
+///   "SELECT * FROM $id<-playlist_to_song.in".into_query().unwrap()
+/// );
+/// ```
+///
+/// # Panics
+///
+/// This function will panic if the query cannot be parsed, which should never happen.
+#[must_use]
+pub fn read_playlists() -> impl IntoQuery {
+    read_related_in("id", "playlist_to_song")
+}
+
+/// Query to read the collections a song is in
+///
+/// Compiles to:
+///
+/// ```sql, ignore
+/// SELECT * FROM $id<-collection_to_song.in
+/// ```
+///
+/// # Example
+///
+/// ```ignore
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::song::read_collections;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = read_collections();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "SELECT * FROM $id<-collection_to_song.in".into_query().unwrap()
+/// );
+/// ```
+///
+/// # Panics
+///
+/// This function will panic if the query cannot be parsed, which should never happen.
+#[must_use]
+pub fn read_collections() -> impl IntoQuery {
+    read_related_in("id", "collection_to_song")
+}
+
 #[cfg(test)]
 mod query_validation_tests {
     use pretty_assertions::assert_eq;
@@ -163,6 +223,28 @@ mod query_validation_tests {
         assert_eq!(
             statement.into_query().unwrap(),
             "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_read_playlists() {
+        let statement = read_playlists();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM $id<-playlist_to_song.in"
+                .into_query()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_read_collections() {
+        let statement = read_collections();
+        assert_eq!(
+            statement.into_query().unwrap(),
+            "SELECT * FROM $id<-collection_to_song.in"
                 .into_query()
                 .unwrap()
         );

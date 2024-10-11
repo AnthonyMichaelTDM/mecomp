@@ -29,8 +29,8 @@ use super::{
     checktree_utils::{
         construct_add_to_playlist_action, construct_add_to_queue_action,
         construct_start_radio_action, create_album_tree_leaf, create_artist_tree_item,
-        create_song_tree_leaf, get_checked_things_from_tree_state,
-        get_selected_things_from_tree_state,
+        create_collection_tree_item, create_playlist_tree_item, create_song_tree_leaf,
+        get_checked_things_from_tree_state, get_selected_things_from_tree_state,
     },
     SongViewProps, RADIO_SIZE,
 };
@@ -311,7 +311,9 @@ impl ComponentRender<RenderProps> for SongView {
             // create a tree to hold song album and artists
             let album_tree = create_album_tree_leaf(&state.album, Some(Span::raw("Album: ")));
             let artist_tree = create_artist_tree_item(state.artists.as_slice()).unwrap();
-            let items = &[artist_tree, album_tree];
+            let playlist_tree = create_playlist_tree_item(&state.playlists).unwrap();
+            let collection_tree = create_collection_tree_item(&state.collections).unwrap();
+            let items = &[artist_tree, album_tree, playlist_tree, collection_tree];
 
             // render the song artists / album tree
             frame.render_stateful_widget(
@@ -811,11 +813,19 @@ mod item_view_tests {
     }
 
     #[test]
-    fn test_render() -> Result<()> {
+    fn test_render_no_playlist_no_collection() -> Result<()> {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = SongView::new(&state_with_everything(), tx);
+        let mut state = state_with_everything();
+        state.additional_view_data.song.as_mut().unwrap().playlists = [].into();
+        state
+            .additional_view_data
+            .song
+            .as_mut()
+            .unwrap()
+            .collections = [].into();
+        let mut view = SongView::new(&state, tx);
 
-        let (mut terminal, area) = setup_test_terminal(60, 9);
+        let (mut terminal, area) = setup_test_terminal(60, 12);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -834,6 +844,124 @@ mod item_view_tests {
             "│Performing operations on the song─────────────────────────│",
             "│▶ Artists (1):                                            │",
             "│☐ Album: Test Album Test Artist                           │",
+            "│▶ Playlists (0):                                          │",
+            "│▶ Collections (0):                                        │",
+            "│                                                          │",
+            "└──────────────────────────────────────────────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+        assert!(view.tree_state.lock().unwrap().selected().is_empty());
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        assert_eq!(view.tree_state.lock().unwrap().selected(), &["Artists"]);
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        assert_eq!(
+            view.tree_state.lock().unwrap().selected(),
+            &[state.library.albums[0].id.to_string()]
+        );
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        assert_eq!(view.tree_state.lock().unwrap().selected(), &["Playlists"]);
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Song View─────────────────────────────────────────────────┐",
+            "│                   Test Song Test Artist                  │",
+            "│  Track/Disc: 0/0  Duration: 3:00.0  Genre(s): Test Genre │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on the song─────────────────────────│",
+            "│▶ Artists (1):                                            │",
+            "│☐ Album: Test Album Test Artist                           │",
+            "│▼ Playlists (0):                                          │",
+            "│                                                          │",
+            "│▶ Collections (0):                                        │",
+            "└──────────────────────────────────────────────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Left));
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Song View─────────────────────────────────────────────────┐",
+            "│                   Test Song Test Artist                  │",
+            "│  Track/Disc: 0/0  Duration: 3:00.0  Genre(s): Test Genre │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on the song─────────────────────────│",
+            "│▶ Artists (1):                                            │",
+            "│☐ Album: Test Album Test Artist                           │",
+            "│▶ Playlists (0):                                          │",
+            "│▶ Collections (0):                                        │",
+            "│                                                          │",
+            "└──────────────────────────────────────────────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        assert_eq!(view.tree_state.lock().unwrap().selected(), &["Collections"]);
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Song View─────────────────────────────────────────────────┐",
+            "│                   Test Song Test Artist                  │",
+            "│  Track/Disc: 0/0  Duration: 3:00.0  Genre(s): Test Genre │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on the song─────────────────────────│",
+            "│▶ Artists (1):                                            │",
+            "│☐ Album: Test Album Test Artist                           │",
+            "│▶ Playlists (0):                                          │",
+            "│▼ Collections (0):                                        │",
+            "│                                                          │",
+            "└──────────────────────────────────────────────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render() -> Result<()> {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let view = SongView::new(&state_with_everything(), tx);
+
+        let (mut terminal, area) = setup_test_terminal(60, 12);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Song View─────────────────────────────────────────────────┐",
+            "│                   Test Song Test Artist                  │",
+            "│  Track/Disc: 0/0  Duration: 3:00.0  Genre(s): Test Genre │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on the song─────────────────────────│",
+            "│▶ Artists (1):                                            │",
+            "│☐ Album: Test Album Test Artist                           │",
+            "│▶ Playlists (1):                                          │",
+            "│▶ Collections (1):                                        │",
+            "│                                                          │",
             "└──────────────────────────────────────────────────────────┘",
         ]);
 
@@ -953,7 +1081,8 @@ mod item_view_tests {
 
         // there are checked items
         // first we need to select an item
-        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
         let _frame = terminal.draw(|frame| view.render(frame, props)).unwrap();
 
         // open the selected view

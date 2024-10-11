@@ -9,10 +9,15 @@ use tracing::instrument;
 use crate::db::schemas::analysis::Analysis;
 use crate::{
     db::{
-        queries::song::{read_album, read_album_artist, read_artist, read_song_by_path},
+        queries::song::{
+            read_album, read_album_artist, read_artist, read_collections, read_playlists,
+            read_song_by_path,
+        },
         schemas::{
             album::Album,
             artist::Artist,
+            collection::Collection,
+            playlist::Playlist,
             song::{Song, SongChangeSet, SongId, SongMetadata, TABLE_NAME},
         },
     },
@@ -81,6 +86,26 @@ impl Song {
             .take(0)?;
 
         Ok(res.into())
+    }
+
+    #[instrument]
+    pub async fn read_playlists<C: Connection>(
+        db: &Surreal<C>,
+        id: SongId,
+    ) -> StorageResult<Vec<Playlist>> {
+        Ok(db.query(read_playlists()).bind(("id", id)).await?.take(0)?)
+    }
+
+    #[instrument]
+    pub async fn read_collections<C: Connection>(
+        db: &Surreal<C>,
+        id: SongId,
+    ) -> StorageResult<Vec<Collection>> {
+        Ok(db
+            .query(read_collections())
+            .bind(("id", id))
+            .await?
+            .take(0)?)
     }
 
     #[instrument]
@@ -384,6 +409,117 @@ mod test {
         read.sort_by(|a, b| a.id.cmp(&b.id));
 
         assert_eq!(artist, read);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_read_playlists() -> Result<()> {
+        let db = init_test_database().await?;
+        let song1 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let song2 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let song3 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let playlist1 = Playlist::create(
+            &db,
+            Playlist {
+                id: Playlist::generate_id(),
+                name: "Test Playlist 1".into(),
+                song_count: 0,
+                runtime: Duration::from_secs(0),
+            },
+        )
+        .await?
+        .unwrap();
+        let playlist2 = Playlist::create(
+            &db,
+            Playlist {
+                id: Playlist::generate_id(),
+                name: "Test Playlist 2".into(),
+                song_count: 0,
+                runtime: Duration::from_secs(0),
+            },
+        )
+        .await?
+        .unwrap();
+
+        // add songs to the playlists
+        Playlist::add_songs(
+            &db,
+            playlist1.id.clone(),
+            vec![song1.id.clone(), song2.id.clone()],
+        )
+        .await?;
+        Playlist::add_songs(
+            &db,
+            playlist2.id.clone(),
+            vec![song2.id.clone(), song3.id.clone()],
+        )
+        .await?;
+
+        let playlists = Song::read_playlists(&db, song1.id.clone()).await?;
+        assert_eq!(playlists.len(), 1);
+        assert_eq!(playlists[0].id, playlist1.id);
+
+        let playlists: Vec<_> = Song::read_playlists(&db, song2.id.clone())
+            .await?
+            .into_iter()
+            .map(|p| p.id)
+            .collect();
+        assert_eq!(playlists.len(), 2);
+        assert!(playlists.contains(&playlist1.id));
+        assert!(playlists.contains(&playlist2.id));
+
+        let playlists = Song::read_playlists(&db, song3.id.clone()).await?;
+        assert_eq!(playlists.len(), 1);
+        assert_eq!(playlists[0].id, playlist2.id);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_read_collections() -> Result<()> {
+        let db = init_test_database().await?;
+        let song1 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let song2 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let collection1 = Collection::create(
+            &db,
+            Collection {
+                id: Collection::generate_id(),
+                name: "Test Collection 1".into(),
+                song_count: 0,
+                runtime: Duration::from_secs(0),
+            },
+        )
+        .await?
+        .unwrap();
+        let collection2 = Collection::create(
+            &db,
+            Collection {
+                id: Collection::generate_id(),
+                name: "Test Collection 2".into(),
+                song_count: 0,
+                runtime: Duration::from_secs(0),
+            },
+        )
+        .await?
+        .unwrap();
+
+        // add songs to the collections
+        Collection::add_songs(&db, collection1.id.clone(), vec![song1.id.clone()]).await?;
+        Collection::add_songs(&db, collection2.id.clone(), vec![song2.id.clone()]).await?;
+
+        let collections = Song::read_collections(&db, song1.id.clone()).await?;
+        assert_eq!(collections.len(), 1);
+        assert_eq!(collections[0].id, collection1.id);
+
+        let collections = Song::read_collections(&db, song2.id.clone()).await?;
+        assert_eq!(collections.len(), 1);
+        assert_eq!(collections[0].id, collection2.id);
+
         Ok(())
     }
 
