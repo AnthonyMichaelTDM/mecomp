@@ -57,7 +57,7 @@ jobs:
           tool: cargo-hakari
 
       - name: Publish to crates.io
-        run: cargo hakari publish --package ${{ matrix.crate }} --token $CARGO_REGISTRY_TOKEN
+        run: cargo hakari publish --package ${{ matrix.crate }} --token=$CARGO_REGISTRY_TOKEN
 
   build:
     name: Build - ${{ matrix.binary}} for ${{ matrix.platform.os_name }}
