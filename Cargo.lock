@@ -2480,7 +2480,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6aef28a433e8cf5301a878b8bb36d5de6d6ff9895245b358dc6039bf9cf4438b"
 dependencies = [
  "linfa",
- "linfa-linalg",
+ "linfa-linalg 0.1.0",
  "linfa-nn",
  "ndarray 0.15.6",
  "ndarray-rand",
@@ -2499,6 +2499,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56e7562b41c8876d3367897067013bb2884cc78e6893f092ecd26b305176ac82"
 dependencies = [
  "ndarray 0.15.6",
+ "num-traits",
+ "rand",
+ "thiserror",
+]
+
+[[package]]
+name = "linfa-linalg"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0626487f50e246a23952f354be214e3958c30a8adb859617c7b62fefad2e34af"
+dependencies = [
+ "ndarray 0.16.1",
  "num-traits",
  "rand",
  "thiserror",
@@ -2855,7 +2867,7 @@ dependencies = [
  "itertools 0.10.5",
  "itertools 0.11.0",
  "lalrpop-util",
- "linfa-linalg",
+ "linfa-linalg 0.2.0",
  "log",
  "matrixmultiply",
  "memchr",
@@ -3040,6 +3052,7 @@ version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "882ed72dce9365842bf196bdeedf5055305f11fc8c03dee7bb0194a6cad34841"
 dependencies = [
+ "approx 0.5.1",
  "matrixmultiply",
  "num-complex",
  "num-integer",
@@ -5165,7 +5178,7 @@ dependencies = [
  "ipnet",
  "jsonwebtoken",
  "lexicmp",
- "linfa-linalg",
+ "linfa-linalg 0.1.0",
  "md-5",
  "nanoid",
  "ndarray 0.15.6",
