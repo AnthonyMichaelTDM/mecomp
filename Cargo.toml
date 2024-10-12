@@ -118,12 +118,16 @@ opentelemetry-semantic-conventions = { version = "0.16.0" }
 tracing-flame = "0.2.0"
 
 # MECOMP packages
-mecomp-analysis = { path = "analysis", version = "0.1" }
-mecomp-core = { path = "core", default-features = false, version = "0.1" }
-mecomp-daemon = { path = "daemon", version = "0.1" }
-mecomp-storage = { path = "storage", default-features = false, version = "0.1" }
-surrealqlx = { path = "surrealqlx/lib", features = ["macros"], version = "0.1" }
-one-or-many = { path = "one-or-many", version = "0.1" }
+mecomp-analysis = { path = "analysis", version = "0.1.1" }
+mecomp-core = { path = "core", default-features = false, version = "0.1.1" }
+mecomp-daemon = { path = "daemon", version = "0.1.1" }
+mecomp-storage = { path = "storage", default-features = false, version = "0.1.1" }
+surrealqlx = { path = "surrealqlx/lib", features = [
+    "macros",
+], version = "0.1.0" }
+surrealqlx-macros = { path = "surrealqlx/macros", version = "0.1.0" }
+surrealqlx-macros-impl = { path = "surrealqlx/macros-impl", version = "0.1.0" }
+one-or-many = { path = "one-or-many", version = "0.1.0" }
 
 # shared dev dependencies
 pretty_assertions = "1.4"

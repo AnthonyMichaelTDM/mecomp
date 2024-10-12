@@ -1,6 +1,6 @@
 [package]
 name = "surrealqlx-macros"
-version.workspace = true
+version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
 description = "Macros for surrealqlx"
@@ -20,5 +20,5 @@ bench = false
 
 [dependencies]
 syn = { version = "2.0", default-features = false }
-surrealqlx-macros-impl = { path = "../macros-impl", version = "0.1" }
+surrealqlx-macros-impl.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }

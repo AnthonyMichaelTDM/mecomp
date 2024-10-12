@@ -5246,7 +5246,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx"
-version = "0.1.1"
+version = "0.1.0"
 dependencies = [
  "mecomp-workspace-hack",
  "surrealdb",
@@ -5255,7 +5255,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx-macros"
-version = "0.1.1"
+version = "0.1.0"
 dependencies = [
  "mecomp-workspace-hack",
  "surrealqlx-macros-impl",
@@ -5264,7 +5264,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx-macros-impl"
-version = "0.1.1"
+version = "0.1.0"
 dependencies = [
  "mecomp-workspace-hack",
  "pretty_assertions",

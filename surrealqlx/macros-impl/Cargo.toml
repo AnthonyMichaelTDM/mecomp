@@ -1,6 +1,6 @@
 [package]
 name = "surrealqlx-macros-impl"
-version.workspace = true
+version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
 description = "SurrealQLX macros implementation"
