@@ -32,7 +32,6 @@ use super::{
     checktree_utils::{
         construct_add_to_playlist_action, construct_add_to_queue_action,
         construct_start_radio_action, create_playlist_tree_leaf, create_song_tree_leaf,
-        get_checked_things_from_tree_state, get_selected_things_from_tree_state,
     },
     PlaylistViewProps,
 };
@@ -134,8 +133,7 @@ impl Component for PlaylistView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let selected_things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let selected_things = self.tree_state.lock().unwrap().get_selected_thing();
                     if let Some(thing) = selected_things {
                         self.action_tx
                             .send(Action::SetCurrentView(thing.into()))
@@ -145,8 +143,7 @@ impl Component for PlaylistView {
             }
             // if there are checked items, add them to the queue, otherwise send the whole playlist to the queue
             KeyCode::Char('q') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) = construct_add_to_queue_action(
                     checked_things,
                     self.props.as_ref().map(|p| &p.id),
@@ -156,8 +153,7 @@ impl Component for PlaylistView {
             }
             // if there are checked items, start radio from checked items, otherwise start radio from the playlist
             KeyCode::Char('r') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) =
                     construct_start_radio_action(checked_things, self.props.as_ref().map(|p| &p.id))
                 {
@@ -166,8 +162,7 @@ impl Component for PlaylistView {
             }
             // if there are checked items, add them to the playlist, otherwise add the whole playlist to the playlist
             KeyCode::Char('p') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) = construct_add_to_playlist_action(
                     checked_things,
                     self.props.as_ref().map(|p| &p.id),
@@ -177,11 +172,14 @@ impl Component for PlaylistView {
             }
             // if there are checked items, remove them from the playlist, otherwise remove the whole playlist
             KeyCode::Char('d') => {
-                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) = self.props.as_ref().and_then(|props| {
                     let id = props.id.clone();
                     if things.is_empty() {
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
+                        self.tree_state
+                            .lock()
+                            .unwrap()
+                            .get_selected_thing()
                             .map(|thing| LibraryAction::RemoveSongsFromPlaylist(id, vec![thing]))
                     } else {
                         Some(LibraryAction::RemoveSongsFromPlaylist(id, things))
@@ -195,40 +193,18 @@ impl Component for PlaylistView {
     }
 
     fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        let MouseEvent {
-            kind, column, row, ..
-        } = mouse;
-        let mouse_position = Position::new(column, row);
-
         // adjust the area to account for the border
         let area = area.inner(Margin::new(1, 1));
         let [_, content_area] = split_area(area);
         let content_area = content_area.inner(Margin::new(0, 1));
 
-        match kind {
-            MouseEventKind::Down(MouseButton::Left) if content_area.contains(mouse_position) => {
-                let selected_things =
-                    get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
-                self.tree_state.lock().unwrap().mouse_click(mouse_position);
-
-                // if the selection didn't change, open the selected view
-                if selected_things
-                    == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
-                {
-                    if let Some(thing) = selected_things {
-                        self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
-                            .unwrap();
-                    }
-                }
-            }
-            MouseEventKind::ScrollDown if content_area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            MouseEventKind::ScrollUp if content_area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            _ => {}
+        let result = self
+            .tree_state
+            .lock()
+            .unwrap()
+            .handle_mouse_event(mouse, content_area);
+        if let Some(action) = result {
+            self.action_tx.send(action).unwrap();
         }
     }
 }
@@ -307,7 +283,11 @@ impl ComponentRender<RenderProps> for PlaylistView {
                 .title_top(Line::from(vec![
                     Span::raw("Performing operations on "),
                     Span::raw(
-                        if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
+                        if self
+                            .tree_state
+                            .lock()
+                            .unwrap()
+                            .get_checked_things()
                             .is_empty()
                         {
                             "entire playlist"
@@ -338,7 +318,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
             let items = state
                 .songs
                 .iter()
-                .map(|song| create_song_tree_leaf(song))
+                .map(create_song_tree_leaf)
                 .collect::<Vec<_>>();
 
             // render the playlist songs
@@ -526,8 +506,7 @@ impl Component for LibraryPlaylistsView {
                 // Enter key opens selected view
                 KeyCode::Enter => {
                     if self.tree_state.lock().unwrap().toggle_selected() {
-                        let things =
-                            get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                        let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                         if let Some(thing) = things {
                             self.action_tx
@@ -555,8 +534,7 @@ impl Component for LibraryPlaylistsView {
                 }
                 // "d" key to delete the selected playlist
                 KeyCode::Char('d') => {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -599,30 +577,13 @@ impl Component for LibraryPlaylistsView {
                 ..area
             };
 
-            match kind {
-                MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
-                    let selected_things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
-                    self.tree_state.lock().unwrap().mouse_click(mouse_position);
-
-                    // if the selection didn't change, open the selected view
-                    if selected_things
-                        == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
-                    {
-                        if let Some(thing) = selected_things {
-                            self.action_tx
-                                .send(Action::SetCurrentView(thing.into()))
-                                .unwrap();
-                        }
-                    }
-                }
-                MouseEventKind::ScrollDown if area.contains(mouse_position) => {
-                    self.tree_state.lock().unwrap().key_down();
-                }
-                MouseEventKind::ScrollUp if area.contains(mouse_position) => {
-                    self.tree_state.lock().unwrap().key_up();
-                }
-                _ => {}
+            let result = self
+                .tree_state
+                .lock()
+                .unwrap()
+                .handle_mouse_event(mouse, area);
+            if let Some(action) = result {
+                self.action_tx.send(action).unwrap();
             }
         }
     }
@@ -707,7 +668,7 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
             .props
             .playlists
             .iter()
-            .map(|playlist| create_playlist_tree_leaf(playlist))
+            .map(create_playlist_tree_leaf)
             .collect::<Vec<_>>();
 
         // render the playlists

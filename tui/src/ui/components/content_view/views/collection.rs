@@ -28,8 +28,7 @@ use crate::{
 use super::{
     checktree_utils::{
         construct_add_to_playlist_action, construct_add_to_queue_action,
-        create_collection_tree_leaf, create_song_tree_leaf, get_checked_things_from_tree_state,
-        get_selected_things_from_tree_state,
+        create_collection_tree_leaf, create_song_tree_leaf,
     },
     CollectionViewProps,
 };
@@ -131,8 +130,7 @@ impl Component for CollectionView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -143,8 +141,7 @@ impl Component for CollectionView {
             }
             // if there are checked items, add them to the queue, otherwise send the whole collection to the queue
             KeyCode::Char('q') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) = construct_add_to_queue_action(
                     checked_things,
                     self.props.as_ref().map(|p| &p.id),
@@ -154,8 +151,7 @@ impl Component for CollectionView {
             }
             // if there are checked items, add them to the playlist, otherwise send the whole collection to the playlist
             KeyCode::Char('p') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) = construct_add_to_playlist_action(
                     checked_things,
                     self.props.as_ref().map(|p| &p.id),
@@ -168,40 +164,18 @@ impl Component for CollectionView {
     }
 
     fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        let MouseEvent {
-            kind, column, row, ..
-        } = mouse;
-        let mouse_position = Position::new(column, row);
-
         // adjust the area to account for the border
         let area = area.inner(Margin::new(1, 1));
         let [_, content_area] = split_area(area);
         let content_area = content_area.inner(Margin::new(0, 1));
 
-        match kind {
-            MouseEventKind::Down(MouseButton::Left) if content_area.contains(mouse_position) => {
-                let selected_things =
-                    get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
-                self.tree_state.lock().unwrap().mouse_click(mouse_position);
-
-                // if the selection didn't change, open the selected view
-                if selected_things
-                    == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
-                {
-                    if let Some(thing) = selected_things {
-                        self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
-                            .unwrap();
-                    }
-                }
-            }
-            MouseEventKind::ScrollDown if content_area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            MouseEventKind::ScrollUp if content_area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            _ => {}
+        let result = self
+            .tree_state
+            .lock()
+            .unwrap()
+            .handle_mouse_event(mouse, content_area);
+        if let Some(action) = result {
+            self.action_tx.send(action).unwrap();
         }
     }
 }
@@ -280,7 +254,11 @@ impl ComponentRender<RenderProps> for CollectionView {
                 .title_top(Line::from(vec![
                     Span::raw("Performing operations on "),
                     Span::raw(
-                        if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
+                        if self
+                            .tree_state
+                            .lock()
+                            .unwrap()
+                            .get_checked_things()
                             .is_empty()
                         {
                             "entire collection"
@@ -311,7 +289,7 @@ impl ComponentRender<RenderProps> for CollectionView {
             let items = state
                 .songs
                 .iter()
-                .map(|song| create_song_tree_leaf(song))
+                .map(create_song_tree_leaf)
                 .collect::<Vec<_>>();
 
             // render the collections songs
@@ -468,8 +446,7 @@ impl Component for LibraryCollectionsView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -519,8 +496,7 @@ impl Component for LibraryCollectionsView {
                 if self.tree_state.lock().unwrap().select(clicked) {
                     self.tree_state.lock().unwrap().scroll_selected_into_view();
                 } else {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -580,7 +556,7 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
             .props
             .collections
             .iter()
-            .map(|collection| create_collection_tree_leaf(collection))
+            .map(create_collection_tree_leaf)
             .collect::<Vec<_>>();
 
         // render the collections
@@ -995,7 +971,7 @@ mod item_view_tests {
             MouseEvent {
                 kind: MouseEventKind::ScrollUp,
                 column: 2,
-                row: 7,
+                row: 6,
                 modifiers: KeyModifiers::empty(),
             },
             area,

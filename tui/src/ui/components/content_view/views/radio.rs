@@ -2,9 +2,9 @@
 
 use std::sync::Mutex;
 
-use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::{
-    layout::{Alignment, Margin, Position, Rect},
+    layout::{Alignment, Margin, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
@@ -12,13 +12,7 @@ use ratatui::{
 };
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::{
-    checktree_utils::{
-        create_song_tree_leaf, get_checked_things_from_tree_state,
-        get_selected_things_from_tree_state,
-    },
-    RadioViewProps,
-};
+use super::{checktree_utils::create_song_tree_leaf, RadioViewProps};
 use crate::{
     state::action::{Action, AudioAction, PopupAction, QueueAction},
     ui::{
@@ -110,8 +104,7 @@ impl Component for RadioView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -122,7 +115,7 @@ impl Component for RadioView {
             }
             // if there are checked items, send to queue, otherwise send whole radio to queue
             KeyCode::Char('q') => {
-                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
@@ -137,7 +130,7 @@ impl Component for RadioView {
             }
             // if there are checked items, add to playlist, otherwise add whole radio to playlist
             KeyCode::Char('p') => {
-                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
@@ -157,11 +150,6 @@ impl Component for RadioView {
     }
 
     fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        let MouseEvent {
-            kind, column, row, ..
-        } = mouse;
-        let mouse_position = Position::new(column, row);
-
         // adjust the area to account for the border
         let area = area.inner(Margin::new(1, 1));
         let area = Rect {
@@ -170,30 +158,13 @@ impl Component for RadioView {
             ..area
         };
 
-        match kind {
-            MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
-                let selected_things =
-                    get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
-                self.tree_state.lock().unwrap().mouse_click(mouse_position);
-
-                // if the selection didn't change, open the selected view
-                if selected_things
-                    == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
-                {
-                    if let Some(thing) = selected_things {
-                        self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
-                            .unwrap();
-                    }
-                }
-            }
-            MouseEventKind::ScrollDown if area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            MouseEventKind::ScrollUp if area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            _ => {}
+        let result = self
+            .tree_state
+            .lock()
+            .unwrap()
+            .handle_mouse_event(mouse, area);
+        if let Some(action) = result {
+            self.action_tx.send(action).unwrap();
         }
     }
 }
@@ -232,7 +203,11 @@ impl ComponentRender<RenderProps> for RadioView {
                 .title_top(Line::from(vec![
                     Span::raw("Performing operations on "),
                     Span::raw(
-                        if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
+                        if self
+                            .tree_state
+                            .lock()
+                            .unwrap()
+                            .get_checked_things()
                             .is_empty()
                         {
                             "entire radio"
@@ -263,7 +238,7 @@ impl ComponentRender<RenderProps> for RadioView {
             let items = state
                 .songs
                 .iter()
-                .map(|song| create_song_tree_leaf(song))
+                .map(create_song_tree_leaf)
                 .collect::<Vec<_>>();
 
             // render the radio results
@@ -298,7 +273,7 @@ mod tests {
         ui::components::content_view::ActiveView,
     };
     use anyhow::Result;
-    use crossterm::event::KeyModifiers;
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 

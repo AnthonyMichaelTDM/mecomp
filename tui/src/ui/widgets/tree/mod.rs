@@ -707,6 +707,10 @@ mod render_tests {
     #[test]
     fn test_mouse() {
         let mut state = CheckTreeState::default();
+
+        // click before rendering
+        assert_eq!(state.mouse_click(Position::new(0, 0)), false);
+
         state.open(vec!["b"]);
         state.open(vec!["b", "d"]);
         let buffer = render(15, 4, &mut state);
@@ -720,7 +724,7 @@ mod render_tests {
 
         // click on first item
         // check that the item is checked
-        state.mouse_click(Position::new(0, 0));
+        assert_eq!(state.mouse_click(Position::new(0, 0)), true);
         let buffer = render(15, 4, &mut state);
         let expected = Buffer::with_lines([
             "☑ Alfa         ",
@@ -733,7 +737,7 @@ mod render_tests {
 
         // click on second item
         // check that the branch is closed
-        state.mouse_click(Position::new(0, 1));
+        assert_eq!(state.mouse_click(Position::new(0, 1)), true);
         let buffer = render(15, 4, &mut state);
         let expected = Buffer::with_lines([
             "☑ Alfa         ",
@@ -746,7 +750,7 @@ mod render_tests {
 
         // click on the first item again
         // check that the item is unchecked
-        state.mouse_click(Position::new(0, 0));
+        assert_eq!(state.mouse_click(Position::new(0, 0)), true);
         let buffer = render(15, 4, &mut state);
         let expected = Buffer::with_lines([
             "☐ Alfa         ",
@@ -757,9 +761,12 @@ mod render_tests {
         assert_eq!(state.selected(), &["a"]);
         assert_eq!(buffer, expected);
 
+        // click on empty space
+        assert_eq!(state.mouse_click(Position::new(0, 4)), false);
+
         // click on the second item again
         // check that the branch is opened
-        state.mouse_click(Position::new(0, 1));
+        assert_eq!(state.mouse_click(Position::new(0, 1)), true);
         let buffer = render(15, 4, &mut state);
         let expected = Buffer::with_lines([
             "☐ Alfa         ",
@@ -772,7 +779,7 @@ mod render_tests {
 
         // click on the third item
         // check that the item is checked
-        state.mouse_click(Position::new(0, 2));
+        assert_eq!(state.mouse_click(Position::new(0, 2)), true);
         let buffer = render(15, 4, &mut state);
         let expected = Buffer::with_lines([
             "☐ Alfa         ",

@@ -2,11 +2,11 @@
 
 use std::{fmt::Display, sync::Mutex};
 
-use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::artist::Artist;
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
@@ -30,8 +30,7 @@ use super::{
     checktree_utils::{
         construct_add_to_playlist_action, construct_add_to_queue_action,
         construct_start_radio_action, create_album_tree_item, create_artist_tree_leaf,
-        create_song_tree_item, get_checked_things_from_tree_state,
-        get_selected_things_from_tree_state,
+        create_song_tree_item,
     },
     ArtistViewProps, RADIO_SIZE,
 };
@@ -98,8 +97,7 @@ impl Component for ArtistView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -110,8 +108,7 @@ impl Component for ArtistView {
             }
             // if there are checked items, add them to the queue, otherwise send the whole artist to the queue
             KeyCode::Char('q') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) = construct_add_to_queue_action(
                     checked_things,
                     self.props.as_ref().map(|p| &p.id),
@@ -121,8 +118,7 @@ impl Component for ArtistView {
             }
             // if there are checked items, start radio from checked items, otherwise start radio from artist
             KeyCode::Char('r') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) =
                     construct_start_radio_action(checked_things, self.props.as_ref().map(|p| &p.id))
                 {
@@ -131,8 +127,7 @@ impl Component for ArtistView {
             }
             // if there are checked items, add them to playlist, otherwise add the whole artist to playlist
             KeyCode::Char('p') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) = construct_add_to_playlist_action(
                     checked_things,
                     self.props.as_ref().map(|p| &p.id),
@@ -145,11 +140,6 @@ impl Component for ArtistView {
     }
 
     fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        let MouseEvent {
-            kind, column, row, ..
-        } = mouse;
-        let mouse_position = Position::new(column, row);
-
         // adjust the area to account for the border
         let area = area.inner(Margin::new(1, 1));
         let [_, content_area] = split_area(area);
@@ -159,30 +149,13 @@ impl Component for ArtistView {
             ..content_area
         };
 
-        match kind {
-            MouseEventKind::Down(MouseButton::Left) if content_area.contains(mouse_position) => {
-                let selected_things =
-                    get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
-                self.tree_state.lock().unwrap().mouse_click(mouse_position);
-
-                // if the selection didn't change, open the selected view
-                if selected_things
-                    == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
-                {
-                    if let Some(thing) = selected_things {
-                        self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
-                            .unwrap();
-                    }
-                }
-            }
-            MouseEventKind::ScrollDown if content_area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            MouseEventKind::ScrollUp if content_area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            _ => {}
+        let result = self
+            .tree_state
+            .lock()
+            .unwrap()
+            .handle_mouse_event(mouse, content_area);
+        if let Some(action) = result {
+            self.action_tx.send(action).unwrap();
         }
     }
 }
@@ -262,7 +235,11 @@ impl ComponentRender<RenderProps> for ArtistView {
                 .title_top(Line::from(vec![
                     Span::raw("Performing operations on "),
                     Span::raw(
-                        if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
+                        if self
+                            .tree_state
+                            .lock()
+                            .unwrap()
+                            .get_checked_things()
                             .is_empty()
                         {
                             "entire artist"
@@ -445,8 +422,7 @@ impl Component for LibraryArtistsView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -457,7 +433,7 @@ impl Component for LibraryArtistsView {
             }
             // when there are checked items, "q" will send the checked items to the queue
             KeyCode::Char('q') => {
-                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
@@ -466,7 +442,7 @@ impl Component for LibraryArtistsView {
             }
             // when there are checked items, "r" will start a radio with the checked items
             KeyCode::Char('r') => {
-                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::SetCurrentView(ActiveView::Radio(
@@ -477,7 +453,7 @@ impl Component for LibraryArtistsView {
             }
             // when there are checked items, "p" will send the checked items to the playlist
             KeyCode::Char('p') => {
-                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
@@ -500,38 +476,16 @@ impl Component for LibraryArtistsView {
     }
 
     fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        let MouseEvent {
-            kind, column, row, ..
-        } = mouse;
-        let mouse_position = Position::new(column, row);
-
         // adjust the area to account for the border
         let area = area.inner(Margin::new(1, 2));
 
-        match kind {
-            MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
-                let selected_things =
-                    get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
-                self.tree_state.lock().unwrap().mouse_click(mouse_position);
-
-                // if the selection didn't change, open the selected view
-                if selected_things
-                    == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
-                {
-                    if let Some(thing) = selected_things {
-                        self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
-                            .unwrap();
-                    }
-                }
-            }
-            MouseEventKind::ScrollDown if area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            MouseEventKind::ScrollUp if area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            _ => {}
+        let result = self
+            .tree_state
+            .lock()
+            .unwrap()
+            .handle_mouse_event(mouse, area);
+        if let Some(action) = result {
+            self.action_tx.send(action).unwrap();
         }
     }
 }
@@ -560,7 +514,13 @@ impl ComponentRender<RenderProps> for LibraryArtistsView {
         let border = Block::default()
             .borders(Borders::TOP | Borders::BOTTOM)
             .title_top(
-                if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()).is_empty() {
+                if self
+                    .tree_state
+                    .lock()
+                    .unwrap()
+                    .get_checked_things()
+                    .is_empty()
+                {
                     ""
                 } else {
                     "q: add to queue | r: start radio | p: add to playlist "
@@ -580,7 +540,7 @@ impl ComponentRender<RenderProps> for LibraryArtistsView {
             .props
             .artists
             .iter()
-            .map(|artist| create_artist_tree_leaf(artist))
+            .map(create_artist_tree_leaf)
             .collect::<Vec<_>>();
 
         // render the artists
@@ -655,7 +615,7 @@ mod item_view_tests {
         assert_buffer_eq, item_id, setup_test_terminal, state_with_everything,
     };
     use anyhow::Result;
-    use crossterm::event::KeyModifiers;
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -1036,7 +996,7 @@ mod library_view_tests {
         assert_buffer_eq, item_id, setup_test_terminal, state_with_everything,
     };
     use anyhow::Result;
-    use crossterm::event::KeyModifiers;
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
