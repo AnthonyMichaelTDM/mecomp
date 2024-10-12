@@ -1140,7 +1140,7 @@ mod library_view_tests {
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
                 column: 2,
-                row: 3,
+                row: 2,
                 modifiers: KeyModifiers::empty(),
             },
             area,
@@ -1161,7 +1161,7 @@ mod library_view_tests {
             MouseEvent {
                 kind: MouseEventKind::ScrollUp,
                 column: 2,
-                row: 3,
+                row: 2,
                 modifiers: KeyModifiers::empty(),
             },
             area,

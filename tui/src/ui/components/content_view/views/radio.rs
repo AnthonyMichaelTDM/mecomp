@@ -518,7 +518,7 @@ mod tests {
             MouseEvent {
                 kind: MouseEventKind::ScrollDown,
                 column: 2,
-                row: 4,
+                row: 3,
                 modifiers: KeyModifiers::empty(),
             },
             area,
@@ -529,7 +529,7 @@ mod tests {
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
                 column: 2,
-                row: 4,
+                row: 3,
                 modifiers: KeyModifiers::empty(),
             },
             area,
@@ -558,7 +558,7 @@ mod tests {
             MouseEvent {
                 kind: MouseEventKind::ScrollUp,
                 column: 2,
-                row: 4,
+                row: 3,
                 modifiers: KeyModifiers::empty(),
             },
             area,

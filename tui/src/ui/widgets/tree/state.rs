@@ -254,7 +254,7 @@ where
         self.last_rendered_identifiers
             .iter()
             .rev()
-            .find(|(y, _)| position.y >= *y)
+            .find(|(y, _)| position.y == *y)
             .map(|(_, identifier)| identifier.as_ref())
     }
 

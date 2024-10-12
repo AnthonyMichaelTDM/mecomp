@@ -705,6 +705,92 @@ mod render_tests {
     }
 
     #[test]
+    fn test_rendered_at() {
+        let mut state = CheckTreeState::default();
+
+        // nothing rendered
+        assert_eq!(state.rendered_at(Position::new(0, 0)), None);
+
+        // render the tree
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▶ Bravo        ",
+            "☐ Hotel        ",
+            "               ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        // check rendered at
+        assert_eq!(
+            state.rendered_at(Position::new(0, 0)),
+            Some(["a"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 1)),
+            Some(["b"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 2)),
+            Some(["h"].as_slice())
+        );
+        assert_eq!(state.rendered_at(Position::new(0, 3)), None);
+
+        // open branch, render, and check again
+        state.open(vec!["b"]);
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▶ Delta      ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        assert_eq!(
+            state.rendered_at(Position::new(0, 0)),
+            Some(["a"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 1)),
+            Some(["b"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 2)),
+            Some(["b", "c"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 3)),
+            Some(["b", "d"].as_slice())
+        );
+
+        // close branch, render, and check again
+        state.close(["b"].as_slice());
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▶ Bravo        ",
+            "☐ Hotel        ",
+            "               ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        assert_eq!(
+            state.rendered_at(Position::new(0, 0)),
+            Some(["a"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 1)),
+            Some(["b"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 2)),
+            Some(["h"].as_slice())
+        );
+        assert_eq!(state.rendered_at(Position::new(0, 3)), None);
+    }
+
+    #[test]
     fn test_mouse() {
         let mut state = CheckTreeState::default();
 
