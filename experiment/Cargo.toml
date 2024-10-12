@@ -1,0 +1,27 @@
+[package]
+name = "experiment"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[dependencies]
+mecomp-storage = { workspace = true, features = ["db", "analysis"] }
+mecomp-core = { workspace = true }
+# mecomp-analysis = { workspace = true }
+tokio = { workspace = true }
+linfa = "0.7.0"
+anyhow.workspace = true
+ndarray = { version = "0.15.6" }
+plotters = "0.3.7"
+thiserror.workspace = true
+linfa-linalg = "0.1.0"
+ndarray-rand = "0.14"
+rand.workspace = true
+linfa-tsne = "0.7.0"
+linfa-clustering = "0.7.0"
