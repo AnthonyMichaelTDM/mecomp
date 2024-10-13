@@ -1,14 +1,24 @@
-pub mod radio;
+use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::{
     album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song, Thing,
 };
 use one_or_many::OneOrMany;
+use ratatui::{
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Style, Stylize},
+    text::{Line, Span},
+    widgets::{Paragraph, Widget},
+};
+
+use crate::ui::widgets::tree::item::CheckTreeItem;
 
 pub mod album;
 pub mod artist;
 pub mod collection;
+pub mod generic;
 pub mod none;
 pub mod playlist;
+pub mod radio;
 pub mod search;
 pub mod song;
 
@@ -26,6 +36,50 @@ pub struct ViewData {
     pub radio: Option<RadioViewProps>,
 }
 
+/// Shared functionality for the props of an item view
+pub trait ItemViewProps {
+    fn id(&self) -> &Thing;
+
+    fn retrieve(view_data: &ViewData) -> Option<Self>
+    where
+        Self: Sized;
+
+    fn title() -> &'static str
+    where
+        Self: Sized;
+
+    /// The string for when no items are checked
+    fn none_selected_string() -> &'static str
+    where
+        Self: Sized;
+
+    fn name() -> &'static str
+    where
+        Self: Sized;
+
+    #[must_use]
+    fn split_area(area: Rect) -> [Rect; 2] {
+        let [info_area, content_area] = *Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Min(4)])
+            .split(area)
+        else {
+            panic!("Failed to split album view area")
+        };
+
+        [info_area, content_area]
+    }
+
+    fn info_widget(&self) -> impl Widget;
+
+    /// Create the tree items for the view
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the tree items cannot be created, e.g. duplicate ids
+    fn tree_items(&self) -> Result<Vec<CheckTreeItem<String>>, std::io::Error>;
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AlbumViewProps {
     pub id: Thing,
@@ -34,12 +88,142 @@ pub struct AlbumViewProps {
     pub songs: Box<[Song]>,
 }
 
+impl ItemViewProps for AlbumViewProps {
+    fn id(&self) -> &Thing {
+        &self.id
+    }
+
+    fn retrieve(view_data: &ViewData) -> Option<Self> {
+        view_data.album.clone()
+    }
+
+    fn title() -> &'static str {
+        "Album View"
+    }
+
+    fn name() -> &'static str
+    where
+        Self: Sized,
+    {
+        "album"
+    }
+
+    fn none_selected_string() -> &'static str
+    where
+        Self: Sized,
+    {
+        "entire album"
+    }
+
+    fn info_widget(&self) -> impl Widget {
+        Paragraph::new(vec![
+            Line::from(vec![
+                Span::styled(self.album.title.to_string(), Style::default().bold()),
+                Span::raw(" "),
+                Span::styled(
+                    self.album
+                        .artist
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    Style::default().italic(),
+                ),
+            ]),
+            Line::from(vec![
+                Span::raw("Release Year: "),
+                Span::styled(
+                    self.album
+                        .release
+                        .map_or_else(|| "unknown".to_string(), |y| y.to_string()),
+                    Style::default().italic(),
+                ),
+                Span::raw("  Songs: "),
+                Span::styled(self.album.song_count.to_string(), Style::default().italic()),
+                Span::raw("  Duration: "),
+                Span::styled(
+                    format_duration(&self.album.runtime),
+                    Style::default().italic(),
+                ),
+            ]),
+        ])
+        .alignment(Alignment::Center)
+    }
+
+    fn tree_items(&self) -> Result<Vec<CheckTreeItem<String>>, std::io::Error> {
+        let artist_tree = checktree_utils::create_artist_tree_item(self.artists.as_slice())?;
+        let song_tree = checktree_utils::create_song_tree_item(self.songs.as_ref())?;
+        Ok(vec![artist_tree, song_tree])
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArtistViewProps {
     pub id: Thing,
     pub artist: Artist,
     pub albums: Box<[Album]>,
     pub songs: Box<[Song]>,
+}
+
+impl ItemViewProps for ArtistViewProps {
+    fn id(&self) -> &Thing {
+        &self.id
+    }
+
+    fn retrieve(view_data: &ViewData) -> Option<Self> {
+        view_data.artist.clone()
+    }
+
+    fn title() -> &'static str {
+        "Artist View"
+    }
+
+    fn name() -> &'static str
+    where
+        Self: Sized,
+    {
+        "artist"
+    }
+
+    fn none_selected_string() -> &'static str
+    where
+        Self: Sized,
+    {
+        "entire artist"
+    }
+
+    fn info_widget(&self) -> impl Widget {
+        Paragraph::new(vec![
+            Line::from(Span::styled(
+                self.artist.name.to_string(),
+                Style::default().bold(),
+            )),
+            Line::from(vec![
+                Span::raw("Albums: "),
+                Span::styled(
+                    self.artist.album_count.to_string(),
+                    Style::default().italic(),
+                ),
+                Span::raw("  Songs: "),
+                Span::styled(
+                    self.artist.song_count.to_string(),
+                    Style::default().italic(),
+                ),
+                Span::raw("  Duration: "),
+                Span::styled(
+                    format_duration(&self.artist.runtime),
+                    Style::default().italic(),
+                ),
+            ]),
+        ])
+        .alignment(Alignment::Center)
+    }
+
+    fn tree_items(&self) -> Result<Vec<CheckTreeItem<String>>, std::io::Error> {
+        let album_tree = checktree_utils::create_album_tree_item(self.albums.as_ref())?;
+        let song_tree = checktree_utils::create_song_tree_item(self.songs.as_ref())?;
+        Ok(vec![album_tree, song_tree])
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,6 +248,97 @@ pub struct SongViewProps {
     pub album: Album,
     pub playlists: Box<[Playlist]>,
     pub collections: Box<[Collection]>,
+}
+
+impl ItemViewProps for SongViewProps {
+    fn id(&self) -> &Thing {
+        &self.id
+    }
+
+    fn retrieve(view_data: &ViewData) -> Option<Self> {
+        view_data.song.clone()
+    }
+
+    fn title() -> &'static str {
+        "Song View"
+    }
+
+    fn name() -> &'static str
+    where
+        Self: Sized,
+    {
+        "song"
+    }
+
+    fn none_selected_string() -> &'static str
+    where
+        Self: Sized,
+    {
+        "the song"
+    }
+
+    fn info_widget(&self) -> impl Widget {
+        Paragraph::new(vec![
+            Line::from(vec![
+                Span::styled(self.song.title.to_string(), Style::default().bold()),
+                Span::raw(" "),
+                Span::styled(
+                    self.song
+                        .artist
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    Style::default().italic(),
+                ),
+            ]),
+            Line::from(vec![
+                Span::raw("Track/Disc: "),
+                Span::styled(
+                    format!(
+                        "{}/{}",
+                        self.song.track.unwrap_or_default(),
+                        self.song.disc.unwrap_or_default()
+                    ),
+                    Style::default().italic(),
+                ),
+                Span::raw("  Duration: "),
+                Span::styled(
+                    format!(
+                        "{}:{:04.1}",
+                        self.song.runtime.as_secs() / 60,
+                        self.song.runtime.as_secs_f32() % 60.0,
+                    ),
+                    Style::default().italic(),
+                ),
+                Span::raw("  Genre(s): "),
+                Span::styled(
+                    self.song
+                        .genre
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    Style::default().italic(),
+                ),
+            ]),
+        ])
+        .alignment(Alignment::Center)
+    }
+
+    fn tree_items(&self) -> Result<Vec<CheckTreeItem<String>>, std::io::Error> {
+        let artist_tree = checktree_utils::create_artist_tree_item(self.artists.as_slice())?;
+        let album_tree =
+            checktree_utils::create_album_tree_leaf(&self.album, Some(Span::raw("Album: ")));
+        let playlist_tree = checktree_utils::create_playlist_tree_item(&self.playlists)?;
+        let collection_tree = checktree_utils::create_collection_tree_item(&self.collections)?;
+        Ok(vec![
+            artist_tree,
+            album_tree,
+            playlist_tree,
+            collection_tree,
+        ])
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
