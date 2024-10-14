@@ -80,7 +80,7 @@ env_logger = { version = "0.10.2", features = [
 futures = { version = "0.3.30", features = ["alloc"], default-features = false }
 # image = { version = "0.25.0" }
 log = { version = "0.4.21", features = ["serde"] }
-notify-debouncer-full = { version = "0.3.1", default-features = false }
+notify-debouncer-full = { version = "0.3.2", default-features = false }
 notify = { version = "6.1", default-features = false, features = [
     "macos_fsevent",
 ] }
