@@ -4,11 +4,12 @@ use mecomp_storage::db::schemas::{
 };
 use one_or_many::OneOrMany;
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::Alignment,
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Paragraph, Widget},
 };
+use traits::ItemViewProps;
 
 use crate::ui::widgets::tree::item::CheckTreeItem;
 
@@ -21,6 +22,8 @@ pub mod playlist;
 pub mod radio;
 pub mod search;
 pub mod song;
+pub mod sort_mode;
+pub mod traits;
 
 const RADIO_SIZE: u32 = 20;
 
@@ -34,50 +37,6 @@ pub struct ViewData {
     pub playlist: Option<PlaylistViewProps>,
     pub song: Option<SongViewProps>,
     pub radio: Option<RadioViewProps>,
-}
-
-/// Shared functionality for the props of an item view
-pub trait ItemViewProps {
-    fn id(&self) -> &Thing;
-
-    fn retrieve(view_data: &ViewData) -> Option<Self>
-    where
-        Self: Sized;
-
-    fn title() -> &'static str
-    where
-        Self: Sized;
-
-    /// The string for when no items are checked
-    fn none_selected_string() -> &'static str
-    where
-        Self: Sized;
-
-    fn name() -> &'static str
-    where
-        Self: Sized;
-
-    #[must_use]
-    fn split_area(area: Rect) -> [Rect; 2] {
-        let [info_area, content_area] = *Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(3), Constraint::Min(4)])
-            .split(area)
-        else {
-            panic!("Failed to split album view area")
-        };
-
-        [info_area, content_area]
-    }
-
-    fn info_widget(&self) -> impl Widget;
-
-    /// Create the tree items for the view
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the tree items cannot be created, e.g. duplicate ids
-    fn tree_items(&self) -> Result<Vec<CheckTreeItem<String>>, std::io::Error>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,7 +67,7 @@ impl ItemViewProps for AlbumViewProps {
         "album"
     }
 
-    fn none_selected_string() -> &'static str
+    fn none_checked_string() -> &'static str
     where
         Self: Sized,
     {
@@ -185,7 +144,7 @@ impl ItemViewProps for ArtistViewProps {
         "artist"
     }
 
-    fn none_selected_string() -> &'static str
+    fn none_checked_string() -> &'static str
     where
         Self: Sized,
     {
@@ -270,7 +229,7 @@ impl ItemViewProps for SongViewProps {
         "song"
     }
 
-    fn none_selected_string() -> &'static str
+    fn none_checked_string() -> &'static str
     where
         Self: Sized,
     {

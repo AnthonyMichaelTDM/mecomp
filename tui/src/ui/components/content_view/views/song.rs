@@ -1,6 +1,6 @@
 //! Views for both a single song, and the library of songs.
 
-use std::{fmt::Display, sync::Mutex};
+use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_storage::db::schemas::song::Song;
@@ -25,7 +25,10 @@ use crate::{
     },
 };
 
-use super::{checktree_utils::create_song_tree_leaf, generic::ItemView, SongViewProps, RADIO_SIZE};
+use super::{
+    checktree_utils::create_song_tree_leaf, generic::ItemView, sort_mode::SongSort,
+    traits::SortMode, SongViewProps, RADIO_SIZE,
+};
 
 #[allow(clippy::module_name_repetitions)]
 pub type SongView = ItemView<SongViewProps>;
@@ -41,80 +44,7 @@ pub struct LibrarySongsView {
 
 pub(crate) struct Props {
     pub(crate) songs: Box<[Song]>,
-    pub(crate) sort_mode: SortMode,
-}
-
-#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum SortMode {
-    Title,
-    #[default]
-    Artist,
-    Album,
-    AlbumArtist,
-    Genre,
-}
-
-impl Display for SortMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Title => write!(f, "Title"),
-            Self::Artist => write!(f, "Artist"),
-            Self::Album => write!(f, "Album"),
-            Self::AlbumArtist => write!(f, "Album Artist"),
-            Self::Genre => write!(f, "Genre"),
-        }
-    }
-}
-
-impl SortMode {
-    #[must_use]
-    pub const fn next(&self) -> Self {
-        match self {
-            Self::Title => Self::Artist,
-            Self::Artist => Self::Album,
-            Self::Album => Self::AlbumArtist,
-            Self::AlbumArtist => Self::Genre,
-            Self::Genre => Self::Title,
-        }
-    }
-
-    #[must_use]
-    pub const fn prev(&self) -> Self {
-        match self {
-            Self::Title => Self::Genre,
-            Self::Artist => Self::Title,
-            Self::Album => Self::Artist,
-            Self::AlbumArtist => Self::Album,
-            Self::Genre => Self::AlbumArtist,
-        }
-    }
-
-    pub fn sort_songs(&self, songs: &mut [Song]) {
-        fn key<T: AsRef<str>>(input: T) -> String {
-            input
-                .as_ref()
-                .to_lowercase() // ignore case
-                .trim_start_matches(|c: char| !c.is_alphanumeric()) // ignore leading non-alphanumeric characters
-                .trim_start_matches("the ") // ignore leading "the "
-                .to_owned()
-        }
-
-        match self {
-            Self::Title => songs.sort_by_key(|song| key(&song.title)),
-            Self::Artist => {
-                songs.sort_by_cached_key(|song| song.artist.iter().map(key).collect::<Vec<_>>());
-            }
-            Self::Album => songs.sort_by_key(|song| key(&song.album)),
-            Self::AlbumArtist => {
-                songs.sort_by_cached_key(|song| {
-                    song.album_artist.iter().map(key).collect::<Vec<_>>()
-                });
-            }
-            Self::Genre => {
-                songs.sort_by_cached_key(|song| song.genre.iter().map(key).collect::<Vec<_>>());
-            }
-        }
-    }
+    pub(crate) sort_mode: SongSort,
 }
 
 impl Component for LibrarySongsView {
@@ -122,9 +52,9 @@ impl Component for LibrarySongsView {
     where
         Self: Sized,
     {
-        let sort_mode = SortMode::default();
+        let sort_mode = SongSort::default();
         let mut songs = state.library.songs.clone();
-        sort_mode.sort_songs(&mut songs);
+        sort_mode.sort_items(&mut songs);
         Self {
             action_tx,
             props: Props { songs, sort_mode },
@@ -137,7 +67,7 @@ impl Component for LibrarySongsView {
         Self: Sized,
     {
         let mut songs = state.library.songs.clone();
-        self.props.sort_mode.sort_songs(&mut songs);
+        self.props.sort_mode.sort_items(&mut songs);
         let tree_state = if state.active_view == ActiveView::Songs {
             self.tree_state
         } else {
@@ -232,11 +162,11 @@ impl Component for LibrarySongsView {
             // Change sort mode
             KeyCode::Char('s') => {
                 self.props.sort_mode = self.props.sort_mode.next();
-                self.props.sort_mode.sort_songs(&mut self.props.songs);
+                self.props.sort_mode.sort_items(&mut self.props.songs);
             }
             KeyCode::Char('S') => {
                 self.props.sort_mode = self.props.sort_mode.prev();
-                self.props.sort_mode.sort_songs(&mut self.props.songs);
+                self.props.sort_mode.sort_items(&mut self.props.songs);
             }
             _ => {}
         }
@@ -334,23 +264,23 @@ mod sort_mode_tests {
     use std::time::Duration;
 
     #[rstest]
-    #[case(SortMode::Title, SortMode::Artist)]
-    #[case(SortMode::Artist, SortMode::Album)]
-    #[case(SortMode::Album, SortMode::AlbumArtist)]
-    #[case(SortMode::AlbumArtist, SortMode::Genre)]
-    #[case(SortMode::Genre, SortMode::Title)]
-    fn test_sort_mode_next_prev(#[case] mode: SortMode, #[case] expected: SortMode) {
+    #[case(SongSort::Title, SongSort::Artist)]
+    #[case(SongSort::Artist, SongSort::Album)]
+    #[case(SongSort::Album, SongSort::AlbumArtist)]
+    #[case(SongSort::AlbumArtist, SongSort::Genre)]
+    #[case(SongSort::Genre, SongSort::Title)]
+    fn test_sort_mode_next_prev(#[case] mode: SongSort, #[case] expected: SongSort) {
         assert_eq!(mode.next(), expected);
         assert_eq!(mode.next().prev(), mode);
     }
 
     #[rstest]
-    #[case(SortMode::Title, "Title")]
-    #[case(SortMode::Artist, "Artist")]
-    #[case(SortMode::Album, "Album")]
-    #[case(SortMode::AlbumArtist, "Album Artist")]
-    #[case(SortMode::Genre, "Genre")]
-    fn test_sort_mode_display(#[case] mode: SortMode, #[case] expected: &str) {
+    #[case(SongSort::Title, "Title")]
+    #[case(SongSort::Artist, "Artist")]
+    #[case(SongSort::Album, "Album")]
+    #[case(SongSort::AlbumArtist, "Album Artist")]
+    #[case(SongSort::Genre, "Genre")]
+    fn test_sort_mode_display(#[case] mode: SongSort, #[case] expected: &str) {
         assert_eq!(mode.to_string(), expected);
     }
 
@@ -401,27 +331,27 @@ mod sort_mode_tests {
             },
         ];
 
-        SortMode::Title.sort_songs(&mut songs);
+        SongSort::Title.sort_items(&mut songs);
         assert_eq!(songs[0].title, "A".into());
         assert_eq!(songs[1].title, "B".into());
         assert_eq!(songs[2].title, "C".into());
 
-        SortMode::Artist.sort_songs(&mut songs);
+        SongSort::Artist.sort_items(&mut songs);
         assert_eq!(songs[0].artist, OneOrMany::One("A".into()));
         assert_eq!(songs[1].artist, OneOrMany::One("B".into()));
         assert_eq!(songs[2].artist, OneOrMany::One("C".into()));
 
-        SortMode::Album.sort_songs(&mut songs);
+        SongSort::Album.sort_items(&mut songs);
         assert_eq!(songs[0].album, "A".into());
         assert_eq!(songs[1].album, "B".into());
         assert_eq!(songs[2].album, "C".into());
 
-        SortMode::AlbumArtist.sort_songs(&mut songs);
+        SongSort::AlbumArtist.sort_items(&mut songs);
         assert_eq!(songs[0].album_artist, OneOrMany::One("A".into()));
         assert_eq!(songs[1].album_artist, OneOrMany::One("B".into()));
         assert_eq!(songs[2].album_artist, OneOrMany::One("C".into()));
 
-        SortMode::Genre.sort_songs(&mut songs);
+        SongSort::Genre.sort_items(&mut songs);
         assert_eq!(songs[0].genre, OneOrMany::One("A".into()));
         assert_eq!(songs[1].genre, OneOrMany::One("B".into()));
         assert_eq!(songs[2].genre, OneOrMany::One("C".into()));
@@ -1042,27 +972,27 @@ mod library_view_tests {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = LibrarySongsView::new(&state_with_everything(), tx);
 
-        assert_eq!(view.props.sort_mode, SortMode::Artist);
+        assert_eq!(view.props.sort_mode, SongSort::Artist);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::Album);
+        assert_eq!(view.props.sort_mode, SongSort::Album);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::AlbumArtist);
+        assert_eq!(view.props.sort_mode, SongSort::AlbumArtist);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::Genre);
+        assert_eq!(view.props.sort_mode, SongSort::Genre);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::Title);
+        assert_eq!(view.props.sort_mode, SongSort::Title);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::Artist);
+        assert_eq!(view.props.sort_mode, SongSort::Artist);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::Title);
+        assert_eq!(view.props.sort_mode, SongSort::Title);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::Genre);
+        assert_eq!(view.props.sort_mode, SongSort::Genre);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::AlbumArtist);
+        assert_eq!(view.props.sort_mode, SongSort::AlbumArtist);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::Album);
+        assert_eq!(view.props.sort_mode, SongSort::Album);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::Artist);
+        assert_eq!(view.props.sort_mode, SongSort::Artist);
     }
 
     #[test]

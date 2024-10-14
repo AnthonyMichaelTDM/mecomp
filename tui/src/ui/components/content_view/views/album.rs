@@ -1,6 +1,6 @@
 //! Views for both a single album, and the library of albums.
 
-use std::{fmt::Display, sync::Mutex};
+use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_storage::db::schemas::album::Album;
@@ -26,7 +26,8 @@ use crate::{
 };
 
 use super::{
-    checktree_utils::create_album_tree_leaf, generic::ItemView, AlbumViewProps, RADIO_SIZE,
+    checktree_utils::create_album_tree_leaf, generic::ItemView, sort_mode::AlbumSort,
+    traits::SortMode, AlbumViewProps, RADIO_SIZE,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -43,67 +44,7 @@ pub struct LibraryAlbumsView {
 
 struct Props {
     albums: Box<[Album]>,
-    sort_mode: SortMode,
-}
-
-#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum SortMode {
-    Title,
-    #[default]
-    Artist,
-    ReleaseYear,
-}
-
-impl Display for SortMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Title => write!(f, "Title"),
-            Self::Artist => write!(f, "Artist"),
-            Self::ReleaseYear => write!(f, "Year"),
-        }
-    }
-}
-
-impl SortMode {
-    #[must_use]
-    pub const fn next(&self) -> Self {
-        match self {
-            Self::Title => Self::Artist,
-            Self::Artist => Self::ReleaseYear,
-            Self::ReleaseYear => Self::Title,
-        }
-    }
-
-    #[must_use]
-    pub const fn prev(&self) -> Self {
-        match self {
-            Self::Title => Self::ReleaseYear,
-            Self::Artist => Self::Title,
-            Self::ReleaseYear => Self::Artist,
-        }
-    }
-
-    pub fn sort_albums(&self, albums: &mut [Album]) {
-        fn key<T: AsRef<str>>(input: T) -> String {
-            input
-                .as_ref()
-                .to_lowercase() // ignore case
-                .trim_start_matches(|c: char| !c.is_alphanumeric()) // ignore leading non-alphanumeric characters
-                .trim_start_matches("the ") // ignore leading "the "
-                .to_owned()
-        }
-
-        match self {
-            Self::Title => albums.sort_by_key(|album| key(&album.title)),
-            Self::Artist => {
-                albums.sort_by_cached_key(|album| album.artist.iter().map(key).collect::<Vec<_>>());
-            }
-            Self::ReleaseYear => {
-                albums.sort_by_key(|album| album.release.unwrap_or(0));
-                albums.reverse();
-            }
-        }
-    }
+    sort_mode: AlbumSort,
 }
 
 impl Component for LibraryAlbumsView {
@@ -111,9 +52,9 @@ impl Component for LibraryAlbumsView {
     where
         Self: Sized,
     {
-        let sort_mode = SortMode::default();
+        let sort_mode = AlbumSort::default();
         let mut albums = state.library.albums.clone();
-        sort_mode.sort_albums(&mut albums);
+        sort_mode.sort_items(&mut albums);
         Self {
             action_tx,
             props: Props { albums, sort_mode },
@@ -126,7 +67,7 @@ impl Component for LibraryAlbumsView {
         Self: Sized,
     {
         let mut albums = state.library.albums.clone();
-        self.props.sort_mode.sort_albums(&mut albums);
+        self.props.sort_mode.sort_items(&mut albums);
         let tree_state = if state.active_view == ActiveView::Albums {
             self.tree_state
         } else {
@@ -222,11 +163,11 @@ impl Component for LibraryAlbumsView {
             // Change sort mode
             KeyCode::Char('s') => {
                 self.props.sort_mode = self.props.sort_mode.next();
-                self.props.sort_mode.sort_albums(&mut self.props.albums);
+                self.props.sort_mode.sort_items(&mut self.props.albums);
             }
             KeyCode::Char('S') => {
                 self.props.sort_mode = self.props.sort_mode.prev();
-                self.props.sort_mode.sort_albums(&mut self.props.albums);
+                self.props.sort_mode.sort_items(&mut self.props.albums);
             }
             _ => {}
         }
@@ -321,24 +262,24 @@ mod sort_mode_tests {
     use std::time::Duration;
 
     #[rstest]
-    #[case(SortMode::Title, SortMode::Artist)]
-    #[case(SortMode::Artist, SortMode::ReleaseYear)]
-    #[case(SortMode::ReleaseYear, SortMode::Title)]
-    fn test_sort_mode_next_prev(#[case] mode: SortMode, #[case] expected: SortMode) {
+    #[case(AlbumSort::Title, AlbumSort::Artist)]
+    #[case(AlbumSort::Artist, AlbumSort::ReleaseYear)]
+    #[case(AlbumSort::ReleaseYear, AlbumSort::Title)]
+    fn test_sort_mode_next_prev(#[case] mode: AlbumSort, #[case] expected: AlbumSort) {
         assert_eq!(mode.next(), expected);
         assert_eq!(mode.next().prev(), mode);
     }
 
     #[rstest]
-    #[case(SortMode::Title, "Title")]
-    #[case(SortMode::Artist, "Artist")]
-    #[case(SortMode::ReleaseYear, "Year")]
-    fn test_sort_mode_display(#[case] mode: SortMode, #[case] expected: &str) {
+    #[case(AlbumSort::Title, "Title")]
+    #[case(AlbumSort::Artist, "Artist")]
+    #[case(AlbumSort::ReleaseYear, "Year")]
+    fn test_sort_mode_display(#[case] mode: AlbumSort, #[case] expected: &str) {
         assert_eq!(mode.to_string(), expected);
     }
 
     #[rstest]
-    fn test_sort_albums() {
+    fn test_sort_items() {
         let mut albums = vec![
             Album {
                 id: Album::generate_id(),
@@ -372,17 +313,17 @@ mod sort_mode_tests {
             },
         ];
 
-        SortMode::Title.sort_albums(&mut albums);
+        AlbumSort::Title.sort_items(&mut albums);
         assert_eq!(albums[0].title, "A".into());
         assert_eq!(albums[1].title, "B".into());
         assert_eq!(albums[2].title, "C".into());
 
-        SortMode::Artist.sort_albums(&mut albums);
+        AlbumSort::Artist.sort_items(&mut albums);
         assert_eq!(albums[0].artist, OneOrMany::One("A".into()));
         assert_eq!(albums[1].artist, OneOrMany::One("B".into()));
         assert_eq!(albums[2].artist, OneOrMany::One("C".into()));
 
-        SortMode::ReleaseYear.sort_albums(&mut albums);
+        AlbumSort::ReleaseYear.sort_items(&mut albums);
         assert_eq!(albums[0].release, Some(2023));
         assert_eq!(albums[1].release, Some(2022));
         assert_eq!(albums[2].release, Some(2021));
@@ -882,19 +823,19 @@ mod library_view_tests {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = LibraryAlbumsView::new(&state_with_everything(), tx);
 
-        assert_eq!(view.props.sort_mode, SortMode::Artist);
+        assert_eq!(view.props.sort_mode, AlbumSort::Artist);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::ReleaseYear);
+        assert_eq!(view.props.sort_mode, AlbumSort::ReleaseYear);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::Title);
+        assert_eq!(view.props.sort_mode, AlbumSort::Title);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::Artist);
+        assert_eq!(view.props.sort_mode, AlbumSort::Artist);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::Title);
+        assert_eq!(view.props.sort_mode, AlbumSort::Title);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::ReleaseYear);
+        assert_eq!(view.props.sort_mode, AlbumSort::ReleaseYear);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::Artist);
+        assert_eq!(view.props.sort_mode, AlbumSort::Artist);
     }
 
     #[test]

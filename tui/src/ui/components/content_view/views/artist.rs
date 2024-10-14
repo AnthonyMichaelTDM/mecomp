@@ -1,6 +1,6 @@
 //! Views for both a single artist, and the library of artists.
 
-use std::{fmt::Display, sync::Mutex};
+use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_storage::db::schemas::artist::Artist;
@@ -26,7 +26,8 @@ use crate::{
 };
 
 use super::{
-    checktree_utils::create_artist_tree_leaf, generic::ItemView, ArtistViewProps, RADIO_SIZE,
+    checktree_utils::create_artist_tree_leaf, generic::ItemView, sort_mode::NameSort,
+    traits::SortMode, ArtistViewProps, RADIO_SIZE,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -43,60 +44,16 @@ pub struct LibraryArtistsView {
 
 struct Props {
     artists: Box<[Artist]>,
-    sort_mode: SortMode,
+    sort_mode: NameSort<Artist>,
 }
-
-#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum SortMode {
-    #[default]
-    Name,
-}
-
-impl Display for SortMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Name => write!(f, "Name"),
-        }
-    }
-}
-
-impl SortMode {
-    #[must_use]
-    pub const fn next(&self) -> Self {
-        match self {
-            Self::Name => Self::Name,
-        }
-    }
-
-    #[must_use]
-    pub const fn prev(&self) -> Self {
-        match self {
-            Self::Name => Self::Name,
-        }
-    }
-
-    #[allow(clippy::unused_self)]
-    pub fn sort_artists(&self, artists: &mut [Artist]) {
-        fn key<T: AsRef<str>>(input: T) -> String {
-            input
-                .as_ref()
-                .to_lowercase() // ignore case
-                .trim_start_matches(|c: char| !c.is_alphanumeric()) // ignore leading non-alphanumeric characters
-                .trim_start_matches("the ") // ignore leading "the "
-                .to_owned()
-        }
-        artists.sort_by_key(|artist| key(&artist.name));
-    }
-}
-
 impl Component for LibraryArtistsView {
     fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self
     where
         Self: Sized,
     {
-        let sort_mode = SortMode::default();
+        let sort_mode = NameSort::default();
         let mut artists = state.library.artists.clone();
-        sort_mode.sort_artists(&mut artists);
+        sort_mode.sort_items(&mut artists);
         Self {
             action_tx,
             props: Props { artists, sort_mode },
@@ -109,7 +66,7 @@ impl Component for LibraryArtistsView {
         Self: Sized,
     {
         let mut artists = state.library.artists.clone();
-        self.props.sort_mode.sort_artists(&mut artists);
+        self.props.sort_mode.sort_items(&mut artists);
         let tree_state = if state.active_view == ActiveView::Artists {
             self.tree_state
         } else {
@@ -205,11 +162,11 @@ impl Component for LibraryArtistsView {
             // Change sort mode
             KeyCode::Char('s') => {
                 self.props.sort_mode = self.props.sort_mode.next();
-                self.props.sort_mode.sort_artists(&mut self.props.artists);
+                self.props.sort_mode.sort_items(&mut self.props.artists);
             }
             KeyCode::Char('S') => {
                 self.props.sort_mode = self.props.sort_mode.prev();
-                self.props.sort_mode.sort_artists(&mut self.props.artists);
+                self.props.sort_mode.sort_items(&mut self.props.artists);
             }
             _ => {}
         }
@@ -303,20 +260,23 @@ mod sort_mode_tests {
     use std::time::Duration;
 
     #[rstest]
-    #[case(SortMode::Name, SortMode::Name)]
-    fn test_sort_mode_next_prev(#[case] mode: SortMode, #[case] expected: SortMode) {
+    #[case(NameSort::default(), NameSort::default())]
+    fn test_sort_mode_next_prev(
+        #[case] mode: NameSort<Artist>,
+        #[case] expected: NameSort<Artist>,
+    ) {
         assert_eq!(mode.next(), expected);
         assert_eq!(mode.next().prev(), mode);
     }
 
     #[rstest]
-    #[case(SortMode::Name, "Name")]
-    fn test_sort_mode_display(#[case] mode: SortMode, #[case] expected: &str) {
+    #[case(NameSort::default(), "Name")]
+    fn test_sort_mode_display(#[case] mode: NameSort<Artist>, #[case] expected: &str) {
         assert_eq!(mode.to_string(), expected);
     }
 
     #[rstest]
-    fn test_sort_artists() {
+    fn test_sort_items() {
         let mut artists = vec![
             Artist {
                 id: Artist::generate_id(),
@@ -341,7 +301,7 @@ mod sort_mode_tests {
             },
         ];
 
-        SortMode::Name.sort_artists(&mut artists);
+        NameSort::default().sort_items(&mut artists);
         assert_eq!(artists[0].name, "A".into());
         assert_eq!(artists[1].name, "B".into());
         assert_eq!(artists[2].name, "C".into());
@@ -841,11 +801,11 @@ mod library_view_tests {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = LibraryArtistsView::new(&state_with_everything(), tx);
 
-        assert_eq!(view.props.sort_mode, SortMode::Name);
+        assert_eq!(view.props.sort_mode, NameSort::default());
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::Name);
+        assert_eq!(view.props.sort_mode, NameSort::default());
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::Name);
+        assert_eq!(view.props.sort_mode, NameSort::default());
     }
 
     #[test]

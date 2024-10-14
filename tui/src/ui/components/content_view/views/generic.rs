@@ -205,7 +205,7 @@ where
                             .get_checked_things()
                             .is_empty()
                         {
-                            Props::none_selected_string()
+                            Props::none_checked_string()
                         } else {
                             "checked items"
                         },

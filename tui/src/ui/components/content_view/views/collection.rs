@@ -2,7 +2,7 @@
 
 // TODO: button to freeze the collection into a new playlist
 
-use std::{fmt::Display, sync::Mutex};
+use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::format_duration;
@@ -30,6 +30,8 @@ use super::{
         construct_add_to_playlist_action, construct_add_to_queue_action,
         create_collection_tree_leaf, create_song_tree_leaf,
     },
+    sort_mode::{NameSort, SongSort},
+    traits::SortMode,
     CollectionViewProps,
 };
 
@@ -42,7 +44,7 @@ pub struct CollectionView {
     /// tree state
     tree_state: Mutex<CheckTreeState<String>>,
     /// sort mode
-    sort_mode: super::song::SortMode,
+    sort_mode: SongSort,
 }
 
 impl Component for CollectionView {
@@ -54,7 +56,7 @@ impl Component for CollectionView {
             action_tx,
             props: state.additional_view_data.collection.clone(),
             tree_state: Mutex::new(CheckTreeState::default()),
-            sort_mode: super::song::SortMode::default(),
+            sort_mode: SongSort::default(),
         }
     }
 
@@ -64,7 +66,7 @@ impl Component for CollectionView {
     {
         if let Some(props) = &state.additional_view_data.collection {
             let mut props = props.clone();
-            self.sort_mode.sort_songs(&mut props.songs);
+            self.sort_mode.sort_items(&mut props.songs);
 
             Self {
                 props: Some(props),
@@ -118,13 +120,13 @@ impl Component for CollectionView {
             KeyCode::Char('s') => {
                 self.sort_mode = self.sort_mode.next();
                 if let Some(props) = &mut self.props {
-                    self.sort_mode.sort_songs(&mut props.songs);
+                    self.sort_mode.sort_items(&mut props.songs);
                 }
             }
             KeyCode::Char('S') => {
                 self.sort_mode = self.sort_mode.prev();
                 if let Some(props) = &mut self.props {
-                    self.sort_mode.sort_songs(&mut props.songs);
+                    self.sort_mode.sort_items(&mut props.songs);
                 }
             }
             // Enter key opens selected view
@@ -327,50 +329,7 @@ pub struct LibraryCollectionsView {
 
 struct Props {
     collections: Box<[Collection]>,
-    sort_mode: SortMode,
-}
-
-#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum SortMode {
-    #[default]
-    Name,
-}
-
-impl Display for SortMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Name => write!(f, "Name"),
-        }
-    }
-}
-
-impl SortMode {
-    #[must_use]
-    pub const fn next(&self) -> Self {
-        match self {
-            Self::Name => Self::Name,
-        }
-    }
-
-    #[must_use]
-    pub const fn prev(&self) -> Self {
-        match self {
-            Self::Name => Self::Name,
-        }
-    }
-
-    #[allow(clippy::unused_self)]
-    pub fn sort_collections(&self, collections: &mut [Collection]) {
-        fn key<T: AsRef<str>>(input: T) -> String {
-            input
-                .as_ref()
-                .to_lowercase() // ignore case
-                .trim_start_matches(|c: char| !c.is_alphanumeric()) // ignore leading non-alphanumeric characters
-                .trim_start_matches("the ") // ignore leading "the "
-                .to_owned()
-        }
-        collections.sort_by_key(|collection| key(&collection.name));
-    }
+    sort_mode: NameSort<Collection>,
 }
 
 impl Component for LibraryCollectionsView {
@@ -378,9 +337,9 @@ impl Component for LibraryCollectionsView {
     where
         Self: Sized,
     {
-        let sort_mode = SortMode::default();
+        let sort_mode = NameSort::default();
         let mut collections = state.library.collections.clone();
-        sort_mode.sort_collections(&mut collections);
+        sort_mode.sort_items(&mut collections);
         Self {
             action_tx,
             props: Props {
@@ -396,7 +355,7 @@ impl Component for LibraryCollectionsView {
         Self: Sized,
     {
         let mut collections = state.library.collections.clone();
-        self.props.sort_mode.sort_collections(&mut collections);
+        self.props.sort_mode.sort_items(&mut collections);
         let tree_state = if state.active_view == ActiveView::Collections {
             self.tree_state
         } else {
@@ -458,15 +417,11 @@ impl Component for LibraryCollectionsView {
             // Change sort mode
             KeyCode::Char('s') => {
                 self.props.sort_mode = self.props.sort_mode.next();
-                self.props
-                    .sort_mode
-                    .sort_collections(&mut self.props.collections);
+                self.props.sort_mode.sort_items(&mut self.props.collections);
             }
             KeyCode::Char('S') => {
                 self.props.sort_mode = self.props.sort_mode.prev();
-                self.props
-                    .sort_mode
-                    .sort_collections(&mut self.props.collections);
+                self.props.sort_mode.sort_items(&mut self.props.collections);
             }
             _ => {}
         }
@@ -582,15 +537,18 @@ mod sort_mode_tests {
     use std::time::Duration;
 
     #[rstest]
-    #[case(SortMode::Name, SortMode::Name)]
-    fn test_sort_mode_next_prev(#[case] mode: SortMode, #[case] expected: SortMode) {
+    #[case(NameSort::default(), NameSort::default())]
+    fn test_sort_mode_next_prev(
+        #[case] mode: NameSort<Collection>,
+        #[case] expected: NameSort<Collection>,
+    ) {
         assert_eq!(mode.next(), expected);
         assert_eq!(mode.next().prev(), mode);
     }
 
     #[rstest]
-    #[case(SortMode::Name, "Name")]
-    fn test_sort_mode_display(#[case] mode: SortMode, #[case] expected: &str) {
+    #[case(NameSort::default(), "Name")]
+    fn test_sort_mode_display(#[case] mode: NameSort<Collection>, #[case] expected: &str) {
         assert_eq!(mode.to_string(), expected);
     }
 
@@ -617,7 +575,7 @@ mod sort_mode_tests {
             },
         ];
 
-        SortMode::Name.sort_collections(&mut songs);
+        NameSort::default().sort_items(&mut songs);
         assert_eq!(songs[0].name, "A".into());
         assert_eq!(songs[1].name, "B".into());
         assert_eq!(songs[2].name, "C".into());
@@ -1051,11 +1009,11 @@ mod library_view_tests {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = LibraryCollectionsView::new(&state_with_everything(), tx);
 
-        assert_eq!(view.props.sort_mode, SortMode::Name);
+        assert_eq!(view.props.sort_mode, NameSort::default());
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::Name);
+        assert_eq!(view.props.sort_mode, NameSort::default());
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::Name);
+        assert_eq!(view.props.sort_mode, NameSort::default());
     }
 
     #[test]
