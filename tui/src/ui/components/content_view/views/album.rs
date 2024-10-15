@@ -1,22 +1,21 @@
 //! Views for both a single album, and the library of albums.
 
-use std::{fmt::Display, sync::Mutex};
+use std::sync::Mutex;
 
-use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_core::format_duration;
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_storage::db::schemas::album::Album;
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
+    layout::{Margin, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
+    widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     state::action::{Action, AudioAction, PopupAction, QueueAction},
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
+        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         widgets::{
             popups::PopupType,
@@ -27,306 +26,12 @@ use crate::{
 };
 
 use super::{
-    checktree_utils::{
-        construct_add_to_playlist_action, construct_add_to_queue_action,
-        construct_start_radio_action, create_album_tree_leaf, create_artist_tree_item,
-        create_song_tree_item, get_checked_things_from_tree_state,
-        get_selected_things_from_tree_state,
-    },
-    AlbumViewProps, RADIO_SIZE,
+    checktree_utils::create_album_tree_leaf, generic::ItemView, sort_mode::AlbumSort,
+    traits::SortMode, AlbumViewProps, RADIO_SIZE,
 };
 
 #[allow(clippy::module_name_repetitions)]
-pub struct AlbumView {
-    /// Action Sender
-    pub action_tx: UnboundedSender<Action>,
-    /// Mapped Props from state
-    pub props: Option<AlbumViewProps>,
-    /// tree state
-    tree_state: Mutex<CheckTreeState<String>>,
-}
-
-impl Component for AlbumView {
-    fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self
-    where
-        Self: Sized,
-    {
-        Self {
-            action_tx,
-            props: state.additional_view_data.album.clone(),
-            tree_state: Mutex::new(CheckTreeState::default()),
-        }
-    }
-
-    fn move_with_state(self, state: &AppState) -> Self
-    where
-        Self: Sized,
-    {
-        if let Some(props) = &state.additional_view_data.album {
-            Self {
-                props: Some(props.to_owned()),
-                tree_state: Mutex::new(CheckTreeState::default()),
-                ..self
-            }
-        } else {
-            self
-        }
-    }
-
-    fn name(&self) -> &str {
-        "Album View"
-    }
-
-    fn handle_key_event(&mut self, key: KeyEvent) {
-        match key.code {
-            // arrow keys
-            KeyCode::Up => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            KeyCode::Down => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            KeyCode::Left => {
-                self.tree_state.lock().unwrap().key_left();
-            }
-            KeyCode::Right => {
-                self.tree_state.lock().unwrap().key_right();
-            }
-            KeyCode::Char(' ') => {
-                self.tree_state.lock().unwrap().key_space();
-            }
-            // Enter key opens selected view
-            KeyCode::Enter => {
-                if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
-
-                    if let Some(thing) = things {
-                        self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
-                            .unwrap();
-                    }
-                }
-            }
-            // if there are checked items, add them to the queue, otherwise send the whole album to the queue
-            KeyCode::Char('q') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
-                if let Some(action) = construct_add_to_queue_action(
-                    checked_things,
-                    self.props.as_ref().map(|p| &p.id),
-                ) {
-                    self.action_tx.send(action).unwrap();
-                }
-            }
-            // if there are checked items, start radio from checked items, otherwise start radio from album
-            KeyCode::Char('r') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
-                if let Some(action) =
-                    construct_start_radio_action(checked_things, self.props.as_ref().map(|p| &p.id))
-                {
-                    self.action_tx.send(action).unwrap();
-                }
-            }
-            // if there are checked items, add them to playlist, otherwise add the whole album to playlist
-            KeyCode::Char('p') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
-                if let Some(action) = construct_add_to_playlist_action(
-                    checked_things,
-                    self.props.as_ref().map(|p| &p.id),
-                ) {
-                    self.action_tx.send(action).unwrap();
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        let MouseEvent {
-            kind, column, row, ..
-        } = mouse;
-        let mouse_position = Position::new(column, row);
-
-        // adjust the area to account for the border
-        let area = area.inner(Margin::new(1, 1));
-        let [_, content_area] = split_area(area);
-        let content_area = Rect {
-            y: content_area.y + 2,
-            height: content_area.height - 2,
-            ..content_area
-        };
-
-        match kind {
-            MouseEventKind::Down(MouseButton::Left) if content_area.contains(mouse_position) => {
-                let selected_things =
-                    get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
-                self.tree_state.lock().unwrap().mouse_click(mouse_position);
-
-                // if the selection didn't change, open the selected view
-                if selected_things
-                    == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
-                {
-                    if let Some(thing) = selected_things {
-                        self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
-                            .unwrap();
-                    }
-                }
-            }
-            MouseEventKind::ScrollDown if content_area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            MouseEventKind::ScrollUp if content_area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            _ => {}
-        }
-    }
-}
-
-fn split_area(area: Rect) -> [Rect; 2] {
-    let [info_area, content_area] = *Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(4)])
-        .split(area)
-    else {
-        panic!("Failed to split album view area")
-    };
-
-    [info_area, content_area]
-}
-
-impl ComponentRender<RenderProps> for AlbumView {
-    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
-
-        // draw borders and get area for the content
-        let area = if let Some(state) = &self.props {
-            let border = Block::bordered()
-                .title_top("Album View")
-                .title_bottom(" \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check")
-                .border_style(border_style);
-            let content_area = border.inner(props.area);
-            frame.render_widget(border, props.area);
-
-            // split area to make room for album info
-            let [info_area, content_area] = split_area(content_area);
-
-            // render the album info
-            frame.render_widget(
-                Paragraph::new(vec![
-                    Line::from(vec![
-                        Span::styled(state.album.title.to_string(), Style::default().bold()),
-                        Span::raw(" "),
-                        Span::styled(
-                            state
-                                .album
-                                .artist
-                                .iter()
-                                .map(ToString::to_string)
-                                .collect::<Vec<String>>()
-                                .join(", "),
-                            Style::default().italic(),
-                        ),
-                    ]),
-                    Line::from(vec![
-                        Span::raw("Release Year: "),
-                        Span::styled(
-                            state
-                                .album
-                                .release
-                                .map_or_else(|| "unknown".to_string(), |y| y.to_string()),
-                            Style::default().italic(),
-                        ),
-                        Span::raw("  Songs: "),
-                        Span::styled(
-                            state.album.song_count.to_string(),
-                            Style::default().italic(),
-                        ),
-                        Span::raw("  Duration: "),
-                        Span::styled(
-                            format_duration(&state.album.runtime),
-                            Style::default().italic(),
-                        ),
-                    ]),
-                ])
-                .alignment(Alignment::Center),
-                info_area,
-            );
-
-            // draw an additional border around the content area to display additional instructions
-            let border = Block::default()
-                .borders(Borders::TOP)
-                .title_top("q: add to queue | r: start radio | p: add to playlist")
-                .border_style(border_style);
-            frame.render_widget(&border, content_area);
-            let content_area = border.inner(content_area);
-
-            // draw an additional border around the content area to indicate whether operations will be performed on the entire item, or just the checked items
-            let border = Block::default()
-                .borders(Borders::TOP)
-                .title_top(Line::from(vec![
-                    Span::raw("Performing operations on "),
-                    Span::raw(
-                        if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
-                            .is_empty()
-                        {
-                            "entire album"
-                        } else {
-                            "checked items"
-                        },
-                    )
-                    .fg(TEXT_HIGHLIGHT),
-                ]))
-                .italic()
-                .border_style(border_style);
-            frame.render_widget(&border, content_area);
-            border.inner(content_area)
-        } else {
-            let border = Block::bordered()
-                .title_top("Album View")
-                .border_style(border_style);
-            frame.render_widget(&border, props.area);
-            border.inner(props.area)
-        };
-
-        RenderProps { area, ..props }
-    }
-
-    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
-        if let Some(state) = &self.props {
-            // create a tree to hold album artists and songs
-            let artist_tree = create_artist_tree_item(state.artists.as_slice()).unwrap();
-            let song_tree = create_song_tree_item(&state.songs).unwrap();
-            let items = &[artist_tree, song_tree];
-
-            // render the tree
-            frame.render_stateful_widget(
-                CheckTree::new(items)
-                    .unwrap()
-                    .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold()),
-                props.area,
-                &mut self.tree_state.lock().unwrap(),
-            );
-        } else {
-            let text = "No active album";
-
-            frame.render_widget(
-                Line::from(text)
-                    .style(Style::default().fg(TEXT_NORMAL.into()))
-                    .alignment(Alignment::Center),
-                props.area,
-            );
-        }
-    }
-}
+pub type AlbumView = ItemView<AlbumViewProps>;
 
 pub struct LibraryAlbumsView {
     /// Action Sender
@@ -339,67 +44,7 @@ pub struct LibraryAlbumsView {
 
 struct Props {
     albums: Box<[Album]>,
-    sort_mode: SortMode,
-}
-
-#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum SortMode {
-    Title,
-    #[default]
-    Artist,
-    ReleaseYear,
-}
-
-impl Display for SortMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Title => write!(f, "Title"),
-            Self::Artist => write!(f, "Artist"),
-            Self::ReleaseYear => write!(f, "Year"),
-        }
-    }
-}
-
-impl SortMode {
-    #[must_use]
-    pub const fn next(&self) -> Self {
-        match self {
-            Self::Title => Self::Artist,
-            Self::Artist => Self::ReleaseYear,
-            Self::ReleaseYear => Self::Title,
-        }
-    }
-
-    #[must_use]
-    pub const fn prev(&self) -> Self {
-        match self {
-            Self::Title => Self::ReleaseYear,
-            Self::Artist => Self::Title,
-            Self::ReleaseYear => Self::Artist,
-        }
-    }
-
-    pub fn sort_albums(&self, albums: &mut [Album]) {
-        fn key<T: AsRef<str>>(input: T) -> String {
-            input
-                .as_ref()
-                .to_lowercase() // ignore case
-                .trim_start_matches(|c: char| !c.is_alphanumeric()) // ignore leading non-alphanumeric characters
-                .trim_start_matches("the ") // ignore leading "the "
-                .to_owned()
-        }
-
-        match self {
-            Self::Title => albums.sort_by_key(|album| key(&album.title)),
-            Self::Artist => {
-                albums.sort_by_cached_key(|album| album.artist.iter().map(key).collect::<Vec<_>>());
-            }
-            Self::ReleaseYear => {
-                albums.sort_by_key(|album| album.release.unwrap_or(0));
-                albums.reverse();
-            }
-        }
-    }
+    sort_mode: AlbumSort,
 }
 
 impl Component for LibraryAlbumsView {
@@ -407,9 +52,9 @@ impl Component for LibraryAlbumsView {
     where
         Self: Sized,
     {
-        let sort_mode = SortMode::default();
+        let sort_mode = AlbumSort::default();
         let mut albums = state.library.albums.clone();
-        sort_mode.sort_albums(&mut albums);
+        sort_mode.sort_items(&mut albums);
         Self {
             action_tx,
             props: Props { albums, sort_mode },
@@ -422,7 +67,7 @@ impl Component for LibraryAlbumsView {
         Self: Sized,
     {
         let mut albums = state.library.albums.clone();
-        self.props.sort_mode.sort_albums(&mut albums);
+        self.props.sort_mode.sort_items(&mut albums);
         let tree_state = if state.active_view == ActiveView::Albums {
             self.tree_state
         } else {
@@ -475,8 +120,7 @@ impl Component for LibraryAlbumsView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -487,7 +131,7 @@ impl Component for LibraryAlbumsView {
             }
             // when there are checked items, "q" will send the checked items to the queue
             KeyCode::Char('q') => {
-                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
@@ -496,7 +140,7 @@ impl Component for LibraryAlbumsView {
             }
             // when there are checked items, "r" will start a radio with the checked items
             KeyCode::Char('r') => {
-                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::SetCurrentView(ActiveView::Radio(
@@ -507,7 +151,7 @@ impl Component for LibraryAlbumsView {
             }
             // when there are checked items, "p" will send the checked items to the playlist
             KeyCode::Char('p') => {
-                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
@@ -519,49 +163,27 @@ impl Component for LibraryAlbumsView {
             // Change sort mode
             KeyCode::Char('s') => {
                 self.props.sort_mode = self.props.sort_mode.next();
-                self.props.sort_mode.sort_albums(&mut self.props.albums);
+                self.props.sort_mode.sort_items(&mut self.props.albums);
             }
             KeyCode::Char('S') => {
                 self.props.sort_mode = self.props.sort_mode.prev();
-                self.props.sort_mode.sort_albums(&mut self.props.albums);
+                self.props.sort_mode.sort_items(&mut self.props.albums);
             }
             _ => {}
         }
     }
 
     fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        let MouseEvent {
-            kind, column, row, ..
-        } = mouse;
-        let mouse_position = Position::new(column, row);
-
         // adjust the area to account for the border
         let area = area.inner(Margin::new(1, 2));
 
-        match kind {
-            MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
-                let selected_things =
-                    get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
-                self.tree_state.lock().unwrap().mouse_click(mouse_position);
-
-                // if the selection didn't change, open the selected view
-                if selected_things
-                    == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
-                {
-                    if let Some(thing) = selected_things {
-                        self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
-                            .unwrap();
-                    }
-                }
-            }
-            MouseEventKind::ScrollDown if area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            MouseEventKind::ScrollUp if area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            _ => {}
+        let result = self
+            .tree_state
+            .lock()
+            .unwrap()
+            .handle_mouse_event(mouse, area);
+        if let Some(action) = result {
+            self.action_tx.send(action).unwrap();
         }
     }
 }
@@ -590,7 +212,13 @@ impl ComponentRender<RenderProps> for LibraryAlbumsView {
         let border = Block::default()
             .borders(Borders::TOP | Borders::BOTTOM)
             .title_top(
-                if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()).is_empty() {
+                if self
+                    .tree_state
+                    .lock()
+                    .unwrap()
+                    .get_checked_things()
+                    .is_empty()
+                {
                     ""
                 } else {
                     "q: add to queue | r: start radio | p: add to playlist "
@@ -634,24 +262,24 @@ mod sort_mode_tests {
     use std::time::Duration;
 
     #[rstest]
-    #[case(SortMode::Title, SortMode::Artist)]
-    #[case(SortMode::Artist, SortMode::ReleaseYear)]
-    #[case(SortMode::ReleaseYear, SortMode::Title)]
-    fn test_sort_mode_next_prev(#[case] mode: SortMode, #[case] expected: SortMode) {
+    #[case(AlbumSort::Title, AlbumSort::Artist)]
+    #[case(AlbumSort::Artist, AlbumSort::ReleaseYear)]
+    #[case(AlbumSort::ReleaseYear, AlbumSort::Title)]
+    fn test_sort_mode_next_prev(#[case] mode: AlbumSort, #[case] expected: AlbumSort) {
         assert_eq!(mode.next(), expected);
         assert_eq!(mode.next().prev(), mode);
     }
 
     #[rstest]
-    #[case(SortMode::Title, "Title")]
-    #[case(SortMode::Artist, "Artist")]
-    #[case(SortMode::ReleaseYear, "Year")]
-    fn test_sort_mode_display(#[case] mode: SortMode, #[case] expected: &str) {
+    #[case(AlbumSort::Title, "Title")]
+    #[case(AlbumSort::Artist, "Artist")]
+    #[case(AlbumSort::ReleaseYear, "Year")]
+    fn test_sort_mode_display(#[case] mode: AlbumSort, #[case] expected: &str) {
         assert_eq!(mode.to_string(), expected);
     }
 
     #[rstest]
-    fn test_sort_albums() {
+    fn test_sort_items() {
         let mut albums = vec![
             Album {
                 id: Album::generate_id(),
@@ -685,17 +313,17 @@ mod sort_mode_tests {
             },
         ];
 
-        SortMode::Title.sort_albums(&mut albums);
+        AlbumSort::Title.sort_items(&mut albums);
         assert_eq!(albums[0].title, "A".into());
         assert_eq!(albums[1].title, "B".into());
         assert_eq!(albums[2].title, "C".into());
 
-        SortMode::Artist.sort_albums(&mut albums);
+        AlbumSort::Artist.sort_items(&mut albums);
         assert_eq!(albums[0].artist, OneOrMany::One("A".into()));
         assert_eq!(albums[1].artist, OneOrMany::One("B".into()));
         assert_eq!(albums[2].artist, OneOrMany::One("C".into()));
 
-        SortMode::ReleaseYear.sort_albums(&mut albums);
+        AlbumSort::ReleaseYear.sort_items(&mut albums);
         assert_eq!(albums[0].release, Some(2023));
         assert_eq!(albums[1].release, Some(2022));
         assert_eq!(albums[2].release, Some(2021));
@@ -709,7 +337,7 @@ mod item_view_tests {
         assert_buffer_eq, item_id, setup_test_terminal, state_with_everything,
     };
     use anyhow::Result;
-    use crossterm::event::KeyModifiers;
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -1090,7 +718,7 @@ mod library_view_tests {
         assert_buffer_eq, item_id, setup_test_terminal, state_with_everything,
     };
     use anyhow::Result;
-    use crossterm::event::KeyModifiers;
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -1195,19 +823,19 @@ mod library_view_tests {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = LibraryAlbumsView::new(&state_with_everything(), tx);
 
-        assert_eq!(view.props.sort_mode, SortMode::Artist);
+        assert_eq!(view.props.sort_mode, AlbumSort::Artist);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::ReleaseYear);
+        assert_eq!(view.props.sort_mode, AlbumSort::ReleaseYear);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::Title);
+        assert_eq!(view.props.sort_mode, AlbumSort::Title);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::Artist);
+        assert_eq!(view.props.sort_mode, AlbumSort::Artist);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::Title);
+        assert_eq!(view.props.sort_mode, AlbumSort::Title);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::ReleaseYear);
+        assert_eq!(view.props.sort_mode, AlbumSort::ReleaseYear);
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::Artist);
+        assert_eq!(view.props.sort_mode, AlbumSort::Artist);
     }
 
     #[test]

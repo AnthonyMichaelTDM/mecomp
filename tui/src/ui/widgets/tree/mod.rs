@@ -705,8 +705,98 @@ mod render_tests {
     }
 
     #[test]
+    fn test_rendered_at() {
+        let mut state = CheckTreeState::default();
+
+        // nothing rendered
+        assert_eq!(state.rendered_at(Position::new(0, 0)), None);
+
+        // render the tree
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▶ Bravo        ",
+            "☐ Hotel        ",
+            "               ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        // check rendered at
+        assert_eq!(
+            state.rendered_at(Position::new(0, 0)),
+            Some(["a"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 1)),
+            Some(["b"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 2)),
+            Some(["h"].as_slice())
+        );
+        assert_eq!(state.rendered_at(Position::new(0, 3)), None);
+
+        // open branch, render, and check again
+        state.open(vec!["b"]);
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▼ Bravo        ",
+            "  ☐ Charlie    ",
+            "  ▶ Delta      ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        assert_eq!(
+            state.rendered_at(Position::new(0, 0)),
+            Some(["a"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 1)),
+            Some(["b"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 2)),
+            Some(["b", "c"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 3)),
+            Some(["b", "d"].as_slice())
+        );
+
+        // close branch, render, and check again
+        state.close(["b"].as_slice());
+        let buffer = render(15, 4, &mut state);
+        let expected = Buffer::with_lines([
+            "☐ Alfa         ",
+            "▶ Bravo        ",
+            "☐ Hotel        ",
+            "               ",
+        ]);
+        assert_eq!(buffer, expected);
+
+        assert_eq!(
+            state.rendered_at(Position::new(0, 0)),
+            Some(["a"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 1)),
+            Some(["b"].as_slice())
+        );
+        assert_eq!(
+            state.rendered_at(Position::new(0, 2)),
+            Some(["h"].as_slice())
+        );
+        assert_eq!(state.rendered_at(Position::new(0, 3)), None);
+    }
+
+    #[test]
     fn test_mouse() {
         let mut state = CheckTreeState::default();
+
+        // click before rendering
+        assert_eq!(state.mouse_click(Position::new(0, 0)), false);
+
         state.open(vec!["b"]);
         state.open(vec!["b", "d"]);
         let buffer = render(15, 4, &mut state);
@@ -720,7 +810,7 @@ mod render_tests {
 
         // click on first item
         // check that the item is checked
-        state.mouse_click(Position::new(0, 0));
+        assert_eq!(state.mouse_click(Position::new(0, 0)), true);
         let buffer = render(15, 4, &mut state);
         let expected = Buffer::with_lines([
             "☑ Alfa         ",
@@ -733,7 +823,7 @@ mod render_tests {
 
         // click on second item
         // check that the branch is closed
-        state.mouse_click(Position::new(0, 1));
+        assert_eq!(state.mouse_click(Position::new(0, 1)), true);
         let buffer = render(15, 4, &mut state);
         let expected = Buffer::with_lines([
             "☑ Alfa         ",
@@ -746,7 +836,7 @@ mod render_tests {
 
         // click on the first item again
         // check that the item is unchecked
-        state.mouse_click(Position::new(0, 0));
+        assert_eq!(state.mouse_click(Position::new(0, 0)), true);
         let buffer = render(15, 4, &mut state);
         let expected = Buffer::with_lines([
             "☐ Alfa         ",
@@ -757,9 +847,12 @@ mod render_tests {
         assert_eq!(state.selected(), &["a"]);
         assert_eq!(buffer, expected);
 
+        // click on empty space
+        assert_eq!(state.mouse_click(Position::new(0, 4)), false);
+
         // click on the second item again
         // check that the branch is opened
-        state.mouse_click(Position::new(0, 1));
+        assert_eq!(state.mouse_click(Position::new(0, 1)), true);
         let buffer = render(15, 4, &mut state);
         let expected = Buffer::with_lines([
             "☐ Alfa         ",
@@ -772,7 +865,7 @@ mod render_tests {
 
         // click on the third item
         // check that the item is checked
-        state.mouse_click(Position::new(0, 2));
+        assert_eq!(state.mouse_click(Position::new(0, 2)), true);
         let buffer = render(15, 4, &mut state);
         let expected = Buffer::with_lines([
             "☐ Alfa         ",

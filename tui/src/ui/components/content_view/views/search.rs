@@ -29,10 +29,7 @@ use crate::{
 };
 
 use super::{
-    checktree_utils::{
-        create_album_tree_item, create_artist_tree_item, create_song_tree_item,
-        get_checked_things_from_tree_state, get_selected_things_from_tree_state,
-    },
+    checktree_utils::{create_album_tree_item, create_artist_tree_item, create_song_tree_item},
     RADIO_SIZE,
 };
 
@@ -144,8 +141,7 @@ impl Component for SearchView {
             // when searchbar unfocused, enter key will open the selected node
             KeyCode::Enter if !self.search_bar_focused => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -156,7 +152,7 @@ impl Component for SearchView {
             }
             // when search bar unfocused, and there are checked items, "q" will send the checked items to the queue
             KeyCode::Char('q') if !self.search_bar_focused => {
-                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
@@ -165,7 +161,7 @@ impl Component for SearchView {
             }
             // when search bar unfocused, and there are checked items, "r" will start a radio with the checked items
             KeyCode::Char('r') if !self.search_bar_focused => {
-                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::SetCurrentView(ActiveView::Radio(
@@ -176,7 +172,7 @@ impl Component for SearchView {
             }
             // when search bar unfocused, and there are checked items, "p" will send the checked items to the playlist
             KeyCode::Char('p') if !self.search_bar_focused => {
-                let things = get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
@@ -226,14 +222,11 @@ impl Component for SearchView {
                 MouseEventKind::Down(MouseButton::Left)
                     if content_area.contains(mouse_position) =>
                 {
-                    let selected_things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let selected_things = self.tree_state.lock().unwrap().get_selected_thing();
                     self.tree_state.lock().unwrap().mouse_click(mouse_position);
 
                     // if the selection didn't change, open the selected view
-                    if selected_things
-                        == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
-                    {
+                    if selected_things == self.tree_state.lock().unwrap().get_selected_thing() {
                         if let Some(thing) = selected_things {
                             self.action_tx
                                 .send(Action::SetCurrentView(thing.into()))
@@ -323,17 +316,22 @@ impl ComponentRender<RenderProps> for SearchView {
         };
 
         // if there are checked items, put an additional border around the content area to display additional instructions
-        let area =
-            if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap()).is_empty() {
-                area
-            } else {
-                let border = Block::default()
-                    .borders(Borders::TOP)
-                    .title_top("q: add to queue | r: start radio | p: add to playlist")
-                    .border_style(border_style);
-                frame.render_widget(&border, area);
-                border.inner(area)
-            };
+        let area = if self
+            .tree_state
+            .lock()
+            .unwrap()
+            .get_checked_things()
+            .is_empty()
+        {
+            area
+        } else {
+            let border = Block::default()
+                .borders(Borders::TOP)
+                .title_top("q: add to queue | r: start radio | p: add to playlist")
+                .border_style(border_style);
+            frame.render_widget(&border, area);
+            border.inner(area)
+        };
 
         RenderProps { area, ..props }
     }

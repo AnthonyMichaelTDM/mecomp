@@ -2,7 +2,7 @@
 
 // TODO: button to freeze the collection into a new playlist
 
-use std::{fmt::Display, sync::Mutex};
+use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::format_duration;
@@ -28,9 +28,10 @@ use crate::{
 use super::{
     checktree_utils::{
         construct_add_to_playlist_action, construct_add_to_queue_action,
-        create_collection_tree_leaf, create_song_tree_leaf, get_checked_things_from_tree_state,
-        get_selected_things_from_tree_state,
+        create_collection_tree_leaf, create_song_tree_leaf,
     },
+    sort_mode::{NameSort, SongSort},
+    traits::SortMode,
     CollectionViewProps,
 };
 
@@ -43,7 +44,7 @@ pub struct CollectionView {
     /// tree state
     tree_state: Mutex<CheckTreeState<String>>,
     /// sort mode
-    sort_mode: super::song::SortMode,
+    sort_mode: SongSort,
 }
 
 impl Component for CollectionView {
@@ -55,7 +56,7 @@ impl Component for CollectionView {
             action_tx,
             props: state.additional_view_data.collection.clone(),
             tree_state: Mutex::new(CheckTreeState::default()),
-            sort_mode: super::song::SortMode::default(),
+            sort_mode: SongSort::default(),
         }
     }
 
@@ -65,7 +66,7 @@ impl Component for CollectionView {
     {
         if let Some(props) = &state.additional_view_data.collection {
             let mut props = props.clone();
-            self.sort_mode.sort_songs(&mut props.songs);
+            self.sort_mode.sort_items(&mut props.songs);
 
             Self {
                 props: Some(props),
@@ -119,20 +120,19 @@ impl Component for CollectionView {
             KeyCode::Char('s') => {
                 self.sort_mode = self.sort_mode.next();
                 if let Some(props) = &mut self.props {
-                    self.sort_mode.sort_songs(&mut props.songs);
+                    self.sort_mode.sort_items(&mut props.songs);
                 }
             }
             KeyCode::Char('S') => {
                 self.sort_mode = self.sort_mode.prev();
                 if let Some(props) = &mut self.props {
-                    self.sort_mode.sort_songs(&mut props.songs);
+                    self.sort_mode.sort_items(&mut props.songs);
                 }
             }
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -143,8 +143,7 @@ impl Component for CollectionView {
             }
             // if there are checked items, add them to the queue, otherwise send the whole collection to the queue
             KeyCode::Char('q') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) = construct_add_to_queue_action(
                     checked_things,
                     self.props.as_ref().map(|p| &p.id),
@@ -154,8 +153,7 @@ impl Component for CollectionView {
             }
             // if there are checked items, add them to the playlist, otherwise send the whole collection to the playlist
             KeyCode::Char('p') => {
-                let checked_things =
-                    get_checked_things_from_tree_state(&self.tree_state.lock().unwrap());
+                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) = construct_add_to_playlist_action(
                     checked_things,
                     self.props.as_ref().map(|p| &p.id),
@@ -168,40 +166,18 @@ impl Component for CollectionView {
     }
 
     fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        let MouseEvent {
-            kind, column, row, ..
-        } = mouse;
-        let mouse_position = Position::new(column, row);
-
         // adjust the area to account for the border
         let area = area.inner(Margin::new(1, 1));
         let [_, content_area] = split_area(area);
         let content_area = content_area.inner(Margin::new(0, 1));
 
-        match kind {
-            MouseEventKind::Down(MouseButton::Left) if content_area.contains(mouse_position) => {
-                let selected_things =
-                    get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
-                self.tree_state.lock().unwrap().mouse_click(mouse_position);
-
-                // if the selection didn't change, open the selected view
-                if selected_things
-                    == get_selected_things_from_tree_state(&self.tree_state.lock().unwrap())
-                {
-                    if let Some(thing) = selected_things {
-                        self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
-                            .unwrap();
-                    }
-                }
-            }
-            MouseEventKind::ScrollDown if content_area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            MouseEventKind::ScrollUp if content_area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            _ => {}
+        let result = self
+            .tree_state
+            .lock()
+            .unwrap()
+            .handle_mouse_event(mouse, content_area);
+        if let Some(action) = result {
+            self.action_tx.send(action).unwrap();
         }
     }
 }
@@ -280,7 +256,11 @@ impl ComponentRender<RenderProps> for CollectionView {
                 .title_top(Line::from(vec![
                     Span::raw("Performing operations on "),
                     Span::raw(
-                        if get_checked_things_from_tree_state(&self.tree_state.lock().unwrap())
+                        if self
+                            .tree_state
+                            .lock()
+                            .unwrap()
+                            .get_checked_things()
                             .is_empty()
                         {
                             "entire collection"
@@ -311,7 +291,7 @@ impl ComponentRender<RenderProps> for CollectionView {
             let items = state
                 .songs
                 .iter()
-                .map(|song| create_song_tree_leaf(song))
+                .map(create_song_tree_leaf)
                 .collect::<Vec<_>>();
 
             // render the collections songs
@@ -349,50 +329,7 @@ pub struct LibraryCollectionsView {
 
 struct Props {
     collections: Box<[Collection]>,
-    sort_mode: SortMode,
-}
-
-#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum SortMode {
-    #[default]
-    Name,
-}
-
-impl Display for SortMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Name => write!(f, "Name"),
-        }
-    }
-}
-
-impl SortMode {
-    #[must_use]
-    pub const fn next(&self) -> Self {
-        match self {
-            Self::Name => Self::Name,
-        }
-    }
-
-    #[must_use]
-    pub const fn prev(&self) -> Self {
-        match self {
-            Self::Name => Self::Name,
-        }
-    }
-
-    #[allow(clippy::unused_self)]
-    pub fn sort_collections(&self, collections: &mut [Collection]) {
-        fn key<T: AsRef<str>>(input: T) -> String {
-            input
-                .as_ref()
-                .to_lowercase() // ignore case
-                .trim_start_matches(|c: char| !c.is_alphanumeric()) // ignore leading non-alphanumeric characters
-                .trim_start_matches("the ") // ignore leading "the "
-                .to_owned()
-        }
-        collections.sort_by_key(|collection| key(&collection.name));
-    }
+    sort_mode: NameSort<Collection>,
 }
 
 impl Component for LibraryCollectionsView {
@@ -400,9 +337,9 @@ impl Component for LibraryCollectionsView {
     where
         Self: Sized,
     {
-        let sort_mode = SortMode::default();
+        let sort_mode = NameSort::default();
         let mut collections = state.library.collections.clone();
-        sort_mode.sort_collections(&mut collections);
+        sort_mode.sort_items(&mut collections);
         Self {
             action_tx,
             props: Props {
@@ -418,7 +355,7 @@ impl Component for LibraryCollectionsView {
         Self: Sized,
     {
         let mut collections = state.library.collections.clone();
-        self.props.sort_mode.sort_collections(&mut collections);
+        self.props.sort_mode.sort_items(&mut collections);
         let tree_state = if state.active_view == ActiveView::Collections {
             self.tree_state
         } else {
@@ -468,8 +405,7 @@ impl Component for LibraryCollectionsView {
             // Enter key opens selected view
             KeyCode::Enter => {
                 if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -481,15 +417,11 @@ impl Component for LibraryCollectionsView {
             // Change sort mode
             KeyCode::Char('s') => {
                 self.props.sort_mode = self.props.sort_mode.next();
-                self.props
-                    .sort_mode
-                    .sort_collections(&mut self.props.collections);
+                self.props.sort_mode.sort_items(&mut self.props.collections);
             }
             KeyCode::Char('S') => {
                 self.props.sort_mode = self.props.sort_mode.prev();
-                self.props
-                    .sort_mode
-                    .sort_collections(&mut self.props.collections);
+                self.props.sort_mode.sort_items(&mut self.props.collections);
             }
             _ => {}
         }
@@ -519,8 +451,7 @@ impl Component for LibraryCollectionsView {
                 if self.tree_state.lock().unwrap().select(clicked) {
                     self.tree_state.lock().unwrap().scroll_selected_into_view();
                 } else {
-                    let things =
-                        get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                    let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -580,7 +511,7 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
             .props
             .collections
             .iter()
-            .map(|collection| create_collection_tree_leaf(collection))
+            .map(create_collection_tree_leaf)
             .collect::<Vec<_>>();
 
         // render the collections
@@ -606,15 +537,18 @@ mod sort_mode_tests {
     use std::time::Duration;
 
     #[rstest]
-    #[case(SortMode::Name, SortMode::Name)]
-    fn test_sort_mode_next_prev(#[case] mode: SortMode, #[case] expected: SortMode) {
+    #[case(NameSort::default(), NameSort::default())]
+    fn test_sort_mode_next_prev(
+        #[case] mode: NameSort<Collection>,
+        #[case] expected: NameSort<Collection>,
+    ) {
         assert_eq!(mode.next(), expected);
         assert_eq!(mode.next().prev(), mode);
     }
 
     #[rstest]
-    #[case(SortMode::Name, "Name")]
-    fn test_sort_mode_display(#[case] mode: SortMode, #[case] expected: &str) {
+    #[case(NameSort::default(), "Name")]
+    fn test_sort_mode_display(#[case] mode: NameSort<Collection>, #[case] expected: &str) {
         assert_eq!(mode.to_string(), expected);
     }
 
@@ -641,7 +575,7 @@ mod sort_mode_tests {
             },
         ];
 
-        SortMode::Name.sort_collections(&mut songs);
+        NameSort::default().sort_items(&mut songs);
         assert_eq!(songs[0].name, "A".into());
         assert_eq!(songs[1].name, "B".into());
         assert_eq!(songs[2].name, "C".into());
@@ -995,7 +929,7 @@ mod item_view_tests {
             MouseEvent {
                 kind: MouseEventKind::ScrollUp,
                 column: 2,
-                row: 7,
+                row: 6,
                 modifiers: KeyModifiers::empty(),
             },
             area,
@@ -1075,11 +1009,11 @@ mod library_view_tests {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = LibraryCollectionsView::new(&state_with_everything(), tx);
 
-        assert_eq!(view.props.sort_mode, SortMode::Name);
+        assert_eq!(view.props.sort_mode, NameSort::default());
         view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
-        assert_eq!(view.props.sort_mode, SortMode::Name);
+        assert_eq!(view.props.sort_mode, NameSort::default());
         view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
-        assert_eq!(view.props.sort_mode, SortMode::Name);
+        assert_eq!(view.props.sort_mode, NameSort::default());
     }
 
     #[test]
@@ -1164,7 +1098,7 @@ mod library_view_tests {
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
                 column: 2,
-                row: 3,
+                row: 2,
                 modifiers: KeyModifiers::empty(),
             },
             area,
@@ -1185,7 +1119,7 @@ mod library_view_tests {
             MouseEvent {
                 kind: MouseEventKind::ScrollUp,
                 column: 2,
-                row: 3,
+                row: 2,
                 modifiers: KeyModifiers::empty(),
             },
             area,

@@ -26,10 +26,7 @@ use crate::{
     ui::{
         colors::{BORDER_FOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT},
         components::{
-            content_view::views::{
-                checktree_utils::{create_playlist_tree_leaf, get_selected_things_from_tree_state},
-                playlist::Props,
-            },
+            content_view::views::{checktree_utils::create_playlist_tree_leaf, playlist::Props},
             Component, ComponentRender,
         },
         widgets::{
@@ -188,8 +185,7 @@ impl Popup for PlaylistSelector {
                 // and closes the popup
                 KeyCode::Enter => {
                     if self.tree_state.lock().unwrap().toggle_selected() {
-                        let things =
-                            get_selected_things_from_tree_state(&self.tree_state.lock().unwrap());
+                        let things = self.tree_state.lock().unwrap().get_selected_thing();
 
                         if let Some(thing) = things {
                             // add the items to the selected playlist
