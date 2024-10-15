@@ -33,6 +33,11 @@ use queue::Queue;
 const DURATION_WATCHER_TICK_MS: u64 = 50;
 const DURATION_WATCHER_NEXT_SONG_THRESHOLD_MS: u64 = 100;
 
+/// The minimum volume that can be set, currently set to 0.0 (no sound)
+const MIN_VOLUME: f32 = -1.0;
+/// The maximum volume that can be set, currently set to 10.0 (10x volume)
+const MAX_VOLUME: f32 = 10.0;
+
 #[derive(Debug, Clone)]
 pub struct AudioKernelSender {
     tx: Sender<(AudioCommand, tracing::Span)>,
@@ -555,13 +560,16 @@ impl AudioKernel {
     fn volume_control(&self, command: VolumeCommand) {
         match command {
             VolumeCommand::Up(percent) => {
-                *self.volume.lock().unwrap() += percent;
+                let mut volume = self.volume.lock().unwrap();
+                *volume = (*volume + percent).clamp(MIN_VOLUME, MAX_VOLUME);
             }
             VolumeCommand::Down(percent) => {
-                *self.volume.lock().unwrap() -= percent;
+                let mut volume = self.volume.lock().unwrap();
+                *volume = (*volume - percent).clamp(MIN_VOLUME, MAX_VOLUME);
             }
             VolumeCommand::Set(percent) => {
-                *self.volume.lock().unwrap() = percent;
+                let mut volume = self.volume.lock().unwrap();
+                *volume = percent.clamp(MIN_VOLUME, MAX_VOLUME);
             }
             VolumeCommand::Mute => {
                 self.muted.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -1312,6 +1320,39 @@ mod tests {
             sender.send(AudioCommand::Volume(VolumeCommand::ToggleMute));
             let state = get_state(sender.clone()).await;
             assert_eq!(state.volume, 0.5);
+            assert!(!state.muted);
+
+            sender.send(AudioCommand::Exit);
+        }
+
+        #[rstest]
+        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[tokio::test]
+        async fn test_volume_out_of_bounds(
+            #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
+        ) {
+            init();
+
+            // try moving volume above/below the maximum/minimum
+            sender.send(AudioCommand::Volume(VolumeCommand::Up(MAX_VOLUME + 0.5)));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.volume, MAX_VOLUME);
+            assert!(!state.muted);
+            sender.send(AudioCommand::Volume(VolumeCommand::Down(
+                MAX_VOLUME + 0.5 - MIN_VOLUME,
+            )));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.volume, MIN_VOLUME);
+            assert!(!state.muted);
+
+            // try setting volume above/below the maximum/minimum
+            sender.send(AudioCommand::Volume(VolumeCommand::Set(MAX_VOLUME + 0.5)));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.volume, MAX_VOLUME);
+            assert!(!state.muted);
+            sender.send(AudioCommand::Volume(VolumeCommand::Set(MIN_VOLUME - 0.5)));
+            let state = get_state(sender.clone()).await;
+            assert_eq!(state.volume, MIN_VOLUME);
             assert!(!state.muted);
 
             sender.send(AudioCommand::Exit);
