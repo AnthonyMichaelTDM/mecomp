@@ -19,7 +19,7 @@ use views::{
 
 use crate::{
     state::{
-        action::{Action, ComponentAction},
+        action::{Action, ComponentAction, ViewAction},
         component::ActiveComponent,
     },
     ui::AppState,
@@ -204,14 +204,24 @@ impl Component for ContentView {
         mouse: crossterm::event::MouseEvent,
         area: ratatui::prelude::Rect,
     ) {
-        if mouse.kind == MouseEventKind::Down(MouseButton::Left)
-            && area.contains(Position::new(mouse.column, mouse.row))
-        {
-            self.action_tx
-                .send(Action::ActiveComponent(ComponentAction::Set(
-                    ActiveComponent::ContentView,
-                )))
-                .unwrap();
+        let mouse_position = Position::new(mouse.column, mouse.row);
+        match mouse.kind {
+            // this doesn't return because the active view may want to do something as well
+            MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
+                self.action_tx
+                    .send(Action::ActiveComponent(ComponentAction::Set(
+                        ActiveComponent::ContentView,
+                    )))
+                    .unwrap();
+            }
+            // this returns because the active view should handle the event (since it changes the active view)
+            MouseEventKind::Down(MouseButton::Right) if area.contains(mouse_position) => {
+                self.action_tx
+                    .send(Action::ActiveView(ViewAction::Back))
+                    .unwrap();
+                return;
+            }
+            _ => {}
         }
 
         // defer to active view

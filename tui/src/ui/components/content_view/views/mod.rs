@@ -320,7 +320,7 @@ pub mod checktree_utils {
     };
 
     use crate::{
-        state::action::{Action, AudioAction, PopupAction, QueueAction},
+        state::action::{Action, AudioAction, PopupAction, QueueAction, ViewAction},
         ui::{
             components::content_view::ActiveView,
             widgets::{
@@ -380,7 +380,7 @@ pub mod checktree_utils {
                     (selected_things == self.get_selected_thing())
                         .then_some(selected_things)
                         .flatten()
-                        .map(|thing| Action::SetCurrentView(thing.into()))
+                        .map(|thing| Action::ActiveView(ViewAction::Set(thing.into())))
                 }
                 MouseEventKind::ScrollDown => {
                     self.key_down();
@@ -481,13 +481,17 @@ pub mod checktree_utils {
         current_thing: Option<&Thing>,
     ) -> Option<Action> {
         if checked_things.is_empty() {
-            current_thing
-                .map(|id| Action::SetCurrentView(ActiveView::Radio(vec![id.clone()], RADIO_SIZE)))
+            current_thing.map(|id| {
+                Action::ActiveView(ViewAction::Set(ActiveView::Radio(
+                    vec![id.clone()],
+                    RADIO_SIZE,
+                )))
+            })
         } else {
-            Some(Action::SetCurrentView(ActiveView::Radio(
+            Some(Action::ActiveView(ViewAction::Set(ActiveView::Radio(
                 checked_things,
                 RADIO_SIZE,
-            )))
+            ))))
         }
     }
 

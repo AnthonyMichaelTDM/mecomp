@@ -16,7 +16,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     state::{
-        action::{Action, ComponentAction, LibraryAction, PopupAction},
+        action::{Action, ComponentAction, LibraryAction, PopupAction, ViewAction},
         component::ActiveComponent,
     },
     ui::{
@@ -56,15 +56,15 @@ impl SidebarItem {
     #[must_use]
     pub const fn to_action(&self) -> Option<Action> {
         match self {
-            Self::Search => Some(Action::SetCurrentView(ActiveView::Search)),
+            Self::Search => Some(Action::ActiveView(ViewAction::Set(ActiveView::Search))),
             Self::LibraryRescan => Some(Action::Library(LibraryAction::Rescan)),
             Self::LibraryAnalyze => Some(Action::Library(LibraryAction::Analyze)),
             Self::LibraryRecluster => Some(Action::Library(LibraryAction::Recluster)),
-            Self::Songs => Some(Action::SetCurrentView(ActiveView::Songs)),
-            Self::Artists => Some(Action::SetCurrentView(ActiveView::Artists)),
-            Self::Albums => Some(Action::SetCurrentView(ActiveView::Albums)),
-            Self::Playlists => Some(Action::SetCurrentView(ActiveView::Playlists)),
-            Self::Collections => Some(Action::SetCurrentView(ActiveView::Collections)),
+            Self::Songs => Some(Action::ActiveView(ViewAction::Set(ActiveView::Songs))),
+            Self::Artists => Some(Action::ActiveView(ViewAction::Set(ActiveView::Artists))),
+            Self::Albums => Some(Action::ActiveView(ViewAction::Set(ActiveView::Albums))),
+            Self::Playlists => Some(Action::ActiveView(ViewAction::Set(ActiveView::Playlists))),
+            Self::Collections => Some(Action::ActiveView(ViewAction::Set(ActiveView::Collections))),
             Self::Space => None,
         }
     }
@@ -356,7 +356,7 @@ mod tests {
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Search)
+            Action::ActiveView(ViewAction::Set(ActiveView::Search))
         );
 
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
@@ -364,35 +364,35 @@ mod tests {
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Songs)
+            Action::ActiveView(ViewAction::Set(ActiveView::Songs))
         );
 
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Artists)
+            Action::ActiveView(ViewAction::Set(ActiveView::Artists))
         );
 
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Albums)
+            Action::ActiveView(ViewAction::Set(ActiveView::Albums))
         );
 
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Playlists)
+            Action::ActiveView(ViewAction::Set(ActiveView::Playlists))
         );
 
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Collections)
+            Action::ActiveView(ViewAction::Set(ActiveView::Collections))
         );
 
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));

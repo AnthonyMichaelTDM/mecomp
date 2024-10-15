@@ -13,7 +13,7 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::{Action, AudioAction, PopupAction, QueueAction},
+    state::action::{Action, AudioAction, PopupAction, QueueAction, ViewAction},
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
@@ -123,7 +123,7 @@ impl Component for LibraryArtistsView {
 
                     if let Some(thing) = things {
                         self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
+                            .send(Action::ActiveView(ViewAction::Set(thing.into())))
                             .unwrap();
                     }
                 }
@@ -142,9 +142,9 @@ impl Component for LibraryArtistsView {
                 let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
-                        .send(Action::SetCurrentView(ActiveView::Radio(
+                        .send(Action::ActiveView(ViewAction::Set(ActiveView::Radio(
                             things, RADIO_SIZE,
-                        )))
+                        ))))
                         .unwrap();
                 }
             }
@@ -498,10 +498,10 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Radio(
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
                 vec![("artist", item_id()).into()],
                 RADIO_SIZE
-            ))
+            )))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
@@ -525,7 +525,7 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Song(item_id()))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
         );
 
         // check the item
@@ -546,10 +546,10 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Radio(
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
                 vec![("song", item_id()).into()],
                 RADIO_SIZE
-            ))
+            )))
         );
 
         // add to playlist
@@ -650,7 +650,7 @@ mod item_view_tests {
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Album(item_id()))
+            Action::ActiveView(ViewAction::Set(ActiveView::Album(item_id())))
         );
         let buffer = terminal
             .draw(|frame| view.render(frame, props))
@@ -847,7 +847,7 @@ mod library_view_tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::SetCurrentView(ActiveView::Artist(item_id()))
+            Action::ActiveView(ViewAction::Set(ActiveView::Artist(item_id())))
         );
 
         // there are checked items
@@ -870,10 +870,10 @@ mod library_view_tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::SetCurrentView(ActiveView::Radio(
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
                 vec![("artist", item_id()).into()],
                 RADIO_SIZE
-            ))
+            )))
         );
 
         // add to playlist
@@ -986,7 +986,7 @@ mod library_view_tests {
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Artist(item_id()))
+            Action::ActiveView(ViewAction::Set(ActiveView::Artist(item_id())))
         );
     }
 }

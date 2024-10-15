@@ -14,7 +14,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use super::{checktree_utils::create_song_tree_leaf, RadioViewProps};
 use crate::{
-    state::action::{Action, AudioAction, PopupAction, QueueAction},
+    state::action::{Action, AudioAction, PopupAction, QueueAction, ViewAction},
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{Component, ComponentRender, RenderProps},
@@ -108,7 +108,7 @@ impl Component for RadioView {
 
                     if let Some(thing) = things {
                         self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
+                            .send(Action::ActiveView(ViewAction::Set(thing.into())))
                             .unwrap();
                     }
                 }
@@ -458,7 +458,7 @@ mod tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Song(item_id()))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
         );
 
         // check the artist
@@ -536,7 +536,7 @@ mod tests {
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Song(item_id()))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
         );
         let buffer = terminal
             .draw(|frame| view.render(frame, props))
