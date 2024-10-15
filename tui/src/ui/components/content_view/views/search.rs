@@ -13,7 +13,7 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::{Action, AudioAction, PopupAction, QueueAction},
+    state::action::{Action, AudioAction, PopupAction, QueueAction, ViewAction},
     ui::{
         colors::{
             BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
@@ -145,7 +145,7 @@ impl Component for SearchView {
 
                     if let Some(thing) = things {
                         self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
+                            .send(Action::ActiveView(ViewAction::Set(thing.into())))
                             .unwrap();
                     }
                 }
@@ -164,9 +164,9 @@ impl Component for SearchView {
                 let things = self.tree_state.lock().unwrap().get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
-                        .send(Action::SetCurrentView(ActiveView::Radio(
+                        .send(Action::ActiveView(ViewAction::Set(ActiveView::Radio(
                             things, RADIO_SIZE,
-                        )))
+                        ))))
                         .unwrap();
                 }
             }
@@ -229,7 +229,7 @@ impl Component for SearchView {
                     if selected_things == self.tree_state.lock().unwrap().get_selected_thing() {
                         if let Some(thing) = selected_things {
                             self.action_tx
-                                .send(Action::SetCurrentView(thing.into()))
+                                .send(Action::ActiveView(ViewAction::Set(thing.into())))
                                 .unwrap();
                         }
                     }
@@ -630,10 +630,10 @@ mod tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::SetCurrentView(ActiveView::Radio(
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
                 vec![("song", item_id()).into()],
                 RADIO_SIZE
-            ))
+            )))
         );
 
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
@@ -857,7 +857,7 @@ mod tests {
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Song(item_id()))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
         );
         let expected = Buffer::with_lines([
             "┌Search────────────────────────┐",

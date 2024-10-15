@@ -22,7 +22,7 @@ pub enum Action {
     /// Actions that effect the library state store.
     Library(LibraryAction),
     /// Actions that effect the current view.
-    SetCurrentView(ActiveView),
+    ActiveView(ViewAction),
     /// Actions regarding popups
     Popup(PopupAction),
     /// Actions that change the active component
@@ -106,6 +106,14 @@ pub enum LibraryAction {
     /// Create a new playlist with the given name (if it doesn't exist) and add the songs to it
     /// (`PlaylistName`, Vec<`SongId`>)
     CreatePlaylistAndAddThings(String, Vec<Thing>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ViewAction {
+    /// Set the active view
+    Set(ActiveView),
+    /// Return to a previous view
+    Back,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -38,7 +38,7 @@ struct Senders {
     pub audio: UnboundedSender<action::AudioAction>,
     pub search: UnboundedSender<String>,
     pub library: UnboundedSender<action::LibraryAction>,
-    pub view: UnboundedSender<ActiveView>,
+    pub view: UnboundedSender<action::ViewAction>,
     pub popup: UnboundedSender<action::PopupAction>,
     pub component: UnboundedSender<action::ComponentAction>,
 }
@@ -172,8 +172,8 @@ impl Dispatcher {
                 Action::Library(action) => {
                     senders.library.send(action)?;
                 }
-                Action::SetCurrentView(view) => {
-                    senders.view.send(view)?;
+                Action::ActiveView(action) => {
+                    senders.view.send(action)?;
                 }
                 Action::Popup(popup) => senders.popup.send(popup)?,
                 Action::ActiveComponent(action) => {

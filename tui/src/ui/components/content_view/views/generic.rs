@@ -10,7 +10,7 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::Action,
+    state::action::{Action, ViewAction},
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{Component, ComponentRender, RenderProps},
@@ -98,7 +98,7 @@ where
 
                     if let Some(thing) = things {
                         self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
+                            .send(Action::ActiveView(ViewAction::Set(thing.into())))
                             .unwrap();
                     }
                 }

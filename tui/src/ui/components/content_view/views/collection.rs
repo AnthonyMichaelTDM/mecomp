@@ -16,7 +16,7 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::Action,
+    state::action::{Action, ViewAction},
     ui::{
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
@@ -136,7 +136,7 @@ impl Component for CollectionView {
 
                     if let Some(thing) = things {
                         self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
+                            .send(Action::ActiveView(ViewAction::Set(thing.into())))
                             .unwrap();
                     }
                 }
@@ -409,7 +409,7 @@ impl Component for LibraryCollectionsView {
 
                     if let Some(thing) = things {
                         self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
+                            .send(Action::ActiveView(ViewAction::Set(thing.into())))
                             .unwrap();
                     }
                 }
@@ -455,7 +455,7 @@ impl Component for LibraryCollectionsView {
 
                     if let Some(thing) = things {
                         self.action_tx
-                            .send(Action::SetCurrentView(thing.into()))
+                            .send(Action::ActiveView(ViewAction::Set(thing.into())))
                             .unwrap();
                     }
                 }
@@ -790,7 +790,7 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Song(item_id()))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
         );
 
         // check the artist
@@ -888,7 +888,7 @@ mod item_view_tests {
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Song(item_id()))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
         );
         let expected = Buffer::with_lines([
             "┌Collection View sorted by: Artist─────────────────────────┐",
@@ -1049,7 +1049,7 @@ mod library_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Collection(item_id()))
+            Action::ActiveView(ViewAction::Set(ActiveView::Collection(item_id())))
         );
     }
 
@@ -1105,7 +1105,7 @@ mod library_view_tests {
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::SetCurrentView(ActiveView::Collection(item_id()))
+            Action::ActiveView(ViewAction::Set(ActiveView::Collection(item_id())))
         );
         let buffer = terminal
             .draw(|frame| view.render(frame, props))
