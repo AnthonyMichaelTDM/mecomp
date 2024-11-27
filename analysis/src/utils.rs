@@ -100,6 +100,7 @@ pub(crate) fn number_crossings(input: &[f32]) -> u32 {
 
 /// Only works for input of size 256 (or at least of size a multiple
 /// of 8), with values belonging to [0; 2^65].
+///
 /// This finely optimized geometric mean courtesy of
 /// Jacques-Henri Jourdan (<https://jhjourdan.mketjh.fr/>)
 #[must_use]

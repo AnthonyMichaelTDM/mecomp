@@ -9,6 +9,7 @@ pub type AnalysisId = Thing;
 pub const TABLE_NAME: &str = "analysis";
 
 /// This struct holds the [`Analysis`] of a particular [`Song`].
+///
 /// An [`Analysis`] is the features extracted by the `mecomp-analysis` library and are used for recommendations (nearest neighbor search)
 /// and Collection generation (clustering).
 #[derive(Clone, Debug, PartialEq)]

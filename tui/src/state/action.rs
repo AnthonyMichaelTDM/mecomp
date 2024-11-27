@@ -113,7 +113,13 @@ pub enum ViewAction {
     /// Set the active view
     Set(ActiveView),
     /// Return to a previous view
+    /// Used for undo/redo based navigation
     Back,
+    /// Go to the next view (if possible)
+    /// Used for undo/redo based navigation
+    ///
+    /// Essentially, if a user goes back, they can use this action to go back forward.
+    Next,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
