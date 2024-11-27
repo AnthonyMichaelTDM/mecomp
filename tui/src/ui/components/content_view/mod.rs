@@ -196,6 +196,28 @@ impl Component for ContentView {
     }
 
     fn handle_key_event(&mut self, key: crossterm::event::KeyEvent) {
+        // handle undo/redo navigation first
+        match key.code {
+            crossterm::event::KeyCode::Char('z')
+                if key.modifiers == crossterm::event::KeyModifiers::CONTROL =>
+            {
+                self.action_tx
+                    .send(Action::ActiveView(ViewAction::Back))
+                    .unwrap();
+                return;
+            }
+            crossterm::event::KeyCode::Char('y')
+                if key.modifiers == crossterm::event::KeyModifiers::CONTROL =>
+            {
+                self.action_tx
+                    .send(Action::ActiveView(ViewAction::Next))
+                    .unwrap();
+                return;
+            }
+            _ => {}
+        }
+
+        // defer to active view
         self.get_active_view_component_mut().handle_key_event(key);
     }
 
