@@ -123,6 +123,7 @@ pub trait Decoder {
 }
 
 /// This trait implements functions in the [`Decoder`] trait that take a callback to run on the results.
+///
 /// It should not be implemented directly, it will be automatically implemented for any type that implements
 /// the [`Decoder`] trait.
 ///

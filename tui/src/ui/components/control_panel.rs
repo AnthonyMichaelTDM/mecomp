@@ -1,5 +1,7 @@
-//! The control panel is a fixed height panel at the bottom of the screen that displays the current state of the player
-//! (playing, paused, stopped, etc.) and allows users to control the player (play, pause, stop, etc.), volume, etc.
+//! The control panel is a fixed height panel at the bottom of the screen that:
+//!
+//! - displays the current state of the player (playing, paused, stopped, etc.), and
+//! - allows users to control the player (play, pause, stop, etc.), volume, etc.
 
 use std::time::Duration;
 

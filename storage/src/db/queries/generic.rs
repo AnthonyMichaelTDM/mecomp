@@ -220,6 +220,7 @@ pub fn count_orphaned<Table: AsRef<str>, Rel: AsRef<str>>(
 }
 
 /// Query to count the number of items in a table that are not included in both of the provided relations.
+///
 /// This is useful for counting orphaned items that are not included in either of the provided relations.
 ///
 /// Compiles to:
