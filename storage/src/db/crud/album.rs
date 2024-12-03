@@ -175,17 +175,21 @@ impl Album {
     }
 
     #[instrument()]
+    /// Remove songs from an album
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - True if the album has no songs left in it
     pub async fn remove_songs<C: Connection>(
         db: &Surreal<C>,
         id: AlbumId,
         song_ids: Vec<SongId>,
-    ) -> StorageResult<()> {
+    ) -> StorageResult<bool> {
         db.query(remove_songs())
             .bind(("album", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-        Self::repair(db, id).await?;
-        Ok(())
+        Self::repair(db, id).await
     }
 
     #[instrument]
@@ -550,7 +554,7 @@ mod tests {
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
         Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
-        Album::remove_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        assert!(Album::remove_songs(&db, album.id.clone(), vec![song.id.clone()]).await?);
 
         let read = Album::read_songs(&db, album.id.clone()).await?;
         assert_eq!(read.len(), 0);

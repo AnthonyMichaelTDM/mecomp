@@ -89,17 +89,21 @@ impl Collection {
     }
 
     #[instrument]
+    /// removes songs from a collection
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - True if the collection is empty
     pub async fn remove_songs<C: Connection>(
         db: &Surreal<C>,
         id: CollectionId,
         song_ids: Vec<SongId>,
-    ) -> StorageResult<()> {
+    ) -> StorageResult<bool> {
         db.query(remove_songs())
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-        Self::repair(db, id).await?;
-        Ok(())
+        Self::repair(db, id).await
     }
 
     /// updates the song_count and runtime of the collection
@@ -279,7 +283,7 @@ mod tests {
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
         Collection::add_songs(&db, collection.id.clone(), vec![song.id.clone()]).await?;
-        Collection::remove_songs(&db, collection.id.clone(), vec![song.id.clone()]).await?;
+        assert!(Collection::remove_songs(&db, collection.id.clone(), vec![song.id.clone()]).await?);
 
         let result = Collection::read_songs(&db, collection.id.clone()).await?;
         assert_eq!(result, vec![]);
