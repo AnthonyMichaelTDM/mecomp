@@ -202,7 +202,6 @@ impl Artist {
     }
 
     #[instrument]
-    /// gets all the songs associated with an artist, either directly or through an album
     pub async fn add_songs<C: Connection>(
         db: &Surreal<C>,
         id: ArtistId,
@@ -219,20 +218,26 @@ impl Artist {
     }
 
     #[instrument]
+    /// removes songs from an artist's list of songs
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - whether the artist should be removed or not (if it has no songs or albums, it should be removed)
     pub async fn remove_songs<C: Connection>(
         db: &Surreal<C>,
         id: ArtistId,
         song_ids: Vec<SongId>,
-    ) -> StorageResult<()> {
+    ) -> StorageResult<bool> {
         db.query(remove_songs())
             .bind(("artist", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-        Self::repair(db, id).await?;
-        Ok(())
+
+        Self::repair(db, id).await
     }
 
     #[instrument]
+    /// gets all the songs associated with an artist, either directly or through an album
     pub async fn read_songs<C: Connection>(
         db: &Surreal<C>,
         id: ArtistId,
@@ -735,7 +740,7 @@ mod tests {
 
         Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
 
-        Artist::remove_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
+        assert!(Artist::remove_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?);
 
         let read = Artist::read(&db, artist.id.clone())
             .await?

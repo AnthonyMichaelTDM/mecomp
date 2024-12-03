@@ -189,7 +189,7 @@ mod tests {
         assert_eq!(count_orphaned_albums(&db).await.unwrap(), 0);
 
         // if we delete that song, the album will be orphaned again
-        Song::delete(&db, song.id).await.unwrap();
+        Song::delete(&db, (song.id, false)).await.unwrap();
         assert_eq!(count_albums(&db).await.unwrap(), 1);
         assert_eq!(count_orphaned_albums(&db).await.unwrap(), 1);
     }
@@ -237,7 +237,7 @@ mod tests {
         assert_eq!(count_orphaned_artists(&db).await.unwrap(), 0);
 
         // if we delete that song, the artist will be orphaned again
-        Song::delete(&db, song.id).await.unwrap();
+        Song::delete(&db, (song.id, false)).await.unwrap();
         assert_eq!(count_artists(&db).await.unwrap(), 1);
         assert_eq!(count_orphaned_artists(&db).await.unwrap(), 1);
     }
@@ -267,7 +267,7 @@ mod tests {
         assert_eq!(count_orphaned_collections(&db).await.unwrap(), 0);
 
         // if we delete that song, the collection will be orphaned again
-        Song::delete(&db, song.id).await.unwrap();
+        Song::delete(&db, (song.id, false)).await.unwrap();
         assert_eq!(count_collections(&db).await.unwrap(), 1);
         assert_eq!(count_orphaned_collections(&db).await.unwrap(), 1);
     }

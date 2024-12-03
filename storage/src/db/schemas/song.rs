@@ -302,9 +302,9 @@ impl SongMetadata {
 
                 // now we split the string into multiple artists
                 if a.contains('\0') {
-                    OneOrMany::Many(a.split('\0').map(Into::into).collect())
+                    OneOrMany::Many(a.split('\0').map(str::trim).map(Into::into).collect())
                 } else {
-                    OneOrMany::One(a.into())
+                    OneOrMany::One(a.trim().into())
                 }
             });
         artist.dedup();
@@ -317,9 +317,9 @@ impl SongMetadata {
                     .fold(a.replace('\0', ""), |a, sep| a.replace(sep, "\0"));
 
                 if a.contains('\0') {
-                    OneOrMany::Many(a.split('\0').map(Into::into).collect())
+                    OneOrMany::Many(a.split('\0').map(str::trim).map(Into::into).collect())
                 } else {
-                    OneOrMany::One(a.into())
+                    OneOrMany::One(a.trim().into())
                 }
             },
         );
@@ -328,10 +328,15 @@ impl SongMetadata {
         let mut genre: OneOrMany<_> = tag
             .genre()
             .map(|genre| match (genre_separator, genre) {
-                (Some(sep), genre) if genre.contains(sep) => {
-                    OneOrMany::Many(genre.replace('\0', "").split(sep).map(Into::into).collect())
-                }
-                (_, genre) => OneOrMany::One(genre.into()),
+                (Some(sep), genre) if genre.contains(sep) => OneOrMany::Many(
+                    genre
+                        .replace('\0', "")
+                        .split(sep)
+                        .map(str::trim)
+                        .map(Into::into)
+                        .collect(),
+                ),
+                (_, genre) => OneOrMany::One(genre.trim().into()),
             })
             .into();
         genre.dedup();
@@ -347,6 +352,7 @@ impl SongMetadata {
             album: tag
                 .album()
                 .map_or("Unknown Album".into(), |x| x.replace('\0', ""))
+                .trim()
                 .into(),
             album_artist,
             artist,

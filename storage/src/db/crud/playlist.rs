@@ -132,6 +132,11 @@ impl Playlist {
     }
 
     #[instrument]
+    /// removes songs from a playlist
+    ///
+    /// unlike the remove_songs methods for other tables,
+    /// this method does not return whether the playlist is empty because
+    /// having an empty playlist is a valid state that doesn't need to be checked
     pub async fn remove_songs<C: Connection>(
         db: &Surreal<C>,
         id: PlaylistId,

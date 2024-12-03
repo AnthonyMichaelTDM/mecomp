@@ -156,6 +156,27 @@ pub async fn rescan<C: Connection>(
         }
     }
 
+    // find and delete any remaining orphaned albums and artists
+    // TODO: create a custom query for this
+    for album in Album::read_all(db).await? {
+        if Album::repair(db, album.id.clone()).await? {
+            info!("Deleted orphaned album {}", album.id.clone());
+            Album::delete(db, album.id.clone()).await?;
+        }
+    }
+    for artist in Artist::read_all(db).await? {
+        if Artist::repair(db, artist.id.clone()).await? {
+            info!("Deleted orphaned artist {}", artist.id.clone());
+            Artist::delete(db, artist.id.clone()).await?;
+        }
+    }
+    for collection in Collection::read_all(db).await? {
+        if Collection::repair(db, collection.id.clone()).await? {
+            info!("Deleted orphaned collection {}", collection.id.clone());
+            Collection::delete(db, collection.id.clone()).await?;
+        }
+    }
+
     info!("Library rescan complete");
     info!("Library brief: {:?}", brief(db).await?);
 
@@ -520,6 +541,79 @@ mod tests {
                     .contains(&album));
             }
         }
+    }
+
+    #[tokio::test]
+    async fn rescan_deletes_preexisting_orphans() {
+        init();
+        let tempdir = tempfile::tempdir().unwrap();
+        let db = init_test_database().await.unwrap();
+
+        // create a song with an artist and an album
+        let metadata = create_song_metadata(&tempdir, arb_song_case()()).unwrap();
+        let song = Song::try_load_into_db(&db, metadata.clone()).await.unwrap();
+
+        // delete the song, leaving orphaned artist and album
+        std::fs::remove_file(&song.path).unwrap();
+        Song::delete(&db, (song.id.clone(), false)).await.unwrap();
+
+        // rescan the library
+        rescan(
+            &db,
+            &[tempdir.path().to_owned()],
+            &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
+            Some(ARTIST_NAME_SEPARATOR),
+            MetadataConflictResolution::Overwrite,
+        )
+        .await
+        .unwrap();
+
+        // check that the album and artist deleted
+        assert_eq!(Song::read_all(&db).await.unwrap().len(), 0);
+        assert_eq!(Album::read_all(&db).await.unwrap().len(), 0);
+        assert_eq!(Artist::read_all(&db).await.unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn rescan_deletes_orphaned_albums_and_artists() {
+        init();
+        let tempdir = tempfile::tempdir().unwrap();
+        let db = init_test_database().await.unwrap();
+
+        // create a song with an artist and an album
+        let metadata = create_song_metadata(&tempdir, arb_song_case()()).unwrap();
+        let song = Song::try_load_into_db(&db, metadata.clone()).await.unwrap();
+        let artist = Artist::read_by_names(&db, Vec::from(metadata.artist.clone()))
+            .await
+            .unwrap()
+            .pop()
+            .unwrap();
+        let album = Album::read_by_name_and_album_artist(
+            &db,
+            &metadata.album,
+            metadata.album_artist.clone(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+        // delete the song, leaving orphaned artist and album
+        std::fs::remove_file(&song.path).unwrap();
+
+        // rescan the library
+        rescan(
+            &db,
+            &[tempdir.path().to_owned()],
+            &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
+            Some(ARTIST_NAME_SEPARATOR),
+            MetadataConflictResolution::Overwrite,
+        )
+        .await
+        .unwrap();
+
+        // check that the artist and album were deleted
+        assert_eq!(Artist::read(&db, artist.id.clone()).await.unwrap(), None);
+        assert_eq!(Album::read(&db, album.id.clone()).await.unwrap(), None);
     }
 
     #[tokio::test]
