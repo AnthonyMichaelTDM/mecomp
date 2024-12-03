@@ -407,7 +407,7 @@ pub mod checktree_utils {
             identifier: impl ToString,
             text: impl Into<Text<'text>>,
             leaf_fn: LeafFn,
-        ) -> Result<CheckTreeItem<String>, std::io::Error>
+        ) -> Result<CheckTreeItem<'items, String>, std::io::Error>
         where
             'a: 'text,
             'a: 'items,

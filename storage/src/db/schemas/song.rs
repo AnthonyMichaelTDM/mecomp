@@ -292,21 +292,24 @@ impl SongMetadata {
             .artist()
             .as_deref()
             // split the artist string into multiple artists using user provided separators
-            .map_or(OneOrMany::One("Unknown Artist".into()), |a| {
-                // first we remove null characters from the string
-                // then, we replace all instances of any separator with a single separator (in this case, the null character)
-                // I'll use a fold here to make that all nice and pretty.
-                let a = artist_name_separator
-                    .iter()
-                    .fold(a.replace('\0', ""), |a, sep| a.replace(sep, "\0"));
+            .map_or_else(
+                || OneOrMany::One("Unknown Artist".into()),
+                |a| {
+                    // first we remove null characters from the string
+                    // then, we replace all instances of any separator with a single separator (in this case, the null character)
+                    // I'll use a fold here to make that all nice and pretty.
+                    let a = artist_name_separator
+                        .iter()
+                        .fold(a.replace('\0', ""), |a, sep| a.replace(sep, "\0"));
 
-                // now we split the string into multiple artists
-                if a.contains('\0') {
-                    OneOrMany::Many(a.split('\0').map(str::trim).map(Into::into).collect())
-                } else {
-                    OneOrMany::One(a.trim().into())
-                }
-            });
+                    // now we split the string into multiple artists
+                    if a.contains('\0') {
+                        OneOrMany::Many(a.split('\0').map(str::trim).map(Into::into).collect())
+                    } else {
+                        OneOrMany::One(a.trim().into())
+                    }
+                },
+            );
         artist.dedup();
 
         let mut album_artist = tag.get_string(&ItemKey::AlbumArtist).map_or_else(

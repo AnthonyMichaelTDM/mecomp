@@ -25,7 +25,7 @@ impl Notification<'_> {
     }
 }
 
-impl<'a> ComponentRender<Rect> for Notification<'a> {
+impl ComponentRender<Rect> for Notification<'_> {
     fn render_border(&self, frame: &mut ratatui::Frame, area: Rect) -> Rect {
         self.render_popup_border(frame, area)
     }
@@ -35,7 +35,7 @@ impl<'a> ComponentRender<Rect> for Notification<'a> {
     }
 }
 
-impl<'a> Popup for Notification<'a> {
+impl Popup for Notification<'_> {
     fn title(&self) -> Line {
         Line::raw("Notification")
     }

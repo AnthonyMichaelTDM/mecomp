@@ -27,10 +27,7 @@ pub fn reflect_pad(array: &[f32], pad: usize) -> Vec<f32> {
 pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f64> {
     // Take advantage of raw-major order to have contiguous window for the
     // `assign`, reversing the axes to have the expected shape at the end only.
-    let mut stft = Array2::zeros((
-        (signal.len() + hop_length - 1) / hop_length,
-        window_length / 2 + 1,
-    ));
+    let mut stft = Array2::zeros((signal.len().div_ceil(hop_length), window_length / 2 + 1));
     let signal = reflect_pad(signal, window_length / 2);
 
     // Periodic, so window_size + 1
