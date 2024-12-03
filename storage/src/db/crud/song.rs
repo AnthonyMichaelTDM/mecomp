@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use log::info;
 use surrealdb::{Connection, RecordId, Surreal};
 use tracing::instrument;
 
@@ -24,6 +25,30 @@ use crate::{
     errors::{Error, SongIOError, StorageResult},
 };
 use one_or_many::OneOrMany;
+
+#[derive(Debug)]
+struct DeleteArgs {
+    pub id: SongId,
+    pub delete_orphans: bool,
+}
+
+impl From<SongId> for DeleteArgs {
+    fn from(id: SongId) -> Self {
+        Self {
+            id,
+            delete_orphans: true,
+        }
+    }
+}
+
+impl From<(SongId, bool)> for DeleteArgs {
+    fn from(tuple: (SongId, bool)) -> Self {
+        Self {
+            id: tuple.0,
+            delete_orphans: tuple.1,
+        }
+    }
+}
 
 impl Song {
     #[instrument]
@@ -189,16 +214,58 @@ impl Song {
 
     /// Delete a song from the database,
     /// will also:
-    /// - go through the artist and album tables and remove references to it from there.
+    /// - go through the artist and album tables and remove references to it from there
+    ///   - if the artist or album would be left without any songs, they will be deleted as well
     /// - remove the song from playlists.
     /// - remove the song from collections.
     #[instrument]
-    pub async fn delete<C: Connection>(db: &Surreal<C>, id: SongId) -> StorageResult<Option<Self>> {
+    pub async fn delete<C: Connection, Args: Into<DeleteArgs> + std::fmt::Debug + Send>(
+        db: &Surreal<C>,
+        args: Args,
+    ) -> StorageResult<Option<Self>> {
+        let args = args.into();
+        let DeleteArgs { id, delete_orphans } = args;
+
         // delete the analysis for the song (if it exists)
         #[cfg(feature = "analysis")]
         if let Ok(Some(analysis)) = Analysis::read_for_song(db, id.clone()).await {
             Analysis::delete(db, analysis.id).await?;
         }
+
+        // if we're not deleting orphans, we can just delete the song
+        if !delete_orphans {
+            return Ok(db.delete(RecordId::from_inner(id)).await?);
+        }
+
+        // remove the song from any playlists or collections it's in
+        for playlist in Self::read_playlists(db, id.clone()).await? {
+            Playlist::remove_songs(db, playlist.id, vec![id.clone()]).await?;
+        }
+        for collection in Self::read_collections(db, id.clone()).await? {
+            if Collection::remove_songs(db, collection.id.clone(), vec![id.clone()]).await? {
+                info!("Deleting orphaned collection: {:?}", collection.id);
+                Collection::delete(db, collection.id).await?;
+            }
+        }
+        if let Some(album) = Self::read_album(db, id.clone()).await? {
+            if Album::remove_songs(db, album.id.clone(), vec![id.clone()]).await? {
+                info!("Deleting orphaned album: {:?}", album.id);
+                Album::delete(db, album.id).await?;
+            }
+        }
+        for artist in Self::read_album_artist(db, id.clone()).await? {
+            if Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await? {
+                info!("Deleting orphaned artist: {:?}", artist.id);
+                Artist::delete(db, artist.id).await?;
+            }
+        }
+        for artist in Self::read_artist(db, id.clone()).await? {
+            if Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await? {
+                info!("Deleting orphaned artist: {:?}", artist.id);
+                Artist::delete(db, artist.id).await?;
+            }
+        }
+
         Ok(db.delete(RecordId::from_inner(id)).await?)
     }
 
@@ -277,8 +344,11 @@ impl Song {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test_utils::{
-        arb_song_case, create_song_metadata, create_song_with_overrides, init_test_database,
+    use crate::{
+        db::health::{count_albums, count_artists, count_songs},
+        test_utils::{
+            arb_song_case, create_song_metadata, create_song_with_overrides, init_test_database,
+        },
     };
 
     use anyhow::{anyhow, Result};
@@ -648,6 +718,10 @@ mod test {
             new_artist,
             Song::read_artist(&db, updated.id.clone()).await?
         );
+
+        // the new artist should be the only artist in the database
+        let artists = Artist::read_all(&db).await?;
+        assert_eq!(artists.len(), 1);
         Ok(())
     }
 
@@ -665,13 +739,18 @@ mod test {
 
         // since the new artist didn't exist before, it should have been created
         let new_artist: OneOrMany<_> =
-            Artist::read_or_create_by_names(&db, changes.album_artist.unwrap())
+            Artist::read_by_names(&db, changes.album_artist.unwrap().into())
                 .await?
                 .into();
         assert_eq!(
             new_artist,
             Song::read_album_artist(&db, updated.id.clone()).await?
         );
+
+        // the new artist should be the only artist in the database
+        let artists = Artist::read_all(&db).await?;
+        assert_eq!(artists.len(), 1);
+        assert_eq!(artists[0].name, "Updated Album Artist".into());
         Ok(())
     }
 
@@ -688,7 +767,7 @@ mod test {
         assert_eq!(updated.album, changes.album.clone().unwrap());
 
         // since the new album didn't exist before, it should have been created
-        let new_album = Album::read_or_create_by_name_and_album_artist(
+        let new_album = Album::read_by_name_and_album_artist(
             &db,
             &changes.album.unwrap(),
             updated.album_artist.clone(),
@@ -696,6 +775,136 @@ mod test {
         .await?;
         assert_eq!(new_album, Song::read_album(&db, updated.id.clone()).await?);
         assert!(new_album.is_some());
+
+        // the new album should be the only album in the database
+        let albums = Album::read_all(&db).await?;
+        assert_eq!(albums.len(), 1);
+
+        // the new album should be associated with the song and the album artist
+        let album = new_album.unwrap();
+        let album_songs = Album::read_songs(&db, album.id.clone()).await?;
+        assert_eq!(album_songs.len(), 1);
+        assert_eq!(album_songs[0].id, updated.id);
+
+        let album_artists = Song::read_album_artist(&db, updated.id.clone()).await?;
+        let album_artists = album_artists[0].clone();
+        let album_artists = Artist::read_albums(&db, album_artists.id.clone()).await?;
+        assert_eq!(album_artists.len(), 1);
+        assert_eq!(album_artists[0].id, album.id);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_delete_with_orphan_pruning() -> Result<()> {
+        let db = init_test_database().await?;
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+
+        let deleted = Song::delete(&db, (song.id.clone(), true)).await?;
+        assert_eq!(deleted, Some(song.clone()));
+
+        let read = Song::read(&db, song.id.clone()).await?;
+        assert_eq!(read, None);
+
+        // database should be empty
+        assert_eq!(count_songs(&db).await?, 0);
+        assert_eq!(count_artists(&db).await?, 0);
+        assert_eq!(count_albums(&db).await?, 0);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_delete_without_orphan_pruning() -> Result<()> {
+        let db = init_test_database().await?;
+        let song_case = arb_song_case()();
+        let song =
+            create_song_with_overrides(&db, song_case.clone(), SongChangeSet::default()).await?;
+        let album = Album::read_or_create_by_name_and_album_artist(
+            &db,
+            &song.album,
+            song.album_artist.clone(),
+        )
+        .await?
+        .ok_or_else(|| anyhow!("Album not found/created"))?;
+        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        let artists = Artist::read_or_create_by_names(&db, song.artist.clone()).await?;
+        assert!(artists.len() >= 1);
+        for artist in artists {
+            Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
+        }
+        let album_artists = Artist::read_or_create_by_names(&db, song.album_artist.clone()).await?;
+        assert!(album_artists.len() >= 1);
+        for artist in album_artists {
+            Artist::add_album(&db, artist.id.clone(), album.id.clone()).await?;
+        }
+
+        let deleted = Song::delete(&db, (song.id.clone(), false)).await?;
+        assert_eq!(deleted, Some(song.clone()));
+
+        let read = Song::read(&db, song.id.clone()).await?;
+        assert_eq!(read, None);
+
+        // database should be empty
+        assert_eq!(count_songs(&db).await?, 0);
+        assert_eq!(
+            count_artists(&db).await?,
+            song_case
+                .album_artists
+                .iter()
+                .chain(song_case.artists.iter())
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+        );
+        assert_eq!(count_albums(&db).await?, 1);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_delete_with_orphaned_album() -> Result<()> {
+        let db = init_test_database().await?;
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let album = Album::read_or_create_by_name_and_album_artist(
+            &db,
+            &song.album,
+            song.album_artist.clone(),
+        )
+        .await?
+        .ok_or_else(|| anyhow!("Album not found/created"))?;
+        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+
+        let deleted = Song::delete(&db, song.id.clone()).await?;
+        assert_eq!(deleted, Some(song.clone()));
+
+        let read = Song::read(&db, song.id.clone()).await?;
+        assert_eq!(read, None);
+
+        let album = Album::read(&db, album.id.clone()).await?;
+        assert_eq!(album, None);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_delete_with_orphaned_artist() -> Result<()> {
+        let db = init_test_database().await?;
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let artist = Artist::read_or_create_by_name(&db, song.artist.clone().first().unwrap())
+            .await?
+            .ok_or_else(|| anyhow!("Artist not found/created"))?;
+        Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
+
+        let deleted = Song::delete(&db, song.id.clone()).await?;
+        assert_eq!(deleted, Some(song.clone()));
+
+        let read = Song::read(&db, song.id.clone()).await?;
+        assert_eq!(read, None);
+
+        let artist = Artist::read(&db, artist.id.clone()).await?;
+        assert_eq!(artist, None);
         Ok(())
     }
 
