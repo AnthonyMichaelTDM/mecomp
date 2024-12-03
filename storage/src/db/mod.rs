@@ -7,10 +7,7 @@ pub mod queries;
 pub mod schemas;
 
 #[cfg(feature = "db")]
-use surrealdb::{
-    engine::local::{Db, SurrealKV},
-    Surreal,
-};
+use surrealdb::{engine::local::Db, Surreal};
 
 #[cfg(feature = "db")]
 #[cfg(not(tarpaulin_include))]
@@ -45,7 +42,7 @@ pub fn set_database_path(path: std::path::PathBuf) -> Result<(), crate::errors::
 /// This function will return an error if the database cannot be initialized.
 #[cfg(feature = "db")]
 pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
-    let db = Surreal::new::<SurrealKV>(DB_DIR
+    let db = Surreal::new(DB_DIR
         .get().cloned()
         .unwrap_or_else(|| {
             log::warn!("DB_DIR not set, defaulting to a temporary directory `{}`, this is likely a bug because `init_database` should be called before `db`", TEMP_DB_DIR.path().display());

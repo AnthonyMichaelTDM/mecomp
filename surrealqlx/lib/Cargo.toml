@@ -18,6 +18,7 @@ bench = false
 doctest = false
 
 [features]
+default = ["macros"]
 macros = ["surrealqlx-macros"]
 
 [dependencies]
