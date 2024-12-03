@@ -93,6 +93,10 @@ jobs:
             target: aarch64-apple-darwin
 
     runs-on: ${{ matrix.platform.os }}
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -149,6 +153,17 @@ jobs:
             tar czvf ../../../${{ matrix.binary }}-${{ matrix.platform.os_name }}.tar.gz ${{ matrix.binary }}
           fi
           cd -
+
+      - name: attest
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: target/${{ matrix.platform.target }}/release/${{ matrix.binary }}.exe
+        if: contains(matrix.platform.os, 'windows')
+      - name: attest
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: target/${{ matrix.platform.target }}/release/${{ matrix.binary }}
+        if: ${{ contains(matrix.platform.os, 'ubuntu') || contains(matrix.platform.os, 'macOS') }}
 
       - name: Publish build artifacts
         uses: actions/upload-artifact@v4.4.3
@@ -219,4 +234,3 @@ jobs:
           files: |
             ${{ steps.download_artifacts.outputs.download-path }}/**/*.tar.gz
             ${{ steps.download_artifacts.outputs.download-path }}/**/*.zip
-            ${{ steps.download_artifacts.outputs.download-path }}/**/*.sha256
