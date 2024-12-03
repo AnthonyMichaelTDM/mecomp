@@ -187,7 +187,20 @@ impl Song {
 
             // remove song from the old album, if it existed
             if let Some(old_album) = old_album {
-                Album::remove_songs(db, old_album.id, vec![id.clone()]).await?;
+                if Album::remove_songs(db, old_album.id.clone(), vec![id.clone()]).await? {
+                    // if the album is left without any songs, delete it
+                    info!("Deleting orphaned album: {:?}", old_album.id);
+                    Album::delete(db, old_album.id).await?;
+                }
+            }
+
+            // remove the album from the old album artist(s)
+            for artist in Self::read_album_artist(db, id.clone()).await? {
+                if Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await? {
+                    // if the artist is left without any songs, delete it
+                    info!("Deleting orphaned artist: {:?}", artist.id);
+                    Artist::delete(db, artist.id).await?;
+                }
             }
 
             // add song to the new album
@@ -201,7 +214,11 @@ impl Song {
 
             // remove song from the old artists
             for artist in old_artist {
-                Artist::remove_songs(db, artist.id, vec![id.clone()]).await?;
+                if Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await? {
+                    // if the artist is left without any songs, delete it
+                    info!("Deleting orphaned artist: {:?}", artist.id);
+                    Artist::delete(db, artist.id).await?;
+                }
             }
             // add song to the new artists
             for artist in new_artist {
@@ -674,6 +691,8 @@ mod test {
     #[tokio::test]
     async fn test_update_no_repair() -> Result<()> {
         let db = init_test_database().await?;
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
         let changes = SongChangeSet {
             title: Some("Updated Title ".to_string().into()),
             runtime: Some(Duration::from_secs(10)),
@@ -685,7 +704,9 @@ mod test {
             ..Default::default()
         };
         // test updating things that don't require relation repair
-        let updated = create_song_with_overrides(&db, arb_song_case()(), changes.clone()).await?;
+        let updated = Song::update(&db, song.id.clone(), changes.clone())
+            .await?
+            .unwrap();
 
         assert_eq!(updated.title, changes.title.unwrap());
         assert_eq!(updated.runtime, changes.runtime.unwrap());
@@ -701,19 +722,26 @@ mod test {
     async fn test_update_artist() -> Result<()> {
         let db = init_test_database().await?;
         let changes = SongChangeSet {
+            artist: Some(OneOrMany::One("Artist".to_string().into())),
+            ..Default::default()
+        };
+        let song_case = arb_song_case()();
+        let song = create_song_with_overrides(&db, song_case.clone(), changes.clone()).await?;
+        // test updating the artist
+        let changes = SongChangeSet {
             artist: Some(OneOrMany::One("Updated Artist".to_string().into())),
             ..Default::default()
         };
-        // test updating the artist
-        let updated = create_song_with_overrides(&db, arb_song_case()(), changes.clone()).await?;
+        let updated = Song::update(&db, song.id.clone(), changes.clone())
+            .await?
+            .unwrap();
 
         assert_eq!(updated.artist, changes.artist.clone().unwrap());
 
         // since the new artist didn't exist before, it should have been created
-        let new_artist: OneOrMany<_> =
-            Artist::read_or_create_by_names(&db, changes.artist.unwrap())
-                .await?
-                .into();
+        let new_artist: OneOrMany<_> = Artist::read_by_names(&db, changes.artist.unwrap().into())
+            .await?
+            .into();
         assert_eq!(
             new_artist,
             Song::read_artist(&db, updated.id.clone()).await?
@@ -729,11 +757,21 @@ mod test {
     async fn test_update_album_artist() -> Result<()> {
         let db = init_test_database().await?;
         let changes = SongChangeSet {
+            artist: Some(OneOrMany::One("Album Artist".to_string().into())),
+            album_artist: Some(OneOrMany::One("Album Artist".to_string().into())),
+            ..Default::default()
+        };
+        let song_case = arb_song_case()();
+        let song = create_song_with_overrides(&db, song_case.clone(), changes.clone()).await?;
+        // test updating the album artist
+        let changes = SongChangeSet {
+            artist: Some(OneOrMany::One("Updated Album Artist".to_string().into())),
             album_artist: Some(OneOrMany::One("Updated Album Artist".to_string().into())),
             ..Default::default()
         };
-        // test updating the album artist
-        let updated = create_song_with_overrides(&db, arb_song_case()(), changes.clone()).await?;
+        let updated = Song::update(&db, song.id.clone(), changes.clone())
+            .await?
+            .unwrap();
 
         assert_eq!(updated.album_artist, changes.album_artist.clone().unwrap());
 

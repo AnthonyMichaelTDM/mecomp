@@ -523,6 +523,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rescan_deletes_orphaned_albums_and_artists() {
+        init();
+        let tempdir = tempfile::tempdir().unwrap();
+        let db = init_test_database().await.unwrap();
+
+        // create a song with an artist and an album
+        let metadata = create_song_metadata(&tempdir, arb_song_case()()).unwrap();
+        let song = Song::try_load_into_db(&db, metadata.clone()).await.unwrap();
+        let artist = Artist::read_by_names(&db, Vec::from(metadata.artist.clone()))
+            .await
+            .unwrap()
+            .pop()
+            .unwrap();
+        let album = Album::read_by_name_and_album_artist(
+            &db,
+            &metadata.album,
+            metadata.album_artist.clone(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+        // delete the song, leaving orphaned artist and album
+        std::fs::remove_file(&song.path).unwrap();
+
+        // rescan the library
+        rescan(
+            &db,
+            &[tempdir.path().to_owned()],
+            &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
+            Some(ARTIST_NAME_SEPARATOR),
+            MetadataConflictResolution::Overwrite,
+        )
+        .await
+        .unwrap();
+
+        // check that the artist and album were deleted
+        assert_eq!(Artist::read(&db, artist.id.clone()).await.unwrap(), None);
+        assert_eq!(Album::read(&db, album.id.clone()).await.unwrap(), None);
+    }
+
+    #[tokio::test]
     async fn test_analyze() {
         init();
         let dir = tempfile::tempdir().unwrap();
