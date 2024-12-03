@@ -17,9 +17,10 @@ use notify::INotifyWatcher;
 use notify::ReadDirectoryChangesWatcher;
 use notify::{
     event::{CreateKind, MetadataKind, ModifyKind, RemoveKind, RenameMode},
-    EventKind, RecursiveMode, Watcher,
+    EventKind, RecursiveMode,
 };
-use notify_debouncer_full::{new_debouncer, DebouncedEvent, Debouncer, FileIdMap};
+use notify_debouncer_full::RecommendedCache;
+use notify_debouncer_full::{new_debouncer, DebouncedEvent, Debouncer};
 use one_or_many::OneOrMany;
 use surrealdb::{engine::local::Db, Surreal};
 
@@ -101,7 +102,7 @@ pub fn init_music_library_watcher(
 
     // Select recommended watcher for debouncer.
     // Using a callback here, could also be a channel.
-    let mut debouncer: Debouncer<WatcherType, FileIdMap> =
+    let mut debouncer: Debouncer<WatcherType, _> =
         new_debouncer(MAX_DEBOUNCE_TIME, None, move |event| {
             let _ = tx.unbounded_send(event);
         })?;
@@ -111,21 +112,14 @@ pub fn init_music_library_watcher(
         log::debug!("watching path: {:?}", path);
         // Add a path to be watched. All files and directories at that path and
         // below will be monitored for changes.
-        debouncer.watcher().watch(path, RecursiveMode::Recursive)?;
-
-        if path.is_dir() {
-            // Add the same path to the file ID cache. The cache uses unique file IDs
-            // provided by the file system and is used to stich together rename events
-            // in case the notification back-end doesn't emit rename cookies.
-            debouncer.cache().add_root(path, RecursiveMode::Recursive);
-        }
+        debouncer.watch(path, RecursiveMode::Recursive)?;
     }
 
     Ok(MusicLibEventHandlerGuard { debouncer, stop_tx })
 }
 
 pub struct MusicLibEventHandlerGuard {
-    debouncer: Debouncer<WatcherType, FileIdMap>,
+    debouncer: Debouncer<WatcherType, RecommendedCache>,
     stop_tx: futures::channel::oneshot::Sender<()>,
 }
 
