@@ -90,13 +90,13 @@ rodio = { version = "0.20.1", features = ["symphonia-all"] }
 rubato = { version = "0.16.0" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 strum = { version = "0.26.3", features = ["derive"] }
-surrealdb = { version = "2.0", features = [
+surrealdb = { version = "2.1", features = [
     "kv-mem",
     "kv-surrealkv",
 ], default-features = false }
 tap = { version = "1.0" }
 thiserror = { version = "2.0" }
-tokio = { version = "1.40", features = [
+tokio = { version = "1.42", features = [
     "macros",
     "rt-multi-thread",
     "sync",

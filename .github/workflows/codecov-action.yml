@@ -52,7 +52,7 @@ jobs:
           --features mock_playback
 
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v5.0.7
+        uses: codecov/codecov-action@v5.1.1
         with:
           token: ${{secrets.CODECOV_TOKEN}}
           fail_ci_if_error: true
