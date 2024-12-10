@@ -107,12 +107,12 @@ jobs:
           cd -
 
       - name: attest
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v2
         with:
           subject-path: target/${{ matrix.platform.target }}/release/${{ matrix.binary }}.exe
         if: contains(matrix.platform.os, 'windows')
       - name: attest
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v2
         with:
           subject-path: target/${{ matrix.platform.target }}/release/${{ matrix.binary }}
         if: ${{ contains(matrix.platform.os, 'ubuntu') || contains(matrix.platform.os, 'macOS') }}
