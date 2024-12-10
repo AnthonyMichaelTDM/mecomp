@@ -17,54 +17,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  crates-io-publish:
-    name: Publish to crates.io
-    if: startsWith(github.ref, 'refs/tags/')
-    strategy:
-      matrix:
-        crate:
-          [
-            surrealqlx-macros-impl,
-            surrealqlx-macros,
-            surrealqlx,
-            one-or-many,
-            mecomp-analysis,
-            mecomp-storage,
-            mecomp-core,
-            mecomp-daemon,
-            mecomp-cli,
-            mecomp-tui,
-          ]
-      max-parallel: 1
-      fail-fast: false # Continue with other crates even if one fails, this is necessary because not all crates need to be published for any given release
-    runs-on: ubuntu-latest
-    env:
-      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev
-
-      - name: Install toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Install cargo-hakari
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-hakari
-
-      - name: Publish to crates.io
-        run: cargo hakari publish --package ${{ matrix.crate }} --token=$CARGO_REGISTRY_TOKEN
-
   build:
     name: Build - ${{ matrix.binary}} for ${{ matrix.platform.os_name }}
     strategy:
