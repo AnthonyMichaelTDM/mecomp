@@ -204,11 +204,8 @@ pub trait MusicPlayer {
     // Playlists.
     /// Returns brief information about the users playlists.
     async fn playlist_list() -> Box<[PlaylistBrief]>;
-    /// create a new playlist.
-    /// if a playlist with the same name already exists, this will return that playlist's id in the error variant
-    async fn playlist_new(
-        name: String,
-    ) -> Result<Result<PlaylistId, PlaylistId>, SerializableLibraryError>;
+    /// create a new playlist with the given name (if it does not already exist).
+    async fn playlist_get_or_create(name: String) -> Result<PlaylistId, SerializableLibraryError>;
     /// remove a playlist.
     async fn playlist_remove(id: PlaylistId) -> Result<(), SerializableLibraryError>;
     /// clone a playlist.

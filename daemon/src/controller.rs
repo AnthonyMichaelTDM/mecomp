@@ -29,7 +29,7 @@ use mecomp_storage::{
         playlist::{Playlist, PlaylistBrief},
         song::{Song, SongBrief},
     },
-    errors::Error::{self, NotFound},
+    errors::Error,
 };
 use one_or_many::OneOrMany;
 
@@ -813,34 +813,34 @@ impl MusicPlayer for MusicPlayerServer {
     /// create a new playlist.
     /// if a playlist with the same name already exists, this will return that playlist's id in the error variant
     #[instrument]
-    async fn playlist_new(
+    async fn playlist_get_or_create(
         self,
         context: Context,
         name: String,
-    ) -> Result<Result<PlaylistId, PlaylistId>, SerializableLibraryError> {
+    ) -> Result<PlaylistId, SerializableLibraryError> {
         info!("Creating new playlist: {name}");
 
         // see if a playlist with that name already exists
-        if let Some(playlist) = Playlist::read_by_name(&self.db, name.clone())
-            .await
-            .tap_err(|e| warn!("Error in playlist_new: {e}"))
-            .ok()
-            .flatten()
+        match Playlist::read_by_name(&self.db, name.clone()).await {
+            Ok(Some(playlist)) => return Ok(playlist.id.into()),
+            Err(e) => warn!("Error in playlist_new (looking for existing playlist): {e}"),
+            _ => {}
+        }
+        // if it doesn't, create a new playlist with that name
+        match Playlist::create(
+            &self.db,
+            Playlist {
+                id: Playlist::generate_id(),
+                name: name.into(),
+                runtime: Duration::from_secs(0),
+                song_count: 0,
+            },
+        )
+        .await
+        .tap_err(|e| warn!("Error in playlist_new (creating new playlist): {e}"))?
         {
-            Ok(Ok(playlist.id.into()))
-        } else {
-            Ok(Err(Playlist::create(
-                &self.db,
-                Playlist {
-                    id: Playlist::generate_id(),
-                    name: name.into(),
-                    runtime: Duration::from_secs(0),
-                    song_count: 0,
-                },
-            )
-            .await?
-            .map(|playlist| playlist.id.into())
-            .ok_or(NotFound)?))
+            Some(playlist) => Ok(playlist.id.into()),
+            None => Err(Error::NotCreated.into()),
         }
     }
     /// remove a playlist.
@@ -853,7 +853,9 @@ impl MusicPlayer for MusicPlayerServer {
         let id = id.into();
         info!("Removing playlist with id: {id}");
 
-        Playlist::delete(&self.db, id).await?.ok_or(NotFound)?;
+        Playlist::delete(&self.db, id)
+            .await?
+            .ok_or(Error::NotFound)?;
 
         Ok(())
     }
@@ -869,7 +871,9 @@ impl MusicPlayer for MusicPlayerServer {
         let id = id.into();
         info!("Cloning playlist with id: {id}");
 
-        let new_playlist = Playlist::create_copy(&self.db, id).await?.ok_or(NotFound)?;
+        let new_playlist = Playlist::create_copy(&self.db, id)
+            .await?
+            .ok_or(Error::NotFound)?;
 
         Ok(new_playlist.id.into())
     }

@@ -643,10 +643,7 @@ impl CommandHandler for super::PlaylistCommand {
                 Ok(())
             }
             Self::Create { name } => {
-                let resp: Thing = client
-                    .playlist_new(ctx, name.clone())
-                    .await??
-                    .unwrap_or_else(|e| e);
+                let resp: Thing = client.playlist_get_or_create(ctx, name.clone()).await??;
                 println!("Daemon response:\n{resp:#?}");
                 Ok(())
             }
