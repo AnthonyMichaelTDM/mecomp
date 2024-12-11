@@ -100,7 +100,7 @@ indexmap = { version = "2", features = ["serde"] }
 itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
-linfa-linalg = { version = "0.1" }
+linfa-linalg = { version = "0.2" }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 matrixmultiply = { version = "0.3", features = ["cgemm"] }
 memchr = { version = "2" }
@@ -156,7 +156,7 @@ indexmap = { version = "2", features = ["serde"] }
 itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
-linfa-linalg = { version = "0.1" }
+linfa-linalg = { version = "0.2" }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 matrixmultiply = { version = "0.3", features = ["cgemm"] }
 memchr = { version = "2" }
