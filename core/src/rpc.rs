@@ -194,15 +194,6 @@ pub trait MusicPlayer {
     /// add a list of things to the queue.
     /// (if the queue is empty, it will start playing the first thing in the list.)
     async fn queue_add_list(list: Vec<Thing>) -> Result<(), SerializableLibraryError>;
-    /// add a random song to the queue.
-    /// (if the queue is empty, it will start playing the song.)
-    async fn queue_add_rand_song() -> Result<(), SerializableLibraryError>;
-    /// add a random album to the queue.
-    /// (if the queue is empty, it will start playing the album.)
-    async fn queue_add_rand_album() -> Result<(), SerializableLibraryError>;
-    /// add a random artist to the queue.
-    /// (if the queue is empty, it will start playing the artist.)
-    async fn queue_add_rand_artist() -> Result<(), SerializableLibraryError>;
     /// set the current song to a queue index.
     /// if the index is out of bounds, it will be clamped to the nearest valid index.
     async fn queue_set_index(index: usize) -> ();
