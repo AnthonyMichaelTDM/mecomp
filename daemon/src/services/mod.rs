@@ -28,7 +28,7 @@ pub mod radio;
 /// This function will return an error if there is an issue reading the songs from the database.
 pub async fn get_songs_from_things<C: Connection>(
     db: &Surreal<C>,
-    things: Vec<Thing>,
+    things: &[Thing],
 ) -> StorageResult<OneOrMany<Song>> {
     // go through the list, and get songs for each thing (depending on what it is)
     let mut songs: OneOrMany<Song> = OneOrMany::None;

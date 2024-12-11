@@ -17,7 +17,7 @@ use mecomp_core::{
     rpc::{AlbumId, ArtistId, CollectionId, MusicPlayer, PlaylistId, SearchResult, SongId},
     state::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
-        RepeatMode, SeekType, StateAudio, StateRuntime,
+        RepeatMode, SeekType, StateAudio,
     },
 };
 use mecomp_storage::{
@@ -453,97 +453,6 @@ impl MusicPlayer for MusicPlayerServer {
             .tap_err(|e| warn!("Error in state_audio: {e}"))
             .ok()
     }
-    /// returns information about the current queue.
-    #[instrument]
-    async fn state_queue(self, context: Context) -> Option<Box<[Song]>> {
-        info!("Getting state of queue");
-        let (tx, rx) = tokio::sync::oneshot::channel();
-
-        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
-
-        rx.await
-            .tap_err(|e| warn!("Error in state_queue: {e}"))
-            .ok()
-            .map(|state| state.queue)
-    }
-    /// returns the current queue position.
-    #[instrument]
-    async fn state_queue_position(self, context: Context) -> Option<usize> {
-        info!("Getting state of queue position");
-        let (tx, rx) = tokio::sync::oneshot::channel();
-
-        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
-
-        rx.await
-            .tap_err(|e| warn!("Error in state_queue_position: {e}"))
-            .ok()
-            .and_then(|state| state.queue_position)
-    }
-    /// is the player currently paused?
-    #[instrument]
-    async fn state_paused(self, context: Context) -> bool {
-        info!("Getting state of playing");
-        let (tx, rx) = tokio::sync::oneshot::channel();
-
-        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
-
-        rx.await
-            .tap_err(|e| warn!("Error in state_playing: {e}"))
-            .ok()
-            .is_some_and(|state| state.paused)
-    }
-    /// what repeat mode is the player in?
-    #[instrument]
-    async fn state_repeat(self, context: Context) -> Option<RepeatMode> {
-        info!("Getting state of repeat");
-        let (tx, rx) = tokio::sync::oneshot::channel();
-
-        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
-
-        rx.await
-            .tap_err(|e| warn!("Error in state_repeat: {e}"))
-            .ok()
-            .map(|state| state.repeat_mode)
-    }
-    /// returns the current volume.
-    #[instrument]
-    async fn state_volume(self, context: Context) -> Option<f32> {
-        info!("Getting state of volume");
-        let (tx, rx) = tokio::sync::oneshot::channel();
-
-        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
-
-        rx.await
-            .tap_err(|e| warn!("Error in state_volume: {e}"))
-            .ok()
-            .map(|state| state.volume)
-    }
-    /// returns the current volume mute state.
-    #[instrument]
-    async fn state_volume_muted(self, context: Context) -> bool {
-        info!("Getting state of volume muted");
-        let (tx, rx) = tokio::sync::oneshot::channel();
-
-        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
-
-        rx.await
-            .tap_err(|e| warn!("Error in state_volume_muted: {e}"))
-            .ok()
-            .is_some_and(|state| state.muted)
-    }
-    /// returns information about the runtime of the current song (seek position and duration)
-    #[instrument]
-    async fn state_runtime(self, context: Context) -> Option<StateRuntime> {
-        info!("Getting state of runtime");
-        let (tx, rx) = tokio::sync::oneshot::channel();
-
-        self.audio_kernel.send(AudioCommand::ReportStatus(tx));
-
-        rx.await
-            .tap_err(|e| warn!("Error in state_runtime: {e}"))
-            .ok()
-            .and_then(|state| state.runtime)
-    }
 
     /// returns the current artist.
     #[instrument]
@@ -724,13 +633,6 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Pausing playback");
         self.audio_kernel.send(AudioCommand::Pause);
     }
-    /// set the current song to be the next song in the queue.
-    #[instrument]
-    async fn playback_next(self, context: Context) {
-        info!("Playing next song");
-        self.audio_kernel
-            .send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
-    }
     /// restart the current song.
     #[instrument]
     async fn playback_restart(self, context: Context) {
@@ -832,20 +734,22 @@ impl MusicPlayer for MusicPlayerServer {
     /// add a song to the queue.
     /// (if the queue is empty, it will start playing the song.)
     #[instrument]
-    async fn queue_add_song(
+    async fn queue_add(
         self,
         context: Context,
-        song: SongId,
+        thing: schemas::Thing,
     ) -> Result<(), SerializableLibraryError> {
-        let song = song.into();
-        info!("Adding song to queue: {song}",);
-        let Some(song) = Song::read(&self.db, song).await? else {
+        info!("Adding thing to queue: {thing}");
+
+        let songs = get_songs_from_things(&self.db, &[thing]).await?;
+
+        if songs.is_empty() {
             return Err(Error::NotFound.into());
-        };
+        }
 
         self.audio_kernel
             .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-                OneOrMany::One(song),
+                songs,
             ))));
 
         Ok(())
@@ -856,7 +760,7 @@ impl MusicPlayer for MusicPlayerServer {
     async fn queue_add_list(
         self,
         context: Context,
-        list: Vec<mecomp_storage::db::schemas::Thing>,
+        list: Vec<schemas::Thing>,
     ) -> Result<(), SerializableLibraryError> {
         info!(
             "Adding list to queue: ({})",
@@ -867,91 +771,11 @@ impl MusicPlayer for MusicPlayerServer {
         );
 
         // go through the list, and get songs for each thing (depending on what it is)
-        let songs: OneOrMany<Song> = get_songs_from_things(&self.db, list).await?;
+        let songs: OneOrMany<Song> = get_songs_from_things(&self.db, &list).await?;
 
         self.audio_kernel
             .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
                 songs,
-            ))));
-
-        Ok(())
-    }
-    /// add an album to the queue.
-    /// (if the queue is empty, it will start playing the album.)
-    #[instrument]
-    async fn queue_add_album(
-        self,
-        context: Context,
-        album: AlbumId,
-    ) -> Result<(), SerializableLibraryError> {
-        let album = album.into();
-        info!("Adding album to queue: {album}");
-
-        let songs = Album::read_songs(&self.db, album).await?;
-
-        self.audio_kernel
-            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-                songs.into(),
-            ))));
-
-        Ok(())
-    }
-    /// add an artist to the queue.
-    /// (if the queue is empty, it will start playing the artist.)
-    #[instrument]
-    async fn queue_add_artist(
-        self,
-        context: Context,
-        artist: ArtistId,
-    ) -> Result<(), SerializableLibraryError> {
-        let artist = artist.into();
-        info!("Adding artist to queue: {artist}");
-
-        let songs = Artist::read_songs(&self.db, artist).await?;
-
-        self.audio_kernel
-            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-                songs.into(),
-            ))));
-
-        Ok(())
-    }
-    /// add a playlist to the queue.
-    /// (if the queue is empty, it will start playing the playlist.)
-    #[instrument]
-    async fn queue_add_playlist(
-        self,
-        context: Context,
-        playlist: PlaylistId,
-    ) -> Result<(), SerializableLibraryError> {
-        let playlist = playlist.into();
-        info!("Adding playlist to queue: {playlist}");
-
-        let songs = Playlist::read_songs(&self.db, playlist).await?;
-
-        self.audio_kernel
-            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-                songs.into(),
-            ))));
-
-        Ok(())
-    }
-    /// add a collection to the queue.
-    /// (if the queue is empty, it will start playing the collection.)
-    #[instrument]
-    async fn queue_add_collection(
-        self,
-        context: Context,
-        collection: CollectionId,
-    ) -> Result<(), SerializableLibraryError> {
-        let collection = collection.into();
-        info!("Adding collection to queue: {collection}");
-
-        let songs = Collection::read_songs(&self.db, collection).await?;
-
-        self.audio_kernel
-            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-                songs.into(),
             ))));
 
         Ok(())
@@ -1150,73 +974,36 @@ impl MusicPlayer for MusicPlayerServer {
 
         Ok(Playlist::remove_songs(&self.db, playlist, songs).await?)
     }
-    /// Add an artist to a playlist.
+    /// Add a thing to a playlist.
+    /// If the thing is something that has songs (an album, artist, etc.), it will add all the songs.
     #[instrument]
-    async fn playlist_add_artist(
+    async fn playlist_add(
         self,
         context: Context,
         playlist: PlaylistId,
-        artist: ArtistId,
+        thing: schemas::Thing,
     ) -> Result<(), SerializableLibraryError> {
         let playlist = playlist.into();
-        let artist = artist.into();
-        info!("Adding artist to playlist: {playlist} ({artist})");
+        info!("Adding thing to playlist: {playlist} ({thing})");
+
+        // get songs for the thing
+        let songs: OneOrMany<Song> = get_songs_from_things(&self.db, &[thing]).await?;
 
         Ok(Playlist::add_songs(
             &self.db,
             playlist,
-            Artist::read_songs(&self.db, artist)
-                .await?
-                .iter()
-                .map(|song| song.id.clone())
-                .collect::<Vec<_>>(),
+            songs.into_iter().map(|s| s.id).collect::<Vec<_>>(),
         )
         .await?)
-    }
-    /// Add an album to a playlist.
-    #[instrument]
-    async fn playlist_add_album(
-        self,
-        context: Context,
-        playlist: PlaylistId,
-        album: AlbumId,
-    ) -> Result<(), SerializableLibraryError> {
-        let playlist = playlist.into();
-        let album = album.into();
-        info!("Adding album to playlist: {playlist} ({album})");
-
-        Ok(Playlist::add_songs(
-            &self.db,
-            playlist,
-            Album::read_songs(&self.db, album)
-                .await?
-                .iter()
-                .map(|song| song.id.clone())
-                .collect::<Vec<_>>(),
-        )
-        .await?)
-    }
-    /// Add songs to a playlist.
-    #[instrument]
-    async fn playlist_add_songs(
-        self,
-        context: Context,
-        playlist: PlaylistId,
-        songs: Vec<SongId>,
-    ) -> Result<(), SerializableLibraryError> {
-        let playlist = playlist.into();
-        let songs = songs.into_iter().map(Into::into).collect::<Vec<_>>();
-        info!("Adding songs to playlist: {playlist} ({songs:?})");
-
-        Ok(Playlist::add_songs(&self.db, playlist, songs).await?)
     }
     /// Add a list of things to a playlist.
+    /// If the things are something that have songs (an album, artist, etc.), it will add all the songs.
     #[instrument]
     async fn playlist_add_list(
         self,
         context: Context,
         playlist: PlaylistId,
-        list: Vec<mecomp_storage::db::schemas::Thing>,
+        list: Vec<schemas::Thing>,
     ) -> Result<(), SerializableLibraryError> {
         let playlist = playlist.into();
         info!(
@@ -1228,7 +1015,7 @@ impl MusicPlayer for MusicPlayerServer {
         );
 
         // go through the list, and get songs for each thing (depending on what it is)
-        let songs: OneOrMany<Song> = get_songs_from_things(&self.db, list).await?;
+        let songs: OneOrMany<Song> = get_songs_from_things(&self.db, &list).await?;
 
         Ok(Playlist::add_songs(
             &self.db,
@@ -1330,12 +1117,12 @@ impl MusicPlayer for MusicPlayerServer {
                 .tap_err(|e| warn!("Error in radio_get_similar: {e}"))?)
         }
     }
-    /// Radio: get the `n` most similar songs to the given song.
+    /// Radio: get the ids of the `n` most similar songs to the given things.
     #[instrument]
-    async fn radio_get_similar_to_song(
+    async fn radio_get_similar_ids(
         self,
         context: Context,
-        song: SongId,
+        things: Vec<schemas::Thing>,
         n: u32,
     ) -> Result<Box<[SongId]>, SerializableLibraryError> {
         #[cfg(not(feature = "analysis"))]
@@ -1346,91 +1133,11 @@ impl MusicPlayer for MusicPlayerServer {
 
         #[cfg(feature = "analysis")]
         {
-            info!("Getting the {n} most similar songs to: {song:?}");
-            Ok(
-                services::radio::get_similar_to_song(&self.db, song.into(), n)
-                    .await
-                    .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
-                    .tap_err(|e| warn!("Error in radio_get_similar_songs: {e}"))?,
-            )
-        }
-    }
-
-    /// Radio: get the `n` most similar songs to the given artist.
-    #[instrument]
-    async fn radio_get_similar_to_artist(
-        self,
-        context: Context,
-        artist: ArtistId,
-        n: u32,
-    ) -> Result<Box<[SongId]>, SerializableLibraryError> {
-        #[cfg(not(feature = "analysis"))]
-        {
-            warn!("Analysis is not enabled");
-            return Err(SerializableLibraryError::AnalysisNotEnabled);
-        }
-
-        #[cfg(feature = "analysis")]
-        {
-            info!("Getting the {n} most similar songs to: {artist:?}");
-            Ok(
-                services::radio::get_similar_to_artist(&self.db, artist.into(), n)
-                    .await
-                    .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
-                    .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))?,
-            )
-        }
-    }
-
-    /// Radio: get the `n` most similar songs to the given album.
-    #[instrument]
-    async fn radio_get_similar_to_album(
-        self,
-        context: Context,
-        album: AlbumId,
-        n: u32,
-    ) -> Result<Box<[SongId]>, SerializableLibraryError> {
-        #[cfg(not(feature = "analysis"))]
-        {
-            warn!("Analysis is not enabled");
-            return Err(SerializableLibraryError::AnalysisNotEnabled);
-        }
-
-        #[cfg(feature = "analysis")]
-        {
-            info!("Getting the {n} most similar songs to: {album:?}");
-            Ok(
-                services::radio::get_similar_to_album(&self.db, album.into(), n)
-                    .await
-                    .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
-                    .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))?,
-            )
-        }
-    }
-
-    /// Radio: get the `n` most similar songs to the given playlist.
-    #[instrument]
-    async fn radio_get_similar_to_playlist(
-        self,
-        context: Context,
-        playlist: PlaylistId,
-        n: u32,
-    ) -> Result<Box<[SongId]>, SerializableLibraryError> {
-        #[cfg(not(feature = "analysis"))]
-        {
-            warn!("Analysis is not enabled");
-            return Err(SerializableLibraryError::AnalysisNotEnabled);
-        }
-
-        #[cfg(feature = "analysis")]
-        {
-            info!("Getting the {n} most similar songs to: {playlist:?}");
-            Ok(
-                services::radio::get_similar_to_playlist(&self.db, playlist.into(), n)
-                    .await
-                    .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
-                    .tap_err(|e| warn!("Error in radio_get_similar_to_artist: {e}"))?,
-            )
+            info!("Getting the {n} most similar songs to: {things:?}");
+            Ok(services::radio::get_similar(&self.db, things, n)
+                .await
+                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+                .tap_err(|e| warn!("Error in radio_get_similar_songs: {e}"))?)
         }
     }
 }

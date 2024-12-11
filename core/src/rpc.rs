@@ -24,7 +24,7 @@ use crate::{
     errors::SerializableLibraryError,
     state::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
-        RepeatMode, SeekType, StateAudio, StateRuntime,
+        RepeatMode, SeekType, StateAudio,
     },
 };
 
@@ -123,20 +123,6 @@ pub trait MusicPlayer {
     // State retrieval.
     /// returns full information about the current state of the audio player (queue, current song, etc.)
     async fn state_audio() -> Option<StateAudio>;
-    /// returns information about the current queue.
-    async fn state_queue() -> Option<Box<[Song]>>;
-    /// returns the current queue position.
-    async fn state_queue_position() -> Option<usize>;
-    /// is the player currently playing?
-    async fn state_paused() -> bool;
-    /// what repeat mode is the player in?
-    async fn state_repeat() -> Option<RepeatMode>;
-    /// returns the current volume.
-    async fn state_volume() -> Option<f32>;
-    /// returns the current volume mute state.
-    async fn state_volume_muted() -> bool;
-    /// returns information about the runtime of the current song (seek position and duration)
-    async fn state_runtime() -> Option<StateRuntime>;
 
     // Current (audio state)
     /// returns the current artist.
@@ -171,8 +157,6 @@ pub trait MusicPlayer {
     async fn playback_play() -> ();
     /// pause playback.
     async fn playback_pause() -> ();
-    /// set the current song to be the next song in the queue.
-    async fn playback_next() -> ();
     /// restart the current song.
     async fn playback_restart() -> ();
     /// skip forward by the given amount of songs
@@ -204,25 +188,12 @@ pub trait MusicPlayer {
     async fn playback_unmute() -> ();
 
     // Queue control.
-    /// add a song to the queue.
+    /// add a thing to the queue.
     /// (if the queue is empty, it will start playing the song.)
-    async fn queue_add_song(song: SongId) -> Result<(), SerializableLibraryError>;
+    async fn queue_add(thing: Thing) -> Result<(), SerializableLibraryError>;
     /// add a list of things to the queue.
     /// (if the queue is empty, it will start playing the first thing in the list.)
     async fn queue_add_list(list: Vec<Thing>) -> Result<(), SerializableLibraryError>;
-    /// add an album to the queue.
-    /// (if the queue is empty, it will start playing the album.)
-    async fn queue_add_album(album: AlbumId) -> Result<(), SerializableLibraryError>;
-    /// add an artist to the queue.
-    /// (if the queue is empty, it will start playing the artist.)
-    async fn queue_add_artist(artist: ArtistId) -> Result<(), SerializableLibraryError>;
-    /// add a playlist to the queue.
-    /// (if the queue is empty, it will start playing the playlist.)
-    async fn queue_add_playlist(playlist: PlaylistId) -> Result<(), SerializableLibraryError>;
-    /// add a collection to the queue.
-    /// (if the queue is empty, it will start playing the collection.)
-    async fn queue_add_collection(collection: CollectionId)
-        -> Result<(), SerializableLibraryError>;
     /// add a random song to the queue.
     /// (if the queue is empty, it will start playing the song.)
     async fn queue_add_rand_song() -> Result<(), SerializableLibraryError>;
@@ -262,22 +233,14 @@ pub trait MusicPlayer {
         playlist: PlaylistId,
         songs: Vec<SongId>,
     ) -> Result<(), SerializableLibraryError>;
-    /// Add an artist to a playlist.
-    async fn playlist_add_artist(
+    /// Add a thing to a playlist.
+    /// If the thing is something that has songs (an album, artist, etc.), it will add all the songs.
+    async fn playlist_add(
         playlist: PlaylistId,
-        artist: ArtistId,
-    ) -> Result<(), SerializableLibraryError>;
-    /// Add an album to a playlist.
-    async fn playlist_add_album(
-        playlist: PlaylistId,
-        album: AlbumId,
-    ) -> Result<(), SerializableLibraryError>;
-    /// Add songs to a playlist.
-    async fn playlist_add_songs(
-        playlist: PlaylistId,
-        songs: Vec<SongId>,
+        thing: Thing,
     ) -> Result<(), SerializableLibraryError>;
     /// Add a list of things to a playlist.
+    /// If the things are something that have songs (an album, artist, etc.), it will add all the songs.
     async fn playlist_add_list(
         playlist: PlaylistId,
         list: Vec<Thing>,
@@ -307,24 +270,9 @@ pub trait MusicPlayer {
         things: Vec<Thing>,
         n: u32,
     ) -> Result<Box<[Song]>, SerializableLibraryError>;
-    /// Radio: get the `n` most similar songs to the given song.
-    async fn radio_get_similar_to_song(
-        song: SongId,
-        n: u32,
-    ) -> Result<Box<[SongId]>, SerializableLibraryError>;
-    /// Radio: get the `n` most similar songs to the given artist.
-    async fn radio_get_similar_to_artist(
-        artist: ArtistId,
-        n: u32,
-    ) -> Result<Box<[SongId]>, SerializableLibraryError>;
-    /// Radio: get the `n` most similar songs to the given album.
-    async fn radio_get_similar_to_album(
-        album: AlbumId,
-        n: u32,
-    ) -> Result<Box<[SongId]>, SerializableLibraryError>;
-    /// Radio: get the `n` most similar songs to the given playlist.
-    async fn radio_get_similar_to_playlist(
-        playlist: PlaylistId,
+    /// Radio: get the ids of the `n` most similar songs to the given things.
+    async fn radio_get_similar_ids(
+        things: Vec<Thing>,
         n: u32,
     ) -> Result<Box<[SongId]>, SerializableLibraryError>;
 }
