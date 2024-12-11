@@ -1,7 +1,7 @@
 [alias]
 lint = "clippy --all --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::perf"                          # -D clippy::cargo
 lint-fix = "clippy --all --all-features --fix --allow-staged -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::perf" # -D clippy::cargo
-coverage = "tarpaulin --skip-clean --out Html --workspace --post-test-delay=5 --profile tarpaulin"
+coverage = "tarpaulin --skip-clean --out Html --workspace --profile tarpaulin"
 
 [build]
 rustflags = [
