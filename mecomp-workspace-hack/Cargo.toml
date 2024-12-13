@@ -15,6 +15,7 @@ edition = "2021"
 
 [package.metadata.cargo-machete]
 ignored = [
+    "anstream",
     "anyhow",
     "approx-9fbad63c4bcf4a8f",
     "approx-d8f496e17d97b5cb",
@@ -78,6 +79,7 @@ doc = false
 
 ### BEGIN HAKARI SECTION
 [dependencies]
+anstream = { version = "0.6" }
 anyhow = { version = "1" }
 approx-9fbad63c4bcf4a8f = { package = "approx", version = "0.4" }
 approx-d8f496e17d97b5cb = { package = "approx", version = "0.5" }
@@ -133,6 +135,7 @@ ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
 
 [build-dependencies]
+anstream = { version = "0.6" }
 anyhow = { version = "1" }
 approx-9fbad63c4bcf4a8f = { package = "approx", version = "0.4" }
 approx-d8f496e17d97b5cb = { package = "approx", version = "0.5" }
