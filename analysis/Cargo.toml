@@ -32,7 +32,7 @@ rodio = { workspace = true }
 rubato = { workspace = true }
 rustfft = { version = "6.2" }
 serde = { workspace = true }
-statrs = "0.17.1"
+statrs = "0.18.0"
 strum.workspace = true
 thiserror = { workspace = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
