@@ -1,7 +1,7 @@
-//----------------------------------------------------------------------------------------- std lib
 use std::io::Write;
 use std::time::Instant;
-//--------------------------------------------------------------------------------- other libraries
+
+use env_logger::fmt::style::{RgbColor, Style};
 use log::info;
 use once_cell::sync::Lazy;
 #[cfg(feature = "otel_tracing")]
@@ -17,6 +17,8 @@ use tracing_subscriber::layer::SubscriberExt as _;
 #[cfg(feature = "otel_tracing")]
 use tracing_subscriber::Layer as _;
 
+use crate::format_duration;
+
 // This will get initialized below.
 /// Returns the init [`Instant`]
 pub static INIT_INSTANT: Lazy<Instant> = Lazy::new(Instant::now);
@@ -27,7 +29,6 @@ pub fn uptime() -> u64 {
     INIT_INSTANT.elapsed().as_secs()
 }
 
-//---------------------------------------------------------------------------------------------------- Logger init function
 #[allow(clippy::module_name_repetitions)]
 /// Initializes the logger.
 ///
@@ -47,7 +48,6 @@ pub fn uptime() -> u64 {
 #[cfg(not(tarpaulin_include))]
 pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::PathBuf>) {
     // Initialize timer.
-    use crate::format_duration;
     let now = Lazy::force(&INIT_INSTANT);
 
     // create a new log file (if enabled).
@@ -82,60 +82,70 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
 
     env_logger::Builder::new()
         .format(move |buf, record| {
-            let mut style = buf.style();
-            let level = match record.level() {
-                log::Level::Debug => {
-                    style.set_color(env_logger::fmt::Color::Blue);
-                    "D"
-                }
-                log::Level::Trace => {
-                    style.set_color(env_logger::fmt::Color::Magenta);
-                    "T"
-                }
-                log::Level::Info => {
-                    style.set_color(env_logger::fmt::Color::White);
-                    "I"
-                }
-                log::Level::Warn => {
-                    style.set_color(env_logger::fmt::Color::Yellow);
-                    "W"
-                }
-                log::Level::Error => {
-                    style.set_color(env_logger::fmt::Color::Red);
-                    "E"
-                }
+            let style = buf.default_level_style(record.level());
+            let (level_style, level) = match record.level() {
+                log::Level::Debug => (
+                    style
+                        .fg_color(Some(RgbColor::from((0, 0x80, 0x80)).into()))
+                        .bold(),
+                    "D",
+                ),
+                log::Level::Trace => (
+                    style
+                        .fg_color(Some(RgbColor::from((255, 0, 255)).into()))
+                        .bold(),
+                    "T",
+                ),
+                log::Level::Info => (
+                    style
+                        .fg_color(Some(RgbColor::from((255, 255, 255)).into()))
+                        .bold(),
+                    "I",
+                ),
+                log::Level::Warn => (
+                    style
+                        .fg_color(Some(RgbColor::from((255, 255, 0)).into()))
+                        .bold(),
+                    "W",
+                ),
+                log::Level::Error => (
+                    style
+                        .fg_color(Some(RgbColor::from((255, 0, 0)).into()))
+                        .bold(),
+                    "E",
+                ),
             };
+
+            let dimmed_style = Style::default().dimmed();
 
             let log_line = format!(
                 // Longest PATH in the repo: `storage/src/db/schemas/collection.rs` - `36` characters
-                // Longest file in the repo: `daemon/src/controller.rs`             - `4` digits
+                // Longest file in the repo: `core/src/audio/mod.rs`                - `4` digits
                 //
                 // Use `scripts/longest.sh` to find this.
                 //
-                //      Longest PATH ---|        |--- Longest file
-                //                      |        |
-                //                      v        v
-                "| {} | {} | {: >36} @ {: <4} | {}",
-                style.set_bold(true).value(level),
-                buf.style()
-                    .set_dimmed(true)
-                    .value(format_duration(&now.elapsed())),
-                buf.style()
-                    .set_dimmed(true)
-                    .value(process_file_static(record.file_static().unwrap_or("???"))),
-                buf.style()
-                    .set_dimmed(true)
-                    .value(record.line().unwrap_or(0)),
+                //                                                                             Longest PATH ---|        |--- Longest file
+                //                                                                                             |        |
+                //                                                                                             v        v
+                "| {level_style}{level}{level_style:#} | {dimmed_style}{}{dimmed_style:#} | {dimmed_style}{: >36} @ {: <4}{dimmed_style:#} | {}",
+                format_duration(&now.elapsed()),
+                process_file(record.file_static().unwrap_or("???")),
+                record.line().unwrap_or(0),
                 record.args(),
             );
-
             writeln!(buf, "{log_line}")?;
 
             // Write to log file (if enabled).
             if let Some(log_file) = &log_file {
                 let mut log_file = log_file.try_clone().expect("Failed to clone log file");
 
-                writeln!(log_file, "{log_line}")?;
+                // Remove ANSI formatting from log line before writing to file.
+                let unformatted_log_line: String = log_line
+                    .replace(&level_style.render().to_string(), "")
+                    .replace(&dimmed_style.render().to_string(), "")
+                    .replace("\x1B[0m", "");
+
+                writeln!(log_file, "{unformatted_log_line}")?;
                 log_file.sync_all().expect("Failed to sync log file");
             }
 
@@ -146,18 +156,18 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
         .init();
 
     if env.is_empty() {
-        info!("Log Level (Flag) ... {}", filter);
+        info!("Log Level (Flag) ... {filter}");
     } else {
-        info!("Log Level (RUST_LOG) ... {}", env);
+        info!("Log Level (RUST_LOG) ... {env}");
     }
 }
 
 /// Sometimes the file paths we get are full file paths, in this case we don't care about anything before (and including) the `/mecomp/` part.
-fn process_file_static(file_static: &'static str) -> &'static str {
-    if file_static.contains("mecomp/") {
-        file_static.split("mecomp/").last().unwrap_or(file_static)
+fn process_file(file: &str) -> &str {
+    if file.contains("mecomp/") {
+        file.split("mecomp/").last().unwrap_or(file)
     } else {
-        file_static
+        file
     }
 }
 
