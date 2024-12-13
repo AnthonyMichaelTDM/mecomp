@@ -2542,7 +2542,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -2853,7 +2853,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-flame",
- "tracing-opentelemetry 0.25.0",
+ "tracing-opentelemetry",
  "tracing-subscriber",
 ]
 
@@ -3593,6 +3593,7 @@ dependencies = [
  "futures-channel",
  "futures-executor",
  "futures-util",
+ "glob",
  "once_cell",
  "opentelemetry 0.26.0",
  "percent-encoding",
@@ -5533,7 +5534,7 @@ dependencies = [
  "tokio-serde",
  "tokio-util",
  "tracing",
- "tracing-opentelemetry 0.27.0",
+ "tracing-opentelemetry",
 ]
 
 [[package]]
@@ -5945,24 +5946,6 @@ dependencies = [
 
 [[package]]
 name = "tracing-opentelemetry"
-version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9784ed4da7d921bc8df6963f8c80a0e4ce34ba6ba76668acadd3edbd985ff3b"
-dependencies = [
- "js-sys",
- "once_cell",
- "opentelemetry 0.24.0",
- "opentelemetry_sdk 0.24.1",
- "smallvec",
- "tracing",
- "tracing-core",
- "tracing-log",
- "tracing-subscriber",
- "web-time",
-]
-
-[[package]]
-name = "tracing-opentelemetry"
 version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc58af5d3f6c5811462cabb3289aec0093f7338e367e5a33d28c0433b3c7360b"
@@ -5971,8 +5954,10 @@ dependencies = [
  "once_cell",
  "opentelemetry 0.26.0",
  "opentelemetry_sdk 0.26.0",
+ "smallvec",
  "tracing",
  "tracing-core",
+ "tracing-log",
  "tracing-subscriber",
  "web-time",
 ]
