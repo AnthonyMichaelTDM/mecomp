@@ -150,8 +150,82 @@ pub fn init_test_client_server(
 
 #[cfg(test)]
 mod test_client_tests {
+    //! Tests for:
+    //! - the `init_test_client_server` function
+    //! - daemon endpoints that aren't covered in other tests
+
     use super::*;
-    use mecomp_storage::test_utils::init_test_database;
+    use anyhow::Result;
+    use mecomp_core::state::library::LibraryFull;
+    use mecomp_storage::{
+        db::schemas::{collection::Collection, playlist::Playlist, song::SongChangeSet},
+        test_utils::{create_song_with_overrides, init_test_database, SongCase},
+    };
+
+    use pretty_assertions::assert_eq;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    async fn db() -> Arc<Surreal<Db>> {
+        let db = Arc::new(init_test_database().await.unwrap());
+
+        // create a test song, add it to a playlist and collection
+
+        let song_case = SongCase::new(0, vec![0], vec![0], 0, 0);
+
+        // Call the create_song function
+        let song = create_song_with_overrides(
+            &db,
+            song_case,
+            SongChangeSet {
+                // need to specify overrides so that items are created in the db
+                artist: Some(one_or_many::OneOrMany::One("Artist 0".into())),
+                album_artist: Some(one_or_many::OneOrMany::One("Artist 0".into())),
+                album: Some("Album 0".into()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        // create a playlist with the song
+        let playlist = Playlist {
+            id: Playlist::generate_id(),
+            name: "Playlist 0".into(),
+            runtime: song.runtime,
+            song_count: 1,
+        };
+
+        let result = Playlist::create(&db, playlist).await.unwrap().unwrap();
+
+        Playlist::add_songs(&db, result.id, vec![song.id.clone()])
+            .await
+            .unwrap();
+
+        // create a collection with the song
+        let collection = Collection {
+            id: Collection::generate_id(),
+            name: "Collection 0".into(),
+            runtime: song.runtime,
+            song_count: 1,
+        };
+
+        let result = Collection::create(&db, collection).await.unwrap().unwrap();
+
+        Collection::add_songs(&db, result.id, vec![song.id])
+            .await
+            .unwrap();
+
+        return db;
+    }
+
+    #[fixture]
+    async fn client(#[future] db: Arc<Surreal<Db>>) -> MusicPlayerClient {
+        let settings = Arc::new(Settings::default());
+        let audio_kernel = AudioKernelSender::start();
+
+        init_test_client_server(db.await, settings, audio_kernel)
+    }
 
     #[tokio::test]
     async fn test_init_test_client_server() {
@@ -168,5 +242,265 @@ mod test_client_tests {
 
         // ensure that the client is shutdown properly
         drop(client);
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_library_song_get_artist(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .library_song_get_artist(ctx, library_full.songs.first().unwrap().id.clone().into())
+            .await?;
+
+        assert_eq!(response, library_full.artists.into_vec().into());
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_library_song_get_album(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .library_song_get_album(ctx, library_full.songs.first().unwrap().id.clone().into())
+            .await?
+            .unwrap();
+
+        assert_eq!(response, library_full.albums.first().unwrap().clone());
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_library_song_get_playlists(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .library_song_get_playlists(ctx, library_full.songs.first().unwrap().id.clone().into())
+            .await?;
+
+        assert_eq!(response, library_full.playlists.into_vec().into());
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_library_album_get_artist(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .library_album_get_artist(ctx, library_full.albums.first().unwrap().id.clone().into())
+            .await?;
+
+        assert_eq!(response, library_full.artists.into_vec().into());
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_library_album_get_songs(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .library_album_get_songs(ctx, library_full.albums.first().unwrap().id.clone().into())
+            .await?
+            .unwrap();
+
+        assert_eq!(response, library_full.songs);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_library_artist_get_songs(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .library_artist_get_songs(ctx, library_full.artists.first().unwrap().id.clone().into())
+            .await?
+            .unwrap();
+
+        assert_eq!(response, library_full.songs);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_library_artist_get_albums(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .library_artist_get_albums(ctx, library_full.artists.first().unwrap().id.clone().into())
+            .await?
+            .unwrap();
+
+        assert_eq!(response, library_full.albums);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_playback_volume_toggle_mute(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+
+        client.playback_volume_toggle_mute(ctx).await?;
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_queue_add_list(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .queue_add_list(
+                ctx,
+                vec![library_full.songs.first().unwrap().id.clone().into()],
+            )
+            .await?;
+
+        assert_eq!(response, Ok(()));
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[case::get(String::from("Playlist 0"))]
+    #[case::create(String::from("Playlist 1"))]
+    #[tokio::test]
+    async fn test_playlist_get_or_create(
+        #[future] client: MusicPlayerClient,
+        #[case] name: String,
+    ) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+
+        // get or create the playlist
+        let playlist_id = client
+            .playlist_get_or_create(ctx, name.clone())
+            .await?
+            .unwrap();
+
+        // now get that playlist
+        let ctx = tarpc::context::current();
+        let playlist = client.playlist_get(ctx, playlist_id).await?.unwrap();
+
+        assert_eq!(playlist.name, name.into());
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_playlist_clone(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        // clone the only playlist in the db
+        let ctx = tarpc::context::current();
+        let playlist_id = client
+            .playlist_clone(
+                ctx,
+                library_full.playlists.first().unwrap().id.clone().into(),
+            )
+            .await?
+            .unwrap();
+
+        // now get that playlist
+        let ctx = tarpc::context::current();
+        let playlist = client.playlist_get(ctx, playlist_id).await?.unwrap();
+
+        assert_eq!(playlist.name, "Playlist 0 (copy)".into());
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_playlist_get_songs(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        // clone the only playlist in the db
+        let response = client
+            .playlist_get_songs(
+                ctx,
+                library_full.playlists.first().unwrap().id.clone().into(),
+            )
+            .await?
+            .unwrap();
+
+        assert_eq!(response, library_full.songs);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_collection_get_songs(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        // clone the only playlist in the db
+        let response = client
+            .collection_get_songs(
+                ctx,
+                library_full.collections.first().unwrap().id.clone().into(),
+            )
+            .await?
+            .unwrap();
+
+        assert_eq!(response, library_full.songs);
+
+        Ok(())
     }
 }
