@@ -860,7 +860,7 @@ impl MusicPlayer for MusicPlayerServer {
         Ok(())
     }
     /// clone a playlist.
-    /// (creates a new playlist with the same name (append "copy") and contents as the given playlist.)
+    /// (creates a new playlist with the same name (append " (copy)") and contents as the given playlist.)
     /// returns the id of the new playlist
     #[instrument]
     async fn playlist_clone(
