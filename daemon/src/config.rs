@@ -204,3 +204,45 @@ impl Default for ReclusterSettings {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use rstest::rstest;
+
+    #[derive(Debug, PartialEq, Eq, Deserialize)]
+    #[serde(transparent)]
+    struct ArtistSeparatorTest {
+        #[serde(deserialize_with = "de_artist_separator")]
+        artist_separator: OneOrMany<String>,
+    }
+
+    #[rstest]
+    #[case(Vec::<String>::new())]
+    #[case("")]
+    fn test_de_artist_separator_empty<'de, D>(#[case] input: D)
+    where
+        D: serde::de::IntoDeserializer<'de>,
+    {
+        let deserializer = input.into_deserializer();
+        let result: Result<OneOrMany<String>, _> = de_artist_separator(deserializer);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[rstest]
+    #[case(vec![" & "], String::from(" & ").into())]
+    #[case(" & ", String::from(" & ").into())]
+    #[case(vec![" & ", "; "], vec![String::from(" & "), String::from("; ")].into())]
+    #[case(vec!["", " & ", "", "; "], vec![String::from(" & "), String::from("; ")].into())]
+    fn test_de_artist_separator<'de, D>(#[case] input: D, #[case] expected: OneOrMany<String>)
+    where
+        D: serde::de::IntoDeserializer<'de>,
+    {
+        let deserializer = input.into_deserializer();
+        let result: Result<OneOrMany<String>, _> = de_artist_separator(deserializer);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), expected);
+    }
+}
