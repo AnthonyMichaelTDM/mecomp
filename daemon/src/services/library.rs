@@ -6,7 +6,7 @@ use std::{
 
 use log::{debug, error, info, warn};
 use mecomp_analysis::{
-    clustering::{AnalysisArray, ClusteringHelper, KOptimal, NotInitialized},
+    clustering::{ClusteringHelper, KOptimal, NotInitialized},
     decoder::{DecoderWithCallback, MecompDecoder},
 };
 use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
@@ -69,33 +69,37 @@ pub async fn rescan<C: Connection>(
 
         debug!("loading metadata for {}", path.to_string_lossy());
         // check if the metadata of the file is the same as the metadata in the database
-        match (
-            SongMetadata::load_from_path(path.clone(), artist_name_separator, genre_separator),
-            conflict_resolution_mode,
-        ) {
-            // if we have metadata and the metadata is different from the song's metadata, and we are in "overwrite" mode, update the song's metadata
-            (Ok(metadata), MetadataConflictResolution::Overwrite)
-                if metadata != SongMetadata::from(&song) =>
-            {
+        match SongMetadata::load_from_path(path.clone(), artist_name_separator, genre_separator) {
+            // if we have metadata and the metadata is different from the song's metadata, and ...
+            Ok(metadata) if metadata != SongMetadata::from(&song) => {
+                #[allow(
+                    clippy::if_not_else,
+                    reason = "we may add more conflict resolution modes in the future, and skip is the only one that won't attempt to update the song"
+                )]
+                let log_postfix = if conflict_resolution_mode != MetadataConflictResolution::Skip {
+                    "resolving conflict"
+                } else {
+                    "but conflict resolution mode is \"skip\", so we do nothing"
+                };
                 info!(
-                    "{} has conflicting metadata with index, resolving conflict",
-                    path.to_string_lossy()
+                    "{} has conflicting metadata with index, {log_postfix}",
+                    path.to_string_lossy(),
                 );
-                // if the file has been modified, update the song's metadata
-                Song::update(db, song.id.clone(), metadata.merge_with_song(&song)).await?;
-            }
-            // if we have metadata and the metadata is different from the song's metadata, and we are in "skip" mode, do nothing
-            (Ok(metadata), MetadataConflictResolution::Skip)
-                if metadata != SongMetadata::from(&song) =>
-            {
-                warn!(
-                    "{} has conflicting metadata with index, but conflict resolution mode is \"skip\", so we do nothing",
-                    path.to_string_lossy()
-                );
-                continue;
+
+                match conflict_resolution_mode {
+                    // ... we are in "overwrite" mode, update the song's metadata
+                    MetadataConflictResolution::Overwrite => {
+                        // if the file has been modified, update the song's metadata
+                        Song::update(db, song.id.clone(), metadata.merge_with_song(&song)).await?;
+                    }
+                    // ... we are in "skip" mode, do nothing
+                    MetadataConflictResolution::Skip => {
+                        continue;
+                    }
+                }
             }
             // if we have an error, delete the song from the library
-            (Err(e), _) => {
+            Err(e) => {
                 warn!(
                     "Error reading metadata for {}: {}",
                     path.to_string_lossy(),
@@ -119,11 +123,11 @@ pub async fn rescan<C: Connection>(
         .iter()
         .filter_map(|p| {
             p.canonicalize()
-                .tap_err(|e| warn!("Error canonicalizing path: {}", e))
+                .tap_err(|e| warn!("Error canonicalizing path: {e}"))
                 .ok()
         })
         .flat_map(|x| WalkDir::new(x).into_iter())
-        .filter_map(|x| x.tap_err(|e| warn!("Error reading path: {}", e)).ok())
+        .filter_map(|x| x.tap_err(|e| warn!("Error reading path: {e}")).ok())
         .filter_map(|x| x.file_type().is_file().then_some(x))
     {
         if visited_paths.contains(path.path()) {
@@ -138,21 +142,15 @@ pub async fn rescan<C: Connection>(
             artist_name_separator,
             genre_separator,
         ) {
-            Ok(metadata) => match Song::try_load_into_db(db, metadata).await {
-                Ok(_) => {
-                    debug!("Indexed {}", path.path().to_string_lossy());
-                }
-                Err(e) => {
-                    warn!("Error indexing {}: {}", path.path().to_string_lossy(), e);
-                }
-            },
-            Err(e) => {
-                warn!(
-                    "Error reading metadata for {}: {}",
-                    path.path().to_string_lossy(),
-                    e
-                );
-            }
+            Ok(metadata) => Song::try_load_into_db(db, metadata).await.map_or_else(
+                |e| warn!("Error indexing {}: {}", path.path().to_string_lossy(), e),
+                |_| debug!("Indexed {}", path.path().to_string_lossy()),
+            ),
+            Err(e) => warn!(
+                "Error reading metadata for {}: {}",
+                path.path().to_string_lossy(),
+                e
+            ),
         }
     }
 
@@ -223,26 +221,24 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
         };
 
         match maybe_analysis {
-            Ok(analysis) => {
-                if Analysis::create(
-                    db,
-                    song_id.clone(),
-                    Analysis {
-                        id: Analysis::generate_id(),
-                        features: *analysis.inner(),
-                    },
-                )
-                .await?
-                .is_some()
-                {
-                    debug!("Analyzed {}", song_path.to_string_lossy());
-                } else {
+            Ok(analysis) => Analysis::create(
+                db,
+                song_id.clone(),
+                Analysis {
+                    id: Analysis::generate_id(),
+                    features: *analysis.inner(),
+                },
+            )
+            .await?
+            .map_or_else(
+                || {
                     warn!(
                         "Error analyzing {}: song either wasn't found or already has an analysis",
                         song_path.to_string_lossy()
                     );
-                }
-            }
+                },
+                |_| debug!("Analyzed {}", song_path.to_string_lossy()),
+            ),
             Err(e) => {
                 error!("Error analyzing {}: {}", song_path.to_string_lossy(), e);
             }
@@ -274,12 +270,11 @@ pub async fn recluster<C: Connection>(
 
     // use clustering algorithm to cluster the analyses
     let model: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
-        AnalysisArray::from(
-            samples
-                .iter()
-                .map(Into::into)
-                .collect::<Vec<mecomp_analysis::Analysis>>(),
-        ),
+        samples
+            .iter()
+            .map(Into::into)
+            .collect::<Vec<mecomp_analysis::Analysis>>()
+            .into(),
         settings.max_clusters,
         KOptimal::GapStatistic {
             b: settings.gap_statistic_reference_datasets,
@@ -443,6 +438,22 @@ mod tests {
             Song::try_load_into_db(&db, metadata_of_song_with_outdated_metadata)
                 .await
                 .unwrap();
+        // also add a "song" that can't be read
+        let invalid_song_path = tempdir.path().join("invalid1.mp3");
+        std::fs::write(&invalid_song_path, "this is not a song").unwrap();
+        // add another invalid song, this time also put it in the database
+        let invalid_song_path = tempdir.path().join("invalid2.mp3");
+        std::fs::write(&invalid_song_path, "this is not a song").unwrap();
+        let song_with_invalid_metadata = create_song_with_overrides(
+            &db,
+            arb_song_case()(),
+            SongChangeSet {
+                path: Some(tempdir.path().join("invalid2.mp3")),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
 
         // rescan the library
         rescan(
@@ -459,6 +470,13 @@ mod tests {
         // - `song_with_nonexistent_path` was deleted
         assert_eq!(
             Song::read(&db, song_with_nonexistent_path.id)
+                .await
+                .unwrap(),
+            None
+        );
+        // - `song_with_invalid_metadata` was deleted
+        assert_eq!(
+            Song::read(&db, song_with_invalid_metadata.id)
                 .await
                 .unwrap(),
             None
