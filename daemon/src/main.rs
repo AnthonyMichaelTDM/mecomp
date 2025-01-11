@@ -5,7 +5,10 @@
 use std::path::PathBuf;
 
 use mecomp_core::{get_config_dir, get_data_dir};
-use mecomp_daemon::{config::Settings, start_daemon};
+use mecomp_daemon::{
+    config::{Settings, DEFAULT_CONFIG},
+    start_daemon,
+};
 
 use clap::Parser;
 
@@ -25,8 +28,6 @@ struct Flags {
     #[clap(long)]
     log_level: Option<log::LevelFilter>,
 }
-
-static DEFAULT_CONFIG: &str = include_str!("../Mecomp.toml");
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
