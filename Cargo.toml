@@ -62,7 +62,7 @@ opt-level = 0
 [workspace.dependencies]
 # shared dependencies
 anyhow = { version = "1.0", default-features = false }
-lofty = { version = "0.21.1" }
+lofty = { version = "0.22.0" }
 clap = { version = "4.5", default-features = false, features = [
     "color",
     "error-context",
@@ -72,7 +72,7 @@ clap = { version = "4.5", default-features = false, features = [
     "suggestions",
     "derive",
 ] }
-config = { version = "0.14.0", default-features = false, features = ["toml"] }
+config = { version = "0.15.5", default-features = false, features = ["toml"] }
 directories = "5.0.1"
 env_logger = { version = "0.11.5", features = [
     "color",
@@ -80,8 +80,8 @@ env_logger = { version = "0.11.5", features = [
 futures = { version = "0.3.30", features = ["alloc"], default-features = false }
 # image = { version = "0.25.0" }
 log = { version = "0.4.21", features = ["serde"] }
-notify-debouncer-full = { version = "0.4.0", default-features = false }
-notify = { version = "7.0", default-features = false, features = [
+notify-debouncer-full = { version = "0.5.0", default-features = false }
+notify = { version = "8.0", default-features = false, features = [
     "macos_fsevent",
 ] }
 once_cell = "1.19"
@@ -129,7 +129,7 @@ one-or-many = { path = "one-or-many", version = "0.1.0" }
 
 # shared dev dependencies
 pretty_assertions = "1.4"
-rstest = "0.23.0"
+rstest = "0.24.0"
 rstest_reuse = { version = "0.7.0" }
 tempfile = { version = "3.10" }
 criterion = { version = "0.5.1", features = ["html_reports"] }
