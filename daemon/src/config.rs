@@ -145,11 +145,10 @@ impl Default for DaemonSettings {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
 pub enum ClusterAlgorithm {
-    #[serde(rename = "kmeans")]
     KMeans,
     #[default]
-    #[serde(rename = "gmm")]
     GMM,
 }
 
