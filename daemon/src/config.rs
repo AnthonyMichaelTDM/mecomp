@@ -7,11 +7,13 @@ use config::{Config, ConfigError, Environment, File};
 use one_or_many::OneOrMany;
 use serde::Deserialize;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
 use mecomp_storage::util::MetadataConflictResolution;
 
-#[derive(Clone, Debug, Deserialize, Default)]
+pub static DEFAULT_CONFIG: &str = include_str!("../Mecomp.toml");
+
+#[derive(Clone, Debug, Deserialize, Default, PartialEq, Eq)]
 pub struct Settings {
     /// General Daemon Settings
     #[serde(default)]
@@ -66,7 +68,7 @@ impl Settings {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct DaemonSettings {
     /// The port to listen on for RPC requests.
     /// Default is 6600.
@@ -101,6 +103,7 @@ pub struct DaemonSettings {
     /// What level of logging to use.
     /// Default is "info".
     #[serde(default = "default_log_level")]
+    #[serde(deserialize_with = "de_log_level")]
     pub log_level: log::LevelFilter,
 }
 
@@ -117,6 +120,14 @@ where
     } else {
         Ok(v)
     }
+}
+
+fn de_log_level<'de, D>(deserializer: D) -> Result<log::LevelFilter, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(log::LevelFilter::from_str(&s).unwrap_or_else(|_| default_log_level()))
 }
 
 const fn default_port() -> u16 {
@@ -144,7 +155,7 @@ impl Default for DaemonSettings {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ClusterAlgorithm {
     KMeans,
@@ -162,7 +173,7 @@ impl From<ClusterAlgorithm> for mecomp_analysis::clustering::ClusteringMethod {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 pub struct ReclusterSettings {
     /// The number of reference datasets to use for the gap statistic.
     /// (which is used to determine the optimal number of clusters)
@@ -208,6 +219,7 @@ impl Default for ReclusterSettings {
 mod tests {
     use super::*;
 
+    use pretty_assertions::assert_eq;
     use rstest::rstest;
 
     #[derive(Debug, PartialEq, Eq, Deserialize)]
@@ -243,5 +255,60 @@ mod tests {
         let result: Result<OneOrMany<String>, _> = de_artist_separator(deserializer);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), expected);
+    }
+
+    #[test]
+    fn test_init_config() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(
+            &config_path,
+            r#"            
+[daemon]
+rpc_port = 6600
+library_paths = ["/Music"]
+artist_separator = ["; "]
+genre_separator = ", "
+conflict_resolution = "overwrite"
+log_level = "debug"
+
+[reclustering]
+gap_statistic_reference_datasets = 50
+max_clusters = 24
+algorithm = "gmm"
+            "#,
+        )
+        .unwrap();
+
+        let expected = Settings {
+            daemon: DaemonSettings {
+                rpc_port: 6600,
+                library_paths: ["/Music".into()].into(),
+                artist_separator: vec!["; ".into()].into(),
+                genre_separator: Some(", ".into()),
+                conflict_resolution: MetadataConflictResolution::Overwrite,
+                log_level: log::LevelFilter::Debug,
+            },
+            reclustering: ReclusterSettings {
+                gap_statistic_reference_datasets: 50,
+                max_clusters: 24,
+                algorithm: ClusterAlgorithm::GMM,
+            },
+        };
+
+        let settings = Settings::init(config_path, None, None).unwrap();
+
+        assert_eq!(settings, expected);
+    }
+
+    #[test]
+    fn test_default_config_works() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(&config_path, DEFAULT_CONFIG).unwrap();
+
+        let settings = Settings::init(config_path, None, None);
+
+        assert!(settings.is_ok(), "Error: {:?}", settings.err());
     }
 }
