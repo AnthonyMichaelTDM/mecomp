@@ -140,6 +140,11 @@ async fn client() -> MusicPlayerClient {
     init_test_client_server(db, settings, audio_kernel)
 }
 
+#[fixture]
+fn testname() -> String {
+    std::thread::current().name().unwrap().to_string()
+}
+
 macro_rules! set_snapshot_suffix {
     ($($expr:expr),*) => {
         let mut settings = insta::Settings::clone_current();
@@ -160,10 +165,10 @@ async fn test_ping_command(#[future] client: MusicPlayerClient) {
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -178,10 +183,10 @@ async fn test_stop_command(#[future] client: MusicPlayerClient) {
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -245,10 +250,10 @@ async fn test_library_command(
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -266,10 +271,10 @@ async fn test_status_command(#[future] client: MusicPlayerClient, #[case] comman
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -284,10 +289,10 @@ async fn test_state_command(#[future] client: MusicPlayerClient) {
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -305,10 +310,10 @@ async fn test_current_command(#[future] client: MusicPlayerClient, #[case] targe
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -326,10 +331,10 @@ async fn test_rand_command(#[future] client: MusicPlayerClient, #[case] target: 
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -352,10 +357,10 @@ async fn test_search_command(#[future] client: MusicPlayerClient, #[case] target
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -392,10 +397,10 @@ async fn test_playback_command(
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -419,10 +424,10 @@ async fn test_queue_command(#[future] client: MusicPlayerClient, #[case] command
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -448,10 +453,10 @@ async fn test_playlist_command(
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -472,10 +477,10 @@ async fn test_collection_command(
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -499,8 +504,8 @@ async fn test_collection_freeze(#[future] client: MusicPlayerClient) {
 
     let stdout = String::from_utf8(stdout.0.clone()).unwrap();
     assert!(stdout.starts_with("Daemon response:\nplaylist:"));
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -519,8 +524,8 @@ async fn test_radio_command(#[future] client: MusicPlayerClient, #[case] command
     let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
-    set_snapshot_suffix!("stdout-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
-    set_snapshot_suffix!("stderr-{:?}", command);
-    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
