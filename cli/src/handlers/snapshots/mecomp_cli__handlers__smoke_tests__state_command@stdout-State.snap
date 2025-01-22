@@ -1,0 +1,13 @@
+---
+source: cli/src/handlers/smoke_tests.rs
+expression: "String::from_utf8(stdout.0.clone()).unwrap()"
+---
+StateAudio:
+	Queue: [
+
+	],
+	Queue Position: None,
+	Repeat Mode: None
+	Paused: true
+	Muted: false
+	Volume: 100.00%
