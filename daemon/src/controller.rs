@@ -6,6 +6,7 @@ use log::{debug, error, info, warn};
 use rand::seq::SliceRandom;
 use surrealdb::{engine::local::Db, Surreal};
 use tap::TapFallible;
+use tokio::sync::Mutex;
 use tracing::instrument;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
@@ -38,24 +39,19 @@ use crate::{
     services::{self, get_songs_from_things},
 };
 
-mod locks {
-    use tokio::sync::Mutex;
-
-    pub static LIBRARY_RESCAN_LOCK: Mutex<()> = Mutex::const_new(());
-    pub static LIBRARY_ANALYZE_LOCK: Mutex<()> = Mutex::const_new(());
-    pub static COLLECTION_RECLUSTER_LOCK: Mutex<()> = Mutex::const_new(());
-}
-
 #[derive(Clone, Debug)]
 pub struct MusicPlayerServer {
     db: Arc<Surreal<Db>>,
     settings: Arc<Settings>,
     audio_kernel: Arc<AudioKernelSender>,
+    library_rescan_lock: Arc<Mutex<()>>,
+    library_analyze_lock: Arc<Mutex<()>>,
+    collection_recluster_lock: Arc<Mutex<()>>,
 }
 
 impl MusicPlayerServer {
     #[must_use]
-    pub const fn new(
+    pub fn new(
         db: Arc<Surreal<Db>>,
         settings: Arc<Settings>,
         audio_kernel: Arc<AudioKernelSender>,
@@ -64,6 +60,9 @@ impl MusicPlayerServer {
             db,
             settings,
             audio_kernel,
+            library_rescan_lock: Arc::new(Mutex::new(())),
+            library_analyze_lock: Arc::new(Mutex::new(())),
+            collection_recluster_lock: Arc::new(Mutex::new(())),
         }
     }
 }
@@ -79,7 +78,7 @@ impl MusicPlayer for MusicPlayerServer {
     async fn library_rescan(self, context: Context) -> Result<(), SerializableLibraryError> {
         info!("Rescanning library");
 
-        if locks::LIBRARY_RESCAN_LOCK.try_lock().is_err() {
+        if self.library_rescan_lock.try_lock().is_err() {
             warn!("Library rescan already in progress");
             return Err(SerializableLibraryError::RescanInProgress);
         }
@@ -88,7 +87,7 @@ impl MusicPlayer for MusicPlayerServer {
             .name(String::from("Library Rescan"))
             .spawn(move || {
                 futures::executor::block_on(async {
-                    let _guard = locks::LIBRARY_RESCAN_LOCK.lock().await;
+                    let _guard = self.library_rescan_lock.lock().await;
                     match services::library::rescan(
                         &self.db,
                         &self.settings.daemon.library_paths,
@@ -109,7 +108,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// Check if a rescan is in progress.
     #[instrument]
     async fn library_rescan_in_progress(self, context: Context) -> bool {
-        locks::LIBRARY_RESCAN_LOCK.try_lock().is_err()
+        self.library_rescan_lock.try_lock().is_err()
     }
     /// Analyze the music library, only error is if an analysis is already in progress.
     #[instrument]
@@ -124,7 +123,7 @@ impl MusicPlayer for MusicPlayerServer {
         {
             info!("Analyzing library");
 
-            if locks::LIBRARY_ANALYZE_LOCK.try_lock().is_err() {
+            if self.library_analyze_lock.try_lock().is_err() {
                 warn!("Library analysis already in progress");
                 return Err(SerializableLibraryError::AnalysisInProgress);
             }
@@ -133,7 +132,7 @@ impl MusicPlayer for MusicPlayerServer {
                 .name(String::from("Library Analysis"))
                 .spawn(move || {
                     futures::executor::block_on(async {
-                        let _guard = locks::LIBRARY_ANALYZE_LOCK.lock().await;
+                        let _guard = self.library_analyze_lock.lock().await;
                         match services::library::analyze(&self.db).await {
                             Ok(()) => info!("Library analysis complete"),
                             Err(e) => error!("Error in library_analyze: {e}"),
@@ -147,7 +146,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// Check if an analysis is in progress.
     #[instrument]
     async fn library_analyze_in_progress(self, context: Context) -> bool {
-        locks::LIBRARY_ANALYZE_LOCK.try_lock().is_err()
+        self.library_analyze_lock.try_lock().is_err()
     }
     /// Recluster the music library, only error is if a recluster is already in progress.
     #[instrument]
@@ -162,7 +161,7 @@ impl MusicPlayer for MusicPlayerServer {
         {
             info!("Reclustering collections");
 
-            if locks::COLLECTION_RECLUSTER_LOCK.try_lock().is_err() {
+            if self.collection_recluster_lock.try_lock().is_err() {
                 warn!("Collection reclustering already in progress");
                 return Err(SerializableLibraryError::ReclusterInProgress);
             }
@@ -171,7 +170,7 @@ impl MusicPlayer for MusicPlayerServer {
                 .name(String::from("Collection Recluster"))
                 .spawn(move || {
                     futures::executor::block_on(async {
-                        let _guard = locks::COLLECTION_RECLUSTER_LOCK.lock().await;
+                        let _guard = self.collection_recluster_lock.lock().await;
                         match services::library::recluster(&self.db, &self.settings.reclustering)
                             .await
                         {
@@ -187,7 +186,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// Check if a recluster is in progress.
     #[instrument]
     async fn library_recluster_in_progress(self, context: Context) -> bool {
-        locks::COLLECTION_RECLUSTER_LOCK.try_lock().is_err()
+        self.collection_recluster_lock.try_lock().is_err()
     }
     /// Returns brief information about the music library.
     #[instrument]
