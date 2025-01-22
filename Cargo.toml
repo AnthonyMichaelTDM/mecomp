@@ -77,7 +77,7 @@ clap = { version = "4.5", default-features = false, features = [
     "derive",
 ] }
 config = { version = "0.15.5", default-features = false, features = ["toml"] }
-directories = "5.0.1"
+directories = "6.0.0"
 env_logger = { version = "0.11.5", features = [
     "color",
 ], default-features = false }
@@ -114,11 +114,11 @@ tarpc = { version = "0.35.0", features = [
 ] }
 tracing = { version = "0.1.40" }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-tracing-opentelemetry = "0.25.0"
-opentelemetry = "0.24.0"
-opentelemetry_sdk = { version = "0.24.1", features = ["rt-tokio"] }
-opentelemetry-otlp = "0.17.0"
-opentelemetry-semantic-conventions = { version = "0.16.0" }
+tracing-opentelemetry = "0.28.0"
+opentelemetry = "0.27.1"
+opentelemetry_sdk = { version = "0.27.1", features = ["rt-tokio"] }
+opentelemetry-otlp = "0.27.0"
+opentelemetry-semantic-conventions = { version = "0.27.0" }
 tracing-flame = "0.2.0"
 
 # MECOMP packages

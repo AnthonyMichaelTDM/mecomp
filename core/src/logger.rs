@@ -199,24 +199,21 @@ pub fn init_tracing() -> impl tracing::Subscriber {
     #[cfg(feature = "otel_tracing")]
     std::env::set_var("OTEL_BSP_MAX_EXPORT_BATCH_SIZE", "12");
     #[cfg(feature = "otel_tracing")]
-    let tracer = opentelemetry_otlp::new_pipeline()
-        .tracing()
-        .with_exporter(
-            opentelemetry_otlp::new_exporter()
-                .tonic()
-                .with_endpoint("http://localhost:4317"),
+    let tracer = opentelemetry_sdk::trace::TracerProvider::builder()
+        .with_batch_exporter(
+            opentelemetry_otlp::SpanExporter::builder()
+                .with_tonic()
+                .with_endpoint("http://localhost:4317")
+                .build()
+                .expect("Failed to build OTLP exporter"),
+            opentelemetry_sdk::runtime::Tokio,
         )
-        .with_trace_config(
-            opentelemetry_sdk::trace::Config::default()
-                .with_resource(Resource::new(vec![KeyValue::new(
-                    opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-                    "mecomp-daemon",
-                )]))
-                .with_id_generator(opentelemetry_sdk::trace::RandomIdGenerator::default())
-                .with_sampler(opentelemetry_sdk::trace::Sampler::AlwaysOn),
-        )
-        .install_batch(opentelemetry_sdk::runtime::Tokio)
-        .expect("Failed to create tracing layer")
+        .with_id_generator(opentelemetry_sdk::trace::RandomIdGenerator::default())
+        .with_resource(Resource::new(vec![KeyValue::new(
+            opentelemetry_semantic_conventions::resource::SERVICE_NAME,
+            "mecomp-daemon",
+        )]))
+        .build()
         .tracer("mecomp-daemon");
 
     #[cfg(feature = "otel_tracing")]
