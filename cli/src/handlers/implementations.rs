@@ -460,7 +460,7 @@ impl CommandHandler for SeekCommand {
                         Duration::from_secs_f32(*amount),
                     )
                     .await?;
-                writeln!(stdout, "Daemon response:\nseeked forward by {amount:.2}s")?;
+                writeln!(stdout, "Daemon response:\nsought forward by {amount:.2}s")?;
             }
             Self::Backward { amount } => {
                 client
@@ -470,7 +470,7 @@ impl CommandHandler for SeekCommand {
                         Duration::from_secs_f32(*amount),
                     )
                     .await?;
-                writeln!(stdout, "Daemon response:\nseeked backward by {amount:.2}s")?;
+                writeln!(stdout, "Daemon response:\nsought backward by {amount:.2}s")?;
             }
             Self::Absolute { position } => {
                 client
@@ -478,7 +478,7 @@ impl CommandHandler for SeekCommand {
                     .await?;
                 writeln!(
                     stdout,
-                    "Daemon response:\nseeked to position {position:.2}s"
+                    "Daemon response:\nsought to position {position:.2}s"
                 )?;
             }
         }
