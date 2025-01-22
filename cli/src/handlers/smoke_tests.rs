@@ -16,10 +16,10 @@ use surrealdb::{engine::local::Db, sql::Thing, Surreal};
 use tempfile::tempdir;
 
 use crate::handlers::{
-    CollectionCommand, Command, CommandHandler, CurrentTarget, LibraryCommand, LibraryGetTarget,
-    LibraryListTarget, PlaybackCommand, PlaylistAddCommand, PlaylistCommand, PlaylistGetMethod,
-    QueueAddTarget, QueueCommand, RadioCommand, RandTarget, RepeatMode, SearchTarget, SeekCommand,
-    StatusCommand, VolumeCommand,
+    utils::WriteAdapter, CollectionCommand, Command, CommandHandler, CurrentTarget, LibraryCommand,
+    LibraryGetTarget, LibraryListTarget, PlaybackCommand, PlaylistAddCommand, PlaylistCommand,
+    PlaylistGetMethod, QueueAddTarget, QueueCommand, RadioCommand, RandTarget, RepeatMode,
+    SearchTarget, SeekCommand, StatusCommand, VolumeCommand,
 };
 
 #[test]
@@ -146,8 +146,14 @@ async fn test_ping_command(#[future] client: MusicPlayerClient) {
     let ctx = tarpc::context::current();
     let command = Command::Ping;
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -156,8 +162,14 @@ async fn test_stop_command(#[future] client: MusicPlayerClient) {
     let ctx = tarpc::context::current();
     let command = Command::Stop;
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -215,8 +227,14 @@ async fn test_library_command(
     let ctx = tarpc::context::current();
     let command = Command::Library { command };
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -228,8 +246,14 @@ async fn test_status_command(#[future] client: MusicPlayerClient, #[case] comman
     let ctx = tarpc::context::current();
     let command = Command::Status { command };
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -238,8 +262,14 @@ async fn test_state_command(#[future] client: MusicPlayerClient) {
     let ctx = tarpc::context::current();
     let command = Command::State;
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -251,8 +281,14 @@ async fn test_current_command(#[future] client: MusicPlayerClient, #[case] targe
     let ctx = tarpc::context::current();
     let command = Command::Current { target };
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -264,8 +300,14 @@ async fn test_rand_command(#[future] client: MusicPlayerClient, #[case] target: 
     let ctx = tarpc::context::current();
     let command = Command::Rand { target };
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -282,8 +324,14 @@ async fn test_search_command(#[future] client: MusicPlayerClient, #[case] target
         limit: 10,
     };
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -314,8 +362,14 @@ async fn test_playback_command(
     let ctx = tarpc::context::current();
     let command = Command::Playback { command };
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -333,8 +387,14 @@ async fn test_queue_command(#[future] client: MusicPlayerClient, #[case] command
     let ctx = tarpc::context::current();
     let command = Command::Queue { command };
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -354,8 +414,14 @@ async fn test_playlist_command(
     let ctx = tarpc::context::current();
     let command = Command::Playlist { command };
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -371,8 +437,14 @@ async fn test_collection_command(
     let ctx = tarpc::context::current();
     let command = Command::Collection { command };
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }
 
 #[rstest]
@@ -385,6 +457,12 @@ async fn test_radio_command(#[future] client: MusicPlayerClient, #[case] command
     let ctx = tarpc::context::current();
     let command = Command::Radio { command };
 
-    let result = command.handle(ctx, client.await).await;
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
     assert!(result.is_ok());
+
+    insta::assert_snapshot!(String::from_utf8(stdout.0.clone()).unwrap());
+    insta::assert_snapshot!(String::from_utf8(stderr.0.clone()).unwrap());
 }

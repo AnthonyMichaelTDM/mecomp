@@ -55,6 +55,10 @@ lto = false
 strip = "none"
 opt-level = 1
 
+[profile.test.package]
+insta.opt-level = 3
+similar.opt-level = 3
+
 [profile.tarpaulin]
 inherits = "test"
 opt-level = 0
