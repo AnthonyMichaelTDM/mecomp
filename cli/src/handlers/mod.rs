@@ -10,10 +10,12 @@ use clap::{Subcommand, ValueEnum};
 pub trait CommandHandler {
     type Output;
 
-    async fn handle(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
         ctx: tarpc::context::Context,
         client: mecomp_core::rpc::MusicPlayerClient,
+        stdout: &mut W1,
+        stderr: &mut W2,
     ) -> Self::Output;
 }
 
