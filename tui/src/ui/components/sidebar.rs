@@ -46,6 +46,7 @@ pub enum SidebarItem {
     Albums,
     Playlists,
     Collections,
+    Random,
     Space, // this is used to create space between the library actions and the other items
     LibraryRescan,
     LibraryAnalyze,
@@ -57,15 +58,16 @@ impl SidebarItem {
     pub const fn to_action(&self) -> Option<Action> {
         match self {
             Self::Search => Some(Action::ActiveView(ViewAction::Set(ActiveView::Search))),
-            Self::LibraryRescan => Some(Action::Library(LibraryAction::Rescan)),
-            Self::LibraryAnalyze => Some(Action::Library(LibraryAction::Analyze)),
-            Self::LibraryRecluster => Some(Action::Library(LibraryAction::Recluster)),
             Self::Songs => Some(Action::ActiveView(ViewAction::Set(ActiveView::Songs))),
             Self::Artists => Some(Action::ActiveView(ViewAction::Set(ActiveView::Artists))),
             Self::Albums => Some(Action::ActiveView(ViewAction::Set(ActiveView::Albums))),
             Self::Playlists => Some(Action::ActiveView(ViewAction::Set(ActiveView::Playlists))),
             Self::Collections => Some(Action::ActiveView(ViewAction::Set(ActiveView::Collections))),
+            Self::Random => Some(Action::ActiveView(ViewAction::Set(ActiveView::Random))),
             Self::Space => None,
+            Self::LibraryRescan => Some(Action::Library(LibraryAction::Rescan)),
+            Self::LibraryAnalyze => Some(Action::Library(LibraryAction::Analyze)),
+            Self::LibraryRecluster => Some(Action::Library(LibraryAction::Recluster)),
         }
     }
 }
@@ -74,20 +76,21 @@ impl Display for SidebarItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Search => write!(f, "Search"),
-            Self::LibraryRescan => write!(f, "Library Rescan"),
-            Self::LibraryAnalyze => write!(f, "Library Analyze"),
             Self::Songs => write!(f, "Songs"),
             Self::Artists => write!(f, "Artists"),
             Self::Albums => write!(f, "Albums"),
             Self::Playlists => write!(f, "Playlists"),
             Self::Collections => write!(f, "Collections"),
+            Self::Random => write!(f, "Random"),
             Self::Space => write!(f, ""),
+            Self::LibraryRescan => write!(f, "Library Rescan"),
+            Self::LibraryAnalyze => write!(f, "Library Analyze"),
             Self::LibraryRecluster => write!(f, "Library Recluster"),
         }
     }
 }
 
-const SIDEBAR_ITEMS: [SidebarItem; 11] = [
+const SIDEBAR_ITEMS: [SidebarItem; 12] = [
     SidebarItem::Search,
     SidebarItem::Space,
     SidebarItem::Songs,
@@ -95,6 +98,7 @@ const SIDEBAR_ITEMS: [SidebarItem; 11] = [
     SidebarItem::Albums,
     SidebarItem::Playlists,
     SidebarItem::Collections,
+    SidebarItem::Random,
     SidebarItem::Space,
     SidebarItem::LibraryRescan,
     SidebarItem::LibraryAnalyze,
@@ -286,6 +290,7 @@ mod tests {
         assert_eq!(SidebarItem::Albums.to_string(), "Albums");
         assert_eq!(SidebarItem::Playlists.to_string(), "Playlists");
         assert_eq!(SidebarItem::Collections.to_string(), "Collections");
+        assert_eq!(SidebarItem::Random.to_string(), "Random");
         assert_eq!(SidebarItem::Space.to_string(), "");
         assert_eq!(
             SidebarItem::LibraryRecluster.to_string(),
@@ -301,7 +306,7 @@ mod tests {
             ..state_with_everything()
         });
 
-        let (mut terminal, area) = setup_test_terminal(19, 14);
+        let (mut terminal, area) = setup_test_terminal(19, 15);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -316,6 +321,7 @@ mod tests {
             "│Albums           │",
             "│Playlists        │",
             "│Collections      │",
+            "│Random           │",
             "│                 │",
             "│Library Rescan   │",
             "│Library Analyze  │",
@@ -393,6 +399,13 @@ mod tests {
         assert_eq!(
             rx.blocking_recv().unwrap(),
             Action::ActiveView(ViewAction::Set(ActiveView::Collections))
+        );
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::ActiveView(ViewAction::Set(ActiveView::Random))
         );
 
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
