@@ -20,6 +20,7 @@ pub mod generic;
 pub mod none;
 pub mod playlist;
 pub mod radio;
+pub mod random;
 pub mod search;
 pub mod song;
 pub mod sort_mode;
@@ -37,6 +38,7 @@ pub struct ViewData {
     pub playlist: Option<PlaylistViewProps>,
     pub song: Option<SongViewProps>,
     pub radio: Option<RadioViewProps>,
+    pub random: Option<RandomViewProps>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -306,6 +308,16 @@ pub struct RadioViewProps {
     pub count: u32,
     /// The songs that are similar to the things
     pub songs: Box<[Song]>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RandomViewProps {
+    /// id of a random album
+    pub album: Thing,
+    /// id of a random artist
+    pub artist: Thing,
+    /// id of a random song
+    pub song: Thing,
 }
 
 pub mod checktree_utils {

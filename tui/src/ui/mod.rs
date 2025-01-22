@@ -21,7 +21,7 @@ use components::{
     content_view::{
         views::{
             AlbumViewProps, ArtistViewProps, CollectionViewProps, PlaylistViewProps,
-            RadioViewProps, SongViewProps, ViewData,
+            RadioViewProps, RandomViewProps, SongViewProps, ViewData,
         },
         ActiveView,
     },
@@ -395,6 +395,27 @@ async fn handle_additional_view_data(
                 ..state.additional_view_data.clone()
             })
         }
+        ActiveView::Random => {
+            let random_view_props = if let Ok((Some(album), Some(artist), Some(song))) = tokio::try_join!(
+                daemon.rand_album(Context::current()),
+                daemon.rand_artist(Context::current()),
+                daemon.rand_song(Context::current()),
+            ) {
+                Some(RandomViewProps {
+                    album: album.id.into(),
+                    artist: artist.id.into(),
+                    song: song.id.into(),
+                })
+            } else {
+                None
+            };
+
+            Some(ViewData {
+                random: random_view_props,
+                ..state.additional_view_data.clone()
+            })
+        }
+
         ActiveView::None
         | ActiveView::Search
         | ActiveView::Songs

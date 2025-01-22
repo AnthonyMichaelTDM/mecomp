@@ -10,7 +10,7 @@ use crate::{
     ui::{
         components::content_view::views::{
             AlbumViewProps, ArtistViewProps, CollectionViewProps, PlaylistViewProps,
-            RadioViewProps, SongViewProps, ViewData,
+            RadioViewProps, RandomViewProps, SongViewProps, ViewData,
         },
         AppState,
     },
@@ -112,6 +112,11 @@ pub fn state_with_everything() -> AppState {
             collections: vec![collection.clone()].into_boxed_slice(),
         },
         additional_view_data: ViewData {
+            random: Some(RandomViewProps {
+                album: album_id.clone(),
+                artist: artist_id.clone(),
+                song: song_id.clone(),
+            }),
             album: Some(AlbumViewProps {
                 id: album_id,
                 album: album.clone(),

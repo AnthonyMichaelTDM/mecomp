@@ -13,6 +13,7 @@ use views::{
     none::NoneView,
     playlist::{LibraryPlaylistsView, PlaylistView},
     radio::RadioView,
+    random::RandomView,
     search::SearchView,
     song::{LibrarySongsView, SongView},
 };
@@ -43,6 +44,7 @@ pub struct ContentView {
     pub(crate) collections_view: LibraryCollectionsView,
     pub(crate) collection_view: CollectionView,
     pub(crate) radio_view: RadioView,
+    pub(crate) random_view: RandomView,
     //
     pub(crate) action_tx: UnboundedSender<Action>,
 }
@@ -89,6 +91,8 @@ pub enum ActiveView {
     Collection(Id),
     /// A view of a radio
     Radio(Vec<Thing>, u32),
+    /// A view for getting a random song, album, etc.
+    Random,
     // TODO: views for genres, settings, etc.
 }
 
@@ -121,6 +125,7 @@ impl ContentView {
             ActiveView::Collections => &self.collections_view,
             ActiveView::Collection(_) => &self.collection_view,
             ActiveView::Radio(_, _) => &self.radio_view,
+            ActiveView::Random => &self.random_view,
         }
     }
 
@@ -139,6 +144,7 @@ impl ContentView {
             ActiveView::Collections => &mut self.collections_view,
             ActiveView::Collection(_) => &mut self.collection_view,
             ActiveView::Radio(_, _) => &mut self.radio_view,
+            ActiveView::Random => &mut self.random_view,
         }
     }
 }
@@ -163,6 +169,7 @@ impl Component for ContentView {
             collections_view: LibraryCollectionsView::new(state, action_tx.clone()),
             collection_view: CollectionView::new(state, action_tx.clone()),
             radio_view: RadioView::new(state, action_tx.clone()),
+            random_view: RandomView::new(state, action_tx.clone()),
             action_tx,
         }
         .move_with_state(state)
@@ -187,6 +194,7 @@ impl Component for ContentView {
             collections_view: self.collections_view.move_with_state(state),
             collection_view: self.collection_view.move_with_state(state),
             radio_view: self.radio_view.move_with_state(state),
+            random_view: self.random_view.move_with_state(state),
             action_tx: self.action_tx,
         }
     }
@@ -273,6 +281,7 @@ impl ComponentRender<RenderProps> for ContentView {
             ActiveView::Collections => self.collections_view.render(frame, props),
             ActiveView::Collection(_) => self.collection_view.render(frame, props),
             ActiveView::Radio(_, _) => self.radio_view.render(frame, props),
+            ActiveView::Random => self.random_view.render(frame, props),
         }
     }
 }
@@ -299,6 +308,7 @@ mod tests {
     #[case(ActiveView::Collections)]
     #[case(ActiveView::Collection(item_id()))]
     #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))], 1))]
+    #[case(ActiveView::Random)]
     fn smoke_render(
         #[case] active_view: ActiveView,
         #[values(true, false)] is_focused: bool,
@@ -332,6 +342,7 @@ mod tests {
     #[case(ActiveView::Collections)]
     #[case(ActiveView::Collection(item_id()))]
     #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))], 1))]
+    #[case(ActiveView::Random)]
     fn test_get_active_view_component(#[case] active_view: ActiveView) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let state = AppState {
@@ -356,6 +367,7 @@ mod tests {
             ActiveView::Collections => assert_eq!(view.name(), "Library Collections View"),
             ActiveView::Collection(_) => assert_eq!(view.name(), "Collection View"),
             ActiveView::Radio(_, _) => assert_eq!(view.name(), "Radio"),
+            ActiveView::Random => assert_eq!(view.name(), "Random"),
         }
 
         // assert that the two "get_active_view_component" methods return the same component
