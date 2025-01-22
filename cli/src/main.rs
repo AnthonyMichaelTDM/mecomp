@@ -2,7 +2,7 @@ use clap::Parser;
 
 mod handlers;
 
-use handlers::CommandHandler;
+use handlers::{utils::WriteAdapter, CommandHandler};
 
 /// Options configurable via the CLI.
 #[derive(Debug, Parser)]
@@ -25,8 +25,13 @@ async fn main() -> anyhow::Result<()> {
 
     let ctx = tarpc::context::current();
 
+    let mut stdout_adapter = WriteAdapter(std::io::stdout());
+    let mut stderr_adapter = WriteAdapter(std::io::stderr());
+
     if let Some(command) = flags.subcommand {
-        command.handle(ctx, client).await?;
+        command
+            .handle(ctx, client, &mut stdout_adapter, &mut stderr_adapter)
+            .await?;
     } else {
         eprintln!("No subcommand provided");
     }
