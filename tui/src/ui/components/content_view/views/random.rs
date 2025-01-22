@@ -156,7 +156,7 @@ impl Component for RandomView {
                 // adjust the mouse position so that it is relative to the area of the list
                 let adjusted_mouse_y = mouse_position.y - area.y;
 
-                // select the item at teh mouse position
+                // select the item at the mouse position
                 let selected = adjusted_mouse_y as usize;
                 if self.random_type_list.selected() == Some(selected) {
                     self.handle_key_event(KeyEvent::from(KeyCode::Enter));
