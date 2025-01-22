@@ -142,7 +142,11 @@ async fn client() -> MusicPlayerClient {
 
 #[fixture]
 fn testname() -> String {
-    std::thread::current().name().unwrap().to_string()
+    std::thread::current()
+        .name()
+        .unwrap()
+        .to_string()
+        .replace("::", "_")
 }
 
 macro_rules! set_snapshot_suffix {
