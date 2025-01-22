@@ -2602,7 +2602,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56f9097edc7c89d03d526efbacf6d90914e3a8fa53bd56c2d1489e3a90819370"
 dependencies = [
  "approx 0.4.0",
- "ndarray",
+ "ndarray 0.15.6",
  "num-traits",
  "rand",
  "sprs",
@@ -2616,9 +2616,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be0bc52d5e4da397609cd0e6007efc6bd278158d1803673bd936c374f27513c5"
 dependencies = [
  "linfa",
- "linfa-linalg",
+ "linfa-linalg 0.1.0",
  "linfa-nn",
- "ndarray",
+ "ndarray 0.15.6",
  "ndarray-rand",
  "ndarray-stats",
  "noisy_float",
@@ -2634,7 +2634,19 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56e7562b41c8876d3367897067013bb2884cc78e6893f092ecd26b305176ac82"
 dependencies = [
- "ndarray",
+ "ndarray 0.15.6",
+ "num-traits",
+ "rand",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "linfa-linalg"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0626487f50e246a23952f354be214e3958c30a8adb859617c7b62fefad2e34af"
+dependencies = [
+ "ndarray 0.16.1",
  "num-traits",
  "rand",
  "thiserror 1.0.69",
@@ -2648,7 +2660,7 @@ checksum = "b2fc281870379428baa56165c49ea6975c4db7fcf34d5a469738b001d7ade30b"
 dependencies = [
  "kdtree",
  "linfa",
- "ndarray",
+ "ndarray 0.15.6",
  "ndarray-stats",
  "noisy_float",
  "num-traits",
@@ -2664,7 +2676,7 @@ checksum = "abd574b10ba077d06ea20764f13fd275421fa0894c94b0866e693aeab6962e6f"
 dependencies = [
  "bhtsne",
  "linfa",
- "ndarray",
+ "ndarray 0.15.6",
  "ndarray-rand",
  "pdqselect",
  "thiserror 1.0.69",
@@ -2825,7 +2837,7 @@ dependencies = [
  "linfa-tsne",
  "log",
  "mecomp-workspace-hack",
- "ndarray",
+ "ndarray 0.15.6",
  "ndarray-npy",
  "ndarray-rand",
  "ndarray-stats",
@@ -3003,11 +3015,11 @@ dependencies = [
  "itertools 0.10.5",
  "itertools 0.11.0",
  "lalrpop-util",
- "linfa-linalg",
+ "linfa-linalg 0.2.0",
  "log",
  "matrixmultiply",
  "memchr",
- "ndarray",
+ "ndarray 0.15.6",
  "num-complex",
  "num-integer",
  "num-traits",
@@ -3157,13 +3169,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "ndarray"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "882ed72dce9365842bf196bdeedf5055305f11fc8c03dee7bb0194a6cad34841"
+dependencies = [
+ "approx 0.5.1",
+ "matrixmultiply",
+ "num-complex",
+ "num-integer",
+ "num-traits",
+ "portable-atomic",
+ "portable-atomic-util",
+ "rawpointer",
+]
+
+[[package]]
 name = "ndarray-npy"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f85776816e34becd8bd9540818d7dc77bf28307f3b3dcc51cc82403c6931680c"
 dependencies = [
  "byteorder",
- "ndarray",
+ "ndarray 0.15.6",
  "num-traits",
  "py_literal",
 ]
@@ -3174,7 +3202,7 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65608f937acc725f5b164dcf40f4f0bc5d67dc268ab8a649d3002606718c4588"
 dependencies = [
- "ndarray",
+ "ndarray 0.15.6",
  "rand",
  "rand_distr",
 ]
@@ -3187,7 +3215,7 @@ checksum = "af5a8477ac96877b5bd1fd67e0c28736c12943aba24eda92b127e036b0c8f400"
 dependencies = [
  "indexmap 1.9.3",
  "itertools 0.10.5",
- "ndarray",
+ "ndarray 0.15.6",
  "noisy_float",
  "num-integer",
  "num-traits",
@@ -3941,6 +3969,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51bae2ac328883f7acdfea3d66a7c35751187f870bc81f94563733a154d7a670"
 dependencies = [
  "plotters-backend",
+]
+
+[[package]]
+name = "portable-atomic"
+version = "1.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "280dc24453071f1b63954171985a0b0d30058d287960968b9b2aca264c8d4ee6"
+
+[[package]]
+name = "portable-atomic-util"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8a2f0d8d040d7848a709caf78912debcc3f33ee4b3cac47d73d1e1069e83507"
+dependencies = [
+ "portable-atomic",
 ]
 
 [[package]]
@@ -5031,7 +5074,7 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88bab60b0a18fb9b3e0c26e92796b3c3a278bf5fa4880f5ad5cc3bdfb843d0b1"
 dependencies = [
- "ndarray",
+ "ndarray 0.15.6",
  "num-complex",
  "num-traits",
  "smallvec",
@@ -5231,10 +5274,10 @@ dependencies = [
  "ipnet",
  "jsonwebtoken",
  "lexicmp",
- "linfa-linalg",
+ "linfa-linalg 0.1.0",
  "md-5",
  "nanoid",
- "ndarray",
+ "ndarray 0.15.6",
  "ndarray-stats",
  "num-traits",
  "num_cpus",
