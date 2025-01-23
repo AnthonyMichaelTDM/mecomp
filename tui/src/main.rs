@@ -8,7 +8,9 @@ use mecomp_tui::{
     state::Dispatcher,
     termination::{create_termination, Interrupted},
     ui::{init_panic_hook, UiManager},
+    Subscriber,
 };
+use tokio::sync::mpsc;
 
 /// Options configurable via the CLI.
 #[derive(Debug, Parser)]
@@ -33,9 +35,10 @@ async fn main() -> anyhow::Result<()> {
     let daemon = Arc::new(init_client(flags.port).await?);
 
     // initialize the signal handlers
+
     let (terminator, mut interrupt_rx) = create_termination();
     let (dispatcher, state_receivers) = Dispatcher::new();
-    let (ui_manager, action_rx) = UiManager::new();
+    let (action_tx, action_rx) = mpsc::unbounded_channel();
 
     if let Err(e) = tokio::try_join!(
         dispatcher.main_loop(
@@ -44,7 +47,12 @@ async fn main() -> anyhow::Result<()> {
             action_rx,
             interrupt_rx.resubscribe()
         ),
-        ui_manager.main_loop(daemon, state_receivers, interrupt_rx.resubscribe())
+        UiManager::new(action_tx.clone()).main_loop(
+            daemon.clone(),
+            state_receivers,
+            interrupt_rx.resubscribe()
+        ),
+        Subscriber::connect(daemon, action_tx, interrupt_rx.resubscribe())
     ) {
         panic!("unexpected error: {e:?}")
     }

@@ -2963,6 +2963,7 @@ dependencies = [
  "anyhow",
  "clap",
  "crossterm",
+ "futures",
  "mecomp-core",
  "mecomp-storage",
  "mecomp-workspace-hack",
