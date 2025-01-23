@@ -230,13 +230,16 @@ mod subscriber_tests {
         init_test_client_server(db, settings, audio_kernel)
     }
 
+    #[rstest]
+    #[case(Event::LibraryRescanFinished, "Library rescan finished".into())]
+    #[case(Event::LibraryAnalysisFinished, "Library analysis finished".into())]
+    #[case(Event::LibraryReclusterFinished, "Library recluster finished".into())]
     #[tokio::test]
-    async fn test_notify_event() {
+    async fn test_notify_event(#[case] event: Event, #[case] expected: String) {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let subscriber = Subscriber::new(tx);
 
         let ctx = Context::current();
-        let event = Event::LibraryRescanFinished;
 
         subscriber.notify_event(ctx, event).await;
 
@@ -244,9 +247,7 @@ mod subscriber_tests {
 
         assert_eq!(
             action,
-            Action::Popup(PopupAction::Open(PopupType::Notification(
-                "Library rescan finished".into()
-            )))
+            Action::Popup(PopupAction::Open(PopupType::Notification(expected.into())))
         );
     }
 
