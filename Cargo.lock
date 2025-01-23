@@ -2868,6 +2868,7 @@ name = "mecomp-core"
 version = "0.1.3"
 dependencies = [
  "anyhow",
+ "ciborium",
  "directories",
  "env_logger",
  "lofty",
@@ -2963,7 +2964,6 @@ dependencies = [
  "anyhow",
  "clap",
  "crossterm",
- "futures",
  "mecomp-core",
  "mecomp-daemon",
  "mecomp-storage",

@@ -1,12 +1,12 @@
 //----------------------------------------------------------------------------------------- std lib
-use std::{collections::HashMap, future::Future, ops::Range, sync::Arc, time::Duration};
+use std::{ops::Range, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
 use log::{debug, error, info, warn};
 use rand::seq::SliceRandom;
 use surrealdb::{engine::local::Db, Surreal};
 use tap::TapFallible;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
 use tracing::instrument;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
@@ -15,14 +15,12 @@ use mecomp_core::{
         AudioKernelSender,
     },
     errors::SerializableLibraryError,
-    rpc::{
-        init_application_publisher, AlbumId, ApplicationClient, ArtistId, CollectionId, Event,
-        MusicPlayer, PlaylistId, SearchResult, SongId,
-    },
+    rpc::{AlbumId, ArtistId, CollectionId, MusicPlayer, PlaylistId, SearchResult, SongId},
     state::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
         RepeatMode, SeekType, StateAudio,
     },
+    udp::{Event, Sender},
 };
 use mecomp_storage::{
     db::schemas::{
@@ -50,7 +48,7 @@ pub struct MusicPlayerServer {
     library_rescan_lock: Arc<Mutex<()>>,
     library_analyze_lock: Arc<Mutex<()>>,
     collection_recluster_lock: Arc<Mutex<()>>,
-    subscribers: Arc<RwLock<HashMap<u16, Arc<ApplicationClient>>>>,
+    publisher: Arc<Mutex<Sender>>,
 }
 
 impl MusicPlayerServer {
@@ -59,57 +57,27 @@ impl MusicPlayerServer {
         db: Arc<Surreal<Db>>,
         settings: Arc<Settings>,
         audio_kernel: Arc<AudioKernelSender>,
+        event_publisher: Sender,
     ) -> Self {
         Self {
             db,
+            publisher: Arc::new(Mutex::new(event_publisher)),
             settings,
             audio_kernel,
             library_rescan_lock: Arc::new(Mutex::new(())),
             library_analyze_lock: Arc::new(Mutex::new(())),
             collection_recluster_lock: Arc::new(Mutex::new(())),
-            subscribers: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-
-    /// run the given function on all subscribers.
-    async fn publish<Func, Fut>(&self, f: Func)
-    where
-        Func: Fn(Arc<ApplicationClient>) -> Fut + Send + Sync,
-        Fut: Future<Output = ()> + Send + Sync,
-    {
-        let subscribers = self.subscribers.read().await;
-        for (_, client) in subscribers.iter() {
-            f(client.clone()).await;
         }
     }
 }
 
 impl MusicPlayer for MusicPlayerServer {
     #[instrument]
-    async fn register_application(
+    async fn get_udp_addr(
         self,
         context: Context,
-        rpc_port: u16,
-    ) -> Result<(), SerializableLibraryError> {
-        info!("Registering application subscription on port: {rpc_port}");
-        let client = init_application_publisher(rpc_port).await?;
-        self.subscribers
-            .write()
-            .await
-            .insert(rpc_port, Arc::new(client));
-        Ok(())
-    }
-    #[instrument]
-    async fn unregister_application(self, context: Context, rpc_port: u16) -> () {
-        info!("Removing application subscription on port: {rpc_port}");
-        let mut clients = self.subscribers.write().await;
-        clients.remove(&rpc_port);
-    }
-    #[instrument]
-    async fn enumerate_applications(self, context: Context) -> Box<[u16]> {
-        info!("Enumerating applications");
-        let clients = self.subscribers.read().await;
-        clients.keys().copied().collect()
+    ) -> Result<std::net::SocketAddr, SerializableLibraryError> {
+        Ok(self.publisher.lock().await.peer_addr()?)
     }
 
     #[instrument]
@@ -145,15 +113,15 @@ impl MusicPlayer for MusicPlayerServer {
                         Err(e) => error!("Error in library_rescan: {e}"),
                     }
 
-                    self.publish(|subscriber| async move {
-                        if let Err(e) = subscriber
-                            .notify_event(Context::current(), Event::LibraryRescanFinished)
-                            .await
-                        {
-                            error!("Error notifying clients that library_rescan_finished: {e}");
-                        }
-                    })
-                    .await;
+                    let result = self
+                        .publisher
+                        .lock()
+                        .await
+                        .send(Event::LibraryRescanFinished)
+                        .await;
+                    if let Err(e) = result {
+                        error!("Error notifying clients that library_rescan_finished: {e}");
+                    }
                 });
             })?;
 
@@ -192,17 +160,15 @@ impl MusicPlayer for MusicPlayerServer {
                             Err(e) => error!("Error in library_analyze: {e}"),
                         }
 
-                        self.publish(|subscriber| async move {
-                            if let Err(e) = subscriber
-                                .notify_event(Context::current(), Event::LibraryAnalysisFinished)
-                                .await
-                            {
-                                error!(
-                                    "Error notifying clients that library_analysis_finished: {e}"
-                                );
-                            }
-                        })
-                        .await;
+                        let result = &self
+                            .publisher
+                            .lock()
+                            .await
+                            .send(Event::LibraryAnalysisFinished)
+                            .await;
+                        if let Err(e) = result {
+                            error!("Error notifying clients that library_analysis_finished: {e}");
+                        }
                     });
                 })?;
 
@@ -244,17 +210,15 @@ impl MusicPlayer for MusicPlayerServer {
                             Err(e) => error!("Error in collection_recluster: {e}"),
                         }
 
-                        self.publish(|subscriber| async move {
-                            if let Err(e) = subscriber
-                                .notify_event(Context::current(), Event::LibraryReclusterFinished)
-                                .await
-                            {
-                                error!(
-                                    "Error notifying clients that library_recluster_finished: {e}"
-                                );
-                            }
-                        })
-                        .await;
+                        let result = &self
+                            .publisher
+                            .lock()
+                            .await
+                            .send(Event::LibraryReclusterFinished)
+                            .await;
+                        if let Err(e) = result {
+                            error!("Error notifying clients that library_recluster_finished: {e}");
+                        }
                     });
                 })?;
 

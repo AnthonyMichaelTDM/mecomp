@@ -9,6 +9,8 @@ pub mod rpc;
 pub mod state;
 #[cfg(test)]
 pub mod test_utils;
+#[cfg(feature = "rpc")]
+pub mod udp;
 
 #[cfg(test)]
 extern crate rstest_reuse;

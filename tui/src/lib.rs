@@ -1,16 +1,11 @@
-use std::{
-    net::{IpAddr, Ipv4Addr},
-    sync::Arc,
-};
+use std::sync::Arc;
 
-use futures::{future, prelude::*};
-use mecomp_core::rpc::{Application, Event, MusicPlayerClient};
-use state::action::{Action, PopupAction};
-use tarpc::{
-    context::Context,
-    server::{incoming::Incoming as _, BaseChannel, Channel as _},
-    tokio_serde::formats::Json,
+use mecomp_core::{
+    rpc::MusicPlayerClient,
+    udp::{Event, Listener, Message},
 };
+use state::action::{Action, PopupAction};
+use tarpc::context::Context;
 use termination::Interrupted;
 use tokio::sync::{broadcast, mpsc};
 use ui::widgets::popups::PopupType;
@@ -21,93 +16,71 @@ pub mod termination;
 mod test_utils;
 pub mod ui;
 
-#[derive(Clone, Debug)]
-pub struct Subscriber {
-    action_tx: mpsc::UnboundedSender<Action>,
-}
-
-async fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
-    tokio::spawn(fut);
-}
+#[derive(Debug)]
+pub struct Subscriber;
 
 impl Subscriber {
-    const fn new(action_tx: mpsc::UnboundedSender<Action>) -> Self {
-        Self { action_tx }
-    }
-
-    /// Start the subscriber and register with daemon
+    /// Main loop for the subscriber.
     ///
     /// # Errors
     ///
-    /// If fail to create the server, or fail to register with daemon
-    ///
-    /// # Panics
-    ///
-    /// Panics if the peer address of the underlying TCP transport cannot be determined.
-    pub async fn connect(
+    /// Returns an error if the main loop cannot be started, or if an error occurs while handling a message.
+    pub async fn main_loop(
+        &self,
         daemon: Arc<MusicPlayerClient>,
         action_tx: mpsc::UnboundedSender<Action>,
         mut interrupt_rx: broadcast::Receiver<Interrupted>,
     ) -> anyhow::Result<Interrupted> {
-        let application_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
+        let socket_addr = daemon.get_udp_addr(Context::current()).await??;
+        let mut listener = Listener::new(socket_addr).await?;
 
-        let mut listener =
-            tarpc::serde_transport::tcp::listen(application_addr, Json::default).await?;
-        let application_addr = listener.local_addr();
-        listener.config_mut().max_frame_length(usize::MAX);
-
-        let server = Self::new(action_tx.clone());
-
-        let (handler, abort_handle) = future::abortable(
-            listener
-                .filter_map(|r| future::ready(r.ok()))
-                .map(BaseChannel::with_defaults)
-                .max_channels_per_key(10, |t| t.transport().peer_addr().unwrap().ip())
-                .map(move |channel| channel.execute(server.clone().serve()).for_each(spawn))
-                .buffer_unordered(10)
-                .for_each(|()| async {}),
-        );
-
-        daemon
-            .clone()
-            .register_application(Context::current(), application_addr.port())
-            .await??;
-
-        tokio::spawn(handler);
-
-        let interrupted = interrupt_rx.recv().await;
-
-        abort_handle.abort();
-
-        let _ = daemon
-            .clone()
-            .unregister_application(Context::current(), application_addr.port())
-            .await;
-
-        Ok(interrupted?)
-    }
-}
-
-impl Application for Subscriber {
-    async fn notify_event(self, _: Context, event: Event) {
-        let notification = match event {
-            Event::LibraryRescanFinished => "Library rescan finished",
-            Event::LibraryAnalysisFinished => "Library analysis finished",
-            Event::LibraryReclusterFinished => "Library recluster finished",
+        #[allow(clippy::redundant_pub_crate)]
+        let result = loop {
+            tokio::select! {
+                Ok(message) = listener.recv() => {
+                   self.handle_message(&action_tx, message)?;
+                }
+                Ok(interrupted) = interrupt_rx.recv() => {
+                    break interrupted;
+                }
+            }
         };
 
-        self.action_tx
-            .send(Action::Popup(PopupAction::Open(PopupType::Notification(
-                notification.into(),
-            ))))
-            .unwrap();
+        Ok(result)
+    }
+
+    /// Handle a message received from the UDP socket.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the message cannot be handled.
+    pub fn handle_message(
+        &self,
+        action_tx: &mpsc::UnboundedSender<Action>,
+        message: Message,
+    ) -> anyhow::Result<()> {
+        match message {
+            Message::Event(event) => {
+                let notification = match event {
+                    Event::LibraryRescanFinished => "Library rescan finished",
+                    Event::LibraryAnalysisFinished => "Library analysis finished",
+                    Event::LibraryReclusterFinished => "Library recluster finished",
+                };
+
+                action_tx.send(Action::Popup(PopupAction::Open(PopupType::Notification(
+                    notification.into(),
+                ))))?;
+            }
+        }
+
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod subscriber_tests {
     use super::*;
-    use mecomp_core::{audio::AudioKernelSender, rpc::Application};
+    use mecomp_core::audio::AudioKernelSender;
     use mecomp_daemon::{config::Settings, init_test_client_server};
     use mecomp_storage::{
         db::schemas::{
@@ -226,20 +199,20 @@ mod subscriber_tests {
         let audio_kernel = AudioKernelSender::start();
 
         init_test_client_server(db, settings, audio_kernel)
+            .await
+            .unwrap()
     }
 
     #[rstest]
-    #[case(Event::LibraryRescanFinished, "Library rescan finished".into())]
-    #[case(Event::LibraryAnalysisFinished, "Library analysis finished".into())]
-    #[case(Event::LibraryReclusterFinished, "Library recluster finished".into())]
+    #[case(Message::Event(Event::LibraryRescanFinished), "Library rescan finished".into())]
+    #[case(Message::Event(Event::LibraryAnalysisFinished), "Library analysis finished".into())]
+    #[case(Message::Event(Event::LibraryReclusterFinished), "Library recluster finished".into())]
     #[tokio::test]
-    async fn test_notify_event(#[case] event: Event, #[case] expected: String) {
+    async fn test_handle_message(#[case] message: Message, #[case] expected: String) {
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let subscriber = Subscriber::new(tx);
+        let subscriber = Subscriber;
 
-        let ctx = Context::current();
-
-        subscriber.notify_event(ctx, event).await;
+        subscriber.handle_message(&tx, message).unwrap();
 
         let action = rx.recv().await.unwrap();
 
@@ -264,7 +237,8 @@ mod subscriber_tests {
         let daemon_ = daemon.clone();
 
         tokio::spawn(async move {
-            let interrupted = Subscriber::connect(daemon_, action_tx, interrupt_rx.resubscribe())
+            let interrupted = Subscriber
+                .main_loop(daemon_, action_tx, interrupt_rx.resubscribe())
                 .await
                 .unwrap();
 
@@ -281,7 +255,6 @@ mod subscriber_tests {
 
         let action = action_rx.recv().await.unwrap();
 
-        // if this fails, the daemon failed to register the application
         assert_eq!(
             action,
             Action::Popup(PopupAction::Open(PopupType::Notification(
@@ -289,25 +262,8 @@ mod subscriber_tests {
             )))
         );
 
-        // ensure the daemon has the application registered
-        assert_eq!(
-            daemon
-                .enumerate_applications(Context::current())
-                .await
-                .unwrap()
-                .len(),
-            1
-        );
-
         // kill the application
         terminator.terminate(Interrupted::UserInt).unwrap();
         assert_eq!(rx.await.unwrap(), Interrupted::UserInt);
-
-        // if this fails, the daemon failed to unregister the application
-        assert!(daemon
-            .enumerate_applications(Context::current())
-            .await
-            .unwrap()
-            .is_empty());
     }
 }

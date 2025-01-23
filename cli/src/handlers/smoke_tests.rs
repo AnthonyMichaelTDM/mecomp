@@ -138,6 +138,8 @@ async fn client() -> MusicPlayerClient {
     let audio_kernel = AudioKernelSender::start();
 
     init_test_client_server(db, settings, audio_kernel)
+        .await
+        .unwrap()
 }
 
 #[fixture]
