@@ -73,18 +73,16 @@ impl Subscriber {
             .register_application(Context::current(), application_addr.port())
             .await??;
 
-        tokio::spawn(async move {
-            if handler.await == Err(future::Aborted) {
-                let _ = daemon
-                    .clone()
-                    .unregister_application(Context::current(), application_addr.port())
-                    .await;
-            }
-        });
+        tokio::spawn(handler);
 
         let interrupted = interrupt_rx.recv().await;
 
         abort_handle.abort();
+
+        let _ = daemon
+            .clone()
+            .unregister_application(Context::current(), application_addr.port())
+            .await;
 
         Ok(interrupted?)
     }
