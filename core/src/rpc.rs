@@ -288,20 +288,21 @@ pub async fn init_client(rpc_port: u16) -> Result<MusicPlayerClient, std::io::Er
     Ok(MusicPlayerClient::new(client::Config::default(), transport.await?).spawn())
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Event {
+    LibraryRescanFinished,
+    LibraryAnalysisFinished,
+    LibraryReclusterFinished,
+}
+
 /// A trait for anapplication that subscribes to the music player deamon.
 ///
 /// This exists to allow the daemon to notify client applications of changes in the music player state, such as the current song changing,
 /// a rescan/analysis/recluster finishing, etc.
 #[tarpc::service]
 pub trait Application {
-    /// call to notify the application that a rescan has finished.
-    async fn library_rescan_finished() -> ();
-
-    /// call to notify the application that an analysis has finished.
-    async fn library_analysis_finished() -> ();
-
-    /// call to notify the application that a recluster has finished.
-    async fn library_recluster_finished() -> ();
+    /// Notify the client application of an event
+    async fn notify_event(event: Event) -> ();
 }
 
 /// Initialize the client used to publish things to the subscribing application

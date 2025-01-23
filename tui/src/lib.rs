@@ -4,7 +4,7 @@ use std::{
 };
 
 use futures::{future, prelude::*};
-use mecomp_core::rpc::{Application, MusicPlayerClient};
+use mecomp_core::rpc::{Application, Event, MusicPlayerClient};
 use state::action::{Action, PopupAction};
 use tarpc::{
     context::Context,
@@ -91,26 +91,16 @@ impl Subscriber {
 }
 
 impl Application for Subscriber {
-    async fn library_rescan_finished(self, _: Context) {
-        self.action_tx
-            .send(Action::Popup(PopupAction::Open(PopupType::Notification(
-                "Library rescan finished".into(),
-            ))))
-            .unwrap();
-    }
+    async fn notify_event(self, _: Context, event: Event) {
+        let notification = match event {
+            Event::LibraryRescanFinished => "Library rescan finished",
+            Event::LibraryAnalysisFinished => "Library analysis finished",
+            Event::LibraryReclusterFinished => "Library recluster finished",
+        };
 
-    async fn library_analysis_finished(self, _: Context) {
         self.action_tx
             .send(Action::Popup(PopupAction::Open(PopupType::Notification(
-                "Library analysis finished".into(),
-            ))))
-            .unwrap();
-    }
-
-    async fn library_recluster_finished(self, _: Context) {
-        self.action_tx
-            .send(Action::Popup(PopupAction::Open(PopupType::Notification(
-                "Library recluster finished".into(),
+                notification.into(),
             ))))
             .unwrap();
     }

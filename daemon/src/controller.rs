@@ -16,7 +16,7 @@ use mecomp_core::{
     },
     errors::SerializableLibraryError,
     rpc::{
-        init_application_publisher, AlbumId, ApplicationClient, ArtistId, CollectionId,
+        init_application_publisher, AlbumId, ApplicationClient, ArtistId, CollectionId, Event,
         MusicPlayer, PlaylistId, SearchResult, SongId,
     },
     state::{
@@ -141,7 +141,9 @@ impl MusicPlayer for MusicPlayerServer {
                     }
 
                     self.publish(|subscriber| async move {
-                        if let Err(e) = subscriber.library_rescan_finished(Context::current()).await
+                        if let Err(e) = subscriber
+                            .notify_event(Context::current(), Event::LibraryRescanFinished)
+                            .await
                         {
                             error!("Error notifying clients that library_rescan_finished: {e}");
                         }
@@ -187,7 +189,7 @@ impl MusicPlayer for MusicPlayerServer {
 
                         self.publish(|subscriber| async move {
                             if let Err(e) = subscriber
-                                .library_analysis_finished(Context::current())
+                                .notify_event(Context::current(), Event::LibraryAnalysisFinished)
                                 .await
                             {
                                 error!(
@@ -239,7 +241,7 @@ impl MusicPlayer for MusicPlayerServer {
 
                         self.publish(|subscriber| async move {
                             if let Err(e) = subscriber
-                                .library_recluster_finished(Context::current())
+                                .notify_event(Context::current(), Event::LibraryReclusterFinished)
                                 .await
                             {
                                 error!(
