@@ -298,7 +298,7 @@ pub enum Event {
     LibraryReclusterFinished,
 }
 
-/// A trait for anapplication that subscribes to the music player deamon.
+/// A trait for anapplication that subscribes to the music player daemon.
 ///
 /// This exists to allow the daemon to notify client applications of changes in the music player state, such as the current song changing,
 /// a rescan/analysis/recluster finishing, etc.
