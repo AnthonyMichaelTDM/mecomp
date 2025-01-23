@@ -86,7 +86,7 @@ impl MusicPlayerServer {
 
 impl MusicPlayer for MusicPlayerServer {
     #[instrument]
-    async fn subscribe_application(
+    async fn register_application(
         self,
         context: Context,
         rpc_port: u16,
@@ -99,12 +99,17 @@ impl MusicPlayer for MusicPlayerServer {
             .insert(rpc_port, Arc::new(client));
         Ok(())
     }
-
     #[instrument]
-    async fn unsubscribe_application(self, context: Context, rpc_port: u16) -> () {
+    async fn unregister_application(self, context: Context, rpc_port: u16) -> () {
         info!("Removing application subscription on port: {rpc_port}");
         let mut clients = self.subscribers.write().await;
         clients.remove(&rpc_port);
+    }
+    #[instrument]
+    async fn enumerate_applications(self, context: Context) -> Box<[u16]> {
+        info!("Enumerating applications");
+        let clients = self.subscribers.read().await;
+        clients.keys().copied().collect()
     }
 
     #[instrument]

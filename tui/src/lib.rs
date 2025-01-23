@@ -70,14 +70,14 @@ impl Subscriber {
 
         daemon
             .clone()
-            .subscribe_application(Context::current(), application_addr.port())
+            .register_application(Context::current(), application_addr.port())
             .await??;
 
         tokio::spawn(async move {
             if handler.await == Err(future::Aborted) {
                 let _ = daemon
                     .clone()
-                    .unsubscribe_application(Context::current(), application_addr.port())
+                    .unregister_application(Context::current(), application_addr.port())
                     .await;
             }
         });

@@ -59,10 +59,13 @@ impl SearchResult {
 #[tarpc::service]
 pub trait MusicPlayer {
     /// Register an application to the music player daemon.
-    async fn subscribe_application(rpc_port: u16) -> Result<(), SerializableLibraryError>;
-
+    async fn register_application(rpc_port: u16) -> Result<(), SerializableLibraryError>;
     /// Unregister an application from the music player daemon.
-    async fn unsubscribe_application(rpc_port: u16) -> ();
+    async fn unregister_application(rpc_port: u16) -> ();
+    /// Enumerate the applications registered to the music player daemon.
+    ///
+    /// Returns a list of the ports of the registered applications.
+    async fn enumerate_applications() -> Box<[u16]>;
 
     // misc
     async fn ping() -> String;
