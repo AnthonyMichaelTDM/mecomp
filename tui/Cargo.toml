@@ -23,6 +23,7 @@ autostart-daemon = []
 anyhow.workspace = true
 clap.workspace = true
 crossterm = { version = "0.28.1", features = ["event-stream"] }
+futures.workspace = true
 ratatui = { version = "0.29", features = ["all-widgets"] }
 # log.workspace = true
 tarpc.workspace = true
@@ -39,6 +40,9 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 [dev-dependencies]
 pretty_assertions.workspace = true
 mecomp-storage = { workspace = true, features = ["serde", "test_utils"] }
+mecomp-daemon = { workspace = true }
+tempfile = { workspace = true }
+surrealdb = { workspace = true }
 rstest.workspace = true
 
 [lints.rust]

@@ -43,10 +43,7 @@ use mecomp_storage::db::schemas::{album, artist, collection, playlist, song, Thi
 use one_or_many::OneOrMany;
 use ratatui::prelude::*;
 use tarpc::context::Context;
-use tokio::sync::{
-    broadcast,
-    mpsc::{self, UnboundedReceiver},
-};
+use tokio::sync::{broadcast, mpsc};
 use tokio_stream::StreamExt;
 
 use crate::{
@@ -73,10 +70,8 @@ pub struct UiManager {
 
 impl UiManager {
     #[must_use]
-    pub fn new() -> (Self, UnboundedReceiver<Action>) {
-        let (action_tx, action_rx) = mpsc::unbounded_channel();
-
-        (Self { action_tx }, action_rx)
+    pub const fn new(action_tx: mpsc::UnboundedSender<Action>) -> Self {
+        Self { action_tx }
     }
 
     /// Main loop for the UI manager.
