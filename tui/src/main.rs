@@ -52,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
             state_receivers,
             interrupt_rx.resubscribe()
         ),
-        Subscriber::connect(daemon, action_tx, interrupt_rx.resubscribe())
+        Subscriber.main_loop(daemon, action_tx, interrupt_rx.resubscribe())
     ) {
         panic!("unexpected error: {e:?}")
     }

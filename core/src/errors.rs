@@ -2,6 +2,17 @@ use mecomp_storage::errors::Error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// An error in the UDP stack.
+#[derive(Error, Debug)]
+pub enum UdpError {
+    #[error("IO error: {0}")]
+    IO(#[from] std::io::Error),
+    #[error("Ciborium deserialization error: {0}")]
+    CiboriumDeserialization(#[from] ciborium::de::Error<std::io::Error>),
+    #[error("Ciborium serialization error: {0}")]
+    CiboriumSerialization(#[from] ciborium::ser::Error<std::io::Error>),
+}
+
 /// Errors that can occur with finding the config or data directories.
 #[derive(Error, Debug)]
 pub enum DirectoryError {
@@ -21,6 +32,8 @@ pub enum LibraryError {
     #[error("Decoder error: {0}")]
     #[cfg(feature = "audio")]
     Decoder(#[from] rodio::decoder::DecoderError),
+    #[error("UdpError: {0}")]
+    Udp(#[from] UdpError),
 }
 
 #[derive(Error, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -37,6 +50,8 @@ pub enum SerializableLibraryError {
     AnalysisInProgress,
     #[error("Collection Reclustering already in progress.")]
     ReclusterInProgress,
+    #[error("UdpError: {0}")]
+    Udp(String),
 }
 
 impl From<Error> for SerializableLibraryError {
@@ -58,6 +73,12 @@ impl From<rodio::decoder::DecoderError> for SerializableLibraryError {
     }
 }
 
+impl From<UdpError> for SerializableLibraryError {
+    fn from(e: UdpError) -> Self {
+        Self::Udp(e.to_string())
+    }
+}
+
 impl From<LibraryError> for SerializableLibraryError {
     fn from(e: LibraryError) -> Self {
         match e {
@@ -65,6 +86,7 @@ impl From<LibraryError> for SerializableLibraryError {
             LibraryError::IO(e) => Self::IO(e.to_string()),
             #[cfg(feature = "audio")]
             LibraryError::Decoder(e) => Self::Decoder(e.to_string()),
+            LibraryError::Udp(e) => Self::Udp(e.to_string()),
         }
     }
 }
