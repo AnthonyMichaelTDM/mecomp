@@ -14,13 +14,13 @@ license.workspace = true
 
 [features]
 default = ["audio"]
-rpc = ["tarpc", "ciborium"]
+rpc = ["dep:tarpc", "dep:ciborium", "dep:tokio"]
 otel_tracing = [
-    "tracing-opentelemetry",
-    "opentelemetry",
-    "opentelemetry_sdk",
-    "opentelemetry-semantic-conventions",
-    "opentelemetry-otlp",
+    "dep:tracing-opentelemetry",
+    "dep:opentelemetry",
+    "dep:opentelemetry_sdk",
+    "dep:opentelemetry-semantic-conventions",
+    "dep:opentelemetry-otlp",
 ]
 audio = ["dep:rodio", "dep:tokio", "dep:rand"]
 flame = ["tracing-flame"]
