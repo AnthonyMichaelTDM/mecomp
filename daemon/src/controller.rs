@@ -20,7 +20,7 @@ use mecomp_core::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
         RepeatMode, SeekType, StateAudio,
     },
-    udp::{Event, Sender},
+    udp::{Event, Message, Sender},
 };
 use mecomp_storage::{
     db::schemas::{
@@ -48,7 +48,7 @@ pub struct MusicPlayerServer {
     library_rescan_lock: Arc<Mutex<()>>,
     library_analyze_lock: Arc<Mutex<()>>,
     collection_recluster_lock: Arc<Mutex<()>>,
-    publisher: Arc<Mutex<Sender>>,
+    publisher: Arc<Mutex<Sender<Message>>>,
 }
 
 impl MusicPlayerServer {
@@ -57,7 +57,7 @@ impl MusicPlayerServer {
         db: Arc<Surreal<Db>>,
         settings: Arc<Settings>,
         audio_kernel: Arc<AudioKernelSender>,
-        event_publisher: Sender,
+        event_publisher: Sender<Message>,
     ) -> Self {
         Self {
             db,
