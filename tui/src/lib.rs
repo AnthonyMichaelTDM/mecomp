@@ -31,8 +31,10 @@ impl Subscriber {
         action_tx: mpsc::UnboundedSender<Action>,
         mut interrupt_rx: broadcast::Receiver<Interrupted>,
     ) -> anyhow::Result<Interrupted> {
-        let socket_addr = daemon.get_udp_addr(Context::current()).await??;
-        let mut listener = Listener::new(socket_addr).await?;
+        let mut listener = Listener::new().await?;
+        daemon
+            .register_listener(Context::current(), listener.local_addr()?)
+            .await?;
 
         #[allow(clippy::redundant_pub_crate)]
         let result = loop {

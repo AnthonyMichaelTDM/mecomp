@@ -90,7 +90,7 @@ pub async fn start_daemon(
 
     // Start the audio kernel.
     let audio_kernel = AudioKernelSender::start();
-    let event_publisher = Sender::new(settings.daemon.rpc_port).await?;
+    let event_publisher = Sender::new().await?;
     let server = MusicPlayerServer::new(
         db.clone(),
         settings.clone(),
@@ -141,7 +141,7 @@ pub async fn init_test_client_server(
 ) -> anyhow::Result<MusicPlayerClient> {
     let (client_transport, server_transport) = tarpc::transport::channel::unbounded();
 
-    let event_publisher = Sender::new(settings.daemon.rpc_port).await?;
+    let event_publisher = Sender::new().await?;
     let server = MusicPlayerServer::new(db, settings, audio_kernel, event_publisher);
     tokio::spawn(
         tarpc::server::BaseChannel::with_defaults(server_transport)

@@ -13,7 +13,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["audio"]
+default = ["audio", "rpc"]
 rpc = ["dep:tarpc", "dep:ciborium", "dep:tokio"]
 otel_tracing = [
     "dep:tracing-opentelemetry",

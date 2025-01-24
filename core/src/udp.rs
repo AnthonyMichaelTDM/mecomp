@@ -41,13 +41,22 @@ impl Listener {
     /// # Errors
     ///
     /// Returns an error if the socket cannot be bound.
-    pub async fn new(socket_addr: SocketAddr) -> Result<Self> {
-        let socket = UdpSocket::bind(socket_addr).await?;
+    pub async fn new() -> Result<Self> {
+        let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).await?;
 
         Ok(Self {
             socket,
             buffer: [0; MAX_MESSAGE_SIZE],
         })
+    }
+
+    /// Get the socket address of the listener
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the socket address cannot be retrieved.
+    pub fn local_addr(&self) -> Result<SocketAddr> {
+        Ok(self.socket.local_addr()?)
     }
 
     /// Receive a message from the UDP socket.
@@ -68,25 +77,29 @@ impl Listener {
 pub struct Sender {
     socket: UdpSocket,
     buffer: Vec<u8>,
+    /// List of subscribers to send messages to
+    subscribers: Vec<SocketAddr>,
 }
 
 impl Sender {
-    /// Create a new UDP sender set to broadcast on the given port.
+    /// Create a new UDP sender bound to an ephemeral port.
     ///
     /// # Errors
     ///
     /// Returns an error if the socket cannot be bound or connected.
-    pub async fn new(port: u16) -> Result<Self> {
-        let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).await?;
-
-        socket.set_broadcast(true)?;
-
-        socket.connect((Ipv4Addr::LOCALHOST, port)).await?;
+    pub async fn new() -> Result<Self> {
+        let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?;
 
         Ok(Self {
             socket,
             buffer: Vec::with_capacity(MAX_MESSAGE_SIZE),
+            subscribers: Vec::new(),
         })
+    }
+
+    /// Add a subscriber to the list of subscribers.
+    pub fn add_subscriber(&mut self, subscriber: SocketAddr) {
+        self.subscribers.push(subscriber);
     }
 
     /// Send a message to the UDP socket.
@@ -100,18 +113,11 @@ impl Sender {
 
         ciborium::into_writer(&message.into(), &mut self.buffer)?;
 
-        self.socket.send(&self.buffer).await?;
+        for subscriber in &self.subscribers {
+            self.socket.send_to(&self.buffer, subscriber).await?;
+        }
 
         Ok(())
-    }
-
-    /// Get the peer address of the socket.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the peer address cannot be determined.
-    pub fn peer_addr(&self) -> Result<SocketAddr> {
-        Ok(self.socket.peer_addr()?)
     }
 }
 
@@ -120,19 +126,27 @@ mod test {
     use super::*;
 
     #[rstest::rstest]
+    #[case(Message::Event(Event::LibraryRescanFinished))]
+    #[case(Message::Event(Event::LibraryAnalysisFinished))]
+    #[case(Message::Event(Event::LibraryReclusterFinished))]
     #[tokio::test]
     #[timeout(std::time::Duration::from_secs(1))]
-    async fn test_udp() {
-        let port = 6600;
-        let mut sender = Sender::new(port).await.unwrap();
-        let peer = sender.peer_addr().unwrap();
-        let mut listener = Listener::new(peer).await.unwrap();
+    async fn test_udp(#[case] message: Message, #[values(1, 2, 3)] num_listeners: usize) {
+        let mut sender = Sender::new().await.unwrap();
 
-        let message = Message::Event(Event::LibraryRescanFinished);
+        let mut listeners = Vec::new();
+
+        for _ in 0..num_listeners {
+            let listener = Listener::new().await.unwrap();
+            sender.add_subscriber(listener.local_addr().unwrap());
+            listeners.push(listener);
+        }
 
         sender.send(message.clone()).await.unwrap();
 
-        let received_message = listener.recv().await.unwrap();
-        assert_eq!(message, received_message);
+        for (i, listener) in listeners.iter_mut().enumerate() {
+            let received_message = listener.recv().await.unwrap();
+            assert_eq!(received_message, message, "Listener {}", i);
+        }
     }
 }

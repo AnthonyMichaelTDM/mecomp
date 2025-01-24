@@ -73,11 +73,8 @@ impl MusicPlayerServer {
 
 impl MusicPlayer for MusicPlayerServer {
     #[instrument]
-    async fn get_udp_addr(
-        self,
-        context: Context,
-    ) -> Result<std::net::SocketAddr, SerializableLibraryError> {
-        Ok(self.publisher.lock().await.peer_addr()?)
+    async fn register_listener(self, context: Context, listener_addr: std::net::SocketAddr) {
+        self.publisher.lock().await.add_subscriber(listener_addr);
     }
 
     #[instrument]
