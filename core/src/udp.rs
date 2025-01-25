@@ -1,8 +1,12 @@
 //! Implementation for the UDP stack used by the server to broadcast events to clients
 
-use std::net::{Ipv4Addr, SocketAddr};
+use std::{
+    marker::PhantomData,
+    net::{Ipv4Addr, SocketAddr},
+};
 
-use serde::{Deserialize, Serialize};
+use object_pool::Pool;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::net::UdpSocket;
 
 use crate::errors::UdpError;
@@ -30,24 +34,47 @@ impl From<Event> for Message {
 const MAX_MESSAGE_SIZE: usize = 1024;
 
 #[derive(Debug)]
-pub struct Listener {
+pub struct Listener<T, const BUF_SIZE: usize> {
     socket: UdpSocket,
-    buffer: [u8; MAX_MESSAGE_SIZE],
+    buffer: [u8; BUF_SIZE],
+    message_type: PhantomData<T>,
 }
 
-impl Listener {
+impl<T: DeserializeOwned + Send + Sync> Listener<T, MAX_MESSAGE_SIZE> {
     /// Create a new UDP listener bound to the given socket address.
     ///
     /// # Errors
     ///
     /// Returns an error if the socket cannot be bound.
-    pub async fn new(socket_addr: SocketAddr) -> Result<Self> {
-        let socket = UdpSocket::bind(socket_addr).await?;
+    pub async fn new() -> Result<Self> {
+        Self::with_buffer_size().await
+    }
+}
+
+impl<T: DeserializeOwned + Send + Sync, const B: usize> Listener<T, B> {
+    /// Create a new UDP listener bound to the given socket address.
+    /// With a custom buffer size (set with const generics).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the socket cannot be bound.
+    pub async fn with_buffer_size() -> Result<Self> {
+        let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).await?;
 
         Ok(Self {
             socket,
-            buffer: [0; MAX_MESSAGE_SIZE],
+            buffer: [0; B],
+            message_type: PhantomData,
         })
+    }
+
+    /// Get the socket address of the listener
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the socket address cannot be retrieved.
+    pub fn local_addr(&self) -> Result<SocketAddr> {
+        Ok(self.socket.local_addr()?)
     }
 
     /// Receive a message from the UDP socket.
@@ -56,7 +83,7 @@ impl Listener {
     /// # Errors
     ///
     /// Returns an error if the message cannot be deserialized or received.
-    pub async fn recv(&mut self) -> Result<Message> {
+    pub async fn recv(&mut self) -> Result<T> {
         let (size, _) = self.socket.recv_from(&mut self.buffer).await?;
         let message = ciborium::from_reader(&self.buffer[..size])?;
 
@@ -64,29 +91,45 @@ impl Listener {
     }
 }
 
-#[derive(Debug)]
-pub struct Sender {
+pub struct Sender<T> {
     socket: UdpSocket,
-    buffer: Vec<u8>,
+    buffer_pool: Pool<Vec<u8>>,
+    /// List of subscribers to send messages to
+    subscribers: Vec<SocketAddr>,
+    message_type: PhantomData<T>,
 }
 
-impl Sender {
-    /// Create a new UDP sender set to broadcast on the given port.
+impl<T> std::fmt::Debug for Sender<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sender")
+            .field("socket", &self.socket)
+            .field("subscribers", &self.subscribers)
+            .field("message_type", &self.message_type)
+            .field("buffer_pool.len", &self.buffer_pool.len())
+            .finish()
+    }
+}
+
+impl<T: Serialize + Send + Sync> Sender<T> {
+    /// Create a new UDP sender bound to an ephemeral port.
     ///
     /// # Errors
     ///
     /// Returns an error if the socket cannot be bound or connected.
-    pub async fn new(port: u16) -> Result<Self> {
-        let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).await?;
-
-        socket.set_broadcast(true)?;
-
-        socket.connect((Ipv4Addr::LOCALHOST, port)).await?;
+    pub async fn new() -> Result<Self> {
+        let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?;
 
         Ok(Self {
             socket,
-            buffer: Vec::with_capacity(MAX_MESSAGE_SIZE),
+            buffer_pool: Pool::new(1, || Vec::with_capacity(MAX_MESSAGE_SIZE)),
+            subscribers: Vec::new(),
+            message_type: PhantomData,
         })
+    }
+
+    /// Add a subscriber to the list of subscribers.
+    pub fn add_subscriber(&mut self, subscriber: SocketAddr) {
+        self.subscribers.push(subscriber);
     }
 
     /// Send a message to the UDP socket.
@@ -95,23 +138,18 @@ impl Sender {
     /// # Errors
     ///
     /// Returns an error if the message cannot be serialized or sent.
-    pub async fn send(&mut self, message: impl Into<Message> + Send + Sync) -> Result<()> {
-        self.buffer.clear();
+    pub async fn send(&self, message: impl Into<T> + Send + Sync) -> Result<()> {
+        let (pool, mut buffer) = self.buffer_pool.pull(Vec::new).detach();
 
-        ciborium::into_writer(&message.into(), &mut self.buffer)?;
+        ciborium::into_writer(&message.into(), &mut buffer)?;
 
-        self.socket.send(&self.buffer).await?;
+        for subscriber in &self.subscribers {
+            self.socket.send_to(&buffer, subscriber).await?;
+        }
+
+        pool.attach(buffer);
 
         Ok(())
-    }
-
-    /// Get the peer address of the socket.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the peer address cannot be determined.
-    pub fn peer_addr(&self) -> Result<SocketAddr> {
-        Ok(self.socket.peer_addr()?)
     }
 }
 
@@ -120,19 +158,38 @@ mod test {
     use super::*;
 
     #[rstest::rstest]
+    #[case(Message::Event(Event::LibraryRescanFinished))]
+    #[case(Message::Event(Event::LibraryAnalysisFinished))]
+    #[case(Message::Event(Event::LibraryReclusterFinished))]
     #[tokio::test]
     #[timeout(std::time::Duration::from_secs(1))]
-    async fn test_udp() {
-        let port = 6600;
-        let mut sender = Sender::new(port).await.unwrap();
-        let peer = sender.peer_addr().unwrap();
-        let mut listener = Listener::new(peer).await.unwrap();
+    async fn test_udp(#[case] message: Message, #[values(1, 2, 3)] num_listeners: usize) {
+        let mut sender = Sender::<Message>::new().await.unwrap();
 
-        let message = Message::Event(Event::LibraryRescanFinished);
+        let mut listeners = Vec::new();
+
+        for _ in 0..num_listeners {
+            let listener = Listener::new().await.unwrap();
+            sender.add_subscriber(listener.local_addr().unwrap());
+            listeners.push(listener);
+        }
 
         sender.send(message.clone()).await.unwrap();
 
-        let received_message = listener.recv().await.unwrap();
-        assert_eq!(message, received_message);
+        for (i, listener) in listeners.iter_mut().enumerate() {
+            let received_message: Message = listener.recv().await.unwrap();
+            assert_eq!(received_message, message, "Listener {}", i);
+        }
+    }
+
+    #[rstest::rstest]
+    #[case(Message::Event(Event::LibraryRescanFinished))]
+    #[case(Message::Event(Event::LibraryAnalysisFinished))]
+    #[case(Message::Event(Event::LibraryReclusterFinished))]
+    fn test_message_encoding_length(#[case] message: Message) {
+        let mut buffer = Vec::new();
+        ciborium::into_writer(&message, &mut buffer).unwrap();
+
+        assert!(buffer.len() <= MAX_MESSAGE_SIZE);
     }
 }

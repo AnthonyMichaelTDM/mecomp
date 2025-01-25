@@ -58,8 +58,8 @@ impl SearchResult {
 /// The music player service, implemented by the music player daemon.
 #[tarpc::service]
 pub trait MusicPlayer {
-    /// Get the UDP address that the daemon publishes events to
-    async fn get_udp_addr() -> Result<SocketAddr, SerializableLibraryError>;
+    /// Register a UDP listener with the daemon.
+    async fn register_listener(listener_addr: SocketAddr) -> ();
 
     // misc
     async fn ping() -> String;
