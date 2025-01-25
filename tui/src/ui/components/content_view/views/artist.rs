@@ -83,7 +83,7 @@ impl Component for LibraryArtistsView {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Library Artists View"
     }
 

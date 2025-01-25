@@ -89,7 +89,7 @@ impl Component for SearchView {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Search"
     }
 

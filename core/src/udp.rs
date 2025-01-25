@@ -178,7 +178,7 @@ mod test {
 
         for (i, listener) in listeners.iter_mut().enumerate() {
             let received_message: Message = listener.recv().await.unwrap();
-            assert_eq!(received_message, message, "Listener {}", i);
+            assert_eq!(received_message, message, "Listener {i}");
         }
     }
 

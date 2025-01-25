@@ -502,7 +502,7 @@ impl AudioKernel {
             .lock()
             .unwrap()
             .current_index()
-            .map_or(false, |current_index| range.contains(&current_index));
+            .is_some_and(|current_index| range.contains(&current_index));
 
         self.queue.lock().unwrap().remove_range(range);
 

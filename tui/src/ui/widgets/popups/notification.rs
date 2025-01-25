@@ -88,11 +88,10 @@ mod tests {
     use tokio::sync::mpsc::unbounded_channel;
 
     #[test]
-    fn test_notification_area() -> Result<()> {
+    fn test_notification_area() {
         let (_, area) = setup_test_terminal(100, 100);
         let area = Notification::new(Text::from("Hello, World!"), unbounded_channel().0).area(area);
         assert_eq!(area, Rect::new(0, 0, 20, 3));
-        Ok(())
     }
 
     #[test]

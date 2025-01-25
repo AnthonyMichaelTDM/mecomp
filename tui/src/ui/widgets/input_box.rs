@@ -105,7 +105,7 @@ impl Component for InputBox {
         self
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Input Box"
     }
 

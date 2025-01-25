@@ -90,7 +90,7 @@ impl Component for ControlPanel {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "ControlPanel"
     }
 

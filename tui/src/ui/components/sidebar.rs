@@ -123,7 +123,7 @@ impl Component for Sidebar {
         self
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Sidebar"
     }
 

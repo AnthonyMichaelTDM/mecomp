@@ -81,7 +81,7 @@ impl Component for PlaylistView {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Playlist View"
     }
 
@@ -409,7 +409,7 @@ impl Component for LibraryPlaylistsView {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Library Playlists View"
     }
 

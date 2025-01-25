@@ -63,7 +63,7 @@ impl Component for RadioView {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Radio"
     }
 

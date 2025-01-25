@@ -14,13 +14,13 @@
 //!
 //! unaffected by the number of threads
 //!
-//! ### RwLock
+//! ### `RwLock`
 //!
 //! performance scales linearly with the number of threads
 //!
 //! ### Insights
 //!
-//! - The RwLock implementation is able to take advantage of additional threads to improve performance, while the Mutex cannot.
+//! - The `RwLock` implementation is able to take advantage of additional threads to improve performance, while the Mutex cannot.
 //!
 //! ## When threads send a constant number of messages per thread (e.g., 64 messages per thread if 8 threads)
 //!
@@ -28,13 +28,13 @@
 //!
 //! throughput is unaffected by the number of threads
 //!
-//! ### RwLock
+//! ### `RwLock`
 //!
 //! throughput scales linearly with the number of threads
 //!
 //! ### Insights
 //!
-//! - Again, the RwLock implementation is able to take advantage of additional threads to improve performance, while the Mutex cannot.
+//! - Again, the `RwLock` implementation is able to take advantage of additional threads to improve performance, while the Mutex cannot.
 
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
@@ -341,7 +341,7 @@ fn _bench_rwlock(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark designed to compare the runtime performance of using a Mutex vs RwLock for the UDP sender.
+/// Benchmark designed to compare the runtime performance of using a Mutex vs `RwLock` for the UDP sender.
 ///
 /// does this by splitting the messages to send evenly among the threads
 fn bench_performance(c: &mut Criterion) {
@@ -462,7 +462,7 @@ fn bench_performance(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark designed to compare the throughput performance of using a Mutex vs RwLock for the UDP sender.
+/// Benchmark designed to compare the throughput performance of using a Mutex vs `RwLock` for the UDP sender.
 ///
 /// does this by giving each thread 64 messages to send, regardless of the number of threads
 fn bench_throughput(c: &mut Criterion) {

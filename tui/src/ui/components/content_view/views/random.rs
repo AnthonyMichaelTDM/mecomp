@@ -95,7 +95,7 @@ impl Component for RandomView {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Random"
     }
 
@@ -363,7 +363,7 @@ mod tests {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let state = state_with_everything();
         let mut view = RandomView::new(&state, tx);
-        let random_view_props = state.additional_view_data.random.clone().unwrap();
+        let random_view_props = state.additional_view_data.random.unwrap();
 
         view.handle_key_event(KeyEvent::from(KeyCode::Down));
         view.handle_key_event(KeyEvent::from(KeyCode::Enter));
@@ -398,7 +398,7 @@ mod tests {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let state = state_with_everything();
         let mut view = RandomView::new(&state, tx);
-        let random_view_props = state.additional_view_data.random.clone().unwrap();
+        let random_view_props = state.additional_view_data.random.unwrap();
         let view_area = Rect::new(0, 0, 50, 5);
 
         // select the first item by scrolling down

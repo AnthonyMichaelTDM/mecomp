@@ -33,7 +33,7 @@ fn test_cli_args_parse() {
 }
 
 /// the id used for all the items in this fake library
-pub fn item_id() -> &'static str {
+pub const fn item_id() -> &'static str {
     "01J1K5B6RJ84WJXCWYJ5WNE12E"
 }
 
@@ -50,7 +50,7 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
 
     // create a song, artist, album, collection, and playlist
     let song = Song {
-        id: song_id.clone().into(),
+        id: song_id.clone(),
         title: "Test Song".into(),
         artist: OneOrMany::One("Test Artist".into()),
         album_artist: OneOrMany::One("Test Artist".into()),
@@ -64,18 +64,18 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
         path: "test.mp3".into(),
     };
     let analysis = Analysis {
-        id: analysis_id.clone().into(),
+        id: analysis_id.clone(),
         features: arb_analysis_features()(),
     };
     let artist = Artist {
-        id: artist_id.clone().into(),
+        id: artist_id.clone(),
         name: song.artist[0].clone(),
         runtime: song.runtime,
         album_count: 1,
         song_count: 1,
     };
     let album = Album {
-        id: album_id.clone().into(),
+        id: album_id.clone(),
         title: song.album.clone(),
         artist: song.artist.clone(),
         release: song.release_year,
@@ -85,13 +85,13 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
         genre: song.genre.clone(),
     };
     let collection = Collection {
-        id: collection_id.clone().into(),
+        id: collection_id.clone(),
         name: "Collection 0".into(),
         runtime: song.runtime,
         song_count: 1,
     };
     let playlist = Playlist {
-        id: playlist_id.clone().into(),
+        id: playlist_id.clone(),
         name: "Test Playlist".into(),
         runtime: song.runtime,
         song_count: 1,
@@ -132,7 +132,7 @@ async fn client() -> MusicPlayerClient {
     let music_dir = Arc::new(tempdir().unwrap());
 
     let db = db_with_state().await;
-    let mut settings: Settings = Default::default();
+    let mut settings: Settings = Settings::default();
     settings.daemon.library_paths = vec![music_dir.path().to_path_buf()].into_boxed_slice();
     let settings = Arc::new(settings);
     let audio_kernel = AudioKernelSender::start();

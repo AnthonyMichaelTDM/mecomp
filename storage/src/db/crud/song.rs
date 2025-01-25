@@ -868,12 +868,12 @@ mod test {
         .ok_or_else(|| anyhow!("Album not found/created"))?;
         Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
         let artists = Artist::read_or_create_by_names(&db, song.artist.clone()).await?;
-        assert!(artists.len() >= 1);
+        assert!(!artists.is_empty());
         for artist in artists {
             Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
         }
         let album_artists = Artist::read_or_create_by_names(&db, song.album_artist.clone()).await?;
-        assert!(album_artists.len() >= 1);
+        assert!(!album_artists.is_empty());
         for artist in album_artists {
             Artist::add_album(&db, artist.id.clone(), album.id.clone()).await?;
         }

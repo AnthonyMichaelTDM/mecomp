@@ -528,7 +528,7 @@ mod tests {
             Analysis::new([3.0; NUMBER_FEATURES]),
         ];
 
-        let array = convert_to_array(data.clone());
+        let array = convert_to_array(data);
 
         assert_eq!(array.0.shape(), &[3, NUMBER_FEATURES]);
         assert_eq!(array.0[[0, 0]], 1.0);

@@ -290,7 +290,6 @@ impl ComponentRender<RenderProps> for ContentView {
 mod tests {
     use super::*;
     use crate::test_utils::{item_id, setup_test_terminal, state_with_everything};
-    use anyhow::Result;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
@@ -309,10 +308,7 @@ mod tests {
     #[case(ActiveView::Collection(item_id()))]
     #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))], 1))]
     #[case(ActiveView::Random)]
-    fn smoke_render(
-        #[case] active_view: ActiveView,
-        #[values(true, false)] is_focused: bool,
-    ) -> Result<()> {
+    fn smoke_render(#[case] active_view: ActiveView, #[values(true, false)] is_focused: bool) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let content_view = ContentView::new(&AppState::default(), tx).move_with_state(&AppState {
             active_view,
@@ -324,8 +320,6 @@ mod tests {
             terminal.draw(|frame| content_view.render(frame, RenderProps { area, is_focused }));
 
         assert!(completed_frame.is_ok());
-
-        Ok(())
     }
 
     #[rstest]

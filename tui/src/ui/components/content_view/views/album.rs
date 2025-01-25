@@ -84,7 +84,7 @@ impl Component for LibraryAlbumsView {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Library Albums View"
     }
 

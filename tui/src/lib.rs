@@ -113,7 +113,7 @@ mod subscriber_tests {
 
         // create a song, artist, album, collection, and playlist
         let song = Song {
-            id: song_id.clone().into(),
+            id: song_id.clone(),
             title: "Test Song".into(),
             artist: OneOrMany::One("Test Artist".into()),
             album_artist: OneOrMany::One("Test Artist".into()),
@@ -127,18 +127,18 @@ mod subscriber_tests {
             path: "test.mp3".into(),
         };
         let analysis = Analysis {
-            id: analysis_id.clone().into(),
+            id: analysis_id.clone(),
             features: arb_analysis_features()(),
         };
         let artist = Artist {
-            id: artist_id.clone().into(),
+            id: artist_id.clone(),
             name: song.artist[0].clone(),
             runtime: song.runtime,
             album_count: 1,
             song_count: 1,
         };
         let album = Album {
-            id: album_id.clone().into(),
+            id: album_id.clone(),
             title: song.album.clone(),
             artist: song.artist.clone(),
             release: song.release_year,
@@ -148,13 +148,13 @@ mod subscriber_tests {
             genre: song.genre.clone(),
         };
         let collection = Collection {
-            id: collection_id.clone().into(),
+            id: collection_id.clone(),
             name: "Collection 0".into(),
             runtime: song.runtime,
             song_count: 1,
         };
         let playlist = Playlist {
-            id: playlist_id.clone().into(),
+            id: playlist_id.clone(),
             name: "Test Playlist".into(),
             runtime: song.runtime,
             song_count: 1,

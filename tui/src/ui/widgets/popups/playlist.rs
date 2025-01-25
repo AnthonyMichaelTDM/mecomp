@@ -382,14 +382,12 @@ mod tests {
         #[case] terminal_size: (u16, u16),
         #[case] expected_area: Rect,
         state: AppState,
-    ) -> Result<()> {
+    ) {
         let (_, area) = setup_test_terminal(terminal_size.0, terminal_size.1);
         let action_tx = tokio::sync::mpsc::unbounded_channel().0;
         let items = vec![];
         let area = PlaylistSelector::new(&state, action_tx, items).area(area);
         assert_eq!(area, expected_area);
-
-        Ok(())
     }
 
     #[rstest]

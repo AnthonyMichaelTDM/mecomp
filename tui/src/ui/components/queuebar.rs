@@ -82,7 +82,7 @@ impl Component for QueueBar {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Queue"
     }
 

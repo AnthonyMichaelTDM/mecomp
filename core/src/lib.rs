@@ -41,7 +41,7 @@ extern crate rstest_reuse;
 macro_rules! function_name {
     () => {{
         // Okay, this is ugly, I get it. However, this is the best we can get on a stable rust.
-        fn f() {}
+        const fn f() {}
         fn type_name_of<T>(_: T) -> &'static str {
             std::any::type_name::<T>()
         }

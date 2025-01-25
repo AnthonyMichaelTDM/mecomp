@@ -78,7 +78,7 @@ impl Component for CollectionView {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Collection View"
     }
 
@@ -372,7 +372,7 @@ impl Component for LibraryCollectionsView {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Library Collections View"
     }
 
