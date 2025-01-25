@@ -5,6 +5,7 @@ use std::{
     net::{Ipv4Addr, SocketAddr},
 };
 
+use object_pool::Pool;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::net::UdpSocket;
 
@@ -90,13 +91,23 @@ impl<T: DeserializeOwned + Send + Sync, const B: usize> Listener<T, B> {
     }
 }
 
-#[derive(Debug)]
 pub struct Sender<T> {
     socket: UdpSocket,
-    buffer: Vec<u8>,
+    buffer_pool: Pool<Vec<u8>>,
     /// List of subscribers to send messages to
     subscribers: Vec<SocketAddr>,
     message_type: PhantomData<T>,
+}
+
+impl<T> std::fmt::Debug for Sender<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sender")
+            .field("socket", &self.socket)
+            .field("subscribers", &self.subscribers)
+            .field("message_type", &self.message_type)
+            .field("buffer_pool.len", &self.buffer_pool.len())
+            .finish()
+    }
 }
 
 impl<T: Serialize + Send + Sync> Sender<T> {
@@ -110,7 +121,7 @@ impl<T: Serialize + Send + Sync> Sender<T> {
 
         Ok(Self {
             socket,
-            buffer: Vec::with_capacity(MAX_MESSAGE_SIZE),
+            buffer_pool: Pool::new(1, || Vec::with_capacity(MAX_MESSAGE_SIZE)),
             subscribers: Vec::new(),
             message_type: PhantomData,
         })
@@ -127,14 +138,16 @@ impl<T: Serialize + Send + Sync> Sender<T> {
     /// # Errors
     ///
     /// Returns an error if the message cannot be serialized or sent.
-    pub async fn send(&mut self, message: impl Into<T> + Send + Sync) -> Result<()> {
-        self.buffer.clear();
+    pub async fn send(&self, message: impl Into<T> + Send + Sync) -> Result<()> {
+        let (pool, mut buffer) = self.buffer_pool.pull(Vec::new).detach();
 
-        ciborium::into_writer(&message.into(), &mut self.buffer)?;
+        ciborium::into_writer(&message.into(), &mut buffer)?;
 
         for subscriber in &self.subscribers {
-            self.socket.send_to(&self.buffer, subscriber).await?;
+            self.socket.send_to(&buffer, subscriber).await?;
         }
+
+        pool.attach(buffer);
 
         Ok(())
     }
@@ -167,5 +180,16 @@ mod test {
             let received_message: Message = listener.recv().await.unwrap();
             assert_eq!(received_message, message, "Listener {}", i);
         }
+    }
+
+    #[rstest::rstest]
+    #[case(Message::Event(Event::LibraryRescanFinished))]
+    #[case(Message::Event(Event::LibraryAnalysisFinished))]
+    #[case(Message::Event(Event::LibraryReclusterFinished))]
+    fn test_message_encoding_length(#[case] message: Message) {
+        let mut buffer = Vec::new();
+        ciborium::into_writer(&message, &mut buffer).unwrap();
+
+        assert!(buffer.len() <= MAX_MESSAGE_SIZE);
     }
 }

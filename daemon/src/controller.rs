@@ -6,7 +6,7 @@ use log::{debug, error, info, warn};
 use rand::seq::SliceRandom;
 use surrealdb::{engine::local::Db, Surreal};
 use tap::TapFallible;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use tracing::instrument;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
@@ -48,7 +48,7 @@ pub struct MusicPlayerServer {
     library_rescan_lock: Arc<Mutex<()>>,
     library_analyze_lock: Arc<Mutex<()>>,
     collection_recluster_lock: Arc<Mutex<()>>,
-    publisher: Arc<Mutex<Sender<Message>>>,
+    publisher: Arc<RwLock<Sender<Message>>>,
 }
 
 impl MusicPlayerServer {
@@ -61,7 +61,7 @@ impl MusicPlayerServer {
     ) -> Self {
         Self {
             db,
-            publisher: Arc::new(Mutex::new(event_publisher)),
+            publisher: Arc::new(RwLock::new(event_publisher)),
             settings,
             audio_kernel,
             library_rescan_lock: Arc::new(Mutex::new(())),
@@ -69,12 +69,24 @@ impl MusicPlayerServer {
             collection_recluster_lock: Arc::new(Mutex::new(())),
         }
     }
+
+    /// Publish a message to all listeners.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the message could not be sent or encoded.
+    pub async fn publish(
+        &self,
+        message: impl Into<Message> + Send + Sync,
+    ) -> Result<(), mecomp_core::errors::UdpError> {
+        self.publisher.read().await.send(message).await
+    }
 }
 
 impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn register_listener(self, context: Context, listener_addr: std::net::SocketAddr) {
-        self.publisher.lock().await.add_subscriber(listener_addr);
+        self.publisher.write().await.add_subscriber(listener_addr);
     }
 
     #[instrument]
@@ -110,12 +122,7 @@ impl MusicPlayer for MusicPlayerServer {
                         Err(e) => error!("Error in library_rescan: {e}"),
                     }
 
-                    let result = self
-                        .publisher
-                        .lock()
-                        .await
-                        .send(Event::LibraryRescanFinished)
-                        .await;
+                    let result = self.publish(Event::LibraryRescanFinished).await;
                     if let Err(e) = result {
                         error!("Error notifying clients that library_rescan_finished: {e}");
                     }
@@ -157,12 +164,7 @@ impl MusicPlayer for MusicPlayerServer {
                             Err(e) => error!("Error in library_analyze: {e}"),
                         }
 
-                        let result = &self
-                            .publisher
-                            .lock()
-                            .await
-                            .send(Event::LibraryAnalysisFinished)
-                            .await;
+                        let result = &self.publish(Event::LibraryAnalysisFinished).await;
                         if let Err(e) = result {
                             error!("Error notifying clients that library_analysis_finished: {e}");
                         }
@@ -207,12 +209,7 @@ impl MusicPlayer for MusicPlayerServer {
                             Err(e) => error!("Error in collection_recluster: {e}"),
                         }
 
-                        let result = &self
-                            .publisher
-                            .lock()
-                            .await
-                            .send(Event::LibraryReclusterFinished)
-                            .await;
+                        let result = &self.publish(Event::LibraryReclusterFinished).await;
                         if let Err(e) = result {
                             error!("Error notifying clients that library_recluster_finished: {e}");
                         }
