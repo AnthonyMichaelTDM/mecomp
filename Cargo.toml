@@ -58,6 +58,16 @@ opt-level = 1
 [profile.test.package]
 insta.opt-level = 3
 similar.opt-level = 3
+# Set math libraries to optimize for speed in tests
+linfa.opt-level = 3
+linfa-clustering.opt-level = 3
+linfa-tsne.opt-level = 3
+linfa-nn.opt-level = 3
+ndarray.opt-level = 3
+ndarray-rand.opt-level = 3
+ndarray-stats.opt-level = 3
+statrs.opt-level = 3
+rustfft.opt-level = 3
 
 [profile.tarpaulin]
 inherits = "test"
