@@ -2869,12 +2869,14 @@ version = "0.1.3"
 dependencies = [
  "anyhow",
  "ciborium",
+ "criterion",
  "directories",
  "env_logger",
  "lofty",
  "log",
  "mecomp-storage",
  "mecomp-workspace-hack",
+ "object-pool",
  "once_cell",
  "one-or-many",
  "opentelemetry 0.27.1",
@@ -3422,6 +3424,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62948e14d923ea95ea2c7c86c71013138b66525b86bdc08d2dcc262bdb497b87"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "object-pool"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ceffa2e6ccecd71e60a0f06b655df2c66acd1c0c892dafefc96fd49d65f71d53"
+dependencies = [
+ "parking_lot",
 ]
 
 [[package]]

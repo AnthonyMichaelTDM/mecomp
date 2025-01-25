@@ -12,9 +12,13 @@ license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bench]]
+name = "udp"
+harness = false
+
 [features]
 default = ["audio", "rpc"]
-rpc = ["dep:tarpc", "dep:ciborium", "dep:tokio"]
+rpc = ["dep:tarpc", "dep:ciborium", "dep:tokio", "dep:object-pool"]
 otel_tracing = [
     "dep:tracing-opentelemetry",
     "dep:opentelemetry",
@@ -46,6 +50,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-opentelemetry = { workspace = true, optional = true }
 tracing-flame = { workspace = true, optional = true }
+object-pool = { workspace = true, optional = true }
 opentelemetry = { workspace = true, optional = true }
 opentelemetry_sdk = { workspace = true, optional = true }
 opentelemetry-otlp = { workspace = true, optional = true }
@@ -58,6 +63,7 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
 # shared dev dependencies
+criterion.workspace = true
 anyhow = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
