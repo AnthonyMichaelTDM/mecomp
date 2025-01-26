@@ -40,6 +40,9 @@ impl PopupState {
         // the initial state once
         self.state_tx.send(None)?;
 
+        // popup stack
+        let mut stack = Vec::new();
+
         let result = loop {
             tokio::select! {
                 // Handle the actions coming from the UI
@@ -47,10 +50,11 @@ impl PopupState {
                 Some(action) = action_rx.recv() => {
                     match action {
                         PopupAction::Open(popup) => {
+                            stack.push(popup.clone());
                             self.state_tx.send(Some(popup))?;
                         }
                         PopupAction::Close => {
-                            self.state_tx.send(None)?;
+                            self.state_tx.send(stack.pop())?;
                         }
                     }
                 }
