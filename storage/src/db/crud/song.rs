@@ -94,9 +94,7 @@ impl Song {
         db: &Surreal<C>,
         id: SongId,
     ) -> StorageResult<OneOrMany<Artist>> {
-        let res: Vec<Artist> = db.query(read_artist()).bind(("id", id)).await?.take(0)?;
-
-        Ok(res.into())
+        Ok(db.query(read_artist()).bind(("id", id)).await?.take(0)?)
     }
 
     #[instrument]
@@ -104,13 +102,11 @@ impl Song {
         db: &Surreal<C>,
         id: SongId,
     ) -> StorageResult<OneOrMany<Artist>> {
-        let res: Vec<Artist> = db
+        Ok(db
             .query(read_album_artist())
             .bind(("id", id))
             .await?
-            .take(0)?;
-
-        Ok(res.into())
+            .take(0)?)
     }
 
     #[instrument]

@@ -21,7 +21,7 @@ pub const TABLE_NAME: &str = "dynamic_playlist";
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "db", derive(surrealqlx::Table))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "db", Table("playlist"))]
+#[cfg_attr(feature = "db", Table("dynamic_playlist"))]
 pub struct DynamicPlaylist {
     /// the unique identifier for this [`DynamicPlaylist`].
     #[cfg_attr(feature = "db", field("any"))]

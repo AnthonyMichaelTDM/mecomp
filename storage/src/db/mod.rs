@@ -59,7 +59,8 @@ pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
         schemas::artist::Artist,
         schemas::song::Song,
         schemas::collection::Collection,
-        schemas::playlist::Playlist
+        schemas::playlist::Playlist,
+        schemas::dynamic::DynamicPlaylist
     )?;
     #[cfg(feature = "analysis")]
     surrealqlx::register_tables!(&db, schemas::analysis::Analysis)?;
@@ -88,7 +89,8 @@ where
 #[cfg(test)]
 mod test {
     use super::schemas::{
-        album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song,
+        album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
+        playlist::Playlist, song::Song,
     };
     use super::*;
 
@@ -110,6 +112,7 @@ mod test {
         <Song as Table>::init_table(&db).await?;
         <Collection as Table>::init_table(&db).await?;
         <Playlist as Table>::init_table(&db).await?;
+        <DynamicPlaylist as Table>::init_table(&db).await?;
         // then we try initializing one of the tables again to ensure that initialization won't mess with existing tables/data
         <Album as Table>::init_table(&db).await?;
 
