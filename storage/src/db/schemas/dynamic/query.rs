@@ -26,15 +26,36 @@
 //!
 //! We will use this grammar as a reference to implement the parser, which we will do using the `pom` crate.
 
+use std::str::FromStr;
+
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// The query that generates the list of songs for a dynamic playlist.
 pub struct Query {
     pub root: Clause,
 }
 
+impl Serialize for Query {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.compile())
+    }
+}
+
+impl<'de> Deserialize<'de> for Query {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let query = String::deserialize(deserializer)?;
+        Self::from_str(&query).map_err(serde::de::Error::custom)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A clause in a query.
 /// A query is a tree of clauses.
 pub enum Clause {
@@ -43,7 +64,6 @@ pub enum Clause {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A compound clause that is either an OR or an AND.
 /// An OR clause is a disjunction of clauses.
 /// An AND clause is a conjunction of clauses.
@@ -53,7 +73,6 @@ pub struct CompoundClause {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// The kind of a compound clause.
 pub enum CompoundKind {
     Or,
@@ -71,7 +90,6 @@ impl CompoundKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A single clause in a query.
 pub struct LeafClause {
     pub left: Value,
@@ -80,7 +98,6 @@ pub struct LeafClause {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// The types of values that can be used in a clause.
 pub enum Value {
     String(String),
@@ -90,7 +107,6 @@ pub enum Value {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 ///  The fields of a song that are available for filtering.
 pub enum Field {
     // Song
@@ -103,7 +119,6 @@ pub enum Field {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// The operators that can be used in a clause.
 pub enum Operator {
     // Comparison

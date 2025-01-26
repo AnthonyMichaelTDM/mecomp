@@ -127,12 +127,12 @@ mod tests {
         );
 
         // run query
-        let songs = updated.unwrap().run_query(&db).await?;
+        let songs = updated.clone().unwrap().run_query(&db).await?;
         assert_eq!(songs, vec![song]);
 
         // Delete
         let deleted = DynamicPlaylist::delete(&db, id.clone()).await?;
-        assert_eq!(deleted, Some(dynamic_playlist.clone()));
+        assert_eq!(deleted, updated);
 
         // read all
         let all = DynamicPlaylist::read_all(&db).await?;

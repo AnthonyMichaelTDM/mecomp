@@ -14,14 +14,14 @@ pub mod query;
 
 pub type DynamicPlaylistId = Thing;
 
-pub const TABLE_NAME: &str = "dynamic_playlist";
+pub const TABLE_NAME: &str = "dynamic";
 
 /// This struct holds all the metadata about a particular [`DynamicPlaylist`].
 /// A [`DynamicPlaylist`] is essentially a query that returns a list of [`super::song::Song`]s.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "db", derive(surrealqlx::Table))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "db", Table("dynamic_playlist"))]
+#[cfg_attr(feature = "db", Table("dynamic"))]
 pub struct DynamicPlaylist {
     /// the unique identifier for this [`DynamicPlaylist`].
     #[cfg_attr(feature = "db", field("any"))]
@@ -33,7 +33,8 @@ pub struct DynamicPlaylist {
 
     /// The query that generates the list of songs.
     /// This is a type that can compile into an SQL query that returns a list of song IDs.
-    #[cfg_attr(feature = "db", field(dt = "object"))]
+    /// NOTE: we store it as the compiled string because `SurrealDB` wasn't storing records properly
+    #[cfg_attr(feature = "db", field("string"))]
     pub query: Query,
 }
 
