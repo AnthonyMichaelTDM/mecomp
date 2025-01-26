@@ -2948,6 +2948,7 @@ dependencies = [
  "pretty_assertions",
  "rand",
  "rstest",
+ "rstest_reuse",
  "serde",
  "serde_json",
  "surrealdb",
