@@ -167,7 +167,9 @@ mod test_client_tests {
     use anyhow::Result;
     use mecomp_core::state::library::LibraryFull;
     use mecomp_storage::{
-        db::schemas::{collection::Collection, playlist::Playlist, song::SongChangeSet},
+        db::schemas::{
+            collection::Collection, dynamic::query::Query, playlist::Playlist, song::SongChangeSet,
+        },
         test_utils::{create_song_with_overrides, init_test_database, SongCase},
     };
 
@@ -513,6 +515,127 @@ mod test_client_tests {
             .unwrap();
 
         assert_eq!(response, library_full.songs);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_create(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+
+        let query = "artist CONTAINS 'Artist 0'".into();
+
+        let response = client
+            .dynamic_playlist_create(ctx, "Dynamic Playlist 0".into(), query)
+            .await?;
+
+        assert!(response.is_ok());
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_list(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+
+        let query = "artist CONTAINS 'Artist 0'".into();
+
+        let dynamic_playlist_id = client
+            .dynamic_playlist_create(ctx, "Dynamic Playlist 0".into(), query)
+            .await?
+            .unwrap();
+
+        let ctx = tarpc::context::current();
+        let response = client.dynamic_playlist_list(ctx).await?;
+
+        assert_eq!(response.len(), 1);
+        assert_eq!(response.first().unwrap().id, dynamic_playlist_id);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_remove(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+
+        let query = "artist CONTAINS 'Artist 0'".into();
+
+        let dynamic_playlist_id = client
+            .dynamic_playlist_create(ctx, "Dynamic Playlist 0".into(), query)
+            .await?
+            .unwrap();
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .dynamic_playlist_remove(ctx, dynamic_playlist_id)
+            .await?;
+
+        assert_eq!(response, Ok(()));
+
+        let ctx = tarpc::context::current();
+        let response = client.dynamic_playlist_list(ctx).await?;
+
+        assert_eq!(response.len(), 0);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_get(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+
+        let query: Query = "artist CONTAINS 'Artist 0'".into();
+
+        let dynamic_playlist_id = client
+            .dynamic_playlist_create(ctx, "Dynamic Playlist 0".into(), query.clone())
+            .await?
+            .unwrap();
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .dynamic_playlist_get(ctx, dynamic_playlist_id)
+            .await?
+            .unwrap();
+
+        assert_eq!(response.name, "Dynamic Playlist 0".into());
+        assert_eq!(response.query, query);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_get_songs(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+
+        let query = "artist CONTAINS 'Artist 0'".into();
+
+        let dynamic_playlist_id = client
+            .dynamic_playlist_create(ctx, "Dynamic Playlist 0".into(), query)
+            .await?
+            .unwrap();
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .dynamic_playlist_get_songs(ctx, dynamic_playlist_id)
+            .await?
+            .unwrap();
+
+        assert_eq!(response.len(), 1);
 
         Ok(())
     }

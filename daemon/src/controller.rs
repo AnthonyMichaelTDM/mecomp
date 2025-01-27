@@ -28,6 +28,7 @@ use mecomp_storage::{
         album::{Album, AlbumBrief},
         artist::{Artist, ArtistBrief},
         collection::{Collection, CollectionBrief},
+        dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistId},
         playlist::{Playlist, PlaylistBrief},
         song::{Song, SongBrief},
     },
@@ -1116,12 +1117,34 @@ impl MusicPlayer for MusicPlayerServer {
         name: String,
         query: Query,
     ) -> Result<DynamicPlaylistId, SerializableLibraryError> {
-        todo!()
+        let id = DynamicPlaylist::generate_id();
+        info!("Creating new DP: {id:?} ({name})");
+
+        match DynamicPlaylist::create(
+            &self.db,
+            DynamicPlaylist {
+                id,
+                name: name.into(),
+                query,
+            },
+        )
+        .await
+        .tap_err(|e| warn!("Error in dynamic_playlist_create: {e}"))?
+        {
+            Some(dp) => Ok(dp.id),
+            None => Err(Error::NotCreated.into()),
+        }
     }
     /// Dynamic Playlists: list all DPs
     #[instrument]
     async fn dynamic_playlist_list(self, context: Context) -> Box<[DynamicPlaylist]> {
-        todo!()
+        info!("Listing DPs");
+        DynamicPlaylist::read_all(&self.db)
+            .await
+            .tap_err(|e| warn!("Error in dynamic_playlist_list: {e}"))
+            .ok()
+            .map(Into::into)
+            .unwrap_or_default()
     }
     /// Dynamic Playlists: remove a DP
     #[instrument]
@@ -1130,7 +1153,11 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         id: DynamicPlaylistId,
     ) -> Result<(), SerializableLibraryError> {
-        todo!()
+        info!("Removing DP with id: {id:?}");
+        DynamicPlaylist::delete(&self.db, id)
+            .await?
+            .ok_or(Error::NotFound)?;
+        Ok(())
     }
     /// Dynamic Playlists: get a DP by its ID
     #[instrument]
@@ -1139,7 +1166,12 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         id: DynamicPlaylistId,
     ) -> Option<DynamicPlaylist> {
-        todo!()
+        info!("Getting DP by ID: {id:?}");
+        DynamicPlaylist::read(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in dynamic_playlist_get: {e}"))
+            .ok()
+            .flatten()
     }
     /// Dynamic Playlists: get the songs of a DP
     #[instrument]
@@ -1148,7 +1180,12 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         id: DynamicPlaylistId,
     ) -> Option<Box<[Song]>> {
-        todo!()
+        info!("Getting songs in DP: {id:?}");
+        DynamicPlaylist::run_query_by_id(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in dynamic_playlist_get_songs: {e}"))
+            .ok()
+            .flatten()
+            .map(Into::into)
     }
-
 }

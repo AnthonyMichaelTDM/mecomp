@@ -75,6 +75,19 @@ impl DynamicPlaylist {
     pub async fn run_query<C: Connection>(&self, db: &Surreal<C>) -> StorageResult<Vec<Song>> {
         Ok(db.query(self.get_query()).await?.take(0)?)
     }
+
+    #[instrument]
+    /// Gets the songs matching a DynamicPlaylist's query by its ID.
+    /// First retrieves the DynamicPlaylist from the database, then runs its query.
+    pub async fn run_query_by_id<C: Connection>(
+        db: &Surreal<C>,
+        id: DynamicPlaylistId,
+    ) -> StorageResult<Option<Vec<Song>>> {
+        match Self::read(db, id).await? {
+            Some(playlist) => Ok(Some(playlist.run_query(db).await?)),
+            None => Ok(None),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -146,7 +159,10 @@ mod tests {
 
         // run query
         let songs = updated.clone().unwrap().run_query(&db).await?;
-        assert_eq!(songs, vec![song]);
+        assert_eq!(songs, vec![song.clone()]);
+
+        let songs = DynamicPlaylist::run_query_by_id(&db, id.clone()).await?;
+        assert_eq!(songs, Some(vec![song]));
 
         // Delete
         let deleted = DynamicPlaylist::delete(&db, id.clone()).await?;
