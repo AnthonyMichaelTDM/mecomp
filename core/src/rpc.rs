@@ -12,7 +12,7 @@ use mecomp_storage::db::schemas::{
     album::{Album, AlbumBrief},
     artist::{Artist, ArtistBrief},
     collection::{Collection, CollectionBrief},
-    dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistId},
+    dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistChangeSet},
     playlist::{Playlist, PlaylistBrief},
     song::{Song, SongBrief},
     Thing,
@@ -243,6 +243,11 @@ pub trait MusicPlayer {
     async fn playlist_get(id: PlaylistId) -> Option<Playlist>;
     /// Get the songs of a playlist
     async fn playlist_get_songs(id: PlaylistId) -> Option<Box<[Song]>>;
+    /// Rename a playlist.
+    async fn playlist_rename(
+        id: PlaylistId,
+        name: String,
+    ) -> Result<Playlist, SerializableLibraryError>;
 
     // Auto Curration commands.
     // (collections, radios, smart playlists, etc.)
@@ -278,6 +283,11 @@ pub trait MusicPlayer {
     ) -> Result<DynamicPlaylistId, SerializableLibraryError>;
     /// Dynamic Playlists: list all DPs
     async fn dynamic_playlist_list() -> Box<[DynamicPlaylist]>;
+    /// Dynamic Playlists: update a DP
+    async fn dynamic_playlist_update(
+        id: DynamicPlaylistId,
+        changes: DynamicPlaylistChangeSet,
+    ) -> Result<DynamicPlaylist, SerializableLibraryError>;
     /// Dynamic Playlists: remove a DP
     async fn dynamic_playlist_remove(id: DynamicPlaylistId)
         -> Result<(), SerializableLibraryError>;

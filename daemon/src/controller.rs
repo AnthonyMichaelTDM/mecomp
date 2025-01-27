@@ -31,8 +31,8 @@ use mecomp_storage::{
         album::{Album, AlbumBrief},
         artist::{Artist, ArtistBrief},
         collection::{Collection, CollectionBrief},
-        dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistId},
-        playlist::{Playlist, PlaylistBrief},
+        dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistChangeSet},
+        playlist::{Playlist, PlaylistBrief, PlaylistChangeSet},
         song::{Song, SongBrief},
     },
     errors::Error,
@@ -1017,6 +1017,20 @@ impl MusicPlayer for MusicPlayerServer {
             .ok()
             .map(Into::into)
     }
+    /// Rename a playlist.
+    #[instrument]
+    async fn playlist_rename(
+        self,
+        context: Context,
+        id: PlaylistId,
+        name: String,
+    ) -> Result<Playlist, SerializableLibraryError> {
+        let id = id.into();
+        info!("Renaming playlist: {id} ({name})");
+        Playlist::update(&self.db, id, PlaylistChangeSet::new().name(name))
+            .await?
+            .ok_or(Error::NotFound.into())
+    }
 
     /// Collections: Return brief information about the users auto curration collections.
     #[instrument]
@@ -1148,6 +1162,20 @@ impl MusicPlayer for MusicPlayerServer {
             .ok()
             .map(Into::into)
             .unwrap_or_default()
+    }
+    /// Dynamic Playlists: update a DP
+    #[instrument]
+    async fn dynamic_playlist_update(
+        self,
+        context: Context,
+        id: DynamicPlaylistId,
+        changes: DynamicPlaylistChangeSet,
+    ) -> Result<DynamicPlaylist, SerializableLibraryError> {
+        info!("Updating DP: {id:?}, {changes:?}");
+        DynamicPlaylist::update(&self.db, id.into(), changes)
+            .await
+            .tap_err(|e| warn!("Error in dynamic_playlist_update: {e}"))?
+            .ok_or(Error::NotFound.into())
     }
     /// Dynamic Playlists: remove a DP
     #[instrument]
