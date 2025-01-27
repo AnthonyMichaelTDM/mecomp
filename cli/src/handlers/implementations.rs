@@ -606,6 +606,16 @@ impl CommandHandler for QueueCommand {
                         )
                         .await?
                         .map(|()| "collection added to queue"),
+                    QueueAddTarget::Dynamic => client
+                        .queue_add(
+                            ctx,
+                            Thing {
+                                tb: dynamic::TABLE_NAME.to_owned(),
+                                id: Id::String(id.clone()),
+                            },
+                        )
+                        .await?
+                        .map(|()| "dynamic added to queue"),
                 }?;
 
                 writeln!(stdout, "Daemon response:\n{message}")?;
@@ -699,6 +709,49 @@ impl CommandHandler for super::PlaylistCommand {
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                 Ok(())
             }
+            Self::Update { id, name } => {
+                let resp: Playlist = client
+                    .playlist_rename(
+                        ctx,
+                        Thing {
+                            tb: playlist::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                        name.clone(),
+                    )
+                    .await??;
+                writeln!(
+                    stdout,
+                    "Daemon response:\nplaylist renamed to \"{}\"",
+                    resp.name
+                )?;
+                Ok(())
+            }
+            Self::Songs { id } => {
+                match client
+                    .playlist_get_songs(
+                        ctx,
+                        Thing {
+                            tb: playlist::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                    )
+                    .await?
+                {
+                    Some(songs) => {
+                        writeln!(
+                            stdout,
+                            "Daemon response:\n{}",
+                            printing::song_list("Songs", &songs, false)?
+                        )?;
+                    }
+                    None => {
+                        writeln!(stdout, "Daemon response:\nplaylist not found")?;
+                    }
+                }
+                Ok(())
+            }
+
             Self::Delete { id } => {
                 client
                     .playlist_remove(
@@ -857,6 +910,30 @@ impl CommandHandler for super::CollectionCommand {
                     )
                     .await?;
                 writeln!(stdout, "Daemon response:\n{resp:?}")?;
+                Ok(())
+            }
+            Self::Songs { id } => {
+                match client
+                    .collection_get_songs(
+                        ctx,
+                        Thing {
+                            tb: collection::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                    )
+                    .await?
+                {
+                    Some(songs) => {
+                        writeln!(
+                            stdout,
+                            "Daemon response:\n{}",
+                            printing::song_list("Songs", &songs, false)?
+                        )?;
+                    }
+                    None => {
+                        writeln!(stdout, "Daemon response:\ncollection not found")?;
+                    }
+                }
                 Ok(())
             }
             Self::Recluster => {

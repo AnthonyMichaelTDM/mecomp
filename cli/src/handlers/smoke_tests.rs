@@ -422,6 +422,7 @@ async fn test_playback_command(
 #[case(QueueCommand::Add { id: item_id().to_string(), target: QueueAddTarget::Song })]
 #[case(QueueCommand::Add { id: item_id().to_string(), target: QueueAddTarget::Playlist })]
 #[case(QueueCommand::Add { id: item_id().to_string(), target: QueueAddTarget::Collection })]
+#[case(QueueCommand::Add { id: item_id().to_string(), target: QueueAddTarget::Dynamic })]
 #[case(QueueCommand::Remove { start: 0, end: 1 })]
 #[case(QueueCommand::Clear)]
 #[case(QueueCommand::List)]
@@ -451,6 +452,8 @@ async fn test_queue_command(#[future] client: MusicPlayerClient, #[case] command
 #[case(PlaylistCommand::List)]
 #[case(PlaylistCommand::Get { method: PlaylistGetMethod::Name, target: "Test Playlist".to_string() })]
 #[case(PlaylistCommand::Get { method: PlaylistGetMethod::Id, target: item_id().to_string() })]
+#[case(PlaylistCommand::Update { id: item_id().to_string(), name: "Updated Test Playlist".to_string() })]
+#[case(PlaylistCommand::Songs { id: item_id().to_string() })]
 #[case(PlaylistCommand::Delete { id: item_id().to_string() })]
 #[tokio::test]
 async fn test_playlist_command(
@@ -473,8 +476,31 @@ async fn test_playlist_command(
 }
 
 #[rstest]
+#[tokio::test]
+async fn test_playlist_create(#[future] client: MusicPlayerClient) {
+    let ctx = tarpc::context::current();
+    let command = Command::Playlist {
+        command: PlaylistCommand::Create {
+            name: "New Playlist".to_string(),
+        },
+    };
+
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+
+    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    assert!(result.is_ok());
+
+    let stdout = String::from_utf8(stdout.0.clone()).unwrap();
+    assert!(stdout.starts_with("Daemon response:\nThing {"));
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
+}
+
+#[rstest]
 #[case(CollectionCommand::List)]
 #[case(CollectionCommand::Get { id: item_id().to_string() })]
+#[case(CollectionCommand::Songs { id: item_id().to_string() })]
 #[case(CollectionCommand::Recluster)]
 #[tokio::test]
 async fn test_collection_command(

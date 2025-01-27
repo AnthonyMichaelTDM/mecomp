@@ -299,6 +299,7 @@ pub enum QueueAddTarget {
     Song,
     Playlist,
     Collection,
+    Dynamic,
 }
 
 #[derive(Debug, Subcommand)]
@@ -316,6 +317,19 @@ pub enum PlaylistCommand {
     Create {
         /// The name of the playlist
         name: String,
+    },
+    /// Rename a playlist
+    Update {
+        /// The id of the playlist
+        id: String,
+        /// The new name of the playlist
+        #[clap(short, long)]
+        name: String,
+    },
+    /// Get the songs in a playlist
+    Songs {
+        /// The id of the playlist
+        id: String,
     },
     /// Delete a playlist
     Delete {
@@ -383,6 +397,11 @@ pub enum CollectionCommand {
     List,
     /// Get a collection by its id
     Get {
+        /// The id of the collection
+        id: String,
+    },
+    /// Get the songs in a collection
+    Songs {
         /// The id of the collection
         id: String,
     },
