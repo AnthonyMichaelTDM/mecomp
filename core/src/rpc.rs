@@ -34,6 +34,7 @@ pub type ArtistId = Thing;
 pub type AlbumId = Thing;
 pub type CollectionId = Thing;
 pub type PlaylistId = Thing;
+pub type DynamicPlaylistId = Thing;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct SearchResult {

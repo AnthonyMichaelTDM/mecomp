@@ -555,7 +555,7 @@ mod test_client_tests {
         let response = client.dynamic_playlist_list(ctx).await?;
 
         assert_eq!(response.len(), 1);
-        assert_eq!(response.first().unwrap().id, dynamic_playlist_id);
+        assert_eq!(response.first().unwrap().id, dynamic_playlist_id.into());
 
         Ok(())
     }

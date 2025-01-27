@@ -15,7 +15,10 @@ use mecomp_core::{
         AudioKernelSender,
     },
     errors::SerializableLibraryError,
-    rpc::{AlbumId, ArtistId, CollectionId, MusicPlayer, PlaylistId, SearchResult, SongId},
+    rpc::{
+        AlbumId, ArtistId, CollectionId, DynamicPlaylistId, MusicPlayer, PlaylistId, SearchResult,
+        SongId,
+    },
     state::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
         RepeatMode, SeekType, StateAudio,
@@ -1131,7 +1134,7 @@ impl MusicPlayer for MusicPlayerServer {
         .await
         .tap_err(|e| warn!("Error in dynamic_playlist_create: {e}"))?
         {
-            Some(dp) => Ok(dp.id),
+            Some(dp) => Ok(dp.id.into()),
             None => Err(Error::NotCreated.into()),
         }
     }
@@ -1154,7 +1157,7 @@ impl MusicPlayer for MusicPlayerServer {
         id: DynamicPlaylistId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Removing DP with id: {id:?}");
-        DynamicPlaylist::delete(&self.db, id)
+        DynamicPlaylist::delete(&self.db, id.into())
             .await?
             .ok_or(Error::NotFound)?;
         Ok(())
@@ -1167,7 +1170,7 @@ impl MusicPlayer for MusicPlayerServer {
         id: DynamicPlaylistId,
     ) -> Option<DynamicPlaylist> {
         info!("Getting DP by ID: {id:?}");
-        DynamicPlaylist::read(&self.db, id)
+        DynamicPlaylist::read(&self.db, id.into())
             .await
             .tap_err(|e| warn!("Error in dynamic_playlist_get: {e}"))
             .ok()
@@ -1181,7 +1184,7 @@ impl MusicPlayer for MusicPlayerServer {
         id: DynamicPlaylistId,
     ) -> Option<Box<[Song]>> {
         info!("Getting songs in DP: {id:?}");
-        DynamicPlaylist::run_query_by_id(&self.db, id)
+        DynamicPlaylist::run_query_by_id(&self.db, id.into())
             .await
             .tap_err(|e| warn!("Error in dynamic_playlist_get_songs: {e}"))
             .ok()
