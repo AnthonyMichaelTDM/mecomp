@@ -1106,4 +1106,49 @@ impl MusicPlayer for MusicPlayerServer {
                 .tap_err(|e| warn!("Error in radio_get_similar_songs: {e}"))?)
         }
     }
+
+    // Dynamic playlist commands
+    /// Dynamic Playlists: create a new DP with the given name and query
+    #[instrument]
+    async fn dynamic_playlist_create(
+        self,
+        context: Context,
+        name: String,
+        query: Query,
+    ) -> Result<DynamicPlaylistId, SerializableLibraryError> {
+        todo!()
+    }
+    /// Dynamic Playlists: list all DPs
+    #[instrument]
+    async fn dynamic_playlist_list(self, context: Context) -> Box<[DynamicPlaylist]> {
+        todo!()
+    }
+    /// Dynamic Playlists: remove a DP
+    #[instrument]
+    async fn dynamic_playlist_remove(
+        self,
+        context: Context,
+        id: DynamicPlaylistId,
+    ) -> Result<(), SerializableLibraryError> {
+        todo!()
+    }
+    /// Dynamic Playlists: get a DP by its ID
+    #[instrument]
+    async fn dynamic_playlist_get(
+        self,
+        context: Context,
+        id: DynamicPlaylistId,
+    ) -> Option<DynamicPlaylist> {
+        todo!()
+    }
+    /// Dynamic Playlists: get the songs of a DP
+    #[instrument]
+    async fn dynamic_playlist_get_songs(
+        self,
+        context: Context,
+        id: DynamicPlaylistId,
+    ) -> Option<Box<[Song]>> {
+        todo!()
+    }
+
 }

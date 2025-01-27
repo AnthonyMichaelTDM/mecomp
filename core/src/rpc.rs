@@ -12,6 +12,7 @@ use mecomp_storage::db::schemas::{
     album::{Album, AlbumBrief},
     artist::{Artist, ArtistBrief},
     collection::{Collection, CollectionBrief},
+    dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistId},
     playlist::{Playlist, PlaylistBrief},
     song::{Song, SongBrief},
     Thing,
@@ -267,6 +268,22 @@ pub trait MusicPlayer {
         things: Vec<Thing>,
         n: u32,
     ) -> Result<Box<[SongId]>, SerializableLibraryError>;
+
+    // Dynamic playlist commands
+    /// Dynamic Playlists: create a new DP with the given name and query
+    async fn dynamic_playlist_create(
+        name: String,
+        query: Query,
+    ) -> Result<DynamicPlaylistId, SerializableLibraryError>;
+    /// Dynamic Playlists: list all DPs
+    async fn dynamic_playlist_list() -> Box<[DynamicPlaylist]>;
+    /// Dynamic Playlists: remove a DP
+    async fn dynamic_playlist_remove(id: DynamicPlaylistId)
+        -> Result<(), SerializableLibraryError>;
+    /// Dynamic Playlists: get a DP by its ID
+    async fn dynamic_playlist_get(id: DynamicPlaylistId) -> Option<DynamicPlaylist>;
+    /// Dynamic Playlists: get the songs of a DP
+    async fn dynamic_playlist_get_songs(id: DynamicPlaylistId) -> Option<Box<[Song]>>;
 }
 
 /// Initialize the music player client
