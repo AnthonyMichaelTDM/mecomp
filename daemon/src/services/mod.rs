@@ -4,6 +4,7 @@ use mecomp_storage::{
         album::{Album, TABLE_NAME as ALBUM_TABLE_NAME},
         artist::{Artist, TABLE_NAME as ARTIST_TABLE_NAME},
         collection::{Collection, TABLE_NAME as COLLECTION_TABLE_NAME},
+        dynamic::{DynamicPlaylist, TABLE_NAME as DYNAMIC_PLAYLIST_TABLE_NAME},
         playlist::{Playlist, TABLE_NAME as PLAYLIST_TABLE_NAME},
         song::{Song, TABLE_NAME as SONG_TABLE_NAME},
         Thing,
@@ -59,6 +60,14 @@ pub async fn get_songs_from_things<C: Connection>(
                     .await?
                     .ok_or(Error::NotFound)?,
             ),
+            DYNAMIC_PLAYLIST_TABLE_NAME => {
+                for song in DynamicPlaylist::run_query_by_id(db, thing.clone().into())
+                    .await?
+                    .unwrap_or_default()
+                {
+                    songs.push(song);
+                }
+            }
             _ => {
                 warn!("Unknown thing type: {}", thing.tb);
             }
