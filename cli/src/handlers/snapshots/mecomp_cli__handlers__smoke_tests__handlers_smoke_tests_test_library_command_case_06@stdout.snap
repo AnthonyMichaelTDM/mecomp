@@ -13,6 +13,7 @@ Ok(
         ),
         playlists: 1,
         collections: 1,
+        dynamic_playlists: 1,
         orphaned_artists: 0,
         orphaned_albums: 0,
         orphaned_playlists: 0,

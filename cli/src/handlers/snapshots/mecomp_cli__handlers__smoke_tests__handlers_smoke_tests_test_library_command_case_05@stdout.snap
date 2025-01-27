@@ -10,5 +10,6 @@ Ok(
         songs: 1,
         playlists: 1,
         collections: 1,
+        dynamic_playlists: 1,
     },
 )

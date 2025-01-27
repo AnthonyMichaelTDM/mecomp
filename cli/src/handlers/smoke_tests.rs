@@ -6,7 +6,7 @@ use mecomp_daemon::{config::Settings, init_test_client_server};
 use mecomp_storage::{
     db::schemas::{
         album::Album, analysis::Analysis, artist::Artist, collection::Collection,
-        playlist::Playlist, song::Song,
+        dynamic::DynamicPlaylist, playlist::Playlist, song::Song,
     },
     test_utils::{arb_analysis_features, init_test_database},
 };
@@ -47,6 +47,7 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
     let collection_id = Thing::from(("collection", item_id()));
     let playlist_id = Thing::from(("playlist", item_id()));
     let song_id = Thing::from(("song", item_id()));
+    let dynamic_id = Thing::from(("dynamic", item_id()));
 
     // create a song, artist, album, collection, and playlist
     let song = Song {
@@ -96,6 +97,11 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
         runtime: song.runtime,
         song_count: 1,
     };
+    let dynamic = DynamicPlaylist {
+        id: dynamic_id.clone().into(),
+        name: "Test Dynamic".into(),
+        query: "title = \"Test Song\"".into(),
+    };
 
     // insert the items into the database
     Song::create(&db, song).await.unwrap();
@@ -106,6 +112,7 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
     Album::create(&db, album).await.unwrap();
     Collection::create(&db, collection).await.unwrap();
     Playlist::create(&db, playlist).await.unwrap();
+    DynamicPlaylist::create(&db, dynamic).await.unwrap();
 
     // add relationships between the items
     Album::add_songs(&db, album_id.clone(), vec![song_id.clone()])
