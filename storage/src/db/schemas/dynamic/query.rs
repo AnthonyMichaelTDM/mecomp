@@ -441,6 +441,12 @@ macro_rules! impl_from_str {
                     $p.parse(s.as_bytes())
                 }
             }
+
+            impl<T: AsRef<str>> From<T> for $t {
+                fn from(s: T) -> Self {
+                    Self::from_str(s.as_ref()).unwrap()
+                }
+            }
         )*
     };
 }
