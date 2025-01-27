@@ -11,6 +11,8 @@ use crate::db::schemas::{
 };
 use crate::errors::Error;
 
+use super::schemas::dynamic::DynamicPlaylist;
+
 /// Count the number of albums in the database
 #[instrument]
 pub async fn count_albums<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
@@ -36,6 +38,16 @@ pub async fn count_playlists<C: Connection>(db: &Surreal<C>) -> Result<usize, Er
 #[instrument]
 pub async fn count_collections<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
     let result: Option<usize> = db.query(count(Collection::TABLE_NAME)).await?.take(0)?;
+    Ok(result.unwrap_or_default())
+}
+
+/// Count the number of dynamic playlists in the database
+#[instrument]
+pub async fn count_dynamic_playlists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
+    let result: Option<usize> = db
+        .query(count(DynamicPlaylist::TABLE_NAME))
+        .await?
+        .take(0)?;
     Ok(result.unwrap_or_default())
 }
 

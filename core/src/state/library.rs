@@ -1,5 +1,6 @@
 use mecomp_storage::db::schemas::{
-    album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song,
+    album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
+    playlist::Playlist, song::Song,
 };
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +13,7 @@ pub struct LibraryBrief {
     pub songs: usize,
     pub playlists: usize,
     pub collections: usize,
+    pub dynamic_playlists: usize,
 }
 
 /// A full representation of the library
@@ -23,6 +25,7 @@ pub struct LibraryFull {
     pub songs: Box<[Song]>,
     pub playlists: Box<[Playlist]>,
     pub collections: Box<[Collection]>,
+    pub dynamic_playlists: Box<[DynamicPlaylist]>,
 }
 
 /// Health information about the library
@@ -42,6 +45,8 @@ pub struct LibraryHealth {
     pub playlists: usize,
     /// The number of collections in the library
     pub collections: usize,
+    /// The number of dynamic playlists in the library
+    pub dynamic_playlists: usize,
     /// The number of orphaned songs in the library
     /// This is the number of artists that have no songs, and no albums
     pub orphaned_artists: usize,

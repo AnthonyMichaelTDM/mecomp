@@ -19,15 +19,16 @@ use walkdir::WalkDir;
 use mecomp_storage::{
     db::{
         health::{
-            count_albums, count_artists, count_collections, count_orphaned_albums,
-            count_orphaned_artists, count_orphaned_collections, count_orphaned_playlists,
-            count_playlists, count_songs, count_unanalyzed_songs,
+            count_albums, count_artists, count_collections, count_dynamic_playlists,
+            count_orphaned_albums, count_orphaned_artists, count_orphaned_collections,
+            count_orphaned_playlists, count_playlists, count_songs, count_unanalyzed_songs,
         },
         schemas::{
             album::Album,
             analysis::Analysis,
             artist::Artist,
             collection::Collection,
+            dynamic::DynamicPlaylist,
             playlist::Playlist,
             song::{Song, SongMetadata},
         },
@@ -348,6 +349,7 @@ pub async fn brief<C: Connection>(db: &Surreal<C>) -> Result<LibraryBrief, Error
         songs: count_songs(db).await?,
         playlists: count_playlists(db).await?,
         collections: count_collections(db).await?,
+        dynamic_playlists: count_dynamic_playlists(db).await?,
     })
 }
 
@@ -364,6 +366,7 @@ pub async fn full<C: Connection>(db: &Surreal<C>) -> Result<LibraryFull, Error> 
         songs: Song::read_all(db).await?.into(),
         playlists: Playlist::read_all(db).await?.into(),
         collections: Collection::read_all(db).await?.into(),
+        dynamic_playlists: DynamicPlaylist::read_all(db).await?.into(),
     })
 }
 
@@ -386,6 +389,7 @@ pub async fn health<C: Connection>(db: &Surreal<C>) -> Result<LibraryHealth, Err
         unanalyzed_songs: None,
         playlists: count_playlists(db).await?,
         collections: count_collections(db).await?,
+        dynamic_playlists: count_dynamic_playlists(db).await?,
         orphaned_artists: count_orphaned_artists(db).await?,
         orphaned_albums: count_orphaned_albums(db).await?,
         orphaned_playlists: count_orphaned_playlists(db).await?,
