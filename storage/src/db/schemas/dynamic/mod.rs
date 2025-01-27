@@ -58,12 +58,31 @@ impl DynamicPlaylist {
 }
 
 #[derive(Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DynamicPlaylistChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub name: Option<Arc<str>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub query: Option<Query>,
+}
+
+impl DynamicPlaylistChangeSet {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[must_use]
+    pub fn name(mut self, name: impl Into<Arc<str>>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    #[must_use]
+    pub fn query(mut self, query: Query) -> Self {
+        self.query = Some(query);
+        self
+    }
 }
 
 #[cfg(test)]

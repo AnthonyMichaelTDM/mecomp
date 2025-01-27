@@ -64,6 +64,31 @@ pub struct PlaylistChangeSet {
     pub song_count: Option<usize>,
 }
 
+impl PlaylistChangeSet {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[must_use]
+    pub fn name(mut self, name: impl Into<Arc<str>>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    #[must_use]
+    pub fn runtime(mut self, runtime: Duration) -> Self {
+        self.runtime = Some(runtime);
+        self
+    }
+
+    #[must_use]
+    pub fn song_count(mut self, song_count: usize) -> Self {
+        self.song_count = Some(song_count);
+        self
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PlaylistBrief {
