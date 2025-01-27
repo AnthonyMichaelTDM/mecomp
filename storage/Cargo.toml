@@ -31,6 +31,7 @@ lofty = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 one-or-many = { workspace = true }
+pom = { version = "3.4.0", features = ["trace"] }
 rand = { workspace = true }
 serde = { workspace = true, optional = true }
 surrealdb = { workspace = true, optional = true }
@@ -56,6 +57,7 @@ serde_json = { version = "1.0" }
 tempfile = { workspace = true }
 tokio = { workspace = true }
 rstest = { workspace = true }
+rstest_reuse = { workspace = true }
 criterion = { workspace = true, features = ["async_tokio"] }
 
 [[bench]]

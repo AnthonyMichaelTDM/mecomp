@@ -39,11 +39,21 @@ pub const ARTIST_NAME_SEPARATOR: &str = ", ";
 /// This function will return an error if the database cannot be initialized.
 #[cfg(feature = "db")]
 pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
+    use crate::db::schemas::dynamic::DynamicPlaylist;
+
     let db = Surreal::new::<Mem>(()).await?;
     db.use_ns("test").use_db("test").await?;
 
     crate::db::register_custom_analyzer(&db).await?;
-    surrealqlx::register_tables!(&db, Album, Artist, Song, Collection, Playlist)?;
+    surrealqlx::register_tables!(
+        &db,
+        Album,
+        Artist,
+        Song,
+        Collection,
+        Playlist,
+        DynamicPlaylist
+    )?;
     #[cfg(feature = "analysis")]
     surrealqlx::register_tables!(&db, Analysis)?;
 
