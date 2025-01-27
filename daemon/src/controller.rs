@@ -28,6 +28,7 @@ use mecomp_storage::{
         album::{Album, AlbumBrief},
         artist::{Artist, ArtistBrief},
         collection::{Collection, CollectionBrief},
+        dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistId},
         playlist::{Playlist, PlaylistBrief},
         song::{Song, SongBrief},
     },
@@ -1105,5 +1106,86 @@ impl MusicPlayer for MusicPlayerServer {
                 .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
                 .tap_err(|e| warn!("Error in radio_get_similar_songs: {e}"))?)
         }
+    }
+
+    // Dynamic playlist commands
+    /// Dynamic Playlists: create a new DP with the given name and query
+    #[instrument]
+    async fn dynamic_playlist_create(
+        self,
+        context: Context,
+        name: String,
+        query: Query,
+    ) -> Result<DynamicPlaylistId, SerializableLibraryError> {
+        let id = DynamicPlaylist::generate_id();
+        info!("Creating new DP: {id:?} ({name})");
+
+        match DynamicPlaylist::create(
+            &self.db,
+            DynamicPlaylist {
+                id,
+                name: name.into(),
+                query,
+            },
+        )
+        .await
+        .tap_err(|e| warn!("Error in dynamic_playlist_create: {e}"))?
+        {
+            Some(dp) => Ok(dp.id),
+            None => Err(Error::NotCreated.into()),
+        }
+    }
+    /// Dynamic Playlists: list all DPs
+    #[instrument]
+    async fn dynamic_playlist_list(self, context: Context) -> Box<[DynamicPlaylist]> {
+        info!("Listing DPs");
+        DynamicPlaylist::read_all(&self.db)
+            .await
+            .tap_err(|e| warn!("Error in dynamic_playlist_list: {e}"))
+            .ok()
+            .map(Into::into)
+            .unwrap_or_default()
+    }
+    /// Dynamic Playlists: remove a DP
+    #[instrument]
+    async fn dynamic_playlist_remove(
+        self,
+        context: Context,
+        id: DynamicPlaylistId,
+    ) -> Result<(), SerializableLibraryError> {
+        info!("Removing DP with id: {id:?}");
+        DynamicPlaylist::delete(&self.db, id)
+            .await?
+            .ok_or(Error::NotFound)?;
+        Ok(())
+    }
+    /// Dynamic Playlists: get a DP by its ID
+    #[instrument]
+    async fn dynamic_playlist_get(
+        self,
+        context: Context,
+        id: DynamicPlaylistId,
+    ) -> Option<DynamicPlaylist> {
+        info!("Getting DP by ID: {id:?}");
+        DynamicPlaylist::read(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in dynamic_playlist_get: {e}"))
+            .ok()
+            .flatten()
+    }
+    /// Dynamic Playlists: get the songs of a DP
+    #[instrument]
+    async fn dynamic_playlist_get_songs(
+        self,
+        context: Context,
+        id: DynamicPlaylistId,
+    ) -> Option<Box<[Song]>> {
+        info!("Getting songs in DP: {id:?}");
+        DynamicPlaylist::run_query_by_id(&self.db, id)
+            .await
+            .tap_err(|e| warn!("Error in dynamic_playlist_get_songs: {e}"))
+            .ok()
+            .flatten()
+            .map(Into::into)
     }
 }

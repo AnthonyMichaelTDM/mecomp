@@ -1,6 +1,7 @@
 use mecomp_core::{rpc::SearchResult, state::library::LibraryFull};
 use mecomp_storage::db::schemas::{
-    album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song, Id, Thing,
+    album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
+    playlist::Playlist, song::Song, Id, Thing,
 };
 use one_or_many::OneOrMany;
 use ratatui::{backend::TestBackend, layout::Rect, Terminal};
@@ -57,6 +58,7 @@ pub fn state_with_everything() -> AppState {
     let collection_id = Thing::from(("collection", item_id()));
     let playlist_id = Thing::from(("playlist", item_id()));
     let song_id = Thing::from(("song", item_id()));
+    let dynamic_id = Thing::from(("dynamic", item_id()));
 
     let song = Song {
         id: song_id.clone().into(),
@@ -101,6 +103,11 @@ pub fn state_with_everything() -> AppState {
         runtime: song.runtime,
         song_count: 1,
     };
+    let dynamic = DynamicPlaylist {
+        id: dynamic_id.clone().into(),
+        name: "Test Dynamic".into(),
+        query: "title = \"Test Song\"".parse().unwrap(),
+    };
 
     AppState {
         active_component: ActiveComponent::ContentView,
@@ -110,6 +117,7 @@ pub fn state_with_everything() -> AppState {
             songs: vec![song.clone()].into_boxed_slice(),
             playlists: vec![playlist.clone()].into_boxed_slice(),
             collections: vec![collection.clone()].into_boxed_slice(),
+            dynamic_playlists: vec![dynamic.clone()].into_boxed_slice(),
         },
         additional_view_data: ViewData {
             random: Some(RandomViewProps {

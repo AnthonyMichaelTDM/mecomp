@@ -37,6 +37,20 @@ impl DynamicPlaylist {
     }
 
     #[instrument]
+    pub async fn read_by_name<C: Connection>(
+        db: &Surreal<C>,
+        name: String,
+    ) -> StorageResult<Option<Self>> {
+        Ok(db
+            .query(format!(
+                "SELECT * FROM {TABLE_NAME} WHERE name = $name LIMIT 1"
+            ))
+            .bind(("name", name))
+            .await?
+            .take(0)?)
+    }
+
+    #[instrument]
     pub async fn update<C: Connection>(
         db: &Surreal<C>,
         id: DynamicPlaylistId,
@@ -60,6 +74,19 @@ impl DynamicPlaylist {
     /// Gets the songs matching the DynamicPlaylist's query.
     pub async fn run_query<C: Connection>(&self, db: &Surreal<C>) -> StorageResult<Vec<Song>> {
         Ok(db.query(self.get_query()).await?.take(0)?)
+    }
+
+    #[instrument]
+    /// Gets the songs matching a DynamicPlaylist's query by its ID.
+    /// First retrieves the DynamicPlaylist from the database, then runs its query.
+    pub async fn run_query_by_id<C: Connection>(
+        db: &Surreal<C>,
+        id: DynamicPlaylistId,
+    ) -> StorageResult<Option<Vec<Song>>> {
+        match Self::read(db, id).await? {
+            Some(playlist) => Ok(Some(playlist.run_query(db).await?)),
+            None => Ok(None),
+        }
     }
 }
 
@@ -104,6 +131,10 @@ mod tests {
         let read = DynamicPlaylist::read(&db, id.clone()).await?;
         assert_eq!(read, Some(dynamic_playlist.clone()));
 
+        // read by name
+        let read = DynamicPlaylist::read_by_name(&db, "test".into()).await?;
+        assert_eq!(read, Some(dynamic_playlist.clone()));
+
         // read all
         let all = DynamicPlaylist::read_all(&db).await?;
         assert_eq!(all, vec![dynamic_playlist.clone()]);
@@ -128,7 +159,10 @@ mod tests {
 
         // run query
         let songs = updated.clone().unwrap().run_query(&db).await?;
-        assert_eq!(songs, vec![song]);
+        assert_eq!(songs, vec![song.clone()]);
+
+        let songs = DynamicPlaylist::run_query_by_id(&db, id.clone()).await?;
+        assert_eq!(songs, Some(vec![song]));
 
         // Delete
         let deleted = DynamicPlaylist::delete(&db, id.clone()).await?;
