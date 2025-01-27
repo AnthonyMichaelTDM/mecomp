@@ -50,7 +50,7 @@ impl DynamicPlaylist {
         use query::Compile;
 
         format!(
-            "SELECT * FROM {table_name} WHERE {conditions}",
+            "SELECT * FROM {table_name} WHERE {conditions};",
             table_name = super::song::TABLE_NAME,
             conditions = self.query.compile()
         )

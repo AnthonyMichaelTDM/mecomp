@@ -77,13 +77,13 @@ impl PlaylistChangeSet {
     }
 
     #[must_use]
-    pub fn runtime(mut self, runtime: Duration) -> Self {
+    pub const fn runtime(mut self, runtime: Duration) -> Self {
         self.runtime = Some(runtime);
         self
     }
 
     #[must_use]
-    pub fn song_count(mut self, song_count: usize) -> Self {
+    pub const fn song_count(mut self, song_count: usize) -> Self {
         self.song_count = Some(song_count);
         self
     }
