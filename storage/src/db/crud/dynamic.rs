@@ -37,6 +37,20 @@ impl DynamicPlaylist {
     }
 
     #[instrument]
+    pub async fn read_by_name<C: Connection>(
+        db: &Surreal<C>,
+        name: String,
+    ) -> StorageResult<Option<Self>> {
+        Ok(db
+            .query(format!(
+                "SELECT * FROM {TABLE_NAME} WHERE name = $name LIMIT 1"
+            ))
+            .bind(("name", name))
+            .await?
+            .take(0)?)
+    }
+
+    #[instrument]
     pub async fn update<C: Connection>(
         db: &Surreal<C>,
         id: DynamicPlaylistId,
@@ -102,6 +116,10 @@ mod tests {
 
         // Read
         let read = DynamicPlaylist::read(&db, id.clone()).await?;
+        assert_eq!(read, Some(dynamic_playlist.clone()));
+
+        // read by name
+        let read = DynamicPlaylist::read_by_name(&db, "test".into()).await?;
         assert_eq!(read, Some(dynamic_playlist.clone()));
 
         // read all
