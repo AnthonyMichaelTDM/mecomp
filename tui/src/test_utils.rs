@@ -106,7 +106,7 @@ pub fn state_with_everything() -> AppState {
     let dynamic = DynamicPlaylist {
         id: dynamic_id.clone().into(),
         name: "Test Dynamic".into(),
-        query: "title = \"Test Song\"".into(),
+        query: "title = \"Test Song\"".parse().unwrap(),
     };
 
     AppState {

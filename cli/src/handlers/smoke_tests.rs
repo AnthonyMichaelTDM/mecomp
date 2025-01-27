@@ -100,7 +100,7 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
     let dynamic = DynamicPlaylist {
         id: dynamic_id.clone().into(),
         name: "Test Dynamic".into(),
-        query: "title = \"Test Song\"".into(),
+        query: "title = \"Test Song\"".parse().unwrap(),
     };
 
     // insert the items into the database

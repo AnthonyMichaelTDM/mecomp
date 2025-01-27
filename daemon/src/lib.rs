@@ -526,7 +526,7 @@ mod test_client_tests {
 
         let ctx = tarpc::context::current();
 
-        let query = "artist CONTAINS 'Artist 0'".into();
+        let query: Query = "artist CONTAINS \"Artist 0\"".parse()?;
 
         let response = client
             .dynamic_playlist_create(ctx, "Dynamic Playlist 0".into(), query)
@@ -544,7 +544,7 @@ mod test_client_tests {
 
         let ctx = tarpc::context::current();
 
-        let query = "artist CONTAINS 'Artist 0'".into();
+        let query: Query = "artist CONTAINS \"Artist 0\"".parse()?;
 
         let dynamic_playlist_id = client
             .dynamic_playlist_create(ctx, "Dynamic Playlist 0".into(), query)
@@ -567,7 +567,7 @@ mod test_client_tests {
 
         let ctx = tarpc::context::current();
 
-        let query = "artist CONTAINS 'Artist 0'".into();
+        let query: Query = "artist CONTAINS \"Artist 0\"".parse()?;
 
         let dynamic_playlist_id = client
             .dynamic_playlist_create(ctx, "Dynamic Playlist 0".into(), query)
@@ -596,7 +596,7 @@ mod test_client_tests {
 
         let ctx = tarpc::context::current();
 
-        let query: Query = "artist CONTAINS 'Artist 0'".into();
+        let query: Query = "artist CONTAINS \"Artist 0\"".parse()?;
 
         let dynamic_playlist_id = client
             .dynamic_playlist_create(ctx, "Dynamic Playlist 0".into(), query.clone())
@@ -622,7 +622,7 @@ mod test_client_tests {
 
         let ctx = tarpc::context::current();
 
-        let query = "artist CONTAINS 'Artist 0'".into();
+        let query: Query = "artist CONTAINS \"Artist 0\"".parse()?;
 
         let dynamic_playlist_id = client
             .dynamic_playlist_create(ctx, "Dynamic Playlist 0".into(), query)
