@@ -51,12 +51,12 @@ impl PopupState {
                     match action {
                         PopupAction::Open(popup) => {
                             stack.push(popup.clone());
-                            self.state_tx.send(Some(popup))?;
                         }
                         PopupAction::Close => {
-                            self.state_tx.send(stack.pop())?;
+                            stack.pop();
                         }
                     }
+                    self.state_tx.send(stack.last().cloned())?;
                 }
                 // Catch and handle interrupt signal to gracefully shutdown
                 Ok(interrupted) = interrupt_rx.recv() => {

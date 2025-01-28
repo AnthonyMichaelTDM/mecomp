@@ -11,7 +11,7 @@
 use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_storage::db::schemas::Thing;
+use mecomp_storage::db::schemas::{playlist::Playlist, Thing};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
@@ -315,6 +315,114 @@ impl ComponentRender<Rect> for PlaylistSelector {
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             area,
             &mut self.tree_state.lock().unwrap(),
+        );
+    }
+}
+
+/// Popup for changing the name of a playlist.
+pub struct PlaylistEditor {
+    action_tx: UnboundedSender<Action>,
+    playlist_id: Thing,
+    input_box: InputBox,
+}
+
+impl PlaylistEditor {
+    #[must_use]
+    pub fn new(state: &AppState, action_tx: UnboundedSender<Action>, playlist: Playlist) -> Self {
+        let mut input_box = InputBox::new(state, action_tx.clone());
+        input_box.set_text(&playlist.name);
+
+        Self {
+            input_box,
+            action_tx,
+            playlist_id: playlist.id.into(),
+        }
+    }
+}
+
+impl Popup for PlaylistEditor {
+    fn title(&self) -> Line {
+        Line::from("Rename Playlist")
+    }
+
+    fn instructions(&self) -> Line {
+        Line::from(" \u{23CE} : Rename")
+    }
+
+    /// Should be located in the upper middle of the screen
+    fn area(&self, terminal_area: Rect) -> Rect {
+        let height = 5;
+        let width = u16::try_from(
+            self.input_box
+                .text()
+                .len()
+                .max(self.instructions().width())
+                .max(self.title().width())
+                + 5,
+        )
+        .unwrap_or(terminal_area.width)
+        .min(terminal_area.width);
+
+        let x = (terminal_area.width - width) / 2;
+        let y = (terminal_area.height - height) / 2;
+
+        Rect::new(x, y, width, height)
+    }
+
+    fn update_with_state(&mut self, _: &AppState) {}
+
+    fn inner_handle_key_event(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Enter => {
+                let name = self.input_box.text();
+                if !name.is_empty() {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Close))
+                        .unwrap();
+                    self.action_tx
+                        .send(Action::Library(LibraryAction::RenamePlaylist(
+                            self.playlist_id.clone(),
+                            name.to_string(),
+                        )))
+                        .unwrap();
+                }
+            }
+            _ => self.input_box.handle_key_event(key),
+        }
+    }
+
+    fn inner_handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        let MouseEvent {
+            column, row, kind, ..
+        } = mouse;
+        let mouse_position = Position::new(column, row);
+
+        if area.contains(mouse_position) {
+            self.input_box.handle_mouse_event(mouse, area);
+        } else if kind == MouseEventKind::Down(MouseButton::Left) {
+            self.action_tx
+                .send(Action::Popup(PopupAction::Close))
+                .unwrap();
+        }
+    }
+}
+
+impl ComponentRender<Rect> for PlaylistEditor {
+    fn render_border(&self, frame: &mut Frame, area: Rect) -> Rect {
+        self.render_popup_border(frame, area)
+    }
+
+    fn render_content(&self, frame: &mut Frame, area: Rect) {
+        self.input_box.render(
+            frame,
+            RenderProps {
+                area,
+                text_color: TEXT_HIGHLIGHT_ALT.into(),
+                border: Block::bordered()
+                    .title("Enter Name:")
+                    .border_style(Style::default().fg(BORDER_FOCUSED.into())),
+                show_cursor: true,
+            },
         );
     }
 }

@@ -14,7 +14,7 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::{Action, LibraryAction, ViewAction},
+    state::action::{Action, LibraryAction, PopupAction, ViewAction},
     ui::{
         colors::{
             BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
@@ -22,6 +22,7 @@ use crate::{
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         widgets::{
             input_box::{self, InputBox},
+            popups::PopupType,
             tree::{state::CheckTreeState, CheckTree},
         },
         AppState,
@@ -85,6 +86,7 @@ impl Component for PlaylistView {
         "Playlist View"
     }
 
+    #[allow(clippy::too_many_lines)]
     fn handle_key_event(&mut self, key: KeyEvent) {
         match key.code {
             // arrow keys
@@ -190,6 +192,16 @@ impl Component for PlaylistView {
                     self.action_tx.send(Action::Library(action)).unwrap();
                 }
             }
+            // edit the playlist name
+            KeyCode::Char('e') => {
+                if let Some(props) = &self.props {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(PopupType::PlaylistEditor(
+                            props.playlist.clone(),
+                        ))))
+                        .unwrap();
+                }
+            }
             _ => {}
         }
     }
@@ -274,7 +286,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
             let border = Block::default()
                 .borders(Borders::TOP | Borders::BOTTOM)
                 .title_top("q: add to queue | r: start radio | p: add to playlist")
-                .title_bottom("s/S: change sort | d: remove selected")
+                .title_bottom("s/S: sort | d: remove selected | e: edit")
                 .border_style(border_style);
             frame.render_widget(&border, content_area);
             let content_area = border.inner(content_area);

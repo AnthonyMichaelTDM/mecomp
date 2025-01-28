@@ -2,7 +2,7 @@ pub mod notification;
 pub mod playlist;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_storage::db::schemas::Thing;
+use mecomp_storage::db::schemas::{playlist::Playlist, Thing};
 use ratatui::{
     layout::Position,
     prelude::Rect,
@@ -108,6 +108,7 @@ pub enum PopupType {
     #[allow(dead_code)]
     Notification(Text<'static>),
     Playlist(Vec<Thing>),
+    PlaylistEditor(Playlist),
 }
 
 impl PopupType {
@@ -123,6 +124,9 @@ impl PopupType {
             }
             Self::Playlist(items) => {
                 Box::new(playlist::PlaylistSelector::new(state, action_tx, items)) as _
+            }
+            Self::PlaylistEditor(playlist) => {
+                Box::new(playlist::PlaylistEditor::new(state, action_tx, playlist)) as _
             }
         }
     }
