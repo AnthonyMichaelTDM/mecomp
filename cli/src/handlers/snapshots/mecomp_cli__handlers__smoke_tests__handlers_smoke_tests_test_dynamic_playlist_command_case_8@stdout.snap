@@ -6,8 +6,6 @@ Dynamic playlists are playlists that are generated based on a query.
 
 The syntax for queries is as follows:
 
-# BNF Grammar
-
 ```bnf
 <query> ::= <clause>
 
@@ -23,11 +21,11 @@ The syntax for queries is as follows:
 
 <operator> ::= "=" | "!=" | "?=" | "*=" | ">" | ">=" | "<" | "<=" | "~" | "!~" | "?~" | "*~" | "IN" | "NOT IN" | "CONTAINS" | "CONTAINSNOT" | "CONTAINSALL" | "CONTAINSANY" | "CONTAINSNONE"
 
-<string> ::= <quote> { <char> } <quote>
+<string> ::= <quote> {{ <char> }} <quote>
 
-<set> ::= '[' <value> { ", " <value> } ']' | '[' ']'
+<set> ::= '[' <value> {{ ", " <value> }} ']' | '[' ']'
 
 <quote> ::= '"' | "'"
 
-<int> ::= <digit> { <digit> }
+<int> ::= <digit> {{ <digit> }}
 ```

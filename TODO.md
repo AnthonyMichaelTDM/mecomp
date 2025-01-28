@@ -23,6 +23,15 @@
 - [x] allow users to search their music library (search for songs, artists, albums, etc.)
   - [x] searching by songs includes the artist names in the index, so for example searching for "Green Day" will return all songs by Green Day (even if the song name doesn't contain "Green Day")
 
+### Dynamic Playlists
+
+- [x] allow users to create dynamic playlists based on a set of criteria (e.g. "all songs with a play count greater than 10", "all songs by Green Day", "all songs in the genre of Rock", etc.)
+  - [x] these criteria should be able to be combined with set/boolean logic (union (AND), intersection (OR))
+  - [x] criteria can be scoped to allow for more complex queries
+- [x] integrate dynamic playlist funcitonality into the CLI
+- [ ] integrate dynamic playlist functionality into the TUI
+  - [ ] create a capable but intuitive query-building interface
+
 ### Playlists
 
 - [x] allow users to create playlists
