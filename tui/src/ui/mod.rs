@@ -39,11 +39,7 @@ use mecomp_core::{
     rpc::{MusicPlayerClient, SearchResult},
     state::{library::LibraryFull, StateAudio},
 };
-use mecomp_storage::db::schemas::{
-    album, artist, collection,
-    dynamic::{self, query::Compile},
-    playlist, song, Thing,
-};
+use mecomp_storage::db::schemas::{album, artist, collection, dynamic, playlist, song, Thing};
 use one_or_many::OneOrMany;
 use ratatui::prelude::*;
 use tarpc::context::Context;
@@ -358,15 +354,14 @@ async fn handle_additional_view_data(
                 id: id.to_owned(),
             };
 
-            let dynamic_playlist_view_props = if let Ok((Some(playlist), Some(songs))) = tokio::try_join!(
+            let dynamic_playlist_view_props = if let Ok((Some(dynamic_playlist), Some(songs))) = tokio::try_join!(
                 daemon.dynamic_playlist_get(Context::current(), dynamic_playlist_id.clone()),
                 daemon.dynamic_playlist_get_songs(Context::current(), dynamic_playlist_id.clone()),
             ) {
                 Some(DynamicPlaylistViewProps {
                     id: dynamic_playlist_id,
                     songs,
-                    name: playlist.name.to_string(),
-                    query: playlist.query.compile(),
+                    dynamic_playlist,
                 })
             } else {
                 None

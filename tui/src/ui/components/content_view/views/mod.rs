@@ -1,7 +1,8 @@
 pub mod dynamic;
 use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::{
-    album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song, Thing,
+    album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
+    playlist::Playlist, song::Song, Thing,
 };
 use one_or_many::OneOrMany;
 use ratatui::{
@@ -199,8 +200,7 @@ pub struct CollectionViewProps {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DynamicPlaylistViewProps {
     pub id: Thing,
-    pub name: String,
-    pub query: String,
+    pub dynamic_playlist: DynamicPlaylist,
     pub songs: Box<[Song]>,
 }
 

@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
+use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::dynamic::{query::Query, DynamicPlaylist};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
@@ -261,20 +262,20 @@ impl ComponentRender<RenderProps> for DynamicView {
             frame.render_widget(
                 Paragraph::new(vec![
                     Line::from(Span::styled(
-                        state.name.to_string(),
+                        state.dynamic_playlist.name.to_string(),
                         Style::default().bold(),
                     )),
                     Line::from(vec![
                         Span::raw("Songs: "),
                         Span::styled(state.songs.len().to_string(), Style::default().italic()),
-                        // Span::raw("  Duration: "),
-                        // Span::styled(
-                        //     format_duration(&state.songs.iter().map(|s| s.runtime).sum()),
-                        //     Style::default().italic(),
-                        // ),
+                        Span::raw("  Duration: "),
+                        Span::styled(
+                            format_duration(&state.songs.iter().map(|s| s.runtime).sum()),
+                            Style::default().italic(),
+                        ),
                     ]),
                     Line::from(Span::styled(
-                        state.query.to_string(),
+                        state.dynamic_playlist.query.to_string(),
                         Style::default().italic(),
                     )),
                 ])

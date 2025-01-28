@@ -157,8 +157,7 @@ pub fn state_with_everything() -> AppState {
             }),
             dynamic_playlist: Some(DynamicPlaylistViewProps {
                 id: dynamic_id,
-                name: "Test Dynamic".into(),
-                query: "title = \"Test Song\"".parse().unwrap(),
+                dynamic_playlist: dynamic,
                 songs: vec![song.clone()].into_boxed_slice(),
             }),
             radio: Some(RadioViewProps {
