@@ -3,13 +3,14 @@
 pub mod views;
 
 use crossterm::event::{MouseButton, MouseEventKind};
-use mecomp_storage::db::schemas::{album, artist, collection, playlist, song, Id, Thing};
+use mecomp_storage::db::schemas::{album, artist, collection, dynamic, playlist, song, Id, Thing};
 use ratatui::layout::Position;
 use tokio::sync::mpsc::UnboundedSender;
 use views::{
     album::{AlbumView, LibraryAlbumsView},
     artist::{ArtistView, LibraryArtistsView},
     collection::{CollectionView, LibraryCollectionsView},
+    dynamic::{DynamicView, LibraryDynamicView},
     none::NoneView,
     playlist::{LibraryPlaylistsView, PlaylistView},
     radio::RadioView,
@@ -41,6 +42,8 @@ pub struct ContentView {
     pub(crate) artist_view: ArtistView,
     pub(crate) playlists_view: LibraryPlaylistsView,
     pub(crate) playlist_view: PlaylistView,
+    pub(crate) dynamic_playlists_view: LibraryDynamicView,
+    pub(crate) dynamic_playlist_view: DynamicView,
     pub(crate) collections_view: LibraryCollectionsView,
     pub(crate) collection_view: CollectionView,
     pub(crate) radio_view: RadioView,
@@ -85,6 +88,10 @@ pub enum ActiveView {
     Playlists,
     /// A view of a specific playlist.
     Playlist(Id),
+    /// A view of all the dynamic playlists in the users library.
+    DynamicPlaylists,
+    /// A view of a specific dynamic playlist.
+    DynamicPlaylist(Id),
     /// A view with all the collections in the users library.
     Collections,
     /// A view of a specific collection.
@@ -104,6 +111,7 @@ impl From<Thing> for ActiveView {
             collection::TABLE_NAME => Self::Collection(value.id),
             playlist::TABLE_NAME => Self::Playlist(value.id),
             song::TABLE_NAME => Self::Song(value.id),
+            dynamic::TABLE_NAME => Self::DynamicPlaylist(value.id),
             _ => Self::None,
         }
     }
@@ -122,6 +130,8 @@ impl ContentView {
             ActiveView::Artist(_) => &self.artist_view,
             ActiveView::Playlists => &self.playlists_view,
             ActiveView::Playlist(_) => &self.playlist_view,
+            ActiveView::DynamicPlaylists => &self.dynamic_playlists_view,
+            ActiveView::DynamicPlaylist(_) => &self.dynamic_playlist_view,
             ActiveView::Collections => &self.collections_view,
             ActiveView::Collection(_) => &self.collection_view,
             ActiveView::Radio(_, _) => &self.radio_view,
@@ -141,6 +151,8 @@ impl ContentView {
             ActiveView::Artist(_) => &mut self.artist_view,
             ActiveView::Playlists => &mut self.playlists_view,
             ActiveView::Playlist(_) => &mut self.playlist_view,
+            ActiveView::DynamicPlaylists => &mut self.dynamic_playlists_view,
+            ActiveView::DynamicPlaylist(_) => &mut self.dynamic_playlist_view,
             ActiveView::Collections => &mut self.collections_view,
             ActiveView::Collection(_) => &mut self.collection_view,
             ActiveView::Radio(_, _) => &mut self.radio_view,
@@ -166,6 +178,8 @@ impl Component for ContentView {
             artist_view: ArtistView::new(state, action_tx.clone()),
             playlists_view: LibraryPlaylistsView::new(state, action_tx.clone()),
             playlist_view: PlaylistView::new(state, action_tx.clone()),
+            dynamic_playlists_view: LibraryDynamicView::new(state, action_tx.clone()),
+            dynamic_playlist_view: DynamicView::new(state, action_tx.clone()),
             collections_view: LibraryCollectionsView::new(state, action_tx.clone()),
             collection_view: CollectionView::new(state, action_tx.clone()),
             radio_view: RadioView::new(state, action_tx.clone()),
@@ -191,6 +205,8 @@ impl Component for ContentView {
             artist_view: self.artist_view.move_with_state(state),
             playlists_view: self.playlists_view.move_with_state(state),
             playlist_view: self.playlist_view.move_with_state(state),
+            dynamic_playlists_view: self.dynamic_playlists_view.move_with_state(state),
+            dynamic_playlist_view: self.dynamic_playlist_view.move_with_state(state),
             collections_view: self.collections_view.move_with_state(state),
             collection_view: self.collection_view.move_with_state(state),
             radio_view: self.radio_view.move_with_state(state),
@@ -278,6 +294,8 @@ impl ComponentRender<RenderProps> for ContentView {
             ActiveView::Artist(_) => self.artist_view.render(frame, props),
             ActiveView::Playlists => self.playlists_view.render(frame, props),
             ActiveView::Playlist(_) => self.playlist_view.render(frame, props),
+            ActiveView::DynamicPlaylists => self.dynamic_playlists_view.render(frame, props),
+            ActiveView::DynamicPlaylist(_) => self.dynamic_playlist_view.render(frame, props),
             ActiveView::Collections => self.collections_view.render(frame, props),
             ActiveView::Collection(_) => self.collection_view.render(frame, props),
             ActiveView::Radio(_, _) => self.radio_view.render(frame, props),
@@ -304,6 +322,8 @@ mod tests {
     #[case(ActiveView::Artist(item_id()))]
     #[case(ActiveView::Playlists)]
     #[case(ActiveView::Playlist(item_id()))]
+    #[case(ActiveView::DynamicPlaylists)]
+    #[case(ActiveView::DynamicPlaylist(item_id()))]
     #[case(ActiveView::Collections)]
     #[case(ActiveView::Collection(item_id()))]
     #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))], 1))]
@@ -333,6 +353,8 @@ mod tests {
     #[case(ActiveView::Artist(item_id()))]
     #[case(ActiveView::Playlists)]
     #[case(ActiveView::Playlist(item_id()))]
+    #[case(ActiveView::DynamicPlaylists)]
+    #[case(ActiveView::DynamicPlaylist(item_id()))]
     #[case(ActiveView::Collections)]
     #[case(ActiveView::Collection(item_id()))]
     #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))], 1))]
@@ -358,6 +380,10 @@ mod tests {
             ActiveView::Artist(_) => assert_eq!(view.name(), "Artist View"),
             ActiveView::Playlists => assert_eq!(view.name(), "Library Playlists View"),
             ActiveView::Playlist(_) => assert_eq!(view.name(), "Playlist View"),
+            ActiveView::DynamicPlaylists => {
+                assert_eq!(view.name(), "Library Dynamic Playlists View")
+            }
+            ActiveView::DynamicPlaylist(_) => assert_eq!(view.name(), "Dynamic Playlist View"),
             ActiveView::Collections => assert_eq!(view.name(), "Library Collections View"),
             ActiveView::Collection(_) => assert_eq!(view.name(), "Collection View"),
             ActiveView::Radio(_, _) => assert_eq!(view.name(), "Radio"),

@@ -5,7 +5,10 @@
 use std::time::Duration;
 
 use mecomp_core::state::{RepeatMode, SeekType};
-use mecomp_storage::db::schemas::Thing;
+use mecomp_storage::db::schemas::{
+    dynamic::{query::Query, DynamicPlaylistChangeSet},
+    Thing,
+};
 
 use crate::ui::{components::content_view::ActiveView, widgets::popups::PopupType};
 
@@ -99,6 +102,8 @@ pub enum LibraryAction {
     CreatePlaylist(String),
     /// Delete a playlist by id
     RemovePlaylist(Thing),
+    /// Rename a playlist by id
+    RenamePlaylist(Thing, String),
     /// Remove a song from a playlist (`PlaylistId`, Vec<`SongId`>)
     RemoveSongsFromPlaylist(Thing, Vec<Thing>),
     /// Add a list of things to a playlist (`PlaylistId`, Vec<`SongId`>)
@@ -106,6 +111,12 @@ pub enum LibraryAction {
     /// Create a new playlist with the given name (if it doesn't exist) and add the songs to it
     /// (`PlaylistName`, Vec<`SongId`>)
     CreatePlaylistAndAddThings(String, Vec<Thing>),
+    /// Create a new dynamic playlist with the given name and query
+    CreateDynamicPlaylist(String, Query),
+    /// Delete a dynamic playlist by id
+    RemoveDynamicPlaylist(Thing),
+    /// Update the query of a dynamic playlist
+    UpdateDynamicPlaylist(Thing, DynamicPlaylistChangeSet),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

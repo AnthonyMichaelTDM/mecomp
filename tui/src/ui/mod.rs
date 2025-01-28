@@ -20,8 +20,8 @@ use app::App;
 use components::{
     content_view::{
         views::{
-            AlbumViewProps, ArtistViewProps, CollectionViewProps, PlaylistViewProps,
-            RadioViewProps, RandomViewProps, SongViewProps, ViewData,
+            AlbumViewProps, ArtistViewProps, CollectionViewProps, DynamicPlaylistViewProps,
+            PlaylistViewProps, RadioViewProps, RandomViewProps, SongViewProps, ViewData,
         },
         ActiveView,
     },
@@ -39,7 +39,11 @@ use mecomp_core::{
     rpc::{MusicPlayerClient, SearchResult},
     state::{library::LibraryFull, StateAudio},
 };
-use mecomp_storage::db::schemas::{album, artist, collection, playlist, song, Thing};
+use mecomp_storage::db::schemas::{
+    album, artist, collection,
+    dynamic::{self, query::Compile},
+    playlist, song, Thing,
+};
 use one_or_many::OneOrMany;
 use ratatui::prelude::*;
 use tarpc::context::Context;
@@ -348,6 +352,31 @@ async fn handle_additional_view_data(
                 ..state.additional_view_data.clone()
             })
         }
+        ActiveView::DynamicPlaylist(id) => {
+            let dynamic_playlist_id = Thing {
+                tb: dynamic::TABLE_NAME.to_string(),
+                id: id.to_owned(),
+            };
+
+            let dynamic_playlist_view_props = if let Ok((Some(playlist), Some(songs))) = tokio::try_join!(
+                daemon.dynamic_playlist_get(Context::current(), dynamic_playlist_id.clone()),
+                daemon.dynamic_playlist_get_songs(Context::current(), dynamic_playlist_id.clone()),
+            ) {
+                Some(DynamicPlaylistViewProps {
+                    id: dynamic_playlist_id,
+                    songs,
+                    name: playlist.name.to_string(),
+                    query: playlist.query.compile(),
+                })
+            } else {
+                None
+            };
+
+            Some(ViewData {
+                dynamic_playlist: dynamic_playlist_view_props,
+                ..state.additional_view_data.clone()
+            })
+        }
         ActiveView::Collection(id) => {
             let collection_id = Thing {
                 tb: collection::TABLE_NAME.to_string(),
@@ -417,6 +446,7 @@ async fn handle_additional_view_data(
         | ActiveView::Albums
         | ActiveView::Artists
         | ActiveView::Playlists
+        | ActiveView::DynamicPlaylists
         | ActiveView::Collections => None,
     }
 }

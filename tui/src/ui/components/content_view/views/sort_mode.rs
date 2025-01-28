@@ -1,7 +1,8 @@
 use std::{fmt::Display, marker::PhantomData};
 
 use mecomp_storage::db::schemas::{
-    album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song,
+    album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
+    playlist::Playlist, song::Song,
 };
 
 use super::traits::SortMode;
@@ -220,6 +221,31 @@ impl SortMode<Playlist> for NameSort<Playlist> {
 
     #[allow(clippy::unused_self)]
     fn sort_items(&self, items: &mut [Playlist]) {
+        fn key<T: AsRef<str>>(input: T) -> String {
+            input
+                .as_ref()
+                .to_lowercase() // ignore case
+                .trim_start_matches(|c: char| !c.is_alphanumeric()) // ignore leading non-alphanumeric characters
+                .trim_start_matches("the ") // ignore leading "the "
+                .to_owned()
+        }
+        items.sort_by_key(|item| key(&item.name));
+    }
+}
+
+impl SortMode<DynamicPlaylist> for NameSort<DynamicPlaylist> {
+    #[must_use]
+    fn next(&self) -> Self {
+        Self::new()
+    }
+
+    #[must_use]
+    fn prev(&self) -> Self {
+        Self::new()
+    }
+
+    #[allow(clippy::unused_self)]
+    fn sort_items(&self, items: &mut [DynamicPlaylist]) {
         fn key<T: AsRef<str>>(input: T) -> String {
             input
                 .as_ref()
