@@ -1,8 +1,9 @@
+pub mod dynamic;
 pub mod notification;
 pub mod playlist;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_storage::db::schemas::{playlist::Playlist, Thing};
+use mecomp_storage::db::schemas::{dynamic::DynamicPlaylist, playlist::Playlist, Thing};
 use ratatui::{
     layout::Position,
     prelude::Rect,
@@ -109,6 +110,7 @@ pub enum PopupType {
     Notification(Text<'static>),
     Playlist(Vec<Thing>),
     PlaylistEditor(Playlist),
+    DynamicPlaylistEditor(DynamicPlaylist),
 }
 
 impl PopupType {
@@ -128,6 +130,9 @@ impl PopupType {
             Self::PlaylistEditor(playlist) => {
                 Box::new(playlist::PlaylistEditor::new(state, action_tx, playlist)) as _
             }
+            Self::DynamicPlaylistEditor(playlist) => Box::new(dynamic::DynamicPlaylistEditor::new(
+                state, action_tx, playlist,
+            )) as _,
         }
     }
 }

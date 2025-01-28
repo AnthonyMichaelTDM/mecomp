@@ -202,6 +202,16 @@ impl Component for DynamicView {
                     self.action_tx.send(action).unwrap();
                 }
             }
+            // "e" key to edit the name/query of the dynamic playlist
+            KeyCode::Char('e') => {
+                if let Some(props) = &self.props {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(
+                            PopupType::DynamicPlaylistEditor(props.dynamic_playlist.clone()),
+                        )))
+                        .unwrap();
+                }
+            }
             _ => {}
         }
     }
@@ -287,7 +297,7 @@ impl ComponentRender<RenderProps> for DynamicView {
             let border = Block::default()
                 .borders(Borders::TOP | Borders::BOTTOM)
                 .title_top("q: add to queue | r: start radio | p: add to playlist")
-                .title_bottom("s/S: change sort")
+                .title_bottom("s/S: sort | e: edit")
                 .border_style(border_style);
             frame.render_widget(&border, content_area);
             let content_area = border.inner(content_area);
@@ -588,12 +598,17 @@ impl Component for LibraryDynamicView {
                 height: content_area.height - 1,
                 ..content_area
             };
+
             if input_box_area.contains(mouse_position) {
-                self.focus = Focus::NameInput;
+                if kind == MouseEventKind::Down(MouseButton::Left) {
+                    self.focus = Focus::NameInput;
+                }
                 self.name_input_box
                     .handle_mouse_event(mouse, input_box_area);
             } else if query_builder_area.contains(mouse_position) {
-                self.focus = Focus::QueryInput;
+                if kind == MouseEventKind::Down(MouseButton::Left) {
+                    self.focus = Focus::QueryInput;
+                }
                 self.query_builder
                     .handle_mouse_event(mouse, query_builder_area);
             } else if content_area.contains(mouse_position)
