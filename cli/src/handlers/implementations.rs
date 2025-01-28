@@ -881,7 +881,7 @@ impl CommandHandler for super::PlaylistAddCommand {
     }
 }
 
-static BNF_GRAMMER: &str = r#"Dynamic playlists are playlists that are generated based on a query.
+static BNF_GRAMMAR: &str = r#"Dynamic playlists are playlists that are generated based on a query.
 
 The syntax for queries is as follows:
 
@@ -1012,7 +1012,7 @@ impl CommandHandler for super::DynamicCommand {
                 Ok(())
             }
             Self::ShowBNF => {
-                writeln!(stdout, "{BNF_GRAMMER}")?;
+                writeln!(stdout, "{BNF_GRAMMAR}")?;
                 Ok(())
             }
         }

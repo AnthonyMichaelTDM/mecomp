@@ -28,7 +28,7 @@
 - [x] allow users to create dynamic playlists based on a set of criteria (e.g. "all songs with a play count greater than 10", "all songs by Green Day", "all songs in the genre of Rock", etc.)
   - [x] these criteria should be able to be combined with set/boolean logic (union (AND), intersection (OR))
   - [x] criteria can be scoped to allow for more complex queries
-- [x] integrate dynamic playlist funcitonality into the CLI
+- [x] integrate dynamic playlist functionality into the CLI
 - [ ] integrate dynamic playlist functionality into the TUI
   - [ ] create a capable but intuitive query-building interface
 
