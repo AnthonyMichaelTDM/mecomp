@@ -127,6 +127,12 @@ impl Component for InputBox {
             KeyCode::Right => {
                 self.move_cursor_right();
             }
+            KeyCode::Home => {
+                self.cursor_position = 0;
+            }
+            KeyCode::End => {
+                self.cursor_position = self.text.len();
+            }
             _ => {}
         }
     }
