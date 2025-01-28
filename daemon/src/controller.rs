@@ -15,7 +15,10 @@ use mecomp_core::{
         AudioKernelSender,
     },
     errors::SerializableLibraryError,
-    rpc::{AlbumId, ArtistId, CollectionId, MusicPlayer, PlaylistId, SearchResult, SongId},
+    rpc::{
+        AlbumId, ArtistId, CollectionId, DynamicPlaylistId, MusicPlayer, PlaylistId, SearchResult,
+        SongId,
+    },
     state::{
         library::{LibraryBrief, LibraryFull, LibraryHealth},
         RepeatMode, SeekType, StateAudio,
@@ -28,8 +31,8 @@ use mecomp_storage::{
         album::{Album, AlbumBrief},
         artist::{Artist, ArtistBrief},
         collection::{Collection, CollectionBrief},
-        dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistId},
-        playlist::{Playlist, PlaylistBrief},
+        dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistChangeSet},
+        playlist::{Playlist, PlaylistBrief, PlaylistChangeSet},
         song::{Song, SongBrief},
     },
     errors::Error,
@@ -1014,6 +1017,20 @@ impl MusicPlayer for MusicPlayerServer {
             .ok()
             .map(Into::into)
     }
+    /// Rename a playlist.
+    #[instrument]
+    async fn playlist_rename(
+        self,
+        context: Context,
+        id: PlaylistId,
+        name: String,
+    ) -> Result<Playlist, SerializableLibraryError> {
+        let id = id.into();
+        info!("Renaming playlist: {id} ({name})");
+        Playlist::update(&self.db, id, PlaylistChangeSet::new().name(name))
+            .await?
+            .ok_or(Error::NotFound.into())
+    }
 
     /// Collections: Return brief information about the users auto curration collections.
     #[instrument]
@@ -1131,7 +1148,7 @@ impl MusicPlayer for MusicPlayerServer {
         .await
         .tap_err(|e| warn!("Error in dynamic_playlist_create: {e}"))?
         {
-            Some(dp) => Ok(dp.id),
+            Some(dp) => Ok(dp.id.into()),
             None => Err(Error::NotCreated.into()),
         }
     }
@@ -1146,6 +1163,20 @@ impl MusicPlayer for MusicPlayerServer {
             .map(Into::into)
             .unwrap_or_default()
     }
+    /// Dynamic Playlists: update a DP
+    #[instrument]
+    async fn dynamic_playlist_update(
+        self,
+        context: Context,
+        id: DynamicPlaylistId,
+        changes: DynamicPlaylistChangeSet,
+    ) -> Result<DynamicPlaylist, SerializableLibraryError> {
+        info!("Updating DP: {id:?}, {changes:?}");
+        DynamicPlaylist::update(&self.db, id.into(), changes)
+            .await
+            .tap_err(|e| warn!("Error in dynamic_playlist_update: {e}"))?
+            .ok_or(Error::NotFound.into())
+    }
     /// Dynamic Playlists: remove a DP
     #[instrument]
     async fn dynamic_playlist_remove(
@@ -1154,7 +1185,7 @@ impl MusicPlayer for MusicPlayerServer {
         id: DynamicPlaylistId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Removing DP with id: {id:?}");
-        DynamicPlaylist::delete(&self.db, id)
+        DynamicPlaylist::delete(&self.db, id.into())
             .await?
             .ok_or(Error::NotFound)?;
         Ok(())
@@ -1167,7 +1198,7 @@ impl MusicPlayer for MusicPlayerServer {
         id: DynamicPlaylistId,
     ) -> Option<DynamicPlaylist> {
         info!("Getting DP by ID: {id:?}");
-        DynamicPlaylist::read(&self.db, id)
+        DynamicPlaylist::read(&self.db, id.into())
             .await
             .tap_err(|e| warn!("Error in dynamic_playlist_get: {e}"))
             .ok()
@@ -1181,7 +1212,7 @@ impl MusicPlayer for MusicPlayerServer {
         id: DynamicPlaylistId,
     ) -> Option<Box<[Song]>> {
         info!("Getting songs in DP: {id:?}");
-        DynamicPlaylist::run_query_by_id(&self.db, id)
+        DynamicPlaylist::run_query_by_id(&self.db, id.into())
             .await
             .tap_err(|e| warn!("Error in dynamic_playlist_get_songs: {e}"))
             .ok()

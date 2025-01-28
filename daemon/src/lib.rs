@@ -168,7 +168,10 @@ mod test_client_tests {
     use mecomp_core::state::library::LibraryFull;
     use mecomp_storage::{
         db::schemas::{
-            collection::Collection, dynamic::query::Query, playlist::Playlist, song::SongChangeSet,
+            collection::Collection,
+            dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistChangeSet},
+            playlist::Playlist,
+            song::SongChangeSet,
         },
         test_utils::{create_song_with_overrides, init_test_database, SongCase},
     };
@@ -499,6 +502,38 @@ mod test_client_tests {
 
     #[rstest]
     #[tokio::test]
+    async fn test_playlist_rename(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        let target = library_full.playlists.first().unwrap();
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .playlist_rename(ctx, target.id.clone().into(), "New Name".into())
+            .await?;
+
+        let expected = Playlist {
+            name: "New Name".into(),
+            ..target.clone()
+        };
+
+        assert_eq!(response, Ok(expected.clone()));
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .playlist_get(ctx, target.id.clone().into())
+            .await?
+            .unwrap();
+
+        assert_eq!(response, expected);
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
     async fn test_collection_get_songs(#[future] client: MusicPlayerClient) -> Result<()> {
         let client = client.await;
 
@@ -555,7 +590,49 @@ mod test_client_tests {
         let response = client.dynamic_playlist_list(ctx).await?;
 
         assert_eq!(response.len(), 1);
-        assert_eq!(response.first().unwrap().id, dynamic_playlist_id);
+        assert_eq!(response.first().unwrap().id, dynamic_playlist_id.into());
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_update(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+
+        let query: Query = "artist CONTAINS \"Artist 0\"".parse()?;
+
+        let dynamic_playlist_id = client
+            .dynamic_playlist_create(ctx, "Dynamic Playlist 0".into(), query.clone())
+            .await?
+            .unwrap();
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .dynamic_playlist_update(
+                ctx,
+                dynamic_playlist_id.clone(),
+                DynamicPlaylistChangeSet::new().name("Dynamic Playlist 1"),
+            )
+            .await?;
+
+        let expected = DynamicPlaylist {
+            id: dynamic_playlist_id.clone().into(),
+            name: "Dynamic Playlist 1".into(),
+            query: query.clone(),
+        };
+
+        assert_eq!(response, Ok(expected.clone()));
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .dynamic_playlist_get(ctx, dynamic_playlist_id)
+            .await?
+            .unwrap();
+
+        assert_eq!(response, expected);
 
         Ok(())
     }

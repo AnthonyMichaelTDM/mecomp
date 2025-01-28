@@ -7,7 +7,7 @@
 //!
 //! <clause> ::= <compound> | <leaf>
 //!
-//! <compound> ::= (<clause> (" OR " | " AND ") <clause> { (" OR " | " AND ") <clause> })
+//! <compound> ::= (<clause> (" OR " | " AND ") <clause>)
 //!
 //! <leaf> ::= <value> <operator> <value>
 //!
@@ -15,13 +15,15 @@
 //!
 //! <field> ::= "title" | "artist" | "album" | "album_artist" | "genre" | "year"
 //!
-//! <operator> ::= "=" | "!=" | "?=" | "*=" | ">" | ">=" | "<" | "<=" | "~" | "!~" | "?~" | "*~" | "IN" | "NOT IN" | "CONTAINS" | "CONTAINS NOT" | "CONTAINS ALL" | "CONTAINS ANY" | "CONTAINS NONE"
+//! <operator> ::= "=" | "!=" | "?=" | "*=" | ">" | ">=" | "<" | "<=" | "~" | "!~" | "?~" | "*~" | "IN" | "NOT IN" | "CONTAINS" | "CONTAINSNOT" | "CONTAINSALL" | "CONTAINSANY" | "CONTAINSNONE"
 //!
-//! <string> ::= '"' <char> { <char> } '"' | '"' '"'
-//!
-//! <int> ::= <digit> { <digit> }
+//! <string> ::= <quote> { <char> } <quote>
 //!
 //! <set> ::= '[' <value> { ", " <value> } ']' | '[' ']'
+//!
+//! <quote> ::= '"' | "'"
+//!
+//! <int> ::= <digit> { <digit> }
 //! ```
 //!
 //! We will use this grammar as a reference to implement the parser, which we will do using the `pom` crate.
@@ -264,10 +266,10 @@ impl Compile for Operator {
             Self::In => "IN".to_string(),
             Self::NotIn => "NOT IN".to_string(),
             Self::Contains => "CONTAINS".to_string(),
-            Self::ContainsNot => "CONTAINS NOT".to_string(),
-            Self::ContainsAll => "CONTAINS ALL".to_string(),
-            Self::ContainsAny => "CONTAINS ANY".to_string(),
-            Self::ContainsNone => "CONTAINS NONE".to_string(),
+            Self::ContainsNot => "CONTAINSNOT".to_string(),
+            Self::ContainsAll => "CONTAINSALL".to_string(),
+            Self::ContainsAny => "CONTAINSANY".to_string(),
+            Self::ContainsNone => "CONTAINSNONE".to_string(),
         }
     }
 }
@@ -296,10 +298,10 @@ mod tests {
     #[case::operator(Operator::In, "IN")]
     #[case::operator(Operator::NotIn, "NOT IN")]
     #[case::operator(Operator::Contains, "CONTAINS")]
-    #[case::operator(Operator::ContainsNot, "CONTAINS NOT")]
-    #[case::operator(Operator::ContainsAll, "CONTAINS ALL")]
-    #[case::operator(Operator::ContainsAny, "CONTAINS ANY")]
-    #[case::operator(Operator::ContainsNone, "CONTAINS NONE")]
+    #[case::operator(Operator::ContainsNot, "CONTAINSNOT")]
+    #[case::operator(Operator::ContainsAll, "CONTAINSALL")]
+    #[case::operator(Operator::ContainsAny, "CONTAINSANY")]
+    #[case::operator(Operator::ContainsNone, "CONTAINSNONE")]
     #[case::field(Field::Title, "title")]
     #[case::field(Field::Artists, "artist")]
     #[case::field(Field::Album, "album")]
@@ -528,27 +530,32 @@ mod parser {
             | seq(b"~").map(|_| Operator::Like)
             | seq(b"NOT IN").map(|_| Operator::NotIn)
             | seq(b"IN").map(|_| Operator::In)
-            | seq(b"CONTAINS NOT").map(|_| Operator::ContainsNot)
-            | seq(b"CONTAINS ALL").map(|_| Operator::ContainsAll)
-            | seq(b"CONTAINS ANY").map(|_| Operator::ContainsAny)
-            | seq(b"CONTAINS NONE").map(|_| Operator::ContainsNone)
+            | seq(b"CONTAINSNOT").map(|_| Operator::ContainsNot)
+            | seq(b"CONTAINSALL").map(|_| Operator::ContainsAll)
+            | seq(b"CONTAINSANY").map(|_| Operator::ContainsAny)
+            | seq(b"CONTAINSNONE").map(|_| Operator::ContainsNone)
             | seq(b"CONTAINS").map(|_| Operator::Contains)
     }
 
     pub fn string<'a>() -> Parser<'a, u8, String> {
-        let special_char = sym(b'\\')
-            | sym(b'/')
-            | sym(b'"')
-            | sym(b'b').map(|_| b'\x08')
-            | sym(b'f').map(|_| b'\x0C')
-            | sym(b'n').map(|_| b'\n')
-            | sym(b'r').map(|_| b'\r')
-            | sym(b't').map(|_| b'\t');
-        let escape_sequence = sym(b'\\') * special_char;
-        let char_string = (none_of(b"\\\"") | escape_sequence)
-            .repeat(1..)
-            .convert(String::from_utf8);
-        let string = sym(b'"') * (char_string).repeat(0..) - sym(b'"');
+        let string_pf = |quote_sym| {
+            let special_char = sym(b'\\')
+                | sym(b'/')
+                | sym(b'"')
+                | sym(b'\'')
+                | sym(b'b').map(|_| b'\x08')
+                | sym(b'f').map(|_| b'\x0C')
+                | sym(b'n').map(|_| b'\n')
+                | sym(b'r').map(|_| b'\r')
+                | sym(b't').map(|_| b'\t');
+            let escape_sequence = sym(b'\\') * special_char;
+            let char_string = (none_of(b"\\\"") | escape_sequence)
+                .repeat(1..)
+                .convert(String::from_utf8);
+
+            sym(quote_sym) * char_string.repeat(0..) - sym(quote_sym)
+        };
+        let string = string_pf(b'"') | string_pf(b'\'');
         string.map(|strings| strings.concat())
     }
 
@@ -592,10 +599,10 @@ mod parser {
         #[case(Ok(Operator::In), "IN")]
         #[case(Ok(Operator::NotIn), "NOT IN")]
         #[case(Ok(Operator::Contains), "CONTAINS")]
-        #[case(Ok(Operator::ContainsNot), "CONTAINS NOT")]
-        #[case(Ok(Operator::ContainsAll), "CONTAINS ALL")]
-        #[case(Ok(Operator::ContainsAny), "CONTAINS ANY")]
-        #[case(Ok(Operator::ContainsNone), "CONTAINS NONE")]
+        #[case(Ok(Operator::ContainsNot), "CONTAINSNOT")]
+        #[case(Ok(Operator::ContainsAll), "CONTAINSALL")]
+        #[case(Ok(Operator::ContainsAny), "CONTAINSANY")]
+        #[case(Ok(Operator::ContainsNone), "CONTAINSNONE")]
         #[case(Err(pom::Error::Mismatch { message: "seq [67, 79, 78, 84, 65, 73, 78, 83] expect: 67, found: 105".to_string(), position: 0 }), "invalid")]
         fn test_operator_parse_compile(
             #[case] expected: Result<Operator, pom::Error>,

@@ -7,6 +7,7 @@ use mecomp_storage::db::schemas::{
     album::{Album, AlbumBrief},
     artist::{Artist, ArtistBrief},
     collection::CollectionBrief,
+    dynamic::{query::Compile, DynamicPlaylist},
     playlist::PlaylistBrief,
     song::{Song, SongBrief},
     Thing,
@@ -167,6 +168,27 @@ pub fn playlist_brief_list(
             output,
             "\t{}: \"{}\" ({} songs, {:?})",
             playlist.id, playlist.name, playlist.songs, playlist.runtime
+        )?;
+    }
+
+    Ok(output)
+}
+
+pub fn dynamic_playlist_list(
+    prefix: &str,
+    playlists: &[DynamicPlaylist],
+) -> Result<String, std::fmt::Error> {
+    let mut output = String::new();
+
+    writeln!(output, "{prefix}:")?;
+
+    for playlist in playlists {
+        writeln!(
+            output,
+            "\t{}: \"{}\" ({})",
+            playlist.id,
+            playlist.name,
+            playlist.query.compile()
         )?;
     }
 

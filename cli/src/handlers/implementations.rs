@@ -23,6 +23,7 @@ use mecomp_storage::db::schemas::{
     album::{self, Album, AlbumBrief},
     artist::{self, Artist, ArtistBrief},
     collection::{self, Collection, CollectionBrief},
+    dynamic::{self, DynamicPlaylist, DynamicPlaylistChangeSet},
     playlist::{self, Playlist, PlaylistBrief},
     song::{self, Song, SongBrief},
     Id, Thing,
@@ -151,6 +152,7 @@ impl CommandHandler for Command {
             Self::Playback { command } => command.handle(ctx, client, stdout, stderr).await,
             Self::Queue { command } => command.handle(ctx, client, stdout, stderr).await,
             Self::Playlist { command } => command.handle(ctx, client, stdout, stderr).await,
+            Self::Dynamic { command } => command.handle(ctx, client, stdout, stderr).await,
             Self::Collection { command } => command.handle(ctx, client, stdout, stderr).await,
             Self::Radio { command } => command.handle(ctx, client, stdout, stderr).await,
         }
@@ -606,6 +608,16 @@ impl CommandHandler for QueueCommand {
                         )
                         .await?
                         .map(|()| "collection added to queue"),
+                    QueueAddTarget::Dynamic => client
+                        .queue_add(
+                            ctx,
+                            Thing {
+                                tb: dynamic::TABLE_NAME.to_owned(),
+                                id: Id::String(id.clone()),
+                            },
+                        )
+                        .await?
+                        .map(|()| "dynamic added to queue"),
                 }?;
 
                 writeln!(stdout, "Daemon response:\n{message}")?;
@@ -699,6 +711,49 @@ impl CommandHandler for super::PlaylistCommand {
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                 Ok(())
             }
+            Self::Update { id, name } => {
+                let resp: Playlist = client
+                    .playlist_rename(
+                        ctx,
+                        Thing {
+                            tb: playlist::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                        name.clone(),
+                    )
+                    .await??;
+                writeln!(
+                    stdout,
+                    "Daemon response:\nplaylist renamed to \"{}\"",
+                    resp.name
+                )?;
+                Ok(())
+            }
+            Self::Songs { id } => {
+                match client
+                    .playlist_get_songs(
+                        ctx,
+                        Thing {
+                            tb: playlist::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                    )
+                    .await?
+                {
+                    Some(songs) => {
+                        writeln!(
+                            stdout,
+                            "Daemon response:\n{}",
+                            printing::song_list("Songs", &songs, false)?
+                        )?;
+                    }
+                    None => {
+                        writeln!(stdout, "Daemon response:\nplaylist not found")?;
+                    }
+                }
+                Ok(())
+            }
+
             Self::Delete { id } => {
                 client
                     .playlist_remove(
@@ -826,6 +881,144 @@ impl CommandHandler for super::PlaylistAddCommand {
     }
 }
 
+static BNF_GRAMMAR: &str = r#"Dynamic playlists are playlists that are generated based on a query.
+
+The syntax for queries is as follows:
+
+```bnf
+<query> ::= <clause>
+
+<clause> ::= <compound> | <leaf>
+
+<compound> ::= (<clause> (" OR " | " AND ") <clause>)
+
+<leaf> ::= <value> <operator> <value>
+
+<value> ::= <string> | <int> | <set> | <field>
+
+<field> ::= "title" | "artist" | "album" | "album_artist" | "genre" | "year"
+
+<operator> ::= "=" | "!=" | "?=" | "*=" | ">" | ">=" | "<" | "<=" | "~" | "!~" | "?~" | "*~" | "IN" | "NOT IN" | "CONTAINS" | "CONTAINSNOT" | "CONTAINSALL" | "CONTAINSANY" | "CONTAINSNONE"
+
+<string> ::= <quote> {{ <char> }} <quote>
+
+<set> ::= '[' <value> {{ ", " <value> }} ']' | '[' ']'
+
+<quote> ::= '"' | "'"
+
+<int> ::= <digit> {{ <digit> }}
+```"#;
+
+impl CommandHandler for super::DynamicCommand {
+    type Output = anyhow::Result<()>;
+
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+        &self,
+        ctx: tarpc::context::Context,
+        client: mecomp_core::rpc::MusicPlayerClient,
+        stdout: &mut W1,
+        _: &mut W2,
+    ) -> Self::Output {
+        match self {
+            Self::List => {
+                let resp: Box<[DynamicPlaylist]> = client.dynamic_playlist_list(ctx).await?;
+                writeln!(
+                    stdout,
+                    "Daemon response:\n{}",
+                    printing::dynamic_playlist_list("Dynamic Playlists", &resp)?
+                )?;
+                Ok(())
+            }
+            Self::Get { id } => {
+                let resp: Option<DynamicPlaylist> = client
+                    .dynamic_playlist_get(
+                        ctx,
+                        Thing {
+                            tb: dynamic::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                    )
+                    .await?;
+                writeln!(stdout, "Daemon response:\n{resp:#?}")?;
+                Ok(())
+            }
+            Self::Songs { id } => {
+                match client
+                    .dynamic_playlist_get_songs(
+                        ctx,
+                        Thing {
+                            tb: dynamic::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                    )
+                    .await?
+                {
+                    Some(songs) => {
+                        writeln!(
+                            stdout,
+                            "Daemon response:\n{}",
+                            printing::song_list("Songs", &songs, false)?
+                        )?;
+                    }
+                    None => {
+                        writeln!(stdout, "Daemon response:\ndynamic playlist not found")?;
+                    }
+                }
+                Ok(())
+            }
+            Self::Create { name, query } => {
+                let resp: Thing = client
+                    .dynamic_playlist_create(ctx, name.clone(), query.clone())
+                    .await??;
+                writeln!(stdout, "Daemon response:\n{resp:#?}")?;
+                Ok(())
+            }
+            Self::Delete { id } => {
+                client
+                    .dynamic_playlist_remove(
+                        ctx,
+                        Thing {
+                            tb: dynamic::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                    )
+                    .await??;
+                writeln!(stdout, "Daemon response:\nDynamic playlist deleted")?;
+                Ok(())
+            }
+            Self::Update { id, update } => {
+                let mut changes = DynamicPlaylistChangeSet::new();
+                if let Some(name) = &update.name {
+                    changes = changes.name(name.as_str());
+                }
+                if let Some(query) = &update.query {
+                    changes = changes.query(query.clone());
+                }
+
+                let resp: DynamicPlaylist = client
+                    .dynamic_playlist_update(
+                        ctx,
+                        Thing {
+                            tb: dynamic::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                        changes,
+                    )
+                    .await??;
+                writeln!(
+                    stdout,
+                    "Daemon response:\nDynamic Playlist updated\n{resp:?}"
+                )?;
+                Ok(())
+            }
+            Self::ShowBNF => {
+                writeln!(stdout, "{BNF_GRAMMAR}")?;
+                Ok(())
+            }
+        }
+    }
+}
+
 impl CommandHandler for super::CollectionCommand {
     type Output = anyhow::Result<()>;
 
@@ -857,6 +1050,30 @@ impl CommandHandler for super::CollectionCommand {
                     )
                     .await?;
                 writeln!(stdout, "Daemon response:\n{resp:?}")?;
+                Ok(())
+            }
+            Self::Songs { id } => {
+                match client
+                    .collection_get_songs(
+                        ctx,
+                        Thing {
+                            tb: collection::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                    )
+                    .await?
+                {
+                    Some(songs) => {
+                        writeln!(
+                            stdout,
+                            "Daemon response:\n{}",
+                            printing::song_list("Songs", &songs, false)?
+                        )?;
+                    }
+                    None => {
+                        writeln!(stdout, "Daemon response:\ncollection not found")?;
+                    }
+                }
                 Ok(())
             }
             Self::Recluster => {

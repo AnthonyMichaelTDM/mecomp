@@ -5,7 +5,10 @@ pub mod utils;
 #[cfg(test)]
 mod smoke_tests;
 
+use std::str::FromStr;
+
 use clap::{Subcommand, ValueEnum};
+use mecomp_storage::db::schemas::dynamic::query::Query;
 
 pub trait CommandHandler {
     type Output;
@@ -19,7 +22,7 @@ pub trait CommandHandler {
     ) -> Self::Output;
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, PartialEq)]
 pub enum Command {
     /// Ping the daemon
     Ping,
@@ -70,6 +73,11 @@ pub enum Command {
         #[clap(subcommand)]
         command: PlaylistCommand,
     },
+    /// Dynamic playlist control
+    Dynamic {
+        #[clap(subcommand)]
+        command: DynamicCommand,
+    },
     /// Collection control
     Collection {
         #[clap(subcommand)]
@@ -82,7 +90,7 @@ pub enum Command {
     },
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, PartialEq, Eq)]
 pub enum LibraryCommand {
     /// Rescan the library
     Rescan,
@@ -149,7 +157,7 @@ pub enum SearchTarget {
     Song,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, PartialEq, Eq)]
 pub enum StatusCommand {
     /// Get the status of a rescan
     Rescan,
@@ -159,7 +167,7 @@ pub enum StatusCommand {
     Recluster,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, PartialEq)]
 pub enum PlaybackCommand {
     /// Toggle play/pause
     Toggle,
@@ -194,7 +202,7 @@ pub enum PlaybackCommand {
     Shuffle,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, PartialEq)]
 pub enum SeekCommand {
     /// Seek forwards by a given amount (in seconds)
     #[clap(alias = "f", alias = "+", alias = "ahead")]
@@ -216,7 +224,7 @@ pub enum SeekCommand {
     },
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, PartialEq)]
 pub enum VolumeCommand {
     /// Set the volume
     Set {
@@ -258,7 +266,7 @@ impl From<RepeatMode> for mecomp_core::state::RepeatMode {
     }
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, PartialEq, Eq)]
 pub enum QueueCommand {
     /// Clear the queue
     Clear,
@@ -299,9 +307,10 @@ pub enum QueueAddTarget {
     Song,
     Playlist,
     Collection,
+    Dynamic,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, PartialEq, Eq)]
 pub enum PlaylistCommand {
     /// List playlists
     List,
@@ -316,6 +325,19 @@ pub enum PlaylistCommand {
     Create {
         /// The name of the playlist
         name: String,
+    },
+    /// Rename a playlist
+    Update {
+        /// The id of the playlist
+        id: String,
+        /// The new name of the playlist
+        #[clap(short, long)]
+        name: String,
+    },
+    /// Get the songs in a playlist
+    Songs {
+        /// The id of the playlist
+        id: String,
     },
     /// Delete a playlist
     Delete {
@@ -342,7 +364,7 @@ pub enum PlaylistGetMethod {
     Name,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, PartialEq, Eq)]
 pub enum PlaylistAddCommand {
     /// Add an artist to a playlist
     Artist {
@@ -377,12 +399,68 @@ pub enum PlaylistAddCommand {
     },
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, PartialEq, Eq)]
+pub enum DynamicCommand {
+    /// List dynamic playlists
+    List,
+    /// Get a dynamic playlist by its id
+    Get {
+        /// The id of the dynamic playlist
+        id: String,
+    },
+    /// Get the songs in a dynamic playlist
+    Songs {
+        /// The id of the dynamic playlist
+        id: String,
+    },
+    /// Create a dynamic playlist
+    Create {
+        /// The name of the dynamic playlist
+        name: String,
+        /// The query to use to generate the playlist
+        #[clap(value_parser = Query::from_str)]
+        query: Query,
+    },
+    /// Delete a dynamic playlist
+    Delete {
+        /// The id of the dynamic playlist
+        id: String,
+    },
+    /// Update a dynamic playlist
+    Update {
+        /// The id of the dynamic playlist
+        id: String,
+        #[clap(flatten)]
+        update: DynamicUpdate,
+    },
+    /// Get the BNF Grammar for queries
+    ShowBNF,
+}
+
+#[derive(Debug, clap::Args, PartialEq, Eq)]
+#[group(required = true)]
+pub struct DynamicUpdate {
+    /// The new name of the dynamic playlist
+    /// (if None, the name will not be updated)
+    #[clap(short, long)]
+    pub name: Option<String>,
+    /// The new query of the dynamic playlist
+    /// (if None, the query will not be updated)
+    #[clap(short, long, value_parser = Query::from_str)]
+    pub query: Option<Query>,
+}
+
+#[derive(Debug, Subcommand, PartialEq, Eq)]
 pub enum CollectionCommand {
     /// List collections
     List,
     /// Get a collection by its id
     Get {
+        /// The id of the collection
+        id: String,
+    },
+    /// Get the songs in a collection
+    Songs {
         /// The id of the collection
         id: String,
     },
@@ -397,7 +475,7 @@ pub enum CollectionCommand {
     },
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, PartialEq, Eq)]
 pub enum RadioCommand {
     /// get the 'n' most similar songs to the given song
     Song {

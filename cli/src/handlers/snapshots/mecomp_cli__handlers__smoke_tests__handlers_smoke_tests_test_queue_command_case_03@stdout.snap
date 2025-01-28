@@ -3,5 +3,4 @@ source: cli/src/handlers/smoke_tests.rs
 expression: "String::from_utf8(stdout.0.clone()).unwrap()"
 ---
 Daemon response:
-Songs:
-	song:01J1K5B6RJ84WJXCWYJ5WNE12E: "Test Song"
+song added to queue
