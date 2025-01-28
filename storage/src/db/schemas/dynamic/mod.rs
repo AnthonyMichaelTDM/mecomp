@@ -50,6 +50,8 @@ impl DynamicPlaylist {
         use query::Compile;
 
         format!(
+            // This query would make "artist ANYINSIDE ['foo', 'bar']" type queries work, but breaks almost everything else
+            // "SELECT * FROM (SELECT id, title, album, track, disc, path, extension, release_year, runtime, array::flatten(array::flatten([artist OR []])) AS artist, array::flatten(array::flatten([album_artist OR []])) AS album_artist, array::flatten(array::flatten([genre OR []])) AS genre FROM {table_name}) WHERE {conditions};",
             "SELECT * FROM {table_name} WHERE {conditions};",
             table_name = super::song::TABLE_NAME,
             conditions = self.query.compile()
@@ -183,7 +185,7 @@ mod query_tests {
                         }
                     ),
                     Clause::Leaf(LeafClause {
-                        left: Value::Field(Field::Year),
+                        left: Value::Field(Field::ReleaseYear),
                         operator: Operator::GreaterThan,
                         right: Value::Int(2020)
                     }),
