@@ -13,7 +13,7 @@
 //!
 //! <value> ::= <string> | <int> | <set> | <field>
 //!
-//! <field> ::= "title" | "artist" | "album" | "album_artist" | "genre" | "year"
+//! <field> ::= "title" | "artist" | "album" | "album_artist" | "genre" | "release_year"
 //!
 //! <operator> ::= "=" | "!=" | "?=" | "*=" | ">" | ">=" | "<" | "<=" | "~" | "!~" | "?~" | "*~" | "IN" | "NOT IN" | "CONTAINS" | "CONTAINSNOT" | "CONTAINSALL" | "CONTAINSANY" | "CONTAINSNONE"
 //!
@@ -117,7 +117,7 @@ pub enum Field {
     Album,
     AlbumArtists,
     Genre,
-    Year,
+    ReleaseYear,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -248,7 +248,7 @@ impl Compile for Field {
             Self::Album => "album".to_string(),
             Self::AlbumArtists => "album_artist".to_string(),
             Self::Genre => "genre".to_string(),
-            Self::Year => "year".to_string(),
+            Self::ReleaseYear => "release_year".to_string(),
         }
     }
 }
@@ -322,7 +322,7 @@ mod tests {
     #[case::field(Field::Album, "album")]
     #[case::field(Field::AlbumArtists, "album_artist")]
     #[case::field(Field::Genre, "genre")]
-    #[case::field(Field::Year, "year")]
+    #[case::field(Field::ReleaseYear, "release_year")]
     #[case::value(Value::String("foo".to_string()), "\"foo\"")]
     #[case::value(Value::Int(42), "42")]
     #[case::value(Value::Set(vec![Value::String("foo".to_string()), Value::Int(42)]), "[\"foo\", 42]")]
@@ -411,7 +411,7 @@ mod tests {
                         }
                     ),
                     Clause::Leaf(LeafClause {
-                        left: Value::Field(Field::Year),
+                        left: Value::Field(Field::ReleaseYear),
                         operator: Operator::GreaterThan,
                         right: Value::Int(2020)
                     }),
@@ -419,7 +419,7 @@ mod tests {
                 kind: CompoundKind::And
             })
         },
-        "((title = \"foo\" AND (artist = \"bar\" OR album = \"baz\")) AND year > 2020)"
+        "((title = \"foo\" AND (artist = \"bar\" OR album = \"baz\")) AND release_year > 2020)"
     )]
     fn compilables<T: Compile>(#[case] input: T, #[case] expected: &str) {}
 
@@ -527,7 +527,7 @@ mod parser {
             | seq(b"album_artist").map(|_| Field::AlbumArtists)
             | seq(b"album").map(|_| Field::Album)
             | seq(b"genre").map(|_| Field::Genre)
-            | seq(b"year").map(|_| Field::Year)
+            | seq(b"release_year").map(|_| Field::ReleaseYear)
     }
 
     pub fn operator<'a>() -> Parser<'a, u8, Operator> {
@@ -647,8 +647,8 @@ mod parser {
         #[case(Ok(Field::Album), "album")]
         #[case(Ok(Field::AlbumArtists), "album_artist")]
         #[case(Ok(Field::Genre), "genre")]
-        #[case(Ok(Field::Year), "year")]
-        #[case(Err(pom::Error::Mismatch { message: "seq [121, 101, 97, 114] expect: 121, found: 105".to_string(), position: 0 }), "invalid")]
+        #[case(Ok(Field::ReleaseYear), "release_year")]
+        #[case(Err(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 105".to_string(), position: 0 }), "invalid")]
         fn test_field_parse_compile(#[case] expected: Result<Field, pom::Error>, #[case] s: &str) {
             let parsed = field().parse(s.as_bytes());
             assert_eq!(parsed, expected);
@@ -674,10 +674,10 @@ mod parser {
         #[case(Ok(Value::Field(Field::Album)), "album")]
         #[case(Ok(Value::Field(Field::AlbumArtists)), "album_artist")]
         #[case(Ok(Value::Field(Field::Genre)), "genre")]
-        #[case(Ok(Value::Field(Field::Year)), "year")]
-        #[case(Err(pom::Error::Mismatch { message: "seq [121, 101, 97, 114] expect: 121, found: 34".to_string(), position: 0 }), "\"foo")]
-        #[case(Err(pom::Error::Mismatch { message: "seq [121, 101, 97, 114] expect: 121, found: 91".to_string(), position: 0 }), "[foo, 42")]
-        #[case(Err(pom::Error::Mismatch { message: "seq [121, 101, 97, 114] expect: 121, found: 105".to_string(), position: 0 }), "invalid")]
+        #[case(Ok(Value::Field(Field::ReleaseYear)), "release_year")]
+        #[case(Err(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 34".to_string(), position: 0 }), "\"foo")]
+        #[case(Err(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 91".to_string(), position: 0 }), "[foo, 42")]
+        #[case(Err(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 105".to_string(), position: 0 }), "invalid")]
         fn test_value_parse_compile(#[case] expected: Result<Value, pom::Error>, #[case] s: &str) {
             let parsed = value().parse(s.as_bytes());
             assert_eq!(parsed, expected);
@@ -710,7 +710,7 @@ mod parser {
             right: Value::Field(Field::Artists)
         }), "title = artist")]
         #[case(Err(pom::Error::Incomplete), "title")]
-        #[case(Err(pom::Error::Mismatch { message: "seq [121, 101, 97, 114] expect: 121, found: 32".to_string(), position: 0 }), " = \"foo\"")]
+        #[case(Err(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 32".to_string(), position: 0 }), " = \"foo\"")]
         #[case(Err(pom::Error::Incomplete), "title = ")]
         #[case(Err(pom::Error::Mismatch { message: "seq [67, 79, 78, 84, 65, 73, 78, 83] expect: 67, found: 105".to_string(), position: 6 }), "title invalid \"foo\"")]
         // special cases
@@ -814,14 +814,14 @@ mod parser {
                         }
                     ),
                     Clause::Leaf(LeafClause {
-                        left: Value::Field(Field::Year),
+                        left: Value::Field(Field::ReleaseYear),
                         operator: Operator::GreaterThan,
                         right: Value::Int(2020)
                     }),
                 ],
                 kind: CompoundKind::And
             })
-        },), "((title = \"foo\" AND (artist = \"bar\" OR album = \"baz\")) AND year > 2020)")]
+        },), "((title = \"foo\" AND (artist = \"bar\" OR album = \"baz\")) AND release_year > 2020)")]
         fn test_query_parse(#[case] expected: Result<Query, pom::Error>, #[case] s: &str) {
             let parsed = query().parse(s.as_bytes());
             assert_eq!(parsed, expected);

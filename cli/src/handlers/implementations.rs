@@ -896,7 +896,7 @@ The syntax for queries is as follows:
 
 <value> ::= <string> | <int> | <set> | <field>
 
-<field> ::= "title" | "artist" | "album" | "album_artist" | "genre" | "year"
+<field> ::= "title" | "artist" | "album" | "album_artist" | "genre" | "release_year"
 
 <operator> ::= "=" | "!=" | "?=" | "*=" | ">" | ">=" | "<" | "<=" | "~" | "!~" | "?~" | "*~" | "IN" | "NOT IN" | "CONTAINS" | "CONTAINSNOT" | "CONTAINSALL" | "CONTAINSANY" | "CONTAINSNONE"
 

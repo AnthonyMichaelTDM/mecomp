@@ -1,5 +1,6 @@
 ---
 source: cli/src/handlers/smoke_tests.rs
+assertion_line: 572
 expression: "String::from_utf8(stdout.0.clone()).unwrap()"
 ---
 Dynamic playlists are playlists that are generated based on a query.
@@ -17,7 +18,7 @@ The syntax for queries is as follows:
 
 <value> ::= <string> | <int> | <set> | <field>
 
-<field> ::= "title" | "artist" | "album" | "album_artist" | "genre" | "year"
+<field> ::= "title" | "artist" | "album" | "album_artist" | "genre" | "release_year"
 
 <operator> ::= "=" | "!=" | "?=" | "*=" | ">" | ">=" | "<" | "<=" | "~" | "!~" | "?~" | "*~" | "IN" | "NOT IN" | "CONTAINS" | "CONTAINSNOT" | "CONTAINSALL" | "CONTAINSANY" | "CONTAINSNONE"
 
