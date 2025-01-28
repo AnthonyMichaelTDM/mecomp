@@ -797,7 +797,7 @@ mod item_view_tests {
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire playlist──────────────────│",
             "│☐ Test Song Test Artist                                   │",
-            "│s/S: change sort | d: remove selected─────────────────────│",
+            "│s/S: sort | d: remove selected | e: edit──────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
 
@@ -828,7 +828,7 @@ mod item_view_tests {
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire playlist──────────────────│",
             "│☐ Test Song Test Artist                                   │",
-            "│s/S: change sort | d: remove selected─────────────────────│",
+            "│s/S: sort | d: remove selected | e: edit──────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
         assert_buffer_eq(&buffer, &expected);
@@ -850,7 +850,7 @@ mod item_view_tests {
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on checked items────────────────────│",
             "│☑ Test Song Test Artist                                   │",
-            "│s/S: change sort | d: remove selected─────────────────────│",
+            "│s/S: sort | d: remove selected | e: edit──────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
 
@@ -997,7 +997,7 @@ mod item_view_tests {
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire playlist──────────────────│",
             "│☐ Test Song Test Artist                                   │",
-            "│s/S: change sort | d: remove selected─────────────────────│",
+            "│s/S: sort | d: remove selected | e: edit──────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
         assert_buffer_eq(&buffer, &expected);
@@ -1025,7 +1025,7 @@ mod item_view_tests {
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on checked items────────────────────│",
             "│☑ Test Song Test Artist                                   │",
-            "│s/S: change sort | d: remove selected─────────────────────│",
+            "│s/S: sort | d: remove selected | e: edit──────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
         assert_buffer_eq(&buffer, &expected);
@@ -1052,7 +1052,7 @@ mod item_view_tests {
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire playlist──────────────────│",
             "│☐ Test Song Test Artist                                   │",
-            "│s/S: change sort | d: remove selected─────────────────────│",
+            "│s/S: sort | d: remove selected | e: edit──────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
         let buffer = terminal

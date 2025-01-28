@@ -312,7 +312,7 @@ mod tests {
             ..state_with_everything()
         });
 
-        let (mut terminal, area) = setup_test_terminal(19, 15);
+        let (mut terminal, area) = setup_test_terminal(19, 16);
         let props = RenderProps {
             area,
             is_focused: true,
