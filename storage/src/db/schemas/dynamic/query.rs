@@ -145,6 +145,11 @@ pub enum Operator {
     ContainsAll,
     ContainsAny,
     ContainsNone,
+    Inside,
+    NotInside,
+    AllInside,
+    AnyInside,
+    NoneInside,
 }
 
 pub trait Compile {
@@ -270,6 +275,11 @@ impl Compile for Operator {
             Self::ContainsAll => "CONTAINSALL".to_string(),
             Self::ContainsAny => "CONTAINSANY".to_string(),
             Self::ContainsNone => "CONTAINSNONE".to_string(),
+            Self::Inside => "INSIDE".to_string(),
+            Self::NotInside => "NOTINSIDE".to_string(),
+            Self::AllInside => "ALLINSIDE".to_string(),
+            Self::AnyInside => "ANYINSIDE".to_string(),
+            Self::NoneInside => "NONEINSIDE".to_string(),
         }
     }
 }
@@ -302,6 +312,11 @@ mod tests {
     #[case::operator(Operator::ContainsAll, "CONTAINSALL")]
     #[case::operator(Operator::ContainsAny, "CONTAINSANY")]
     #[case::operator(Operator::ContainsNone, "CONTAINSNONE")]
+    #[case::operator(Operator::Inside, "INSIDE")]
+    #[case::operator(Operator::NotInside, "NOTINSIDE")]
+    #[case::operator(Operator::AllInside, "ALLINSIDE")]
+    #[case::operator(Operator::AnyInside, "ANYINSIDE")]
+    #[case::operator(Operator::NoneInside, "NONEINSIDE")]
     #[case::field(Field::Title, "title")]
     #[case::field(Field::Artists, "artist")]
     #[case::field(Field::Album, "album")]
@@ -528,6 +543,11 @@ mod parser {
             | seq(b"?~").map(|_| Operator::AnyLike)
             | seq(b"*~").map(|_| Operator::AllLike)
             | seq(b"~").map(|_| Operator::Like)
+            | seq(b"NOTINSIDE").map(|_| Operator::NotInside)
+            | seq(b"ALLINSIDE").map(|_| Operator::AllInside)
+            | seq(b"ANYINSIDE").map(|_| Operator::AnyInside)
+            | seq(b"NONEINSIDE").map(|_| Operator::NoneInside)
+            | seq(b"INSIDE").map(|_| Operator::Inside)
             | seq(b"NOT IN").map(|_| Operator::NotIn)
             | seq(b"IN").map(|_| Operator::In)
             | seq(b"CONTAINSNOT").map(|_| Operator::ContainsNot)
@@ -596,6 +616,11 @@ mod parser {
         #[case(Ok(Operator::NotLike), "!~")]
         #[case(Ok(Operator::AnyLike), "?~")]
         #[case(Ok(Operator::AllLike), "*~")]
+        #[case(Ok(Operator::Inside), "INSIDE")]
+        #[case(Ok(Operator::NotInside), "NOTINSIDE")]
+        #[case(Ok(Operator::AllInside), "ALLINSIDE")]
+        #[case(Ok(Operator::AnyInside), "ANYINSIDE")]
+        #[case(Ok(Operator::NoneInside), "NONEINSIDE")]
         #[case(Ok(Operator::In), "IN")]
         #[case(Ok(Operator::NotIn), "NOT IN")]
         #[case(Ok(Operator::Contains), "CONTAINS")]
