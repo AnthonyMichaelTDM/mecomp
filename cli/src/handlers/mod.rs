@@ -433,6 +433,8 @@ pub enum DynamicCommand {
         #[clap(flatten)]
         update: DynamicUpdate,
     },
+    /// Get the BNF Grammar for queries
+    ShowBNF,
 }
 
 #[derive(Debug, clap::Args, PartialEq, Eq)]

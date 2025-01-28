@@ -553,6 +553,7 @@ async fn test_playlist_create(#[future] client: MusicPlayerClient) {
         query: Some("title = \"Test Song\"".parse().unwrap()),
     },
 })]
+#[case(DynamicCommand::ShowBNF)]
 #[tokio::test]
 async fn test_dynamic_playlist_command(
     #[future] client: MusicPlayerClient,

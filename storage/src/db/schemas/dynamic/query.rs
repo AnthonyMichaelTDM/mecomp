@@ -7,7 +7,7 @@
 //!
 //! <clause> ::= <compound> | <leaf>
 //!
-//! <compound> ::= (<clause> (" OR " | " AND ") <clause> { (" OR " | " AND ") <clause> })
+//! <compound> ::= (<clause> (" OR " | " AND ") <clause>)
 //!
 //! <leaf> ::= <value> <operator> <value>
 //!
@@ -15,13 +15,15 @@
 //!
 //! <field> ::= "title" | "artist" | "album" | "album_artist" | "genre" | "year"
 //!
-//! <operator> ::= "=" | "!=" | "?=" | "*=" | ">" | ">=" | "<" | "<=" | "~" | "!~" | "?~" | "*~" | "IN" | "NOT IN" | "CONTAINS" | "CONTAINS NOT" | "CONTAINS ALL" | "CONTAINS ANY" | "CONTAINS NONE"
+//! <operator> ::= "=" | "!=" | "?=" | "*=" | ">" | ">=" | "<" | "<=" | "~" | "!~" | "?~" | "*~" | "IN" | "NOT IN" | "CONTAINS" | "CONTAINSNOT" | "CONTAINSALL" | "CONTAINSANY" | "CONTAINSNONE"
 //!
-//! <string> ::= '"' <char> { <char> } '"' | '"' '"'
-//!
-//! <int> ::= <digit> { <digit> }
+//! <string> ::= <quote> { <char> } <quote>
 //!
 //! <set> ::= '[' <value> { ", " <value> } ']' | '[' ']'
+//!
+//! <quote> ::= '"' | "'"
+//!
+//! <int> ::= <digit> { <digit> }
 //! ```
 //!
 //! We will use this grammar as a reference to implement the parser, which we will do using the `pom` crate.
@@ -536,19 +538,24 @@ mod parser {
     }
 
     pub fn string<'a>() -> Parser<'a, u8, String> {
-        let special_char = sym(b'\\')
-            | sym(b'/')
-            | sym(b'"')
-            | sym(b'b').map(|_| b'\x08')
-            | sym(b'f').map(|_| b'\x0C')
-            | sym(b'n').map(|_| b'\n')
-            | sym(b'r').map(|_| b'\r')
-            | sym(b't').map(|_| b'\t');
-        let escape_sequence = sym(b'\\') * special_char;
-        let char_string = (none_of(b"\\\"") | escape_sequence)
-            .repeat(1..)
-            .convert(String::from_utf8);
-        let string = sym(b'"') * (char_string).repeat(0..) - sym(b'"');
+        let string_pf = |quote_sym| {
+            let special_char = sym(b'\\')
+                | sym(b'/')
+                | sym(b'"')
+                | sym(b'\'')
+                | sym(b'b').map(|_| b'\x08')
+                | sym(b'f').map(|_| b'\x0C')
+                | sym(b'n').map(|_| b'\n')
+                | sym(b'r').map(|_| b'\r')
+                | sym(b't').map(|_| b'\t');
+            let escape_sequence = sym(b'\\') * special_char;
+            let char_string = (none_of(b"\\\"") | escape_sequence)
+                .repeat(1..)
+                .convert(String::from_utf8);
+
+            sym(quote_sym) * char_string.repeat(0..) - sym(quote_sym)
+        };
+        let string = string_pf(b'"') | string_pf(b'\'');
         string.map(|strings| strings.concat())
     }
 

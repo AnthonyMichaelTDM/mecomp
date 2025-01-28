@@ -881,6 +881,34 @@ impl CommandHandler for super::PlaylistAddCommand {
     }
 }
 
+static BNF_GRAMMER: &str = r#"Dynamic playlists are playlists that are generated based on a query.
+
+The syntax for queries is as follows:
+
+```bnf
+<query> ::= <clause>
+
+<clause> ::= <compound> | <leaf>
+
+<compound> ::= (<clause> (" OR " | " AND ") <clause>)
+
+<leaf> ::= <value> <operator> <value>
+
+<value> ::= <string> | <int> | <set> | <field>
+
+<field> ::= "title" | "artist" | "album" | "album_artist" | "genre" | "year"
+
+<operator> ::= "=" | "!=" | "?=" | "*=" | ">" | ">=" | "<" | "<=" | "~" | "!~" | "?~" | "*~" | "IN" | "NOT IN" | "CONTAINS" | "CONTAINSNOT" | "CONTAINSALL" | "CONTAINSANY" | "CONTAINSNONE"
+
+<string> ::= <quote> {{ <char> }} <quote>
+
+<set> ::= '[' <value> {{ ", " <value> }} ']' | '[' ']'
+
+<quote> ::= '"' | "'"
+
+<int> ::= <digit> {{ <digit> }}
+```"#;
+
 impl CommandHandler for super::DynamicCommand {
     type Output = anyhow::Result<()>;
 
@@ -981,6 +1009,10 @@ impl CommandHandler for super::DynamicCommand {
                     stdout,
                     "Daemon response:\nDynamic Playlist updated\n{resp:?}"
                 )?;
+                Ok(())
+            }
+            Self::ShowBNF => {
+                writeln!(stdout, "{BNF_GRAMMER}")?;
                 Ok(())
             }
         }
