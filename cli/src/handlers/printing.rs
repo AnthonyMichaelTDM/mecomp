@@ -188,7 +188,7 @@ pub fn dynamic_playlist_list(
             "\t{}: \"{}\" ({})",
             playlist.id,
             playlist.name,
-            playlist.query.compile()
+            playlist.query.compile_for_storage()
         )?;
     }
 

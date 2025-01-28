@@ -32,6 +32,22 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
+/// Contexts where the query can be used.
+///
+/// Used to enable queries to compile differently based on the context, for example when we compile it to store in the database we want to be able to parse it back into a Query,
+/// but when we compile it to run in the database we may want certain things to be compiled differently.
+/// Specifically, we want `OneOrMany` fields like `artist` to compile to `array::flatten([artist][? $this])` in the database query but just `artist` for storage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Context {
+    /// We are compiling the query to for storage or transport, this is the default context.
+    /// Queries compiled in this context can be parsed back into a `Query`.
+    #[default]
+    Storage,
+    /// We are compiling the query to run in the database.
+    /// Queries compiled in this context are not expected to be parsed back into a `Query`.
+    Execution,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// The query that generates the list of songs for a dynamic playlist.
 pub struct Query {
@@ -43,7 +59,7 @@ impl Serialize for Query {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.compile())
+        serializer.serialize_str(&self.compile_for_storage())
     }
 }
 
@@ -153,7 +169,15 @@ pub enum Operator {
 }
 
 pub trait Compile {
-    fn compile(&self) -> String;
+    fn compile(&self, context: Context) -> String;
+
+    fn compile_for_storage(&self) -> String {
+        self.compile(Context::Storage)
+    }
+
+    fn compile_for_execution(&self) -> String {
+        self.compile(Context::Execution)
+    }
 }
 
 macro_rules! impl_display {
@@ -161,7 +185,7 @@ macro_rules! impl_display {
         $(
             impl std::fmt::Display for $t {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    write!(f, "{}", self.compile())
+                    write!(f, "{}", self.compile_for_storage())
                 }
             }
         )*
@@ -178,22 +202,22 @@ impl_display!(
 );
 
 impl Compile for Query {
-    fn compile(&self) -> String {
-        self.root.compile()
+    fn compile(&self, context: Context) -> String {
+        self.root.compile(context)
     }
 }
 
 impl Compile for Clause {
-    fn compile(&self) -> String {
+    fn compile(&self, context: Context) -> String {
         match self {
-            Self::Compound(compound) => compound.compile(),
-            Self::Leaf(leaf) => leaf.compile(),
+            Self::Compound(compound) => compound.compile(context),
+            Self::Leaf(leaf) => leaf.compile(context),
         }
     }
 }
 
 impl Compile for CompoundClause {
-    fn compile(&self) -> String {
+    fn compile(&self, context: Context) -> String {
         debug_assert!(!self.clauses.is_empty());
         debug_assert_eq!(self.clauses.len(), 2);
 
@@ -201,7 +225,7 @@ impl Compile for CompoundClause {
         let mut clauses = self
             .clauses
             .iter()
-            .map(Compile::compile)
+            .map(|c| c.compile(context))
             .collect::<Vec<_>>()
             .join(operator);
         if self.clauses.len() > 1 {
@@ -212,49 +236,54 @@ impl Compile for CompoundClause {
 }
 
 impl Compile for LeafClause {
-    fn compile(&self) -> String {
+    fn compile(&self, context: Context) -> String {
         format!(
             "{} {} {}",
-            self.left.compile(),
-            self.operator.compile(),
-            self.right.compile()
+            self.left.compile(context),
+            self.operator.compile(context),
+            self.right.compile(context)
         )
     }
 }
 
 impl Compile for Value {
-    fn compile(&self) -> String {
+    fn compile(&self, context: Context) -> String {
         match self {
             Self::String(s) => format!("\"{s}\""),
             Self::Int(i) => i.to_string(),
             Self::Set(set) => {
                 let set = set
                     .iter()
-                    .map(Compile::compile)
+                    .map(|v| v.compile(context))
                     .collect::<Vec<_>>()
                     .join(", ");
                 format!("[{set}]")
             }
-            Self::Field(field) => field.compile(),
+            Self::Field(field) => field.compile(context),
         }
     }
 }
 
 impl Compile for Field {
-    fn compile(&self) -> String {
-        match self {
-            Self::Title => "title".to_string(),
-            Self::Artists => "artist".to_string(),
-            Self::Album => "album".to_string(),
-            Self::AlbumArtists => "album_artist".to_string(),
-            Self::Genre => "genre".to_string(),
-            Self::ReleaseYear => "release_year".to_string(),
+    fn compile(&self, context: Context) -> String {
+        match (self, context) {
+            (Self::Title, _) => "title".to_string(),
+            (Self::Album, _) => "album".to_string(),
+            (Self::Artists, Context::Storage) => "artist".to_string(),
+            (Self::Artists, Context::Execution) => "array::flatten([artist][? $this])".to_string(),
+            (Self::AlbumArtists, Context::Storage) => "album_artist".to_string(),
+            (Self::AlbumArtists, Context::Execution) => {
+                "array::flatten([album_artist][? $this])".to_string()
+            }
+            (Self::Genre, Context::Storage) => "genre".to_string(),
+            (Self::Genre, Context::Execution) => "array::flatten([genre][? $this])".to_string(),
+            (Self::ReleaseYear, _) => "release_year".to_string(),
         }
     }
 }
 
 impl Compile for Operator {
-    fn compile(&self) -> String {
+    fn compile(&self, _: Context) -> String {
         match self {
             Self::Equal => "=".to_string(),
             Self::NotEqual => "!=".to_string(),
@@ -425,7 +454,7 @@ mod tests {
 
     #[apply(compilables)]
     fn test_compile<T: Compile>(#[case] input: T, #[case] expected: &str) {
-        let compiled = input.compile();
+        let compiled = input.compile(Context::Storage);
         assert_eq!(compiled, expected);
     }
 
@@ -598,6 +627,8 @@ mod parser {
 
     #[cfg(test)]
     mod tests {
+        use crate::db::schemas::dynamic::query::Context;
+
         use super::super::Compile;
         use super::*;
         use pretty_assertions::assert_eq;
@@ -636,7 +667,7 @@ mod parser {
             let parsed = operator().parse(s.as_bytes());
             assert_eq!(parsed, expected);
             if let Ok(operator) = parsed {
-                let compiled = operator.compile();
+                let compiled = operator.compile(Context::Storage);
                 assert_eq!(compiled, s);
             }
         }
@@ -653,7 +684,7 @@ mod parser {
             let parsed = field().parse(s.as_bytes());
             assert_eq!(parsed, expected);
             if let Ok(field) = parsed {
-                let compiled = field.compile();
+                let compiled = field.compile(Context::Storage);
                 assert_eq!(compiled, s);
             }
         }
@@ -682,7 +713,7 @@ mod parser {
             let parsed = value().parse(s.as_bytes());
             assert_eq!(parsed, expected);
             if let Ok(value) = parsed {
-                let compiled = value.compile();
+                let compiled = value.compile(Context::Storage);
                 assert_eq!(compiled, s);
             }
         }
@@ -731,7 +762,7 @@ mod parser {
             let parsed = leaf().parse(s.as_bytes());
             assert_eq!(parsed, expected);
             if let Ok(clause) = parsed {
-                let compiled = clause.compile();
+                let compiled = clause.compile(Context::Storage);
                 assert_eq!(compiled, s);
             }
         }
@@ -776,7 +807,7 @@ mod parser {
             let parsed = compound().parse(s.as_bytes());
             assert_eq!(parsed, expected);
             if let Ok(clause) = parsed {
-                let compiled = clause.compile();
+                let compiled = clause.compile(Context::Storage);
                 assert_eq!(compiled, s);
             }
         }
@@ -826,7 +857,7 @@ mod parser {
             let parsed = query().parse(s.as_bytes());
             assert_eq!(parsed, expected);
             if let Ok(query) = parsed {
-                let compiled = query.compile();
+                let compiled = query.compile(Context::Storage);
                 assert_eq!(compiled, s);
             }
         }

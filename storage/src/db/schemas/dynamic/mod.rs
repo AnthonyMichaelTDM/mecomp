@@ -51,10 +51,10 @@ impl DynamicPlaylist {
 
         format!(
             // This query would make "artist ANYINSIDE ['foo', 'bar']" type queries work, but breaks almost everything else
-            // "SELECT * FROM (SELECT id, title, album, track, disc, path, extension, release_year, runtime, array::flatten(array::flatten([artist OR []])) AS artist, array::flatten(array::flatten([album_artist OR []])) AS album_artist, array::flatten(array::flatten([genre OR []])) AS genre FROM {table_name}) WHERE {conditions};",
+            // "SELECT * FROM (SELECT id, title, album, track, disc, path, extension, release_year, runtime, array::flatten([artist][? $this]) AS artist, array::flatten([album_artist][? $this]) AS album_artist, array::flatten([genre][? $this]) AS genre FROM {table_name}) WHERE {conditions};",
             "SELECT * FROM {table_name} WHERE {conditions};",
             table_name = super::song::TABLE_NAME,
-            conditions = self.query.compile()
+            conditions = self.query.compile(query::Context::Execution)
         )
     }
 }
@@ -101,6 +101,7 @@ mod tests {
 #[cfg(all(test, feature = "db"))]
 mod query_tests {
     use super::*;
+    use pretty_assertions::assert_eq;
     use query::{Clause, CompoundClause, CompoundKind, Field, LeafClause, Operator, Value};
     use rstest::rstest;
 
@@ -111,6 +112,7 @@ mod query_tests {
             operator: Operator::Equal,
             right: Value::String("foo".to_string())
         })},
+        "SELECT * FROM song WHERE title = 'foo';"
     )]
     #[case::leaf_clause(
         Query { root: Clause::Leaf(LeafClause {
@@ -118,6 +120,7 @@ mod query_tests {
             operator: Operator::Contains,
             right: Value::Int(42)
         })},
+        "SELECT * FROM song WHERE [\"foo\", 42] CONTAINS 42;"
     )]
     #[case::compound_clause(
         Query { root: Clause::Compound( CompoundClause {
@@ -129,12 +132,13 @@ mod query_tests {
                 }),
                 Clause::Leaf(LeafClause {
                     left: Value::Field(Field::Artists),
-                    operator: Operator::Equal,
+                    operator: Operator::Contains,
                     right: Value::String("bar".to_string())
                 }),
             ],
             kind: CompoundKind::And
         })},
+        "SELECT * FROM song WHERE (title = \"foo\" AND array::flatten([artist][? $this]) CONTAINS \"bar\");"
     )]
     #[case::compound_clause(
         Query { root: Clause::Compound(CompoundClause {
@@ -146,12 +150,13 @@ mod query_tests {
                 }),
                 Clause::Leaf(LeafClause {
                     left: Value::Field(Field::Artists),
-                    operator: Operator::Equal,
+                    operator: Operator::Contains,
                     right: Value::String("bar".to_string())
                 }),
             ],
             kind: CompoundKind::Or
         })},
+        "SELECT * FROM song WHERE (title = \"foo\" OR array::flatten([artist][? $this]) CONTAINS \"bar\");"
     )]
     #[case::query(
         Query {
@@ -161,20 +166,20 @@ mod query_tests {
                         CompoundClause {
                             clauses: vec![
                                 Clause::Leaf(LeafClause {
-                                    left: Value::Field(Field::Title),
-                                    operator: Operator::Equal,
-                                    right: Value::String("foo".to_string())
+                                    left: Value::Field(Field::Artists),
+                                    operator: Operator::AnyInside,
+                                    right: Value::Set(vec![Value::String("foo".to_string()), Value::String("bar".to_string())])
                                 }),
                                 Clause::Compound(CompoundClause {
                                     clauses: vec![
                                         Clause::Leaf(LeafClause {
-                                            left: Value::Field(Field::Artists),
-                                            operator: Operator::Equal,
+                                            left: Value::Field(Field::AlbumArtists),
+                                            operator: Operator::Contains,
                                             right: Value::String("bar".to_string())
                                         }),
                                         Clause::Leaf(LeafClause {
-                                            left: Value::Field(Field::Album),
-                                            operator: Operator::Equal,
+                                            left: Value::Field(Field::Genre),
+                                            operator: Operator::AnyLike,
                                             right: Value::String("baz".to_string())
                                         }),
                                     ],
@@ -193,14 +198,18 @@ mod query_tests {
                 kind: CompoundKind::And
             })
         },
+        "SELECT * FROM song WHERE ((array::flatten([artist][? $this]) ANYINSIDE [\"foo\", \"bar\"] AND (array::flatten([album_artist][? $this]) CONTAINS \"bar\" OR array::flatten([genre][? $this])  ?~ \"baz\")) AND release_year > 2020);"
     )]
-    fn test_compile(#[case] query: Query) {
+    fn test_compile(#[case] query: Query, #[case] expected: impl IntoQuery) {
         let dynamic_playlist = DynamicPlaylist {
             id: DynamicPlaylist::generate_id(),
             name: Arc::from("test"),
             query,
         };
 
-        assert!(dynamic_playlist.get_query().into_query().is_ok());
+        let compiled = dynamic_playlist.get_query().into_query();
+
+        assert!(compiled.is_ok());
+        assert_eq!(compiled.unwrap(), expected.into_query().unwrap());
     }
 }
