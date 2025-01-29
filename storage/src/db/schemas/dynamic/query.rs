@@ -381,14 +381,14 @@ mod tests {
                     right: Value::String("foo".to_string())
                 }),
                 Clause::Leaf(LeafClause {
-                    left: Value::Field(Field::Artists),
-                    operator: Operator::Equal,
-                    right: Value::String("bar".to_string())
+                    left: Value::String("bar".to_string()),
+                    operator: Operator::Inside,
+                    right: Value::Field(Field::Artists),
                 }),
             ],
             kind: CompoundKind::And
         },
-        "(title = \"foo\" AND artist = \"bar\")"
+        "(title = \"foo\" AND \"bar\" INSIDE artist)"
     )]
     #[case::compound_clause(
         CompoundClause {
@@ -400,13 +400,13 @@ mod tests {
                 }),
                 Clause::Leaf(LeafClause {
                     left: Value::Field(Field::Artists),
-                    operator: Operator::Equal,
+                    operator: Operator::Contains,
                     right: Value::String("bar".to_string())
                 }),
             ],
             kind: CompoundKind::Or
         },
-        "(title = \"foo\" OR artist = \"bar\")"
+        "(title = \"foo\" OR artist CONTAINS \"bar\")"
     )]
     #[case::query(
         Query {
@@ -424,7 +424,7 @@ mod tests {
                                     clauses: vec![
                                         Clause::Leaf(LeafClause {
                                             left: Value::Field(Field::Artists),
-                                            operator: Operator::Equal,
+                                            operator: Operator::ContainsNot,
                                             right: Value::String("bar".to_string())
                                         }),
                                         Clause::Leaf(LeafClause {
@@ -448,7 +448,7 @@ mod tests {
                 kind: CompoundKind::And
             })
         },
-        "((title = \"foo\" AND (artist = \"bar\" OR album = \"baz\")) AND release_year > 2020)"
+        "((title = \"foo\" AND (artist CONTAINSNOT \"bar\" OR album = \"baz\")) AND release_year > 2020)"
     )]
     fn compilables<T: Compile>(#[case] input: T, #[case] expected: &str) {}
 
@@ -504,20 +504,20 @@ impl_from_str!(
 mod parser {
     use std::str::FromStr;
 
-    use pom::parser::{call, list, none_of, one_of, seq, sym, Parser};
+    use pom::parser::{call, end, list, none_of, one_of, seq, sym, Parser};
 
     use super::{Clause, CompoundClause, CompoundKind, Field, LeafClause, Operator, Query, Value};
 
     pub fn query<'a>() -> Parser<'a, u8, Query> {
-        clause().map(|root| Query { root })
+        clause().map(|root| Query { root }).name("query") - end()
     }
 
     pub fn clause<'a>() -> Parser<'a, u8, Clause> {
-        compound().map(Clause::Compound) | leaf().map(Clause::Leaf)
+        compound().map(Clause::Compound) | leaf().map(Clause::Leaf).name("clause")
     }
 
     pub fn compound<'a>() -> Parser<'a, u8, CompoundClause> {
-        sym(b'(')
+        (sym(b'(')
             * space()
             * (call(clause) - space() + (seq(b"AND") | seq(b"OR")) - space() + call(clause)).map(
                 |((left, sep), right)| CompoundClause {
@@ -530,7 +530,8 @@ mod parser {
                 },
             )
             - space()
-            - sym(b')')
+            - sym(b')'))
+        .name("compound clause")
     }
 
     pub fn leaf<'a>() -> Parser<'a, u8, LeafClause> {
@@ -544,23 +545,25 @@ mod parser {
     }
 
     pub fn value<'a>() -> Parser<'a, u8, Value> {
-        string().map(Value::String)
+        (string().map(Value::String)
             | int().map(Value::Int)
             | set().map(Value::Set)
-            | field().map(Value::Field)
+            | field().map(Value::Field))
+        .name("value")
     }
 
     pub fn field<'a>() -> Parser<'a, u8, Field> {
-        seq(b"title").map(|_| Field::Title)
+        (seq(b"title").map(|_| Field::Title)
             | seq(b"artist").map(|_| Field::Artists)
             | seq(b"album_artist").map(|_| Field::AlbumArtists)
             | seq(b"album").map(|_| Field::Album)
             | seq(b"genre").map(|_| Field::Genre)
-            | seq(b"release_year").map(|_| Field::ReleaseYear)
+            | seq(b"release_year").map(|_| Field::ReleaseYear))
+        .name("field")
     }
 
     pub fn operator<'a>() -> Parser<'a, u8, Operator> {
-        seq(b"!=").map(|_| Operator::NotEqual)
+        (seq(b"!=").map(|_| Operator::NotEqual)
             | seq(b"?=").map(|_| Operator::AnyEqual)
             | seq(b"*=").map(|_| Operator::AllEqual)
             | seq(b"=").map(|_| Operator::Equal)
@@ -583,7 +586,8 @@ mod parser {
             | seq(b"CONTAINSALL").map(|_| Operator::ContainsAll)
             | seq(b"CONTAINSANY").map(|_| Operator::ContainsAny)
             | seq(b"CONTAINSNONE").map(|_| Operator::ContainsNone)
-            | seq(b"CONTAINS").map(|_| Operator::Contains)
+            | seq(b"CONTAINS").map(|_| Operator::Contains))
+        .name("operator")
     }
 
     pub fn string<'a>() -> Parser<'a, u8, String> {
@@ -605,7 +609,7 @@ mod parser {
             sym(quote_sym) * char_string.repeat(0..) - sym(quote_sym)
         };
         let string = string_pf(b'"') | string_pf(b'\'');
-        string.map(|strings| strings.concat())
+        string.map(|strings| strings.concat()).name("string")
     }
 
     pub fn int<'a>() -> Parser<'a, u8, i64> {
@@ -614,15 +618,16 @@ mod parser {
             .collect()
             .convert(std::str::from_utf8)
             .convert(i64::from_str)
+            .name("int")
     }
 
     pub fn set<'a>() -> Parser<'a, u8, Vec<Value>> {
         let elems = list(call(value), sym(b',') * space());
-        sym(b'[') * space() * elems - sym(b']')
+        (sym(b'[') * space() * elems - sym(b']')).name("set")
     }
 
     pub fn space<'a>() -> Parser<'a, u8, ()> {
-        one_of(b" \t\r\n").repeat(0..).discard()
+        one_of(b" \t\r\n").repeat(0..).discard().name("space")
     }
 
     #[cfg(test)]
@@ -659,7 +664,10 @@ mod parser {
         #[case(Ok(Operator::ContainsAll), "CONTAINSALL")]
         #[case(Ok(Operator::ContainsAny), "CONTAINSANY")]
         #[case(Ok(Operator::ContainsNone), "CONTAINSNONE")]
-        #[case(Err(pom::Error::Mismatch { message: "seq [67, 79, 78, 84, 65, 73, 78, 83] expect: 67, found: 105".to_string(), position: 0 }), "invalid")]
+        #[case(
+            Err(pom::Error::Custom { message: "failed to parse operator".to_string(), position:0, inner: Some(Box::new(pom::Error::Mismatch { message: "seq [67, 79, 78, 84, 65, 73, 78, 83] expect: 67, found: 105".to_string(), position: 0 }))}),
+            "invalid"
+        )]
         fn test_operator_parse_compile(
             #[case] expected: Result<Operator, pom::Error>,
             #[case] s: &str,
@@ -679,7 +687,7 @@ mod parser {
         #[case(Ok(Field::AlbumArtists), "album_artist")]
         #[case(Ok(Field::Genre), "genre")]
         #[case(Ok(Field::ReleaseYear), "release_year")]
-        #[case(Err(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 105".to_string(), position: 0 }), "invalid")]
+        #[case(Err(pom::Error::Custom{ message: "failed to parse field".to_string(), position:0, inner: Some(Box::new(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 105".to_string(), position: 0 }))}), "invalid")]
         fn test_field_parse_compile(#[case] expected: Result<Field, pom::Error>, #[case] s: &str) {
             let parsed = field().parse(s.as_bytes());
             assert_eq!(parsed, expected);
@@ -706,9 +714,9 @@ mod parser {
         #[case(Ok(Value::Field(Field::AlbumArtists)), "album_artist")]
         #[case(Ok(Value::Field(Field::Genre)), "genre")]
         #[case(Ok(Value::Field(Field::ReleaseYear)), "release_year")]
-        #[case(Err(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 34".to_string(), position: 0 }), "\"foo")]
-        #[case(Err(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 91".to_string(), position: 0 }), "[foo, 42")]
-        #[case(Err(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 105".to_string(), position: 0 }), "invalid")]
+        #[case(Err(pom::Error::Custom {message: "failed to parse field".to_string(), position: 0, inner: Some(Box::new(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 34".to_string(), position: 0 }))}), "\"foo")]
+        #[case(Err(pom::Error::Custom {message: "failed to parse field".to_string(), position: 0, inner: Some(Box::new(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 91".to_string(), position: 0 }))}), "[foo, 42")]
+        #[case(Err(pom::Error::Custom {message: "failed to parse field".to_string(), position: 0, inner: Some(Box::new(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 105".to_string(), position: 0 }))}), "invalid")]
         fn test_value_parse_compile(#[case] expected: Result<Value, pom::Error>, #[case] s: &str) {
             let parsed = value().parse(s.as_bytes());
             assert_eq!(parsed, expected);
@@ -732,18 +740,25 @@ mod parser {
         }), "title = 42")]
         #[case(Ok(LeafClause {
             left: Value::Field(Field::Title),
-            operator: Operator::Equal,
+            operator: Operator::Inside,
             right: Value::Set(vec![Value::String("foo".to_string()), Value::Int(42)])
-        }), "title = [\"foo\", 42]")]
-        #[case(Ok(LeafClause {
-            left: Value::Field(Field::Title),
-            operator: Operator::Equal,
-            right: Value::Field(Field::Artists)
-        }), "title = artist")]
-        #[case(Err(pom::Error::Incomplete), "title")]
-        #[case(Err(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 32".to_string(), position: 0 }), " = \"foo\"")]
-        #[case(Err(pom::Error::Incomplete), "title = ")]
-        #[case(Err(pom::Error::Mismatch { message: "seq [67, 79, 78, 84, 65, 73, 78, 83] expect: 67, found: 105".to_string(), position: 6 }), "title invalid \"foo\"")]
+        }), "title INSIDE [\"foo\", 42]")]
+        #[case(Err(
+            pom::Error::Custom {
+                message: "failed to parse leaf clause".to_string(),
+                position: 0,
+                inner: Some(Box::new(pom::Error::
+                    Conversion {
+                        message: "Conversion error: Conversion { message: \"Invalid operator (=) for values: Field(Title), Field(Artists)\", position: 0 }".to_string(),
+                        position: 0,
+                    }
+                )),
+            }
+        ), "title = artist")]
+        #[case(Err(pom::Error::Custom{message:"failed to parse operator".to_string(),position:5, inner:Some(Box::new(pom::Error::Incomplete))}), "title")]
+        #[case(Err(pom::Error::Custom{message: "failed to parse field".to_string(),position: 0, inner: Some(Box::new(pom::Error:: Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 32".to_string(), position: 0 }))}), " = \"foo\"")]
+        #[case(Err(pom::Error::Custom{message:"failed to parse field".to_string(),position:8, inner:Some(Box::new(pom::Error::Incomplete))}), "title = ")]
+        #[case(Err(pom::Error::Custom{message: "failed to parse operator".to_string(),position: 6, inner: Some(Box::new(pom::Error:: Mismatch { message: "seq [67, 79, 78, 84, 65, 73, 78, 83] expect: 67, found: 105".to_string(), position: 6 }))}), "title invalid \"foo\"")]
         // special cases
         #[case::left_has_spaces(Ok(LeafClause {
                 left: Value::String("foo bar".to_string()),
@@ -778,12 +793,12 @@ mod parser {
                 }),
                 Clause::Leaf(LeafClause {
                     left: Value::Field(Field::Artists),
-                    operator: Operator::Equal,
+                    operator: Operator::AllLike,
                     right: Value::String("bar".to_string())
                 }),
             ],
             kind: CompoundKind::And
-        }), "(title = \"foo\" AND artist = \"bar\")")]
+        }), "(title = \"foo\" AND artist *~ \"bar\")")]
         #[case(Ok(CompoundClause {
             clauses: vec![
                 Clause::Leaf(LeafClause {
@@ -793,13 +808,13 @@ mod parser {
                 }),
                 Clause::Leaf(LeafClause {
                     left: Value::Field(Field::Artists),
-                    operator: Operator::Equal,
+                    operator: Operator::AnyLike,
                     right: Value::String("bar".to_string())
                 }),
             ],
             kind: CompoundKind::Or
-        }), "(title = \"foo\" OR artist = \"bar\")")]
-        #[case(Err(pom::Error::Incomplete), "(title = \"foo\"")]
+        }), "(title = \"foo\" OR artist ?~ \"bar\")")]
+        #[case(Err(pom::Error::Custom { message: "failed to parse compound clause".to_string(), position: 0, inner: Some(Box::new(pom::Error::Incomplete))}), "(title = \"foo\"")]
         fn test_compound_clause_parse(
             #[case] expected: Result<CompoundClause, pom::Error>,
             #[case] s: &str,
@@ -829,7 +844,7 @@ mod parser {
                                     clauses: vec![
                                         Clause::Leaf(LeafClause {
                                             left: Value::Field(Field::Artists),
-                                            operator: Operator::Equal,
+                                            operator: Operator::Contains,
                                             right: Value::String("bar".to_string())
                                         }),
                                         Clause::Leaf(LeafClause {
@@ -852,7 +867,7 @@ mod parser {
                 ],
                 kind: CompoundKind::And
             })
-        },), "((title = \"foo\" AND (artist = \"bar\" OR album = \"baz\")) AND release_year > 2020)")]
+        },), "((title = \"foo\" AND (artist CONTAINS \"bar\" OR album = \"baz\")) AND release_year > 2020)")]
         fn test_query_parse(#[case] expected: Result<Query, pom::Error>, #[case] s: &str) {
             let parsed = query().parse(s.as_bytes());
             assert_eq!(parsed, expected);
