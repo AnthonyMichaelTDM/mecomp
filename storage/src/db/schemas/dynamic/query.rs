@@ -115,6 +115,88 @@ pub struct LeafClause {
     pub right: Value,
 }
 
+impl LeafClause {
+    #[must_use]
+    pub const fn has_valid_operator(&self) -> bool {
+        match (&self.left, &self.right) {
+            // Value to Value comparison
+            // special case: strings
+            (
+                Value::String(_) | Value::Field(Field::Album | Field::Title),
+                Value::String(_) | Value::Field(Field::Album | Field::Title),
+            ) if matches!(
+                self.operator,
+                Operator::Contains
+                    | Operator::ContainsNot
+                    | Operator::Inside
+                    | Operator::NotInside
+                    | Operator::In
+                    | Operator::NotIn
+            ) =>
+            {
+                true
+            }
+            (
+                Value::String(_)
+                | Value::Int(_)
+                | Value::Field(Field::Album | Field::ReleaseYear | Field::Title),
+                Value::String(_)
+                | Value::Int(_)
+                | Value::Field(Field::Album | Field::ReleaseYear | Field::Title),
+            ) => matches!(
+                self.operator,
+                Operator::Equal
+                    | Operator::NotEqual
+                    | Operator::Like
+                    | Operator::NotLike
+                    | Operator::LessThan
+                    | Operator::LessThanOrEqual
+                    | Operator::GreaterThan
+                    | Operator::GreaterThanOrEqual,
+            ),
+            // Value to Set comparison
+            (
+                Value::String(_)
+                | Value::Int(_)
+                | Value::Field(Field::Album | Field::ReleaseYear | Field::Title),
+                Value::Set(_) | Value::Field(Field::AlbumArtists | Field::Artists | Field::Genre),
+            ) => matches!(
+                self.operator,
+                Operator::Inside | Operator::NotInside | Operator::In | Operator::NotIn
+            ),
+            // Set to Value comparison
+            (
+                Value::Set(_) | Value::Field(Field::AlbumArtists | Field::Artists | Field::Genre),
+                Value::String(_)
+                | Value::Int(_)
+                | Value::Field(Field::Album | Field::ReleaseYear | Field::Title),
+            ) => matches!(
+                self.operator,
+                Operator::Contains
+                    | Operator::ContainsNot
+                    | Operator::AllEqual
+                    | Operator::AnyEqual
+                    | Operator::AllLike
+                    | Operator::AnyLike
+            ),
+            // Set to Set comparison
+            (
+                Value::Set(_) | Value::Field(Field::AlbumArtists | Field::Artists | Field::Genre),
+                Value::Set(_) | Value::Field(Field::AlbumArtists | Field::Artists | Field::Genre),
+            ) => matches!(
+                self.operator,
+                Operator::Contains
+                    | Operator::ContainsAll
+                    | Operator::ContainsAny
+                    | Operator::ContainsNone
+                    | Operator::AllInside
+                    | Operator::AnyInside
+                    | Operator::NoneInside
+            ),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// The types of values that can be used in a clause.
 pub enum Value {
@@ -535,13 +617,28 @@ mod parser {
     }
 
     pub fn leaf<'a>() -> Parser<'a, u8, LeafClause> {
-        (value() - space() + operator() - space() + value()).map(|((left, operator), right)| {
-            LeafClause {
-                left,
-                operator,
-                right,
-            }
-        })
+        (value() - space() + operator() - space() + value())
+            .convert(|((left, operator), right)| {
+                let parsed = LeafClause {
+                    left,
+                    operator,
+                    right,
+                };
+                if parsed.has_valid_operator() {
+                    Ok(parsed)
+                } else {
+                    Err(pom::Error::Conversion {
+                        position: 0,
+                        message: format!(
+                            "Invalid operator ({op}) for values: {left:?}, {right:?}",
+                            left = parsed.left,
+                            op = parsed.operator,
+                            right = parsed.right
+                        ),
+                    })
+                }
+            })
+            .name("leaf clause")
     }
 
     pub fn value<'a>() -> Parser<'a, u8, Value> {
@@ -780,6 +877,41 @@ mod parser {
                 let compiled = clause.compile(Context::Storage);
                 assert_eq!(compiled, s);
             }
+        }
+
+        #[rstest]
+        #[case::value_to_value("artist = \"foo\"", Err(pom::Error::Custom {message:"failed to parse leaf clause".to_string(), position: 0, inner: Some(Box::new(pom::Error::Conversion { position: 0, message: "Conversion error: Conversion { message: \"Invalid operator (=) for values: Field(Artists), String(\\\"foo\\\")\", position: 0 }".to_string() }))}))]
+        #[case::value_to_value("title = \"foo\"", Ok(LeafClause {
+            left: Value::Field(Field::Title),
+            operator: Operator::Equal,
+            right: Value::String("foo".to_string())
+        }))]
+        #[case::value_to_set("42 IN [\"foo\", 42]", Ok(LeafClause {
+            left: Value::Int(42),
+            operator: Operator::In,
+            right: Value::Set(vec![Value::String("foo".to_string()), Value::Int(42)])
+        }))]
+        #[case::set_to_value("[\"foo\", 42] CONTAINS 42", Ok(LeafClause {
+            left: Value::Set(vec![Value::String("foo".to_string()), Value::Int(42)]),
+            operator: Operator::Contains,
+            right: Value::Int(42)
+        }))]
+        #[case::set_to_set("[\"foo\", 42] CONTAINSALL [\"foo\", 42]", Ok(LeafClause {
+            left: Value::Set(vec![Value::String("foo".to_string()), Value::Int(42)]),
+            operator: Operator::ContainsAll,
+            right: Value::Set(vec![Value::String("foo".to_string()), Value::Int(42)])
+        }))]
+        #[case::string_to_string("\"foo\" IN \"foo\"", Ok(LeafClause {
+            left: Value::String("foo".to_string()),
+            operator: Operator::In,
+            right: Value::String("foo".to_string())
+        }))]
+        fn test_operator_checking(
+            #[case] input: &str,
+            #[case] expected: Result<LeafClause, pom::Error>,
+        ) {
+            let parsed = leaf().parse(input.as_bytes());
+            assert_eq!(parsed, expected);
         }
 
         #[rstest]
