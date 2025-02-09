@@ -701,8 +701,7 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
             );
 
             // render the query input box
-            self.query_builder.inner.render(
-                frame,
+            let query_builder_props = if Query::from_str(self.query_builder.text()).is_ok() {
                 input_box::RenderProps {
                     area: query_builder_area,
                     text_color: query_text_color,
@@ -710,8 +709,18 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
                         .title("Enter Query:")
                         .border_style(Style::default().fg(query_border_color)),
                     show_cursor: query_show_cursor,
-                },
-            );
+                }
+            } else {
+                input_box::RenderProps {
+                    area: query_builder_area,
+                    text_color: TEXT_HIGHLIGHT.into(),
+                    border: Block::bordered()
+                        .title("Invalid Query:")
+                        .border_style(Style::default().fg(query_border_color)),
+                    show_cursor: query_show_cursor,
+                }
+            };
+            self.query_builder.inner.render(frame, query_builder_props);
 
             content_area
         };
