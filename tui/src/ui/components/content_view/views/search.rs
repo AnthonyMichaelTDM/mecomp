@@ -208,39 +208,23 @@ impl Component for SearchView {
             {
                 self.search_bar_focused = false;
             }
+        } else if kind == MouseEventKind::Down(MouseButton::Left)
+            && search_bar_area.contains(mouse_position)
+        {
+            self.search_bar_focused = true;
         } else {
             let content_area = Rect {
                 height: content_area.height.saturating_sub(1),
                 ..content_area
             };
-            match kind {
-                MouseEventKind::Down(MouseButton::Left)
-                    if search_bar_area.contains(mouse_position) =>
-                {
-                    self.search_bar_focused = true;
-                }
-                MouseEventKind::Down(MouseButton::Left)
-                    if content_area.contains(mouse_position) =>
-                {
-                    let selected_things = self.tree_state.lock().unwrap().get_selected_thing();
-                    self.tree_state.lock().unwrap().mouse_click(mouse_position);
 
-                    // if the selection didn't change, open the selected view
-                    if selected_things == self.tree_state.lock().unwrap().get_selected_thing() {
-                        if let Some(thing) = selected_things {
-                            self.action_tx
-                                .send(Action::ActiveView(ViewAction::Set(thing.into())))
-                                .unwrap();
-                        }
-                    }
-                }
-                MouseEventKind::ScrollDown if content_area.contains(mouse_position) => {
-                    self.tree_state.lock().unwrap().key_down();
-                }
-                MouseEventKind::ScrollUp if content_area.contains(mouse_position) => {
-                    self.tree_state.lock().unwrap().key_up();
-                }
-                _ => {}
+            let result = self
+                .tree_state
+                .lock()
+                .unwrap()
+                .handle_mouse_event(mouse, content_area);
+            if let Some(action) = result {
+                self.action_tx.send(action).unwrap();
             }
         }
     }
