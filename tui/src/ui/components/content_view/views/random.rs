@@ -399,7 +399,7 @@ mod tests {
         let state = state_with_everything();
         let mut view = RandomView::new(&state, tx);
         let random_view_props = state.additional_view_data.random.unwrap();
-        let view_area = Rect::new(0, 0, 50, 5);
+        let view_area = Rect::new(0, 0, 50, 6);
 
         // select the first item by scrolling down
         view.handle_mouse_event(
@@ -505,5 +505,17 @@ mod tests {
             rx.blocking_recv().unwrap(),
             Action::ActiveView(ViewAction::Set(ActiveView::Song(random_view_props.song.id)))
         );
+
+        // clicking on nothing should clear the selection
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 25,
+                row: 4,
+                modifiers: KeyModifiers::empty(),
+            },
+            view_area,
+        );
+        assert_eq!(view.random_type_list.selected(), None);
     }
 }

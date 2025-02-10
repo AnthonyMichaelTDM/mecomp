@@ -441,6 +441,7 @@ impl Component for LibraryPlaylistsView {
                             )))
                             .unwrap();
                     }
+                    self.input_box.reset();
                     self.input_box_visible = false;
                 }
                 // defer to the input box
@@ -1308,7 +1309,7 @@ mod library_view_tests {
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
                 column: 2,
-                row: 3,
+                row: 2,
                 modifiers: KeyModifiers::empty(),
             },
             area,
@@ -1333,6 +1334,36 @@ mod library_view_tests {
                 modifiers: KeyModifiers::empty(),
             },
             area,
+        );
+
+        // click down on selected item
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 2,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::ActiveView(ViewAction::Set(ActiveView::Playlist(item_id())))
+        );
+
+        // clicking on an empty area should clear the selection
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 2,
+            row: 3,
+            modifiers: KeyModifiers::empty(),
+        };
+        view.handle_mouse_event(mouse, area);
+        assert_eq!(view.tree_state.lock().unwrap().get_selected_thing(), None);
+        view.handle_mouse_event(mouse, area);
+        assert_eq!(
+            rx.try_recv(),
+            Err(tokio::sync::mpsc::error::TryRecvError::Empty)
         );
     }
 }

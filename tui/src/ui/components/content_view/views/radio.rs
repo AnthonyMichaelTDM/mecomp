@@ -563,5 +563,20 @@ mod tests {
             },
             area,
         );
+
+        // clicking on an empty area should clear the selection
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 2,
+            row: 4,
+            modifiers: KeyModifiers::empty(),
+        };
+        view.handle_mouse_event(mouse, area);
+        assert_eq!(view.tree_state.lock().unwrap().get_selected_thing(), None);
+        view.handle_mouse_event(mouse, area);
+        assert_eq!(
+            rx.try_recv(),
+            Err(tokio::sync::mpsc::error::TryRecvError::Empty)
+        );
     }
 }
