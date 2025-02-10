@@ -688,24 +688,23 @@ mod parser {
     }
 
     pub fn string<'a>() -> Parser<'a, u8, String> {
-        let string_pf = |quote_sym| {
+        let string_pf = |quote_sym, escaped_quote| {
             let special_char = sym(b'\\')
                 | sym(b'/')
-                | sym(b'"')
-                | sym(b'\'')
+                | sym(quote_sym)
                 | sym(b'b').map(|_| b'\x08')
                 | sym(b'f').map(|_| b'\x0C')
                 | sym(b'n').map(|_| b'\n')
                 | sym(b'r').map(|_| b'\r')
                 | sym(b't').map(|_| b'\t');
             let escape_sequence = sym(b'\\') * special_char;
-            let char_string = (none_of(b"\\\"") | escape_sequence)
+            let char_string = (none_of(escaped_quote) | escape_sequence)
                 .repeat(1..)
                 .convert(String::from_utf8);
 
             sym(quote_sym) * char_string.repeat(0..) - sym(quote_sym)
         };
-        let string = string_pf(b'"') | string_pf(b'\'');
+        let string = string_pf(b'"', b"\\\"") | string_pf(b'\'', b"\\'");
         string.map(|strings| strings.concat()).name("string")
     }
 
@@ -821,6 +820,16 @@ mod parser {
                 let compiled = value.compile(Context::Storage);
                 assert_eq!(compiled, s);
             }
+        }
+
+        #[rstest]
+        #[case(Ok(Value::String("foo bar".to_string())), "\"foo bar\"")]
+        #[case(Ok(Value::String("foo bar".to_string())), "'foo bar'")]
+        #[case(Err(pom::Error::Custom {message: "failed to parse field".to_string(), position: 0, inner: Some(Box::new(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 34".to_string(), position: 0 }))}), "\"foo")]
+        #[case(Err(pom::Error::Custom {message: "failed to parse field".to_string(), position: 0, inner: Some(Box::new(pom::Error::Mismatch { message: "seq [114, 101, 108, 101, 97, 115, 101, 95, 121, 101, 97, 114] expect: 114, found: 39".to_string(), position: 0 }))}), "'foo")]
+        fn test_value_parse_string(#[case] expected: Result<Value, pom::Error>, #[case] s: &str) {
+            let parsed = value().parse(s.as_bytes());
+            assert_eq!(parsed, expected);
         }
 
         #[rstest]
