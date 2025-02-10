@@ -352,15 +352,19 @@ where
     /// It the item is a branch, it toggles it open/closed.
     ///
     /// Returns `true` when the selection or the open state changed.
-    /// Returns `false` when nothing was selected.
+    /// Returns `false` when nothing was rendered at the given position (nothing was clicked).
     pub fn mouse_click(&mut self, position: Position) -> bool {
         let Some(identifier) = self.rendered_at(position) else {
+            // if we clicked outside of the last render, clear the selection
+            self.selected.clear();
             return false;
         };
         self.select(identifier.to_vec());
 
         self.ensure_selected_in_view_on_next_render = true;
 
+        // since we set the selection before, we know that one or both of these will return true
+        // TODO: when the todos for the `toggle_check_selected` and `toggle_selected` methods are done, this && needs to be replaced with ||
         self.toggle_check_selected() && self.toggle_selected()
     }
 }

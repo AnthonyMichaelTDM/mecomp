@@ -160,8 +160,10 @@ impl Component for RandomView {
                 let selected = adjusted_mouse_y as usize;
                 if self.random_type_list.selected() == Some(selected) {
                     self.handle_key_event(KeyEvent::from(KeyCode::Enter));
-                } else {
+                } else if selected < RANDOM_TYPE_ITEMS.len() {
                     self.random_type_list.select(Some(selected));
+                } else {
+                    self.random_type_list.select(None);
                 }
             }
             MouseEventKind::ScrollDown => self.handle_key_event(KeyEvent::from(KeyCode::Down)),
