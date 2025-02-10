@@ -84,7 +84,7 @@ impl Popup for DynamicPlaylistEditor {
     }
 
     fn instructions(&self) -> Line {
-        Line::from("Press Enter to save, Esc to cancel.")
+        Line::from(" \u{23CE} : Save | Esc : Cancel ")
     }
 
     fn area(&self, terminal_area: Rect) -> Rect {
@@ -248,5 +248,144 @@ impl ComponentRender<Rect> for DynamicPlaylistEditor {
                 },
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_utils::{assert_buffer_eq, setup_test_terminal};
+
+    use super::*;
+
+    use crossterm::event::KeyModifiers;
+    use pretty_assertions::assert_eq;
+    use ratatui::buffer::Buffer;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn state() -> AppState {
+        AppState::default()
+    }
+
+    #[fixture]
+    fn playlist() -> DynamicPlaylist {
+        DynamicPlaylist {
+            id: DynamicPlaylist::generate_id(),
+            name: "Test".into(),
+            query: Query::from_str("title = \"foo \"").unwrap(),
+        }
+    }
+
+    #[test]
+    fn test_focus_next() {
+        assert_eq!(Focus::Name.next(), Focus::Query);
+        assert_eq!(Focus::Query.next(), Focus::Name);
+    }
+
+    #[rstest]
+    // will give the popup at most 1/3 of the horizontal area,
+    #[case::large((100,100), Rect::new(33, 18, 34,8))]
+    // or at least 30 if it can
+    #[case::small((40,8), Rect::new(5, 0, 30, 8))]
+    #[case::small((30,8), Rect::new(0, 0, 30, 8))]
+    // or whatever is left if the terminal is too small
+    #[case::too_small((20,8), Rect::new(0, 0, 20, 8))]
+    fn test_area(
+        #[case] terminal_size: (u16, u16),
+        #[case] expected_area: Rect,
+        state: AppState,
+        playlist: DynamicPlaylist,
+    ) {
+        let (_, area) = setup_test_terminal(terminal_size.0, terminal_size.1);
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let editor = DynamicPlaylistEditor::new(&state, tx, playlist);
+        let area = editor.area(area);
+        assert_eq!(area, expected_area);
+    }
+
+    #[rstest]
+    fn test_key_event_handling(state: AppState, playlist: DynamicPlaylist) {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+
+        let mut editor = DynamicPlaylistEditor::new(&state, tx, playlist.clone());
+
+        // Test tab changes focus
+        assert_eq!(editor.focus, Focus::Name);
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Tab));
+        assert_eq!(editor.focus, Focus::Query);
+
+        // Test enter sends action
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv(),
+            Some(Action::Library(LibraryAction::UpdateDynamicPlaylist(
+                playlist.id.into(),
+                DynamicPlaylistChangeSet {
+                    name: Some(playlist.name.clone()),
+                    query: Some(playlist.query.clone())
+                }
+            )))
+        );
+        assert_eq!(rx.blocking_recv(), Some(Action::Popup(PopupAction::Close)));
+
+        // other keys go to the focused input box
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Char('a')));
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Char('b')));
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Char('c')));
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Char('d')));
+        assert_eq!(editor.query_input.text(), "title = \"foo \"abcd");
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Tab));
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Char('e')));
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Char('f')));
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Char('g')));
+        assert_eq!(editor.name_input.text(), "Testefg");
+
+        // Test invalid query does not send action
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Enter));
+        let action = rx.try_recv();
+        assert_eq!(action, Err(tokio::sync::mpsc::error::TryRecvError::Empty));
+    }
+
+    #[rstest]
+    fn test_mouse_event_handling(state: AppState, playlist: DynamicPlaylist) {
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+
+        let mut editor = DynamicPlaylistEditor::new(&state, tx, playlist);
+        let area = Rect::new(0, 0, 50, 10);
+
+        // Test clicking name area changes focus
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 1,
+            row: 1,
+            modifiers: KeyModifiers::empty(),
+        };
+        editor.inner_handle_mouse_event(mouse_event, area);
+        assert_eq!(editor.focus, Focus::Name);
+    }
+
+    #[rstest]
+    fn test_render(state: AppState, playlist: DynamicPlaylist) {
+        let (mut terminal, _) = setup_test_terminal(30, 8);
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let editor = DynamicPlaylistEditor::new(&state, tx, playlist);
+        let buffer = terminal
+            .draw(|frame| editor.render_popup(frame))
+            .unwrap()
+            .buffer
+            .clone();
+
+        let expected = Buffer::with_lines([
+            "┌Edit Dynamic Playlist───────┐",
+            "│┌Enter Name:───────────────┐│",
+            "││Test                      ││",
+            "│└──────────────────────────┘│",
+            "│┌Enter Query:──────────────┐│",
+            "││title = \"foo \"            ││",
+            "│└──────────────────────────┘│",
+            "└ ⏎ : Save | Esc : Cancel ───┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
     }
 }

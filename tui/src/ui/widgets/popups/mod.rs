@@ -136,3 +136,37 @@ impl PopupType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test_utils::state_with_everything;
+
+    use super::*;
+
+    #[test]
+    fn test_popup_type_into_popup() {
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        let state = state_with_everything();
+
+        // Test notification popup
+        let notification = PopupType::Notification(Text::raw("Test notification"));
+        let popup = notification.into_popup(&state, tx.clone());
+        assert_eq!(popup.title().to_string(), "Notification");
+
+        // Test playlist selector popup
+        let items = vec![];
+        let playlist = PopupType::Playlist(items);
+        let popup = playlist.into_popup(&state, tx.clone());
+        assert_eq!(popup.title().to_string(), "Select a Playlist");
+
+        // Test playlist editor popup
+        let playlist = PopupType::PlaylistEditor(state.library.playlists[0].clone());
+        let popup = playlist.into_popup(&state, tx.clone());
+        assert_eq!(popup.title().to_string(), "Rename Playlist");
+
+        // Test dynamic playlist editor popup
+        let dynamic = PopupType::DynamicPlaylistEditor(state.library.dynamic_playlists[0].clone());
+        let popup = dynamic.into_popup(&state, tx);
+        assert_eq!(popup.title().to_string(), "Edit Dynamic Playlist");
+    }
+}

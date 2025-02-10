@@ -428,7 +428,7 @@ impl ComponentRender<Rect> for PlaylistEditor {
 }
 
 #[cfg(test)]
-mod tests {
+mod selector_tests {
     use std::time::Duration;
 
     use super::*;
@@ -620,5 +620,121 @@ mod tests {
         assert_eq!(buffer, expected);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod editor_tests {
+    use std::time::Duration;
+
+    use super::*;
+    use crate::{
+        state::component::ActiveComponent,
+        test_utils::{assert_buffer_eq, setup_test_terminal},
+        ui::components::content_view::{views::ViewData, ActiveView},
+    };
+    use anyhow::Result;
+    use mecomp_core::{
+        rpc::SearchResult,
+        state::{library::LibraryFull, StateAudio},
+    };
+    use mecomp_storage::db::schemas::playlist::Playlist;
+    use pretty_assertions::assert_eq;
+    use ratatui::buffer::Buffer;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn state() -> AppState {
+        AppState {
+            active_component: ActiveComponent::default(),
+            audio: StateAudio::default(),
+            search: SearchResult::default(),
+            library: LibraryFull::default(),
+            active_view: ActiveView::default(),
+            additional_view_data: ViewData::default(),
+        }
+    }
+
+    #[fixture]
+    fn playlist() -> Playlist {
+        Playlist {
+            id: Playlist::generate_id(),
+            name: "Test Playlist".into(),
+            runtime: Duration::default(),
+            song_count: 0,
+        }
+    }
+
+    #[rstest]
+    #[case::large((100, 100), Rect::new(40, 47, 20, 5))]
+    #[case::small((20,5), Rect::new(0, 0, 20, 5))]
+    #[case::too_small((10, 5), Rect::new(0, 0, 10, 5))]
+    fn test_playlist_editor_area(
+        #[case] terminal_size: (u16, u16),
+        #[case] expected_area: Rect,
+        state: AppState,
+        playlist: Playlist,
+    ) {
+        let (_, area) = setup_test_terminal(terminal_size.0, terminal_size.1);
+        let action_tx = tokio::sync::mpsc::unbounded_channel().0;
+        let editor = PlaylistEditor::new(&state, action_tx, playlist);
+        let area = editor.area(area);
+        assert_eq!(area, expected_area);
+    }
+
+    #[rstest]
+    fn test_playlist_editor_render(state: AppState, playlist: Playlist) -> Result<()> {
+        let (mut terminal, _) = setup_test_terminal(20, 5);
+        let action_tx = tokio::sync::mpsc::unbounded_channel().0;
+        let editor = PlaylistEditor::new(&state, action_tx, playlist);
+        let buffer = terminal
+            .draw(|frame| editor.render_popup(frame))?
+            .buffer
+            .clone();
+
+        let expected = Buffer::with_lines([
+            "┌Rename Playlist───┐",
+            "│┌Enter Name:─────┐│",
+            "││Test Playlist   ││",
+            "│└────────────────┘│",
+            "└ ⏎ : Rename───────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+        Ok(())
+    }
+
+    #[rstest]
+    fn test_playlist_editor_input(state: AppState, playlist: Playlist) {
+        let (action_tx, mut action_rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut editor = PlaylistEditor::new(&state, action_tx, playlist.clone());
+
+        // Test typing
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Char('a')));
+        assert_eq!(editor.input_box.text(), "Test Playlista");
+
+        // Test enter with name
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(editor.input_box.text(), "Test Playlista");
+        assert_eq!(
+            action_rx.blocking_recv(),
+            Some(Action::Popup(PopupAction::Close))
+        );
+        assert_eq!(
+            action_rx.blocking_recv(),
+            Some(Action::Library(LibraryAction::RenamePlaylist(
+                playlist.id.clone().into(),
+                "Test Playlista".into()
+            )))
+        );
+
+        // Test backspace
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Backspace));
+        assert_eq!(editor.input_box.text(), "Test Playlist");
+
+        // Test enter with empty name
+        editor.input_box.set_text("");
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(editor.input_box.text(), "");
     }
 }
