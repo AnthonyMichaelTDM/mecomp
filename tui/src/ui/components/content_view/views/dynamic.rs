@@ -66,6 +66,10 @@ impl QueryBuilder {
     pub fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
         self.inner.handle_mouse_event(mouse, area);
     }
+
+    pub fn reset(&mut self) {
+        self.inner.reset();
+    }
 }
 
 #[allow(clippy::module_name_repetitions)]
@@ -535,6 +539,9 @@ impl Component for LibraryDynamicView {
                             query,
                         )))
                         .unwrap();
+                    self.name_input_box.reset();
+                    self.query_builder.reset();
+                    self.focus = Focus::Tree;
                 }
                 // otherwise defer to the focused input box
                 (_, _, Focus::NameInput) => self.name_input_box.handle_key_event(key),
@@ -738,5 +745,708 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
             props.area,
             &mut self.tree_state.lock().unwrap(),
         );
+    }
+}
+
+#[cfg(test)]
+mod item_view_tests {
+    use super::*;
+    use crate::{
+        state::action::{AudioAction, PopupAction, QueueAction},
+        test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
+        ui::{
+            components::content_view::{views::RADIO_SIZE, ActiveView},
+            widgets::popups::PopupType,
+        },
+    };
+    use crossterm::event::KeyModifiers;
+    use pretty_assertions::assert_eq;
+    use ratatui::buffer::Buffer;
+    use tokio::sync::mpsc::unbounded_channel;
+
+    #[test]
+    fn test_new() {
+        let (tx, _) = unbounded_channel();
+        let state = state_with_everything();
+        let view = DynamicView::new(&state, tx);
+
+        assert_eq!(view.name(), "Dynamic Playlist View");
+        assert_eq!(
+            view.props,
+            Some(state.additional_view_data.dynamic_playlist.unwrap())
+        );
+    }
+
+    #[test]
+    fn test_move_with_state() {
+        let (tx, _) = unbounded_channel();
+        let state = AppState::default();
+        let view = DynamicView::new(&state, tx);
+
+        let new_state = state_with_everything();
+        let new_view = view.move_with_state(&new_state);
+
+        assert_eq!(
+            new_view.props,
+            Some(new_state.additional_view_data.dynamic_playlist.unwrap())
+        );
+    }
+
+    #[test]
+    fn test_name() {
+        let (tx, _) = unbounded_channel();
+        let state = state_with_everything();
+        let view = DynamicView::new(&state, tx);
+
+        assert_eq!(view.name(), "Dynamic Playlist View");
+    }
+
+    #[test]
+    fn smoke_navigation_and_sort() {
+        let (tx, _) = unbounded_channel();
+        let state = state_with_everything();
+        let mut view = DynamicView::new(&state, tx);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageUp));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageDown));
+        view.handle_key_event(KeyEvent::from(KeyCode::Left));
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
+    }
+
+    #[test]
+    fn test_actions() {
+        let (tx, mut rx) = unbounded_channel();
+        let state = state_with_everything();
+        let mut view = DynamicView::new(&state, tx);
+
+        // need to render at least once to load the tree state
+        let (mut terminal, area) = setup_test_terminal(60, 11);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let _frame = terminal.draw(|f| view.render(f, props)).unwrap();
+
+        // when there are no checked items:
+        // - Enter should do nothing
+        // - "q" should add the entire playlist to the queue
+        // - "r" should start radio from the entire playlist
+        // - "p" should add the entire playlist to a playlist
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        let dynamic_playlists_id = state
+            .additional_view_data
+            .dynamic_playlist
+            .as_ref()
+            .unwrap()
+            .id
+            .clone();
+        assert_eq!(
+            rx.blocking_recv(),
+            Some(Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
+                dynamic_playlists_id.clone()
+            ]))))
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
+                vec![dynamic_playlists_id.clone()],
+                RADIO_SIZE
+            )))
+        );
+        assert_eq!(
+            rx.blocking_recv(),
+            Some(Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                dynamic_playlists_id
+            ]))))
+        );
+
+        // check the only item in the playlist
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        // when there are checked items:
+        // - Enter should open the selected view
+        // - "q" should add the checked items to the queue
+        // - "r" should start radio from the checked items
+        // - "p" should add the checked items to a playlist
+        let song_id: mecomp_storage::db::schemas::Thing = ("song", item_id()).into();
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![song_id.clone()])))
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
+                vec![song_id.clone()],
+                RADIO_SIZE
+            )))
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![song_id])))
+        );
+    }
+
+    #[test]
+    fn test_edit() {
+        let (tx, mut rx) = unbounded_channel();
+        let state = state_with_everything();
+        let mut view = DynamicView::new(&state, tx);
+
+        // need to render at least once to load the tree state
+        let (mut terminal, area) = setup_test_terminal(60, 11);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let _frame = terminal.draw(|f| view.render(f, props)).unwrap();
+
+        // "e" key should open the dynamic playlist editor popup
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('e')));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Popup(PopupAction::Open(PopupType::DynamicPlaylistEditor(
+                state
+                    .additional_view_data
+                    .dynamic_playlist
+                    .as_ref()
+                    .unwrap()
+                    .dynamic_playlist
+                    .clone()
+            )))
+        );
+    }
+
+    #[test]
+    fn test_mouse_events() {
+        let (tx, mut rx) = unbounded_channel();
+        let state = state_with_everything();
+        let mut view = DynamicView::new(&state, tx);
+
+        // need to render at least once to load the tree state
+        let (mut terminal, area) = setup_test_terminal(60, 11);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let _frame = terminal.draw(|f| view.render(f, props)).unwrap();
+
+        // click on the song (selecting it)
+        assert_eq!(view.tree_state.lock().unwrap().get_selected_thing(), None);
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 7,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(
+            view.tree_state.lock().unwrap().get_selected_thing(),
+            Some(("song", item_id()).into())
+        );
+
+        // click on the selected song (opening it)
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 7,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
+        );
+    }
+
+    #[test]
+    fn test_render_no_dynamic_playlist() {
+        let (tx, _) = unbounded_channel();
+        let state = AppState::default();
+        let view = DynamicView::new(&state, tx);
+
+        let (mut terminal, area) = setup_test_terminal(28, 3);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|f| view.render(f, props))
+            .unwrap()
+            .buffer
+            .clone();
+        #[rustfmt::skip]
+        let expected = Buffer::with_lines([
+            "┌Dynamic Playlist View─────┐",
+            "│No active dynamic playlist│",
+            "└──────────────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+    }
+
+    #[test]
+    fn test_render() {
+        let (tx, _) = unbounded_channel();
+        let state = state_with_everything();
+        let view = DynamicView::new(&state, tx);
+
+        let (mut terminal, area) = setup_test_terminal(60, 10);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|f| view.render(f, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Dynamic Playlist View sorted by: Artist───────────────────┐",
+            "│                       Test Dynamic                       │",
+            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                    title = \"Test Song\"                   │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on entire dynamic playlist──────────│",
+            "│☐ Test Song Test Artist                                   │",
+            "│s/S: sort | e: edit───────────────────────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+    }
+
+    #[test]
+    fn test_render_checked() {
+        let (tx, _) = unbounded_channel();
+        let state = state_with_everything();
+        let mut view = DynamicView::new(&state, tx);
+        let (mut terminal, area) = setup_test_terminal(60, 10);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|f| view.render(f, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Dynamic Playlist View sorted by: Artist───────────────────┐",
+            "│                       Test Dynamic                       │",
+            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                    title = \"Test Song\"                   │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on entire dynamic playlist──────────│",
+            "│☐ Test Song Test Artist                                   │",
+            "│s/S: sort | e: edit───────────────────────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // select the song
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char(' ')));
+
+        let buffer = terminal
+            .draw(|f| view.render(f, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Dynamic Playlist View sorted by: Artist───────────────────┐",
+            "│                       Test Dynamic                       │",
+            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                    title = \"Test Song\"                   │",
+            "│                                                          │",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
+            "│Performing operations on checked items────────────────────│",
+            "│☑ Test Song Test Artist                                   │",
+            "│s/S: sort | e: edit───────────────────────────────────────│",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+    }
+}
+
+#[cfg(test)]
+mod library_view_tests {
+    use super::*;
+    use crate::{
+        state::action::{LibraryAction, ViewAction},
+        test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
+    };
+    use crossterm::event::KeyModifiers;
+    use pretty_assertions::assert_eq;
+    use ratatui::buffer::Buffer;
+    use tokio::sync::mpsc::unbounded_channel;
+
+    #[test]
+    fn test_new() {
+        let (tx, _) = unbounded_channel();
+        let state = state_with_everything();
+        let view = LibraryDynamicView::new(&state, tx);
+
+        assert_eq!(view.name(), "Library Dynamic Playlists View");
+        assert_eq!(view.props.dynamics, state.library.dynamic_playlists);
+    }
+
+    #[test]
+    fn test_move_with_state() {
+        let (tx, _) = unbounded_channel();
+        let state = AppState::default();
+        let view = LibraryDynamicView::new(&state, tx);
+
+        let new_state = state_with_everything();
+        let new_view = view.move_with_state(&new_state);
+
+        assert_eq!(new_view.props.dynamics, new_state.library.dynamic_playlists);
+    }
+
+    #[test]
+    fn test_name() {
+        let (tx, _) = unbounded_channel();
+        let state = state_with_everything();
+        let view = LibraryDynamicView::new(&state, tx);
+
+        assert_eq!(view.name(), "Library Dynamic Playlists View");
+    }
+
+    #[test]
+    fn smoke_navigation_and_sort() {
+        let (tx, _) = unbounded_channel();
+        let state = state_with_everything();
+        let mut view = LibraryDynamicView::new(&state, tx);
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Up));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageUp));
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+        view.handle_key_event(KeyEvent::from(KeyCode::PageDown));
+        view.handle_key_event(KeyEvent::from(KeyCode::Left));
+        view.handle_key_event(KeyEvent::from(KeyCode::Right));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
+    }
+
+    #[test]
+    fn test_actions() {
+        let (tx, mut rx) = unbounded_channel();
+        let state = state_with_everything();
+        let mut view = LibraryDynamicView::new(&state, tx);
+
+        // need to render at least once to load the tree state
+        let (mut terminal, area) = setup_test_terminal(60, 11);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let _frame = terminal.draw(|f| view.render(f, props)).unwrap();
+
+        // when there are no selected items:
+        // - Enter should do nothing
+        // - "d" should do nothing
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('d')));
+
+        // select the dynamic playlist
+        view.handle_key_event(KeyEvent::from(KeyCode::Down));
+
+        // when there are selected items:
+        // - "d" should delete the selected dynamic playlist
+        // - Enter should open the selected view
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('d')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Library(LibraryAction::RemoveDynamicPlaylist(
+                ("dynamic", item_id()).into()
+            ))
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::ActiveView(ViewAction::Set(ActiveView::DynamicPlaylist(item_id())))
+        );
+    }
+
+    #[test]
+    fn test_actions_with_input_boxes() {
+        let (tx, mut rx) = unbounded_channel();
+        let state = state_with_everything();
+        let mut view = LibraryDynamicView::new(&state, tx);
+
+        // need to render at least once to load the tree state
+        let (mut terminal, area) = setup_test_terminal(60, 11);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let _frame = terminal.draw(|f| view.render(f, props)).unwrap();
+
+        // pressing "n" should reveal the name/query input boxes
+        assert_eq!(view.focus, Focus::Tree);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('n')));
+        assert_eq!(view.focus, Focus::NameInput);
+
+        // when the name input box is focused:
+        // - Enter with an empty name should cancel the operation
+        // - Enter with a valid name should reveal the query input box
+        // - other keys are deferred to the input box
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(view.focus, Focus::Tree);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('n'))); // reveal the name input box again
+        assert_eq!(view.focus, Focus::NameInput);
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('a')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('b')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('c')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+
+        assert_eq!(view.name_input_box.text(), "abc");
+        assert_eq!(view.focus, Focus::QueryInput);
+
+        // when the query input box is focused:
+        // - Enter with an invalid query should do nothing
+        // - Enter with a valid query should create a new dynamic playlist
+        // - other keys are deferred to the input box
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(view.focus, Focus::QueryInput);
+        let query = "artist CONTAINS 'foo'";
+        for c in query.chars() {
+            view.handle_key_event(KeyEvent::from(KeyCode::Char(c)));
+        }
+        assert_eq!(view.query_builder.text(), query);
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::Library(LibraryAction::CreateDynamicPlaylist(
+                "abc".to_string(),
+                Query::from_str(query).unwrap()
+            ))
+        );
+    }
+
+    #[test]
+    fn test_mouse_events() {
+        let (tx, mut rx) = unbounded_channel();
+        let state = state_with_everything();
+        let mut view = LibraryDynamicView::new(&state, tx);
+
+        // need to render at least once to load the tree state
+        let (mut terminal, area) = setup_test_terminal(60, 11);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let _frame = terminal.draw(|f| view.render(f, props)).unwrap();
+
+        // without the input boxes visible:
+        // - clicking on the tree should select/open the clicked item
+        // - clicking on an empty area should do nothing
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 2,
+            row: 2,
+            modifiers: KeyModifiers::empty(),
+        };
+        view.handle_mouse_event(mouse_event, area); // select
+        view.handle_mouse_event(mouse_event, area); // open
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::ActiveView(ViewAction::Set(ActiveView::DynamicPlaylist(item_id())))
+        );
+        // NOTE: not working, I have a fix but I want it to be put in a separate PR
+        // // clicking on an empty area should clear the selection
+        // let mouse_event = MouseEvent {
+        //     kind: MouseEventKind::Down(MouseButton::Left),
+        //     column: 2,
+        //     row: 3,
+        //     modifiers: KeyModifiers::empty(),
+        // };
+        // view.handle_mouse_event(mouse_event, area);
+        // assert_eq!(view.tree_state.lock().unwrap().get_selected_thing(), None);
+        // view.handle_mouse_event(mouse_event, area);
+        // assert_eq!(
+        //     rx.try_recv(),
+        //     Err(tokio::sync::mpsc::error::TryRecvError::Empty)
+        // );
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('n'))); // reveal the name input box
+
+        // with the input boxes visible:
+        // - clicking on the query input box should focus it
+        // - clicking on the name input box should focus it
+        // - clicking on the content area should defocus and hide the input boxes
+        assert_eq!(view.focus, Focus::NameInput);
+        view.handle_mouse_event(
+            // click on the query input box
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 5,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(view.focus, Focus::QueryInput);
+        view.handle_mouse_event(
+            // click on the name input box
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 2,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(view.focus, Focus::NameInput);
+        // click on the content area
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 8,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(view.focus, Focus::Tree);
+    }
+
+    #[test]
+    fn test_render() {
+        let (tx, _) = unbounded_channel();
+        let state = state_with_everything();
+        let view = LibraryDynamicView::new(&state, tx);
+
+        let (mut terminal, area) = setup_test_terminal(60, 6);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|f| view.render(f, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Dynamic Playlists sorted by: Name─────────────────┐",
+            "│n: new dynamic | d: delete dynamic────────────────────────│",
+            "│▪ Test Dynamic                                            │",
+            "│                                                          │",
+            "│                                                          │",
+            "└ ⏎ : Open | ←/↑/↓/→: Navigate | s/S: change sort──────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
+    }
+
+    #[test]
+    fn test_render_with_input_boxes_visible() {
+        let (tx, _) = unbounded_channel();
+        let state = state_with_everything();
+        let mut view = LibraryDynamicView::new(&state, tx);
+
+        // reveal the name input box
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('n')));
+
+        let (mut terminal, area) = setup_test_terminal(60, 11);
+        let props = RenderProps {
+            area,
+            is_focused: true,
+        };
+        let buffer = terminal
+            .draw(|f| view.render(f, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Dynamic Playlists sorted by: Name─────────────────┐",
+            "│┌Enter Name:─────────────────────────────────────────────┐│",
+            "││                                                        ││",
+            "│└────────────────────────────────────────────────────────┘│",
+            "│┌Invalid Query:──────────────────────────────────────────┐│",
+            "││                                                        ││",
+            "│└────────────────────────────────────────────────────────┘│",
+            "│ ⏎ : Set (cancel if empty)────────────────────────────────│",
+            "│▪ Test Dynamic                                            │",
+            "│                                                          │",
+            "└──────────────────────────────────────────────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        let name = "Test";
+        for c in name.chars() {
+            view.handle_key_event(KeyEvent::from(KeyCode::Char(c)));
+        }
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+
+        let buffer = terminal
+            .draw(|f| view.render(f, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Dynamic Playlists sorted by: Name─────────────────┐",
+            "│┌Enter Name:─────────────────────────────────────────────┐│",
+            "││Test                                                    ││",
+            "│└────────────────────────────────────────────────────────┘│",
+            "│┌Invalid Query:──────────────────────────────────────────┐│",
+            "││                                                        ││",
+            "│└────────────────────────────────────────────────────────┘│",
+            "│ ⏎ : Create (cancel if empty)─────────────────────────────│",
+            "│▪ Test Dynamic                                            │",
+            "│                                                          │",
+            "└──────────────────────────────────────────────────────────┘",
+        ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        let query = "artist CONTAINS 'foo'";
+        for c in query.chars() {
+            view.handle_key_event(KeyEvent::from(KeyCode::Char(c)));
+        }
+
+        let buffer = terminal
+            .draw(|f| view.render(f, props))
+            .unwrap()
+            .buffer
+            .clone();
+        let expected = Buffer::with_lines([
+            "┌Library Dynamic Playlists sorted by: Name─────────────────┐",
+            "│┌Enter Name:─────────────────────────────────────────────┐│",
+            "││Test                                                    ││",
+            "│└────────────────────────────────────────────────────────┘│",
+            "│┌Enter Query:────────────────────────────────────────────┐│",
+            "││artist CONTAINS 'foo'                                   ││",
+            "│└────────────────────────────────────────────────────────┘│",
+            "│ ⏎ : Create (cancel if empty)─────────────────────────────│",
+            "│▪ Test Dynamic                                            │",
+            "│                                                          │",
+            "└──────────────────────────────────────────────────────────┘",
+        ]);
+
+        assert_buffer_eq(&buffer, &expected);
     }
 }
