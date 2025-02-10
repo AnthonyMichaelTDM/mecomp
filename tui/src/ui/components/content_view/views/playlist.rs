@@ -748,7 +748,7 @@ mod item_view_tests {
         );
     }
     #[test]
-    fn test_render_no_song() -> Result<()> {
+    fn test_render_no_playlist() -> Result<()> {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = PlaylistView::new(&AppState::default(), tx);
 
@@ -860,7 +860,7 @@ mod item_view_tests {
     }
 
     #[test]
-    fn smoke_navigation() {
+    fn smoke_navigation_and_sort() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = PlaylistView::new(&state_with_everything(), tx);
 
@@ -870,6 +870,8 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::PageDown));
         view.handle_key_event(KeyEvent::from(KeyCode::Left));
         view.handle_key_event(KeyEvent::from(KeyCode::Right));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
     }
 
     #[test]
@@ -916,7 +918,7 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('d')));
 
         // there are checked items
-        // first we need to select an item (the album)
+        // first we need to select an item
         view.handle_key_event(KeyEvent::from(KeyCode::Up));
         let _frame = terminal.draw(|frame| view.render(frame, props)).unwrap();
 
