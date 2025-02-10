@@ -449,59 +449,9 @@ impl Component for LibraryDynamicView {
 
     fn handle_key_event(&mut self, key: KeyEvent) {
         // this page has 2 distinct "modes",
-        // one for navigating the tree when the input box is not visible
-        // one for interacting with the input box when it is visible
-        if self.focus == Focus::NameInput {
-            match key.code {
-                // if the user presses Enter, we prompt the user for the query
-                KeyCode::Enter => {
-                    if self.name_input_box.text().is_empty() {
-                        self.focus = Focus::Tree;
-                    } else {
-                        self.focus = Focus::QueryInput;
-                    }
-                }
-                // defer to the input box
-                _ => {
-                    self.name_input_box.handle_key_event(key);
-                }
-            }
-        } else if self.focus == Focus::QueryInput {
-            match key.code {
-                // if the user presses Enter, we try to create a new playlist with the given name and query
-                KeyCode::Enter => {
-                    let name = self.name_input_box.text();
-                    let query = self.query_builder.text();
-
-                    if !name.is_empty() && !query.is_empty() {
-                        let query = Query::from_str(query);
-
-                        if let Ok(query) = query {
-                            self.action_tx
-                                .send(Action::Library(LibraryAction::CreateDynamicPlaylist(
-                                    name.to_string(),
-                                    query,
-                                )))
-                                .unwrap();
-                        } else {
-                            // TODO: Find a better way to notify the user that the query is invalid
-                            self.action_tx
-                                .send(Action::Popup(PopupAction::Open(PopupType::Notification(
-                                    "Invalid Query".into(),
-                                ))))
-                                .unwrap();
-                            return;
-                        }
-                    }
-
-                    self.focus = Focus::Tree;
-                }
-                // defer to the input box
-                _ => {
-                    self.query_builder.handle_key_event(key);
-                }
-            }
-        } else {
+        // one for navigating the tree when the input boxes are not visible
+        // one for interacting with the input boxes when they are visible
+        if self.focus == Focus::Tree {
             match key.code {
                 // arrow keys
                 KeyCode::PageUp => {
@@ -563,6 +513,33 @@ impl Component for LibraryDynamicView {
                     }
                 }
                 _ => {}
+            }
+        } else {
+            let query = Query::from_str(self.query_builder.text()).ok();
+            let name = self.name_input_box.text();
+
+            match (key.code, query, self.focus) {
+                // if the user presses Enter with an empty name, we cancel the operation
+                (KeyCode::Enter, _, Focus::NameInput) if name.is_empty() => {
+                    self.focus = Focus::Tree;
+                }
+                // if the user pressed Enter with a valid (non-empty) name, we prompt the user for the query
+                (KeyCode::Enter, _, Focus::NameInput) if !name.is_empty() => {
+                    self.focus = Focus::QueryInput;
+                }
+                // if the user presses Enter with a valid query, we create a new playlist
+                (KeyCode::Enter, Some(query), Focus::QueryInput) => {
+                    self.action_tx
+                        .send(Action::Library(LibraryAction::CreateDynamicPlaylist(
+                            name.to_string(),
+                            query,
+                        )))
+                        .unwrap();
+                }
+                // otherwise defer to the focused input box
+                (_, _, Focus::NameInput) => self.name_input_box.handle_key_event(key),
+                (_, _, Focus::QueryInput) => self.query_builder.handle_key_event(key),
+                (_, _, Focus::Tree) => unreachable!(),
             }
         }
     }
