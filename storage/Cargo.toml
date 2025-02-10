@@ -24,14 +24,15 @@ db = [
 serde = ["one-or-many/serde", "dep:serde"]
 test_utils = ["dep:tempfile", "dep:anyhow"]
 analysis = ["dep:futures", "dep:mecomp-analysis"]
+trace_parser = ["pom/trace"]
 
 [dependencies]
 # shared dependencies
+pom = { version = "3.4.0" }
 lofty = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 one-or-many = { workspace = true }
-pom = { version = "3.4.0", features = ["trace"] }
 rand = { workspace = true }
 serde = { workspace = true, optional = true }
 surrealdb = { workspace = true, optional = true }

@@ -621,7 +621,7 @@ mod item_view_tests {
         );
     }
     #[test]
-    fn test_render_no_song() -> Result<()> {
+    fn test_render_no_collection() -> Result<()> {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = CollectionView::new(&AppState::default(), tx);
 

@@ -45,6 +45,7 @@ pub enum SidebarItem {
     Artists,
     Albums,
     Playlists,
+    DynamicPlaylists,
     Collections,
     Random,
     Space, // this is used to create space between the library actions and the other items
@@ -62,6 +63,9 @@ impl SidebarItem {
             Self::Artists => Some(Action::ActiveView(ViewAction::Set(ActiveView::Artists))),
             Self::Albums => Some(Action::ActiveView(ViewAction::Set(ActiveView::Albums))),
             Self::Playlists => Some(Action::ActiveView(ViewAction::Set(ActiveView::Playlists))),
+            Self::DynamicPlaylists => Some(Action::ActiveView(ViewAction::Set(
+                ActiveView::DynamicPlaylists,
+            ))),
             Self::Collections => Some(Action::ActiveView(ViewAction::Set(ActiveView::Collections))),
             Self::Random => Some(Action::ActiveView(ViewAction::Set(ActiveView::Random))),
             Self::Space => None,
@@ -80,6 +84,7 @@ impl Display for SidebarItem {
             Self::Artists => write!(f, "Artists"),
             Self::Albums => write!(f, "Albums"),
             Self::Playlists => write!(f, "Playlists"),
+            Self::DynamicPlaylists => write!(f, "Dynamic"),
             Self::Collections => write!(f, "Collections"),
             Self::Random => write!(f, "Random"),
             Self::Space => write!(f, ""),
@@ -90,13 +95,14 @@ impl Display for SidebarItem {
     }
 }
 
-const SIDEBAR_ITEMS: [SidebarItem; 12] = [
+const SIDEBAR_ITEMS: [SidebarItem; 13] = [
     SidebarItem::Search,
     SidebarItem::Space,
     SidebarItem::Songs,
     SidebarItem::Artists,
     SidebarItem::Albums,
     SidebarItem::Playlists,
+    SidebarItem::DynamicPlaylists,
     SidebarItem::Collections,
     SidebarItem::Random,
     SidebarItem::Space,
@@ -306,7 +312,7 @@ mod tests {
             ..state_with_everything()
         });
 
-        let (mut terminal, area) = setup_test_terminal(19, 15);
+        let (mut terminal, area) = setup_test_terminal(19, 16);
         let props = RenderProps {
             area,
             is_focused: true,
@@ -320,6 +326,7 @@ mod tests {
             "│Artists          │",
             "│Albums           │",
             "│Playlists        │",
+            "│Dynamic          │",
             "│Collections      │",
             "│Random           │",
             "│                 │",
@@ -392,6 +399,13 @@ mod tests {
         assert_eq!(
             rx.blocking_recv().unwrap(),
             Action::ActiveView(ViewAction::Set(ActiveView::Playlists))
+        );
+
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));
+        sidebar.handle_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::ActiveView(ViewAction::Set(ActiveView::DynamicPlaylists))
         );
 
         sidebar.handle_key_event(KeyEvent::from(KeyCode::Down));

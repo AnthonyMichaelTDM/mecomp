@@ -71,8 +71,7 @@ impl LibraryState {
                             self.state_tx.send(state.clone())?;
                         }
                         LibraryAction::CreatePlaylist(name) => {
-                            let ctx = tarpc::context::current();
-                            daemon.playlist_get_or_create(ctx, name).await??;
+                            daemon.playlist_get_or_create(tarpc::context::current(), name).await??;
                             state = get_library(daemon.clone()).await?;
                             self.state_tx.send(state.clone())?;
                         }
@@ -81,8 +80,16 @@ impl LibraryState {
                                 id.tb,
                                 mecomp_storage::db::schemas::playlist::TABLE_NAME
                             );
-                            let ctx = tarpc::context::current();
-                            daemon.playlist_remove(ctx, id).await??;
+                            daemon.playlist_remove(tarpc::context::current(), id).await??;
+                            state = get_library(daemon.clone()).await?;
+                            self.state_tx.send(state.clone())?;
+                        }
+                        LibraryAction::RenamePlaylist(id, name) => {
+                            debug_assert_eq!(
+                                id.tb,
+                                mecomp_storage::db::schemas::playlist::TABLE_NAME
+                            );
+                            daemon.playlist_rename(tarpc::context::current(), id, name).await??;
                             state = get_library(daemon.clone()).await?;
                             self.state_tx.send(state.clone())?;
                         }
@@ -92,21 +99,41 @@ impl LibraryState {
                                 mecomp_storage::db::schemas::playlist::TABLE_NAME
                             );
                             debug_assert!(songs.iter().all(|s| s.tb == mecomp_storage::db::schemas::song::TABLE_NAME));
-                            let ctx = tarpc::context::current();
-                            daemon.playlist_remove_songs(ctx, playlist, songs).await??;
+                            daemon.playlist_remove_songs(tarpc::context::current(), playlist, songs).await??;
                         }
                         LibraryAction::AddThingsToPlaylist(playlist, things) => {
                             debug_assert_eq!(
                                 playlist.tb,
                                 mecomp_storage::db::schemas::playlist::TABLE_NAME
                             );
-                            let ctx = tarpc::context::current();
-                            daemon.playlist_add_list(ctx, playlist, things).await??;
+                            daemon.playlist_add_list(tarpc::context::current(), playlist, things).await??;
                         }
                         LibraryAction::CreatePlaylistAndAddThings(name, things) => {
-                            let ctx = tarpc::context::current();
-                            let playlist = daemon.playlist_get_or_create(ctx, name).await??;
-                            daemon.playlist_add_list(ctx, playlist, things).await??;
+                            let playlist = daemon.playlist_get_or_create(tarpc::context::current(), name).await??;
+                            daemon.playlist_add_list(tarpc::context::current(), playlist, things).await??;
+                            state = get_library(daemon.clone()).await?;
+                            self.state_tx.send(state.clone())?;
+                        }
+                        LibraryAction::CreateDynamicPlaylist(name, query) => {
+                            daemon.dynamic_playlist_create(tarpc::context::current(), name, query).await??;
+                            state = get_library(daemon.clone()).await?;
+                            self.state_tx.send(state.clone())?;
+                        }
+                        LibraryAction::RemoveDynamicPlaylist(id) => {
+                            debug_assert_eq!(
+                                id.tb,
+                                mecomp_storage::db::schemas::dynamic::TABLE_NAME
+                            );
+                            daemon.dynamic_playlist_remove(tarpc::context::current(), id).await??;
+                            state = get_library(daemon.clone()).await?;
+                            self.state_tx.send(state.clone())?;
+                        }
+                        LibraryAction::UpdateDynamicPlaylist(id, changes) => {
+                            debug_assert_eq!(
+                                id.tb,
+                                mecomp_storage::db::schemas::dynamic::TABLE_NAME
+                            );
+                            daemon.dynamic_playlist_update(tarpc::context::current(), id, changes).await??;
                             state = get_library(daemon.clone()).await?;
                             self.state_tx.send(state.clone())?;
                         }

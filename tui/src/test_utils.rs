@@ -10,8 +10,8 @@ use crate::{
     state::component::ActiveComponent,
     ui::{
         components::content_view::views::{
-            AlbumViewProps, ArtistViewProps, CollectionViewProps, PlaylistViewProps,
-            RadioViewProps, RandomViewProps, SongViewProps, ViewData,
+            AlbumViewProps, ArtistViewProps, CollectionViewProps, DynamicPlaylistViewProps,
+            PlaylistViewProps, RadioViewProps, RandomViewProps, SongViewProps, ViewData,
         },
         AppState,
     },
@@ -153,6 +153,11 @@ pub fn state_with_everything() -> AppState {
             playlist: Some(PlaylistViewProps {
                 id: playlist_id,
                 playlist,
+                songs: vec![song.clone()].into_boxed_slice(),
+            }),
+            dynamic_playlist: Some(DynamicPlaylistViewProps {
+                id: dynamic_id,
+                dynamic_playlist: dynamic,
                 songs: vec![song.clone()].into_boxed_slice(),
             }),
             radio: Some(RadioViewProps {

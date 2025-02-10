@@ -14,7 +14,7 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::{Action, LibraryAction, ViewAction},
+    state::action::{Action, LibraryAction, PopupAction, ViewAction},
     ui::{
         colors::{
             BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
@@ -22,6 +22,7 @@ use crate::{
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         widgets::{
             input_box::{self, InputBox},
+            popups::PopupType,
             tree::{state::CheckTreeState, CheckTree},
         },
         AppState,
@@ -85,6 +86,7 @@ impl Component for PlaylistView {
         "Playlist View"
     }
 
+    #[allow(clippy::too_many_lines)]
     fn handle_key_event(&mut self, key: KeyEvent) {
         match key.code {
             // arrow keys
@@ -190,6 +192,16 @@ impl Component for PlaylistView {
                     self.action_tx.send(Action::Library(action)).unwrap();
                 }
             }
+            // edit the playlist name
+            KeyCode::Char('e') => {
+                if let Some(props) = &self.props {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(PopupType::PlaylistEditor(
+                            props.playlist.clone(),
+                        ))))
+                        .unwrap();
+                }
+            }
             _ => {}
         }
     }
@@ -274,7 +286,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
             let border = Block::default()
                 .borders(Borders::TOP | Borders::BOTTOM)
                 .title_top("q: add to queue | r: start radio | p: add to playlist")
-                .title_bottom("s/S: change sort | d: remove selected")
+                .title_bottom("s/S: sort | d: remove selected | e: edit")
                 .border_style(border_style);
             frame.render_widget(&border, content_area);
             let content_area = border.inner(content_area);
@@ -736,7 +748,7 @@ mod item_view_tests {
         );
     }
     #[test]
-    fn test_render_no_song() -> Result<()> {
+    fn test_render_no_playlist() -> Result<()> {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = PlaylistView::new(&AppState::default(), tx);
 
@@ -785,7 +797,7 @@ mod item_view_tests {
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire playlist──────────────────│",
             "│☐ Test Song Test Artist                                   │",
-            "│s/S: change sort | d: remove selected─────────────────────│",
+            "│s/S: sort | d: remove selected | e: edit──────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
 
@@ -816,7 +828,7 @@ mod item_view_tests {
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire playlist──────────────────│",
             "│☐ Test Song Test Artist                                   │",
-            "│s/S: change sort | d: remove selected─────────────────────│",
+            "│s/S: sort | d: remove selected | e: edit──────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
         assert_buffer_eq(&buffer, &expected);
@@ -838,7 +850,7 @@ mod item_view_tests {
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on checked items────────────────────│",
             "│☑ Test Song Test Artist                                   │",
-            "│s/S: change sort | d: remove selected─────────────────────│",
+            "│s/S: sort | d: remove selected | e: edit──────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
 
@@ -848,7 +860,7 @@ mod item_view_tests {
     }
 
     #[test]
-    fn smoke_navigation() {
+    fn smoke_navigation_and_sort() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = PlaylistView::new(&state_with_everything(), tx);
 
@@ -858,6 +870,8 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::PageDown));
         view.handle_key_event(KeyEvent::from(KeyCode::Left));
         view.handle_key_event(KeyEvent::from(KeyCode::Right));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('s')));
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('S')));
     }
 
     #[test]
@@ -904,7 +918,7 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('d')));
 
         // there are checked items
-        // first we need to select an item (the album)
+        // first we need to select an item
         view.handle_key_event(KeyEvent::from(KeyCode::Up));
         let _frame = terminal.draw(|frame| view.render(frame, props)).unwrap();
 
@@ -985,7 +999,7 @@ mod item_view_tests {
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire playlist──────────────────│",
             "│☐ Test Song Test Artist                                   │",
-            "│s/S: change sort | d: remove selected─────────────────────│",
+            "│s/S: sort | d: remove selected | e: edit──────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
         assert_buffer_eq(&buffer, &expected);
@@ -1013,7 +1027,7 @@ mod item_view_tests {
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on checked items────────────────────│",
             "│☑ Test Song Test Artist                                   │",
-            "│s/S: change sort | d: remove selected─────────────────────│",
+            "│s/S: sort | d: remove selected | e: edit──────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
         assert_buffer_eq(&buffer, &expected);
@@ -1040,7 +1054,7 @@ mod item_view_tests {
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire playlist──────────────────│",
             "│☐ Test Song Test Artist                                   │",
-            "│s/S: change sort | d: remove selected─────────────────────│",
+            "│s/S: sort | d: remove selected | e: edit──────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
         let buffer = terminal

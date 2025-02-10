@@ -107,6 +107,7 @@ impl FromStr for Thing {
                     | song::TABLE_NAME
                     | playlist::TABLE_NAME
                     | collection::TABLE_NAME
+                    | dynamic::TABLE_NAME
             ))
             && parts[1].len() == 26
             && parts[1]

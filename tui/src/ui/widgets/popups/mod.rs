@@ -1,8 +1,9 @@
+pub mod dynamic;
 pub mod notification;
 pub mod playlist;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_storage::db::schemas::Thing;
+use mecomp_storage::db::schemas::{dynamic::DynamicPlaylist, playlist::Playlist, Thing};
 use ratatui::{
     layout::Position,
     prelude::Rect,
@@ -108,6 +109,8 @@ pub enum PopupType {
     #[allow(dead_code)]
     Notification(Text<'static>),
     Playlist(Vec<Thing>),
+    PlaylistEditor(Playlist),
+    DynamicPlaylistEditor(DynamicPlaylist),
 }
 
 impl PopupType {
@@ -124,6 +127,46 @@ impl PopupType {
             Self::Playlist(items) => {
                 Box::new(playlist::PlaylistSelector::new(state, action_tx, items)) as _
             }
+            Self::PlaylistEditor(playlist) => {
+                Box::new(playlist::PlaylistEditor::new(state, action_tx, playlist)) as _
+            }
+            Self::DynamicPlaylistEditor(playlist) => Box::new(dynamic::DynamicPlaylistEditor::new(
+                state, action_tx, playlist,
+            )) as _,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_utils::state_with_everything;
+
+    use super::*;
+
+    #[test]
+    fn test_popup_type_into_popup() {
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        let state = state_with_everything();
+
+        // Test notification popup
+        let notification = PopupType::Notification(Text::raw("Test notification"));
+        let popup = notification.into_popup(&state, tx.clone());
+        assert_eq!(popup.title().to_string(), "Notification");
+
+        // Test playlist selector popup
+        let items = vec![];
+        let playlist = PopupType::Playlist(items);
+        let popup = playlist.into_popup(&state, tx.clone());
+        assert_eq!(popup.title().to_string(), "Select a Playlist");
+
+        // Test playlist editor popup
+        let playlist = PopupType::PlaylistEditor(state.library.playlists[0].clone());
+        let popup = playlist.into_popup(&state, tx.clone());
+        assert_eq!(popup.title().to_string(), "Rename Playlist");
+
+        // Test dynamic playlist editor popup
+        let dynamic = PopupType::DynamicPlaylistEditor(state.library.dynamic_playlists[0].clone());
+        let popup = dynamic.into_popup(&state, tx);
+        assert_eq!(popup.title().to_string(), "Edit Dynamic Playlist");
     }
 }

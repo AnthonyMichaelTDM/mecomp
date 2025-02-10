@@ -1,6 +1,8 @@
+pub mod dynamic;
 use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::{
-    album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song, Thing,
+    album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
+    playlist::Playlist, song::Song, Thing,
 };
 use one_or_many::OneOrMany;
 use ratatui::{
@@ -35,6 +37,7 @@ pub struct ViewData {
     pub album: Option<AlbumViewProps>,
     pub artist: Option<ArtistViewProps>,
     pub collection: Option<CollectionViewProps>,
+    pub dynamic_playlist: Option<DynamicPlaylistViewProps>,
     pub playlist: Option<PlaylistViewProps>,
     pub song: Option<SongViewProps>,
     pub radio: Option<RadioViewProps>,
@@ -195,6 +198,13 @@ pub struct CollectionViewProps {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DynamicPlaylistViewProps {
+    pub id: Thing,
+    pub dynamic_playlist: DynamicPlaylist,
+    pub songs: Box<[Song]>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlaylistViewProps {
     pub id: Thing,
     pub playlist: Playlist,
@@ -323,7 +333,8 @@ pub struct RandomViewProps {
 pub mod checktree_utils {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     use mecomp_storage::db::schemas::{
-        album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song, Thing,
+        album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
+        playlist::Playlist, song::Song, Thing,
     };
     use ratatui::{
         layout::Position,
@@ -618,6 +629,33 @@ pub mod checktree_utils {
             playlist.id.to_string(),
             Line::from(vec![Span::styled(
                 playlist.name.to_string(),
+                Style::default().bold(),
+            )]),
+        )
+    }
+
+    /// # Errors
+    ///
+    /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
+    pub fn create_dynamic_playlist_tree_item(
+        dynamic_playlists: &[DynamicPlaylist],
+    ) -> Result<CheckTreeItem<String>, std::io::Error> {
+        CheckTreeItem::<String>::new_with_items(
+            dynamic_playlists,
+            "Dynamic Playlists",
+            format!("Dynamic Playlists ({}):", dynamic_playlists.len()),
+            create_dynamic_playlist_tree_leaf,
+        )
+    }
+
+    #[must_use]
+    pub fn create_dynamic_playlist_tree_leaf<'a>(
+        dynamic_playlist: &DynamicPlaylist,
+    ) -> CheckTreeItem<'a, String> {
+        CheckTreeItem::new_leaf(
+            dynamic_playlist.id.to_string(),
+            Line::from(vec![Span::styled(
+                dynamic_playlist.name.to_string(),
                 Style::default().bold(),
             )]),
         )

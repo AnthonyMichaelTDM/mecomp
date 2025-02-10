@@ -57,7 +57,16 @@ impl InputBox {
     }
 
     fn enter_char(&mut self, new_char: char) {
-        self.text.insert(self.cursor_position, new_char);
+        // we need to convert the cursor position (which is in characters) to the byte index
+        // of the cursor position in the string
+        let cursor_byte_index = self
+            .text
+            .chars()
+            .take(self.cursor_position)
+            .map(char::len_utf8)
+            .sum();
+
+        self.text.insert(cursor_byte_index, new_char);
 
         self.move_cursor_right();
     }
@@ -126,6 +135,12 @@ impl Component for InputBox {
             }
             KeyCode::Right => {
                 self.move_cursor_right();
+            }
+            KeyCode::Home => {
+                self.cursor_position = 0;
+            }
+            KeyCode::End => {
+                self.cursor_position = self.text.len();
             }
             _ => {}
         }
@@ -243,6 +258,30 @@ mod tests {
         input_box.delete_char();
         assert_eq!(input_box.text, "");
         assert_eq!(input_box.cursor_position, 0);
+    }
+
+    #[test]
+    fn test_entering_non_ascii_char() {
+        let mut input_box = InputBox {
+            text: String::new(),
+            cursor_position: 0,
+        };
+
+        input_box.enter_char('a');
+        assert_eq!(input_box.text, "a");
+        assert_eq!(input_box.cursor_position, 1);
+
+        input_box.enter_char('m');
+        assert_eq!(input_box.text, "am");
+        assert_eq!(input_box.cursor_position, 2);
+
+        input_box.enter_char('é');
+        assert_eq!(input_box.text, "amé");
+        assert_eq!(input_box.cursor_position, 3);
+
+        input_box.enter_char('l');
+        assert_eq!(input_box.text, "amél");
+        assert_eq!(input_box.cursor_position, 4);
     }
 
     #[test]
