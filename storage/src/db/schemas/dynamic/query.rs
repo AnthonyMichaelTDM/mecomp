@@ -397,6 +397,8 @@ impl Compile for Operator {
 
 #[cfg(test)]
 mod tests {
+    use std::marker::PhantomData;
+
     use super::*;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
@@ -537,6 +539,28 @@ mod tests {
     #[apply(compilables)]
     fn test_compile<T: Compile>(#[case] input: T, #[case] expected: &str) {
         let compiled = input.compile(Context::Storage);
+        assert_eq!(compiled, expected);
+    }
+
+    #[rstest]
+    #[case::field(PhantomData::<Field>, "title", "title")]
+    #[case::field(PhantomData::<Field>, "artist", "array::flatten([artist][? $this])")]
+    #[case::field(PhantomData::<Field>, "album", "album")]
+    #[case::field(PhantomData::<Field>, "album_artist", "array::flatten([album_artist][? $this])")]
+    #[case::field(PhantomData::<Field>, "genre", "array::flatten([genre][? $this])")]
+    #[case::field(PhantomData::<Field>, "release_year", "release_year")]
+    #[case::compound_query(PhantomData::<CompoundClause>, "(title = \"foo\" AND \"bar\" INSIDE artist)", "(title = \"foo\" AND \"bar\" INSIDE array::flatten([artist][? $this]))")]
+    #[case::complex_query(PhantomData::<Query>, "((title = \"foo\" AND (artist CONTAINSNOT \"bar\" OR album = \"baz\")) AND release_year > 2020)", "((title = \"foo\" AND (array::flatten([artist][? $this]) CONTAINSNOT \"bar\" OR album = \"baz\")) AND release_year > 2020)")]
+    fn test_compile_for_execution<T>(
+        #[case] _phantom: PhantomData<T>,
+        #[case] storage: &str,
+        #[case] expected: &str,
+    ) where
+        T: Compile + FromStr,
+        <T as std::str::FromStr>::Err: std::fmt::Debug,
+    {
+        let parsed = T::from_str(storage).unwrap();
+        let compiled = parsed.compile(Context::Execution);
         assert_eq!(compiled, expected);
     }
 
