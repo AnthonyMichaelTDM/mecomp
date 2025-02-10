@@ -397,13 +397,13 @@ pub mod checktree_utils {
             match kind {
                 MouseEventKind::Down(MouseButton::Left) => {
                     let selected_things = self.get_selected_thing();
-                    self.mouse_click(mouse_position);
 
                     // if the selection didn't change, open the selected view
-                    (selected_things == self.get_selected_thing())
-                        .then_some(selected_things)
-                        .flatten()
-                        .map(|thing| Action::ActiveView(ViewAction::Set(thing.into())))
+                    (self.mouse_click(mouse_position)
+                        && selected_things == self.get_selected_thing())
+                    .then_some(selected_things)
+                    .flatten()
+                    .map(|thing| Action::ActiveView(ViewAction::Set(thing.into())))
                 }
                 MouseEventKind::ScrollDown => {
                     self.key_down();

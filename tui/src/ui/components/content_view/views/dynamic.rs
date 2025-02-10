@@ -1277,21 +1277,20 @@ mod library_view_tests {
             rx.blocking_recv().unwrap(),
             Action::ActiveView(ViewAction::Set(ActiveView::DynamicPlaylist(item_id())))
         );
-        // NOTE: not working, I have a fix but I want it to be put in a separate PR
-        // // clicking on an empty area should clear the selection
-        // let mouse_event = MouseEvent {
-        //     kind: MouseEventKind::Down(MouseButton::Left),
-        //     column: 2,
-        //     row: 3,
-        //     modifiers: KeyModifiers::empty(),
-        // };
-        // view.handle_mouse_event(mouse_event, area);
-        // assert_eq!(view.tree_state.lock().unwrap().get_selected_thing(), None);
-        // view.handle_mouse_event(mouse_event, area);
-        // assert_eq!(
-        //     rx.try_recv(),
-        //     Err(tokio::sync::mpsc::error::TryRecvError::Empty)
-        // );
+        // clicking on an empty area should clear the selection
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 2,
+            row: 3,
+            modifiers: KeyModifiers::empty(),
+        };
+        view.handle_mouse_event(mouse_event, area);
+        assert_eq!(view.tree_state.lock().unwrap().get_selected_thing(), None);
+        view.handle_mouse_event(mouse_event, area);
+        assert_eq!(
+            rx.try_recv(),
+            Err(tokio::sync::mpsc::error::TryRecvError::Empty)
+        );
 
         view.handle_key_event(KeyEvent::from(KeyCode::Char('n'))); // reveal the name input box
 

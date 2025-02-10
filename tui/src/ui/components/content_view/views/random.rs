@@ -160,8 +160,10 @@ impl Component for RandomView {
                 let selected = adjusted_mouse_y as usize;
                 if self.random_type_list.selected() == Some(selected) {
                     self.handle_key_event(KeyEvent::from(KeyCode::Enter));
-                } else {
+                } else if selected < RANDOM_TYPE_ITEMS.len() {
                     self.random_type_list.select(Some(selected));
+                } else {
+                    self.random_type_list.select(None);
                 }
             }
             MouseEventKind::ScrollDown => self.handle_key_event(KeyEvent::from(KeyCode::Down)),
@@ -399,7 +401,7 @@ mod tests {
         let state = state_with_everything();
         let mut view = RandomView::new(&state, tx);
         let random_view_props = state.additional_view_data.random.unwrap();
-        let view_area = Rect::new(0, 0, 50, 5);
+        let view_area = Rect::new(0, 0, 50, 6);
 
         // select the first item by scrolling down
         view.handle_mouse_event(
@@ -505,5 +507,17 @@ mod tests {
             rx.blocking_recv().unwrap(),
             Action::ActiveView(ViewAction::Set(ActiveView::Song(random_view_props.song.id)))
         );
+
+        // clicking on nothing should clear the selection
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 25,
+                row: 4,
+                modifiers: KeyModifiers::empty(),
+            },
+            view_area,
+        );
+        assert_eq!(view.random_type_list.selected(), None);
     }
 }

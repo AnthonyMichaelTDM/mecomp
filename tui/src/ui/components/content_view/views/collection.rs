@@ -4,11 +4,11 @@
 
 use std::sync::Mutex;
 
-use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::collection::Collection;
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
@@ -428,45 +428,16 @@ impl Component for LibraryCollectionsView {
     }
 
     fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        let MouseEvent {
-            kind, column, row, ..
-        } = mouse;
-        let mouse_position = Position::new(column, row);
-
         // adjust the area to account for the border
         let area = area.inner(Margin::new(1, 2));
 
-        match kind {
-            MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
-                let Some(clicked) = self
-                    .tree_state
-                    .lock()
-                    .unwrap()
-                    .rendered_at(mouse_position)
-                    .map(<[String]>::to_vec)
-                else {
-                    return;
-                };
-
-                if self.tree_state.lock().unwrap().select(clicked) {
-                    self.tree_state.lock().unwrap().scroll_selected_into_view();
-                } else {
-                    let things = self.tree_state.lock().unwrap().get_selected_thing();
-
-                    if let Some(thing) = things {
-                        self.action_tx
-                            .send(Action::ActiveView(ViewAction::Set(thing.into())))
-                            .unwrap();
-                    }
-                }
-            }
-            MouseEventKind::ScrollDown if area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            MouseEventKind::ScrollUp if area.contains(mouse_position) => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            _ => {}
+        let result = self
+            .tree_state
+            .lock()
+            .unwrap()
+            .handle_mouse_event(mouse, area);
+        if let Some(action) = result {
+            self.action_tx.send(action).unwrap();
         }
     }
 }
@@ -591,7 +562,7 @@ mod item_view_tests {
         ui::{components::content_view::ActiveView, widgets::popups::PopupType},
     };
     use anyhow::Result;
-    use crossterm::event::KeyModifiers;
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -951,7 +922,7 @@ mod library_view_tests {
         ui::components::content_view::ActiveView,
     };
     use anyhow::Result;
-    use crossterm::event::KeyModifiers;
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -1123,6 +1094,36 @@ mod library_view_tests {
                 modifiers: KeyModifiers::empty(),
             },
             area,
+        );
+
+        // click down on selected item
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 2,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::ActiveView(ViewAction::Set(ActiveView::Collection(item_id())))
+        );
+
+        // clicking on an empty area should clear the selection
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 2,
+            row: 3,
+            modifiers: KeyModifiers::empty(),
+        };
+        view.handle_mouse_event(mouse, area);
+        assert_eq!(view.tree_state.lock().unwrap().get_selected_thing(), None);
+        view.handle_mouse_event(mouse, area);
+        assert_eq!(
+            rx.try_recv(),
+            Err(tokio::sync::mpsc::error::TryRecvError::Empty)
         );
     }
 }
