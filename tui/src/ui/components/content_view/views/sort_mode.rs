@@ -158,57 +158,28 @@ impl<T> Default for NameSort<T> {
     }
 }
 
-impl SortMode<Artist> for NameSort<Artist> {
-    #[must_use]
-    fn next(&self) -> Self {
-        Self::new()
-    }
-
-    #[must_use]
-    fn prev(&self) -> Self {
-        Self::new()
-    }
-
-    #[allow(clippy::unused_self)]
-    fn sort_items(&self, items: &mut [Artist]) {
-        fn key<T: AsRef<str>>(input: T) -> String {
-            input
-                .as_ref()
-                .to_lowercase() // ignore case
-                .trim_start_matches(|c: char| !c.is_alphanumeric()) // ignore leading non-alphanumeric characters
-                .trim_start_matches("the ") // ignore leading "the "
-                .to_owned()
-        }
-        items.sort_by_key(|item| key(&item.name));
-    }
+trait NameSortable {
+    fn name(&self) -> &str;
 }
 
-impl SortMode<Collection> for NameSort<Collection> {
-    #[must_use]
-    fn next(&self) -> Self {
-        Self::new()
-    }
-
-    #[must_use]
-    fn prev(&self) -> Self {
-        Self::new()
-    }
-
-    #[allow(clippy::unused_self)]
-    fn sort_items(&self, items: &mut [Collection]) {
-        fn key<T: AsRef<str>>(input: T) -> String {
-            input
-                .as_ref()
-                .to_lowercase() // ignore case
-                .trim_start_matches(|c: char| !c.is_alphanumeric()) // ignore leading non-alphanumeric characters
-                .trim_start_matches("the ") // ignore leading "the "
-                .to_owned()
-        }
-        items.sort_by_key(|item| key(&item.name));
-    }
+macro_rules! impl_name_sortable {
+    ($($t:ty),*) => {
+        $(
+            impl NameSortable for $t {
+                fn name(&self) -> &str {
+                    &self.name
+                }
+            }
+        )*
+    };
 }
 
-impl SortMode<Playlist> for NameSort<Playlist> {
+impl_name_sortable!(Artist, Collection, Playlist, DynamicPlaylist);
+
+impl<T> SortMode<T> for NameSort<T>
+where
+    T: NameSortable,
+{
     #[must_use]
     fn next(&self) -> Self {
         Self::new()
@@ -220,8 +191,8 @@ impl SortMode<Playlist> for NameSort<Playlist> {
     }
 
     #[allow(clippy::unused_self)]
-    fn sort_items(&self, items: &mut [Playlist]) {
-        fn key<T: AsRef<str>>(input: T) -> String {
+    fn sort_items(&self, items: &mut [T]) {
+        fn key<S: AsRef<str>>(input: S) -> String {
             input
                 .as_ref()
                 .to_lowercase() // ignore case
@@ -229,31 +200,6 @@ impl SortMode<Playlist> for NameSort<Playlist> {
                 .trim_start_matches("the ") // ignore leading "the "
                 .to_owned()
         }
-        items.sort_by_key(|item| key(&item.name));
-    }
-}
-
-impl SortMode<DynamicPlaylist> for NameSort<DynamicPlaylist> {
-    #[must_use]
-    fn next(&self) -> Self {
-        Self::new()
-    }
-
-    #[must_use]
-    fn prev(&self) -> Self {
-        Self::new()
-    }
-
-    #[allow(clippy::unused_self)]
-    fn sort_items(&self, items: &mut [DynamicPlaylist]) {
-        fn key<T: AsRef<str>>(input: T) -> String {
-            input
-                .as_ref()
-                .to_lowercase() // ignore case
-                .trim_start_matches(|c: char| !c.is_alphanumeric()) // ignore leading non-alphanumeric characters
-                .trim_start_matches("the ") // ignore leading "the "
-                .to_owned()
-        }
-        items.sort_by_key(|item| key(&item.name));
+        items.sort_by_key(|item| key(item.name()));
     }
 }
