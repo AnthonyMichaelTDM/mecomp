@@ -16,6 +16,7 @@ use crate::{
 pub enum AudioCommand {
     Play,
     Pause,
+    Stop,
     TogglePlayback,
     RestartSong,
     /// only clear the player (i.e. stop playback)
@@ -41,6 +42,7 @@ impl PartialEq for AudioCommand {
             | (Self::ClearPlayer, Self::ClearPlayer)
             | (Self::RestartSong, Self::RestartSong)
             | (Self::Exit, Self::Exit)
+            | (Self::Stop, Self::Stop)
             | (Self::ReportStatus(_), Self::ReportStatus(_)) => true,
             (Self::Queue(a), Self::Queue(b)) => a == b,
             (Self::Volume(a), Self::Volume(b)) => a == b,
@@ -56,6 +58,7 @@ impl Display for AudioCommand {
         match self {
             Self::Play => write!(f, "Play"),
             Self::Pause => write!(f, "Pause"),
+            Self::Stop => write!(f, "Stop"),
             Self::TogglePlayback => write!(f, "Toggle Playback"),
             Self::RestartSong => write!(f, "Restart Song"),
             Self::ClearPlayer => write!(f, "Clear Player"),
