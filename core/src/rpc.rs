@@ -166,6 +166,8 @@ pub trait MusicPlayer {
     async fn playback_play() -> ();
     /// pause playback.
     async fn playback_pause() -> ();
+    /// stop playback.
+    async fn playback_stop() -> ();
     /// restart the current song.
     async fn playback_restart() -> ();
     /// skip forward by the given amount of songs

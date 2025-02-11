@@ -405,6 +405,17 @@ mod test_client_tests {
 
     #[rstest]
     #[tokio::test]
+    async fn test_playback_stop(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let ctx = tarpc::context::current();
+
+        client.playback_stop(ctx).await?;
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
     async fn test_queue_add_list(#[future] client: MusicPlayerClient) -> Result<()> {
         let client = client.await;
 

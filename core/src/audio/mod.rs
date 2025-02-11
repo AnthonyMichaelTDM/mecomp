@@ -91,6 +91,14 @@ struct DurationInfo {
     current_duration: Duration,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+enum Status {
+    #[default]
+    Paused,
+    Playing,
+    Stopped,
+}
+
 pub(crate) struct AudioKernel {
     /// this is not used, but is needed to keep the stream alive
     #[cfg(not(feature = "mock_playback"))]
@@ -109,8 +117,8 @@ pub(crate) struct AudioKernel {
     muted: Arc<AtomicBool>,
     /// the current song duration and the time played
     duration_info: Arc<Mutex<DurationInfo>>,
-    /// whether the audio kernel is paused
-    paused: Arc<AtomicBool>,
+    /// whether the audio kernel is paused, playlist, or stopped
+    status: Arc<Mutex<Status>>,
 }
 
 impl AudioKernel {
@@ -135,7 +143,7 @@ impl AudioKernel {
             volume: Arc::new(Mutex::new(1.0)),
             muted: Arc::new(AtomicBool::new(false)),
             duration_info: Arc::new(Mutex::new(DurationInfo::default())),
-            paused: Arc::new(AtomicBool::new(true)),
+            status: Arc::new(Mutex::new(Status::Paused)),
         }
     }
 
@@ -182,7 +190,7 @@ impl AudioKernel {
             volume: Arc::new(Mutex::new(1.0)),
             muted: Arc::new(AtomicBool::new(false)),
             duration_info: Arc::new(Mutex::new(DurationInfo::default())),
-            paused: Arc::new(AtomicBool::new(true)),
+            status: Arc::new(Mutex::new(Status::Paused)),
         }
     }
 
@@ -211,7 +219,7 @@ impl AudioKernel {
 
         // we won't be able to access this AudioKernel instance reliably, so we need to clone Arcs to all the values we need
         let duration_info = self.duration_info.clone();
-        let paused = self.paused.clone();
+        let status = self.status.clone();
 
         // NOTE: as of rodio v0.19.0, we have access to the `get_pos` command, which allows us to get the current position of the audio stream
         // it may seem like this means we don't need to have a duration watcher, but the key point is that we need to know when to skip to the next song
@@ -233,7 +241,7 @@ impl AudioKernel {
                             loop {
                                 tokio::time::sleep(sleep_time).await;
                                 let mut duration_info = duration_info.lock().unwrap();
-                                if !paused.load(std::sync::atomic::Ordering::Relaxed) {
+                                if *status.lock().unwrap() == Status::Playing {
                                     // if we aren't paused, increment the time played
                                     duration_info.time_played += sleep_time;
                                     // if we're within the threshold of the end of the song, signal to the audio kernel to skip to the next song
@@ -273,6 +281,9 @@ impl AudioKernel {
                 }
                 AudioCommand::Volume(command) => self.volume_control(command),
                 AudioCommand::Seek(seek, duration) => self.seek(seek, duration),
+                AudioCommand::Stop => {
+                    self.stop();
+                }
             }
         }
 
@@ -284,15 +295,20 @@ impl AudioKernel {
     #[instrument(skip(self))]
     fn play(&self) {
         self.player.play();
-        self.paused
-            .store(false, std::sync::atomic::Ordering::Relaxed);
+        *self.status.lock().unwrap() = Status::Playing;
     }
 
     #[instrument(skip(self))]
     fn pause(&self) {
         self.player.pause();
-        self.paused
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+        *self.status.lock().unwrap() = Status::Paused;
+    }
+
+    #[instrument(skip(self))]
+    fn stop(&self) {
+        self.player.pause();
+        self.seek(SeekType::Absolute, Duration::from_secs(0));
+        *self.status.lock().unwrap() = Status::Stopped;
     }
 
     #[instrument(skip(self))]
@@ -329,8 +345,7 @@ impl AudioKernel {
     #[instrument(skip(self))]
     fn clear_player(&self) {
         self.player.clear();
-        self.paused
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+        *self.status.lock().unwrap() = Status::Stopped;
         *self.duration_info.lock().unwrap() = DurationInfo::default();
     }
 
@@ -372,10 +387,14 @@ impl AudioKernel {
             }
         });
         let paused = self.player.is_paused();
-        debug_assert_eq!(
-            self.paused.load(std::sync::atomic::Ordering::Relaxed),
-            paused
-        );
+        debug_assert!(if paused {
+            matches!(
+                *self.status.lock().unwrap(),
+                Status::Paused | Status::Stopped
+            )
+        } else {
+            matches!(*self.status.lock().unwrap(), Status::Playing)
+        });
         let muted = self.muted.load(std::sync::atomic::Ordering::Relaxed);
         let volume = *self.volume.lock().unwrap();
 
@@ -825,6 +844,21 @@ mod tests {
             assert!(state.paused); // Note, unlike adding a song to the queue, RestartSong does not affect whether the player is paused
 
             sender.send(AudioCommand::Exit);
+        }
+
+        #[rstest]
+        fn test_audio_kernel_stop(audio_kernel: AudioKernel) {
+            init();
+            audio_kernel.player.append(sound());
+            audio_kernel.play();
+            assert!(!audio_kernel.player.is_paused());
+            audio_kernel.stop();
+            assert!(audio_kernel.player.is_paused());
+            assert_eq!(
+                audio_kernel.duration_info.lock().unwrap().time_played,
+                Duration::from_secs(0)
+            );
+            assert_eq!(*audio_kernel.status.lock().unwrap(), Status::Stopped);
         }
 
         #[rstest]

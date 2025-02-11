@@ -682,6 +682,12 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Pausing playback");
         self.audio_kernel.send(AudioCommand::Pause);
     }
+    /// stop playback.
+    #[instrument]
+    async fn playback_stop(self, context: Context) {
+        info!("Stopping playback");
+        self.audio_kernel.send(AudioCommand::Stop);
+    }
     /// restart the current song.
     #[instrument]
     async fn playback_restart(self, context: Context) {
