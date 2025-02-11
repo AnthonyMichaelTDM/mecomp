@@ -10,8 +10,8 @@ use tokio::sync::{
     mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
 };
 
-use mecomp_core::rpc::MusicPlayerClient;
-use mecomp_core::state::StateAudio;
+use mecomp_core::state::{Percent, StateAudio};
+use mecomp_core::{rpc::MusicPlayerClient, udp::StateChange};
 
 use crate::termination::Interrupted;
 
@@ -47,6 +47,7 @@ impl AudioState {
         mut interrupt_rx: broadcast::Receiver<Interrupted>,
     ) -> anyhow::Result<Interrupted> {
         let mut state = get_state(daemon.clone()).await?;
+        let mut update_needed = false;
 
         // the initial state once
         self.state_tx.send(state.clone())?;
@@ -54,39 +55,68 @@ impl AudioState {
         // the ticker
         let mut ticker = tokio::time::interval(TICK_RATE);
 
+        let mut update_ticker = tokio::time::interval(Duration::from_secs(1));
+
         let result = loop {
             tokio::select! {
                 // Handle the actions coming from the UI
                 // and process them to do async operations
                 Some(action) = action_rx.recv() => {
-                    self.handle_action(daemon.clone(), action).await?;
+                    match action {
+                        AudioAction::Playback(action) => handle_playback(&daemon, action).await?,
+                        AudioAction::Queue(action) => handle_queue(&daemon, action).await?,
+                        AudioAction::StateChange(state_change) => {
+                            match state_change {
+                                StateChange::Muted => state.muted = true,
+                                StateChange::Unmuted => state.muted = false,
+                                StateChange::VolumeChanged(volume) => state.volume = volume,
+                                StateChange::TrackChanged(_) => {
+                                    // force an update when the track changes, "just in case"
+                                    update_needed = true;
+                                },
+                                StateChange::RepeatModeChanged(repeat_mode) => state.repeat_mode = repeat_mode,
+                                StateChange::Seeked(seek_position) => if let Some(runtime) = &mut state.runtime {
+                                    runtime.seek_percent =
+                                        Percent::new(seek_position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0);
+                                    runtime.seek_position = seek_position;
+                                },
+                                StateChange::Paused => state.paused = true,
+                                StateChange::Resumed => state.paused = false,
+                                StateChange::Stopped => {
+                                    state.paused = true;
+                                }
+                            }
+                        }
+                    }
                 },
                 // Tick to terminate the select every N milliseconds
-                _ = ticker.tick() => {},
+                _ = ticker.tick() => {
+                    if state.paused {
+                        continue;
+                    }
+                    if let Some(runtime) = &mut state.runtime {
+                        runtime.seek_position+= TICK_RATE;
+                        runtime.seek_percent =
+                            Percent::new(runtime.seek_position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0);
+                    }
+                },
+                // force a state update every second
+                _ = update_ticker.tick() => {
+                    update_needed = true;
+                },
                 // Catch and handle interrupt signal to gracefully shutdown
                 Ok(interrupted) = interrupt_rx.recv() => {
                     break interrupted;
                 }
             }
-
-            state = get_state(daemon.clone()).await?;
+            if update_needed {
+                state = get_state(daemon.clone()).await?;
+                update_needed = false;
+            }
             self.state_tx.send(state.clone())?;
         };
 
         Ok(result)
-    }
-
-    async fn handle_action(
-        &self,
-        daemon: Arc<MusicPlayerClient>,
-        action: AudioAction,
-    ) -> anyhow::Result<()> {
-        match action {
-            AudioAction::Playback(action) => handle_playback(daemon, action).await?,
-            AudioAction::Queue(action) => handle_queue(daemon, action).await?,
-        }
-
-        Ok(())
     }
 }
 
@@ -97,10 +127,7 @@ async fn get_state(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<StateAudio>
 }
 
 /// handle a playback action
-async fn handle_playback(
-    daemon: Arc<MusicPlayerClient>,
-    action: PlaybackAction,
-) -> anyhow::Result<()> {
+async fn handle_playback(daemon: &MusicPlayerClient, action: PlaybackAction) -> anyhow::Result<()> {
     let ctx = tarpc::context::current();
 
     match action {
@@ -123,7 +150,7 @@ async fn handle_playback(
 }
 
 /// handle a queue action
-async fn handle_queue(daemon: Arc<MusicPlayerClient>, action: QueueAction) -> anyhow::Result<()> {
+async fn handle_queue(daemon: &MusicPlayerClient, action: QueueAction) -> anyhow::Result<()> {
     let ctx = tarpc::context::current();
 
     match action {

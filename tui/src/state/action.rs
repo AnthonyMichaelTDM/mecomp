@@ -4,7 +4,10 @@
 
 use std::time::Duration;
 
-use mecomp_core::state::{RepeatMode, SeekType};
+use mecomp_core::{
+    state::{RepeatMode, SeekType},
+    udp::StateChange,
+};
 use mecomp_storage::db::schemas::{
     dynamic::{query::Query, DynamicPlaylistChangeSet},
     Thing,
@@ -44,6 +47,8 @@ pub enum AudioAction {
     Playback(PlaybackAction),
     /// Queue Commands
     Queue(QueueAction),
+    /// State Changes
+    StateChange(StateChange),
 }
 
 #[derive(Debug, Clone, PartialEq)]
