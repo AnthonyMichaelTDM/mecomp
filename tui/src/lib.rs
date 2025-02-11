@@ -198,7 +198,8 @@ mod subscriber_tests {
         let mut settings: Settings = Default::default();
         settings.daemon.library_paths = vec![music_dir.path().to_path_buf()].into_boxed_slice();
         let settings = Arc::new(settings);
-        let audio_kernel = AudioKernelSender::start();
+        let (tx, _) = std::sync::mpsc::channel();
+        let audio_kernel = AudioKernelSender::start(tx);
 
         init_test_client_server(db, settings, audio_kernel)
             .await

@@ -107,7 +107,7 @@ impl Display for StateRuntime {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default, PartialEq)]
 pub struct StateAudio {
     pub queue: Box<[Song]>,
     pub queue_position: Option<usize>,

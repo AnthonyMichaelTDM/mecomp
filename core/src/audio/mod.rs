@@ -20,6 +20,7 @@ use crate::{
     errors::LibraryError,
     format_duration,
     state::{Percent, SeekType, StateAudio, StateRuntime},
+    udp::StateChange,
 };
 use mecomp_storage::db::schemas::song::Song;
 use one_or_many::OneOrMany;
@@ -45,6 +46,7 @@ pub struct AudioKernelSender {
 
 impl AudioKernelSender {
     /// Starts the audio kernel in a detached thread and returns a sender to be used to send commands to the audio kernel.
+    /// The audio kernel will transmit state changes to the provided event transmitter.
     ///
     /// # Returns
     ///
@@ -54,13 +56,13 @@ impl AudioKernelSender {
     ///
     /// Panics if there is an issue spawning the audio kernel thread (if the name contains null bytes, which it doesn't, so this should never happen)
     #[must_use]
-    pub fn start() -> Arc<Self> {
+    pub fn start(event_tx: Sender<StateChange>) -> Arc<Self> {
         let (tx, rx) = std::sync::mpsc::channel();
         let tx_clone = tx.clone();
         std::thread::Builder::new()
             .name(String::from("Audio Kernel"))
             .spawn(move || {
-                let kernel = AudioKernel::new();
+                let kernel = AudioKernel::new(event_tx);
                 kernel.init(tx_clone, rx);
             })
             .unwrap();
@@ -85,7 +87,7 @@ impl AudioKernelSender {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 struct DurationInfo {
     time_played: Duration,
     current_duration: Duration,
@@ -119,6 +121,8 @@ pub(crate) struct AudioKernel {
     duration_info: Arc<Mutex<DurationInfo>>,
     /// whether the audio kernel is paused, playlist, or stopped
     status: Arc<Mutex<Status>>,
+    /// Event publisher for when the audio kernel changes state
+    event_tx: Sender<StateChange>,
 }
 
 impl AudioKernel {
@@ -129,7 +133,7 @@ impl AudioKernel {
     /// panics if the rodio stream cannot be created
     #[must_use]
     #[cfg(not(feature = "mock_playback"))]
-    pub fn new() -> Self {
+    pub fn new(event_tx: Sender<StateChange>) -> Self {
         let (stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
 
         let sink = rodio::Sink::try_new(&stream_handle).unwrap();
@@ -144,6 +148,7 @@ impl AudioKernel {
             muted: Arc::new(AtomicBool::new(false)),
             duration_info: Arc::new(Mutex::new(DurationInfo::default())),
             status: Arc::new(Mutex::new(Status::Paused)),
+            event_tx,
         }
     }
 
@@ -156,7 +161,7 @@ impl AudioKernel {
     /// panics if the tokio runtime cannot be created
     #[must_use]
     #[cfg(feature = "mock_playback")]
-    pub fn new() -> Self {
+    pub fn new(event_tx: Sender<StateChange>) -> Self {
         let (sink, mut queue_rx) = rodio::Sink::new_idle();
 
         // start a detached thread that continuously polls the queue_rx, until it receives a command to exit
@@ -191,6 +196,7 @@ impl AudioKernel {
             muted: Arc::new(AtomicBool::new(false)),
             duration_info: Arc::new(Mutex::new(DurationInfo::default())),
             status: Arc::new(Mutex::new(Status::Paused)),
+            event_tx,
         }
     }
 
@@ -262,11 +268,32 @@ impl AudioKernel {
             let _guard = ctx.enter();
 
             match command {
-                AudioCommand::Play => self.play(),
-                AudioCommand::Pause => self.pause(),
-                AudioCommand::TogglePlayback => self.toggle_playback(),
-                AudioCommand::RestartSong => self.restart_song(),
-                AudioCommand::ClearPlayer => self.clear_player(),
+                AudioCommand::Play => {
+                    self.play();
+                    let _ = self.event_tx.send(StateChange::Resumed);
+                }
+                AudioCommand::Pause => {
+                    self.pause();
+                    let _ = self.event_tx.send(StateChange::Paused);
+                }
+                AudioCommand::TogglePlayback => {
+                    self.toggle_playback();
+                    let _ = self.event_tx.send(if self.player.is_paused() {
+                        StateChange::Paused
+                    } else {
+                        StateChange::Resumed
+                    });
+                }
+                AudioCommand::RestartSong => {
+                    self.restart_song();
+                    let _ = self
+                        .event_tx
+                        .send(StateChange::Seeked(Duration::from_secs(0)));
+                }
+                AudioCommand::ClearPlayer => {
+                    self.clear_player();
+                    let _ = self.event_tx.send(StateChange::Stopped);
+                }
                 AudioCommand::Queue(command) => self.queue_control(command),
                 AudioCommand::Exit => break,
                 AudioCommand::ReportStatus(tx) => {
@@ -280,9 +307,15 @@ impl AudioKernel {
                     }
                 }
                 AudioCommand::Volume(command) => self.volume_control(command),
-                AudioCommand::Seek(seek, duration) => self.seek(seek, duration),
+                AudioCommand::Seek(seek, duration) => {
+                    self.seek(seek, duration);
+                    let _ = self.event_tx.send(StateChange::Seeked(
+                        self.duration_info.lock().unwrap().time_played,
+                    ));
+                }
                 AudioCommand::Stop => {
                     self.stop();
+                    let _ = self.event_tx.send(StateChange::Stopped);
                 }
             }
         }
@@ -353,9 +386,24 @@ impl AudioKernel {
     fn queue_control(&self, command: QueueCommand) {
         match command {
             QueueCommand::Clear => self.clear(),
-            QueueCommand::SkipForward(n) => self.skip_forward(n),
-            QueueCommand::SkipBackward(n) => self.skip_backward(n),
-            QueueCommand::SetPosition(n) => self.set_position(n),
+            QueueCommand::SkipForward(n) => {
+                self.skip_forward(n);
+                let _ = self.event_tx.send(StateChange::TrackChanged(
+                    self.state().current_song.map(|s| s.id.into()),
+                ));
+            }
+            QueueCommand::SkipBackward(n) => {
+                self.skip_backward(n);
+                let _ = self.event_tx.send(StateChange::TrackChanged(
+                    self.state().current_song.map(|s| s.id.into()),
+                ));
+            }
+            QueueCommand::SetPosition(n) => {
+                self.set_position(n);
+                let _ = self.event_tx.send(StateChange::TrackChanged(
+                    self.state().current_song.map(|s| s.id.into()),
+                ));
+            }
             QueueCommand::Shuffle => self.queue.lock().unwrap().shuffle(),
             QueueCommand::AddToQueue(song_box) => match *song_box {
                 OneOrMany::None => {}
@@ -363,7 +411,10 @@ impl AudioKernel {
                 OneOrMany::Many(songs) => self.add_songs_to_queue(songs),
             },
             QueueCommand::RemoveRange(range) => self.remove_range_from_queue(range),
-            QueueCommand::SetRepeatMode(mode) => self.queue.lock().unwrap().set_repeat_mode(mode),
+            QueueCommand::SetRepeatMode(mode) => {
+                self.queue.lock().unwrap().set_repeat_mode(mode);
+                let _ = self.event_tx.send(StateChange::RepeatModeChanged(mode));
+            }
         }
     }
 
@@ -572,6 +623,10 @@ impl AudioKernel {
         };
         self.append_to_player(source);
 
+        let _ = self
+            .event_tx
+            .send(StateChange::TrackChanged(Some(song.id.clone().into())));
+
         Ok(())
     }
 
@@ -581,27 +636,37 @@ impl AudioKernel {
             VolumeCommand::Up(percent) => {
                 let mut volume = self.volume.lock().unwrap();
                 *volume = (*volume + percent).clamp(MIN_VOLUME, MAX_VOLUME);
+                let _ = self.event_tx.send(StateChange::VolumeChanged(*volume));
             }
             VolumeCommand::Down(percent) => {
                 let mut volume = self.volume.lock().unwrap();
                 *volume = (*volume - percent).clamp(MIN_VOLUME, MAX_VOLUME);
+                let _ = self.event_tx.send(StateChange::VolumeChanged(*volume));
             }
             VolumeCommand::Set(percent) => {
                 let mut volume = self.volume.lock().unwrap();
                 *volume = percent.clamp(MIN_VOLUME, MAX_VOLUME);
+                let _ = self.event_tx.send(StateChange::VolumeChanged(*volume));
             }
             VolumeCommand::Mute => {
                 self.muted.store(true, std::sync::atomic::Ordering::Relaxed);
+                let _ = self.event_tx.send(StateChange::Muted);
             }
             VolumeCommand::Unmute => {
                 self.muted
                     .store(false, std::sync::atomic::Ordering::Relaxed);
+                let _ = self.event_tx.send(StateChange::Unmuted);
             }
             VolumeCommand::ToggleMute => {
                 self.muted.store(
                     !self.muted.load(std::sync::atomic::Ordering::Relaxed),
                     std::sync::atomic::Ordering::Relaxed,
                 );
+                if self.muted.load(std::sync::atomic::Ordering::Relaxed) {
+                    let _ = self.event_tx.send(StateChange::Muted);
+                } else {
+                    let _ = self.event_tx.send(StateChange::Unmuted);
+                }
             }
         }
 
@@ -651,8 +716,10 @@ impl AudioKernel {
 }
 
 impl Default for AudioKernel {
+    /// Create a new `AudioKernel` with default values, and a dummy event transmitter
     fn default() -> Self {
-        Self::new()
+        let (tx, _) = std::sync::mpsc::channel();
+        Self::new(tx)
     }
 }
 
@@ -674,7 +741,8 @@ mod tests {
 
     #[fixture]
     fn audio_kernel_sender() -> Arc<AudioKernelSender> {
-        AudioKernelSender::start()
+        let (tx, _) = mpsc::channel();
+        AudioKernelSender::start(tx)
     }
 
     async fn get_state(sender: Arc<AudioKernelSender>) -> StateAudio {
