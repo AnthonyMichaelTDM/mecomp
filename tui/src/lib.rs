@@ -73,6 +73,11 @@ impl Subscriber {
                     notification.into(),
                 ))))?;
             }
+            Message::StateChange(state_change) => {
+                action_tx.send(Action::Audio(state::action::AudioAction::StateChange(
+                    state_change,
+                )))?;
+            }
         }
 
         Ok(())
