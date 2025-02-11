@@ -3,13 +3,15 @@
 use std::{
     marker::PhantomData,
     net::{Ipv4Addr, SocketAddr},
+    time::Duration,
 };
 
+use mecomp_storage::db::schemas::Thing;
 use object_pool::Pool;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::net::UdpSocket;
 
-use crate::errors::UdpError;
+use crate::{errors::UdpError, state::RepeatMode};
 
 pub type Result<T> = std::result::Result<T, UdpError>;
 
@@ -20,9 +22,32 @@ pub enum Event {
     LibraryReclusterFinished,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum StateChange {
+    /// The player has been muted
+    Muted,
+    /// The player has been unmuted
+    Unmuted,
+    /// The player volume has changed
+    VolumeChanged(f32),
+    /// The current track has changed
+    TrackChanged(Option<Thing>),
+    /// The repeat mode has changed
+    RepeatModeChanged(RepeatMode),
+    /// Seeked to a new position in the track
+    Seeked(Duration),
+    /// The player has been paused
+    Paused,
+    /// The player has been resumed
+    Resumed,
+    /// The player has been stopped
+    Stopped,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Message {
     Event(Event),
+    StateChange(StateChange),
 }
 
 impl From<Event> for Message {
@@ -186,6 +211,18 @@ mod test {
     #[case(Message::Event(Event::LibraryRescanFinished))]
     #[case(Message::Event(Event::LibraryAnalysisFinished))]
     #[case(Message::Event(Event::LibraryReclusterFinished))]
+    #[case(Message::StateChange(StateChange::Muted))]
+    #[case(Message::StateChange(StateChange::Unmuted))]
+    #[case(Message::StateChange(StateChange::VolumeChanged(1. / 3.)))]
+    #[case(Message::StateChange(StateChange::TrackChanged(None)))]
+    #[case(Message::StateChange(StateChange::RepeatModeChanged(RepeatMode::None)))]
+    #[case(Message::StateChange(StateChange::Seeked(Duration::from_secs(3))))]
+    #[case(Message::StateChange(StateChange::Paused))]
+    #[case(Message::StateChange(StateChange::Resumed))]
+    #[case(Message::StateChange(StateChange::Stopped))]
+    #[case(Message::StateChange(StateChange::TrackChanged(Some(
+        mecomp_storage::db::schemas::song::Song::generate_id().into()
+    ))))]
     fn test_message_encoding_length(#[case] message: Message) {
         let mut buffer = Vec::new();
         ciborium::into_writer(&message, &mut buffer).unwrap();

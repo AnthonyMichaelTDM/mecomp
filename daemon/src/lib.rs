@@ -18,9 +18,10 @@ use mecomp_core::{
     is_server_running,
     logger::{init_logger, init_tracing},
     rpc::{MusicPlayer as _, MusicPlayerClient},
-    udp::Sender,
+    udp::{Message, Sender},
 };
 use mecomp_storage::db::{init_database, set_database_path};
+use tokio::sync::RwLock;
 
 async fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
     tokio::spawn(fut);
@@ -89,14 +90,29 @@ pub async fn start_daemon(
     )?;
 
     // Start the audio kernel.
-    let audio_kernel = AudioKernelSender::start();
-    let event_publisher = Sender::new().await?;
+    let (event_tx, event_rx) = std::sync::mpsc::channel();
+    let audio_kernel = AudioKernelSender::start(event_tx);
+    let event_publisher = Arc::new(RwLock::new(Sender::new().await?));
     let server = MusicPlayerServer::new(
         db.clone(),
         settings.clone(),
         audio_kernel.clone(),
-        event_publisher,
+        event_publisher.clone(),
     );
+
+    // Start StateChange publisher thread.
+    // this thread listens for events from the audio kernel and forwards them to the event publisher (managed by the daemon)
+    // the event publisher then pushes them to all the clients
+    let eft_guard = tokio::spawn(async move {
+        while let Ok(event) = event_rx.recv() {
+            event_publisher
+                .read()
+                .await
+                .send(Message::StateChange(event))
+                .await
+                .unwrap();
+        }
+    });
 
     // Start the RPC server.
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.daemon.rpc_port);
@@ -125,6 +141,8 @@ pub async fn start_daemon(
     #[cfg(feature = "dynamic_updates")]
     guard.stop();
 
+    eft_guard.abort();
+
     Ok(())
 }
 
@@ -141,7 +159,7 @@ pub async fn init_test_client_server(
 ) -> anyhow::Result<MusicPlayerClient> {
     let (client_transport, server_transport) = tarpc::transport::channel::unbounded();
 
-    let event_publisher = Sender::new().await?;
+    let event_publisher = Arc::new(RwLock::new(Sender::new().await?));
     let server = MusicPlayerServer::new(db, settings, audio_kernel, event_publisher);
     tokio::spawn(
         tarpc::server::BaseChannel::with_defaults(server_transport)
@@ -236,7 +254,8 @@ mod test_client_tests {
     #[fixture]
     async fn client(#[future] db: Arc<Surreal<Db>>) -> MusicPlayerClient {
         let settings = Arc::new(Settings::default());
-        let audio_kernel = AudioKernelSender::start();
+        let (tx, _) = std::sync::mpsc::channel();
+        let audio_kernel = AudioKernelSender::start(tx);
 
         init_test_client_server(db.await, settings, audio_kernel)
             .await
@@ -247,7 +266,8 @@ mod test_client_tests {
     async fn test_init_test_client_server() {
         let db = Arc::new(init_test_database().await.unwrap());
         let settings = Arc::new(Settings::default());
-        let audio_kernel = AudioKernelSender::start();
+        let (tx, _) = std::sync::mpsc::channel();
+        let audio_kernel = AudioKernelSender::start(tx);
 
         let client = init_test_client_server(db, settings, audio_kernel)
             .await

@@ -61,11 +61,11 @@ impl MusicPlayerServer {
         db: Arc<Surreal<Db>>,
         settings: Arc<Settings>,
         audio_kernel: Arc<AudioKernelSender>,
-        event_publisher: Sender<Message>,
+        event_publisher: Arc<RwLock<Sender<Message>>>,
     ) -> Self {
         Self {
             db,
-            publisher: Arc::new(RwLock::new(event_publisher)),
+            publisher: event_publisher,
             settings,
             audio_kernel,
             library_rescan_lock: Arc::new(Mutex::new(())),
@@ -90,6 +90,7 @@ impl MusicPlayerServer {
 impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn register_listener(self, context: Context, listener_addr: std::net::SocketAddr) {
+        info!("Registering listener: {listener_addr}");
         self.publisher.write().await.add_subscriber(listener_addr);
     }
 
