@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------- std lib
-use std::{ops::Range, sync::Arc, time::Duration};
+use std::{ops::Range, path::PathBuf, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
 use log::{debug, error, info, warn};
@@ -344,6 +344,16 @@ impl MusicPlayer for MusicPlayerServer {
         Song::read(&self.db, id)
             .await
             .tap_err(|e| warn!("Error in library_song_get: {e}"))
+            .ok()
+            .flatten()
+    }
+    /// Get a song by its file path.
+    #[instrument]
+    async fn library_song_get_by_path(self, context: Context, path: PathBuf) -> Option<Song> {
+        info!("Getting song by path: {}", path.display());
+        Song::read_by_path(&self.db, path)
+            .await
+            .tap_err(|e| warn!("Error in library_song_get_by_path: {e}"))
             .ok()
             .flatten()
     }
