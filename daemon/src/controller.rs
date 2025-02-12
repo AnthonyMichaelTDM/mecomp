@@ -81,7 +81,7 @@ impl MusicPlayerServer {
     /// Returns an error if the message could not be sent or encoded.
     pub async fn publish(
         &self,
-        message: impl Into<Message> + Send + Sync,
+        message: impl Into<Message> + Send + Sync + std::fmt::Debug,
     ) -> Result<(), mecomp_core::errors::UdpError> {
         self.publisher.read().await.send(message).await
     }
@@ -479,11 +479,15 @@ impl MusicPlayer for MusicPlayerServer {
     /// tells the daemon to shutdown.
     #[instrument]
     async fn daemon_shutdown(self, context: Context) {
+        let publisher = self.publisher.clone();
         let audio_kernel = self.audio_kernel.clone();
         std::thread::Builder::new()
             .name(String::from("Daemon Shutdown"))
             .spawn(move || {
                 std::thread::sleep(std::time::Duration::from_secs(1));
+                let _ = futures::executor::block_on(
+                    publisher.blocking_read().send(Event::DaemonShutdown),
+                );
                 audio_kernel.send(AudioCommand::Exit);
                 std::process::exit(0);
             })

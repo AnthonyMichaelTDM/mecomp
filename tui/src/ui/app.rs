@@ -372,7 +372,7 @@ mod tests {
     use crossterm::event::{KeyModifiers, MediaKeyCode};
     use mecomp_core::{
         rpc::SearchResult,
-        state::{library::LibraryFull, Percent, RepeatMode, StateAudio, StateRuntime},
+        state::{library::LibraryFull, Percent, RepeatMode, StateAudio, StateRuntime, Status},
     };
     use mecomp_storage::db::schemas::song::Song;
     use one_or_many::OneOrMany;
@@ -580,13 +580,13 @@ mod tests {
                 queue: vec![song.clone()].into_boxed_slice(),
                 queue_position: Some(0),
                 current_song: Some(song.clone()),
-                repeat_mode: RepeatMode::Once,
+                repeat_mode: RepeatMode::One,
                 runtime: Some(StateRuntime {
                     seek_position: Duration::from_secs(0),
                     seek_percent: Percent::new(0.0),
                     duration: song.runtime,
                 }),
-                paused: true,
+                status: Status::Stopped,
                 muted: false,
                 volume: 1.0,
             },
@@ -612,7 +612,7 @@ mod tests {
             song_artist,
         } = app.control_panel.props;
 
-        assert_eq!(is_playing, !state.audio.paused);
+        assert_eq!(is_playing, !state.audio.paused());
         assert_eq!(muted, state.audio.muted);
         assert_eq!(volume, state.audio.volume);
         assert_eq!(song_runtime, state.audio.runtime);

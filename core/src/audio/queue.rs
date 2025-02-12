@@ -73,7 +73,11 @@ impl Queue {
 
     #[instrument]
     pub fn next_song(&mut self) -> Option<&Song> {
-        self.skip_forward(1)
+        if self.repeat_mode == RepeatMode::One && self.current_index.is_some() {
+            self.current_song()
+        } else {
+            self.skip_forward(1)
+        }
     }
 
     /// Skip forward n songs in the queue.
@@ -88,20 +92,14 @@ impl Queue {
             }
             Some(current_index) => {
                 match self.repeat_mode {
-                    RepeatMode::None => {
+                    RepeatMode::None | RepeatMode::One => {
                         // if we reach this point, then skipping would put us at the end of the queue,
                         // so let's just stop playback
                         self.current_index = None;
+                        self.songs.clear();
                         None
                     }
-                    RepeatMode::Once => {
-                        // if we reach this point, then skipping would put us past the end of the queue,
-                        // so let's emutate looping back to the first song and then skipping n - len songs
-                        self.current_index = Some(0);
-                        self.repeat_mode = RepeatMode::None;
-                        self.skip_forward((current_index + n) - self.songs.len())
-                    }
-                    RepeatMode::Continuous => {
+                    RepeatMode::All => {
                         // if we reach this point, then skipping would put us past the end of the queue,
                         // so let's emulate looping over the songs as many times as needed, then skipping the remaining songs
                         self.current_index = Some((current_index + n) % self.songs.len());
@@ -399,6 +397,34 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn test_next_song_with_rp_one() {
+        init();
+        let db = init_test_database().await.unwrap();
+
+        let mut queue = Queue::new();
+        queue.set_repeat_mode(RepeatMode::One);
+        let song1 = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+            .await
+            .unwrap();
+        let song2 = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+            .await
+            .unwrap();
+        queue.add_song(song1.clone());
+        queue.add_song(song2.clone());
+
+        assert_eq!(queue.current_song(), None);
+        assert_eq!(queue.next_song(), Some(&song1));
+        assert_eq!(queue.current_song(), Some(&song1));
+        assert_eq!(queue.next_song(), Some(&song1));
+        queue.skip_forward(1);
+        assert_eq!(queue.current_song(), Some(&song2));
+        assert_eq!(queue.next_song(), Some(&song2));
+        queue.skip_forward(1);
+        assert_eq!(queue.current_song(), None);
+        assert_eq!(queue.next_song(), None);
+    }
+
     #[template]
     #[rstest]
     #[case::more_than_len( arb_vec(&arb_song_case(), 4..=5 )(), 7 )]
@@ -446,7 +472,7 @@ mod tests {
 
     #[apply(skip_song_test_template)]
     #[tokio::test]
-    async fn test_skip_song_rp_once(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
+    async fn test_skip_song_rp_one(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
         init();
         let db = init_test_database().await.unwrap();
 
@@ -455,7 +481,7 @@ mod tests {
         for sc in songs {
             queue.add_song(create_song_with_overrides(&db, sc, SongChangeSet::default()).await?);
         }
-        queue.set_repeat_mode(RepeatMode::Once);
+        queue.set_repeat_mode(RepeatMode::One);
 
         queue.skip_forward(skip);
 
@@ -467,16 +493,8 @@ mod tests {
                 "len: {len}, skip: {skip}, current_index: {current_index}",
                 current_index = queue.current_index.unwrap_or_default()
             );
-        } else if skip <= 2 * len {
-            // if we reached the end of the queue, looped back, and didn't reach the end again
-            assert_eq!(
-                queue.current_song(),
-                queue.get(skip - 1 - len),
-                "len: {len}, skip: {skip}, current_index: {current_index}",
-                current_index = queue.current_index.unwrap_or_default()
-            );
         } else {
-            // if we reached the end of the queue, looped back, and reached the end again
+            // if we reached the end of the queue
             assert_eq!(
                 queue.current_song(),
                 None,
@@ -490,7 +508,7 @@ mod tests {
 
     #[apply(skip_song_test_template)]
     #[tokio::test]
-    async fn test_next_song_rp_continuous(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
+    async fn test_next_song_rp_all(songs: Vec<SongCase>, skip: usize) -> anyhow::Result<()> {
         init();
         let db = init_test_database().await.unwrap();
 
@@ -499,7 +517,7 @@ mod tests {
         for sc in songs {
             queue.add_song(create_song_with_overrides(&db, sc, SongChangeSet::default()).await?);
         }
-        queue.set_repeat_mode(RepeatMode::Continuous);
+        queue.set_repeat_mode(RepeatMode::All);
 
         queue.skip_forward(skip);
 
@@ -515,8 +533,8 @@ mod tests {
 
     #[rstest]
     #[case(RepeatMode::None)]
-    #[case(RepeatMode::Once)]
-    #[case(RepeatMode::Continuous)]
+    #[case(RepeatMode::One)]
+    #[case(RepeatMode::All)]
     #[test]
     fn test_set_repeat_mode(#[case] repeat_mode: RepeatMode) {
         let mut queue = Queue::new();

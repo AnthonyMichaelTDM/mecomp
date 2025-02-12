@@ -80,13 +80,24 @@ impl Display for AudioCommand {
 /// Queue Commands
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QueueCommand {
+    /// used by the Duration Watcher to signal the player to start the next song,
+    /// this is distinct from calling `SkipFoward(1)` in that if the `RepeatMode` is `RepeatMode::One` the song will be restarted
+    PlayNextSong,
+    /// Skip forward in the queue by `n` items
     SkipForward(usize),
+    /// Skip backward in the queue by `n` items
     SkipBackward(usize),
+    /// Set the position in the queue to `n`
     SetPosition(usize),
+    /// Shuffle the queue
     Shuffle,
+    /// Add a song to the queue
     AddToQueue(Box<OneOrMany<Song>>),
+    /// Remove a range of items from the queue
     RemoveRange(Range<usize>),
+    /// Clear the queue
     Clear,
+    /// Set the repeat mode
     SetRepeatMode(RepeatMode),
 }
 
@@ -120,6 +131,7 @@ impl Display for QueueCommand {
             Self::SetRepeatMode(mode) => {
                 write!(f, "Set Repeat Mode to {mode}")
             }
+            Self::PlayNextSong => write!(f, "Play Next Song"),
         }
     }
 }

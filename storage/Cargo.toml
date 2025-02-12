@@ -24,7 +24,7 @@ db = [
 serde = ["one-or-many/serde", "dep:serde"]
 test_utils = ["dep:tempfile", "dep:anyhow"]
 analysis = ["dep:futures", "dep:mecomp-analysis"]
-trace_parser = ["pom/trace"]
+# trace_parser = ["pom/trace"]
 
 [dependencies]
 # shared dependencies

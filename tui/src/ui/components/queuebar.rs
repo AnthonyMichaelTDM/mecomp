@@ -147,18 +147,18 @@ impl Component for QueueBar {
                 RepeatMode::None => {
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(
-                            QueueAction::SetRepeatMode(RepeatMode::Once),
+                            QueueAction::SetRepeatMode(RepeatMode::One),
                         )))
                         .unwrap();
                 }
-                RepeatMode::Once => {
+                RepeatMode::One => {
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(
-                            QueueAction::SetRepeatMode(RepeatMode::Continuous),
+                            QueueAction::SetRepeatMode(RepeatMode::All),
                         )))
                         .unwrap();
                 }
-                RepeatMode::Continuous => {
+                RepeatMode::All => {
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(
                             QueueAction::SetRepeatMode(RepeatMode::None),
@@ -237,8 +237,8 @@ impl ComponentRender<RenderProps> for QueueBar {
             "repeat: {}",
             match self.props.repeat_mode {
                 RepeatMode::None => "none",
-                RepeatMode::Once => "once",
-                RepeatMode::Continuous => "continuous",
+                RepeatMode::One => "one",
+                RepeatMode::All => "all",
             }
         );
         frame.render_widget(

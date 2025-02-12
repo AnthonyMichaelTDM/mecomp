@@ -64,6 +64,10 @@ impl Subscriber {
         match message {
             Message::Event(event) => {
                 let notification = match event {
+                    Event::DaemonShutdown => {
+                        action_tx.send(Action::General(state::action::GeneralAction::Exit))?;
+                        return Ok(()); // exit early
+                    }
                     Event::LibraryRescanFinished => "Library rescan finished",
                     Event::LibraryAnalysisFinished => "Library analysis finished",
                     Event::LibraryReclusterFinished => "Library recluster finished",
