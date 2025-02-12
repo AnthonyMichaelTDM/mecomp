@@ -80,18 +80,14 @@ impl AudioState {
                                         Percent::new(seek_position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0);
                                     runtime.seek_position = seek_position;
                                 },
-                                StateChange::Paused => state.paused = true,
-                                StateChange::Resumed => state.paused = false,
-                                StateChange::Stopped => {
-                                    state.paused = true;
-                                }
+                                StateChange::StatusChanged(status) => state.status = status,
                             }
                         }
                     }
                 },
                 // Tick to terminate the select every N milliseconds
                 _ = ticker.tick() => {
-                    if state.paused {
+                    if state.paused() {
                         continue;
                     }
                     if let Some(runtime) = &mut state.runtime {

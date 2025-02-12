@@ -6,7 +6,7 @@
 use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, MediaKeyCode, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_core::state::{SeekType, StateRuntime};
+use mecomp_core::state::{SeekType, StateRuntime, Status};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Position},
     prelude::Rect,
@@ -49,7 +49,7 @@ impl From<&AppState> for Props {
     fn from(value: &AppState) -> Self {
         let value = &value.audio;
         Self {
-            is_playing: !value.paused,
+            is_playing: value.status == Status::Playing,
             muted: value.muted,
             volume: value.volume,
             song_runtime: value.runtime,
@@ -393,7 +393,8 @@ impl ComponentRender<RenderProps> for ControlPanel {
                 .filled_style(Style::default().fg(GAUGE_FILLED.into()).bold())
                 .unfilled_style(Style::default().fg(GAUGE_UNFILLED.into()).bold())
                 .ratio(self.props.song_runtime.map_or(0.0, |runtime| {
-                    runtime.seek_position.as_secs_f64() / runtime.duration.as_secs_f64()
+                    (runtime.seek_position.as_secs_f64() / runtime.duration.as_secs_f64())
+                        .clamp(0.0, 1.0)
                 })),
             song_progress,
         );

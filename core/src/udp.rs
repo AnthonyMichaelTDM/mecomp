@@ -1,6 +1,7 @@
 //! Implementation for the UDP stack used by the server to broadcast events to clients
 
 use std::{
+    fmt::Debug,
     marker::PhantomData,
     net::{Ipv4Addr, SocketAddr},
     time::Duration,
@@ -11,7 +12,10 @@ use object_pool::Pool;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::net::UdpSocket;
 
-use crate::{errors::UdpError, state::RepeatMode};
+use crate::{
+    errors::UdpError,
+    state::{RepeatMode, Status},
+};
 
 pub type Result<T> = std::result::Result<T, UdpError>;
 
@@ -20,6 +24,7 @@ pub enum Event {
     LibraryRescanFinished,
     LibraryAnalysisFinished,
     LibraryReclusterFinished,
+    DaemonShutdown,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -36,12 +41,8 @@ pub enum StateChange {
     RepeatModeChanged(RepeatMode),
     /// Seeked to a new position in the track
     Seeked(Duration),
-    /// The player has been paused
-    Paused,
-    /// The player has been resumed
-    Resumed,
-    /// The player has been stopped
-    Stopped,
+    /// Playback Status has changes
+    StatusChanged(Status),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -163,8 +164,14 @@ impl<T: Serialize + Send + Sync> Sender<T> {
     /// # Errors
     ///
     /// Returns an error if the message cannot be serialized or sent.
-    pub async fn send(&self, message: impl Into<T> + Send + Sync) -> Result<()> {
+    pub async fn send(&self, message: impl Into<T> + Send + Sync + Debug) -> Result<()> {
+        log::info!(
+            "Forwarding state change: {message:?} to {} subscribers",
+            self.subscribers.len()
+        );
+
         let (pool, mut buffer) = self.buffer_pool.pull(Vec::new).detach();
+        buffer.clear();
 
         ciborium::into_writer(&message.into(), &mut buffer)?;
 
@@ -217,9 +224,9 @@ mod test {
     #[case(Message::StateChange(StateChange::TrackChanged(None)))]
     #[case(Message::StateChange(StateChange::RepeatModeChanged(RepeatMode::None)))]
     #[case(Message::StateChange(StateChange::Seeked(Duration::from_secs(3))))]
-    #[case(Message::StateChange(StateChange::Paused))]
-    #[case(Message::StateChange(StateChange::Resumed))]
-    #[case(Message::StateChange(StateChange::Stopped))]
+    #[case(Message::StateChange(StateChange::StatusChanged(Status::Paused)))]
+    #[case(Message::StateChange(StateChange::StatusChanged(Status::Playing)))]
+    #[case(Message::StateChange(StateChange::StatusChanged(Status::Stopped)))]
     #[case(Message::StateChange(StateChange::TrackChanged(Some(
         mecomp_storage::db::schemas::song::Song::generate_id().into()
     ))))]

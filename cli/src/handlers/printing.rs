@@ -60,7 +60,7 @@ pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
 
     writeln!(output, "\tRepeat Mode: {:?}", state.repeat_mode)?;
 
-    writeln!(output, "\tPaused: {:?}", state.paused)?;
+    writeln!(output, "\tStatus: {:?}", state.status)?;
 
     writeln!(output, "\tMuted: {:?}", state.muted)?;
 

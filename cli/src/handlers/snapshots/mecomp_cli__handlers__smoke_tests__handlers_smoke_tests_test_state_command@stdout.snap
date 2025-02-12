@@ -8,6 +8,6 @@ StateAudio:
 	],
 	Queue Position: None,
 	Repeat Mode: None
-	Paused: true
+	Status: Stopped
 	Muted: false
 	Volume: 100.00%

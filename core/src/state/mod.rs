@@ -29,18 +29,18 @@ pub enum RepeatMode {
     /// No repeat: after the queue is finished the player stops
     #[default]
     None,
-    /// Repeat Once: after going through the queue once, the player goes back to `RepeatMode::None` and continues
-    Once,
-    /// Repeat Continuously: after going through the queue, the player goes back to the beginning and continues
-    Continuous,
+    /// Repeat the current Song: Repeats the current song, otherwise behaves like `RepeatMode::None`
+    One,
+    /// Repeat the queue Continuously: after going through the queue, the player goes back to the beginning and continues
+    All,
 }
 
 impl Display for RepeatMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::None => write!(f, "None"),
-            Self::Once => write!(f, "Once"),
-            Self::Continuous => write!(f, "Continuous"),
+            Self::One => write!(f, "One"),
+            Self::All => write!(f, "All"),
         }
     }
 }
@@ -52,13 +52,13 @@ impl RepeatMode {
     }
 
     #[must_use]
-    pub const fn is_once(&self) -> bool {
-        matches!(self, Self::Once)
+    pub const fn is_one(&self) -> bool {
+        matches!(self, Self::One)
     }
 
     #[must_use]
-    pub const fn is_continuous(&self) -> bool {
-        matches!(self, Self::Continuous)
+    pub const fn is_all(&self) -> bool {
+        matches!(self, Self::All)
     }
 }
 
@@ -87,7 +87,7 @@ impl Display for Percent {
     }
 }
 
-/// Information about the runtime of the current song
+/// Information about the runtime of the song song
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Default)]
 pub struct StateRuntime {
     pub seek_position: Duration,
@@ -107,6 +107,26 @@ impl Display for StateRuntime {
     }
 }
 
+#[derive(
+    Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default,
+)]
+pub enum Status {
+    #[default]
+    Stopped,
+    Paused,
+    Playing,
+}
+
+impl Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Paused => write!(f, "Paused"),
+            Self::Playing => write!(f, "Playing"),
+            Self::Stopped => write!(f, "Stopped"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, Default, PartialEq)]
 pub struct StateAudio {
     pub queue: Box<[Song]>,
@@ -114,7 +134,7 @@ pub struct StateAudio {
     pub current_song: Option<Song>,
     pub repeat_mode: RepeatMode,
     pub runtime: Option<StateRuntime>,
-    pub paused: bool,
+    pub status: Status,
     pub muted: bool,
     pub volume: f32,
 }
@@ -123,7 +143,7 @@ impl Display for StateAudio {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "StateAudio {{ queue: {:?}, queue_position: {}, current_song: {}, repeat_mode: {}, runtime: {}, paused: {}, muted: {}, volume: {:.0}% }}",
+            "StateAudio {{ queue: {:?}, queue_position: {}, current_song: {}, repeat_mode: {}, runtime: {}, status: {}, muted: {}, volume: {:.0}% }}",
             self.queue
                 .iter()
                 .map(|song| song.title.to_string())
@@ -132,10 +152,17 @@ impl Display for StateAudio {
             self.current_song.as_ref().map_or_else(|| "None".to_string(),|song| format!("\"{}\"",song.title)),
             self.repeat_mode,
             self.runtime.as_ref().map_or_else(|| "None".to_string(),std::string::ToString::to_string),
-            self.paused,
+            self.status,
             self.muted,
             self.volume * 100.0,
         )
+    }
+}
+
+impl StateAudio {
+    #[must_use]
+    pub fn paused(&self) -> bool {
+        self.status != Status::Playing
     }
 }
 
@@ -150,12 +177,12 @@ mod tests {
 
     #[rstest]
     #[case::none(RepeatMode::None, [true, false, false])]
-    #[case::once(RepeatMode::Once, [false, true, false])]
-    #[case::continuous(RepeatMode::Continuous, [false, false, true])]
+    #[case::one(RepeatMode::One, [false, true, false])]
+    #[case::all(RepeatMode::All, [false, false, true])]
     fn test_repeat_mode(#[case] mode: RepeatMode, #[case] expected: [bool; 3]) {
         assert_eq!(mode.is_none(), expected[0]);
-        assert_eq!(mode.is_once(), expected[1]);
-        assert_eq!(mode.is_continuous(), expected[2]);
+        assert_eq!(mode.is_one(), expected[1]);
+        assert_eq!(mode.is_all(), expected[2]);
     }
 
     #[rstest]
@@ -163,8 +190,8 @@ mod tests {
     #[case::seek_type(SeekType::RelativeForwards, "Forwards")]
     #[case::seek_type(SeekType::RelativeBackwards, "Backwards")]
     #[case::repeat_mode(RepeatMode::None, "None")]
-    #[case::repeat_mode(RepeatMode::Once, "Once")]
-    #[case::repeat_mode(RepeatMode::Continuous, "Continuous")]
+    #[case::repeat_mode(RepeatMode::One, "One")]
+    #[case::repeat_mode(RepeatMode::All, "All")]
     #[case::percent(Percent::new(50.0), "50.00%")]
     #[case::state_runtimme(
         StateRuntime {
@@ -181,11 +208,24 @@ mod tests {
             current_song: None,
             repeat_mode: RepeatMode::None,
             runtime: None,
-            paused: false,
+            status: Status::Paused,
             muted: false,
             volume: 1.0,
         },
-        "StateAudio { queue: [], queue_position: None, current_song: None, repeat_mode: None, runtime: None, paused: false, muted: false, volume: 100% }"
+        "StateAudio { queue: [], queue_position: None, current_song: None, repeat_mode: None, runtime: None, status: Paused, muted: false, volume: 100% }"
+    )]
+    #[case::state_audio_empty(
+        StateAudio {
+            queue: Box::new([]),
+            queue_position: None,
+            current_song: None,
+            repeat_mode: RepeatMode::None,
+            runtime: None,
+            status: Status::Paused,
+            muted: false,
+            volume: 1.0,
+        },
+        "StateAudio { queue: [], queue_position: None, current_song: None, repeat_mode: None, runtime: None, status: Paused, muted: false, volume: 100% }"
     )]
     #[case::state_audio(
         StateAudio {
@@ -228,11 +268,11 @@ mod tests {
                 seek_percent: Percent::new(20.0),
                 duration: Duration::from_secs(100),
             }),
-            paused: false,
+            status: Status::Playing,
             muted: false,
             volume: 1.0,
         },
-        "StateAudio { queue: [\"Song 1\"], queue_position: 1, current_song: \"Song 1\", repeat_mode: None, runtime: StateRuntime { seek_position: 00:00:20.00, seek_percent: 20.00%, duration: 00:01:40.00 }, paused: false, muted: false, volume: 100% }"
+        "StateAudio { queue: [\"Song 1\"], queue_position: 1, current_song: \"Song 1\", repeat_mode: None, runtime: StateRuntime { seek_position: 00:00:20.00, seek_percent: 20.00%, duration: 00:01:40.00 }, status: Playing, muted: false, volume: 100% }"
     )]
     fn test_display_impls<T: Display>(#[case] input: T, #[case] expected: &str) {
         assert_str_eq!(input.to_string(), expected);

@@ -252,16 +252,16 @@ pub enum VolumeCommand {
 #[derive(Debug, PartialEq, Eq, Clone, Copy, ValueEnum)]
 pub enum RepeatMode {
     None,
-    Once,
-    Continuous,
+    One,
+    All,
 }
 
 impl From<RepeatMode> for mecomp_core::state::RepeatMode {
     fn from(mode: RepeatMode) -> Self {
         match mode {
             RepeatMode::None => Self::None,
-            RepeatMode::Once => Self::Once,
-            RepeatMode::Continuous => Self::Continuous,
+            RepeatMode::One => Self::One,
+            RepeatMode::All => Self::All,
         }
     }
 }
