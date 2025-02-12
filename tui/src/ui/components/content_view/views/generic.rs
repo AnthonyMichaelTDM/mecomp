@@ -60,9 +60,9 @@ where
     {
         if let Some(props) = Props::retrieve(&state.additional_view_data) {
             Self {
-                action_tx: self.action_tx,
                 props: Some(props),
-                tree_state: self.tree_state,
+                tree_state: Mutex::new(CheckTreeState::default()),
+                ..self
             }
         } else {
             self
