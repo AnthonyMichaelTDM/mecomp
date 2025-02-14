@@ -649,18 +649,27 @@ impl AudioKernel {
         match command {
             VolumeCommand::Up(percent) => {
                 let mut volume = self.volume.lock().unwrap();
-                *volume = (*volume + percent).clamp(MIN_VOLUME, MAX_VOLUME);
-                let _ = self.event_tx.send(StateChange::VolumeChanged(*volume));
+                let percent = (*volume + percent).clamp(MIN_VOLUME, MAX_VOLUME);
+                if (*volume - percent).abs() > 0.0001 {
+                    *volume = percent;
+                    let _ = self.event_tx.send(StateChange::VolumeChanged(*volume));
+                }
             }
             VolumeCommand::Down(percent) => {
                 let mut volume = self.volume.lock().unwrap();
-                *volume = (*volume - percent).clamp(MIN_VOLUME, MAX_VOLUME);
-                let _ = self.event_tx.send(StateChange::VolumeChanged(*volume));
+                let percent = (*volume - percent).clamp(MIN_VOLUME, MAX_VOLUME);
+                if (*volume - percent).abs() > 0.0001 {
+                    *volume = percent;
+                    let _ = self.event_tx.send(StateChange::VolumeChanged(*volume));
+                }
             }
             VolumeCommand::Set(percent) => {
                 let mut volume = self.volume.lock().unwrap();
-                *volume = percent.clamp(MIN_VOLUME, MAX_VOLUME);
-                let _ = self.event_tx.send(StateChange::VolumeChanged(*volume));
+                let percent = percent.clamp(MIN_VOLUME, MAX_VOLUME);
+                if (*volume - percent).abs() > 0.0001 {
+                    *volume = percent;
+                    let _ = self.event_tx.send(StateChange::VolumeChanged(*volume));
+                }
             }
             VolumeCommand::Mute => {
                 self.muted.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -1006,7 +1015,7 @@ mod tests {
 
             audio_kernel.queue_control(QueueCommand::SkipForward(1));
 
-            // we were at the end of the queue and tried to skip forward with repeatmode not being Coninuous, so the player should be paused and the queue position should be None
+            // we were at the end of the queue and tried to skip forward with repeatmode not being Continuous, so the player should be paused and the queue position should be None
             let state = audio_kernel.state();
             assert_eq!(state.queue_position, None);
             assert!(state.paused());
