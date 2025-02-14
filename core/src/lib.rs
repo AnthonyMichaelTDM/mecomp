@@ -7,7 +7,7 @@ pub mod logger;
 #[cfg(feature = "rpc")]
 pub mod rpc;
 pub mod state;
-#[cfg(test)]
+#[cfg(any(test, feature = "test_utils"))]
 pub mod test_utils;
 #[cfg(feature = "rpc")]
 pub mod udp;

@@ -33,7 +33,7 @@ pub mod controller;
 pub mod dynamic_updates;
 pub mod services;
 #[cfg(test)]
-pub mod test_utils;
+pub use mecomp_core::test_utils;
 
 use crate::config::Settings;
 use crate::controller::MusicPlayerServer;
@@ -113,6 +113,8 @@ pub async fn start_daemon(
                 .unwrap();
         }
     });
+
+    // TODO: set up some kind of signal handler to ensure that the daemon is shut down gracefully (including sending a `DaemonShutdown` event to all clients)
 
     // Start the RPC server.
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.daemon.rpc_port);

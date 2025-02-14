@@ -216,6 +216,12 @@ MECOMP-Daemon is a long-running RPC server that is the core of the application, 
 
 MECOMP-CLI is a command line interface for MECOMP, it provides a simple way to interact with the daemon.
 
+#### MECOMP-MPRIS
+
+MECOMP-MPRIS is a [MPRIS](https://specifications.freedesktop.org/mpris-spec/latest/) interface for MECOMP, it allows MPRIS compatible clients to interact with the daemon.
+
+Currently, only the `Player` interface is implemented, but the `TrackList` and `Playlists` interfaces are planned for the future.
+
 #### MECOMP-TUI
 
 MECOMP-TUI is a terminal user interface for MECOMP, it provides a more user friendly way to interact with the daemon, but still in a terminal.

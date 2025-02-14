@@ -322,6 +322,9 @@ impl AudioKernel {
 
     #[instrument(skip(self))]
     fn play(&self) {
+        if self.player.empty() {
+            return;
+        }
         self.player.play();
         *self.status.lock().unwrap() = Status::Playing;
     }

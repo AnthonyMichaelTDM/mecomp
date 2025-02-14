@@ -19,18 +19,26 @@ ignored = [
     "anyhow",
     "approx-9fbad63c4bcf4a8f",
     "approx-d8f496e17d97b5cb",
+    "bitflags",
     "byteorder",
     "bytes",
     "castaway",
     "clap",
     "clap_builder",
+    "concurrent-queue",
     "criterion",
+    "crossbeam-utils",
+    "digest",
     "either",
+    "event-listener",
+    "event-listener-strategy",
+    "fastrand",
     "futures",
     "futures-channel",
     "futures-core",
     "futures-executor",
     "futures-io",
+    "futures-lite",
     "futures-util",
     "hashbrown",
     "indexmap",
@@ -57,6 +65,7 @@ ignored = [
     "serde_json",
     "smallvec",
     "string_cache",
+    "subtle",
     "syn",
     "time",
     "toml_datetime",
@@ -82,18 +91,40 @@ anstream = { version = "0.6" }
 anyhow = { version = "1" }
 approx-9fbad63c4bcf4a8f = { package = "approx", version = "0.4" }
 approx-d8f496e17d97b5cb = { package = "approx", version = "0.5" }
+bitflags = { version = "2", default-features = false, features = ["std"] }
 byteorder = { version = "1" }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
-clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "usage"] }
-clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "usage"] }
+clap = { version = "4", default-features = false, features = [
+    "color",
+    "derive",
+    "error-context",
+    "help",
+    "std",
+    "suggestions",
+    "usage",
+] }
+clap_builder = { version = "4", default-features = false, features = [
+    "color",
+    "help",
+    "std",
+    "suggestions",
+    "usage",
+] }
+concurrent-queue = { version = "2" }
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
+crossbeam-utils = { version = "0.8" }
+digest = { version = "0.10", features = ["mac", "std"] }
 either = { version = "1" }
+event-listener = { version = "5" }
+event-listener-strategy = { version = "0.5" }
+fastrand = { version = "2" }
 futures = { version = "0.3" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
+futures-lite = { version = "2" }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
 hashbrown = { version = "0.15" }
 indexmap = { version = "2", features = ["serde"] }
@@ -113,19 +144,50 @@ proc-macro2 = { version = "1" }
 quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
 regex = { version = "1" }
-regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "hybrid", "meta", "nfa-backtrack", "perf", "unicode"] }
+regex-automata = { version = "0.4", default-features = false, features = [
+    "dfa-onepass",
+    "dfa-search",
+    "hybrid",
+    "meta",
+    "nfa-backtrack",
+    "perf",
+    "unicode",
+] }
 regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
-syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-time = { version = "0.3", features = ["formatting", "local-offset", "macros", "parsing"] }
-tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+subtle = { version = "2" }
+syn = { version = "2", features = [
+    "extra-traits",
+    "fold",
+    "full",
+    "visit",
+    "visit-mut",
+] }
+time = { version = "0.3", features = [
+    "formatting",
+    "local-offset",
+    "macros",
+    "parsing",
+] }
+tokio = { version = "1", features = [
+    "io-std",
+    "io-util",
+    "macros",
+    "net",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "time",
+] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
-toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
+toml_datetime = { version = "0.6", default-features = false, features = [
+    "serde",
+] }
 toml_edit = { version = "0.22", features = ["serde"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
@@ -137,19 +199,41 @@ anstream = { version = "0.6" }
 anyhow = { version = "1" }
 approx-9fbad63c4bcf4a8f = { package = "approx", version = "0.4" }
 approx-d8f496e17d97b5cb = { package = "approx", version = "0.5" }
+bitflags = { version = "2", default-features = false, features = ["std"] }
 byteorder = { version = "1" }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
 cc = { version = "1", default-features = false, features = ["parallel"] }
-clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "usage"] }
-clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "usage"] }
+clap = { version = "4", default-features = false, features = [
+    "color",
+    "derive",
+    "error-context",
+    "help",
+    "std",
+    "suggestions",
+    "usage",
+] }
+clap_builder = { version = "4", default-features = false, features = [
+    "color",
+    "help",
+    "std",
+    "suggestions",
+    "usage",
+] }
+concurrent-queue = { version = "2" }
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
+crossbeam-utils = { version = "0.8" }
+digest = { version = "0.10", features = ["mac", "std"] }
 either = { version = "1" }
+event-listener = { version = "5" }
+event-listener-strategy = { version = "0.5" }
+fastrand = { version = "2" }
 futures = { version = "0.3" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
+futures-lite = { version = "2" }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
 hashbrown = { version = "0.15" }
 indexmap = { version = "2", features = ["serde"] }
@@ -169,19 +253,50 @@ proc-macro2 = { version = "1" }
 quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
 regex = { version = "1" }
-regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "hybrid", "meta", "nfa-backtrack", "perf", "unicode"] }
+regex-automata = { version = "0.4", default-features = false, features = [
+    "dfa-onepass",
+    "dfa-search",
+    "hybrid",
+    "meta",
+    "nfa-backtrack",
+    "perf",
+    "unicode",
+] }
 regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
-syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-time = { version = "0.3", features = ["formatting", "local-offset", "macros", "parsing"] }
-tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+subtle = { version = "2" }
+syn = { version = "2", features = [
+    "extra-traits",
+    "fold",
+    "full",
+    "visit",
+    "visit-mut",
+] }
+time = { version = "0.3", features = [
+    "formatting",
+    "local-offset",
+    "macros",
+    "parsing",
+] }
+tokio = { version = "1", features = [
+    "io-std",
+    "io-util",
+    "macros",
+    "net",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "time",
+] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
-toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
+toml_datetime = { version = "0.6", default-features = false, features = [
+    "serde",
+] }
 toml_edit = { version = "0.22", features = ["serde"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }

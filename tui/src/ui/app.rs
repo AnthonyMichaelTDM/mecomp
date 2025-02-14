@@ -198,8 +198,6 @@ impl Component for App {
                 .action_tx
                 .send(Action::ActiveComponent(ComponentAction::Previous))
                 .unwrap(),
-            // sent media keys to the control panel
-            KeyCode::Media(_) => self.control_panel.handle_key_event(key),
             // defer to the active component
             _ => self.get_active_view_component_mut().handle_key_event(key),
         }
@@ -362,14 +360,14 @@ mod tests {
 
     use super::*;
     use crate::{
-        state::action::{AudioAction, GeneralAction, PlaybackAction, PopupAction},
+        state::action::PopupAction,
         test_utils::setup_test_terminal,
         ui::{
             components::{self, content_view::ActiveView},
             widgets::popups::notification::Notification,
         },
     };
-    use crossterm::event::{KeyModifiers, MediaKeyCode};
+    use crossterm::event::KeyModifiers;
     use mecomp_core::{
         rpc::SearchResult,
         state::{library::LibraryFull, Percent, RepeatMode, StateAudio, StateRuntime, Status},
@@ -510,42 +508,6 @@ mod tests {
         // assert that the popup is no longer rendered
         assert!(!post_popup.buffer.diff(post_close.buffer).is_empty());
         assert!(pre_popup.buffer.diff(post_close.buffer).is_empty());
-    }
-
-    #[rstest]
-    #[case::playpause(
-        MediaKeyCode::PlayPause,
-        Action::Audio(AudioAction::Playback(PlaybackAction::Toggle))
-    )]
-    #[case::next(
-        MediaKeyCode::TrackNext,
-        Action::Audio(AudioAction::Playback(PlaybackAction::Next))
-    )]
-    #[case::previous(
-        MediaKeyCode::TrackPrevious,
-        Action::Audio(AudioAction::Playback(PlaybackAction::Previous))
-    )]
-    #[tokio::test]
-    async fn test_media_keys_go_to_control_panel(
-        #[case] key_code: MediaKeyCode,
-        #[case] expected: Action,
-        #[values(true, false)] in_focus: bool,
-    ) {
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        let mut app = App::new(&AppState::default(), tx);
-
-        let (mut terminal, area) = setup_test_terminal(100, 100);
-        let _frame = terminal.draw(|frame| app.render(frame, area)).unwrap();
-
-        if in_focus {
-            app.active_component = ActiveComponent::ControlPanel;
-        }
-
-        let key = KeyEvent::from(KeyCode::Media(key_code));
-        app.handle_key_event(key);
-
-        let action = rx.recv().await.unwrap();
-        assert_eq!(action, expected);
     }
 
     #[rstest]

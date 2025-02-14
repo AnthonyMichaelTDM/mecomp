@@ -127,7 +127,7 @@ impl Display for Status {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Default, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct StateAudio {
     pub queue: Box<[Song]>,
     pub queue_position: Option<usize>,
@@ -159,6 +159,22 @@ impl Display for StateAudio {
     }
 }
 
+impl Default for StateAudio {
+    /// Should match the defaults assigned to the [`AudioKernel`]
+    fn default() -> Self {
+        Self {
+            queue: Box::default(),
+            queue_position: None,
+            current_song: None,
+            repeat_mode: RepeatMode::default(),
+            runtime: None,
+            status: Status::default(),
+            muted: false,
+            volume: 1.0,
+        }
+    }
+}
+
 impl StateAudio {
     #[must_use]
     pub fn paused(&self) -> bool {
@@ -174,6 +190,19 @@ mod tests {
     use one_or_many::OneOrMany;
     use pretty_assertions::{assert_eq, assert_str_eq};
     use rstest::rstest;
+
+    #[test]
+    fn test_state_audio_default() {
+        let state = StateAudio::default();
+        assert_eq!(state.queue.as_ref(), &[]);
+        assert_eq!(state.queue_position, None);
+        assert_eq!(state.current_song, None);
+        assert_eq!(state.repeat_mode, RepeatMode::None);
+        assert_eq!(state.runtime, None);
+        assert_eq!(state.status, Status::Stopped);
+        assert_eq!(state.muted, false);
+        assert_eq!(state.volume, 1.0);
+    }
 
     #[rstest]
     #[case::none(RepeatMode::None, [true, false, false])]

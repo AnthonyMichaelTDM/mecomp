@@ -43,7 +43,12 @@ jobs:
           - os_name: macOS-aarch64
             os: macOS-latest
             target: aarch64-apple-darwin
-
+        # Exclude non-Linux builds for mecomp-mpris
+        exclude:
+          - binary: mecomp-mpris
+            platform:
+              - os: windows-latest
+              - os: macOS-latest
     runs-on: ${{ matrix.platform.os }}
     permissions:
       id-token: write
@@ -65,7 +70,7 @@ jobs:
       - name: Install linux dependencies
         run: |
           sudo apt update
-          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev
+          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev, libdbus-1-dev
         if: contains(matrix.platform.os, 'ubuntu')
 
       - name: Setup cache
