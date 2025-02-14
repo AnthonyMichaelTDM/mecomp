@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use crossterm::event::{KeyCode, KeyEvent, MediaKeyCode, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::state::{SeekType, StateRuntime, Status};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Position},
@@ -96,25 +96,24 @@ impl Component for ControlPanel {
 
     fn handle_key_event(&mut self, key: KeyEvent) {
         match key.code {
-            KeyCode::Media(MediaKeyCode::PlayPause | MediaKeyCode::Play | MediaKeyCode::Pause)
-            | KeyCode::Char(' ') => {
+            KeyCode::Char(' ') => {
                 self.action_tx
                     .send(Action::Audio(AudioAction::Playback(PlaybackAction::Toggle)))
                     .unwrap();
             }
-            KeyCode::Media(MediaKeyCode::TrackNext) | KeyCode::Char('n') => {
+            KeyCode::Char('n') => {
                 self.action_tx
                     .send(Action::Audio(AudioAction::Playback(PlaybackAction::Next)))
                     .unwrap();
             }
-            KeyCode::Media(MediaKeyCode::TrackPrevious) | KeyCode::Char('p') => {
+            KeyCode::Char('p') => {
                 self.action_tx
                     .send(Action::Audio(AudioAction::Playback(
                         PlaybackAction::Previous,
                     )))
                     .unwrap();
             }
-            KeyCode::Media(MediaKeyCode::FastForward) | KeyCode::Right => {
+            KeyCode::Right => {
                 self.action_tx
                     .send(Action::Audio(AudioAction::Playback(PlaybackAction::Seek(
                         SeekType::RelativeForwards,
@@ -122,7 +121,7 @@ impl Component for ControlPanel {
                     ))))
                     .unwrap();
             }
-            KeyCode::Media(MediaKeyCode::Rewind) | KeyCode::Left => {
+            KeyCode::Left => {
                 self.action_tx
                     .send(Action::Audio(AudioAction::Playback(PlaybackAction::Seek(
                         SeekType::RelativeBackwards,
