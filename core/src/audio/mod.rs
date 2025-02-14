@@ -299,9 +299,13 @@ impl AudioKernel {
                         self.duration_info.lock().unwrap().time_played,
                     ));
                 }
-                AudioCommand::Stop => {
+                AudioCommand::Stop if prev_status != Status::Stopped => {
                     self.stop();
+                    let _ = self
+                        .event_tx
+                        .send(StateChange::Seeked(Duration::from_secs(0)));
                 }
+                AudioCommand::Stop => {}
             }
 
             let new_status = *self.status.lock().unwrap();
@@ -476,7 +480,7 @@ impl AudioKernel {
 
     #[instrument(skip(self))]
     fn skip_forward(&self, n: usize) {
-        let paused = self.player.is_paused();
+        let status = *self.status.lock().unwrap();
         self.clear_player();
 
         let next_song = self.queue.lock().unwrap().skip_forward(n).cloned();
@@ -487,20 +491,23 @@ impl AudioKernel {
             }
 
             let binding = self.queue.lock().unwrap();
-            if !(paused
-                // and we have not just finished the queue 
+            match status {
+                Status::Paused => self.pause(),
+                // we were playing and we have not just finished the queue
                 // (this makes it so if we hit the end of the queue on RepeatMode::None, we don't start playing again)
-                || (!binding.get_repeat_mode().is_all()
-                    && binding.current_index().is_none()))
-            {
-                self.play();
+                Status::Playing
+                    if binding.get_repeat_mode().is_all() || binding.current_index().is_some() =>
+                {
+                    self.play();
+                }
+                _ => {}
             }
         }
     }
 
     #[instrument(skip(self))]
     fn skip_backward(&self, n: usize) {
-        let paused = self.player.is_paused();
+        let status = *self.status.lock().unwrap();
         self.clear_player();
 
         let next_song = self.queue.lock().unwrap().skip_backward(n).cloned();
@@ -509,15 +516,17 @@ impl AudioKernel {
             if let Err(e) = self.append_song_to_player(&song) {
                 error!("Failed to append song to player: {}", e);
             }
-            if !paused {
-                self.play();
+            match status {
+                Status::Stopped => {}
+                Status::Paused => self.pause(),
+                Status::Playing => self.play(),
             }
         }
     }
 
     #[instrument(skip(self))]
     fn set_position(&self, n: usize) {
-        let paused = self.player.is_paused();
+        let status = *self.status.lock().unwrap();
         self.clear_player();
 
         let mut binding = self.queue.lock().unwrap();
@@ -529,8 +538,11 @@ impl AudioKernel {
             if let Err(e) = self.append_song_to_player(&song) {
                 error!("Failed to append song to player: {e}");
             }
-            if !paused {
-                self.play();
+
+            match status {
+                Status::Stopped => {}
+                Status::Paused => self.pause(),
+                Status::Playing => self.play(),
             }
         }
     }
@@ -575,7 +587,6 @@ impl AudioKernel {
 
     #[instrument(skip(self))]
     fn remove_range_from_queue(&self, range: Range<usize>) {
-        let paused = self.player.is_paused();
         // if the current song is not being removed, we don't need to do anything special to the player
         let current_to_be_removed = self
             .queue
@@ -592,9 +603,6 @@ impl AudioKernel {
             if let Some(song) = self.get_current_song() {
                 if let Err(e) = self.append_song_to_player(&song) {
                     error!("Failed to append song to player: {e}");
-                }
-                if !paused {
-                    self.play();
                 }
             }
         }
