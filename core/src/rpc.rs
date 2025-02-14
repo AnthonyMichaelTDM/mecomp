@@ -5,6 +5,7 @@
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     ops::Range,
+    path::PathBuf,
     time::Duration,
 };
 
@@ -101,6 +102,8 @@ pub trait MusicPlayer {
     // music library CRUD operations
     /// Get a song by its ID.
     async fn library_song_get(id: SongId) -> Option<Song>;
+    /// Get a song by its path.
+    async fn library_song_get_by_path(path: PathBuf) -> Option<Song>;
     /// Get the artists of a song.
     async fn library_song_get_artist(id: SongId) -> OneOrMany<Artist>;
     /// Get the album of a song.
