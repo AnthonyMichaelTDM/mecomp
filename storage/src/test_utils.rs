@@ -60,6 +60,104 @@ pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
     Ok(db)
 }
 
+/// Initialize a test database with some basic state
+///
+/// # What will be created:
+///
+/// - a playlist named "Playlist 0"
+/// - a collection named "Collection 0"
+/// - optionally, a passed `DynamicPlaylist`
+/// - `song_count` arbitrary songs whoes values are determined by the given `song_case_func`
+/// - a file in the given `TempDir` for each song
+///
+/// Can optionally also create a dynamic playlist with given information
+///
+/// You can pass functions to be used to create the songs and playlists
+///
+/// `song_case_func` signature
+/// `FnMut(usize) -> (SongCase, bool, bool)`
+/// - `i`: which song this is, 0..`song_count`
+/// - returns: `(the song_case to use when generating the song, whether the song should be added to the playlist, whether it should be added to the collection`
+///
+/// Note: will actually create files for the songs in the passed `TempDir`
+///
+/// # Panics
+///
+/// Panics if an error occurs during the above process, this is intended to only be used for testing
+/// so panicking when something goes wrong ensures that tests will fail and the backtrace will point
+/// to whatever line caused the panic in here.
+#[cfg(feature = "db")]
+pub async fn init_test_database_with_state<SCF>(
+    song_count: std::num::NonZero<usize>,
+    mut song_case_func: SCF,
+    dynamic: Option<crate::db::schemas::dynamic::DynamicPlaylist>,
+    tempdir: &tempfile::TempDir,
+) -> Arc<Surreal<Db>>
+where
+    SCF: FnMut(usize) -> (SongCase, bool, bool) + Send + Sync,
+{
+    use anyhow::Context;
+
+    use crate::db::schemas::dynamic::DynamicPlaylist;
+
+    let db = Arc::new(init_test_database().await.unwrap());
+
+    // create the playlist, collection, and optionally the dynamic playlist
+    let playlist = Playlist {
+        id: Playlist::generate_id(),
+        name: "Playlist 0".into(),
+        runtime: Duration::from_secs(0),
+        song_count: 0,
+    };
+    let playlist = Playlist::create(&db, playlist).await.unwrap().unwrap();
+
+    let collection = Collection {
+        id: Collection::generate_id(),
+        name: "Collection 0".into(),
+        runtime: Duration::from_secs(0),
+        song_count: 0,
+    };
+    let collection = Collection::create(&db, collection).await.unwrap().unwrap();
+
+    if let Some(dynamic) = dynamic {
+        let _ = DynamicPlaylist::create(&db, dynamic)
+            .await
+            .unwrap()
+            .unwrap();
+    }
+
+    // create the songs
+    for i in 0..(song_count.get()) {
+        let (song_case, add_to_playlist, add_to_collection) = song_case_func(i);
+
+        let metadata = create_song_metadata(tempdir, song_case.clone())
+            .context(format!(
+                "failed to create metadata for song case {song_case:?}"
+            ))
+            .unwrap();
+
+        let song = Song::try_load_into_db(&db, metadata)
+            .await
+            .context(format!(
+                "Failed to load into db the song case: {song_case:?}"
+            ))
+            .unwrap();
+
+        if add_to_playlist {
+            Playlist::add_songs(&db, playlist.id.clone(), vec![song.id.clone()])
+                .await
+                .unwrap();
+        }
+        if add_to_collection {
+            Collection::add_songs(&db, collection.id.clone(), vec![song.id.clone()])
+                .await
+                .unwrap();
+        }
+    }
+
+    db
+}
+
 /// Create a song with the given case, and optionally apply the given overrides.
 ///
 /// The created song is shallow, meaning that the artists, album artists, and album are not created in the database.
