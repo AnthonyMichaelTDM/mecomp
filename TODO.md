@@ -29,15 +29,17 @@
   - [x] these criteria should be able to be combined with set/boolean logic (union (AND), intersection (OR))
   - [x] criteria can be scoped to allow for more complex queries
 - [x] integrate dynamic playlist functionality into the CLI
-- [ ] integrate dynamic playlist functionality into the TUI
-  - [ ] create a capable but intuitive query-building interface
+- [x] integrate dynamic playlist functionality into the TUI
+- [ ] integrate dynamic playlist functionality into the GUI, when it's done
+  - [ ] create a capable but intuitive query-building interface similar to the advanced search tools for research databases
 
 ### Playlists
 
 - [x] allow users to create playlists
 - [ ] allow users to create "smart playlists" that are automatically updated based on a set of criteria (e.g. "all songs with a play count greater than 10", "all songs by Green Day", "all songs with a similarity to Foo greater than X", etc.)
-  - [ ] these criteria should be able to be combined with set/boolean logic (union (AND), intersection (OR), difference (NOT))
-  - [ ] criteria can be scoped to allow for more complex queries
+  - [x] these criteria should be able to be combined with set/boolean logic (union (AND), intersection (OR), difference (NOT))
+  - [x] criteria can be scoped to allow for more complex queries
+- [ ] allow user to import/export playlists in a standard format (e.g. m3u, xspf, etc.)
 
 ### Radio (song suggestions)
 
@@ -77,6 +79,14 @@
 - [ ] add commands for reading songs by artists, in albums, in playlists, in collections, etc.
 - [ ] commands for reading the artist/album of songs
 - [ ] commands for reading the artists of albums
+
+### MECOMP-MPRIS
+
+- [x] Implement MPRIS interface for controlling the daemon from MPRIS compatible clients (e.g. KDE Connect, Spotify, etc.)
+  -[x] Implement the  [org.mpris.MediaPlayer2](https://specifications.freedesktop.org/mpris-spec/latest/Media_Player.html) interface
+  -[x] Implement the  [org.mpris.MediaPlayer2.Player](https://specifications.freedesktop.org/mpris-spec/latest/Player_Interface.html) interface
+  -[ ] Implement the  [org.mpris.MediaPlayer2.TrackList](https://specifications.freedesktop.org/mpris-spec/latest/Track_List_Interface.html) interface
+  -[ ] Implement the  [org.mpris.MediaPlayer2.Playlists](https://specifications.freedesktop.org/mpris-spec/latest/Playlists_Interface.html) interface
 
 ### MECOMP-TUI
 

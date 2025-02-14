@@ -1,0 +1,44 @@
+[package]
+name = "mecomp-mpris"
+description = "An MPRIS2 interface for the mecomp music player."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "mecomp-mpris"
+test = false
+bench = false
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+log.workspace = true
+mecomp-core = { workspace = true, features = ["rpc"] }
+mecomp-storage = { workspace = true }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+mpris-server = "0.8.1"
+percent-encoding = "2.3.1"
+shellexpand.workspace = true
+tarpc.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+one-or-many = { workspace = true }
+pretty_assertions.workspace = true
+tempfile.workspace = true
+mecomp-storage = { workspace = true, features = ["serde", "db", "test_utils"] }
+mecomp-core = { workspace = true, features = [
+    "rpc",
+    "mock_playback",
+    "test_utils",
+] }
+mecomp-daemon = { workspace = true }
+rstest.workspace = true
+surrealdb.workspace = true

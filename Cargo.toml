@@ -8,6 +8,7 @@ members = [
     "core",
     "daemon",
     "mecomp-workspace-hack",
+    "mpris",
     "one-or-many",
     "storage",
     "surrealqlx/lib",
