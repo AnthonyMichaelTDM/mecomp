@@ -31,7 +31,7 @@ type WatcherType = FsEventWatcher;
 #[cfg(target_os = "windows")]
 type WatcherType = ReadDirectoryChangesWatcher;
 
-const VALID_AUDIO_EXTENSIONS: [&str; 5] = ["flac", "mp3", "m4a", "ogg", "wav"];
+const VALID_AUDIO_EXTENSIONS: [&str; 4] = ["mp3", "wav", "ogg", "flac"];
 
 pub const MAX_DEBOUNCE_TIME: Duration = Duration::from_millis(500);
 
