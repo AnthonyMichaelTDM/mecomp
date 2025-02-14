@@ -192,7 +192,7 @@ mod tests {
     use rstest::rstest;
 
     #[test]
-    fn test_state_audo_default() {
+    fn test_state_audio_default() {
         let state = StateAudio::default();
         assert_eq!(state.queue.as_ref(), &[]);
         assert_eq!(state.queue_position, None);

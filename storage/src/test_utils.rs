@@ -67,7 +67,7 @@ pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
 /// - a playlist named "Playlist 0"
 /// - a collection named "Collection 0"
 /// - optionally, a passed `DynamicPlaylist`
-/// - `song_count` arbitrary songs whoes values are determined by the given `song_case_func`
+/// - `song_count` arbitrary songs whose values are determined by the given `song_case_func`
 /// - a file in the given `TempDir` for each song
 ///
 /// Can optionally also create a dynamic playlist with given information
