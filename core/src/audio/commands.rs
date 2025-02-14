@@ -81,7 +81,7 @@ impl Display for AudioCommand {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QueueCommand {
     /// used by the Duration Watcher to signal the player to start the next song,
-    /// this is distinct from calling `SkipFoward(1)` in that if the `RepeatMode` is `RepeatMode::One` the song will be restarted
+    /// this is distinct from calling `SkipForward(1)` in that if the `RepeatMode` is `RepeatMode::One` the song will be restarted
     PlayNextSong,
     /// Skip forward in the queue by `n` items
     SkipForward(usize),
