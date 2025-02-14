@@ -63,13 +63,17 @@ one-or-many = { workspace = true }
 
 # server dependencies
 config.workspace = true
-shellexpand = "3.1"
+shellexpand.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
 criterion.workspace = true
 lofty = { workspace = true }
-mecomp-core = { workspace = true, features = ["rpc", "mock_playback"] }
+mecomp-core = { workspace = true, features = [
+    "rpc",
+    "mock_playback",
+    "test_utils",
+] }
 mecomp-storage = { workspace = true, features = [
     "serde",
     "db",
