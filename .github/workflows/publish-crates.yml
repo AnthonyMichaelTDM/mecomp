@@ -27,6 +27,7 @@ jobs:
             mecomp-storage,
             mecomp-core,
             mecomp-daemon,
+            mecomp-mpris,
             mecomp-cli,
             mecomp-tui,
           ]
