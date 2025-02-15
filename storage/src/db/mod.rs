@@ -79,7 +79,12 @@ where
     db.query(define_analyzer(
         FULL_TEXT_SEARCH_ANALYZER_NAME,
         Some(Tokenizer::Class),
-        &["snowball(english)"],
+        &[
+            "ascii",
+            "lowercase",
+            "edgengram(1, 10)",
+            "snowball(english)",
+        ],
     ))
     .await?;
 
