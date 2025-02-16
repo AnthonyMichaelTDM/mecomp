@@ -54,7 +54,7 @@ pub fn define_analyzer(
         String::from(" FILTERS ") + &filters
     };
 
-    match format!("DEFINE ANALYZER {name}{tokenizer_string}{filter_string} ;")
+    match format!("DEFINE ANALYZER OVERWRITE {name}{tokenizer_string}{filter_string} ;")
         .into_query()
         .unwrap()
         .first()
@@ -76,38 +76,38 @@ mod tests {
         "test",
         Some(Tokenizer::Class),
         vec!["snowball(english)"],
-        "DEFINE ANALYZER test TOKENIZERS class FILTERS snowball(english);"
+        "DEFINE ANALYZER OVERWRITE test TOKENIZERS class FILTERS snowball(english);"
     )]
     #[case::no_tokenizers(
         "test",
         None,
         vec!["snowball(english)"],
-        "DEFINE ANALYZER test FILTERS snowball(english);"
+        "DEFINE ANALYZER OVERWRITE test FILTERS snowball(english);"
     )]
     #[case::no_filters(
         "test",
         Some(Tokenizer::Class),
         vec![],
-        "DEFINE ANALYZER test TOKENIZERS class;"
+        "DEFINE ANALYZER OVERWRITE test TOKENIZERS class;"
     )]
-    #[case::no_tokenizers_or_filters("test", None, vec![], "DEFINE ANALYZER test;")]
+    #[case::no_tokenizers_or_filters("test", None, vec![], "DEFINE ANALYZER  OVERWRITE test;")]
     // #[case::multiple_tokenizers(
     //     "test",
     //     vec![Tokenizer::Class, Tokenizer::Punct],
     //     vec!["snowball(english)"],
-    //     "DEFINE ANALYZER test TOKENIZERS class,simple FILTERS snowball(english);"
+    //     "DEFINE ANALYZER OVERWRITE test TOKENIZERS class,simple FILTERS snowball(english);"
     // )]
     #[case::multiple_filters(
         "test",
         Some(Tokenizer::Class),
         vec!["snowball(english)", "lowercase"],
-        "DEFINE ANALYZER test TOKENIZERS class FILTERS snowball(english),lowercase;"
+        "DEFINE ANALYZER OVERWRITE test TOKENIZERS class FILTERS snowball(english),lowercase;"
     )]
     // #[case::multiple_tokenizers_and_filters(
     //     "test",
     //     vec![Tokenizer::Class, Tokenizer::Punct],
     //     vec!["snowball(english)", "lowercase"],
-    //     "DEFINE ANALYZER test TOKENIZERS class,simple FILTERS snowball(english),lowercase;"
+    //     "DEFINE ANALYZER OVERWRITE test TOKENIZERS class,simple FILTERS snowball(english),lowercase;"
     // )]
     fn test_define_analyzer(
         #[case] name: &str,
