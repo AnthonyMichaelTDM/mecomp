@@ -119,15 +119,15 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
             let dimmed_style = Style::default().dimmed();
 
             let log_line = format!(
-                // Longest PATH in the repo: `storage/src/db/schemas/collection.rs` - `36` characters
-                // Longest file in the repo: `core/src/audio/mod.rs`                - `4` digits
+                // Longest PATH in the repo: `storage/src/db/schemas/dynamic/query.rs` - `39` characters
+                // Longest file in the repo: `core/src/audio/mod.rs`                   - `4` digits
                 //
                 // Use `scripts/longest.sh` to find this.
                 //
                 //                                                                             Longest PATH ---|        |--- Longest file
                 //                                                                                             |        |
                 //                                                                                             v        v
-                "| {level_style}{level}{level_style:#} | {dimmed_style}{}{dimmed_style:#} | {dimmed_style}{: >36} @ {: <4}{dimmed_style:#} | {}",
+                "| {level_style}{level}{level_style:#} | {dimmed_style}{}{dimmed_style:#} | {dimmed_style}{: >39} @ {: <4}{dimmed_style:#} | {}",
                 format_duration(&now.elapsed()),
                 process_file(record.file_static().unwrap_or("???")),
                 record.line().unwrap_or(0),
