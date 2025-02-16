@@ -2,7 +2,7 @@
 //!
 //! Updates every minute, or when the user requests a rescan, ands/removes/updates a playlist, or reclusters collections.
 
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use tokio::sync::{
     broadcast,
@@ -56,8 +56,7 @@ impl LibraryState {
                 Some(action) = action_rx.recv() => {
                     match action {
                         LibraryAction::Rescan => {
-                            state = rescan_library(daemon.clone()).await?;
-                            self.state_tx.send(state.clone())?;
+                            rescan_library(daemon.clone()).await?;
                         }
                         LibraryAction::Update => {
                             state = get_library(daemon.clone()).await?;
@@ -67,8 +66,7 @@ impl LibraryState {
                             analyze_library(daemon.clone()).await?;
                         }
                         LibraryAction::Recluster => {
-                            state = recluster_library(daemon.clone()).await?;
-                            self.state_tx.send(state.clone())?;
+                            recluster_library(daemon.clone()).await?;
                         }
                         LibraryAction::CreatePlaylist(name) => {
                             daemon.playlist_get_or_create(tarpc::context::current(), name).await??;
@@ -156,22 +154,12 @@ async fn get_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<LibraryFu
 }
 
 /// initiate a rescan and wait until it's done
-async fn rescan_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<LibraryFull> {
+async fn rescan_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<()> {
     let ctx = tarpc::context::current();
 
     daemon.library_rescan(ctx).await??;
 
-    // wait for it to finish
-    while daemon
-        .library_rescan_in_progress(tarpc::context::current())
-        .await?
-    {
-        tokio::time::sleep(Duration::from_secs(1)).await;
-    }
-
-    // return the new library
-    let ctx = tarpc::context::current();
-    Ok(daemon.library_full(ctx).await??)
+    Ok(())
 }
 
 /// initiate an analysis and wait until it's done
@@ -180,32 +168,14 @@ async fn analyze_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<()> {
 
     daemon.library_analyze(ctx).await??;
 
-    // wait for it to finish
-    while daemon
-        .library_analyze_in_progress(tarpc::context::current())
-        .await?
-    {
-        tokio::time::sleep(Duration::from_secs(1)).await;
-    }
-
     Ok(())
 }
 
 /// initiate a recluster and wait until it's done
-async fn recluster_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<LibraryFull> {
+async fn recluster_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<()> {
     let ctx = tarpc::context::current();
 
     daemon.library_recluster(ctx).await??;
 
-    // wait for it to finish
-    while daemon
-        .library_recluster_in_progress(tarpc::context::current())
-        .await?
-    {
-        tokio::time::sleep(Duration::from_secs(1)).await;
-    }
-
-    // return the new library
-    let ctx = tarpc::context::current();
-    Ok(daemon.library_full(ctx).await??)
+    Ok(())
 }
