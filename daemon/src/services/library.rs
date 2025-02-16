@@ -13,7 +13,7 @@ use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
 use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
 use tap::TapFallible;
-use tracing::instrument;
+use tracing::{instrument, Instrument};
 use walkdir::WalkDir;
 
 use mecomp_storage::{
@@ -59,122 +59,156 @@ pub async fn rescan<C: Connection>(
     let mut paths_to_skip = HashSet::new(); // use a hashset because hashing is faster than linear search, especially for large libraries
 
     // for each song, check if the file still exists
-    for song in songs {
-        let path = song.path.clone();
-        if !path.exists() {
-            // remove the song from the library
-            warn!("Song {} no longer exists, deleting", path.to_string_lossy());
-            Song::delete(db, song.id).await?;
-            continue;
-        }
+    async {
+        for song in songs {
+            let path = song.path.clone();
+            if !path.exists() {
+                // remove the song from the library
+                warn!("Song {} no longer exists, deleting", path.to_string_lossy());
+                Song::delete(db, song.id).await?;
+                continue;
+            }
 
-        debug!("loading metadata for {}", path.to_string_lossy());
-        // check if the metadata of the file is the same as the metadata in the database
-        match SongMetadata::load_from_path(path.clone(), artist_name_separator, genre_separator) {
-            // if we have metadata and the metadata is different from the song's metadata, and ...
-            Ok(metadata) if metadata != SongMetadata::from(&song) => {
-                #[allow(
-                    clippy::if_not_else,
-                    reason = "we may add more conflict resolution modes in the future, and skip is the only one that won't attempt to update the song"
-                )]
-                let log_postfix = if conflict_resolution_mode != MetadataConflictResolution::Skip {
-                    "resolving conflict"
-                } else {
-                    "but conflict resolution mode is \"skip\", so we do nothing"
-                };
-                info!(
-                    "{} has conflicting metadata with index, {log_postfix}",
-                    path.to_string_lossy(),
-                );
+            debug!("loading metadata for {}", path.to_string_lossy());
+            // check if the metadata of the file is the same as the metadata in the database
+            match SongMetadata::load_from_path(path.clone(), artist_name_separator, genre_separator) {
+                // if we have metadata and the metadata is different from the song's metadata, and ...
+                Ok(metadata) if metadata != SongMetadata::from(&song) => {
+                    let log_postfix = if conflict_resolution_mode == MetadataConflictResolution::Skip {
+                        "but conflict resolution mode is \"skip\", so we do nothing"
+                    } else {
+                        "resolving conflict"
+                    };
+                    info!(
+                        "{} has conflicting metadata with index, {log_postfix}",
+                        path.to_string_lossy(),
+                    );
 
-                match conflict_resolution_mode {
-                    // ... we are in "overwrite" mode, update the song's metadata
-                    MetadataConflictResolution::Overwrite => {
-                        // if the file has been modified, update the song's metadata
-                        Song::update(db, song.id.clone(), metadata.merge_with_song(&song)).await?;
-                    }
-                    // ... we are in "skip" mode, do nothing
-                    MetadataConflictResolution::Skip => {
-                        continue;
+                    match conflict_resolution_mode {
+                        // ... we are in "overwrite" mode, update the song's metadata
+                        MetadataConflictResolution::Overwrite => {
+                            // if the file has been modified, update the song's metadata
+                            Song::update(db, song.id.clone(), metadata.merge_with_song(&song)).await?;
+                        }
+                        // ... we are in "skip" mode, do nothing
+                        MetadataConflictResolution::Skip => {
+                            continue;
+                        }
                     }
                 }
+                // if we have an error, delete the song from the library
+                Err(e) => {
+                    warn!(
+                        "Error reading metadata for {}: {}",
+                        path.to_string_lossy(),
+                        e
+                    );
+                    info!("assuming the file isn't a song or doesn't exist anymore, removing from library");
+                    Song::delete(db, song.id).await?;
+                }
+                // if the metadata is the same, do nothing
+                _ => {}
             }
-            // if we have an error, delete the song from the library
-            Err(e) => {
-                warn!(
-                    "Error reading metadata for {}: {}",
-                    path.to_string_lossy(),
-                    e
-                );
-                info!("assuming the file isn't a song or doesn't exist anymore, removing from library");
-                Song::delete(db, song.id).await?;
-            }
-            // if the metadata is the same, do nothing
-            _ => {}
+
+            // now, add the path to the list of paths to skip so that we don't index the song again
+            paths_to_skip.insert(path);
         }
 
-        // now, add the path to the list of paths to skip so that we don't index the song again
-        paths_to_skip.insert(path);
-    }
+        <Result<(), Error>>::Ok(())
+    }.instrument(tracing::info_span!("Checking library for missing or outdated songs")).await?;
+
     // now, index all the songs in the library that haven't been indexed yet
     let mut visited_paths = paths_to_skip;
 
     debug!("Indexing paths: {:?}", paths);
-    for path in paths
-        .iter()
-        .filter_map(|p| {
-            p.canonicalize()
-                .tap_err(|e| warn!("Error canonicalizing path: {e}"))
-                .ok()
-        })
-        .flat_map(|x| WalkDir::new(x).into_iter())
-        .filter_map(|x| x.tap_err(|e| warn!("Error reading path: {e}")).ok())
-        .filter_map(|x| x.file_type().is_file().then_some(x))
-    {
-        if visited_paths.contains(path.path()) {
-            continue;
+    async {
+        for path in paths
+            .iter()
+            .filter_map(|p| {
+                p.canonicalize()
+                    .tap_err(|e| warn!("Error canonicalizing path: {e}"))
+                    .ok()
+            })
+            .flat_map(|x| WalkDir::new(x).into_iter())
+            .filter_map(|x| x.tap_err(|e| warn!("Error reading path: {e}")).ok())
+            .filter_map(|x| x.file_type().is_file().then_some(x))
+        {
+            if visited_paths.contains(path.path()) {
+                continue;
+            }
+
+            visited_paths.insert(path.path().to_owned());
+
+            // if the file is a song, add it to the library
+            match SongMetadata::load_from_path(
+                path.path().to_owned(),
+                artist_name_separator,
+                genre_separator,
+            ) {
+                Ok(metadata) => Song::try_load_into_db(db, metadata).await.map_or_else(
+                    |e| warn!("Error indexing {}: {}", path.path().to_string_lossy(), e),
+                    |_| debug!("Indexed {}", path.path().to_string_lossy()),
+                ),
+                Err(e) => warn!(
+                    "Error reading metadata for {}: {}",
+                    path.path().to_string_lossy(),
+                    e
+                ),
+            }
         }
 
-        visited_paths.insert(path.path().to_owned());
-
-        // if the file is a song, add it to the library
-        match SongMetadata::load_from_path(
-            path.path().to_owned(),
-            artist_name_separator,
-            genre_separator,
-        ) {
-            Ok(metadata) => Song::try_load_into_db(db, metadata).await.map_or_else(
-                |e| warn!("Error indexing {}: {}", path.path().to_string_lossy(), e),
-                |_| debug!("Indexed {}", path.path().to_string_lossy()),
-            ),
-            Err(e) => warn!(
-                "Error reading metadata for {}: {}",
-                path.path().to_string_lossy(),
-                e
-            ),
-        }
+        <Result<(), Error>>::Ok(())
     }
+    .instrument(tracing::info_span!("Indexing new songs"))
+    .await?;
 
     // find and delete any remaining orphaned albums and artists
     // TODO: create a custom query for this
-    for album in Album::read_all(db).await? {
-        if Album::repair(db, album.id.clone()).await? {
-            info!("Deleted orphaned album {}", album.id.clone());
-            Album::delete(db, album.id.clone()).await?;
+
+    async {
+        for album in Album::read_all(db).await? {
+            if Album::repair(db, album.id.clone()).await? {
+                info!("Deleted orphaned album {}", album.id.clone());
+                Album::delete(db, album.id.clone()).await?;
+            }
         }
+        <Result<(), Error>>::Ok(())
     }
-    for artist in Artist::read_all(db).await? {
-        if Artist::repair(db, artist.id.clone()).await? {
-            info!("Deleted orphaned artist {}", artist.id.clone());
-            Artist::delete(db, artist.id.clone()).await?;
+    .instrument(tracing::info_span!("Repairing albums"))
+    .await?;
+    async {
+        for artist in Artist::read_all(db).await? {
+            if Artist::repair(db, artist.id.clone()).await? {
+                info!("Deleted orphaned artist {}", artist.id.clone());
+                Artist::delete(db, artist.id.clone()).await?;
+            }
         }
+        <Result<(), Error>>::Ok(())
     }
-    for collection in Collection::read_all(db).await? {
-        if Collection::repair(db, collection.id.clone()).await? {
-            info!("Deleted orphaned collection {}", collection.id.clone());
-            Collection::delete(db, collection.id.clone()).await?;
+    .instrument(tracing::info_span!("Repairing artists"))
+    .await?;
+    async {
+        for collection in Collection::read_all(db).await? {
+            if Collection::repair(db, collection.id.clone()).await? {
+                info!("Deleted orphaned collection {}", collection.id.clone());
+                Collection::delete(db, collection.id.clone()).await?;
+            }
         }
+        <Result<(), Error>>::Ok(())
     }
+    .instrument(tracing::info_span!("Repairing collections"))
+    .await?;
+    async {
+        for playlist in Playlist::read_all(db).await? {
+            if Playlist::repair(db, playlist.id.clone()).await? {
+                info!("Deleted orphaned playlist {}", playlist.id.clone());
+                Playlist::delete(db, playlist.id.clone()).await?;
+            }
+        }
+        <Result<(), Error>>::Ok(())
+    }
+    .instrument(tracing::info_span!("Repairing playlists"))
+    .await?;
 
     info!("Library rescan complete");
     info!("Library brief: {:?}", brief(db).await?);
@@ -215,36 +249,42 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
         MecompDecoder::analyze_paths_with_callback(keys, tx);
     });
 
-    for (song_path, maybe_analysis) in rx {
-        let Some(song_id) = paths.get(&song_path) else {
-            error!("No song id found for path: {}", song_path.to_string_lossy());
-            return Ok(());
-        };
+    async {
+        for (song_path, maybe_analysis) in rx {
+            let Some(song_id) = paths.get(&song_path) else {
+                error!("No song id found for path: {}", song_path.to_string_lossy());
+                continue;
+            };
 
-        match maybe_analysis {
-            Ok(analysis) => Analysis::create(
-                db,
-                song_id.clone(),
-                Analysis {
-                    id: Analysis::generate_id(),
-                    features: *analysis.inner(),
-                },
-            )
-            .await?
-            .map_or_else(
-                || {
-                    warn!(
+            match maybe_analysis {
+                Ok(analysis) => Analysis::create(
+                    db,
+                    song_id.clone(),
+                    Analysis {
+                        id: Analysis::generate_id(),
+                        features: *analysis.inner(),
+                    },
+                )
+                .await?
+                .map_or_else(
+                    || {
+                        warn!(
                         "Error analyzing {}: song either wasn't found or already has an analysis",
                         song_path.to_string_lossy()
                     );
-                },
-                |_| debug!("Analyzed {}", song_path.to_string_lossy()),
-            ),
-            Err(e) => {
-                error!("Error analyzing {}: {}", song_path.to_string_lossy(), e);
+                    },
+                    |_| debug!("Analyzed {}", song_path.to_string_lossy()),
+                ),
+                Err(e) => {
+                    error!("Error analyzing {}: {}", song_path.to_string_lossy(), e);
+                }
             }
         }
+
+        <Result<(), Error>>::Ok(())
     }
+    .instrument(tracing::info_span!("Adding analyses to database"))
+    .await?;
 
     handle.join().expect("Couldn't join thread");
 
@@ -269,6 +309,7 @@ pub async fn recluster<C: Connection>(
     // collect all the analyses
     let samples = Analysis::read_all(db).await?;
 
+    let entered = tracing::info_span!("Clustering library").entered();
     // use clustering algorithm to cluster the analyses
     let model: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
         samples
@@ -296,39 +337,57 @@ pub async fn recluster<C: Connection>(
         }
         Ok(kmeans) => kmeans.cluster(),
     };
+    drop(entered);
 
     // delete all the collections
-    // NOTE: For some reason, if a collection has too many songs, it will fail to delete with "DbError(Db(Tx("Max transaction entries limit exceeded")))"
-    // (this was happening with 892 songs in a collection)
-    for collection in Collection::read_all(db).await? {
-        Collection::delete(db, collection.id.clone()).await?;
-    }
-
-    // get the clusters from the clustering
-    let clusters = model.extract_analysis_clusters(samples);
-
-    // create the collections
-    for (i, cluster) in clusters.iter().filter(|c| !c.is_empty()).enumerate() {
-        let collection = Collection::create(
-            db,
-            Collection {
-                id: Collection::generate_id(),
-                name: format!("Collection {i}").into(),
-                runtime: Duration::default(),
-                song_count: Default::default(),
-            },
-        )
-        .await?
-        .ok_or(Error::NotCreated)?;
-
-        let mut songs = Vec::with_capacity(cluster.len());
-
-        for analysis in cluster {
-            songs.push(Analysis::read_song(db, analysis.id.clone()).await?.id);
+    async {
+        // NOTE: For some reason, if a collection has too many songs, it will fail to delete with "DbError(Db(Tx("Max transaction entries limit exceeded")))"
+        // (this was happening with 892 songs in a collection)
+        for collection in Collection::read_all(db).await? {
+            Collection::delete(db, collection.id.clone()).await?;
         }
 
-        Collection::add_songs(db, collection.id.clone(), songs).await?;
+        <Result<(), Error>>::Ok(())
     }
+    .instrument(tracing::info_span!("Deleting old collections"))
+    .await?;
+
+    // get the clusters from the clustering
+    async {
+        let clusters = model.extract_analysis_clusters(samples);
+
+        // create the collections
+        for (i, cluster) in clusters.iter().filter(|c| !c.is_empty()).enumerate() {
+            let collection = Collection::create(
+                db,
+                Collection {
+                    id: Collection::generate_id(),
+                    name: format!("Collection {i}").into(),
+                    runtime: Duration::default(),
+                    song_count: Default::default(),
+                },
+            )
+            .await?
+            .ok_or(Error::NotCreated)?;
+
+            let mut songs = Vec::with_capacity(cluster.len());
+
+            async {
+                for analysis in cluster {
+                    songs.push(Analysis::read_song(db, analysis.id.clone()).await?.id);
+                }
+
+                Collection::add_songs(db, collection.id.clone(), songs).await?;
+
+                <Result<(), Error>>::Ok(())
+            }
+            .instrument(tracing::info_span!("Adding songs to collection"))
+            .await?;
+        }
+        Ok::<(), Error>(())
+    }
+    .instrument(tracing::info_span!("Creating new collections"))
+    .await?;
 
     info!("Library recluster complete");
     info!("Library brief: {:?}", brief(db).await?);
