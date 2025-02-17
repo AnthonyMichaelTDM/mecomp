@@ -130,7 +130,7 @@ phf_shared = { version = "0.11", features = ["unicase"] }
 proc-macro2 = { version = "1" }
 quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
-rand_core = { version = "0.6", default-features = false, features = ["std"] }
+rand_core = { version = "0.9", default-features = false, features = ["std"] }
 regex = { version = "1" }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "dfa-search", "hybrid", "meta", "nfa-backtrack", "perf", "unicode"] }
 regex-syntax = { version = "0.8" }
@@ -196,7 +196,7 @@ phf_shared = { version = "0.11", features = ["unicase"] }
 proc-macro2 = { version = "1" }
 quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
-rand_core = { version = "0.6", default-features = false, features = ["std"] }
+rand_core = { version = "0.9", default-features = false, features = ["std"] }
 regex = { version = "1" }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "dfa-search", "hybrid", "meta", "nfa-backtrack", "perf", "unicode"] }
 regex-syntax = { version = "0.8" }
