@@ -72,6 +72,7 @@ impl Subscriber {
                     Event::LibraryAnalysisFinished => "Library analysis finished",
                     Event::LibraryReclusterFinished => "Library recluster finished",
                 };
+                action_tx.send(Action::Library(state::action::LibraryAction::Update))?;
 
                 action_tx.send(Action::Popup(PopupAction::Open(PopupType::Notification(
                     notification.into(),
@@ -230,6 +231,13 @@ mod subscriber_tests {
 
         assert_eq!(
             action,
+            Action::Library(state::action::LibraryAction::Update)
+        );
+
+        let action = rx.recv().await.unwrap();
+
+        assert_eq!(
+            action,
             Action::Popup(PopupAction::Open(PopupType::Notification(expected.into())))
         );
     }
@@ -264,6 +272,13 @@ mod subscriber_tests {
             .await
             .unwrap()
             .unwrap();
+
+        let action = action_rx.recv().await.unwrap();
+
+        assert_eq!(
+            action,
+            Action::Library(state::action::LibraryAction::Update)
+        );
 
         let action = action_rx.recv().await.unwrap();
 

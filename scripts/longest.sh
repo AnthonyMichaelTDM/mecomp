@@ -3,7 +3,7 @@
 # Finds the longest PATH and file with
 # the most amount of lines in this repo.
 # This is used for left-padding the filename
-# in the `daemon/src/logger.rs` file.
+# in the `core/src/logger.rs` file.
 
 # Exit on failure.
 set -e
@@ -14,9 +14,9 @@ set -e
 
 # Use `fd` if found.
 if [[ -f /usr/bin/fd ]]; then
-	FIND=$(fd .*.rs "daemon" "core" "storage" "analysis" "one-or-many")
+	FIND=$(fd .*.rs "daemon" "core" "storage" "analysis" "one-or-many" "mpris")
 else
-	FIND=$(find "daemon" "core" "storage" "analysis" "one-or-many" -type f -iname *.rs)
+	FIND=$(find "daemon" "core" "storage" "analysis" "one-or-many" "mpris" -type f -iname *.rs)
 fi
 
 # PATH.

@@ -7,8 +7,6 @@ use once_cell::sync::Lazy;
 #[cfg(feature = "otel_tracing")]
 use opentelemetry::trace::TracerProvider as _;
 #[cfg(feature = "otel_tracing")]
-use opentelemetry::KeyValue;
-#[cfg(feature = "otel_tracing")]
 use opentelemetry_otlp::WithExportConfig as _;
 #[cfg(feature = "otel_tracing")]
 use opentelemetry_sdk::Resource;
@@ -119,15 +117,15 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
             let dimmed_style = Style::default().dimmed();
 
             let log_line = format!(
-                // Longest PATH in the repo: `storage/src/db/schemas/collection.rs` - `36` characters
-                // Longest file in the repo: `core/src/audio/mod.rs`                - `4` digits
+                // Longest PATH in the repo: `storage/src/db/schemas/dynamic/query.rs` - `39` characters
+                // Longest file in the repo: `core/src/audio/mod.rs`                   - `4` digits
                 //
                 // Use `scripts/longest.sh` to find this.
                 //
                 //                                                                             Longest PATH ---|        |--- Longest file
                 //                                                                                             |        |
                 //                                                                                             v        v
-                "| {level_style}{level}{level_style:#} | {dimmed_style}{}{dimmed_style:#} | {dimmed_style}{: >36} @ {: <4}{dimmed_style:#} | {}",
+                "| {level_style}{level}{level_style:#} | {dimmed_style}{}{dimmed_style:#} | {dimmed_style}{: >39} @ {: <4}{dimmed_style:#} | {}",
                 format_duration(&now.elapsed()),
                 process_file(record.file_static().unwrap_or("???")),
                 record.line().unwrap_or(0),
@@ -192,29 +190,28 @@ pub fn init_tracing() -> impl tracing::Subscriber {
         .unwrap();
     #[cfg(feature = "verbose_tracing")]
     #[allow(unused_variables)]
-    let filter = tracing_subscriber::EnvFilter::builder()
-        .parse("trace,h2=off")
-        .unwrap();
+    let filter = tracing_subscriber::EnvFilter::new("trace")
+        .add_directive("hyper=off".parse().unwrap())
+        .add_directive("opentelemetry=off".parse().unwrap())
+        .add_directive("tonic=off".parse().unwrap())
+        .add_directive("h2=off".parse().unwrap())
+        .add_directive("reqwest=off".parse().unwrap());
 
     #[cfg(feature = "otel_tracing")]
     std::env::set_var("OTEL_BSP_MAX_EXPORT_BATCH_SIZE", "12");
     #[cfg(feature = "otel_tracing")]
-    let tracer = opentelemetry_sdk::trace::TracerProvider::builder()
+    let tracer = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_batch_exporter(
             opentelemetry_otlp::SpanExporter::builder()
                 .with_tonic()
                 .with_endpoint("http://localhost:4317")
                 .build()
                 .expect("Failed to build OTLP exporter"),
-            opentelemetry_sdk::runtime::Tokio,
         )
         .with_id_generator(opentelemetry_sdk::trace::RandomIdGenerator::default())
-        .with_resource(Resource::new(vec![KeyValue::new(
-            opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-            "mecomp-daemon",
-        )]))
+        .with_resource(Resource::builder().with_service_name("mecomp").build())
         .build()
-        .tracer("mecomp-daemon");
+        .tracer("mecomp");
 
     #[cfg(feature = "otel_tracing")]
     let subscriber = subscriber.with(
@@ -224,10 +221,4 @@ pub fn init_tracing() -> impl tracing::Subscriber {
     );
 
     subscriber
-}
-
-#[allow(clippy::missing_const_for_fn)]
-pub fn shutdown_tracing() {
-    #[cfg(feature = "otel_tracing")]
-    opentelemetry::global::shutdown_tracer_provider();
 }

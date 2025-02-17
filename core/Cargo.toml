@@ -23,7 +23,6 @@ otel_tracing = [
     "dep:tracing-opentelemetry",
     "dep:opentelemetry",
     "dep:opentelemetry_sdk",
-    "dep:opentelemetry-semantic-conventions",
     "dep:opentelemetry-otlp",
 ]
 audio = ["dep:rodio", "dep:tokio", "dep:rand"]
@@ -55,7 +54,6 @@ object-pool = { workspace = true, optional = true }
 opentelemetry = { workspace = true, optional = true }
 opentelemetry_sdk = { workspace = true, optional = true }
 opentelemetry-otlp = { workspace = true, optional = true }
-opentelemetry-semantic-conventions = { workspace = true, optional = true }
 
 # MECOMP dependencies
 mecomp-storage = { workspace = true, features = ["serde"] }
