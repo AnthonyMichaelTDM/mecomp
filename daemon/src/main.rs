@@ -4,10 +4,7 @@
 
 use std::path::PathBuf;
 
-use mecomp_core::{
-    config::{Settings, DEFAULT_CONFIG},
-    get_config_dir, get_data_dir,
-};
+use mecomp_core::{config::Settings, get_data_dir};
 use mecomp_daemon::start_daemon;
 
 use clap::Parser;
@@ -33,24 +30,13 @@ struct Flags {
 async fn main() -> anyhow::Result<()> {
     let flags = Flags::try_parse()?;
 
-    let config_file = match get_config_dir() {
-        Ok(config_dir) => {
-            // if the config directory does not exist, create it
-            if !config_dir.exists() {
-                std::fs::create_dir_all(&config_dir)?;
-            }
-            config_dir.join("Mecomp.toml")
-        }
-        Err(e) => {
-            eprintln!("Error: {e}");
-            anyhow::bail!("Could not find the config directory")
-        }
+    let config_file = match flags.config {
+        Some(ref config_file) if config_file.exists() => config_file.clone(),
+        Some(_) => anyhow::bail!("Config file does not exist at user specified path"),
+        None => Settings::get_config_path()?,
     };
 
-    // write the default config file if one does not exist
-    if !config_file.exists() {
-        std::fs::write(&config_file, DEFAULT_CONFIG)?;
-    }
+    assert!(config_file.exists(), "Config file does not exist");
 
     let (db_dir, log_file) = match get_data_dir() {
         Ok(data_dir) => {

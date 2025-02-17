@@ -66,6 +66,39 @@ impl Settings {
 
         Ok(settings)
     }
+
+    /// Get the (default) path to the config file.
+    /// If the config file does not exist at this path, it will be created with the default config.
+    ///
+    /// See [`crate::get_config_dir`] for more information about where this default path is located.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the system config directory (e.g., `~/.config` on linux) could not be found, or if the config file was missing and could not be created.
+    pub fn get_config_path() -> Result<PathBuf, std::io::Error> {
+        match crate::get_config_dir() {
+            Ok(config_dir) => {
+                // if the config directory does not exist, create it
+                if !config_dir.exists() {
+                    std::fs::create_dir_all(&config_dir)?;
+                }
+                let config_file = config_dir.join("Mecomp.toml");
+
+                if !config_file.exists() {
+                    std::fs::write(&config_file, DEFAULT_CONFIG)?;
+                }
+
+                Ok(config_file)
+            }
+            Err(e) => {
+                eprintln!("Error: {e}");
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "Unable to find the config directory for mecomp.",
+                ))
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
