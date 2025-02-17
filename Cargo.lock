@@ -918,7 +918,7 @@ dependencies = [
  "cedar-policy-core",
  "cedar-policy-validator",
  "itertools 0.10.5",
- "lalrpop-util",
+ "lalrpop-util 0.20.2",
  "ref-cast",
  "serde",
  "serde_json",
@@ -936,7 +936,7 @@ dependencies = [
  "ipnet",
  "itertools 0.10.5",
  "lalrpop",
- "lalrpop-util",
+ "lalrpop-util 0.20.2",
  "lazy_static",
  "miette",
  "regex",
@@ -2695,7 +2695,7 @@ dependencies = [
  "bit-set",
  "ena",
  "itertools 0.11.0",
- "lalrpop-util",
+ "lalrpop-util 0.20.2",
  "petgraph",
  "pico-args",
  "regex",
@@ -2714,6 +2714,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "507460a910eb7b32ee961886ff48539633b788a36b65692b95f225b844c82553"
 dependencies = [
  "regex-automata 0.4.9",
+]
+
+[[package]]
+name = "lalrpop-util"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8d05b3fe34b8bd562c338db725dfa9beb9451a48f65f129ccb9538b48d2c93b"
+dependencies = [
+ "regex-automata 0.4.9",
+ "rustversion",
 ]
 
 [[package]]
@@ -3226,7 +3236,7 @@ dependencies = [
  "indexmap 2.7.1",
  "itertools 0.10.5",
  "itertools 0.11.0",
- "lalrpop-util",
+ "lalrpop-util 0.22.1",
  "linfa-linalg",
  "log",
  "matrixmultiply",
