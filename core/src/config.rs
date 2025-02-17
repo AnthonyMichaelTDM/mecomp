@@ -21,6 +21,9 @@ pub struct Settings {
     /// Parameters for the reclustering algorithm.
     #[serde(default)]
     pub reclustering: ReclusterSettings,
+    /// Settings for the TUI
+    #[serde(default)]
+    pub tui: TuiSettings,
 }
 
 impl Settings {
@@ -66,6 +69,39 @@ impl Settings {
 
         Ok(settings)
     }
+
+    /// Get the (default) path to the config file.
+    /// If the config file does not exist at this path, it will be created with the default config.
+    ///
+    /// See [`crate::get_config_dir`] for more information about where this default path is located.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the system config directory (e.g., `~/.config` on linux) could not be found, or if the config file was missing and could not be created.
+    pub fn get_config_path() -> Result<PathBuf, std::io::Error> {
+        match crate::get_config_dir() {
+            Ok(config_dir) => {
+                // if the config directory does not exist, create it
+                if !config_dir.exists() {
+                    std::fs::create_dir_all(&config_dir)?;
+                }
+                let config_file = config_dir.join("Mecomp.toml");
+
+                if !config_file.exists() {
+                    std::fs::write(&config_file, DEFAULT_CONFIG)?;
+                }
+
+                Ok(config_file)
+            }
+            Err(e) => {
+                eprintln!("Error: {e}");
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "Unable to find the config directory for mecomp.",
+                ))
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -88,8 +124,7 @@ pub struct DaemonSettings {
     /// [daemon]
     /// artist_separator = " & "
     /// artist_separator = [" & ", "; "]
-    ///
-    ///
+    /// ...
     /// ```
     #[serde(default, deserialize_with = "de_artist_separator")]
     pub artist_separator: OneOrMany<String>,
@@ -163,7 +198,6 @@ pub enum ClusterAlgorithm {
     GMM,
 }
 
-#[cfg(feature = "analysis")]
 impl From<ClusterAlgorithm> for mecomp_analysis::clustering::ClusteringMethod {
     fn from(algo: ClusterAlgorithm) -> Self {
         match algo {
@@ -211,6 +245,26 @@ impl Default for ReclusterSettings {
             gap_statistic_reference_datasets: default_gap_statistic_reference_datasets(),
             max_clusters: default_max_clusters(),
             algorithm: ClusterAlgorithm::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct TuiSettings {
+    /// How many songs should be queried for when starting a radio.
+    /// Default is 20.
+    #[serde(default = "default_radio_count")]
+    pub radio_count: u32,
+}
+
+const fn default_radio_count() -> u32 {
+    20
+}
+
+impl Default for TuiSettings {
+    fn default() -> Self {
+        Self {
+            radio_count: default_radio_count(),
         }
     }
 }
@@ -276,6 +330,9 @@ log_level = "debug"
 gap_statistic_reference_datasets = 50
 max_clusters = 24
 algorithm = "gmm"
+
+[tui]
+radio_count = 21
             "#,
         )
         .unwrap();
@@ -294,6 +351,7 @@ algorithm = "gmm"
                 max_clusters: 24,
                 algorithm: ClusterAlgorithm::GMM,
             },
+            tui: TuiSettings { radio_count: 21 },
         };
 
         let settings = Settings::init(config_path, None, None).unwrap();

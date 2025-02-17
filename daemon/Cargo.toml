@@ -47,7 +47,6 @@ log = { workspace = true }
 notify = { workspace = true, optional = true }
 notify-debouncer-full = { workspace = true, optional = true }
 rand = { workspace = true }
-serde = { workspace = true }
 surrealdb = { workspace = true }
 tap = { workspace = true }
 tarpc = { workspace = true }
@@ -60,10 +59,6 @@ mecomp-core = { workspace = true, features = ["rpc", "audio"] }
 mecomp-storage = { workspace = true, features = ["serde", "db"] }
 mecomp-analysis = { workspace = true, optional = true }
 one-or-many = { workspace = true }
-
-# server dependencies
-config.workspace = true
-shellexpand.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]

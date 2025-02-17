@@ -14,6 +14,7 @@ use mecomp_core::{
         commands::{AudioCommand, QueueCommand, VolumeCommand},
         AudioKernelSender,
     },
+    config::Settings,
     errors::SerializableLibraryError,
     rpc::{
         AlbumId, ArtistId, CollectionId, DynamicPlaylistId, MusicPlayer, PlaylistId, SearchResult,
@@ -39,10 +40,7 @@ use mecomp_storage::{
 };
 use one_or_many::OneOrMany;
 
-use crate::{
-    config::Settings,
-    services::{self, get_songs_from_things},
-};
+use crate::services;
 
 #[derive(Clone, Debug)]
 pub struct MusicPlayerServer {
@@ -822,7 +820,7 @@ impl MusicPlayer for MusicPlayerServer {
     ) -> Result<(), SerializableLibraryError> {
         info!("Adding thing to queue: {thing}");
 
-        let songs = get_songs_from_things(&self.db, &[thing]).await?;
+        let songs = services::get_songs_from_things(&self.db, &[thing]).await?;
 
         if songs.is_empty() {
             return Err(Error::NotFound.into());
@@ -852,7 +850,7 @@ impl MusicPlayer for MusicPlayerServer {
         );
 
         // go through the list, and get songs for each thing (depending on what it is)
-        let songs: OneOrMany<Song> = get_songs_from_things(&self.db, &list).await?;
+        let songs: OneOrMany<Song> = services::get_songs_from_things(&self.db, &list).await?;
 
         self.audio_kernel
             .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
@@ -999,7 +997,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Adding thing to playlist: {playlist} ({thing})");
 
         // get songs for the thing
-        let songs: OneOrMany<Song> = get_songs_from_things(&self.db, &[thing]).await?;
+        let songs: OneOrMany<Song> = services::get_songs_from_things(&self.db, &[thing]).await?;
 
         Ok(Playlist::add_songs(
             &self.db,
@@ -1027,7 +1025,7 @@ impl MusicPlayer for MusicPlayerServer {
         );
 
         // go through the list, and get songs for each thing (depending on what it is)
-        let songs: OneOrMany<Song> = get_songs_from_things(&self.db, &list).await?;
+        let songs: OneOrMany<Song> = services::get_songs_from_things(&self.db, &list).await?;
 
         Ok(Playlist::add_songs(
             &self.db,

@@ -15,6 +15,7 @@ use tarpc::{
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
     audio::AudioKernelSender,
+    config::Settings,
     is_server_running,
     logger::{init_logger, init_tracing},
     rpc::{MusicPlayer as _, MusicPlayerClient},
@@ -27,7 +28,6 @@ async fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
     tokio::spawn(fut);
 }
 
-pub mod config;
 pub mod controller;
 #[cfg(feature = "dynamic_updates")]
 pub mod dynamic_updates;
@@ -35,7 +35,6 @@ pub mod services;
 #[cfg(test)]
 pub use mecomp_core::test_utils;
 
-use crate::config::Settings;
 use crate::controller::MusicPlayerServer;
 
 // TODO: at some point, we should probably add a panic handler to the daemon to ensure graceful shutdown.

@@ -28,9 +28,8 @@ use crate::{
     },
 };
 
-use super::{
-    checktree_utils::{create_album_tree_item, create_artist_tree_item, create_song_tree_item},
-    RADIO_SIZE,
+use super::checktree_utils::{
+    create_album_tree_item, create_artist_tree_item, create_song_tree_item,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -165,7 +164,7 @@ impl Component for SearchView {
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::ActiveView(ViewAction::Set(ActiveView::Radio(
-                            things, RADIO_SIZE,
+                            things,
                         ))))
                         .unwrap();
                 }
@@ -614,10 +613,11 @@ mod tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
-                vec![("song", item_id()).into()],
-                RADIO_SIZE
-            )))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![(
+                "song",
+                item_id()
+            )
+                .into()],)))
         );
 
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));

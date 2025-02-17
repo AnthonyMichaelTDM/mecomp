@@ -92,8 +92,8 @@ impl Subscriber {
 #[cfg(test)]
 mod subscriber_tests {
     use super::*;
-    use mecomp_core::audio::AudioKernelSender;
-    use mecomp_daemon::{config::Settings, init_test_client_server};
+    use mecomp_core::{audio::AudioKernelSender, config::Settings};
+    use mecomp_daemon::init_test_client_server;
     use mecomp_storage::{
         db::schemas::{
             album::Album, analysis::Analysis, artist::Artist, collection::Collection,

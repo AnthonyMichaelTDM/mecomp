@@ -3,7 +3,7 @@ use std::sync::Arc;
 use clap::Parser;
 #[cfg(feature = "autostart-daemon")]
 use mecomp_core::is_server_running;
-use mecomp_core::rpc::init_client;
+use mecomp_core::{config::Settings, rpc::init_client};
 use mecomp_tui::{
     state::Dispatcher,
     termination::{create_termination, Interrupted},
@@ -17,8 +17,8 @@ use tokio::sync::mpsc;
 #[command(name = "mecomp-tui", version = env!("CARGO_PKG_VERSION"), about)]
 struct Flags {
     /// Sets the port number to listen on.
-    #[clap(long, default_value = "6600")]
-    port: u16,
+    #[clap(long)]
+    port: Option<u16>,
 }
 
 #[tokio::main]
@@ -27,12 +27,15 @@ async fn main() -> anyhow::Result<()> {
 
     let flags = Flags::parse();
 
+    let config_file = Settings::get_config_path()?;
+    let settings = Settings::init(config_file, flags.port, None)?;
+
     // check if the server is running, and if it's not, try to start it
     #[cfg(feature = "autostart-daemon")]
-    let server_process = MaybeDaemonHandler::start(flags.port).await?;
+    let server_process = MaybeDaemonHandler::start(settings.daemon.rpc_port).await?;
 
     // initialize the client
-    let daemon = Arc::new(init_client(flags.port).await?);
+    let daemon = Arc::new(init_client(settings.daemon.rpc_port).await?);
 
     // initialize the signal handlers
 
@@ -49,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
         ),
         UiManager::new(action_tx.clone()).main_loop(
             daemon.clone(),
+            settings,
             state_receivers,
             interrupt_rx.resubscribe()
         ),

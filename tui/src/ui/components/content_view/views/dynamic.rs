@@ -754,10 +754,7 @@ mod item_view_tests {
     use crate::{
         state::action::{AudioAction, PopupAction, QueueAction},
         test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
-        ui::{
-            components::content_view::{views::RADIO_SIZE, ActiveView},
-            widgets::popups::PopupType,
-        },
+        ui::{components::content_view::ActiveView, widgets::popups::PopupType},
     };
     use crossterm::event::KeyModifiers;
     use pretty_assertions::assert_eq;
@@ -855,10 +852,9 @@ mod item_view_tests {
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
-                vec![dynamic_playlists_id.clone()],
-                RADIO_SIZE
-            )))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![
+                dynamic_playlists_id.clone()
+            ],)))
         );
         assert_eq!(
             rx.blocking_recv(),
@@ -891,10 +887,7 @@ mod item_view_tests {
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
-                vec![song_id.clone()],
-                RADIO_SIZE
-            )))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![song_id.clone()],)))
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
