@@ -3239,7 +3239,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rand 0.8.5",
- "rand_core 0.6.4",
+ "rand_core 0.9.1",
  "regex",
  "regex-automata 0.4.9",
  "regex-syntax 0.8.5",
