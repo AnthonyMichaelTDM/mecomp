@@ -36,6 +36,7 @@ mock_playback = []
 [dependencies]
 # shared dependencies
 ciborium = { workspace = true, optional = true }
+config = { workspace = true }
 directories = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
@@ -43,6 +44,7 @@ once_cell = { workspace = true }
 rand = { workspace = true, optional = true }
 rodio = { workspace = true, optional = true }
 serde = { workspace = true }
+shellexpand = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, optional = true }
 tarpc = { workspace = true, optional = true }
@@ -56,6 +58,7 @@ opentelemetry_sdk = { workspace = true, optional = true }
 opentelemetry-otlp = { workspace = true, optional = true }
 
 # MECOMP dependencies
+mecomp-analysis = { workspace = true }                                         # needed so configs can configure clustering
 mecomp-storage = { workspace = true, features = ["serde"] }
 one-or-many = { workspace = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }

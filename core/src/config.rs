@@ -163,7 +163,6 @@ pub enum ClusterAlgorithm {
     GMM,
 }
 
-#[cfg(feature = "analysis")]
 impl From<ClusterAlgorithm> for mecomp_analysis::clustering::ClusteringMethod {
     fn from(algo: ClusterAlgorithm) -> Self {
         match algo {

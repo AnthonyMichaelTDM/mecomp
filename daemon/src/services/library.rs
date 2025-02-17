@@ -9,7 +9,10 @@ use mecomp_analysis::{
     clustering::{ClusteringHelper, KOptimal, NotInitialized},
     decoder::{DecoderWithCallback, MecompDecoder},
 };
-use mecomp_core::state::library::{LibraryBrief, LibraryFull, LibraryHealth};
+use mecomp_core::{
+    config::ReclusterSettings,
+    state::library::{LibraryBrief, LibraryFull, LibraryHealth},
+};
 use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
 use tap::TapFallible;
@@ -36,8 +39,6 @@ use mecomp_storage::{
     errors::Error,
     util::MetadataConflictResolution,
 };
-
-use crate::config::ReclusterSettings;
 
 /// Index the library.
 ///
@@ -461,6 +462,7 @@ mod tests {
     use super::*;
     use crate::test_utils::init;
 
+    use mecomp_core::config::ClusterAlgorithm;
     use mecomp_storage::db::schemas::song::{SongChangeSet, SongMetadata};
     use mecomp_storage::test_utils::{
         arb_analysis_features, arb_song_case, arb_vec, create_song_metadata,
@@ -773,7 +775,7 @@ mod tests {
         let settings = ReclusterSettings {
             gap_statistic_reference_datasets: 5,
             max_clusters: 18,
-            algorithm: crate::config::ClusterAlgorithm::GMM,
+            algorithm: ClusterAlgorithm::GMM,
         };
 
         // load some songs into the database

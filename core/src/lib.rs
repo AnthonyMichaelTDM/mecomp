@@ -2,6 +2,7 @@ use errors::DirectoryError;
 
 #[cfg(feature = "audio")]
 pub mod audio;
+pub mod config;
 pub mod errors;
 pub mod logger;
 #[cfg(feature = "rpc")]

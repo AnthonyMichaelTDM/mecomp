@@ -4,11 +4,11 @@
 
 use std::path::PathBuf;
 
-use mecomp_core::{get_config_dir, get_data_dir};
-use mecomp_daemon::{
+use mecomp_core::{
     config::{Settings, DEFAULT_CONFIG},
-    start_daemon,
+    get_config_dir, get_data_dir,
 };
+use mecomp_daemon::start_daemon;
 
 use clap::Parser;
 

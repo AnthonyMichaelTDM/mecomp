@@ -4,7 +4,7 @@
 //! my real music library
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use mecomp_daemon::config::ReclusterSettings;
+use mecomp_core::config::{ClusterAlgorithm, ReclusterSettings};
 use mecomp_daemon::services::library::recluster;
 use mecomp_storage::db::schemas::analysis::Analysis;
 use mecomp_storage::db::schemas::collection::{Collection, TABLE_NAME};
@@ -23,7 +23,7 @@ fn benchmark_recluster(c: &mut Criterion) {
     let settings = ReclusterSettings {
         gap_statistic_reference_datasets: 50,
         max_clusters: 16,
-        algorithm: mecomp_daemon::config::ClusterAlgorithm::GMM,
+        algorithm: ClusterAlgorithm::GMM,
     };
 
     // load some songs into the database
@@ -72,7 +72,7 @@ fn benchmark_recluster(c: &mut Criterion) {
     });
 
     let settings = ReclusterSettings {
-        algorithm: mecomp_daemon::config::ClusterAlgorithm::KMeans,
+        algorithm: ClusterAlgorithm::KMeans,
         ..settings
     };
 
