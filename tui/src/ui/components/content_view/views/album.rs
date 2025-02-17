@@ -27,7 +27,7 @@ use crate::{
 
 use super::{
     checktree_utils::create_album_tree_leaf, generic::ItemView, sort_mode::AlbumSort,
-    traits::SortMode, AlbumViewProps, RADIO_SIZE,
+    traits::SortMode, AlbumViewProps,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -144,7 +144,7 @@ impl Component for LibraryAlbumsView {
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::ActiveView(ViewAction::Set(ActiveView::Radio(
-                            things, RADIO_SIZE,
+                            things,
                         ))))
                         .unwrap();
                 }
@@ -520,10 +520,11 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
-                vec![("album", item_id()).into()],
-                RADIO_SIZE
-            )))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![(
+                "album",
+                item_id()
+            )
+                .into()],)))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
@@ -568,10 +569,11 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
-                vec![("song", item_id()).into()],
-                RADIO_SIZE
-            )))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![(
+                "song",
+                item_id()
+            )
+                .into()],)))
         );
 
         // add to playlist
@@ -900,10 +902,11 @@ mod library_view_tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
-                vec![("album", item_id()).into()],
-                RADIO_SIZE
-            )))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![(
+                "album",
+                item_id()
+            )
+                .into()],)))
         );
 
         // add to playlist

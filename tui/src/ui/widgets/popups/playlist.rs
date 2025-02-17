@@ -439,6 +439,7 @@ mod selector_tests {
     };
     use anyhow::Result;
     use mecomp_core::{
+        config::Settings,
         rpc::SearchResult,
         state::{library::LibraryFull, StateAudio},
     };
@@ -469,6 +470,7 @@ mod selector_tests {
             },
             active_view: ActiveView::default(),
             additional_view_data: ViewData::default(),
+            settings: Settings::default(),
         }
     }
 
@@ -635,6 +637,7 @@ mod editor_tests {
     };
     use anyhow::Result;
     use mecomp_core::{
+        config::Settings,
         rpc::SearchResult,
         state::{library::LibraryFull, StateAudio},
     };
@@ -652,6 +655,7 @@ mod editor_tests {
             library: LibraryFull::default(),
             active_view: ActiveView::default(),
             additional_view_data: ViewData::default(),
+            settings: Settings::default(),
         }
     }
 

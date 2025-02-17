@@ -3108,7 +3108,6 @@ dependencies = [
  "pretty_assertions",
  "rand 0.8.5",
  "rstest",
- "serde",
  "surrealdb",
  "tap",
  "tarpc",

@@ -28,8 +28,6 @@ pub mod song;
 pub mod sort_mode;
 pub mod traits;
 
-const RADIO_SIZE: u32 = 20;
-
 /// Data needed by the views (that isn't directly handled by a state store)
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -353,8 +351,6 @@ pub mod checktree_utils {
         },
     };
 
-    use super::RADIO_SIZE;
-
     impl CheckTreeState<String> {
         /// Get the checked things from the tree state
         #[must_use]
@@ -504,16 +500,11 @@ pub mod checktree_utils {
         current_thing: Option<&Thing>,
     ) -> Option<Action> {
         if checked_things.is_empty() {
-            current_thing.map(|id| {
-                Action::ActiveView(ViewAction::Set(ActiveView::Radio(
-                    vec![id.clone()],
-                    RADIO_SIZE,
-                )))
-            })
+            current_thing
+                .map(|id| Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![id.clone()]))))
         } else {
             Some(Action::ActiveView(ViewAction::Set(ActiveView::Radio(
                 checked_things,
-                RADIO_SIZE,
             ))))
         }
     }

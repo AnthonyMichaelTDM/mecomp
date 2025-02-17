@@ -47,7 +47,6 @@ log = { workspace = true }
 notify = { workspace = true, optional = true }
 notify-debouncer-full = { workspace = true, optional = true }
 rand = { workspace = true }
-serde = { workspace = true }
 surrealdb = { workspace = true }
 tap = { workspace = true }
 tarpc = { workspace = true }

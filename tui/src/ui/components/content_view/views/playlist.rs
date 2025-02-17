@@ -713,10 +713,7 @@ mod item_view_tests {
     use crate::{
         state::action::{AudioAction, PopupAction, QueueAction},
         test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
-        ui::{
-            components::content_view::{views::RADIO_SIZE, ActiveView},
-            widgets::popups::PopupType,
-        },
+        ui::{components::content_view::ActiveView, widgets::popups::PopupType},
     };
     use anyhow::Result;
     use crossterm::event::KeyModifiers;
@@ -902,10 +899,11 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
-                vec![("playlist", item_id()).into()],
-                RADIO_SIZE
-            )))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![(
+                "playlist",
+                item_id()
+            )
+                .into()],)))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
@@ -948,10 +946,11 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(
-                vec![("song", item_id()).into()],
-                RADIO_SIZE
-            )))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![(
+                "song",
+                item_id()
+            )
+                .into()],)))
         );
 
         // add to playlist

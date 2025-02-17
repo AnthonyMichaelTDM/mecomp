@@ -21,6 +21,9 @@ pub struct Settings {
     /// Parameters for the reclustering algorithm.
     #[serde(default)]
     pub reclustering: ReclusterSettings,
+    /// Settings for the TUI
+    #[serde(default)]
+    pub tui: TuiSettings,
 }
 
 impl Settings {
@@ -121,8 +124,7 @@ pub struct DaemonSettings {
     /// [daemon]
     /// artist_separator = " & "
     /// artist_separator = [" & ", "; "]
-    ///
-    ///
+    /// ...
     /// ```
     #[serde(default, deserialize_with = "de_artist_separator")]
     pub artist_separator: OneOrMany<String>,
@@ -247,6 +249,26 @@ impl Default for ReclusterSettings {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct TuiSettings {
+    /// How many songs should be queried for when starting a radio.
+    /// Default is 20.
+    #[serde(default = "default_radio_count")]
+    pub radio_count: u32,
+}
+
+const fn default_radio_count() -> u32 {
+    20
+}
+
+impl Default for TuiSettings {
+    fn default() -> Self {
+        Self {
+            radio_count: default_radio_count(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,6 +330,9 @@ log_level = "debug"
 gap_statistic_reference_datasets = 50
 max_clusters = 24
 algorithm = "gmm"
+
+[tui]
+radio_count = 21
             "#,
         )
         .unwrap();
@@ -326,6 +351,7 @@ algorithm = "gmm"
                 max_clusters: 24,
                 algorithm: ClusterAlgorithm::GMM,
             },
+            tui: TuiSettings { radio_count: 21 },
         };
 
         let settings = Settings::init(config_path, None, None).unwrap();

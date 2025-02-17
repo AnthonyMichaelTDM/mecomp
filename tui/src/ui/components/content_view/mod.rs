@@ -97,7 +97,7 @@ pub enum ActiveView {
     /// A view of a specific collection.
     Collection(Id),
     /// A view of a radio
-    Radio(Vec<Thing>, u32),
+    Radio(Vec<Thing>),
     /// A view for getting a random song, album, etc.
     Random,
     // TODO: views for genres, settings, etc.
@@ -134,7 +134,7 @@ impl ContentView {
             ActiveView::DynamicPlaylist(_) => &self.dynamic_playlist_view,
             ActiveView::Collections => &self.collections_view,
             ActiveView::Collection(_) => &self.collection_view,
-            ActiveView::Radio(_, _) => &self.radio_view,
+            ActiveView::Radio(_) => &self.radio_view,
             ActiveView::Random => &self.random_view,
         }
     }
@@ -155,7 +155,7 @@ impl ContentView {
             ActiveView::DynamicPlaylist(_) => &mut self.dynamic_playlist_view,
             ActiveView::Collections => &mut self.collections_view,
             ActiveView::Collection(_) => &mut self.collection_view,
-            ActiveView::Radio(_, _) => &mut self.radio_view,
+            ActiveView::Radio(_) => &mut self.radio_view,
             ActiveView::Random => &mut self.random_view,
         }
     }
@@ -298,7 +298,7 @@ impl ComponentRender<RenderProps> for ContentView {
             ActiveView::DynamicPlaylist(_) => self.dynamic_playlist_view.render(frame, props),
             ActiveView::Collections => self.collections_view.render(frame, props),
             ActiveView::Collection(_) => self.collection_view.render(frame, props),
-            ActiveView::Radio(_, _) => self.radio_view.render(frame, props),
+            ActiveView::Radio(_) => self.radio_view.render(frame, props),
             ActiveView::Random => self.random_view.render(frame, props),
         }
     }
@@ -326,7 +326,7 @@ mod tests {
     #[case(ActiveView::DynamicPlaylist(item_id()))]
     #[case(ActiveView::Collections)]
     #[case(ActiveView::Collection(item_id()))]
-    #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))], 1))]
+    #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))]))]
     #[case(ActiveView::Random)]
     fn smoke_render(#[case] active_view: ActiveView, #[values(true, false)] is_focused: bool) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
@@ -357,7 +357,7 @@ mod tests {
     #[case(ActiveView::DynamicPlaylist(item_id()))]
     #[case(ActiveView::Collections)]
     #[case(ActiveView::Collection(item_id()))]
-    #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))], 1))]
+    #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))]))]
     #[case(ActiveView::Random)]
     fn test_get_active_view_component(#[case] active_view: ActiveView) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
@@ -386,7 +386,7 @@ mod tests {
             ActiveView::DynamicPlaylist(_) => assert_eq!(view.name(), "Dynamic Playlist View"),
             ActiveView::Collections => assert_eq!(view.name(), "Library Collections View"),
             ActiveView::Collection(_) => assert_eq!(view.name(), "Collection View"),
-            ActiveView::Radio(_, _) => assert_eq!(view.name(), "Radio"),
+            ActiveView::Radio(_) => assert_eq!(view.name(), "Radio"),
             ActiveView::Random => assert_eq!(view.name(), "Random"),
         }
 

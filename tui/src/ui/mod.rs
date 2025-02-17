@@ -35,6 +35,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use mecomp_core::{
+    config::Settings,
     rpc::{MusicPlayerClient, SearchResult},
     state::{library::LibraryFull, StateAudio},
 };
@@ -58,6 +59,7 @@ pub struct AppState {
     pub library: LibraryFull,
     pub active_view: ActiveView,
     pub additional_view_data: ViewData,
+    pub settings: Settings,
 }
 
 const RENDERING_TICK_RATE: Duration = Duration::from_millis(250);
@@ -83,6 +85,7 @@ impl UiManager {
     pub async fn main_loop(
         self,
         daemon: Arc<MusicPlayerClient>,
+        settings: Settings,
         mut state_rx: Receivers,
         mut interrupt_rx: broadcast::Receiver<Interrupted>,
     ) -> anyhow::Result<Interrupted> {
@@ -94,6 +97,7 @@ impl UiManager {
             library: state_rx.library.recv().await.unwrap_or_default(),
             active_view: state_rx.view.recv().await.unwrap_or_default(),
             additional_view_data: ViewData::default(),
+            settings,
         };
         let mut app = App::new(&state, self.action_tx.clone());
 
@@ -390,15 +394,13 @@ async fn handle_additional_view_data(
                 ..state.additional_view_data.clone()
             })
         }
-        ActiveView::Radio(ids, count) => {
+        ActiveView::Radio(ids) => {
+            let count = state.settings.tui.radio_count;
             let radio_view_props = if let Ok(Ok(songs)) = daemon
-                .radio_get_similar(Context::current(), ids.clone(), *count)
+                .radio_get_similar(Context::current(), ids.clone(), count)
                 .await
             {
-                Some(RadioViewProps {
-                    count: *count,
-                    songs,
-                })
+                Some(RadioViewProps { count, songs })
             } else {
                 None
             };

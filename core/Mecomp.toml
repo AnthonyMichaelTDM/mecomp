@@ -50,3 +50,9 @@ max_clusters = 24
 ## The clustering algorithm to use.
 ## Either "kmeans" or "gmm".
 algorithm = "gmm"
+
+# Settings for the TUI
+[tui]
+## How many songs should be queried for when starting a radio.
+## Default is 20.
+radio_count = 20
