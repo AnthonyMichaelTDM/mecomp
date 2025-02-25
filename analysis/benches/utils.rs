@@ -1,21 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use mecomp_analysis::decoder::Decoder as DecoderTrait;
 use mecomp_analysis::decoder::MecompDecoder as Decoder;
-use mecomp_analysis::utils::{convolve, geometric_mean, reflect_pad, stft};
+use mecomp_analysis::utils::{geometric_mean, reflect_pad, stft};
 use ndarray::Array;
-use ndarray::Array1;
 use std::path::Path;
-
-fn bench_convolve(c: &mut Criterion) {
-    let input: Array1<f64> = Array::range(0., 1000., 0.5);
-    let kernel: Array1<f64> = Array::ones(100);
-
-    c.bench_function("mecomp-analysis: utils.rs: convolve", |b| {
-        b.iter(|| {
-            let _ = convolve(black_box(&input), black_box(&kernel));
-        });
-    });
-}
 
 fn bench_compute_stft(c: &mut Criterion) {
     let signal = Decoder::decode(Path::new("data/piano.flac"))
@@ -307,7 +295,6 @@ fn bench_geometric_mean(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    bench_convolve,
     bench_compute_stft,
     bench_reflect_pad,
     bench_geometric_mean
