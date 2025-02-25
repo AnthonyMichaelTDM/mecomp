@@ -216,7 +216,7 @@ impl ClusteringHelper<NotInitialized> {
     /// 2. Generate B reference data sets with a random uniform distribution. Cluster each of these reference data sets with varying number of clusters k = 1, …, kmax,
     ///    and compute the corresponding total within intra-cluster variation `W_{kb}`.
     /// 3. Compute the estimated gap statistic as the deviation of the observed `W_k` value from its expected value `W_kb` under the null hypothesis:
-    ///    `Gap(k)=(1/B) \sum_{b=1}^{B} \log(W^*_{kb})−\log(W_k)`.
+    ///    `Gap(k)=(1/B) \sum_{b=1}^{B} \log(W^*_{kb}) − \log(W_k)`.
     ///    Compute also the standard deviation of the statistics.
     /// 4. Choose the number of clusters as the smallest value of k such that the gap statistic is within one standard deviation of the gap at k+1:
     ///    `Gap(k)≥Gap(k + 1)−s_{k + 1}`.
@@ -252,16 +252,20 @@ impl ClusteringHelper<NotInitialized> {
                 });
 
                 // finally, we calculate the gap statistic
+                let w_kb_log_sum = w_kb.clone().map(f64::log2).sum::<f64>();
+                // original formula: l = (1 / B) * sum_b(log(W_kb))
                 #[allow(clippy::cast_precision_loss)]
-                let gap_k = (1.0 / b as f64)
-                    .mul_add(w_kb.clone().map(f64::log2).sum::<f64>().log2(), -w_k.log2());
-
+                let l = (1.0 / b as f64) * w_kb_log_sum;
+                // original formula: gap_k = (1 / B) * sum_b(log(W_kb)) - log(W_k)
                 #[allow(clippy::cast_precision_loss)]
-                let l = (1.0 / b as f64) * w_kb.clone().map(f64::log2).sum::<f64>();
+                let gap_k = l - w_k.log2();
+                // original formula: sd_k = [(1 / B) * sum_b((log(W_kb) - l)^2)]^0.5
                 #[allow(clippy::cast_precision_loss)]
                 let standard_deviation = ((1.0 / b as f64)
                     * w_kb.map(|w_kb| (w_kb.log2() - l).powi(2)).sum::<f64>())
                 .sqrt();
+                // original formula: s_k = sd_k * (1 + 1 / B)^0.5
+                // calculate differently to minimize rounding errors
                 #[allow(clippy::cast_precision_loss)]
                 let s_k = standard_deviation * (1.0 + 1.0 / b as f64).sqrt();
 
@@ -370,7 +374,7 @@ fn calc_within_dispersion(
     debug_assert_eq!(k, labels.iter().max().unwrap() + 1);
 
     // we first need to convert our list of labels into a list of the number of samples in each cluster
-    let counts = labels.iter().fold(vec![0; k], |mut counts, &label| {
+    let counts = labels.iter().fold(vec![0u32; k], |mut counts, &label| {
         counts[label] += 1;
         counts
     });
@@ -378,7 +382,7 @@ fn calc_within_dispersion(
     counts
         .iter()
         .zip(pairwise_distances.iter())
-        .map(|(&count, distance)| distance / (2.0 * f64::from(count)))
+        .map(|(&count, distance)| (1. / (2.0 * f64::from(count))) * distance)
         .sum()
 }
 
@@ -428,7 +432,8 @@ fn calc_pairwise_distances(
                         .map(|&b| L2Dist.distance(a, b))
                         .sum::<Feature>()
                 })
-                .sum::<Feature>();
+                .sum::<Feature>()
+                * 2.;
             distances
         })
 }
@@ -516,8 +521,8 @@ mod tests {
 
         let pairwise_distances = calc_pairwise_distances(samples.view(), 2, labels.view());
 
-        assert_eq!(pairwise_distances[0], 1.0);
-        assert_eq!(pairwise_distances[1], 1.0);
+        assert_eq!(pairwise_distances[0], 2.0);
+        assert_eq!(pairwise_distances[1], 2.0);
     }
 
     #[test]
