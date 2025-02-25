@@ -28,7 +28,6 @@ pub struct CheckTreeItem<'text, Identifier> {
     pub(super) children: Vec<Self>,
 }
 
-#[allow(dead_code)]
 impl<'text, Identifier> CheckTreeItem<'text, Identifier>
 where
     Identifier: Clone + PartialEq + Eq + core::hash::Hash,

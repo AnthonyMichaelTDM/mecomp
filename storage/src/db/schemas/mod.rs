@@ -129,7 +129,6 @@ impl FromStr for Thing {
 /// Only the variants we actually use are implemented.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[allow(clippy::module_name_repetitions)]
 pub enum Id {
     Number(i64),
     String(String),

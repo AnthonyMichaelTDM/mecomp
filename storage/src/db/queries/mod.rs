@@ -12,55 +12,29 @@ pub mod generic;
 pub mod playlist;
 pub mod song;
 
-// NOTE: blocked on https://github.com/surrealdb/surrealdb/pull/4156,
-// when merged, we can uncomment this
-// use surrealdb::sql::{
-//     statements::{DefineAnalyzerStatement, DefineStatement},
-//     Filter, Ident, Tokenizer,
-// };
-// pub fn define_analyzer(
-//     name: &str,
-//     tokenizers: Vec<Tokenizer>,
-//     filters: Vec<Filter>,
-// ) -> DefineStatement {
-//     DefineStatement::Analyzer(DefineAnalyzerStatement {
-//         name: Ident(name.to_string()),
-//         tokenizers: Some(tokenizers),
-//         filters: Some(filters),
-//         comment: None,
-//     })
-// }
-
 /// NOTE: for some reason, having more than one tokenizer causes the parser to fail, so we're just not going to support that for now
 #[allow(clippy::missing_panics_doc)]
 #[must_use]
-pub fn define_analyzer(
+pub(crate) fn define_analyzer(
     name: &str,
     tokenizer: Option<Tokenizer>,
     filters: &[&str],
 ) -> DefineStatement {
     // allowed to maintain style (and make it easier to revert to a vec of tokenizers if needed)
-    #[allow(clippy::option_if_let_else)]
-    let tokenizer_string = if let Some(tokenizer) = tokenizer {
-        String::from(" TOKENIZERS ") + &tokenizer.to_string()
-    } else {
-        String::new()
-    };
+    let tokenizer_string = tokenizer.map_or_else(String::new, |t| format!(" TOKENIZERS {t}"));
 
-    let filter_string = if filters.is_empty() {
-        String::new()
-    } else {
+    let filter_string = filters.is_empty().then(String::new).unwrap_or_else(|| {
         let filters = filters.join(",");
-        String::from(" FILTERS ") + &filters
-    };
+        format!(" FILTERS {filters}")
+    });
 
     match format!("DEFINE ANALYZER OVERWRITE {name}{tokenizer_string}{filter_string} ;")
         .into_query()
-        .unwrap()
-        .first()
-        .unwrap()
+        .as_ref()
+        .map(|v| v.first())
     {
-        Statement::Define(define_statement) => define_statement.clone(),
+        Ok(Some(Statement::Define(define_statement))) => define_statement.clone(),
+        Err(e) => panic!("Failed to parse define analyzer statement: {e}"),
         _ => unreachable!(),
     }
 }

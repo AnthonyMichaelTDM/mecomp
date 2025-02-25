@@ -620,7 +620,6 @@ impl MusicPlayer for MusicPlayerServer {
 
     /// returns a list of artists, albums, and songs matching the given search query.
     #[instrument]
-    #[allow(clippy::type_complexity)]
     async fn search(self, context: Context, query: String, limit: u32) -> SearchResult {
         info!("Searching for: {query}");
         // basic idea:

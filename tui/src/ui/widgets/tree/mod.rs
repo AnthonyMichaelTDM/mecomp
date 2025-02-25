@@ -47,7 +47,6 @@ pub struct CheckTree<'a, Identifier> {
     _identifier: std::marker::PhantomData<Identifier>,
 }
 
-#[allow(dead_code)]
 impl<'a, Identifier> CheckTree<'a, Identifier>
 where
     Identifier: Clone + PartialEq + Eq + core::hash::Hash,
@@ -84,7 +83,7 @@ where
         })
     }
 
-    #[allow(clippy::missing_const_for_fn)]
+    #[allow(clippy::missing_const_for_fn)] // false positive
     #[must_use]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);

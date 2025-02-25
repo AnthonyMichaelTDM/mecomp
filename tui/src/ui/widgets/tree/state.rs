@@ -25,7 +25,6 @@ pub struct CheckTreeState<Identifier> {
     pub(super) last_rendered_identifiers: Vec<(u16, Vec<Identifier>)>,
 }
 
-#[allow(dead_code)]
 impl<Identifier> CheckTreeState<Identifier>
 where
     Identifier: Clone + PartialEq + Eq + core::hash::Hash,

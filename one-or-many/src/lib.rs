@@ -242,13 +242,10 @@ impl<T: Clone> From<&[T]> for OneOrMany<T> {
     }
 }
 
-#[allow(clippy::fallible_impl_from)] // we check the length so it's fine
 impl<T> From<Vec<T>> for OneOrMany<T> {
     fn from(t: Vec<T>) -> Self {
-        if t.is_empty() {
-            Self::None
-        } else if t.len() == 1 {
-            Self::One(t.into_iter().next().unwrap())
+        if t.len() <= 1 {
+            t.into_iter().next().map_or(Self::None, Self::One)
         } else {
             Self::Many(t)
         }

@@ -78,7 +78,6 @@ pub enum VolumeAction {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QueueAction {
     /// Add a list of things to the queue (by id)
-    #[allow(dead_code)]
     Add(Vec<Thing>),
     /// Remove something from the queue (by index)
     Remove(usize),
@@ -97,7 +96,6 @@ pub enum LibraryAction {
     /// Rescan the library
     Rescan,
     /// Tell the Library Store to get the latest library data
-    #[allow(dead_code)]
     Update,
     /// Analyze the library
     Analyze,

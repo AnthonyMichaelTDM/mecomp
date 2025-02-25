@@ -213,9 +213,8 @@ impl Component for ControlPanel {
             }
             MouseEventKind::Down(MouseButton::Left) if song_progress.contains(mouse_position) => {
                 // calculate the ratio of the click position to the song progress bar
-                #[allow(clippy::cast_lossless)]
                 let ratio =
-                    (mouse_position.x - song_progress.x) as f64 / song_progress.width as f64;
+                    f64::from(mouse_position.x - song_progress.x) / f64::from(song_progress.width);
                 self.action_tx
                     .send(Action::Audio(AudioAction::Playback(PlaybackAction::Seek(
                         SeekType::Absolute,

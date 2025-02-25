@@ -414,26 +414,25 @@ pub mod checktree_utils {
         }
     }
 
-    impl CheckTreeItem<'_, String> {
+    impl<'items> CheckTreeItem<'items, String> {
         /// Create a `CheckTreeState` from a list of things
         ///
         /// # Errors
         ///
         /// returns an error if the tree state cannot be created (e.g. duplicate ids)
-        #[allow(clippy::needless_pass_by_value)]
-        pub fn new_with_items<'a, 'items, 'text, Item, LeafFn>(
+        pub fn new_with_items<'a, 'text, Item, LeafFn>(
             items: &'items [Item],
-            identifier: impl ToString,
+            identifier: impl AsRef<str>,
             text: impl Into<Text<'text>>,
             leaf_fn: LeafFn,
-        ) -> Result<CheckTreeItem<'items, String>, std::io::Error>
+        ) -> Result<Self, std::io::Error>
         where
             'a: 'text,
             'a: 'items,
             'text: 'items,
             LeafFn: FnMut(&Item) -> CheckTreeItem<'a, String>,
         {
-            let identifier = identifier.to_string();
+            let identifier = identifier.as_ref().to_string();
             let mut tree =
                 CheckTreeItem::new(identifier, text, items.iter().map(leaf_fn).collect())?;
             if tree.children().is_empty() {

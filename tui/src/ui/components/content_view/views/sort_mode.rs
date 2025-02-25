@@ -190,7 +190,6 @@ where
         Self::new()
     }
 
-    #[allow(clippy::unused_self)]
     fn sort_items(&self, items: &mut [T]) {
         fn key<S: AsRef<str>>(input: S) -> String {
             input
