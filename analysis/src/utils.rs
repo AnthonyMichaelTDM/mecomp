@@ -1,7 +1,6 @@
 use log::warn;
 use ndarray::{arr1, s, Array, Array1, Array2};
 use rustfft::num_complex::Complex;
-use rustfft::num_traits::Zero;
 use rustfft::FftPlanner;
 use std::f32::consts::PI;
 
@@ -149,47 +148,6 @@ pub(crate) fn hz_to_octs_inplace(
     *frequencies /= a440 / 16.;
     frequencies.mapv_inplace(f64::log2);
     frequencies
-}
-
-#[allow(clippy::missing_panics_doc)]
-#[must_use]
-pub fn convolve(input: &Array1<f64>, kernel: &Array1<f64>) -> Array1<f64> {
-    debug_assert!(!input.is_empty(), "Input is empty");
-    debug_assert!(!kernel.is_empty(), "Kernel is empty");
-    debug_assert!(input.len() >= kernel.len(), "Input is too short");
-
-    let mut common_length = input.len() + kernel.len();
-    if (common_length % 2) != 0 {
-        common_length -= 1;
-    }
-    let mut padded_input = Array::from_elem(common_length, Complex::zero());
-    padded_input
-        .slice_mut(s![..input.len()])
-        .assign(&input.mapv(|x| Complex::new(x, 0.)));
-    let mut padded_kernel = Array::from_elem(common_length, Complex::zero());
-    padded_kernel
-        .slice_mut(s![..kernel.len()])
-        .assign(&kernel.mapv(|x| Complex::new(x, 0.)));
-
-    let mut planner = FftPlanner::new();
-    let forward = planner.plan_fft_forward(common_length);
-    forward.process(padded_input.as_slice_mut().unwrap());
-    forward.process(padded_kernel.as_slice_mut().unwrap());
-
-    let mut multiplication = padded_input * padded_kernel;
-
-    let mut planner = FftPlanner::new();
-    let back = planner.plan_fft_inverse(common_length);
-    back.process(multiplication.as_slice_mut().unwrap());
-
-    #[allow(clippy::cast_precision_loss)]
-    let multiplication_length = multiplication.len() as f64;
-    let multiplication = multiplication
-        .slice_move(s![
-            (kernel.len() - 1) / 2..(kernel.len() - 1) / 2 + input.len()
-        ])
-        .mapv(|x| x.re);
-    multiplication / multiplication_length
 }
 
 #[cfg(test)]
