@@ -1,3 +1,5 @@
+#![deny(clippy::missing_inline_in_public_items)]
+
 use errors::DirectoryError;
 
 #[cfg(feature = "audio")]
@@ -53,6 +55,7 @@ macro_rules! function_name {
 }
 
 #[must_use]
+#[inline]
 pub fn format_duration(duration: &std::time::Duration) -> String {
     let total_seconds = duration.as_secs();
     let hours = total_seconds / 3600;
@@ -70,6 +73,7 @@ pub fn format_duration(duration: &std::time::Duration) -> String {
 /// # Errors
 ///
 /// This function will return an error if the data directory could not be found.
+#[inline]
 pub fn get_data_dir() -> Result<std::path::PathBuf, DirectoryError> {
     let directory = if let Ok(s) = std::env::var("MECOMP_DATA") {
         std::path::PathBuf::from(s)
@@ -89,6 +93,7 @@ pub fn get_data_dir() -> Result<std::path::PathBuf, DirectoryError> {
 /// # Errors
 ///
 /// This function will return an error if the config directory could not be found.
+#[inline]
 pub fn get_config_dir() -> Result<std::path::PathBuf, DirectoryError> {
     let directory = if let Ok(s) = std::env::var("MECOMP_CONFIG") {
         std::path::PathBuf::from(s)
@@ -103,6 +108,7 @@ pub fn get_config_dir() -> Result<std::path::PathBuf, DirectoryError> {
 /// Check if a server is already running on localhost on the given port.
 /// If a server is already running, return true, otherwise return false.
 #[must_use]
+#[inline]
 pub fn is_server_running(port: u16) -> bool {
     std::net::TcpStream::connect(format!("localhost:{port}")).is_ok()
 }

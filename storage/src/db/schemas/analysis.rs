@@ -28,18 +28,21 @@ pub struct Analysis {
 
 impl Analysis {
     #[must_use]
+    #[inline]
     pub fn generate_id() -> AnalysisId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
 }
 
 impl From<&Analysis> for mecomp_analysis::Analysis {
+    #[inline]
     fn from(analysis: &Analysis) -> Self {
         Self::new(analysis.features)
     }
 }
 
 impl From<Analysis> for mecomp_analysis::Analysis {
+    #[inline]
     fn from(analysis: Analysis) -> Self {
         Self::new(analysis.features)
     }

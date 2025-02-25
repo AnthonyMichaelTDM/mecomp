@@ -54,6 +54,7 @@ pub const MAX_DEBOUNCE_TIME: Duration = Duration::from_millis(500);
 /// # Errors
 ///
 /// If the watcher could not be started, an error is returned.
+#[allow(clippy::missing_inline_in_public_items)]
 pub fn init_music_library_watcher(
     db: Arc<Surreal<Db>>,
     library_paths: &[PathBuf],
@@ -124,6 +125,7 @@ pub struct MusicLibEventHandlerGuard {
 }
 
 impl MusicLibEventHandlerGuard {
+    #[inline]
     pub fn stop(self) {
         let Self { debouncer, stop_tx } = self;
         stop_tx.send(()).ok();

@@ -1,3 +1,5 @@
+#![deny(clippy::missing_inline_in_public_items)]
+
 pub mod db;
 pub mod errors;
 pub mod util;

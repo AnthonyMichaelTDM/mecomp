@@ -41,6 +41,7 @@ impl ChromaDesc {
     pub const WINDOW_SIZE: usize = 8192;
 
     #[must_use]
+    #[inline]
     pub fn new(sample_rate: u32, n_chroma: u32) -> Self {
         Self {
             sample_rate,
@@ -56,6 +57,7 @@ impl ChromaDesc {
      * song will greatly improve accuracy.
      */
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+    #[inline]
     pub fn do_(&mut self, signal: &[f32]) -> AnalysisResult<()> {
         let mut stft = stft(signal, Self::WINDOW_SIZE, 2205);
         let tuning = estimate_tuning(self.sample_rate, &stft, Self::WINDOW_SIZE, 0.01, 12)?;
@@ -80,6 +82,7 @@ impl ChromaDesc {
      * for more information ("Timbre-invariant Audio Features for Style Analysis of Classical
      * Music").
      */
+    #[inline]
     pub fn get_value(&mut self) -> Vec<Feature> {
         #[allow(clippy::cast_possible_truncation)]
         chroma_interval_features(&self.values_chroma)
@@ -96,6 +99,7 @@ impl ChromaDesc {
     clippy::module_name_repetitions
 )]
 #[must_use]
+#[inline]
 pub fn chroma_interval_features(chroma: &Array2<f64>) -> Array1<f64> {
     let chroma = normalize_feature_sequence(&chroma.mapv(|x| (x * 15.).exp()));
     let templates = arr2(&[
@@ -117,6 +121,7 @@ pub fn chroma_interval_features(chroma: &Array2<f64>) -> Array1<f64> {
 }
 
 #[must_use]
+#[inline]
 pub fn extract_interval_features(chroma: &Array2<f64>, templates: &Array2<i32>) -> Array2<f64> {
     let mut f_intervals: Array2<f64> = Array::zeros((chroma.shape()[1], templates.shape()[1]));
     for (template, mut f_interval) in templates
@@ -137,6 +142,7 @@ pub fn extract_interval_features(chroma: &Array2<f64>, templates: &Array2<i32>) 
     f_intervals.t().to_owned()
 }
 
+#[inline]
 pub fn normalize_feature_sequence(feature: &Array2<f64>) -> Array2<f64> {
     let mut normalized_sequence = feature.to_owned();
     for mut column in normalized_sequence.columns_mut() {
@@ -160,7 +166,8 @@ pub fn normalize_feature_sequence(feature: &Array2<f64>) -> Array2<f64> {
 #[allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::module_name_repetitions
+    clippy::module_name_repetitions,
+    clippy::missing_inline_in_public_items
 )]
 pub fn chroma_filter(
     sample_rate: u32,
@@ -235,6 +242,7 @@ pub fn chroma_filter(
 }
 
 #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+#[allow(clippy::missing_inline_in_public_items)]
 pub fn pip_track(
     sample_rate: u32,
     spectrum: &Array2<f64>,
@@ -302,6 +310,7 @@ pub fn pip_track(
 
 // Only use this with strictly positive `frequencies`.
 #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+#[inline]
 pub fn pitch_tuning(
     frequencies: &mut Array1<f64>,
     resolution: f64,
@@ -333,6 +342,7 @@ pub fn pitch_tuning(
 }
 
 #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+#[inline]
 pub fn estimate_tuning(
     sample_rate: u32,
     spectrum: &Array2<f64>,
@@ -370,6 +380,7 @@ pub fn estimate_tuning(
     clippy::missing_panics_doc,
     clippy::module_name_repetitions
 )]
+#[inline]
 pub fn chroma_stft(
     sample_rate: u32,
     spectrum: &mut Array2<f64>,

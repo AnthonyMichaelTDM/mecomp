@@ -23,6 +23,7 @@ pub static INIT_INSTANT: Lazy<Instant> = Lazy::new(Instant::now);
 
 /// Returns the seconds since [`INIT_INSTANT`].
 #[cfg(not(tarpaulin_include))]
+#[inline]
 pub fn uptime() -> u64 {
     INIT_INSTANT.elapsed().as_secs()
 }
@@ -44,6 +45,7 @@ pub fn uptime() -> u64 {
 /// # Panics
 /// This must only be called _once_.
 #[cfg(not(tarpaulin_include))]
+#[allow(clippy::missing_inline_in_public_items)]
 pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::PathBuf>) {
     // Initialize timer.
     let now = Lazy::force(&INIT_INSTANT);
@@ -175,6 +177,7 @@ fn process_file(file: &str) -> &str {
 ///
 /// panics if the tracing layers cannot be initialized.
 #[must_use]
+#[allow(clippy::missing_inline_in_public_items)]
 pub fn init_tracing() -> impl tracing::Subscriber {
     let subscriber = tracing_subscriber::registry();
 

@@ -52,6 +52,7 @@ pub enum Message {
 }
 
 impl From<Event> for Message {
+    #[inline]
     fn from(val: Event) -> Self {
         Self::Event(val)
     }
@@ -72,6 +73,7 @@ impl<T: DeserializeOwned + Send + Sync> Listener<T, MAX_MESSAGE_SIZE> {
     /// # Errors
     ///
     /// Returns an error if the socket cannot be bound.
+    #[inline]
     pub async fn new() -> Result<Self> {
         Self::with_buffer_size().await
     }
@@ -84,6 +86,7 @@ impl<T: DeserializeOwned + Send + Sync, const B: usize> Listener<T, B> {
     /// # Errors
     ///
     /// Returns an error if the socket cannot be bound.
+    #[inline]
     pub async fn with_buffer_size() -> Result<Self> {
         let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).await?;
 
@@ -99,6 +102,7 @@ impl<T: DeserializeOwned + Send + Sync, const B: usize> Listener<T, B> {
     /// # Errors
     ///
     /// Returns an error if the socket address cannot be retrieved.
+    #[inline]
     pub fn local_addr(&self) -> Result<SocketAddr> {
         Ok(self.socket.local_addr()?)
     }
@@ -109,6 +113,7 @@ impl<T: DeserializeOwned + Send + Sync, const B: usize> Listener<T, B> {
     /// # Errors
     ///
     /// Returns an error if the message cannot be deserialized or received.
+    #[inline]
     pub async fn recv(&mut self) -> Result<T> {
         let (size, _) = self.socket.recv_from(&mut self.buffer).await?;
         let message = ciborium::from_reader(&self.buffer[..size])?;
@@ -126,6 +131,7 @@ pub struct Sender<T> {
 }
 
 impl<T> std::fmt::Debug for Sender<T> {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Sender")
             .field("socket", &self.socket)
@@ -142,6 +148,7 @@ impl<T: Serialize + Send + Sync> Sender<T> {
     /// # Errors
     ///
     /// Returns an error if the socket cannot be bound or connected.
+    #[inline]
     pub async fn new() -> Result<Self> {
         let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?;
 
@@ -154,6 +161,7 @@ impl<T: Serialize + Send + Sync> Sender<T> {
     }
 
     /// Add a subscriber to the list of subscribers.
+    #[inline]
     pub fn add_subscriber(&mut self, subscriber: SocketAddr) {
         self.subscribers.push(subscriber);
     }
@@ -164,6 +172,7 @@ impl<T: Serialize + Send + Sync> Sender<T> {
     /// # Errors
     ///
     /// Returns an error if the message cannot be serialized or sent.
+    #[inline]
     pub async fn send(&self, message: impl Into<T> + Send + Sync + Debug) -> Result<()> {
         log::info!(
             "Forwarding state change: {message:?} to {} subscribers",

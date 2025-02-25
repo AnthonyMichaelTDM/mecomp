@@ -46,11 +46,13 @@ pub struct SearchResult {
 
 impl SearchResult {
     #[must_use]
+    #[inline]
     pub const fn len(&self) -> usize {
         self.songs.len() + self.albums.len() + self.artists.len()
     }
 
     #[must_use]
+    #[inline]
     pub const fn is_empty(&self) -> bool {
         self.songs.is_empty() && self.albums.is_empty() && self.artists.is_empty()
     }
@@ -307,6 +309,7 @@ pub trait MusicPlayer {
 /// # Errors
 ///
 /// If the client cannot be initialized, an error is returned.
+#[allow(clippy::missing_inline_in_public_items)]
 pub async fn init_client(rpc_port: u16) -> Result<MusicPlayerClient, std::io::Error> {
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), rpc_port);
 

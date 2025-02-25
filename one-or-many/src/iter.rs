@@ -1,6 +1,7 @@
 use crate::OneOrMany;
 
 impl<T: ToOwned<Owned = T>> FromIterator<T> for OneOrMany<T> {
+    #[inline]
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let iter: <I as IntoIterator>::IntoIter = iter.into_iter();
         let mut result: Self = Self::None;
@@ -19,6 +20,7 @@ pub struct Iter<'a, T> {
 
 impl<T> OneOrMany<T> {
     /// Returns an iterator over the values in the `OneOrMany`.
+    #[inline]
     pub const fn iter(&self) -> Iter<T> {
         Iter {
             inner: self,
@@ -31,6 +33,7 @@ impl<'a, T> IntoIterator for &'a OneOrMany<T> {
     type IntoIter = Iter<'a, T>;
     type Item = &'a T;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
@@ -39,6 +42,7 @@ impl<'a, T> IntoIterator for &'a OneOrMany<T> {
 impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let result = self.inner.get(self.index);
         self.index += 1;
@@ -66,6 +70,7 @@ impl<T> IntoIterator for OneOrMany<T> {
     type IntoIter = IntoIter<T>;
     type Item = T;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         let inner_iter = match self {
             Self::One(t) => InnerIntoIter::One(Some(t)),
@@ -80,6 +85,7 @@ impl<T> IntoIterator for OneOrMany<T> {
 impl<T> Iterator for IntoIter<T> {
     type Item = T;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.inner_iter {
             InnerIntoIter::One(ref mut t) => t.take(),

@@ -1,3 +1,5 @@
+#![allow(clippy::missing_inline_in_public_items)]
+
 use std::{
     clone::Clone,
     marker::Send,
@@ -57,6 +59,7 @@ pub trait Decoder {
     ///
     /// The error type returned should give a hint as to whether it was a
     /// decoding or an analysis error.
+    #[inline]
     fn analyze_path<P: AsRef<Path>>(path: P) -> AnalysisResult<Analysis> {
         Self::decode(path.as_ref())?.try_into()
     }
@@ -67,6 +70,7 @@ pub trait Decoder {
     /// Returns an iterator, whose items are a tuple made of
     /// the song path (to display to the user in case the analysis failed),
     /// and a `Result<Analysis>`.
+    #[inline]
     fn analyze_paths<P: Into<PathBuf>, F: IntoIterator<Item = P>>(
         paths: F,
     ) -> mpsc::IntoIter<(PathBuf, AnalysisResult<Analysis>)> {
@@ -146,6 +150,7 @@ pub trait DecoderWithCallback: Decoder {
     ///
     /// The error type returned should give a hint as to whether it was a
     /// decoding or an analysis error.
+    #[inline]
     fn analyze_path_with_callback<P: AsRef<Path>, CallbackState>(
         path: P,
         callback: mpsc::Sender<(P, AnalysisResult<Analysis>)>,
@@ -162,6 +167,7 @@ pub trait DecoderWithCallback: Decoder {
     /// Returns an iterator, whose items are a tuple made of
     /// the song path (to display to the user in case the analysis failed),
     /// and a `Result<Analysis>`.
+    #[inline]
     fn analyze_paths_with_callback<P: Into<PathBuf>, I: Send + IntoIterator<Item = P>>(
         paths: I,
         callback: mpsc::Sender<(PathBuf, AnalysisResult<Analysis>)>,

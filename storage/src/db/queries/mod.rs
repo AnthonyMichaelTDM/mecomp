@@ -13,9 +13,8 @@ pub mod playlist;
 pub mod song;
 
 /// NOTE: for some reason, having more than one tokenizer causes the parser to fail, so we're just not going to support that for now
-#[allow(clippy::missing_panics_doc)]
 #[must_use]
-pub(crate) fn define_analyzer(
+pub fn define_analyzer(
     name: &str,
     tokenizer: Option<Tokenizer>,
     filters: &[&str],

@@ -25,6 +25,7 @@ use crate::{errors::ClusteringError, Analysis, Feature, NUMBER_FEATURES};
 pub struct AnalysisArray(pub(crate) Array2<Feature>);
 
 impl From<Vec<Analysis>> for AnalysisArray {
+    #[inline]
     fn from(data: Vec<Analysis>) -> Self {
         let shape = (data.len(), NUMBER_FEATURES);
         debug_assert_eq!(shape, (data.len(), data[0].inner().len()));
@@ -37,6 +38,7 @@ impl From<Vec<Analysis>> for AnalysisArray {
 }
 
 impl From<Vec<[Feature; NUMBER_FEATURES]>> for AnalysisArray {
+    #[inline]
     fn from(data: Vec<[Feature; NUMBER_FEATURES]>) -> Self {
         let shape = (data.len(), NUMBER_FEATURES);
         debug_assert_eq!(shape, (data.len(), data[0].len()));
@@ -136,6 +138,7 @@ impl ClusteringHelper<EntryPoint> {
     /// # Errors
     ///
     /// Will return an error if there was an error projecting the data into a lower-dimensional space
+    #[allow(clippy::missing_inline_in_public_items)]
     pub fn new(
         samples: AnalysisArray,
         k_max: usize,
@@ -186,6 +189,7 @@ impl ClusteringHelper<NotInitialized> {
     /// # Errors
     ///
     /// Will return an error if there was an error calculating the optimal number of clusters
+    #[inline]
     pub fn initialize(self) -> Result<ClusteringHelper<Initialized>, ClusteringError> {
         let k = self.get_optimal_k()?;
         Ok(ClusteringHelper {
@@ -306,6 +310,7 @@ impl ClusteringHelper<NotInitialized> {
 ///
 /// Will panic if the shape of the data does not match the number of features, should never happen
 #[must_use]
+#[inline]
 pub fn convert_to_array(data: Vec<Analysis>) -> AnalysisArray {
     // Convert vector to Array
     let shape = (data.len(), NUMBER_FEATURES);
@@ -446,6 +451,7 @@ impl ClusteringHelper<Initialized> {
     ///
     /// Will return an error if the clustering fails
     #[must_use]
+    #[inline]
     pub fn cluster(self) -> ClusteringHelper<Finished> {
         let labels = self
             .state
@@ -465,6 +471,7 @@ impl ClusteringHelper<Initialized> {
 impl ClusteringHelper<Finished> {
     /// use the labels to reorganize the provided samples into clusters
     #[must_use]
+    #[inline]
     pub fn extract_analysis_clusters<T: Clone>(&self, samples: Vec<T>) -> Vec<Vec<T>> {
         let mut clusters = vec![Vec::new(); self.state.k];
 

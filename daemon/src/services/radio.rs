@@ -15,6 +15,7 @@ use super::get_songs_from_things;
 /// # Errors
 ///
 /// Returns an error if there is an issue with the database
+#[inline]
 pub async fn get_similar<C: Connection>(
     db: &Surreal<C>,
     things: Vec<Thing>,

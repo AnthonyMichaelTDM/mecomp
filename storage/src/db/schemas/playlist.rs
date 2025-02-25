@@ -44,6 +44,7 @@ pub struct Playlist {
 
 impl Playlist {
     #[must_use]
+    #[inline]
     pub fn generate_id() -> PlaylistId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
@@ -66,23 +67,27 @@ pub struct PlaylistChangeSet {
 
 impl PlaylistChangeSet {
     #[must_use]
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
     #[must_use]
+    #[inline]
     pub fn name(mut self, name: impl Into<Arc<str>>) -> Self {
         self.name = Some(name.into());
         self
     }
 
     #[must_use]
+    #[inline]
     pub const fn runtime(mut self, runtime: Duration) -> Self {
         self.runtime = Some(runtime);
         self
     }
 
     #[must_use]
+    #[inline]
     pub const fn song_count(mut self, song_count: usize) -> Self {
         self.song_count = Some(song_count);
         self
@@ -99,6 +104,7 @@ pub struct PlaylistBrief {
 }
 
 impl From<Playlist> for PlaylistBrief {
+    #[inline]
     fn from(playlist: Playlist) -> Self {
         Self {
             id: playlist.id,
@@ -110,6 +116,7 @@ impl From<Playlist> for PlaylistBrief {
 }
 
 impl From<&Playlist> for PlaylistBrief {
+    #[inline]
     fn from(playlist: &Playlist) -> Self {
         Self {
             id: playlist.id.clone(),

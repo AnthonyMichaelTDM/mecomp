@@ -1,3 +1,5 @@
+#![deny(clippy::missing_inline_in_public_items)]
+
 //----------------------------------------------------------------------------------------- std lib
 use std::{
     net::{IpAddr, Ipv4Addr},
@@ -57,6 +59,7 @@ use crate::controller::MusicPlayerServer;
 /// # Panics
 ///
 /// Panics if the peer address of the underlying TCP transport cannot be determined.
+#[inline]
 pub async fn start_daemon(
     settings: Settings,
     db_dir: std::path::PathBuf,
@@ -153,6 +156,7 @@ pub async fn start_daemon(
 /// # Errors
 ///
 /// Errors if the event publisher cannot be created.
+#[inline]
 pub async fn init_test_client_server(
     db: Arc<Surreal<Db>>,
     settings: Arc<Settings>,

@@ -51,6 +51,7 @@ pub struct Artist {
 
 impl Artist {
     #[must_use]
+    #[inline]
     pub fn generate_id() -> ArtistId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
@@ -86,6 +87,7 @@ pub struct ArtistBrief {
 }
 
 impl From<Artist> for ArtistBrief {
+    #[inline]
     fn from(artist: Artist) -> Self {
         Self {
             id: artist.id,
@@ -98,6 +100,7 @@ impl From<Artist> for ArtistBrief {
 }
 
 impl From<&Artist> for ArtistBrief {
+    #[inline]
     fn from(artist: &Artist) -> Self {
         Self {
             id: artist.id.clone(),

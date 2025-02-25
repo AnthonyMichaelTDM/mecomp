@@ -7,6 +7,8 @@
 //! We use rodio to decode the audio file (overkill, but we already have the dependency for audio playback so may as well),
 //! We use rubato to resample the audio file to 22050 Hz.
 
+#![deny(clippy::missing_inline_in_public_items)]
+
 pub mod chroma;
 pub mod clustering;
 pub mod decoder;
@@ -39,6 +41,7 @@ pub struct ResampledAudio {
 impl TryInto<Analysis> for ResampledAudio {
     type Error = AnalysisError;
 
+    #[inline]
     fn try_into(self) -> Result<Analysis, Self::Error> {
         Analysis::from_samples(&self)
     }
@@ -105,6 +108,7 @@ pub struct Analysis {
 impl Index<AnalysisIndex> for Analysis {
     type Output = Feature;
 
+    #[inline]
     fn index(&self, index: AnalysisIndex) -> &Feature {
         &self.internal_analysis[index as usize]
     }
@@ -113,12 +117,14 @@ impl Index<AnalysisIndex> for Analysis {
 impl Index<usize> for Analysis {
     type Output = Feature;
 
+    #[inline]
     fn index(&self, index: usize) -> &Feature {
         &self.internal_analysis[index]
     }
 }
 
 impl std::fmt::Debug for Analysis {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut debug_struct = f.debug_struct("Analysis");
         for feature in AnalysisIndex::iter() {
@@ -136,6 +142,7 @@ impl Analysis {
     /// features somewhere, and need to recreate a Song with an already
     /// existing Analysis yourself.
     #[must_use]
+    #[inline]
     pub const fn new(analysis: [Feature; NUMBER_FEATURES]) -> Self {
         Self {
             internal_analysis: analysis,
@@ -149,6 +156,7 @@ impl Analysis {
     /// # Errors
     ///
     /// This function will return an error if the length of the features is not equal to `NUMBER_FEATURES`.
+    #[inline]
     pub fn from_vec(features: Vec<Feature>) -> Result<Self, AnalysisError> {
         features
             .try_into()
@@ -159,6 +167,7 @@ impl Analysis {
     /// Return the inner array of the analysis.
     /// This is mostly useful if you want to store the features somewhere.
     #[must_use]
+    #[inline]
     pub const fn inner(&self) -> &[Feature; NUMBER_FEATURES] {
         &self.internal_analysis
     }
@@ -168,6 +177,7 @@ impl Analysis {
     /// Particularly useful if you want iterate through the values to store
     /// them somewhere.
     #[must_use]
+    #[inline]
     pub fn as_vec(&self) -> Vec<Feature> {
         self.internal_analysis.to_vec()
     }
@@ -185,6 +195,7 @@ impl Analysis {
     /// # Panics
     ///
     /// This function will panic it cannot join the threads.
+    #[allow(clippy::missing_inline_in_public_items)]
     pub fn from_samples(audio: &ResampledAudio) -> AnalysisResult<Self> {
         let largest_window = vec![
             BPMDesc::WINDOW_SIZE,

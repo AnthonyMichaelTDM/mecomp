@@ -35,11 +35,13 @@ pub struct LoudnessDesc {
 impl LoudnessDesc {
     pub const WINDOW_SIZE: usize = 1024;
 
+    #[inline]
     pub fn do_(&mut self, chunk: &[f32]) {
         let level = level_lin(chunk);
         self.values.push(level);
     }
 
+    #[inline]
     pub fn get_value(&mut self) -> Vec<Feature> {
         // Make sure the dB don't go less than -90dB
         let std_value = Feature::from(

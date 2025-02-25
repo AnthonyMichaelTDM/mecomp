@@ -55,6 +55,7 @@ pub struct MusicPlayerServer {
 
 impl MusicPlayerServer {
     #[must_use]
+    #[inline]
     pub fn new(
         db: Arc<Surreal<Db>>,
         settings: Arc<Settings>,
@@ -86,6 +87,7 @@ impl MusicPlayerServer {
     }
 }
 
+#[allow(clippy::missing_inline_in_public_items)]
 impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn register_listener(self, context: Context, listener_addr: std::net::SocketAddr) {

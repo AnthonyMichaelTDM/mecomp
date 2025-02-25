@@ -24,11 +24,8 @@ use super::generic::read_related_in;
 ///     "SELECT * FROM song WHERE path = $path LIMIT 1".into_query().unwrap()
 /// );
 /// ```
-///
-/// # Panics
-///
-/// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
+#[inline]
 pub fn read_song_by_path() -> impl IntoQuery {
     format!(
         "SELECT * FROM {} WHERE path = $path LIMIT 1",
@@ -115,10 +112,9 @@ pub fn read_artist() -> impl IntoQuery {
 ///
 /// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
-pub fn read_album_artist() -> impl IntoQuery {
+#[inline]
+pub const fn read_album_artist() -> impl IntoQuery {
     "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in"
-        .into_query()
-        .unwrap()
 }
 
 /// Query to read the playlists a song is in
@@ -147,6 +143,7 @@ pub fn read_album_artist() -> impl IntoQuery {
 ///
 /// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
+#[inline]
 pub fn read_playlists() -> impl IntoQuery {
     read_related_in("id", "playlist_to_song")
 }
@@ -177,6 +174,7 @@ pub fn read_playlists() -> impl IntoQuery {
 ///
 /// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
+#[inline]
 pub fn read_collections() -> impl IntoQuery {
     read_related_in("id", "collection_to_song")
 }

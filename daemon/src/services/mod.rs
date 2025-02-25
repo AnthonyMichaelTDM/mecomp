@@ -27,6 +27,7 @@ pub mod radio;
 /// # Errors
 ///
 /// This function will return an error if there is an issue reading the songs from the database.
+#[inline]
 pub async fn get_songs_from_things<C: Connection>(
     db: &Surreal<C>,
     things: &[Thing],

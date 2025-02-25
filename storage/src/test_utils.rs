@@ -38,6 +38,7 @@ pub const ARTIST_NAME_SEPARATOR: &str = ", ";
 ///
 /// This function will return an error if the database cannot be initialized.
 #[cfg(feature = "db")]
+#[allow(clippy::missing_inline_in_public_items)]
 pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
     use crate::db::schemas::dynamic::DynamicPlaylist;
 
@@ -87,6 +88,7 @@ pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
 /// so panicking when something goes wrong ensures that tests will fail and the backtrace will point
 /// to whatever line caused the panic in here.
 #[cfg(feature = "db")]
+#[allow(clippy::missing_inline_in_public_items)]
 pub async fn init_test_database_with_state<SCF>(
     song_count: std::num::NonZero<usize>,
     mut song_case_func: SCF,
@@ -170,6 +172,7 @@ where
 ///
 /// Panics if the song can't be read from the database after creation.
 #[cfg(feature = "db")]
+#[allow(clippy::missing_inline_in_public_items)]
 pub async fn create_song_with_overrides<C: Connection>(
     db: &Surreal<C>,
     SongCase {
@@ -223,6 +226,7 @@ pub async fn create_song_with_overrides<C: Connection>(
 /// # Errors
 ///
 /// This function will return an error if the song metadata cannot be created.
+#[allow(clippy::missing_inline_in_public_items)]
 pub fn create_song_metadata(
     tempdir: &tempfile::TempDir,
     SongCase {
@@ -301,6 +305,7 @@ pub struct SongCase {
 
 impl SongCase {
     #[must_use]
+    #[inline]
     pub const fn new(
         song: u8,
         artists: Vec<u8>,
@@ -318,7 +323,8 @@ impl SongCase {
     }
 }
 
-pub fn arb_song_case() -> impl Fn() -> SongCase {
+#[inline]
+pub const fn arb_song_case() -> impl Fn() -> SongCase {
     || {
         let artist_item_strategy = move || {
             (0..=10u8)
@@ -344,7 +350,8 @@ pub fn arb_song_case() -> impl Fn() -> SongCase {
     }
 }
 
-pub fn arb_vec<T>(
+#[inline]
+pub const fn arb_vec<T>(
     item_strategy: &impl Fn() -> T,
     range: RangeInclusive<usize>,
 ) -> impl Fn() -> Vec<T> + '_
@@ -365,7 +372,8 @@ pub enum IndexMode {
     OutOfBounds,
 }
 
-pub fn arb_vec_and_index<T>(
+#[inline]
+pub const fn arb_vec_and_index<T>(
     item_strategy: &impl Fn() -> T,
     range: RangeInclusive<usize>,
     index_mode: IndexMode,
@@ -409,7 +417,8 @@ pub enum RangeIndexMode {
 // Returns a tuple of a Vec of T and a Range<usize>
 // where the start is a random index in the Vec
 // and the end is a random index in the Vec that is greater than or equal to the start
-pub fn arb_vec_and_range_and_index<T>(
+#[inline]
+pub const fn arb_vec_and_range_and_index<T>(
     item_strategy: &impl Fn() -> T,
     range: RangeInclusive<usize>,
     range_start_mode: RangeStartMode,
@@ -454,7 +463,8 @@ where
     }
 }
 
-pub fn arb_analysis_features() -> impl Fn() -> [f64; 20] {
+#[inline]
+pub const fn arb_analysis_features() -> impl Fn() -> [f64; 20] {
     move || {
         let rng = &mut rand::thread_rng();
         let mut features = [0.0; 20];

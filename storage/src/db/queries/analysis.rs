@@ -24,6 +24,7 @@ use super::generic::{read_related_in, read_related_out, relate};
 /// );
 /// ```
 #[must_use]
+#[inline]
 pub fn add_to_song() -> impl IntoQuery {
     relate("id", "song", "analysis_to_song")
 }
@@ -49,6 +50,7 @@ pub fn add_to_song() -> impl IntoQuery {
 /// );
 /// ```
 #[must_use]
+#[inline]
 pub fn read_for_song() -> impl IntoQuery {
     read_related_in("song", "analysis_to_song")
 }
@@ -74,6 +76,7 @@ pub fn read_for_song() -> impl IntoQuery {
 /// );
 /// ```
 #[must_use]
+#[inline]
 pub fn read_song() -> impl IntoQuery {
     read_related_out("id", "analysis_to_song")
 }
@@ -99,8 +102,8 @@ pub fn read_song() -> impl IntoQuery {
 /// );
 /// ```
 #[allow(clippy::module_name_repetitions)]
-#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
+#[inline]
 pub fn read_songs_without_analysis() -> impl IntoQuery {
     format!(
         "SELECT * FROM {} WHERE count(<-analysis_to_song.in) = 0",
@@ -130,8 +133,8 @@ pub fn read_songs_without_analysis() -> impl IntoQuery {
 ///     "SELECT * FROM analysis WHERE id IS NOT $id features <|5|> $target".into_query().unwrap()
 /// );
 /// ```
-#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
+#[inline]
 pub fn nearest_neighbors(n: u32) -> impl IntoQuery {
     format!(
         "SELECT * FROM {} WHERE id IS NOT $id AND features <|{n}|> $target",
@@ -160,8 +163,8 @@ pub fn nearest_neighbors(n: u32) -> impl IntoQuery {
 ///     "SELECT * FROM analysis WHERE id NOT IN $ids AND features <|5|> $target".into_query().unwrap()
 /// );
 /// ```
-#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
+#[inline]
 pub fn nearest_neighbors_to_many(n: u32) -> impl IntoQuery {
     format!(
         "SELECT * FROM {} WHERE id NOT IN $ids AND features <|{n}|> $target",

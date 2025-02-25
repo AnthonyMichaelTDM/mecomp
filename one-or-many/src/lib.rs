@@ -1,3 +1,5 @@
+#![deny(clippy::missing_inline_in_public_items)]
+
 mod iter;
 pub use iter::Iter;
 #[cfg(feature = "surrealdb")]
@@ -29,6 +31,7 @@ pub enum OneOrMany<T> {
 
 impl<T> OneOrMany<T> {
     /// Returns the number of elements in the `OneOrMany`.
+    #[inline]
     pub fn len(&self) -> usize {
         match self {
             Self::One(_) => 1,
@@ -38,11 +41,13 @@ impl<T> OneOrMany<T> {
     }
 
     /// Returns `true` if the `OneOrMany` is empty.
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Returns the value at the given index, or `None` if the index is out of bounds.
+    #[inline]
     pub fn get(&self, index: usize) -> Option<&T> {
         match self {
             Self::One(t) if index == 0 => Some(t),
@@ -52,6 +57,7 @@ impl<T> OneOrMany<T> {
     }
 
     /// Returns the first value, or `None` if the `OneOrMany` is empty.
+    #[inline]
     pub fn first(&self) -> Option<&T> {
         match self {
             Self::One(t) => Some(t),
@@ -61,6 +67,7 @@ impl<T> OneOrMany<T> {
     }
 
     /// Returns `true` if the `OneOrMany` contains the given value.
+    #[inline]
     pub fn contains(&self, genre: &T) -> bool
     where
         T: PartialEq,
@@ -73,6 +80,7 @@ impl<T> OneOrMany<T> {
     }
 
     /// Pushes a new value onto the end of the `OneOrMany`.
+    #[inline]
     pub fn push(&mut self, new: T)
     where
         T: ToOwned<Owned = T>,
@@ -87,6 +95,7 @@ impl<T> OneOrMany<T> {
     }
 
     /// Pops a value from the end of the `OneOrMany`.
+    #[inline]
     pub fn pop(&mut self) -> Option<T>
     where
         T: ToOwned<Owned = T>,
@@ -109,26 +118,31 @@ impl<T> OneOrMany<T> {
     }
 
     /// Checks if the `OneOrMany` is `None`.
+    #[inline]
     pub const fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
 
     /// Checks if the `OneOrMany` is `One`.
+    #[inline]
     pub const fn is_one(&self) -> bool {
         matches!(self, Self::One(_))
     }
 
     /// Checks if the `OneOrMany` is `Many`.
+    #[inline]
     pub const fn is_many(&self) -> bool {
         matches!(self, Self::Many(_))
     }
 
     /// Checks if the `OneOrMany` is `One` or `Many`.
+    #[inline]
     pub const fn is_some(&self) -> bool {
         self.is_one() || self.is_many()
     }
 
     /// Gets a slice of the `OneOrMany`.
+    #[inline]
     pub fn as_slice(&self) -> &[T] {
         match self {
             Self::One(t) => std::slice::from_ref(t),
@@ -138,6 +152,7 @@ impl<T> OneOrMany<T> {
     }
 
     /// Gets a mutable slice of the `OneOrMany`.
+    #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         match self {
             Self::One(t) => std::slice::from_mut(t),
@@ -161,6 +176,7 @@ impl<T> OneOrMany<T> {
     /// remove duplicates from the `OneOrMany`
     ///
     /// internally converts to a `HashSet` and back
+    #[inline]
     pub fn dedup(&mut self)
     where
         T: Clone + Eq + std::hash::Hash,
@@ -178,6 +194,7 @@ impl<T> OneOrMany<T> {
     /// remove duplicates from the `OneOrMany` by some key
     ///
     /// internally converts to a `HashSet` and back
+    #[inline]
     pub fn dedup_by_key<F, K>(&mut self, mut key: F)
     where
         F: FnMut(&T) -> K,
@@ -197,6 +214,7 @@ impl<T> OneOrMany<T> {
 }
 
 impl<T: Clone> Clone for OneOrMany<T> {
+    #[inline]
     fn clone(&self) -> Self {
         match self {
             Self::One(t) => Self::One(t.clone()),
@@ -207,30 +225,35 @@ impl<T: Clone> Clone for OneOrMany<T> {
 }
 
 impl<T> From<T> for OneOrMany<T> {
+    #[inline]
     fn from(t: T) -> Self {
         Self::One(t)
     }
 }
 
 impl<T> From<Option<T>> for OneOrMany<T> {
+    #[inline]
     fn from(t: Option<T>) -> Self {
         t.map_or_else(|| Self::None, |t| Self::One(t))
     }
 }
 
 impl<T> From<Option<Vec<T>>> for OneOrMany<T> {
+    #[inline]
     fn from(t: Option<Vec<T>>) -> Self {
         t.map_or_else(|| Self::None, Into::into)
     }
 }
 
 impl<T> From<Option<Self>> for OneOrMany<T> {
+    #[inline]
     fn from(t: Option<Self>) -> Self {
         t.map_or_else(|| Self::None, |t| t)
     }
 }
 
 impl<T: Clone> From<&[T]> for OneOrMany<T> {
+    #[inline]
     fn from(t: &[T]) -> Self {
         if t.is_empty() {
             Self::None
@@ -243,6 +266,7 @@ impl<T: Clone> From<&[T]> for OneOrMany<T> {
 }
 
 impl<T> From<Vec<T>> for OneOrMany<T> {
+    #[inline]
     fn from(t: Vec<T>) -> Self {
         if t.len() <= 1 {
             t.into_iter().next().map_or(Self::None, Self::One)
@@ -253,6 +277,7 @@ impl<T> From<Vec<T>> for OneOrMany<T> {
 }
 
 impl<T> From<OneOrMany<T>> for Vec<T> {
+    #[inline]
     fn from(value: OneOrMany<T>) -> Self {
         match value {
             OneOrMany::One(one) => vec![one],
@@ -284,6 +309,7 @@ impl<T> PartialOrd<Self> for OneOrMany<T>
 where
     T: PartialOrd,
 {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match (self, other) {
             (Self::One(t1), Self::One(t2)) => t1.partial_cmp(t2),
@@ -303,6 +329,7 @@ impl<T> Ord for OneOrMany<T>
 where
     T: Ord,
 {
+    #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
             (Self::One(t1), Self::One(t2)) => t1.cmp(t2),

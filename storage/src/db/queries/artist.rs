@@ -24,7 +24,6 @@ use super::generic::{read_related_out, relate, unrelate};
 ///     "SELECT * FROM artist WHERE name = $name LIMIT 1".into_query().unwrap()
 /// );
 /// ```
-#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
 pub fn read_by_name() -> impl IntoQuery {
     format!(
@@ -55,7 +54,6 @@ pub fn read_by_name() -> impl IntoQuery {
 ///     "SELECT * FROM artist WHERE name IN $names".into_query().unwrap()
 /// );
 /// ```
-#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
 pub fn read_by_names() -> impl IntoQuery {
     format!(
@@ -86,10 +84,10 @@ pub fn read_by_names() -> impl IntoQuery {
 ///     "SELECT * FROM $ids".into_query().unwrap()
 /// );
 /// ```
-#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
-pub fn read_many() -> impl IntoQuery {
-    "SELECT * FROM $ids".into_query().unwrap()
+#[inline]
+pub const fn read_many() -> impl IntoQuery {
+    "SELECT * FROM $ids"
 }
 
 /// Query to read the albums by an artist.
@@ -242,10 +240,10 @@ pub fn remove_songs() -> impl IntoQuery {
 ///     "RETURN array::union((SELECT * FROM $artist->artist_to_song.out), (SELECT * FROM $artist->artist_to_album->album->album_to_song.out))".into_query().unwrap()
 /// );
 /// ```
-#[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
-pub fn read_songs() -> impl IntoQuery {
-    "RETURN array::union((SELECT * FROM $artist->artist_to_song.out), (SELECT * FROM $artist->artist_to_album->album->album_to_song.out))".into_query().unwrap()
+#[inline]
+pub const fn read_songs() -> impl IntoQuery {
+    "RETURN array::union((SELECT * FROM $artist->artist_to_song.out), (SELECT * FROM $artist->artist_to_album->album->album_to_song.out))"
 }
 
 #[cfg(test)]

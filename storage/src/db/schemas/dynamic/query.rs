@@ -55,6 +55,7 @@ pub struct Query {
 }
 
 impl Serialize for Query {
+    #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -64,6 +65,7 @@ impl Serialize for Query {
 }
 
 impl<'de> Deserialize<'de> for Query {
+    #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -99,6 +101,7 @@ pub enum CompoundKind {
 
 impl CompoundKind {
     #[must_use]
+    #[inline]
     pub const fn operator(&self) -> &'static str {
         match self {
             Self::Or => " OR ",
@@ -117,6 +120,7 @@ pub struct LeafClause {
 
 impl LeafClause {
     #[must_use]
+    #[inline]
     pub const fn has_valid_operator(&self) -> bool {
         match (&self.left, &self.right) {
             // Value to Value comparison
@@ -253,10 +257,12 @@ pub enum Operator {
 pub trait Compile {
     fn compile(&self, context: Context) -> String;
 
+    #[inline]
     fn compile_for_storage(&self) -> String {
         self.compile(Context::Storage)
     }
 
+    #[inline]
     fn compile_for_execution(&self) -> String {
         self.compile(Context::Execution)
     }
@@ -266,6 +272,7 @@ macro_rules! impl_display {
     ($($t:ty),*) => {
         $(
             impl std::fmt::Display for $t {
+                #[inline]
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     write!(f, "{}", self.compile_for_storage())
                 }
@@ -284,12 +291,14 @@ impl_display!(
 );
 
 impl Compile for Query {
+    #[inline]
     fn compile(&self, context: Context) -> String {
         self.root.compile(context)
     }
 }
 
 impl Compile for Clause {
+    #[inline]
     fn compile(&self, context: Context) -> String {
         match self {
             Self::Compound(compound) => compound.compile(context),
@@ -299,6 +308,7 @@ impl Compile for Clause {
 }
 
 impl Compile for CompoundClause {
+    #[inline]
     fn compile(&self, context: Context) -> String {
         debug_assert!(!self.clauses.is_empty());
         debug_assert_eq!(self.clauses.len(), 2);
@@ -318,6 +328,7 @@ impl Compile for CompoundClause {
 }
 
 impl Compile for LeafClause {
+    #[inline]
     fn compile(&self, context: Context) -> String {
         format!(
             "{} {} {}",
@@ -329,6 +340,7 @@ impl Compile for LeafClause {
 }
 
 impl Compile for Value {
+    #[inline]
     fn compile(&self, context: Context) -> String {
         match self {
             Self::String(s) => format!("\"{s}\""),
@@ -347,6 +359,7 @@ impl Compile for Value {
 }
 
 impl Compile for Field {
+    #[inline]
     fn compile(&self, context: Context) -> String {
         match (self, context) {
             (Self::Title, _) => "title".to_string(),
@@ -365,6 +378,7 @@ impl Compile for Field {
 }
 
 impl Compile for Operator {
+    #[inline]
     fn compile(&self, _: Context) -> String {
         match self {
             Self::Equal => "=".to_string(),
@@ -589,6 +603,7 @@ macro_rules! impl_from_str {
             impl std::str::FromStr for $t {
                 type Err = pom::Error;
 
+                #[inline]
                 fn from_str(s: &str) -> Result<Self, Self::Err> {
                     $p.parse(s.as_bytes())
                 }
