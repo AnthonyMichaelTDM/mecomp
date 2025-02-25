@@ -9,6 +9,7 @@ use crate::Feature;
 
 #[must_use]
 pub fn reflect_pad(array: &[f32], pad: usize) -> Vec<f32> {
+    debug_assert!(pad < array.len(), "Padding is too large");
     let prefix = array[1..=pad].iter().rev().copied().collect::<Vec<f32>>();
     let suffix = array[(array.len() - 2) - pad + 1..array.len() - 1]
         .iter()
@@ -25,6 +26,9 @@ pub fn reflect_pad(array: &[f32], pad: usize) -> Vec<f32> {
 
 #[must_use]
 pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f64> {
+    debug_assert!(window_length % 2 == 0, "Window length must be even");
+    debug_assert!(window_length < signal.len(), "Signal is too short");
+    debug_assert!(hop_length < window_length, "Hop length is too large");
     // Take advantage of raw-major order to have contiguous window for the
     // `assign`, reversing the axes to have the expected shape at the end only.
     let mut stft = Array2::zeros((signal.len().div_ceil(hop_length), window_length / 2 + 1));
@@ -83,6 +87,10 @@ pub(crate) trait Normalize {
 // Essentia algorithm
 // https://github.com/MTG/essentia/blob/master/src/algorithms/temporal/zerocrossingrate.cpp
 pub(crate) fn number_crossings(input: &[f32]) -> u32 {
+    if input.is_empty() {
+        return 0;
+    }
+
     let mut crossings = 0;
 
     let mut was_positive = input[0] > 0.;
@@ -106,6 +114,9 @@ pub(crate) fn number_crossings(input: &[f32]) -> u32 {
 #[must_use]
 pub fn geometric_mean(input: &[f32]) -> f32 {
     debug_assert_eq!(input.len() % 8, 0, "Input size must be a multiple of 8");
+    if input.is_empty() {
+        return 0.;
+    }
 
     let mut exponents: i32 = 0;
     let mut mantissas: f64 = 1.;
@@ -143,6 +154,10 @@ pub(crate) fn hz_to_octs_inplace(
 #[allow(clippy::missing_panics_doc)]
 #[must_use]
 pub fn convolve(input: &Array1<f64>, kernel: &Array1<f64>) -> Array1<f64> {
+    debug_assert!(!input.is_empty(), "Input is empty");
+    debug_assert!(!kernel.is_empty(), "Kernel is empty");
+    debug_assert!(input.len() >= kernel.len(), "Input is too short");
+
     let mut common_length = input.len() + kernel.len();
     if (common_length % 2) != 0 {
         common_length -= 1;
