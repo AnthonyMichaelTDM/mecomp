@@ -44,6 +44,7 @@ pub struct Collection {
 
 impl Collection {
     #[must_use]
+    #[inline]
     pub fn generate_id() -> CollectionId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
@@ -74,6 +75,7 @@ pub struct CollectionBrief {
 }
 
 impl From<Collection> for CollectionBrief {
+    #[inline]
     fn from(collection: Collection) -> Self {
         Self {
             id: collection.id,
@@ -85,6 +87,7 @@ impl From<Collection> for CollectionBrief {
 }
 
 impl From<&Collection> for CollectionBrief {
+    #[inline]
     fn from(collection: &Collection) -> Self {
         Self {
             id: collection.id.clone(),

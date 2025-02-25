@@ -15,6 +15,7 @@ pub enum SeekType {
 }
 
 impl Display for SeekType {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Absolute => write!(f, "Absolute"),
@@ -36,6 +37,7 @@ pub enum RepeatMode {
 }
 
 impl Display for RepeatMode {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::None => write!(f, "None"),
@@ -47,16 +49,19 @@ impl Display for RepeatMode {
 
 impl RepeatMode {
     #[must_use]
+    #[inline]
     pub const fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
 
     #[must_use]
+    #[inline]
     pub const fn is_one(&self) -> bool {
         matches!(self, Self::One)
     }
 
     #[must_use]
+    #[inline]
     pub const fn is_all(&self) -> bool {
         matches!(self, Self::All)
     }
@@ -67,6 +72,7 @@ pub struct Percent(f32);
 
 impl Percent {
     #[must_use]
+    #[inline]
     pub fn new(value: f32) -> Self {
         Self(if value.is_finite() {
             value.clamp(0.0, 100.0)
@@ -76,12 +82,14 @@ impl Percent {
     }
 
     #[must_use]
+    #[inline]
     pub const fn into_inner(self) -> f32 {
         self.0
     }
 }
 
 impl Display for Percent {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:.2}%", self.into_inner())
     }
@@ -96,6 +104,7 @@ pub struct StateRuntime {
 }
 
 impl Display for StateRuntime {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -118,6 +127,7 @@ pub enum Status {
 }
 
 impl Display for Status {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Paused => write!(f, "Paused"),
@@ -140,6 +150,7 @@ pub struct StateAudio {
 }
 
 impl Display for StateAudio {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -161,6 +172,7 @@ impl Display for StateAudio {
 
 impl Default for StateAudio {
     /// Should match the defaults assigned to the [`AudioKernel`]
+    #[inline]
     fn default() -> Self {
         Self {
             queue: Box::default(),
@@ -177,8 +189,9 @@ impl Default for StateAudio {
 
 impl StateAudio {
     #[must_use]
-    pub fn paused(&self) -> bool {
-        self.status != Status::Playing
+    #[inline]
+    pub const fn paused(&self) -> bool {
+        !matches!(self.status, Status::Playing)
     }
 }
 

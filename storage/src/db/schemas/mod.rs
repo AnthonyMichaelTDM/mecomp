@@ -15,6 +15,7 @@ pub mod song;
 ///
 /// This function will return an error if the `std::time::Duration` cannot be serialized as a `surrealdb::sql::Duration`.
 #[cfg(feature = "db")]
+#[inline]
 pub fn serialize_duration_as_sql_duration<S>(
     x: &std::time::Duration,
     s: S,
@@ -33,6 +34,7 @@ where
 ///
 /// This function will return an error if the `Option<std::time::Duration>` cannot be serialized as an `Option<surrealdb::sql::Duration>`.
 #[cfg(feature = "db")]
+#[inline]
 pub fn serialize_duration_option_as_sql_duration<S>(
     x: &Option<std::time::Duration>,
     s: S,
@@ -51,6 +53,7 @@ where
 ///
 /// This function will return an error if the `std::time::Duration` cannot be deserialized from a `surrealdb::sql::Duration`.
 #[cfg(feature = "db")]
+#[inline]
 pub fn deserialize_duration_from_sql_duration<'de, D>(d: D) -> Result<std::time::Duration, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -71,12 +74,14 @@ pub struct Thing {
 }
 
 impl std::fmt::Display for Thing {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.tb, self.id)
     }
 }
 
 impl<S: Into<String>, I: Into<Id>> From<(S, I)> for Thing {
+    #[inline]
     fn from((tb, id): (S, I)) -> Self {
         Self {
             tb: tb.into(),
@@ -88,6 +93,7 @@ impl<S: Into<String>, I: Into<Id>> From<(S, I)> for Thing {
 impl FromStr for Thing {
     type Err = ();
 
+    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // deserialize the thing from the string
         // the line should follow the pattern:
@@ -137,12 +143,14 @@ pub enum Id {
 impl Id {
     /// Generate a new `Id::String` variant from a `Ulid`.
     #[must_use]
+    #[inline]
     pub fn ulid() -> Self {
         Self::String(ulid::Ulid::new().to_string())
     }
 }
 
 impl std::fmt::Display for Id {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Number(n) => write!(f, "{n}"),
@@ -153,6 +161,7 @@ impl std::fmt::Display for Id {
 
 #[cfg(feature = "db")]
 impl From<Thing> for surrealdb::sql::Thing {
+    #[inline]
     fn from(thing: Thing) -> Self {
         Self::from((thing.tb, surrealdb::sql::Id::from(thing.id)))
     }
@@ -160,6 +169,7 @@ impl From<Thing> for surrealdb::sql::Thing {
 
 #[cfg(feature = "db")]
 impl From<Id> for surrealdb::sql::Id {
+    #[inline]
     fn from(id: Id) -> Self {
         match id {
             Id::Number(n) => Self::Number(n),
@@ -170,6 +180,7 @@ impl From<Id> for surrealdb::sql::Id {
 
 #[cfg(feature = "db")]
 impl From<surrealdb::sql::Thing> for Thing {
+    #[inline]
     fn from(thing: surrealdb::sql::Thing) -> Self {
         Self {
             tb: thing.tb,
@@ -180,6 +191,7 @@ impl From<surrealdb::sql::Thing> for Thing {
 
 #[cfg(feature = "db")]
 impl From<surrealdb::sql::Id> for Id {
+    #[inline]
     fn from(id: surrealdb::sql::Id) -> Self {
         match id {
             surrealdb::sql::Id::Number(n) => Self::Number(n),

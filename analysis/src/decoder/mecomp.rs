@@ -18,6 +18,7 @@ impl Decoder for MecompDecoder {
     ///
     /// The output sample array should be resampled to f32le, one channel, with a sampling rate
     /// of 22050 Hz. Anything other than that will yield wrong results.
+    #[allow(clippy::missing_inline_in_public_items)]
     fn decode(path: &std::path::Path) -> AnalysisResult<ResampledAudio> {
         let file = BufReader::new(File::open(path)?);
         let source = rodio::Decoder::new(file)?.convert_samples::<f32>();

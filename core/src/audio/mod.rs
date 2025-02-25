@@ -56,6 +56,7 @@ impl AudioKernelSender {
     ///
     /// Panics if there is an issue spawning the audio kernel thread (if the name contains null bytes, which it doesn't, so this should never happen)
     #[must_use]
+    #[inline]
     pub fn start(event_tx: Sender<StateChange>) -> Arc<Self> {
         let (tx, rx) = std::sync::mpsc::channel();
         let tx_clone = tx.clone();
@@ -70,6 +71,7 @@ impl AudioKernelSender {
     }
 
     #[must_use]
+    #[inline]
     pub(crate) const fn new(tx: Sender<(AudioCommand, tracing::Span)>) -> Self {
         Self { tx }
     }

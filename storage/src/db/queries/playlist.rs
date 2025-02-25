@@ -107,6 +107,7 @@ pub fn remove_songs() -> impl IntoQuery {
 ///
 /// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
+#[inline]
 pub fn read_by_name() -> impl IntoQuery {
     format!(
         "SELECT * FROM {} WHERE name = $name LIMIT 1",

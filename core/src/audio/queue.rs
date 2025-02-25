@@ -13,6 +13,7 @@ pub struct Queue {
 }
 
 impl Default for Queue {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
@@ -20,6 +21,7 @@ impl Default for Queue {
 
 impl Queue {
     #[must_use]
+    #[inline]
     pub const fn new() -> Self {
         Self {
             songs: Vec::new(),
@@ -143,6 +145,7 @@ impl Queue {
     }
 
     #[must_use]
+    #[inline]
     pub const fn get_repeat_mode(&self) -> RepeatMode {
         self.repeat_mode
     }
@@ -183,6 +186,7 @@ impl Queue {
     }
 
     #[must_use]
+    #[inline]
     pub const fn current_index(&self) -> Option<usize> {
         self.current_index
     }

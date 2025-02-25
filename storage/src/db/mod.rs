@@ -3,7 +3,7 @@ pub mod crud;
 #[cfg(feature = "db")]
 pub mod health;
 #[cfg(feature = "db")]
-pub mod queries;
+pub(crate) mod queries;
 pub mod schemas;
 
 #[cfg(feature = "db")]
@@ -27,6 +27,7 @@ pub const FULL_TEXT_SEARCH_ANALYZER_NAME: &str = "custom_analyzer";
 ///
 /// This function will return an error if the path cannot be set.
 #[cfg(feature = "db")]
+#[allow(clippy::missing_inline_in_public_items)]
 pub fn set_database_path(path: std::path::PathBuf) -> Result<(), crate::errors::Error> {
     DB_DIR
         .set(path)
@@ -41,6 +42,7 @@ pub fn set_database_path(path: std::path::PathBuf) -> Result<(), crate::errors::
 ///
 /// This function will return an error if the database cannot be initialized.
 #[cfg(feature = "db")]
+#[allow(clippy::missing_inline_in_public_items)]
 pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
     let db = Surreal::new(DB_DIR
         .get().cloned()
@@ -69,6 +71,7 @@ pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
 }
 
 #[cfg(feature = "db")]
+#[allow(clippy::missing_inline_in_public_items)]
 pub(crate) async fn register_custom_analyzer<C>(db: &Surreal<C>) -> surrealdb::Result<()>
 where
     C: surrealdb::Connection,

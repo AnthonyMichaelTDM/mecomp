@@ -87,6 +87,7 @@ pub struct Song {
 
 impl Song {
     #[must_use]
+    #[inline]
     pub fn generate_id() -> SongId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
@@ -137,6 +138,7 @@ pub struct SongBrief {
 }
 
 impl From<Song> for SongBrief {
+    #[inline]
     fn from(song: Song) -> Self {
         Self {
             id: song.id,
@@ -152,6 +154,7 @@ impl From<Song> for SongBrief {
 }
 
 impl From<&Song> for SongBrief {
+    #[inline]
     fn from(song: &Song) -> Self {
         let song = song.clone();
         Self::from(song)
@@ -175,6 +178,7 @@ pub struct SongMetadata {
 }
 
 impl From<&Song> for SongMetadata {
+    #[inline]
     fn from(song: &Song) -> Self {
         Self {
             title: song.title.clone(),
@@ -193,6 +197,7 @@ impl From<&Song> for SongMetadata {
 }
 
 impl From<Song> for SongMetadata {
+    #[inline]
     fn from(song: Song) -> Self {
         Self {
             title: song.title,
@@ -212,6 +217,7 @@ impl From<Song> for SongMetadata {
 
 impl SongMetadata {
     #[must_use]
+    #[inline]
     pub fn path_exists(&self) -> bool {
         self.path.exists() && self.path.is_file()
     }

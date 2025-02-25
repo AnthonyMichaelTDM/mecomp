@@ -7,6 +7,7 @@ use std::f32::consts::PI;
 use crate::Feature;
 
 #[must_use]
+#[inline]
 pub fn reflect_pad(array: &[f32], pad: usize) -> Vec<f32> {
     debug_assert!(pad < array.len(), "Padding is too large");
     let prefix = array[1..=pad].iter().rev().copied().collect::<Vec<f32>>();
@@ -24,6 +25,7 @@ pub fn reflect_pad(array: &[f32], pad: usize) -> Vec<f32> {
 }
 
 #[must_use]
+#[allow(clippy::missing_inline_in_public_items)]
 pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f64> {
     debug_assert!(window_length % 2 == 0, "Window length must be even");
     debug_assert!(window_length < signal.len(), "Signal is too short");
@@ -111,6 +113,7 @@ pub(crate) fn number_crossings(input: &[f32]) -> u32 {
 /// This finely optimized geometric mean courtesy of
 /// Jacques-Henri Jourdan (<https://jhjourdan.mketjh.fr/>)
 #[must_use]
+#[allow(clippy::missing_inline_in_public_items)]
 pub fn geometric_mean(input: &[f32]) -> f32 {
     debug_assert_eq!(input.len() % 8, 0, "Input size must be a multiple of 8");
     if input.is_empty() {

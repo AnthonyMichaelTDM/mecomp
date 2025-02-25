@@ -56,6 +56,7 @@ impl SpectralDesc {
      *
      * The value range is between 0 and `sample_rate / 2`.
      */
+    #[inline]
     pub fn get_centroid(&mut self) -> Vec<Feature> {
         vec![
             self.normalize(Feature::from(mean(&self.values_centroid))),
@@ -80,6 +81,7 @@ impl SpectralDesc {
      *
      * The value range is between 0 and `sample_rate / 2`
      */
+    #[inline]
     pub fn get_rolloff(&mut self) -> Vec<Feature> {
         vec![
             self.normalize(Feature::from(mean(&self.values_rolloff))),
@@ -107,6 +109,7 @@ impl SpectralDesc {
      * The value range is between 0 and 1, since the geometric mean is always less
      * than the arithmetic mean.
      */
+    #[inline]
     pub fn get_flatness(&mut self) -> Vec<Feature> {
         let max_value = 1.;
         let min_value = 0.;
@@ -128,6 +131,7 @@ impl SpectralDesc {
     /// # Errors
     ///
     /// This function will return an error if there is an error loading the aubio objects
+    #[inline]
     pub fn new(sample_rate: u32) -> AnalysisResult<Self> {
         Ok(Self {
             centroid_aubio_desc: SpecDesc::new(SpecShape::Centroid, Self::WINDOW_SIZE).map_err(
@@ -162,6 +166,7 @@ impl SpectralDesc {
     descriptors' values.
     */
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+    #[allow(clippy::missing_inline_in_public_items)]
     pub fn do_(&mut self, chunk: &[f32]) -> AnalysisResult<()> {
         let mut fftgrain: Vec<f32> = vec![0.0; Self::WINDOW_SIZE];
         self.phase_vocoder
@@ -235,13 +240,14 @@ pub struct ZeroCrossingRateDesc {
 }
 
 impl ZeroCrossingRateDesc {
-    #[allow(dead_code)]
     #[must_use]
+    #[inline]
     pub fn new(_sample_rate: u32) -> Self {
         Self::default()
     }
 
     /// Count the number of zero-crossings for the current `chunk`.
+    #[inline]
     pub fn do_(&mut self, chunk: &[f32]) {
         self.values.push(number_crossings(chunk));
         self.number_samples += chunk.len();
@@ -250,6 +256,7 @@ impl ZeroCrossingRateDesc {
     /// Sum the number of zero-crossings witnessed and divide by
     /// the total number of samples.
     #[allow(clippy::cast_precision_loss)]
+    #[inline]
     pub fn get_value(&mut self) -> Feature {
         self.normalize(
             Feature::from(self.values.iter().sum::<u32>()) / self.number_samples as Feature,

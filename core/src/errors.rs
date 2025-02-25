@@ -58,12 +58,14 @@ pub enum SerializableLibraryError {
 }
 
 impl From<Error> for SerializableLibraryError {
+    #[inline]
     fn from(e: Error) -> Self {
         Self::Database(e.to_string())
     }
 }
 
 impl From<std::io::Error> for SerializableLibraryError {
+    #[inline]
     fn from(e: std::io::Error) -> Self {
         Self::IO(e.to_string())
     }
@@ -71,6 +73,7 @@ impl From<std::io::Error> for SerializableLibraryError {
 
 #[cfg(feature = "audio")]
 impl From<rodio::decoder::DecoderError> for SerializableLibraryError {
+    #[inline]
     fn from(e: rodio::decoder::DecoderError) -> Self {
         Self::Decoder(e.to_string())
     }
@@ -78,12 +81,14 @@ impl From<rodio::decoder::DecoderError> for SerializableLibraryError {
 
 #[cfg(feature = "rpc")]
 impl From<UdpError> for SerializableLibraryError {
+    #[inline]
     fn from(e: UdpError) -> Self {
         Self::Udp(e.to_string())
     }
 }
 
 impl From<LibraryError> for SerializableLibraryError {
+    #[inline]
     fn from(e: LibraryError) -> Self {
         match e {
             LibraryError::Database(e) => Self::Database(e.to_string()),

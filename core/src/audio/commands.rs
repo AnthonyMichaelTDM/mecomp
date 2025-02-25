@@ -34,6 +34,7 @@ pub enum AudioCommand {
 }
 
 impl PartialEq for AudioCommand {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Play, Self::Play)
@@ -54,6 +55,7 @@ impl PartialEq for AudioCommand {
 }
 
 impl Display for AudioCommand {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Play => write!(f, "Play"),
@@ -102,6 +104,7 @@ pub enum QueueCommand {
 }
 
 impl Display for QueueCommand {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::SkipForward(n) => write!(f, "Skip Forward by {n}"),
@@ -148,6 +151,7 @@ pub enum VolumeCommand {
 }
 
 impl Display for VolumeCommand {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Up(percent) => write!(f, "+{percent:.0}%", percent = percent * 100.0),

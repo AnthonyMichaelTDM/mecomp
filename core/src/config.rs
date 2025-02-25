@@ -41,6 +41,7 @@ impl Settings {
     ///
     /// This function will return an error if the config file is not found or if the config file is
     /// invalid.
+    #[inline]
     pub fn init(
         config: PathBuf,
         port: Option<u16>,
@@ -78,6 +79,7 @@ impl Settings {
     /// # Errors
     ///
     /// This function will return an error if the system config directory (e.g., `~/.config` on linux) could not be found, or if the config file was missing and could not be created.
+    #[inline]
     pub fn get_config_path() -> Result<PathBuf, std::io::Error> {
         match crate::get_config_dir() {
             Ok(config_dir) => {
@@ -178,6 +180,7 @@ const fn default_log_level() -> log::LevelFilter {
 }
 
 impl Default for DaemonSettings {
+    #[inline]
     fn default() -> Self {
         Self {
             rpc_port: default_port(),
@@ -199,6 +202,7 @@ pub enum ClusterAlgorithm {
 }
 
 impl From<ClusterAlgorithm> for mecomp_analysis::clustering::ClusteringMethod {
+    #[inline]
     fn from(algo: ClusterAlgorithm) -> Self {
         match algo {
             ClusterAlgorithm::KMeans => Self::KMeans,
@@ -240,6 +244,7 @@ const fn default_max_clusters() -> usize {
 }
 
 impl Default for ReclusterSettings {
+    #[inline]
     fn default() -> Self {
         Self {
             gap_statistic_reference_datasets: default_gap_statistic_reference_datasets(),
@@ -262,6 +267,7 @@ const fn default_radio_count() -> u32 {
 }
 
 impl Default for TuiSettings {
+    #[inline]
     fn default() -> Self {
         Self {
             radio_count: default_radio_count(),

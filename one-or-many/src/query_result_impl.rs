@@ -13,6 +13,7 @@ where
     /// implement this trait directly.
     /// Instead, we'll use the impl's for `QueryResult` for `Vec<T>` to
     /// implement this trait for `OneOrMany<T>`.
+    #[inline]
     fn query_result(self, response: &mut surrealdb::Response) -> surrealdb::Result<OneOrMany<T>> {
         let vec: Vec<T> = self.query_result(response)?;
 

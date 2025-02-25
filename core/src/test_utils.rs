@@ -14,6 +14,7 @@ static INIT: OnceLock<()> = OnceLock::new();
 /// # Panics
 ///
 /// Panics if the logger or tracing subscriber cannot be initialized.
+#[allow(clippy::missing_inline_in_public_items)]
 pub fn init() {
     INIT.get_or_init(|| {
         init_logger(log::LevelFilter::Debug, None);

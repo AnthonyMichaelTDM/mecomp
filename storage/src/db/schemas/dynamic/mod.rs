@@ -40,12 +40,14 @@ pub struct DynamicPlaylist {
 
 impl DynamicPlaylist {
     #[must_use]
+    #[inline]
     pub fn generate_id() -> DynamicPlaylistId {
         Thing::from((TABLE_NAME, Id::ulid()))
     }
 
     #[must_use]
     #[cfg(feature = "db")]
+    #[inline]
     pub fn get_query(&self) -> impl IntoQuery {
         use query::Compile;
 
@@ -70,17 +72,20 @@ pub struct DynamicPlaylistChangeSet {
 
 impl DynamicPlaylistChangeSet {
     #[must_use]
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
     #[must_use]
+    #[inline]
     pub fn name(mut self, name: impl Into<Arc<str>>) -> Self {
         self.name = Some(name.into());
         self
     }
 
     #[must_use]
+    #[inline]
     pub fn query(mut self, query: Query) -> Self {
         self.query = Some(query);
         self
