@@ -129,7 +129,7 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
                 //                                                                                             v        v
                 "| {level_style}{level}{level_style:#} | {dimmed_style}{}{dimmed_style:#} | {dimmed_style}{: >39} @ {: <4}{dimmed_style:#} | {}",
                 format_duration(&now.elapsed()),
-                process_file(record.file_static().unwrap_or("???")),
+                process_file(record.file().unwrap_or("???")),
                 record.line().unwrap_or(0),
                 record.args(),
             );
