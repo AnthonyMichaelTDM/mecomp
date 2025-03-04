@@ -8,7 +8,7 @@
 //!
 //! The user can cancel the popup by pressing the escape key.
 
-use std::sync::Mutex;
+use std::{ops::Not, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_storage::db::schemas::{playlist::Playlist, Thing};
@@ -81,11 +81,12 @@ impl Popup for PlaylistSelector {
     }
 
     fn instructions(&self) -> ratatui::prelude::Line {
-        Line::from(if self.input_box_visible {
-            ""
-        } else {
-            "  \u{23CE} : Select | ↑/↓: Up/Down"
-        })
+        Line::from(
+            self.input_box_visible
+                .not()
+                .then_some("  \u{23CE} : Select | ↑/↓: Up/Down")
+                .unwrap_or_default(),
+        )
     }
 
     fn update_with_state(&mut self, state: &AppState) {
@@ -228,19 +229,25 @@ impl Popup for PlaylistSelector {
             {
                 self.input_box_visible = false;
             }
-        } else {
-            match kind {
-                MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
-                    self.tree_state.lock().unwrap().mouse_click(mouse_position);
-                }
-                MouseEventKind::ScrollDown if area.contains(mouse_position) => {
-                    self.tree_state.lock().unwrap().key_down();
-                }
-                MouseEventKind::ScrollUp if area.contains(mouse_position) => {
-                    self.tree_state.lock().unwrap().key_up();
-                }
-                _ => {}
+            return;
+        }
+
+        // if the mouse is outside the area, return
+        if !area.contains(mouse_position) {
+            return;
+        }
+
+        match kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                self.tree_state.lock().unwrap().mouse_click(mouse_position);
             }
+            MouseEventKind::ScrollDown => {
+                self.tree_state.lock().unwrap().key_down();
+            }
+            MouseEventKind::ScrollUp => {
+                self.tree_state.lock().unwrap().key_up();
+            }
+            _ => {}
         }
     }
 }
@@ -375,17 +382,19 @@ impl Popup for PlaylistEditor {
         match key.code {
             KeyCode::Enter => {
                 let name = self.input_box.text();
-                if !name.is_empty() {
-                    self.action_tx
-                        .send(Action::Popup(PopupAction::Close))
-                        .unwrap();
-                    self.action_tx
-                        .send(Action::Library(LibraryAction::RenamePlaylist(
-                            self.playlist_id.clone(),
-                            name.to_string(),
-                        )))
-                        .unwrap();
+                if name.is_empty() {
+                    return;
                 }
+
+                self.action_tx
+                    .send(Action::Popup(PopupAction::Close))
+                    .unwrap();
+                self.action_tx
+                    .send(Action::Library(LibraryAction::RenamePlaylist(
+                        self.playlist_id.clone(),
+                        name.to_string(),
+                    )))
+                    .unwrap();
             }
             _ => self.input_box.handle_key_event(key),
         }

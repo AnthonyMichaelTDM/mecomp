@@ -16,7 +16,7 @@ use super::{checktree_utils::create_song_tree_leaf, RadioViewProps};
 use crate::{
     state::action::{Action, AudioAction, PopupAction, QueueAction, ViewAction},
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
+        colors::{border_color, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{Component, ComponentRender, RenderProps},
         widgets::{
             popups::PopupType,
@@ -171,11 +171,7 @@ impl Component for RadioView {
 
 impl ComponentRender<RenderProps> for RadioView {
     fn render_border(&self, frame: &mut Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let area = if let Some(state) = &self.props {
             let border = Block::bordered()

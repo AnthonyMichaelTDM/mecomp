@@ -12,7 +12,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, ViewAction},
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
+        colors::{border_color, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{Component, ComponentRender, RenderProps},
         widgets::tree::{state::CheckTreeState, CheckTree},
         AppState,
@@ -163,11 +163,7 @@ where
     Props: ItemViewProps,
 {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // draw borders and get area for content
         let area = if let Some(state) = &self.props {
@@ -198,17 +194,13 @@ where
                 .title_top(Line::from(vec![
                     Span::raw("Performing operations on "),
                     Span::raw(
-                        if self
-                            .tree_state
+                        self.tree_state
                             .lock()
                             .unwrap()
                             .get_checked_things()
                             .is_empty()
-                        {
-                            Props::none_checked_string()
-                        } else {
-                            "checked items"
-                        },
+                            .then(Props::none_checked_string)
+                            .unwrap_or("checked items"),
                     )
                     .fg(TEXT_HIGHLIGHT),
                 ]))
@@ -228,19 +220,7 @@ where
     }
 
     fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
-        if let Some(state) = &self.props {
-            // create a tree to hold the items children
-            let items = state.tree_items().unwrap();
-
-            // render the tree
-            frame.render_stateful_widget(
-                CheckTree::new(&items)
-                    .unwrap()
-                    .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold()),
-                props.area,
-                &mut self.tree_state.lock().unwrap(),
-            );
-        } else {
+        let Some(state) = &self.props else {
             let text = format!("No active {}", Props::name());
 
             frame.render_widget(
@@ -249,6 +229,19 @@ where
                     .alignment(Alignment::Center),
                 props.area,
             );
-        }
+            return;
+        };
+
+        // create a tree to hold the items children
+        let items = state.tree_items().unwrap();
+
+        // render the tree
+        frame.render_stateful_widget(
+            CheckTree::new(&items)
+                .unwrap()
+                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold()),
+            props.area,
+            &mut self.tree_state.lock().unwrap(),
+        );
     }
 }

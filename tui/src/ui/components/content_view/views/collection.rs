@@ -18,7 +18,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, ViewAction},
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
+        colors::{border_color, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         widgets::tree::{state::CheckTreeState, CheckTree},
         AppState,
@@ -196,11 +196,7 @@ fn split_area(area: Rect) -> [Rect; 2] {
 
 impl ComponentRender<RenderProps> for CollectionView {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let area = if let Some(state) = &self.props {
             let border = Block::bordered()
@@ -356,11 +352,9 @@ impl Component for LibraryCollectionsView {
     {
         let mut collections = state.library.collections.clone();
         self.props.sort_mode.sort_items(&mut collections);
-        let tree_state = if state.active_view == ActiveView::Collections {
-            self.tree_state
-        } else {
-            Mutex::new(CheckTreeState::default())
-        };
+        let tree_state = (state.active_view == ActiveView::Collections)
+            .then_some(self.tree_state)
+            .unwrap_or_default();
 
         Self {
             props: Props {
@@ -381,7 +375,9 @@ impl Component for LibraryCollectionsView {
             // arrow keys
             KeyCode::PageUp => {
                 self.tree_state.lock().unwrap().select_relative(|current| {
-                    current.map_or(self.props.collections.len() - 1, |c| c.saturating_sub(10))
+                    current.map_or(self.props.collections.len().saturating_sub(1), |c| {
+                        c.saturating_sub(10)
+                    })
                 });
             }
             KeyCode::Up => {
@@ -444,11 +440,7 @@ impl Component for LibraryCollectionsView {
 
 impl ComponentRender<RenderProps> for LibraryCollectionsView {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // render primary border
         let border = Block::bordered()

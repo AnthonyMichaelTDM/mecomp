@@ -1,6 +1,6 @@
 //! Views for both a single song, and the library of songs.
 
-use std::sync::Mutex;
+use std::{ops::Not, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_storage::db::schemas::song::Song;
@@ -15,7 +15,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, AudioAction, PopupAction, QueueAction, ViewAction},
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
+        colors::{border_color, TEXT_HIGHLIGHT},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         widgets::{
             popups::PopupType,
@@ -68,11 +68,10 @@ impl Component for LibrarySongsView {
     {
         let mut songs = state.library.songs.clone();
         self.props.sort_mode.sort_items(&mut songs);
-        let tree_state = if state.active_view == ActiveView::Songs {
-            self.tree_state
-        } else {
-            Mutex::new(CheckTreeState::default())
-        };
+        let tree_state = (state.active_view == ActiveView::Songs)
+            .then_some(self.tree_state)
+            .unwrap_or_default();
+
         Self {
             props: Props {
                 songs,
@@ -189,11 +188,7 @@ impl Component for LibrarySongsView {
 
 impl ComponentRender<RenderProps> for LibrarySongsView {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // draw primary border
         let border = Block::bordered()
@@ -211,17 +206,14 @@ impl ComponentRender<RenderProps> for LibrarySongsView {
         let border = Block::new()
             .borders(Borders::TOP | Borders::BOTTOM)
             .title_top(
-                if self
-                    .tree_state
+                self.tree_state
                     .lock()
                     .unwrap()
                     .get_checked_things()
                     .is_empty()
-                {
-                    ""
-                } else {
-                    "q: add to queue | r: start radio | p: add to playlist "
-                },
+                    .not()
+                    .then_some("q: add to queue | r: start radio | p: add to playlist ")
+                    .unwrap_or_default(),
             )
             .title_bottom("s/S: change sort")
             .border_style(border_style);

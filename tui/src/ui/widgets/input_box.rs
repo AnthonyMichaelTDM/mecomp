@@ -72,25 +72,26 @@ impl InputBox {
     }
 
     fn delete_char(&mut self) {
-        let is_not_cursor_leftmost = self.cursor_position != 0;
-        if is_not_cursor_leftmost {
-            // Method "remove" is not used on the saved text for deleting the selected char.
-            // Reason: Using remove on String works on bytes instead of the chars.
-            // Using remove would require special care because of char boundaries.
-
-            let current_index = self.cursor_position;
-            let from_left_to_current_index = current_index - 1;
-
-            // Getting all characters before the selected character.
-            let before_char_to_delete = self.text.chars().take(from_left_to_current_index);
-            // Getting all characters after selected character.
-            let after_char_to_delete = self.text.chars().skip(current_index);
-
-            // Put all characters together except the selected one.
-            // By leaving the selected one out, it is forgotten and therefore deleted.
-            self.text = before_char_to_delete.chain(after_char_to_delete).collect();
-            self.move_cursor_left();
+        if self.cursor_position == 0 {
+            return;
         }
+
+        // Method "remove" is not used on the saved text for deleting the selected char.
+        // Reason: Using remove on String works on bytes instead of the chars.
+        // Using remove would require special care because of char boundaries.
+
+        let current_index = self.cursor_position;
+        let from_left_to_current_index = current_index - 1;
+
+        // Getting all characters before the selected character.
+        let before_char_to_delete = self.text.chars().take(from_left_to_current_index);
+        // Getting all characters after selected character.
+        let after_char_to_delete = self.text.chars().skip(current_index);
+
+        // Put all characters together except the selected one.
+        // By leaving the selected one out, it is forgotten and therefore deleted.
+        self.text = before_char_to_delete.chain(after_char_to_delete).collect();
+        self.move_cursor_left();
     }
 
     fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {

@@ -240,7 +240,7 @@ async fn handle_additional_view_data(
                 id: id.to_owned(),
             };
 
-            let song_view_props = if let Ok((
+            if let Ok((
                 Some(song),
                 artists @ (OneOrMany::Many(_) | OneOrMany::One(_)),
                 Some(album),
@@ -253,22 +253,24 @@ async fn handle_additional_view_data(
                 daemon.library_song_get_playlists(Context::current(), song_id.clone()),
                 daemon.library_song_get_collections(Context::current(), song_id.clone()),
             ) {
-                Some(SongViewProps {
+                let song_view_props = SongViewProps {
                     id: song_id,
                     song,
                     artists,
                     album,
                     playlists,
                     collections,
+                };
+                Some(ViewData {
+                    song: Some(song_view_props),
+                    ..state.additional_view_data.clone()
                 })
             } else {
-                None
-            };
-
-            Some(ViewData {
-                song: song_view_props,
-                ..state.additional_view_data.clone()
-            })
+                Some(ViewData {
+                    song: None,
+                    ..state.additional_view_data.clone()
+                })
+            }
         }
         ActiveView::Album(id) => {
             let album_id = Thing {
@@ -276,25 +278,27 @@ async fn handle_additional_view_data(
                 id: id.to_owned(),
             };
 
-            let album_view_props = if let Ok((Some(album), artists, Some(songs))) = tokio::try_join!(
+            if let Ok((Some(album), artists, Some(songs))) = tokio::try_join!(
                 daemon.library_album_get(Context::current(), album_id.clone()),
                 daemon.library_album_get_artist(Context::current(), album_id.clone()),
                 daemon.library_album_get_songs(Context::current(), album_id.clone()),
             ) {
-                Some(AlbumViewProps {
+                let album_view_props = AlbumViewProps {
                     id: album_id,
                     album,
                     artists,
                     songs,
+                };
+                Some(ViewData {
+                    album: Some(album_view_props),
+                    ..state.additional_view_data.clone()
                 })
             } else {
-                None
-            };
-
-            Some(ViewData {
-                album: album_view_props,
-                ..state.additional_view_data.clone()
-            })
+                Some(ViewData {
+                    album: None,
+                    ..state.additional_view_data.clone()
+                })
+            }
         }
         ActiveView::Artist(id) => {
             let artist_id = Thing {
@@ -302,25 +306,27 @@ async fn handle_additional_view_data(
                 id: id.to_owned(),
             };
 
-            let artist_view_props = if let Ok((Some(artist), Some(albums), Some(songs))) = tokio::try_join!(
+            if let Ok((Some(artist), Some(albums), Some(songs))) = tokio::try_join!(
                 daemon.library_artist_get(Context::current(), artist_id.clone()),
                 daemon.library_artist_get_albums(Context::current(), artist_id.clone()),
                 daemon.library_artist_get_songs(Context::current(), artist_id.clone()),
             ) {
-                Some(ArtistViewProps {
+                let artist_view_props = ArtistViewProps {
                     id: artist_id,
                     artist,
                     albums,
                     songs,
+                };
+                Some(ViewData {
+                    artist: Some(artist_view_props),
+                    ..state.additional_view_data.clone()
                 })
             } else {
-                None
-            };
-
-            Some(ViewData {
-                artist: artist_view_props,
-                ..state.additional_view_data.clone()
-            })
+                Some(ViewData {
+                    artist: None,
+                    ..state.additional_view_data.clone()
+                })
+            }
         }
         ActiveView::Playlist(id) => {
             let playlist_id = Thing {
@@ -328,23 +334,25 @@ async fn handle_additional_view_data(
                 id: id.to_owned(),
             };
 
-            let playlist_view_props = if let Ok((Some(playlist), Some(songs))) = tokio::try_join!(
+            if let Ok((Some(playlist), Some(songs))) = tokio::try_join!(
                 daemon.playlist_get(Context::current(), playlist_id.clone()),
                 daemon.playlist_get_songs(Context::current(), playlist_id.clone()),
             ) {
-                Some(PlaylistViewProps {
+                let playlist_view_props = PlaylistViewProps {
                     id: playlist_id,
                     playlist,
                     songs,
+                };
+                Some(ViewData {
+                    playlist: Some(playlist_view_props),
+                    ..state.additional_view_data.clone()
                 })
             } else {
-                None
-            };
-
-            Some(ViewData {
-                playlist: playlist_view_props,
-                ..state.additional_view_data.clone()
-            })
+                Some(ViewData {
+                    playlist: None,
+                    ..state.additional_view_data.clone()
+                })
+            }
         }
         ActiveView::DynamicPlaylist(id) => {
             let dynamic_playlist_id = Thing {
@@ -352,23 +360,25 @@ async fn handle_additional_view_data(
                 id: id.to_owned(),
             };
 
-            let dynamic_playlist_view_props = if let Ok((Some(dynamic_playlist), Some(songs))) = tokio::try_join!(
+            if let Ok((Some(dynamic_playlist), Some(songs))) = tokio::try_join!(
                 daemon.dynamic_playlist_get(Context::current(), dynamic_playlist_id.clone()),
                 daemon.dynamic_playlist_get_songs(Context::current(), dynamic_playlist_id.clone()),
             ) {
-                Some(DynamicPlaylistViewProps {
+                let dynamic_playlist_view_props = DynamicPlaylistViewProps {
                     id: dynamic_playlist_id,
                     songs,
                     dynamic_playlist,
+                };
+                Some(ViewData {
+                    dynamic_playlist: Some(dynamic_playlist_view_props),
+                    ..state.additional_view_data.clone()
                 })
             } else {
-                None
-            };
-
-            Some(ViewData {
-                dynamic_playlist: dynamic_playlist_view_props,
-                ..state.additional_view_data.clone()
-            })
+                Some(ViewData {
+                    dynamic_playlist: None,
+                    ..state.additional_view_data.clone()
+                })
+            }
         }
         ActiveView::Collection(id) => {
             let collection_id = Thing {
@@ -376,59 +386,65 @@ async fn handle_additional_view_data(
                 id: id.to_owned(),
             };
 
-            let collection_view_props = if let Ok((Some(collection), Some(songs))) = tokio::try_join!(
+            if let Ok((Some(collection), Some(songs))) = tokio::try_join!(
                 daemon.collection_get(Context::current(), collection_id.clone()),
                 daemon.collection_get_songs(Context::current(), collection_id.clone()),
             ) {
-                Some(CollectionViewProps {
+                let collection_view_props = CollectionViewProps {
                     id: collection_id,
                     collection,
                     songs,
+                };
+                Some(ViewData {
+                    collection: Some(collection_view_props),
+                    ..state.additional_view_data.clone()
                 })
             } else {
-                None
-            };
-
-            Some(ViewData {
-                collection: collection_view_props,
-                ..state.additional_view_data.clone()
-            })
+                Some(ViewData {
+                    collection: None,
+                    ..state.additional_view_data.clone()
+                })
+            }
         }
         ActiveView::Radio(ids) => {
             let count = state.settings.tui.radio_count;
-            let radio_view_props = if let Ok(Ok(songs)) = daemon
+            if let Ok(Ok(songs)) = daemon
                 .radio_get_similar(Context::current(), ids.clone(), count)
                 .await
             {
-                Some(RadioViewProps { count, songs })
+                let radio_view_props = RadioViewProps { count, songs };
+                Some(ViewData {
+                    radio: Some(radio_view_props),
+                    ..state.additional_view_data.clone()
+                })
             } else {
-                None
-            };
-
-            Some(ViewData {
-                radio: radio_view_props,
-                ..state.additional_view_data.clone()
-            })
+                Some(ViewData {
+                    radio: None,
+                    ..state.additional_view_data.clone()
+                })
+            }
         }
         ActiveView::Random => {
-            let random_view_props = if let Ok((Some(album), Some(artist), Some(song))) = tokio::try_join!(
+            if let Ok((Some(album), Some(artist), Some(song))) = tokio::try_join!(
                 daemon.rand_album(Context::current()),
                 daemon.rand_artist(Context::current()),
                 daemon.rand_song(Context::current()),
             ) {
-                Some(RandomViewProps {
+                let random_view_props = RandomViewProps {
                     album: album.id.into(),
                     artist: artist.id.into(),
                     song: song.id.into(),
+                };
+                Some(ViewData {
+                    random: Some(random_view_props),
+                    ..state.additional_view_data.clone()
                 })
             } else {
-                None
-            };
-
-            Some(ViewData {
-                random: random_view_props,
-                ..state.additional_view_data.clone()
-            })
+                Some(ViewData {
+                    random: None,
+                    ..state.additional_view_data.clone()
+                })
+            }
         }
 
         ActiveView::None
