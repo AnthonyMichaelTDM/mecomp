@@ -16,7 +16,7 @@ use super::RandomViewProps;
 use crate::{
     state::action::{Action, ViewAction},
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
+        colors::{border_color, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         AppState,
     },
@@ -103,30 +103,23 @@ impl Component for RandomView {
         match key.code {
             // Move the selection up
             KeyCode::Up => {
-                if let Some(selected) = self.random_type_list.selected() {
-                    let selected = if selected == 0 {
-                        RANDOM_TYPE_ITEMS.len() - 1
-                    } else {
-                        selected - 1
-                    };
-                    self.random_type_list.select(Some(selected));
-                } else {
-                    self.random_type_list
-                        .select(Some(RANDOM_TYPE_ITEMS.len() - 1));
-                }
+                let new_selection = self
+                    .random_type_list
+                    .selected()
+                    .filter(|selected| *selected > 0)
+                    .map_or_else(|| RANDOM_TYPE_ITEMS.len() - 1, |selected| selected - 1);
+
+                self.random_type_list.select(Some(new_selection));
             }
             // Move the selection down
             KeyCode::Down => {
-                if let Some(selected) = self.random_type_list.selected() {
-                    let selected = if selected == RANDOM_TYPE_ITEMS.len() - 1 {
-                        0
-                    } else {
-                        selected + 1
-                    };
-                    self.random_type_list.select(Some(selected));
-                } else {
-                    self.random_type_list.select(Some(0));
-                }
+                let new_selection = self
+                    .random_type_list
+                    .selected()
+                    .filter(|selected| *selected < RANDOM_TYPE_ITEMS.len() - 1)
+                    .map_or(0, |selected| selected + 1);
+
+                self.random_type_list.select(Some(new_selection));
             }
             // Select the current item
             KeyCode::Enter => {
@@ -175,11 +168,7 @@ impl Component for RandomView {
 
 impl ComponentRender<RenderProps> for RandomView {
     fn render_border(&self, frame: &mut Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let border = Block::bordered()
             .title_top("Random")
@@ -192,30 +181,31 @@ impl ComponentRender<RenderProps> for RandomView {
     }
 
     fn render_content(&self, frame: &mut Frame, props: RenderProps) {
-        if self.props.is_some() {
-            let items = RANDOM_TYPE_ITEMS
-                .iter()
-                .map(|item| {
-                    ListItem::new(
-                        Span::styled(item.to_string(), Style::default().fg(TEXT_NORMAL.into()))
-                            .into_centered_line(),
-                    )
-                })
-                .collect::<Vec<_>>();
-
-            frame.render_stateful_widget(
-                List::new(items).highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold()),
-                props.area,
-                &mut self.random_type_list.clone(),
-            );
-        } else {
+        if self.props.is_none() {
             frame.render_widget(
                 Line::from("Random items unavailable")
                     .style(Style::default().fg(TEXT_NORMAL.into()))
                     .alignment(Alignment::Center),
                 props.area,
             );
+            return;
         }
+
+        let items = RANDOM_TYPE_ITEMS
+            .iter()
+            .map(|item| {
+                ListItem::new(
+                    Span::styled(item.to_string(), Style::default().fg(TEXT_NORMAL.into()))
+                        .into_centered_line(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        frame.render_stateful_widget(
+            List::new(items).highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold()),
+            props.area,
+            &mut self.random_type_list.clone(),
+        );
     }
 }
 

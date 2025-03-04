@@ -15,9 +15,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, AudioAction, PopupAction, QueueAction, ViewAction},
     ui::{
-        colors::{
-            BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
-        },
+        colors::{border_color, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         widgets::{
             input_box::{self, InputBox},
@@ -242,11 +240,8 @@ fn split_area(area: Rect) -> [Rect; 2] {
 
 impl ComponentRender<RenderProps> for SearchView {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused && !self.search_bar_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style =
+            Style::default().fg(border_color(props.is_focused && !self.search_bar_focused).into());
 
         // split view
         let [search_bar_area, content_area] = split_area(props.area);
@@ -261,15 +256,10 @@ impl ComponentRender<RenderProps> for SearchView {
                 } else {
                     TEXT_NORMAL.into()
                 },
-                border: Block::bordered()
-                    .title("Search")
-                    .border_style(Style::default().fg(
-                        if self.search_bar_focused && props.is_focused {
-                            BORDER_FOCUSED.into()
-                        } else {
-                            BORDER_UNFOCUSED.into()
-                        },
-                    )),
+                border: Block::bordered().title("Search").border_style(
+                    Style::default()
+                        .fg(border_color(self.search_bar_focused && props.is_focused).into()),
+                ),
                 show_cursor: self.search_bar_focused,
             },
         );

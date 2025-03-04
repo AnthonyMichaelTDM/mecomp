@@ -16,7 +16,8 @@ use crate::{
     state::action::{Action, LibraryAction, PopupAction, ViewAction},
     ui::{
         colors::{
-            BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
+            border_color, BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT,
+            TEXT_NORMAL,
         },
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         widgets::{
@@ -251,11 +252,7 @@ fn split_area(area: Rect) -> [Rect; 2] {
 
 impl ComponentRender<RenderProps> for DynamicView {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let area = if let Some(state) = &self.props {
             let border = Block::bordered()
@@ -621,11 +618,7 @@ fn lib_split_area(area: Rect) -> [Rect; 3] {
 
 impl ComponentRender<RenderProps> for LibraryDynamicView {
     fn render_border(&self, frame: &mut Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // render primary border
         let border = Block::bordered()
@@ -637,11 +630,11 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
                 Span::raw(" sorted by: "),
                 Span::styled(self.props.sort_mode.to_string(), Style::default().italic()),
             ]))
-            .title_bottom(if self.focus == Focus::Tree {
-                " \u{23CE} : Open | ←/↑/↓/→: Navigate | s/S: change sort"
-            } else {
-                ""
-            })
+            .title_bottom(
+                (self.focus == Focus::Tree)
+                    .then_some(" \u{23CE} : Open | ←/↑/↓/→: Navigate | s/S: change sort")
+                    .unwrap_or_default(),
+            )
             .border_style(border_style);
         let content_area = border.inner(props.area);
         frame.render_widget(border, props.area);

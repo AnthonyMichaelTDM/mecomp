@@ -1,6 +1,6 @@
 //! Views for both a single playlist, and the library of playlists.
 
-use std::sync::Mutex;
+use std::{ops::Not, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::format_duration;
@@ -16,9 +16,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, LibraryAction, PopupAction, ViewAction},
     ui::{
-        colors::{
-            BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
-        },
+        colors::{border_color, BORDER_FOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         widgets::{
             input_box::{self, InputBox},
@@ -237,11 +235,7 @@ fn split_area(area: Rect) -> [Rect; 2] {
 
 impl ComponentRender<RenderProps> for PlaylistView {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let area = if let Some(state) = &self.props {
             let border = Block::bordered()
@@ -327,26 +321,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
     }
 
     fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
-        if let Some(state) = &self.props {
-            // create list to hold playlist songs
-            let items = state
-                .songs
-                .iter()
-                .map(create_song_tree_leaf)
-                .collect::<Vec<_>>();
-
-            // render the playlist songs
-            frame.render_stateful_widget(
-                CheckTree::new(&items)
-                    .unwrap()
-                    .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
-                    .experimental_scrollbar(Some(Scrollbar::new(
-                        ScrollbarOrientation::VerticalRight,
-                    ))),
-                props.area,
-                &mut self.tree_state.lock().unwrap(),
-            );
-        } else {
+        let Some(state) = &self.props else {
             let text = "No active playlist";
 
             frame.render_widget(
@@ -355,7 +330,25 @@ impl ComponentRender<RenderProps> for PlaylistView {
                     .alignment(Alignment::Center),
                 props.area,
             );
-        }
+            return;
+        };
+
+        // create list to hold playlist songs
+        let items = state
+            .songs
+            .iter()
+            .map(create_song_tree_leaf)
+            .collect::<Vec<_>>();
+
+        // render the playlist songs
+        frame.render_stateful_widget(
+            CheckTree::new(&items)
+                .unwrap()
+                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
+                .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
+            props.area,
+            &mut self.tree_state.lock().unwrap(),
+        );
     }
 }
 
@@ -570,11 +563,7 @@ fn lib_split_area(area: Rect) -> [Rect; 2] {
 
 impl ComponentRender<RenderProps> for LibraryPlaylistsView {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // render primary border
         let border = Block::bordered()
@@ -583,11 +572,12 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
                 Span::raw(" sorted by: "),
                 Span::styled(self.props.sort_mode.to_string(), Style::default().italic()),
             ]))
-            .title_bottom(if self.input_box_visible {
-                ""
-            } else {
-                " \u{23CE} : Open | ←/↑/↓/→: Navigate | s/S: change sort"
-            })
+            .title_bottom(
+                self.input_box_visible
+                    .not()
+                    .then_some(" \u{23CE} : Open | ←/↑/↓/→: Navigate | s/S: change sort")
+                    .unwrap_or_default(),
+            )
             .border_style(border_style);
         let content_area = border.inner(props.area);
         frame.render_widget(border, props.area);

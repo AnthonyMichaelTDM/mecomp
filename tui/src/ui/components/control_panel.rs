@@ -21,10 +21,7 @@ use crate::{
         action::{Action, AudioAction, ComponentAction, PlaybackAction, VolumeAction},
         component::ActiveComponent,
     },
-    ui::colors::{
-        BORDER_FOCUSED, BORDER_UNFOCUSED, GAUGE_FILLED, GAUGE_UNFILLED, TEXT_HIGHLIGHT_ALT,
-        TEXT_NORMAL,
-    },
+    ui::colors::{border_color, GAUGE_FILLED, GAUGE_UNFILLED, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL},
 };
 
 use super::{AppState, Component, ComponentRender, RenderProps};
@@ -318,11 +315,7 @@ fn split_area(area: Rect) -> Areas {
 
 impl ComponentRender<RenderProps> for ControlPanel {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let block = Block::new()
             .borders(Borders::TOP)
@@ -346,8 +339,13 @@ impl ComponentRender<RenderProps> for ControlPanel {
         } = split_area(props.area);
 
         // top (song title and artist)
-        if let Some(song_title) = self.props.song_title.clone() {
-            frame.render_widget(
+        let song_info_widget = self.props.song_title.clone().map_or_else(
+            || {
+                Line::from("No Song Playing")
+                    .style(Style::default().bold().fg(TEXT_NORMAL.into()))
+                    .centered()
+            },
+            |song_title| {
                 Line::from(vec![
                     Span::styled(
                         song_title,
@@ -359,28 +357,23 @@ impl ComponentRender<RenderProps> for ControlPanel {
                         Style::default().italic().fg(TEXT_NORMAL.into()),
                     ),
                 ])
-                .centered(),
-                song_info,
-            );
-        } else {
-            frame.render_widget(
-                Line::from("No Song Playing")
-                    .style(Style::default().bold().fg(TEXT_NORMAL.into()))
-                    .alignment(Alignment::Center),
-                song_info,
-            );
-        }
+                .centered()
+            },
+        );
+
+        frame.render_widget(song_info_widget, song_info);
 
         // middle (song progress, volume, and paused/playing indicator)
         // play/pause indicator
+        let play_pause_indicator = if self.props.is_playing {
+            "❚❚ "
+        } else {
+            "▶  "
+        };
         frame.render_widget(
-            Line::from(if self.props.is_playing {
-                "❚❚ "
-            } else {
-                "▶  "
-            })
-            .bold()
-            .alignment(Alignment::Right),
+            Line::from(play_pause_indicator)
+                .bold()
+                .alignment(Alignment::Right),
             play_pause,
         );
 
