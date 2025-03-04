@@ -3000,7 +3000,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-analysis"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "adler32",
  "bliss-audio-aubio-rs",
@@ -3025,13 +3025,13 @@ dependencies = [
  "rustfft",
  "serde",
  "statrs",
- "strum 0.27.0",
+ "strum 0.27.1",
  "thiserror 2.0.11",
 ]
 
 [[package]]
 name = "mecomp-cli"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -3051,7 +3051,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "ciborium",
@@ -3090,7 +3090,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-daemon"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -3119,7 +3119,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-mpris"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -3142,7 +3142,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-storage"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "criterion",
@@ -3171,7 +3171,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-tui"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -3209,7 +3209,6 @@ dependencies = [
  "clap_builder",
  "concurrent-queue",
  "criterion",
- "crossbeam-utils",
  "digest",
  "either",
  "event-listener",
@@ -3769,7 +3768,7 @@ checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
 
 [[package]]
 name = "one-or-many"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "mecomp-workspace-hack",
@@ -4901,9 +4900,9 @@ dependencies = [
 
 [[package]]
 name = "rstest"
-version = "0.24.0"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03e905296805ab93e13c1ec3a03f4b6c4f35e9498a3d5fa96dc626d22c03cd89"
+checksum = "6fc39292f8613e913f7df8fa892b8944ceb47c247b78e1b1ae2f09e019be789d"
 dependencies = [
  "futures-timer",
  "futures-util",
@@ -4913,9 +4912,9 @@ dependencies = [
 
 [[package]]
 name = "rstest_macros"
-version = "0.24.0"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef0053bbffce09062bee4bcc499b0fbe7a57b879f1efe088d6d8d4c7adcdef9b"
+checksum = "1f168d99749d307be9de54d23fd226628d99768225ef08f6ffb52e0182a27746"
 dependencies = [
  "cfg-if",
  "glob",
@@ -5547,11 +5546,11 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.27.0"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce1475c515a4f03a8a7129bb5228b81a781a86cb0b3fbbc19e1c556d491a401f"
+checksum = "f64def088c51c9510a8579e3c5d67c65349dcf755e5479ad3d010aa6454e2c32"
 dependencies = [
- "strum_macros 0.27.0",
+ "strum_macros 0.27.1",
 ]
 
 [[package]]
@@ -5569,9 +5568,9 @@ dependencies = [
 
 [[package]]
 name = "strum_macros"
-version = "0.27.0"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9688894b43459159c82bfa5a5fa0435c19cbe3c9b427fa1dd7b1ce0c279b18a7"
+checksum = "c77a8c5abcaf0f9ce05d62342b7d298c346515365c36b673df4ebe3ced01fde8"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -6012,9 +6011,9 @@ dependencies = [
 
 [[package]]
 name = "tempfile"
-version = "3.16.0"
+version = "3.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38c246215d7d24f48ae091a2902398798e05d978b24315d6efbc00ede9a8bb91"
+checksum = "22e5a0acb1f3f55f65cc4a866c361b2fb2a0ff6366785ae6fbb5f85df07ba230"
 dependencies = [
  "cfg-if",
  "fastrand",

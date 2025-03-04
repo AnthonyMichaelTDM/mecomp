@@ -20,7 +20,7 @@ exclude = ["external", "target", "assets", "scripts"]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = [
     "Anthony Rubick <68485672+AnthonyMichaelTDM@users.noreply.github.com>",
@@ -107,7 +107,7 @@ rodio = { version = "0.20.1", features = ["symphonia-all"] }
 rubato = { version = "0.16.0" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 shellexpand = "3.1"
-strum = { version = "0.27.0", features = ["derive"] }
+strum = { version = "0.27.1", features = ["derive"] }
 surrealdb = { version = "2.2", features = [
     "kv-mem",
     "kv-surrealkv",
@@ -146,9 +146,9 @@ one-or-many = { path = "one-or-many", version = "0.1.0" }
 
 # shared dev dependencies
 pretty_assertions = "1.4"
-rstest = "0.24.0"
+rstest = "0.25.0"
 rstest_reuse = { version = "0.7.0" }
-tempfile = { version = "3.16" }
+tempfile = { version = "3.17" }
 criterion = { version = "0.5.1", features = ["html_reports"] }
 
 # [lints.rust]

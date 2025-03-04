@@ -259,7 +259,7 @@ Note about bugs: if you encounter a bug, please provide as much information as p
   - [x] these criteria should be able to be combined with set/boolean logic (union (AND), intersection (OR), difference (NOT))
     - difference (NOT) is not currently supported
   - [x] criteria can be scoped to allow for more complex queries
-  - [ ] TUI integration
+  - [x] TUI integration
     - [ ] a capable but intuitive query-building interface
 - [x] maintains multiple auto-curated "Collections" created by K-Means clustering on the Music Library, these collections will represent the broad themes within your music collection, but are not tied to human defined genres
   - I'm not sure how best to name these collections, may be "genres", "moods", "styles", etc. I'm not sure if these should be user editable or not, but I'm leaning towards not.
