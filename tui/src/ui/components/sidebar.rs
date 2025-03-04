@@ -20,7 +20,7 @@ use crate::{
         component::ActiveComponent,
     },
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_NORMAL},
+        colors::{border_color, TEXT_HIGHLIGHT, TEXT_NORMAL},
         components::{Component, ComponentRender, RenderProps},
         widgets::popups::PopupType,
         AppState,
@@ -137,29 +137,23 @@ impl Component for Sidebar {
         match key.code {
             // move the selected index up
             KeyCode::Up => {
-                if let Some(selected) = self.list_state.selected() {
-                    let new_selected = if selected == 0 {
-                        SIDEBAR_ITEMS.len() - 1
-                    } else {
-                        selected - 1
-                    };
-                    self.list_state.select(Some(new_selected));
-                } else {
-                    self.list_state.select(Some(SIDEBAR_ITEMS.len() - 1));
-                }
+                let new_selection = self
+                    .list_state
+                    .selected()
+                    .filter(|selected| *selected > 0)
+                    .map_or_else(|| SIDEBAR_ITEMS.len() - 1, |selected| selected - 1);
+
+                self.list_state.select(Some(new_selection));
             }
             // move the selected index down
             KeyCode::Down => {
-                if let Some(selected) = self.list_state.selected() {
-                    let new_selected = if selected == SIDEBAR_ITEMS.len() - 1 {
-                        0
-                    } else {
-                        selected + 1
-                    };
-                    self.list_state.select(Some(new_selected));
-                } else {
-                    self.list_state.select(Some(0));
-                }
+                let new_selection = self
+                    .list_state
+                    .selected()
+                    .filter(|selected| *selected < SIDEBAR_ITEMS.len() - 1)
+                    .map_or(0, |selected| selected + 1);
+
+                self.list_state.select(Some(new_selection));
             }
             // select the current item
             KeyCode::Enter => {
@@ -226,11 +220,7 @@ impl Component for Sidebar {
 
 impl ComponentRender<RenderProps> for Sidebar {
     fn render_border(&self, frame: &mut Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let border = Block::bordered()
             .title_top("Sidebar")

@@ -3,7 +3,7 @@
 use ratatui::{layout::Alignment, style::Style, text::Line, widgets::Block};
 
 use crate::ui::{
-    colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_NORMAL},
+    colors::{border_color, TEXT_NORMAL},
     components::{Component, ComponentRender, RenderProps},
     AppState,
 };
@@ -44,11 +44,7 @@ impl Component for NoneView {
 
 impl ComponentRender<RenderProps> for NoneView {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let block = Block::bordered().border_style(border_style);
         let area = block.inner(props.area);

@@ -1,6 +1,6 @@
 //! Views for both a single artist, and the library of artists.
 
-use std::sync::Mutex;
+use std::{ops::Not as _, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_storage::db::schemas::artist::Artist;
@@ -15,7 +15,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, AudioAction, PopupAction, QueueAction, ViewAction},
     ui::{
-        colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT},
+        colors::{border_color, TEXT_HIGHLIGHT},
         components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         widgets::{
             popups::PopupType,
@@ -67,11 +67,9 @@ impl Component for LibraryArtistsView {
     {
         let mut artists = state.library.artists.clone();
         self.props.sort_mode.sort_items(&mut artists);
-        let tree_state = if state.active_view == ActiveView::Artists {
-            self.tree_state
-        } else {
-            Mutex::new(CheckTreeState::default())
-        };
+        let tree_state = (state.active_view == ActiveView::Artists)
+            .then_some(self.tree_state)
+            .unwrap_or_default();
 
         Self {
             props: Props {
@@ -92,7 +90,9 @@ impl Component for LibraryArtistsView {
             // arrow keys
             KeyCode::PageUp => {
                 self.tree_state.lock().unwrap().select_relative(|current| {
-                    current.map_or(self.props.artists.len() - 1, |c| c.saturating_sub(10))
+                    current.map_or(self.props.artists.len().saturating_sub(1), |c| {
+                        c.saturating_sub(10)
+                    })
                 });
             }
             KeyCode::Up => {
@@ -189,11 +189,7 @@ impl Component for LibraryArtistsView {
 
 impl ComponentRender<RenderProps> for LibraryArtistsView {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // draw primary border
         let border = Block::bordered()
@@ -211,17 +207,14 @@ impl ComponentRender<RenderProps> for LibraryArtistsView {
         let border = Block::default()
             .borders(Borders::TOP | Borders::BOTTOM)
             .title_top(
-                if self
-                    .tree_state
+                self.tree_state
                     .lock()
                     .unwrap()
                     .get_checked_things()
                     .is_empty()
-                {
-                    ""
-                } else {
-                    "q: add to queue | r: start radio | p: add to playlist "
-                },
+                    .not()
+                    .then_some("q: add to queue | r: start radio | p: add to playlist ")
+                    .unwrap_or_default(),
             )
             .title_bottom("s/S: change sort")
             .border_style(border_style);

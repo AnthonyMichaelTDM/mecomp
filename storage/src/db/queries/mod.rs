@@ -19,7 +19,6 @@ pub fn define_analyzer(
     tokenizer: Option<Tokenizer>,
     filters: &[&str],
 ) -> DefineStatement {
-    // allowed to maintain style (and make it easier to revert to a vec of tokenizers if needed)
     let tokenizer_string = tokenizer.map_or_else(String::new, |t| format!(" TOKENIZERS {t}"));
 
     let filter_string = filters.is_empty().then(String::new).unwrap_or_else(|| {

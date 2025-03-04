@@ -18,6 +18,15 @@ pub const TEXT_HIGHLIGHT_ALT: material::HexColor = material::RED_200;
 pub const GAUGE_FILLED: material::HexColor = material::WHITE;
 pub const GAUGE_UNFILLED: material::HexColor = material::BLACK;
 
+#[must_use]
+pub const fn border_color(is_focused: bool) -> material::HexColor {
+    if is_focused {
+        BORDER_FOCUSED
+    } else {
+        BORDER_UNFOCUSED
+    }
+}
+
 pub mod material {
     //! # Material Design Colors
     //!

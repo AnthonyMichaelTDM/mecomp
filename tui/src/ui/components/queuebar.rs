@@ -17,9 +17,7 @@ use crate::{
         action::{Action, AudioAction, ComponentAction, QueueAction},
         component::ActiveComponent,
     },
-    ui::colors::{
-        BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
-    },
+    ui::colors::{border_color, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL},
 };
 
 use super::{AppState, Component, ComponentRender, RenderProps};
@@ -196,33 +194,34 @@ impl Component for QueueBar {
     }
 }
 
+fn split_area(area: Rect) -> [Rect; 3] {
+    let [info_area, content_area, instructions_area] = *Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(
+            [
+                Constraint::Length(2),
+                Constraint::Min(0),
+                Constraint::Length(3),
+            ]
+            .as_ref(),
+        )
+        .split(area)
+    else {
+        panic!("Failed to split queue bar area")
+    };
+    [info_area, content_area, instructions_area]
+}
+
 impl ComponentRender<RenderProps> for QueueBar {
     fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
-        let border_style = if props.is_focused {
-            Style::default().fg(BORDER_FOCUSED.into())
-        } else {
-            Style::default().fg(BORDER_UNFOCUSED.into())
-        };
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let border = Block::bordered().title("Queue").border_style(border_style);
         frame.render_widget(&border, props.area);
         let area = border.inner(props.area);
 
         // split up area
-        let [info_area, content_area, instructions_area] = *Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(
-                [
-                    Constraint::Length(2),
-                    Constraint::Min(0),
-                    Constraint::Length(3),
-                ]
-                .as_ref(),
-            )
-            .split(area)
-        else {
-            panic!("Failed to split queue bar area");
-        };
+        let [info_area, content_area, instructions_area] = split_area(area);
 
         // border the content area
         let border = Block::default()
@@ -235,11 +234,7 @@ impl ComponentRender<RenderProps> for QueueBar {
         // render queue info chunk
         let queue_info = format!(
             "repeat: {}",
-            match self.props.repeat_mode {
-                RepeatMode::None => "none",
-                RepeatMode::One => "one",
-                RepeatMode::All => "all",
-            }
+            self.props.repeat_mode.to_string().to_lowercase()
         );
         frame.render_widget(
             Paragraph::new(queue_info)
