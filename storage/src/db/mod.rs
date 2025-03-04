@@ -71,7 +71,6 @@ pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
 }
 
 #[cfg(feature = "db")]
-#[allow(clippy::missing_inline_in_public_items)]
 pub(crate) async fn register_custom_analyzer<C>(db: &Surreal<C>) -> surrealdb::Result<()>
 where
     C: surrealdb::Connection,
@@ -86,7 +85,7 @@ where
             "ascii",
             "lowercase",
             "edgengram(1, 10)",
-            "snowball(english)",
+            "snowball(English)",
         ],
     ))
     .await?;

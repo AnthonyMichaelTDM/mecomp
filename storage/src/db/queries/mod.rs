@@ -1,7 +1,4 @@
-use surrealdb::{
-    opt::IntoQuery,
-    sql::{statements::DefineStatement, Statement, Tokenizer},
-};
+use surrealdb::{opt::IntoQuery, sql::Tokenizer};
 
 pub mod album;
 #[cfg(feature = "analysis")]
@@ -14,12 +11,12 @@ pub mod song;
 
 /// NOTE: for some reason, having more than one tokenizer causes the parser to fail, so we're just not going to support that for now
 #[must_use]
+#[track_caller]
 pub fn define_analyzer(
     name: &str,
     tokenizer: Option<Tokenizer>,
     filters: &[&str],
-) -> DefineStatement {
-    // allowed to maintain style (and make it easier to revert to a vec of tokenizers if needed)
+) -> impl IntoQuery {
     let tokenizer_string = tokenizer.map_or_else(String::new, |t| format!(" TOKENIZERS {t}"));
 
     let filter_string = filters.is_empty().then(String::new).unwrap_or_else(|| {
@@ -27,15 +24,7 @@ pub fn define_analyzer(
         format!(" FILTERS {filters}")
     });
 
-    match format!("DEFINE ANALYZER OVERWRITE {name}{tokenizer_string}{filter_string} ;")
-        .into_query()
-        .as_ref()
-        .map(|v| v.first())
-    {
-        Ok(Some(Statement::Define(define_statement))) => define_statement.clone(),
-        Err(e) => panic!("Failed to parse define analyzer statement: {e}"),
-        _ => unreachable!(),
-    }
+    format!("DEFINE ANALYZER OVERWRITE {name}{tokenizer_string}{filter_string}")
 }
 
 #[cfg(test)]
@@ -89,10 +78,9 @@ mod tests {
         #[case] expected: &str,
     ) {
         let statement = define_analyzer(name, tokenizer, &filters);
+        let statements = statement.into_query().unwrap();
 
-        assert_eq!(
-            statement.into_query().unwrap(),
-            expected.into_query().unwrap()
-        );
+        assert_eq!(statements, expected.into_query().unwrap());
+        assert!(!statements.is_empty());
     }
 }
