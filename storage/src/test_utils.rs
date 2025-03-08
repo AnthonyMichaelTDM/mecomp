@@ -187,26 +187,24 @@ pub async fn create_song_with_overrides<C: Connection>(
     let id = Song::generate_id();
     let song = Song {
         id: id.clone(),
-        title: Arc::from(format!("Song {song}").as_str()),
+        title: Into::into(format!("Song {song}").as_str()),
         artist: artists
             .iter()
             .map(|a| format!("Artist {a}"))
-            .map(Arc::from)
             .collect::<Vec<_>>()
             .into(),
         album_artist: album_artists
             .iter()
             .map(|a| format!("Artist {a}"))
-            .map(Arc::from)
             .collect::<Vec<_>>()
             .into(),
-        album: Arc::from(format!("Album {album}").as_str()),
-        genre: OneOrMany::One(Arc::from(format!("Genre {genre}").as_str())),
+        album: format!("Album {album}"),
+        genre: OneOrMany::One(format!("Genre {genre}")),
         runtime: Duration::from_secs(120),
         track: None,
         disc: None,
         release_year: None,
-        extension: Arc::from("mp3"),
+        extension: "mp3".into(),
         path: PathBuf::from_str(&format!("{}.mp3", id.id))?,
     };
 

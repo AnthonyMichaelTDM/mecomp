@@ -1,5 +1,5 @@
 //! CRUD operations for the collection table
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use surrealdb::{Connection, RecordId, Surreal};
 use tracing::instrument;
@@ -138,7 +138,7 @@ impl Collection {
     pub async fn freeze<C: Connection>(
         db: &Surreal<C>,
         id: CollectionId,
-        name: Arc<str>,
+        name: String,
     ) -> StorageResult<Playlist> {
         // create the new playlist
         let playlist = Playlist::create(
@@ -235,7 +235,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Collection not found"))?;
 
-        assert_eq!(read.name, "Updated Name".into());
+        assert_eq!(read.name, "Updated Name");
         assert_eq!(Some(read), updated);
         Ok(())
     }
@@ -315,7 +315,7 @@ mod tests {
         assert_eq!(songs, vec![song.clone()]);
         assert_eq!(playlist.song_count, 1);
         assert_eq!(playlist.runtime, song.runtime);
-        assert_eq!(playlist.name, "Frozen Playlist".into());
+        assert_eq!(playlist.name, "Frozen Playlist");
 
         Ok(())
     }

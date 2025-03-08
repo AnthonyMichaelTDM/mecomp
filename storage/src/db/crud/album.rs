@@ -1,5 +1,5 @@
 //! CRUD operations for the album table
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use log::warn;
 use surrealdb::{Connection, RecordId, Surreal};
@@ -90,7 +90,7 @@ impl Album {
     pub async fn read_by_name_and_album_artist<C: Connection>(
         db: &Surreal<C>,
         title: &str,
-        album_artists: OneOrMany<Arc<str>>,
+        album_artists: OneOrMany<String>,
     ) -> StorageResult<Option<Self>> {
         if album_artists == OneOrMany::None {
             return Ok(None);
@@ -111,7 +111,7 @@ impl Album {
     pub async fn read_or_create_by_name_and_album_artist<C: Connection>(
         db: &Surreal<C>,
         title: &str,
-        album_artists: OneOrMany<Arc<str>>,
+        album_artists: OneOrMany<String>,
     ) -> StorageResult<Option<Self>> {
         if let Ok(Some(album)) =
             Self::read_by_name_and_album_artist(db, title, album_artists.clone()).await
@@ -298,7 +298,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to read album"))?;
 
-        assert_eq!(read.title, "New Title".into());
+        assert_eq!(read.title, "New Title");
         assert_eq!(Some(read), updated);
         Ok(())
     }

@@ -42,7 +42,7 @@ impl Playlist {
             db,
             Self {
                 id: Self::generate_id(),
-                name: format!("{} (copy)", playlist.name).into(),
+                name: format!("{} (copy)", playlist.name),
                 song_count: 0,
                 runtime: Duration::from_secs(0),
             },
@@ -222,7 +222,7 @@ mod tests {
             .ok_or_else(|| anyhow!("Playlist not found after being cloned"))?;
 
         // ensure the playlist was cloned correctly
-        assert_str_eq!(result.name, format!("{} (copy)", playlist.name).into());
+        assert_str_eq!(result.name, playlist.name + " (copy)");
         assert_eq!(result.song_count, 1);
         assert_eq!(result.runtime, song.runtime);
 
@@ -249,7 +249,7 @@ mod tests {
         let db = init_test_database().await?;
         let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
-        let result = Playlist::read_by_name(&db, playlist.name.as_ref().to_string()).await?;
+        let result = Playlist::read_by_name(&db, playlist.name.clone()).await?;
         assert_eq!(result, Some(playlist));
         Ok(())
     }
@@ -279,7 +279,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Playlist not found"))?;
 
-        assert_eq!(read.name, "Updated Name".into());
+        assert_eq!(read.name, "Updated Name");
         assert_eq!(Some(read), updated);
         Ok(())
     }

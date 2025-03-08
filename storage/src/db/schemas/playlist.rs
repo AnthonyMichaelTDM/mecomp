@@ -1,5 +1,4 @@
 #![allow(clippy::module_name_repetitions)]
-use std::sync::Arc;
 
 #[cfg(not(feature = "db"))]
 use super::{Id, Thing};
@@ -24,7 +23,7 @@ pub struct Playlist {
 
     /// The [`Playlist`]'s name.
     #[cfg_attr(feature = "db", field(dt = "string", index(unique)))]
-    pub name: Arc<str>,
+    pub name: String,
 
     /// Total runtime.
     #[cfg_attr(feature = "db", field(dt = "duration"))]
@@ -54,7 +53,7 @@ impl Playlist {
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct PlaylistChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub name: Option<Arc<str>>,
+    pub name: Option<String>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     #[cfg_attr(
         feature = "db",
@@ -74,7 +73,7 @@ impl PlaylistChangeSet {
 
     #[must_use]
     #[inline]
-    pub fn name(mut self, name: impl Into<Arc<str>>) -> Self {
+    pub fn name(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
         self
     }
@@ -98,7 +97,7 @@ impl PlaylistChangeSet {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PlaylistBrief {
     pub id: PlaylistId,
-    pub name: Arc<str>,
+    pub name: String,
     pub runtime: std::time::Duration,
     pub songs: usize,
 }
@@ -138,7 +137,7 @@ mod tests {
     fn playlist() -> Playlist {
         Playlist {
             id: Thing::from((TABLE_NAME, "id")),
-            name: Arc::from("playlist"),
+            name: "playlist".into(),
             runtime: Duration::from_secs(3600),
             song_count: 100,
         }
@@ -148,7 +147,7 @@ mod tests {
     fn playlist_brief() -> PlaylistBrief {
         PlaylistBrief {
             id: Thing::from((TABLE_NAME, "id")),
-            name: Arc::from("playlist"),
+            name: "playlist".into(),
             runtime: Duration::from_secs(3600),
             songs: 100,
         }

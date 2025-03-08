@@ -363,7 +363,7 @@ pub async fn recluster<C: Connection>(
                 db,
                 Collection {
                     id: Collection::generate_id(),
-                    name: format!("Collection {i}").into(),
+                    name: format!("Collection {i}"),
                     runtime: Duration::default(),
                     song_count: Default::default(),
                 },

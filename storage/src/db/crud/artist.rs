@@ -1,5 +1,5 @@
 //! CRUD operations for the artist table
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use surrealdb::{Connection, RecordId, Surreal};
 use tracing::instrument;
@@ -60,7 +60,7 @@ impl Artist {
     #[instrument]
     pub async fn read_or_create_by_names<C: Connection>(
         db: &Surreal<C>,
-        names: OneOrMany<Arc<str>>,
+        names: OneOrMany<String>,
     ) -> StorageResult<Vec<Self>> {
         let mut artists = Vec::with_capacity(names.len());
         for name in &names {
@@ -86,7 +86,7 @@ impl Artist {
     #[instrument]
     pub async fn read_by_names<C: Connection>(
         db: &Surreal<C>,
-        names: Vec<Arc<str>>,
+        names: Vec<String>,
     ) -> StorageResult<Vec<Self>> {
         // select artists records whose `name` field is in $names
         Ok(db
@@ -327,7 +327,7 @@ mod tests {
         let db = init_test_database().await?;
         let artist = create_artist();
         let mut artist2 = create_artist();
-        artist2.name = "Test Artist 2".to_string().into();
+        artist2.name = "Test Artist 2".to_string();
 
         // test None
         let read = Artist::read_one_or_many(&db, OneOrMany::None).await?;
@@ -359,7 +359,7 @@ mod tests {
         let db = init_test_database().await?;
         let artist = create_artist();
         let mut artist2 = create_artist();
-        artist2.name = "Test Artist 2".to_string().into();
+        artist2.name = "Test Artist 2".to_string();
 
         let created = Artist::create(&db, artist.clone())
             .await?
@@ -405,7 +405,7 @@ mod tests {
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
         let changes = ArtistChangeSet {
-            name: Some("New Name".to_string().into()),
+            name: Some("New Name".to_string()),
             ..Default::default()
         };
 
@@ -414,7 +414,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
 
-        assert_eq!(read.name, "New Name".to_string().into());
+        assert_eq!(read.name, "New Name".to_string());
         assert_eq!(Some(read), updated);
         Ok(())
     }
@@ -629,9 +629,9 @@ mod tests {
         };
         let song = Song {
             id: Song::generate_id(),
-            title: "Test Song".to_string().into(),
+            title: "Test Song".to_string(),
             artist: OneOrMany::One(artist.name.clone()),
-            album: "Test Album ".to_string().into(),
+            album: "Test Album ".to_string(),
             runtime: Duration::from_secs(5),
             track: Some(1),
             disc: Some(1),

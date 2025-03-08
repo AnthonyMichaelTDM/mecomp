@@ -322,7 +322,7 @@ mod tests {
                 playlist.id.into(),
                 DynamicPlaylistChangeSet {
                     name: Some(playlist.name.clone()),
-                    query: Some(playlist.query.clone())
+                    query: Some(playlist.query)
                 }
             )))
         );

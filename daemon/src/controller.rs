@@ -911,7 +911,7 @@ impl MusicPlayer for MusicPlayerServer {
             &self.db,
             Playlist {
                 id: Playlist::generate_id(),
-                name: name.into(),
+                name,
                 runtime: Duration::from_secs(0),
                 song_count: 0,
             },
@@ -1103,7 +1103,7 @@ impl MusicPlayer for MusicPlayerServer {
         name: String,
     ) -> Result<PlaylistId, SerializableLibraryError> {
         info!("Freezing collection: {id:?} ({name})");
-        Ok(Collection::freeze(&self.db, id.into(), name.into())
+        Ok(Collection::freeze(&self.db, id.into(), name)
             .await
             .map(|p| p.id.into())?)
     }
@@ -1178,16 +1178,9 @@ impl MusicPlayer for MusicPlayerServer {
         let id = DynamicPlaylist::generate_id();
         info!("Creating new DP: {id:?} ({name})");
 
-        match DynamicPlaylist::create(
-            &self.db,
-            DynamicPlaylist {
-                id,
-                name: name.into(),
-                query,
-            },
-        )
-        .await
-        .tap_err(|e| warn!("Error in dynamic_playlist_create: {e}"))?
+        match DynamicPlaylist::create(&self.db, DynamicPlaylist { id, name, query })
+            .await
+            .tap_err(|e| warn!("Error in dynamic_playlist_create: {e}"))?
         {
             Some(dp) => Ok(dp.id.into()),
             None => Err(Error::NotCreated.into()),

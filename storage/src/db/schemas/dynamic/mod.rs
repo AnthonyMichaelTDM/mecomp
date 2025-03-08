@@ -1,5 +1,4 @@
 #![allow(clippy::module_name_repetitions)]
-use std::sync::Arc;
 
 #[cfg(not(feature = "db"))]
 use super::{Id, Thing};
@@ -29,7 +28,7 @@ pub struct DynamicPlaylist {
 
     /// The [`DynamicPlaylist`]'s name.
     #[cfg_attr(feature = "db", field(dt = "string", index(unique)))]
-    pub name: Arc<str>,
+    pub name: String,
 
     /// The query that generates the list of songs.
     /// This is a type that can compile into an SQL query that returns a list of song IDs.
@@ -65,7 +64,7 @@ impl DynamicPlaylist {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DynamicPlaylistChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub name: Option<Arc<str>>,
+    pub name: Option<String>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub query: Option<Query>,
 }
@@ -79,7 +78,7 @@ impl DynamicPlaylistChangeSet {
 
     #[must_use]
     #[inline]
-    pub fn name(mut self, name: impl Into<Arc<str>>) -> Self {
+    pub fn name(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
         self
     }
@@ -208,7 +207,7 @@ mod query_tests {
     fn test_compile(#[case] query: Query, #[case] expected: impl IntoQuery) {
         let dynamic_playlist = DynamicPlaylist {
             id: DynamicPlaylist::generate_id(),
-            name: Arc::from("test"),
+            name: "test".into(),
             query,
         };
 
