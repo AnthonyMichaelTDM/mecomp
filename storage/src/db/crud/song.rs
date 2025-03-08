@@ -374,11 +374,11 @@ mod test {
 
         let song = Song {
             id: Song::generate_id(),
-            title: "Test Song".to_string().into(),
-            artist: vec!["Test Artist".to_string().into()].into(),
-            album_artist: vec!["Test Artist".to_string().into()].into(),
-            album: "Test Album".to_string().into(),
-            genre: OneOrMany::One("Test Genre".to_string().into()),
+            title: "Test Song".to_string(),
+            artist: vec!["Test Artist".to_string()].into(),
+            album_artist: vec!["Test Artist".to_string()].into(),
+            album: "Test Album".to_string(),
+            genre: OneOrMany::One("Test Genre".to_string()),
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
@@ -690,7 +690,7 @@ mod test {
         let song =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
         let changes = SongChangeSet {
-            title: Some("Updated Title ".to_string().into()),
+            title: Some("Updated Title ".to_string()),
             runtime: Some(Duration::from_secs(10)),
             track: Some(Some(2)),
             disc: Some(Some(2)),
@@ -718,14 +718,14 @@ mod test {
     async fn test_update_artist() -> Result<()> {
         let db = init_test_database().await?;
         let changes = SongChangeSet {
-            artist: Some(OneOrMany::One("Artist".to_string().into())),
+            artist: Some(OneOrMany::One("Artist".to_string())),
             ..Default::default()
         };
         let song_case = arb_song_case()();
         let song = create_song_with_overrides(&db, song_case.clone(), changes.clone()).await?;
         // test updating the artist
         let changes = SongChangeSet {
-            artist: Some(OneOrMany::One("Updated Artist".to_string().into())),
+            artist: Some(OneOrMany::One("Updated Artist".to_string())),
             ..Default::default()
         };
         let updated = Song::update(&db, song.id.clone(), changes.clone())
@@ -753,16 +753,16 @@ mod test {
     async fn test_update_album_artist() -> Result<()> {
         let db = init_test_database().await?;
         let changes = SongChangeSet {
-            artist: Some(OneOrMany::One("Album Artist".to_string().into())),
-            album_artist: Some(OneOrMany::One("Album Artist".to_string().into())),
+            artist: Some(OneOrMany::One("Album Artist".to_string())),
+            album_artist: Some(OneOrMany::One("Album Artist".to_string())),
             ..Default::default()
         };
         let song_case = arb_song_case()();
         let song = create_song_with_overrides(&db, song_case.clone(), changes.clone()).await?;
         // test updating the album artist
         let changes = SongChangeSet {
-            artist: Some(OneOrMany::One("Updated Album Artist".to_string().into())),
-            album_artist: Some(OneOrMany::One("Updated Album Artist".to_string().into())),
+            artist: Some(OneOrMany::One("Updated Album Artist".to_string())),
+            album_artist: Some(OneOrMany::One("Updated Album Artist".to_string())),
             ..Default::default()
         };
         let updated = Song::update(&db, song.id.clone(), changes.clone())
@@ -784,7 +784,7 @@ mod test {
         // the new artist should be the only artist in the database
         let artists = Artist::read_all(&db).await?;
         assert_eq!(artists.len(), 1);
-        assert_eq!(artists[0].name, "Updated Album Artist".into());
+        assert_eq!(artists[0].name, "Updated Album Artist");
         Ok(())
     }
 
@@ -792,7 +792,7 @@ mod test {
     async fn test_update_album() -> Result<()> {
         let db = init_test_database().await?;
         let changes = SongChangeSet {
-            album: Some("Updated Album".to_string().into()),
+            album: Some("Updated Album".to_string()),
             ..Default::default()
         };
         // test updating the album

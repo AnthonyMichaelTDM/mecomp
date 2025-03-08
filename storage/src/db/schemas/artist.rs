@@ -1,5 +1,4 @@
 #![allow(clippy::module_name_repetitions)]
-use std::sync::Arc;
 
 #[cfg(not(feature = "db"))]
 use super::{Id, Thing};
@@ -27,7 +26,7 @@ pub struct Artist {
         feature = "db",
         field(dt = "string", index(unique), index(text("custom_analyzer")))
     )]
-    pub name: Arc<str>,
+    pub name: String,
 
     /// Total runtime.
     #[cfg_attr(feature = "db", field(dt = "duration"))]
@@ -61,7 +60,7 @@ impl Artist {
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct ArtistChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub name: Option<Arc<str>>,
+    pub name: Option<String>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     #[cfg_attr(
         feature = "db",
@@ -80,7 +79,7 @@ pub struct ArtistChangeSet {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ArtistBrief {
     pub id: ArtistId,
-    pub name: Arc<str>,
+    pub name: String,
     pub runtime: std::time::Duration,
     pub albums: usize,
     pub songs: usize,
@@ -123,7 +122,7 @@ mod tests {
     fn artist() -> Artist {
         Artist {
             id: Thing::from((TABLE_NAME, "id")),
-            name: Arc::from("artist"),
+            name: "artist".into(),
             runtime: Duration::from_secs(3600),
             album_count: 10,
             song_count: 100,
@@ -134,7 +133,7 @@ mod tests {
     fn artist_brief() -> ArtistBrief {
         ArtistBrief {
             id: Thing::from((TABLE_NAME, "id")),
-            name: Arc::from("artist"),
+            name: "artist".into(),
             runtime: Duration::from_secs(3600),
             albums: 10,
             songs: 100,

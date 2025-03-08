@@ -580,7 +580,7 @@ mod tests {
 
     #[apply(compilables)]
     fn test_display<T: Compile + std::fmt::Display>(#[case] input: T, #[case] expected: &str) {
-        let displayed = format!("{}", input);
+        let displayed = format!("{input}");
         assert_eq!(displayed, expected);
     }
 

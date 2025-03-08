@@ -539,9 +539,9 @@ mod sort_mode_tests {
         ];
 
         NameSort::default().sort_items(&mut songs);
-        assert_eq!(songs[0].name, "A".into());
-        assert_eq!(songs[1].name, "B".into());
-        assert_eq!(songs[2].name, "C".into());
+        assert_eq!(songs[0].name, "A");
+        assert_eq!(songs[1].name, "B");
+        assert_eq!(songs[2].name, "C");
     }
 }
 

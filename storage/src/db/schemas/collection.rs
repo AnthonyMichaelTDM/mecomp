@@ -1,8 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
 //! A collection is an auto currated list of similar songs.
 
-use std::sync::Arc;
-
 #[cfg(not(feature = "db"))]
 use super::{Id, Thing};
 use std::time::Duration;
@@ -24,7 +22,7 @@ pub struct Collection {
 
     /// The name of the collection.
     #[cfg_attr(feature = "db", field(dt = "string", index(unique)))]
-    pub name: Arc<str>,
+    pub name: String,
 
     /// Total runtime.
     #[cfg_attr(feature = "db", field(dt = "duration"))]
@@ -54,7 +52,7 @@ impl Collection {
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct CollectionChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub name: Option<Arc<str>>,
+    pub name: Option<String>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     #[cfg_attr(
         feature = "db",
@@ -69,7 +67,7 @@ pub struct CollectionChangeSet {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CollectionBrief {
     pub id: CollectionId,
-    pub name: Arc<str>,
+    pub name: String,
     pub runtime: std::time::Duration,
     pub songs: usize,
 }
@@ -109,7 +107,7 @@ mod tests {
     fn collection() -> Collection {
         Collection {
             id: Thing::from((TABLE_NAME, "id")),
-            name: Arc::from("collection"),
+            name: "collection".into(),
             runtime: Duration::from_secs(3600),
             song_count: 100,
         }
@@ -119,7 +117,7 @@ mod tests {
     fn collection_brief() -> CollectionBrief {
         CollectionBrief {
             id: Thing::from((TABLE_NAME, "id")),
-            name: Arc::from("collection"),
+            name: "collection".into(),
             runtime: Duration::from_secs(3600),
             songs: 100,
         }

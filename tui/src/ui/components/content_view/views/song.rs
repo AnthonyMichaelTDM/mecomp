@@ -324,9 +324,9 @@ mod sort_mode_tests {
         ];
 
         SongSort::Title.sort_items(&mut songs);
-        assert_eq!(songs[0].title, "A".into());
-        assert_eq!(songs[1].title, "B".into());
-        assert_eq!(songs[2].title, "C".into());
+        assert_eq!(songs[0].title, "A");
+        assert_eq!(songs[1].title, "B");
+        assert_eq!(songs[2].title, "C");
 
         SongSort::Artist.sort_items(&mut songs);
         assert_eq!(songs[0].artist, OneOrMany::One("A".into()));
@@ -334,9 +334,9 @@ mod sort_mode_tests {
         assert_eq!(songs[2].artist, OneOrMany::One("C".into()));
 
         SongSort::Album.sort_items(&mut songs);
-        assert_eq!(songs[0].album, "A".into());
-        assert_eq!(songs[1].album, "B".into());
-        assert_eq!(songs[2].album, "C".into());
+        assert_eq!(songs[0].album, "A");
+        assert_eq!(songs[1].album, "B");
+        assert_eq!(songs[2].album, "C");
 
         SongSort::AlbumArtist.sort_items(&mut songs);
         assert_eq!(songs[0].album_artist, OneOrMany::One("A".into()));

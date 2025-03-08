@@ -307,9 +307,9 @@ mod sort_mode_tests {
         ];
 
         AlbumSort::Title.sort_items(&mut albums);
-        assert_eq!(albums[0].title, "A".into());
-        assert_eq!(albums[1].title, "B".into());
-        assert_eq!(albums[2].title, "C".into());
+        assert_eq!(albums[0].title, "A");
+        assert_eq!(albums[1].title, "B");
+        assert_eq!(albums[2].title, "C");
 
         AlbumSort::Artist.sort_items(&mut albums);
         assert_eq!(albums[0].artist, OneOrMany::One("A".into()));

@@ -736,7 +736,7 @@ mod editor_tests {
         assert_eq!(
             action_rx.blocking_recv(),
             Some(Action::Library(LibraryAction::RenamePlaylist(
-                playlist.id.clone().into(),
+                playlist.id.into(),
                 "Test Playlista".into()
             )))
         );

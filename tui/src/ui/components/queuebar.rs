@@ -275,7 +275,7 @@ impl ComponentRender<RenderProps> for QueueBar {
                     Style::default().fg(TEXT_NORMAL.into())
                 };
 
-                ListItem::new(song.title.as_ref()).style(style)
+                ListItem::new(song.title.as_str()).style(style)
             })
             .collect::<Vec<_>>();
 

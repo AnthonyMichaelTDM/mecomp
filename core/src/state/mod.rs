@@ -73,7 +73,7 @@ pub struct Percent(f32);
 impl Percent {
     #[must_use]
     #[inline]
-    pub fn new(value: f32) -> Self {
+    pub const fn new(value: f32) -> Self {
         Self(if value.is_finite() {
             value.clamp(0.0, 100.0)
         } else {

@@ -381,7 +381,7 @@ mod tests {
             ActiveView::Playlists => assert_eq!(view.name(), "Library Playlists View"),
             ActiveView::Playlist(_) => assert_eq!(view.name(), "Playlist View"),
             ActiveView::DynamicPlaylists => {
-                assert_eq!(view.name(), "Library Dynamic Playlists View")
+                assert_eq!(view.name(), "Library Dynamic Playlists View");
             }
             ActiveView::DynamicPlaylist(_) => assert_eq!(view.name(), "Dynamic Playlist View"),
             ActiveView::Collections => assert_eq!(view.name(), "Library Collections View"),

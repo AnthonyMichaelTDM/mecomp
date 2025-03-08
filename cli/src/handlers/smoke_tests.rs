@@ -128,7 +128,7 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
         song_count: 1,
     };
     let dynamic = DynamicPlaylist {
-        id: dynamic_id.clone().into(),
+        id: dynamic_id.clone(),
         name: "Test Dynamic".into(),
         query: "title = \"Test Song\"".parse().unwrap(),
     };

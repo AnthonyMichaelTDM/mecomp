@@ -897,8 +897,7 @@ mod tests {
         let event = event_rx.try_recv();
         assert!(
             event.is_err(),
-            "Expected not to receive an event, but got {:?}",
-            event
+            "Expected not to receive an event, but got {event:?}"
         );
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
@@ -931,8 +930,7 @@ mod tests {
         let event = event_rx.try_recv();
         assert!(
             event.is_err(),
-            "Expected not to receive an event, but got {:?}",
-            event
+            "Expected not to receive an event, but got {event:?}"
         );
 
         // Pause: calling [Play] after this should cause playback to start again from the same position. //
@@ -950,8 +948,7 @@ mod tests {
         let event = event_rx.try_recv();
         assert!(
             event.is_err(),
-            "Expected not to receive an event, but got {:?}",
-            event
+            "Expected not to receive an event, but got {event:?}"
         );
 
         // Play: If paused, playback resumes from the current position. //
@@ -1006,8 +1003,7 @@ mod tests {
         let event = event_rx.try_recv();
         assert!(
             event.is_err(),
-            "Expected not to receive an event, but got {:?}",
-            event
+            "Expected not to receive an event, but got {event:?}"
         );
 
         // Stop: Calling Play after this should cause playback to start again from the beginning of the track. //
@@ -1190,7 +1186,7 @@ mod tests {
                     );
                     events[2] = true;
                 }
-                _ => panic!("Unexpected event: {:?}", event),
+                _ => panic!("Unexpected event: {event:?}"),
             }
         }
 
@@ -1230,7 +1226,7 @@ mod tests {
 
         // set loop status to track
         mpris.set_loop_status(LoopStatus::Track).await.unwrap();
-        if let Ok(StateChange::RepeatModeChanged(RepeatMode::One)) = event_rx.recv() {
+        if event_rx.recv() == Ok(StateChange::RepeatModeChanged(RepeatMode::One)) {
             mpris.state.write().await.repeat_mode = RepeatMode::One;
         } else {
             panic!("Expected a RepeatModeChanged event, but got something else");
@@ -1239,7 +1235,7 @@ mod tests {
 
         // set loop status to playlist
         mpris.set_loop_status(LoopStatus::Playlist).await.unwrap();
-        if let Ok(StateChange::RepeatModeChanged(RepeatMode::All)) = event_rx.recv() {
+        if event_rx.recv() == Ok(StateChange::RepeatModeChanged(RepeatMode::All)) {
             mpris.state.write().await.repeat_mode = RepeatMode::All;
         } else {
             panic!("Expected a RepeatModeChanged event, but got something else");
@@ -1248,7 +1244,7 @@ mod tests {
 
         // set loop status to none
         mpris.set_loop_status(LoopStatus::None).await.unwrap();
-        if let Ok(StateChange::RepeatModeChanged(RepeatMode::None)) = event_rx.recv() {
+        if event_rx.recv() == Ok(StateChange::RepeatModeChanged(RepeatMode::None)) {
             mpris.state.write().await.repeat_mode = RepeatMode::None;
         } else {
             panic!("Expected a RepeatModeChanged event, but got something else");
@@ -1447,7 +1443,7 @@ mod tests {
 
         // When setting, if a negative value is passed, the volume should be set to 0.0. //
         mpris.set_volume(-1.0).await.unwrap();
-        if let Ok(StateChange::VolumeChanged(0.0)) = event_rx.recv() {
+        if event_rx.recv() == Ok(StateChange::VolumeChanged(0.0)) {
             mpris.state.write().await.volume = 0.0;
             assert_eq!(mpris.volume().await.unwrap(), 0.0);
         } else {
@@ -1456,7 +1452,7 @@ mod tests {
 
         // set the volume back to 1.0
         mpris.set_volume(1.0).await.unwrap();
-        if let Ok(StateChange::VolumeChanged(1.0)) = event_rx.recv() {
+        if event_rx.recv() == Ok(StateChange::VolumeChanged(1.0)) {
             mpris.state.write().await.volume = 1.0;
             assert_eq!(mpris.volume().await.unwrap(), 1.0);
         } else {

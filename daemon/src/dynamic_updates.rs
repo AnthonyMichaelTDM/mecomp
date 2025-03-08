@@ -525,7 +525,7 @@ mod tests {
             .unwrap()
             .unwrap()
             .title
-            != "new song name".into()
+            != "new song name"
         {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }

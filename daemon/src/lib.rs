@@ -482,7 +482,7 @@ mod test_client_tests {
         let ctx = tarpc::context::current();
         let playlist = client.playlist_get(ctx, playlist_id).await?.unwrap();
 
-        assert_eq!(playlist.name, name.into());
+        assert_eq!(playlist.name, name);
 
         Ok(())
     }
@@ -509,7 +509,7 @@ mod test_client_tests {
         let ctx = tarpc::context::current();
         let playlist = client.playlist_get(ctx, playlist_id).await?.unwrap();
 
-        assert_eq!(playlist.name, "Playlist 0 (copy)".into());
+        assert_eq!(playlist.name, "Playlist 0 (copy)");
 
         Ok(())
     }
@@ -722,7 +722,7 @@ mod test_client_tests {
             .await?
             .unwrap();
 
-        assert_eq!(response.name, "Dynamic Playlist 0".into());
+        assert_eq!(response.name, "Dynamic Playlist 0");
         assert_eq!(response.query, query);
 
         Ok(())

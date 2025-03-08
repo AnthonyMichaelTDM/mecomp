@@ -1,7 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
 //----------------------------------------------------------------------------------------- std lib
 use std::path::PathBuf;
-use std::sync::Arc;
 //--------------------------------------------------------------------------------- other libraries
 #[cfg(not(feature = "db"))]
 use super::{Id, Thing};
@@ -29,25 +28,25 @@ pub struct Song {
     pub id: SongId,
     /// Title of the [`Song`].
     #[cfg_attr(feature = "db", field(dt = "string", index(text("custom_analyzer"))))]
-    pub title: Arc<str>,
+    pub title: String,
     /// Artist of the [`Song`]. (Can be multiple)
     #[cfg_attr(
         feature = "db",
         field(dt = "option<set<string> | string>", index(text("custom_analyzer")))
     )]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub artist: OneOrMany<Arc<str>>,
+    pub artist: OneOrMany<String>,
     /// album artist, if not found then defaults to first artist
     #[cfg_attr(feature = "db", field(dt = "option<set<string> | string>"))]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub album_artist: OneOrMany<Arc<str>>,
+    pub album_artist: OneOrMany<String>,
     /// album title
     #[cfg_attr(feature = "db", field(dt = "string"))]
-    pub album: Arc<str>,
+    pub album: String,
     /// Genre of the [`Song`]. (Can be multiple)
     #[cfg_attr(feature = "db", field(dt = "option<set<string> | string>"))]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub genre: OneOrMany<Arc<str>>,
+    pub genre: OneOrMany<String>,
 
     /// Total runtime of this [`Song`].
     #[cfg_attr(feature = "db", field(dt = "duration"))]
@@ -75,10 +74,10 @@ pub struct Song {
     pub release_year: Option<i32>,
 
     // /// The `MIME` type of this [`Song`].
-    // pub mime: Arc<str>,
+    // pub mime: String,
     /// The file extension of this [`Song`].
     #[cfg_attr(feature = "db", field(dt = "string"))]
-    pub extension: Arc<str>,
+    pub extension: String,
 
     /// The [`PathBuf`] this [`Song`] is located at.
     #[cfg_attr(feature = "db", field(dt = "string", index(unique)))]
@@ -97,15 +96,15 @@ impl Song {
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct SongChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub title: Option<Arc<str>>,
+    pub title: Option<String>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub artist: Option<OneOrMany<Arc<str>>>,
+    pub artist: Option<OneOrMany<String>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub album_artist: Option<OneOrMany<Arc<str>>>,
+    pub album_artist: Option<OneOrMany<String>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub album: Option<Arc<str>>,
+    pub album: Option<String>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub genre: Option<OneOrMany<Arc<str>>>,
+    pub genre: Option<OneOrMany<String>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     #[cfg_attr(
         feature = "db",
@@ -119,7 +118,7 @@ pub struct SongChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub release_year: Option<Option<i32>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub extension: Option<Arc<str>>,
+    pub extension: Option<String>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub path: Option<PathBuf>,
 }
@@ -128,10 +127,10 @@ pub struct SongChangeSet {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SongBrief {
     pub id: SongId,
-    pub title: Arc<str>,
-    pub artist: OneOrMany<Arc<str>>,
-    pub album: Arc<str>,
-    pub album_artist: OneOrMany<Arc<str>>,
+    pub title: String,
+    pub artist: OneOrMany<String>,
+    pub album: String,
+    pub album_artist: OneOrMany<String>,
     pub release_year: Option<i32>,
     pub runtime: std::time::Duration,
     pub path: PathBuf,
@@ -164,16 +163,16 @@ impl From<&Song> for SongBrief {
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SongMetadata {
-    pub title: Arc<str>,
-    pub artist: OneOrMany<Arc<str>>,
-    pub album: Arc<str>,
-    pub album_artist: OneOrMany<Arc<str>>,
-    pub genre: OneOrMany<Arc<str>>,
+    pub title: String,
+    pub artist: OneOrMany<String>,
+    pub album: String,
+    pub album_artist: OneOrMany<String>,
+    pub genre: OneOrMany<String>,
     pub runtime: Duration,
     pub release_year: Option<i32>,
     pub track: Option<u16>,
     pub disc: Option<u16>,
-    pub extension: Arc<str>,
+    pub extension: String,
     pub path: PathBuf,
 }
 
@@ -294,7 +293,7 @@ impl SongMetadata {
             None => tagged_file.first_tag().ok_or(SongIOError::MissingTags)?,
         };
 
-        let mut artist: OneOrMany<Arc<str>> = tag
+        let mut artist: OneOrMany<String> = tag
             .artist()
             .as_deref()
             // split the artist string into multiple artists using user provided separators
@@ -395,16 +394,16 @@ mod tests {
     fn song() -> Song {
         Song {
             id: Thing::from((TABLE_NAME, "id")),
-            title: Arc::from("song"),
-            artist: OneOrMany::One(Arc::from("artist")),
-            album_artist: OneOrMany::One(Arc::from("artist")),
-            album: Arc::from("album"),
-            genre: OneOrMany::One(Arc::from("genre")),
+            title: "song".into(),
+            artist: OneOrMany::One("artist".into()),
+            album_artist: OneOrMany::One("artist".into()),
+            album: "album".into(),
+            genre: OneOrMany::One("genre".into()),
             runtime: Duration::from_secs(3600),
             track: Some(1),
             disc: Some(1),
             release_year: Some(2021),
-            extension: Arc::from("mp3"),
+            extension: "mp3".into(),
             path: PathBuf::from("path"),
         }
     }
@@ -413,10 +412,10 @@ mod tests {
     fn song_brief() -> SongBrief {
         SongBrief {
             id: Thing::from((TABLE_NAME, "id")),
-            title: Arc::from("song"),
-            artist: OneOrMany::One(Arc::from("artist")),
-            album: Arc::from("album"),
-            album_artist: OneOrMany::One(Arc::from("artist")),
+            title: "song".into(),
+            artist: OneOrMany::One("artist".into()),
+            album: "album".into(),
+            album_artist: OneOrMany::One("artist".into()),
             release_year: Some(2021),
             runtime: Duration::from_secs(3600),
             path: PathBuf::from("path"),
@@ -433,63 +432,63 @@ mod tests {
 
     #[rstest]
     #[case::same(SongMetadata {
-        title: Arc::from("song"),
-        artist: OneOrMany::One(Arc::from("artist")),
-        album_artist: OneOrMany::One(Arc::from("artist")),
-        album: Arc::from("album"),
-        genre: OneOrMany::One(Arc::from("genre")),
+        title: "song".into(),
+        artist: OneOrMany::One("artist".into()),
+        album_artist: OneOrMany::One("artist".into()),
+        album: "album".into(),
+        genre: OneOrMany::One("genre".into()),
         runtime: Duration::from_secs(3600),
         track: Some(1),
         disc: Some(1),
         release_year: Some(2021),
-        extension: Arc::from("mp3"),
+        extension: "mp3".into(),
         path: PathBuf::from("path"),
     },
     Song {
         id: Thing::from((TABLE_NAME, "id")),
-        title: Arc::from("song"),
-        artist: OneOrMany::One(Arc::from("artist")),
-        album_artist: OneOrMany::One(Arc::from("artist")),
-        album: Arc::from("album"),
-        genre: OneOrMany::One(Arc::from("genre")),
+        title: "song".into(),
+        artist: OneOrMany::One("artist".into()),
+        album_artist: OneOrMany::One("artist".into()),
+        album: "album".into(),
+        genre: OneOrMany::One("genre".into()),
         runtime: Duration::from_secs(3600),
         track: Some(1),
         disc: Some(1),
         release_year: Some(2021),
-        extension: Arc::from("mp3"),
+        extension: "mp3".into(),
         path: PathBuf::from("path"),
     },
     SongChangeSet::default())]
     #[case::different(SongMetadata {
-        title: Arc::from("song 2"),
-        artist: OneOrMany::One(Arc::from("artist")),
-        album_artist: OneOrMany::One(Arc::from("artist")),
-        album: Arc::from("album"),
-        genre: OneOrMany::One(Arc::from("rock")),
+        title: "song 2".into(),
+        artist: OneOrMany::One("artist".into()),
+        album_artist: OneOrMany::One("artist".into()),
+        album: "album".into(),
+        genre: OneOrMany::One("rock".into()),
         runtime: Duration::from_secs(3000),
         track: Some(1),
         disc: Some(3),
         release_year: Some(2021),
-        extension: Arc::from("mp3"),
+        extension: "mp3".into(),
         path: PathBuf::from("path"),
     },
     Song {
         id: Thing::from((TABLE_NAME, "id")),
-        title: Arc::from("song"),
-        artist: OneOrMany::One(Arc::from("artist")),
-        album_artist: OneOrMany::One(Arc::from("artist")),
-        album: Arc::from("album"),
-        genre: OneOrMany::One(Arc::from("genre")),
+        title: "song".into(),
+        artist: OneOrMany::One("artist".into()),
+        album_artist: OneOrMany::One("artist".into()),
+        album: "album".into(),
+        genre: OneOrMany::One("genre".into()),
         runtime: Duration::from_secs(3600),
         track: Some(1),
         disc: Some(1),
         release_year: Some(2021),
-        extension: Arc::from("mp3"),
+        extension: "mp3".into(),
         path: PathBuf::from("path"),
     },
     SongChangeSet{
-        title: Some(Arc::from("song 2")),
-        genre: Some(OneOrMany::One(Arc::from("rock"))),
+        title: Some("song 2".into()),
+        genre: Some(OneOrMany::One("rock".into())),
         runtime: Some(Duration::from_secs(3000)),
         disc: Some(Some(3)),
         ..Default::default()
