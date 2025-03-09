@@ -1,13 +1,13 @@
-#![allow(clippy::module_name_repetitions)]
 //! A collection is an auto currated list of similar songs.
 
+use super::Id;
 #[cfg(not(feature = "db"))]
-use super::{Id, Thing};
+use super::RecordId;
 use std::time::Duration;
 #[cfg(feature = "db")]
-use surrealdb::sql::{Id, Thing};
+use surrealdb::RecordId;
 
-pub type CollectionId = Thing;
+pub type CollectionId = RecordId;
 
 pub const TABLE_NAME: &str = "collection";
 
@@ -17,7 +17,7 @@ pub const TABLE_NAME: &str = "collection";
 #[cfg_attr(feature = "db", Table("collection"))]
 pub struct Collection {
     /// the unique identifier for this [`Collection`].
-    #[cfg_attr(feature = "db", field("any"))]
+    #[cfg_attr(feature = "db", field("record"))]
     pub id: CollectionId,
 
     /// The name of the collection.
@@ -44,7 +44,7 @@ impl Collection {
     #[must_use]
     #[inline]
     pub fn generate_id() -> CollectionId {
-        Thing::from((TABLE_NAME, Id::ulid()))
+        RecordId::from_table_key(TABLE_NAME, Id::ulid())
     }
 }
 
@@ -106,7 +106,7 @@ mod tests {
     #[fixture]
     fn collection() -> Collection {
         Collection {
-            id: Thing::from((TABLE_NAME, "id")),
+            id: RecordId::from((TABLE_NAME, "id")),
             name: "collection".into(),
             runtime: Duration::from_secs(3600),
             song_count: 100,
@@ -116,7 +116,7 @@ mod tests {
     #[fixture]
     fn collection_brief() -> CollectionBrief {
         CollectionBrief {
-            id: Thing::from((TABLE_NAME, "id")),
+            id: RecordId::from((TABLE_NAME, "id")),
             name: "collection".into(),
             runtime: Duration::from_secs(3600),
             songs: 100,

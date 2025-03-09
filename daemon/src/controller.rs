@@ -817,7 +817,7 @@ impl MusicPlayer for MusicPlayerServer {
     async fn queue_add(
         self,
         context: Context,
-        thing: schemas::Thing,
+        thing: schemas::RecordId,
     ) -> Result<(), SerializableLibraryError> {
         info!("Adding thing to queue: {thing}");
 
@@ -840,7 +840,7 @@ impl MusicPlayer for MusicPlayerServer {
     async fn queue_add_list(
         self,
         context: Context,
-        list: Vec<schemas::Thing>,
+        list: Vec<schemas::RecordId>,
     ) -> Result<(), SerializableLibraryError> {
         info!(
             "Adding list to queue: ({})",
@@ -992,7 +992,7 @@ impl MusicPlayer for MusicPlayerServer {
         self,
         context: Context,
         playlist: PlaylistId,
-        thing: schemas::Thing,
+        thing: schemas::RecordId,
     ) -> Result<(), SerializableLibraryError> {
         let playlist = playlist.into();
         info!("Adding thing to playlist: {playlist} ({thing})");
@@ -1014,7 +1014,7 @@ impl MusicPlayer for MusicPlayerServer {
         self,
         context: Context,
         playlist: PlaylistId,
-        list: Vec<schemas::Thing>,
+        list: Vec<schemas::RecordId>,
     ) -> Result<(), SerializableLibraryError> {
         let playlist = playlist.into();
         info!(
@@ -1124,7 +1124,7 @@ impl MusicPlayer for MusicPlayerServer {
     async fn radio_get_similar(
         self,
         context: Context,
-        things: Vec<schemas::Thing>,
+        things: Vec<schemas::RecordId>,
         n: u32,
     ) -> Result<Box<[Song]>, SerializableLibraryError> {
         #[cfg(not(feature = "analysis"))]
@@ -1147,7 +1147,7 @@ impl MusicPlayer for MusicPlayerServer {
     async fn radio_get_similar_ids(
         self,
         context: Context,
-        things: Vec<schemas::Thing>,
+        things: Vec<schemas::RecordId>,
         n: u32,
     ) -> Result<Box<[SongId]>, SerializableLibraryError> {
         #[cfg(not(feature = "analysis"))]

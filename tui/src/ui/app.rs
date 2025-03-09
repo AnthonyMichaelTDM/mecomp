@@ -631,7 +631,7 @@ mod tests {
         let mut app = App::new(&state, tx);
 
         let state = AppState {
-            active_view: ActiveView::Song(song.id.id.into()),
+            active_view: ActiveView::Song(song.id.key().to_owned().into()),
             ..state
         };
         app = app.move_with_view(&state);

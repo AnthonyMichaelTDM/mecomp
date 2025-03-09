@@ -1,7 +1,7 @@
 //! CRUD operations for the playlist table
 use std::time::Duration;
 
-use surrealdb::{Connection, RecordId, Surreal};
+use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
@@ -21,10 +21,7 @@ impl Playlist {
         db: &Surreal<C>,
         playlist: Self,
     ) -> StorageResult<Option<Self>> {
-        Ok(db
-            .create(RecordId::from_inner(playlist.id.clone()))
-            .content(playlist)
-            .await?)
+        Ok(db.create(playlist.id.clone()).content(playlist).await?)
     }
 
     #[instrument]
@@ -77,7 +74,7 @@ impl Playlist {
         db: &Surreal<C>,
         id: PlaylistId,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.select(RecordId::from_inner(id)).await?)
+        Ok(db.select(id).await?)
     }
 
     #[instrument]
@@ -98,7 +95,7 @@ impl Playlist {
         id: PlaylistId,
         changes: PlaylistChangeSet,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.update(RecordId::from_inner(id)).merge(changes).await?)
+        Ok(db.update(id).merge(changes).await?)
     }
 
     #[instrument]
@@ -106,7 +103,7 @@ impl Playlist {
         db: &Surreal<C>,
         id: PlaylistId,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.delete(RecordId::from_inner(id)).await?)
+        Ok(db.delete(id).await?)
     }
 
     #[instrument]

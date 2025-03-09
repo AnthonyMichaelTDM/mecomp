@@ -1,17 +1,15 @@
 #![allow(clippy::module_name_repetitions)]
 
 #[cfg(not(feature = "db"))]
-use super::{Id, Thing};
+use super::{Id, RecordId};
 use query::Query;
+use surrealdb::RecordIdKey;
 #[cfg(feature = "db")]
-use surrealdb::{
-    opt::IntoQuery,
-    sql::{Id, Thing},
-};
+use surrealdb::{opt::IntoQuery, sql::Id, RecordId};
 
 pub mod query;
 
-pub type DynamicPlaylistId = Thing;
+pub type DynamicPlaylistId = RecordId;
 
 pub const TABLE_NAME: &str = "dynamic";
 
@@ -23,7 +21,7 @@ pub const TABLE_NAME: &str = "dynamic";
 #[cfg_attr(feature = "db", Table("dynamic"))]
 pub struct DynamicPlaylist {
     /// the unique identifier for this [`DynamicPlaylist`].
-    #[cfg_attr(feature = "db", field("any"))]
+    #[cfg_attr(feature = "db", field("record"))]
     pub id: DynamicPlaylistId,
 
     /// The [`DynamicPlaylist`]'s name.
@@ -41,7 +39,7 @@ impl DynamicPlaylist {
     #[must_use]
     #[inline]
     pub fn generate_id() -> DynamicPlaylistId {
-        Thing::from((TABLE_NAME, Id::ulid()))
+        RecordId::from((TABLE_NAME, RecordIdKey::from_inner(Id::ulid())))
     }
 
     #[must_use]
@@ -98,7 +96,7 @@ mod tests {
     #[test]
     fn test_generate_id() {
         let id = DynamicPlaylist::generate_id();
-        assert_eq!(id.tb, TABLE_NAME);
+        assert_eq!(id.table(), TABLE_NAME);
     }
 }
 

@@ -1,10 +1,11 @@
 #![allow(clippy::module_name_repetitions)]
+use super::Id;
 #[cfg(not(feature = "db"))]
-use super::{Id, Thing};
+use super::RecordId;
 #[cfg(feature = "db")]
-use surrealdb::sql::{Id, Thing};
+use surrealdb::RecordId;
 
-pub type AnalysisId = Thing;
+pub type AnalysisId = RecordId;
 
 pub const TABLE_NAME: &str = "analysis";
 
@@ -18,7 +19,7 @@ pub const TABLE_NAME: &str = "analysis";
 #[cfg_attr(feature = "db", Table("analysis"))]
 pub struct Analysis {
     /// the unique identifier for this [`Analysis`].
-    #[cfg_attr(feature = "db", field("any"))]
+    #[cfg_attr(feature = "db", field("record"))]
     pub id: AnalysisId,
 
     /// The [`Song`]'s audio features.
@@ -30,7 +31,7 @@ impl Analysis {
     #[must_use]
     #[inline]
     pub fn generate_id() -> AnalysisId {
-        Thing::from((TABLE_NAME, Id::ulid()))
+        RecordId::from_table_key(TABLE_NAME, Id::ulid())
     }
 }
 

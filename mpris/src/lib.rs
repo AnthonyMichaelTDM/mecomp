@@ -321,7 +321,7 @@ pub fn metadata_from_opt_song(song: Option<&Song>) -> Metadata {
     )
 }
 
-fn object_path_from_thing(thing: &mecomp_storage::db::schemas::Thing) -> ObjectPath {
+fn object_path_from_thing(thing: &mecomp_storage::db::schemas::RecordId) -> ObjectPath {
     ObjectPath::try_from(format!("/mecomp/{}/{}", thing.tb, thing.id))
         .unwrap_or_else(|e| panic!("Failed to convert {thing} to ObjectPath: {e}"))
 }

@@ -1,12 +1,11 @@
-#![allow(clippy::module_name_repetitions)]
-
+use super::Id;
 #[cfg(not(feature = "db"))]
-use super::{Id, Thing};
+use super::RecordId;
 use std::time::Duration;
 #[cfg(feature = "db")]
-use surrealdb::sql::{Id, Thing};
+use surrealdb::RecordId;
 
-pub type PlaylistId = Thing;
+pub type PlaylistId = RecordId;
 
 pub const TABLE_NAME: &str = "playlist";
 
@@ -18,7 +17,7 @@ pub const TABLE_NAME: &str = "playlist";
 #[cfg_attr(feature = "db", Table("playlist"))]
 pub struct Playlist {
     /// the unique identifier for this [`Playlist`].
-    #[cfg_attr(feature = "db", field("any"))]
+    #[cfg_attr(feature = "db", field("record"))]
     pub id: PlaylistId,
 
     /// The [`Playlist`]'s name.
@@ -45,7 +44,7 @@ impl Playlist {
     #[must_use]
     #[inline]
     pub fn generate_id() -> PlaylistId {
-        Thing::from((TABLE_NAME, Id::ulid()))
+        RecordId::from_table_key(TABLE_NAME, Id::ulid())
     }
 }
 
@@ -136,7 +135,7 @@ mod tests {
     #[fixture]
     fn playlist() -> Playlist {
         Playlist {
-            id: Thing::from((TABLE_NAME, "id")),
+            id: RecordId::from((TABLE_NAME, "id")),
             name: "playlist".into(),
             runtime: Duration::from_secs(3600),
             song_count: 100,
@@ -146,7 +145,7 @@ mod tests {
     #[fixture]
     fn playlist_brief() -> PlaylistBrief {
         PlaylistBrief {
-            id: Thing::from((TABLE_NAME, "id")),
+            id: RecordId::from((TABLE_NAME, "id")),
             name: "playlist".into(),
             runtime: Duration::from_secs(3600),
             songs: 100,

@@ -12,7 +12,7 @@ use mecomp_storage::{
 };
 use one_or_many::OneOrMany;
 use rstest::{fixture, rstest};
-use surrealdb::{engine::local::Db, sql::Thing, Surreal};
+use surrealdb::{engine::local::Db, RecordId, Surreal};
 use tempfile::tempdir;
 
 use crate::handlers::{
@@ -71,13 +71,13 @@ pub const fn item_id() -> &'static str {
 async fn db_with_state() -> Arc<Surreal<Db>> {
     let db = Arc::new(init_test_database().await.unwrap());
 
-    let album_id = Thing::from(("album", item_id()));
-    let analysis_id = Thing::from(("analysis", item_id()));
-    let artist_id = Thing::from(("artist", item_id()));
-    let collection_id = Thing::from(("collection", item_id()));
-    let playlist_id = Thing::from(("playlist", item_id()));
-    let song_id = Thing::from(("song", item_id()));
-    let dynamic_id = Thing::from(("dynamic", item_id()));
+    let album_id = RecordId::from_table_key("album", item_id());
+    let analysis_id = RecordId::from_table_key("analysis", item_id());
+    let artist_id = RecordId::from_table_key("artist", item_id());
+    let collection_id = RecordId::from_table_key("collection", item_id());
+    let playlist_id = RecordId::from_table_key("playlist", item_id());
+    let song_id = RecordId::from_table_key("song", item_id());
+    let dynamic_id = RecordId::from_table_key("dynamic", item_id());
 
     // create a song, artist, album, collection, and playlist
     let song = Song {
@@ -523,7 +523,10 @@ async fn test_playlist_create(#[future] client: MusicPlayerClient) {
     assert!(result.is_ok());
 
     let stdout = String::from_utf8(stdout.0.clone()).unwrap();
-    assert!(stdout.starts_with("Daemon response:\nThing {"));
+    assert!(
+        stdout.starts_with("Daemon response:\nRecordId {"),
+        "{stdout}"
+    );
     set_snapshot_suffix!("stderr");
     insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }
@@ -593,7 +596,10 @@ async fn test_dynamic_playlist_create(#[future] client: MusicPlayerClient) {
     assert!(result.is_ok());
 
     let stdout = String::from_utf8(stdout.0.clone()).unwrap();
-    assert!(stdout.starts_with("Daemon response:\nThing {"));
+    assert!(
+        stdout.starts_with("Daemon response:\nRecordId {"),
+        "{stdout}"
+    );
     set_snapshot_suffix!("stderr");
     insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
 }

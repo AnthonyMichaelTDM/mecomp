@@ -1,5 +1,5 @@
 use super::ViewData;
-use mecomp_storage::db::schemas::Thing;
+use mecomp_storage::db::schemas::RecordId;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     widgets::Widget,
@@ -14,7 +14,7 @@ use crate::{
 /// Shared functionality for the props of an item view
 pub trait ItemViewProps {
     /// Get the id of the thing that this view is displaying
-    fn id(&self) -> &Thing;
+    fn id(&self) -> &RecordId;
 
     /// Retrieve this view's props from the view data
     fn retrieve(view_data: &ViewData) -> Option<Self>

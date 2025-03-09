@@ -205,7 +205,7 @@ pub async fn create_song_with_overrides<C: Connection>(
         disc: None,
         release_year: None,
         extension: "mp3".into(),
-        path: PathBuf::from_str(&format!("{}.mp3", id.id))?,
+        path: PathBuf::from_str(&format!("{}.mp3", id.key()))?,
     };
 
     Song::create(db, song.clone()).await?;

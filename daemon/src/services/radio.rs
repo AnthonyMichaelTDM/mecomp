@@ -2,7 +2,7 @@ use mecomp_storage::{
     db::schemas::{
         analysis::Analysis,
         song::{Song, SongId},
-        Thing,
+        RecordId,
     },
     errors::StorageResult,
 };
@@ -18,7 +18,7 @@ use super::get_songs_from_things;
 #[inline]
 pub async fn get_similar<C: Connection>(
     db: &Surreal<C>,
-    things: Vec<Thing>,
+    things: Vec<RecordId>,
     n: u32,
 ) -> StorageResult<Vec<Song>> {
     // go through the list, and get songs for each thing (depending on what it is)

@@ -16,7 +16,7 @@ use mecomp_storage::db::schemas::{
     dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistChangeSet},
     playlist::{Playlist, PlaylistBrief},
     song::{Song, SongBrief},
-    Thing,
+    RecordId,
 };
 use one_or_many::OneOrMany;
 use serde::{Deserialize, Serialize};
@@ -30,12 +30,12 @@ use crate::{
     },
 };
 
-pub type SongId = Thing;
-pub type ArtistId = Thing;
-pub type AlbumId = Thing;
-pub type CollectionId = Thing;
-pub type PlaylistId = Thing;
-pub type DynamicPlaylistId = Thing;
+pub type SongId = RecordId;
+pub type ArtistId = RecordId;
+pub type AlbumId = RecordId;
+pub type CollectionId = RecordId;
+pub type PlaylistId = RecordId;
+pub type DynamicPlaylistId = RecordId;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct SearchResult {
@@ -203,10 +203,10 @@ pub trait MusicPlayer {
     // Queue control.
     /// add a thing to the queue.
     /// (if the queue is empty, it will start playing the song.)
-    async fn queue_add(thing: Thing) -> Result<(), SerializableLibraryError>;
+    async fn queue_add(thing: RecordId) -> Result<(), SerializableLibraryError>;
     /// add a list of things to the queue.
     /// (if the queue is empty, it will start playing the first thing in the list.)
-    async fn queue_add_list(list: Vec<Thing>) -> Result<(), SerializableLibraryError>;
+    async fn queue_add_list(list: Vec<RecordId>) -> Result<(), SerializableLibraryError>;
     /// set the current song to a queue index.
     /// if the index is out of bounds, it will be clamped to the nearest valid index.
     async fn queue_set_index(index: usize) -> ();
@@ -238,13 +238,13 @@ pub trait MusicPlayer {
     /// If the thing is something that has songs (an album, artist, etc.), it will add all the songs.
     async fn playlist_add(
         playlist: PlaylistId,
-        thing: Thing,
+        thing: RecordId,
     ) -> Result<(), SerializableLibraryError>;
     /// Add a list of things to a playlist.
     /// If the things are something that have songs (an album, artist, etc.), it will add all the songs.
     async fn playlist_add_list(
         playlist: PlaylistId,
-        list: Vec<Thing>,
+        list: Vec<RecordId>,
     ) -> Result<(), SerializableLibraryError>;
     /// Get a playlist by its ID.
     async fn playlist_get(id: PlaylistId) -> Option<Playlist>;
@@ -273,12 +273,12 @@ pub trait MusicPlayer {
     // Radio commands.
     /// Radio: get the `n` most similar songs to the given things.
     async fn radio_get_similar(
-        things: Vec<Thing>,
+        things: Vec<RecordId>,
         n: u32,
     ) -> Result<Box<[Song]>, SerializableLibraryError>;
     /// Radio: get the ids of the `n` most similar songs to the given things.
     async fn radio_get_similar_ids(
-        things: Vec<Thing>,
+        things: Vec<RecordId>,
         n: u32,
     ) -> Result<Box<[SongId]>, SerializableLibraryError>;
 

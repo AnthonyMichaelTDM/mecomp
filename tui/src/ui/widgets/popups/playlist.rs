@@ -11,7 +11,7 @@
 use std::{ops::Not, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_storage::db::schemas::{playlist::Playlist, Thing};
+use mecomp_storage::db::schemas::{playlist::Playlist, RecordId};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
@@ -58,12 +58,12 @@ pub struct PlaylistSelector {
     /// Is the input box visible
     input_box_visible: bool,
     /// The items to add to the playlist
-    items: Vec<Thing>,
+    items: Vec<RecordId>,
 }
 
 impl PlaylistSelector {
     #[must_use]
-    pub fn new(state: &AppState, action_tx: UnboundedSender<Action>, items: Vec<Thing>) -> Self {
+    pub fn new(state: &AppState, action_tx: UnboundedSender<Action>, items: Vec<RecordId>) -> Self {
         Self {
             input_box: InputBox::new(state, action_tx.clone()),
             input_box_visible: false,
@@ -329,7 +329,7 @@ impl ComponentRender<Rect> for PlaylistSelector {
 /// Popup for changing the name of a playlist.
 pub struct PlaylistEditor {
     action_tx: UnboundedSender<Action>,
-    playlist_id: Thing,
+    playlist_id: RecordId,
     input_box: InputBox,
 }
 

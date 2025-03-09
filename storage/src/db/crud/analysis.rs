@@ -1,7 +1,7 @@
 //! CRUD operations for the analysis table
 
 use one_or_many::OneOrMany;
-use surrealdb::{Connection, RecordId, Surreal};
+use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
@@ -33,10 +33,7 @@ impl Analysis {
         }
 
         // create the analysis
-        let result: Option<Self> = db
-            .create(RecordId::from_inner(analysis.id.clone()))
-            .content(analysis)
-            .await?;
+        let result: Option<Self> = db.create(analysis.id.clone()).content(analysis).await?;
 
         if let Some(analysis) = result {
             // relate the song to the analysis
@@ -57,7 +54,7 @@ impl Analysis {
         db: &Surreal<C>,
         id: AnalysisId,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.select(RecordId::from_inner(id)).await?)
+        Ok(db.select(id).await?)
     }
 
     #[instrument]
@@ -131,7 +128,7 @@ impl Analysis {
         db: &Surreal<C>,
         id: AnalysisId,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.delete(RecordId::from_inner(id)).await?)
+        Ok(db.delete(id).await?)
     }
 
     /// Find the `n` nearest neighbors to an analysis

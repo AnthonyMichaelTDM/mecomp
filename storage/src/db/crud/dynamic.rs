@@ -1,6 +1,6 @@
 //! CRUD operations for dynamic playlists.
 
-use surrealdb::{Connection, RecordId, Surreal};
+use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
@@ -18,7 +18,7 @@ impl DynamicPlaylist {
         dynamic_playlist: Self,
     ) -> StorageResult<Option<Self>> {
         Ok(db
-            .create(RecordId::from_inner(dynamic_playlist.id.clone()))
+            .create(dynamic_playlist.id.clone())
             .content(dynamic_playlist)
             .await?)
     }
@@ -33,7 +33,7 @@ impl DynamicPlaylist {
         db: &Surreal<C>,
         id: DynamicPlaylistId,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.select(RecordId::from_inner(id)).await?)
+        Ok(db.select(id).await?)
     }
 
     #[instrument]
@@ -56,10 +56,7 @@ impl DynamicPlaylist {
         id: DynamicPlaylistId,
         change_set: DynamicPlaylistChangeSet,
     ) -> StorageResult<Option<Self>> {
-        Ok(db
-            .update(RecordId::from_inner(id))
-            .merge(change_set)
-            .await?)
+        Ok(db.update(id).merge(change_set).await?)
     }
 
     #[instrument]
@@ -67,7 +64,7 @@ impl DynamicPlaylist {
         db: &Surreal<C>,
         id: DynamicPlaylistId,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.delete(RecordId::from_inner(id)).await?)
+        Ok(db.delete(id).await?)
     }
 
     #[instrument]

@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use mecomp_storage::db::schemas::Thing;
+use mecomp_storage::db::schemas::RecordId;
 use object_pool::Pool;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::net::UdpSocket;
@@ -36,7 +36,7 @@ pub enum StateChange {
     /// The player volume has changed
     VolumeChanged(f32),
     /// The current track has changed
-    TrackChanged(Option<Thing>),
+    TrackChanged(Option<RecordId>),
     /// The repeat mode has changed
     RepeatModeChanged(RepeatMode),
     /// Seeked to a new position in the track

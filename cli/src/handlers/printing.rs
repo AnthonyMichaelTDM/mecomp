@@ -10,7 +10,7 @@ use mecomp_storage::db::schemas::{
     dynamic::{query::Compile, DynamicPlaylist},
     playlist::PlaylistBrief,
     song::{Song, SongBrief},
-    Thing,
+    RecordId,
 };
 
 pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
@@ -214,7 +214,7 @@ pub fn playlist_collection_list(
     Ok(output)
 }
 
-pub fn thing_list(things: &[Thing]) -> Result<String, std::fmt::Error> {
+pub fn thing_list(things: &[RecordId]) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     for thing in things {

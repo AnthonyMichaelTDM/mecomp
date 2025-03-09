@@ -5,7 +5,7 @@ use std::str::FromStr;
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_storage::db::schemas::{
     dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistChangeSet},
-    Thing,
+    RecordId,
 };
 use ratatui::{
     layout::{Constraint, Direction, Layout, Position, Rect},
@@ -33,7 +33,7 @@ use super::Popup;
 /// The popup used to edit Dynamic Playlists.
 pub struct DynamicPlaylistEditor {
     action_tx: UnboundedSender<Action>,
-    dynamic_playlist_id: Thing,
+    dynamic_playlist_id: RecordId,
     name_input: InputBox,
     query_input: InputBox,
     focus: Focus,
