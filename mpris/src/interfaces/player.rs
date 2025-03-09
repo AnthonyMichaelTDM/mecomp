@@ -1282,13 +1282,16 @@ mod tests {
         let (mpris, event_rx, _, _) = fixtures.await;
 
         // Returns the playback rate. //
-        assert_eq!(mpris.rate().await.unwrap(), 1.0);
+        let rate = mpris.rate().await.unwrap();
+        assert!(f64::EPSILON > (rate - 1.0).abs(), "{rate} != 1.0");
 
         // The minimum value which the [Rate] property can take. Clients should not attempt to set the [Rate] property below this value. //
-        assert_eq!(mpris.minimum_rate().await.unwrap(), 1.0);
+        let min_rate = mpris.minimum_rate().await.unwrap();
+        assert!(f64::EPSILON > (min_rate - 1.0).abs(), "{min_rate} != 1.0");
 
         // The maximum value which the [Rate] property can take. Clients should not attempt to set the [Rate] property above this value. //
-        assert_eq!(mpris.maximum_rate().await.unwrap(), 1.0);
+        let max_rate = mpris.maximum_rate().await.unwrap();
+        assert!(f64::EPSILON > (max_rate - 1.0).abs(), "{max_rate} != 1.0");
 
         // Sets the playback rate. //
         // not supported, but the spec doesn't specify that an error should be reported so we just return Ok
@@ -1439,13 +1442,15 @@ mod tests {
         let (mpris, event_rx, _, _) = fixtures.await;
 
         // The volume level. //
-        assert_eq!(mpris.volume().await.unwrap(), 1.0);
+        let volume = mpris.volume().await.unwrap();
+        assert!(f64::EPSILON > (volume - 1.0).abs(), "{volume} != 1.0");
 
         // When setting, if a negative value is passed, the volume should be set to 0.0. //
         mpris.set_volume(-1.0).await.unwrap();
         if event_rx.recv() == Ok(StateChange::VolumeChanged(0.0)) {
             mpris.state.write().await.volume = 0.0;
-            assert_eq!(mpris.volume().await.unwrap(), 0.0);
+            let volume = mpris.volume().await.unwrap();
+            assert!(f64::EPSILON > volume.abs(), "{volume} != 0.0");
         } else {
             panic!("Expected a VolumeChanged event, but got something else");
         }
@@ -1454,7 +1459,8 @@ mod tests {
         mpris.set_volume(1.0).await.unwrap();
         if event_rx.recv() == Ok(StateChange::VolumeChanged(1.0)) {
             mpris.state.write().await.volume = 1.0;
-            assert_eq!(mpris.volume().await.unwrap(), 1.0);
+            let volume = mpris.volume().await.unwrap();
+            assert!(f64::EPSILON > (volume - 1.0).abs(), "{volume} != 1.0");
         } else {
             panic!("Expected a VolumeChanged event, but got something else");
         }

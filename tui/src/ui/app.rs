@@ -576,7 +576,12 @@ mod tests {
 
         assert_eq!(is_playing, !state.audio.paused());
         assert_eq!(muted, state.audio.muted);
-        assert_eq!(volume, state.audio.volume);
+        assert!(
+            f32::EPSILON > (volume - state.audio.volume).abs(),
+            "{} != {}",
+            volume,
+            state.audio.volume
+        );
         assert_eq!(song_runtime, state.audio.runtime);
         assert_eq!(
             song_title,

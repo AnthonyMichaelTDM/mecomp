@@ -521,15 +521,31 @@ mod tests {
 
         let pairwise_distances = calc_pairwise_distances(samples.view(), 2, labels.view());
 
-        assert_eq!(pairwise_distances[0], 0.0);
-        assert_eq!(pairwise_distances[1], 0.0);
+        assert!(
+            f64::EPSILON > (pairwise_distances[0] - 0.0).abs(),
+            "{} != 0.0",
+            pairwise_distances[0]
+        );
+        assert!(
+            f64::EPSILON > (pairwise_distances[1] - 0.0).abs(),
+            "{} != 0.0",
+            pairwise_distances[1]
+        );
 
         let samples = arr2(&[[1.0, 2.0], [1.0, 1.0], [2.0, 2.0], [2.0, 3.0]]);
 
         let pairwise_distances = calc_pairwise_distances(samples.view(), 2, labels.view());
 
-        assert_eq!(pairwise_distances[0], 2.0);
-        assert_eq!(pairwise_distances[1], 2.0);
+        assert!(
+            f64::EPSILON > (pairwise_distances[0] - 2.0).abs(),
+            "{} != 2.0",
+            pairwise_distances[0]
+        );
+        assert!(
+            f64::EPSILON > (pairwise_distances[1] - 2.0).abs(),
+            "{} != 2.0",
+            pairwise_distances[1]
+        );
     }
 
     #[test]
@@ -543,9 +559,21 @@ mod tests {
         let array = convert_to_array(data);
 
         assert_eq!(array.0.shape(), &[3, NUMBER_FEATURES]);
-        assert_eq!(array.0[[0, 0]], 1.0);
-        assert_eq!(array.0[[1, 0]], 2.0);
-        assert_eq!(array.0[[2, 0]], 3.0);
+        assert!(
+            f64::EPSILON > (array.0[[0, 0]] - 1.0).abs(),
+            "{} != 1.0",
+            array.0[[0, 0]]
+        );
+        assert!(
+            f64::EPSILON > (array.0[[1, 0]] - 2.0).abs(),
+            "{} != 2.0",
+            array.0[[1, 0]]
+        );
+        assert!(
+            f64::EPSILON > (array.0[[2, 0]] - 3.0).abs(),
+            "{} != 3.0",
+            array.0[[2, 0]]
+        );
 
         // check that axis iteration works how we expect
         // axis 0

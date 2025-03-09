@@ -164,44 +164,45 @@ mod tests {
     #[test]
     fn test_mean() {
         let numbers = vec![0.0, 1.0, 2.0, 3.0, 4.0];
-        assert_eq!(2.0, mean(&numbers));
+        let mean = mean(&numbers);
+        assert!(f32::EPSILON > (2.0 - mean).abs(), "{mean} !~= 2.0");
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_geometric_mean() {
         let numbers = vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
-        assert_eq!(0.0, geometric_mean(&numbers));
+        let mean = geometric_mean(&numbers);
+        assert!(f32::EPSILON > (0.0 - mean).abs(), "{mean} !~= 0.0");
 
         let numbers = vec![4.0, 2.0, 1.0, 4.0, 2.0, 1.0, 2.0, 2.0];
-        assert!(
-            0.0001 > (2.0 - geometric_mean(&numbers)).abs(),
-            "{} !~= {}",
-            geometric_mean(&numbers),
-            2.0
-        );
+        let mean = geometric_mean(&numbers);
+        assert!(0.0001 > (2.0 - mean).abs(), "{mean} !~= 2.0");
 
         // never going to happen, but just in case
         let numbers = vec![256., 4.0, 2.0, 1.0, 4.0, 2.0, 1.0, 2.0];
+        let mean = geometric_mean(&numbers);
         assert!(
-            0.0001 > (3.668_016_2 - geometric_mean(&numbers)).abs(),
-            "{} !~= {}",
-            geometric_mean(&numbers),
+            0.0001 > (3.668_016_2 - mean).abs(),
+            "{mean} !~= {}",
             3.668_016_172_818_685
         );
 
         let subnormal = vec![4.0, 2.0, 1.0, 4.0, 2.0, 1.0, 2.0, 1.0e-40_f32];
+        let mean = geometric_mean(&subnormal);
         assert!(
-            0.0001 > (1.834_008e-5 - geometric_mean(&subnormal)).abs(),
+            0.0001 > (1.834_008e-5 - mean).abs(),
             "{} !~= {}",
-            geometric_mean(&subnormal),
+            mean,
             1.834_008_086_409_341_7e-5
         );
 
         let maximum = vec![2_f32.powi(65); 256];
+        let mean = geometric_mean(&maximum);
         assert!(
-            0.0001 > (2_f32.powi(65) - geometric_mean(&maximum).abs()),
+            0.0001 > (2_f32.powi(65) - mean.abs()),
             "{} !~= {}",
-            geometric_mean(&maximum),
+            mean,
             2_f32.powi(65)
         );
 
