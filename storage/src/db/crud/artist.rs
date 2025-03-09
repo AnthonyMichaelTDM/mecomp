@@ -763,9 +763,10 @@ mod tests {
             discs: 1,
             genre: OneOrMany::None,
         };
-        let song = Song {
+        // in an album by the artist
+        let song1 = Song {
             id: Song::generate_id(),
-            title: "Test Song".into(),
+            title: "Test Song 1".into(),
             artist: OneOrMany::One(artist.name.clone()),
             album: "Test Album".into(),
             runtime: Duration::from_secs(5),
@@ -777,6 +778,7 @@ mod tests {
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
         };
+        // directly by the artist
         let song2 = Song {
             id: Song::generate_id(),
             title: "Test Song 2".into(),
@@ -791,6 +793,21 @@ mod tests {
             extension: "mp3".into(),
             path: PathBuf::from("song_2.mp3"),
         };
+        // both
+        let song3 = Song {
+            id: Song::generate_id(),
+            title: "Test Song 3".into(),
+            artist: OneOrMany::One(artist.name.clone()),
+            album: "Test Album".into(),
+            runtime: Duration::from_secs(5),
+            track: Some(3),
+            disc: Some(1),
+            genre: OneOrMany::None,
+            album_artist: OneOrMany::One(artist.name.clone()),
+            release_year: None,
+            extension: "mp3".into(),
+            path: PathBuf::from("song_3.mp3"),
+        };
 
         let _ = Artist::create(&db, artist.clone())
             .await?
@@ -798,21 +815,36 @@ mod tests {
         let _ = Album::create(&db, album.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create album"))?;
-        let _ = Song::create(&db, song.clone())
+        let _ = Song::create(&db, song1.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
         let _ = Song::create(&db, song2.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
+        let _ = Song::create(&db, song3.clone())
+            .await?
+            .ok_or_else(|| anyhow!("Failed to create song"))?;
 
-        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        Album::add_songs(
+            &db,
+            album.id.clone(),
+            vec![song1.id.clone(), song3.id.clone()],
+        )
+        .await?;
         Artist::add_album(&db, artist.id.clone(), album.id.clone()).await?;
-        Artist::add_songs(&db, artist.id.clone(), vec![song2.id.clone()]).await?;
+        Artist::add_songs(
+            &db,
+            artist.id.clone(),
+            vec![song2.id.clone(), song3.id.clone()],
+        )
+        .await?;
 
-        let read = Artist::read_songs(&db, artist.id.clone()).await?;
-        assert_eq!(read.len(), 2);
-        assert_eq!(read[0], song2);
-        assert_eq!(read[1], song);
+        let mut read = Artist::read_songs(&db, artist.id.clone()).await?;
+
+        // we want to check that all the songs are there, but the order will be arbitrary.
+        // so we'll just sort them by title and compare that way
+        read.sort_by(|a, b| a.title.cmp(&b.title));
+        assert_eq!(vec![song1, song2, song3], read);
         Ok(())
     }
 }
