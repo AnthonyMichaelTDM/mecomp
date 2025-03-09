@@ -280,7 +280,8 @@ mod tests {
         let mut zcr_desc = ZeroCrossingRateDesc::default();
         let chunk = vec![0.; 1024];
         zcr_desc.do_(&chunk);
-        assert_eq!(-1., zcr_desc.get_value());
+        let value = zcr_desc.get_value();
+        assert!(f64::EPSILON > (-1. - value).abs(), "{value} !~= -1");
 
         let one_chunk = [-1., 1.];
         let chunks = std::iter::repeat(one_chunk.iter())
@@ -290,11 +291,8 @@ mod tests {
             .collect::<Vec<f32>>();
         let mut zcr_desc = ZeroCrossingRateDesc::default();
         zcr_desc.do_(&chunks);
-        assert!(
-            0.001 > (0.998_046_9 - zcr_desc.get_value()).abs(),
-            "{} !~= 0.9980469",
-            zcr_desc.get_value()
-        );
+        let value = zcr_desc.get_value();
+        assert!(0.001 > (0.998_046_9 - value).abs(), "{value} !~= 0.9980469");
     }
 
     #[test]
@@ -304,11 +302,8 @@ mod tests {
         for chunk in song.samples.chunks_exact(SpectralDesc::HOP_SIZE) {
             zcr_desc.do_(chunk);
         }
-        assert!(
-            0.001 > (-0.85036 - zcr_desc.get_value()).abs(),
-            "{} !~= -0.85036",
-            zcr_desc.get_value()
-        );
+        let value = zcr_desc.get_value();
+        assert!(0.001 > (-0.85036 - value).abs(), "{value} !~= -0.85036");
     }
 
     #[test]

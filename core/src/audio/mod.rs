@@ -1452,42 +1452,74 @@ mod tests {
             init();
 
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.volume, 1.0);
+            assert!(
+                f32::EPSILON > (state.volume - 1.0).abs(),
+                "{} != 1.0",
+                state.volume
+            );
             assert!(!state.muted);
 
             sender.send(AudioCommand::Volume(VolumeCommand::Up(0.1)));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.volume, 1.1);
+            assert!(
+                f32::EPSILON > (state.volume - 1.1).abs(),
+                "{} != 1.1",
+                state.volume
+            );
             assert!(!state.muted);
 
             sender.send(AudioCommand::Volume(VolumeCommand::Down(0.1)));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.volume, 1.0);
+            assert!(
+                f32::EPSILON > (state.volume - 1.0).abs(),
+                "{} != 1.0",
+                state.volume
+            );
             assert!(!state.muted);
 
             sender.send(AudioCommand::Volume(VolumeCommand::Set(0.5)));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.volume, 0.5);
+            assert!(
+                f32::EPSILON > (state.volume - 0.5).abs(),
+                "{} != 0.5",
+                state.volume
+            );
             assert!(!state.muted);
 
             sender.send(AudioCommand::Volume(VolumeCommand::Mute));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.volume, 0.5); // although underlying volume is 0 (for the rodio player), the stored volume is still 0.5
+            assert!(
+                f32::EPSILON > (state.volume - 0.5).abs(),
+                "{} != 0.5",
+                state.volume
+            ); // although underlying volume is 0 (for the rodio player), the stored volume is still 0.5
             assert!(state.muted);
 
             sender.send(AudioCommand::Volume(VolumeCommand::Unmute));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.volume, 0.5);
+            assert!(
+                f32::EPSILON > (state.volume - 0.5).abs(),
+                "{} != 0.5",
+                state.volume
+            );
             assert!(!state.muted);
 
             sender.send(AudioCommand::Volume(VolumeCommand::ToggleMute));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.volume, 0.5);
+            assert!(
+                f32::EPSILON > (state.volume - 0.5).abs(),
+                "{} != 0.5",
+                state.volume
+            );
             assert!(state.muted);
 
             sender.send(AudioCommand::Volume(VolumeCommand::ToggleMute));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.volume, 0.5);
+            assert!(
+                f32::EPSILON > (state.volume - 0.5).abs(),
+                "{} != 0.5",
+                state.volume
+            );
             assert!(!state.muted);
 
             sender.send(AudioCommand::Exit);
@@ -1504,23 +1536,43 @@ mod tests {
             // try moving volume above/below the maximum/minimum
             sender.send(AudioCommand::Volume(VolumeCommand::Up(MAX_VOLUME + 0.5)));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.volume, MAX_VOLUME);
+            assert!(
+                f32::EPSILON > (state.volume - MAX_VOLUME).abs(),
+                "{} != {}",
+                state.volume,
+                MAX_VOLUME
+            );
             assert!(!state.muted);
             sender.send(AudioCommand::Volume(VolumeCommand::Down(
                 MAX_VOLUME + 0.5 - MIN_VOLUME,
             )));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.volume, MIN_VOLUME);
+            assert!(
+                f32::EPSILON > (state.volume - MIN_VOLUME).abs(),
+                "{} != {}",
+                state.volume,
+                MIN_VOLUME
+            );
             assert!(!state.muted);
 
             // try setting volume above/below the maximum/minimum
             sender.send(AudioCommand::Volume(VolumeCommand::Set(MAX_VOLUME + 0.5)));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.volume, MAX_VOLUME);
+            assert!(
+                f32::EPSILON > (state.volume - MAX_VOLUME).abs(),
+                "{} != {}",
+                state.volume,
+                MAX_VOLUME
+            );
             assert!(!state.muted);
             sender.send(AudioCommand::Volume(VolumeCommand::Set(MIN_VOLUME - 0.5)));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.volume, MIN_VOLUME);
+            assert!(
+                f32::EPSILON > (state.volume - MIN_VOLUME).abs(),
+                "{} != {}",
+                state.volume,
+                MIN_VOLUME
+            );
             assert!(!state.muted);
 
             sender.send(AudioCommand::Exit);

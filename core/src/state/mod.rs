@@ -214,7 +214,11 @@ mod tests {
         assert_eq!(state.runtime, None);
         assert_eq!(state.status, Status::Stopped);
         assert_eq!(state.muted, false);
-        assert_eq!(state.volume, 1.0);
+        assert!(
+            f32::EPSILON > (state.volume - 1.0).abs(),
+            "{} != 1.0",
+            state.volume
+        );
     }
 
     #[rstest]

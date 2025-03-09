@@ -579,14 +579,15 @@ mod test {
     fn test_pitch_tuning() {
         let file = File::open("data/pitch-tuning.npy").unwrap();
         let mut pitch = Array1::<f64>::read_npy(file).unwrap();
-
-        assert_eq!(-0.1, pitch_tuning(&mut pitch, 0.05, 12).unwrap());
+        let tuned = pitch_tuning(&mut pitch, 0.05, 12).unwrap();
+        assert!(f64::EPSILON > (tuned + 0.1).abs(), "{tuned} != -0.1");
     }
 
     #[test]
     fn test_pitch_tuning_no_frequencies() {
         let mut frequencies = arr1(&[]);
-        assert_eq!(0.0, pitch_tuning(&mut frequencies, 0.05, 12).unwrap());
+        let tuned = pitch_tuning(&mut frequencies, 0.05, 12).unwrap();
+        assert!(f64::EPSILON > tuned.abs(), "{tuned} != 0");
     }
 
     #[test]
