@@ -16,7 +16,7 @@ struct Flags {
     log_level: LevelFilter,
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() {
     // parse the CLI flags
     let flags = Flags::parse();
