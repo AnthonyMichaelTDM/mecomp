@@ -865,7 +865,7 @@ mod item_view_tests {
         // - "q" should add the checked items to the queue
         // - "r" should start radio from the checked items
         // - "p" should add the checked items to a playlist
-        let song_id: mecomp_storage::db::schemas::Thing = ("song", item_id()).into();
+        let song_id: mecomp_storage::db::schemas::RecordId = ("song", item_id()).into();
         view.handle_key_event(KeyEvent::from(KeyCode::Enter));
         view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));

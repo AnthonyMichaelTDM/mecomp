@@ -1,12 +1,13 @@
 #![allow(clippy::module_name_repetitions)]
 
+use super::Id;
 #[cfg(not(feature = "db"))]
-use super::{Id, Thing};
+use super::RecordId;
 use std::time::Duration;
 #[cfg(feature = "db")]
-use surrealdb::sql::{Id, Thing};
+use surrealdb::RecordId;
 
-pub type ArtistId = Thing;
+pub type ArtistId = RecordId;
 
 pub const TABLE_NAME: &str = "artist";
 
@@ -18,7 +19,7 @@ pub const TABLE_NAME: &str = "artist";
 #[cfg_attr(feature = "db", Table("artist"))]
 pub struct Artist {
     /// the unique identifier for this [`Artist`].
-    #[cfg_attr(feature = "db", field("any"))]
+    #[cfg_attr(feature = "db", field("record"))]
     pub id: ArtistId,
 
     /// The [`Artist`]'s name.
@@ -52,7 +53,7 @@ impl Artist {
     #[must_use]
     #[inline]
     pub fn generate_id() -> ArtistId {
-        Thing::from((TABLE_NAME, Id::ulid()))
+        RecordId::from_table_key(TABLE_NAME, Id::ulid())
     }
 }
 
@@ -121,7 +122,7 @@ mod tests {
     #[fixture]
     fn artist() -> Artist {
         Artist {
-            id: Thing::from((TABLE_NAME, "id")),
+            id: RecordId::from((TABLE_NAME, "id")),
             name: "artist".into(),
             runtime: Duration::from_secs(3600),
             album_count: 10,
@@ -132,7 +133,7 @@ mod tests {
     #[fixture]
     fn artist_brief() -> ArtistBrief {
         ArtistBrief {
-            id: Thing::from((TABLE_NAME, "id")),
+            id: RecordId::from((TABLE_NAME, "id")),
             name: "artist".into(),
             runtime: Duration::from_secs(3600),
             albums: 10,

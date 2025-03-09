@@ -1,4 +1,7 @@
+#![allow(clippy::module_name_repetitions)]
 use std::str::FromStr;
+
+use surrealdb::RecordIdKey;
 
 pub mod album;
 #[cfg(feature = "analysis")]
@@ -64,23 +67,23 @@ where
     Ok(duration.into())
 }
 
-/// Implement a version of the `surrealdb` `Thing` type that we can use when the `db` feature is not enabled.
+/// Implement a version of the `surrealdb` `RecordId` type that we can use when the `db` feature is not enabled.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Thing {
+pub struct RecordId {
     /// Table name
     pub tb: String,
     pub id: Id,
 }
 
-impl std::fmt::Display for Thing {
+impl std::fmt::Display for RecordId {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.tb, self.id)
     }
 }
 
-impl<S: Into<String>, I: Into<Id>> From<(S, I)> for Thing {
+impl<S: Into<String>, I: Into<Id>> From<(S, I)> for RecordId {
     #[inline]
     fn from((tb, id): (S, I)) -> Self {
         Self {
@@ -90,7 +93,23 @@ impl<S: Into<String>, I: Into<Id>> From<(S, I)> for Thing {
     }
 }
 
-impl FromStr for Thing {
+impl RecordId {
+    /// Get the table name.
+    #[must_use]
+    #[inline]
+    pub fn table(&self) -> &str {
+        &self.tb
+    }
+
+    /// Get the id.
+    #[must_use]
+    #[inline]
+    pub const fn key(&self) -> &Id {
+        &self.id
+    }
+}
+
+impl FromStr for RecordId {
     type Err = ();
 
     #[inline]
@@ -160,31 +179,43 @@ impl std::fmt::Display for Id {
 }
 
 #[cfg(feature = "db")]
-impl From<Thing> for surrealdb::sql::Thing {
+impl From<RecordIdKey> for Id {
     #[inline]
-    fn from(thing: Thing) -> Self {
-        Self::from((thing.tb, surrealdb::sql::Id::from(thing.id)))
-    }
-}
-
-#[cfg(feature = "db")]
-impl From<Id> for surrealdb::sql::Id {
-    #[inline]
-    fn from(id: Id) -> Self {
-        match id {
-            Id::Number(n) => Self::Number(n),
-            Id::String(s) => Self::String(s),
+    fn from(value: RecordIdKey) -> Self {
+        match value.into_inner() {
+            surrealdb::sql::Id::Number(n) => Self::Number(n),
+            surrealdb::sql::Id::String(s) => Self::String(s),
+            _ => unimplemented!(),
         }
     }
 }
 
 #[cfg(feature = "db")]
-impl From<surrealdb::sql::Thing> for Thing {
+impl From<Id> for RecordIdKey {
     #[inline]
-    fn from(thing: surrealdb::sql::Thing) -> Self {
+    fn from(id: Id) -> Self {
+        match id {
+            Id::Number(n) => Self::from(n),
+            Id::String(s) => Self::from(s),
+        }
+    }
+}
+
+#[cfg(feature = "db")]
+impl From<RecordId> for surrealdb::RecordId {
+    #[inline]
+    fn from(thing: RecordId) -> Self {
+        Self::from_table_key(thing.tb, RecordIdKey::from(thing.id))
+    }
+}
+
+#[cfg(feature = "db")]
+impl From<surrealdb::RecordId> for RecordId {
+    #[inline]
+    fn from(record: surrealdb::RecordId) -> Self {
         Self {
-            tb: thing.tb,
-            id: thing.id.into(),
+            tb: record.table().to_string(),
+            id: record.key().to_owned().into(),
         }
     }
 }
@@ -203,53 +234,50 @@ impl From<surrealdb::sql::Id> for Id {
 
 #[cfg(test)]
 mod thing {
-    //! tests to ensure that the `Thing` type is serialized and deserialized just like the `surrealdb` `Thing` type.
+    //! tests to ensure that the `RecordId` type is serialized and deserialized just like the `surrealdb` `RecordId` type.
     use super::*;
 
     #[test]
     fn test_serialize() {
-        let thing = Thing {
+        let thing = RecordId {
             tb: "table".to_owned(),
             id: Id::Number(42),
         };
         let serialized = serde_json::to_string(&thing).unwrap();
-        let expected = surrealdb::sql::Thing::from(("table", surrealdb::sql::Id::from(42)));
+        let expected = surrealdb::RecordId::from(("table", 42));
 
         let expected = serde_json::to_string(&expected).unwrap();
         assert_eq!(serialized, expected);
 
-        let thing = Thing {
+        let thing = RecordId {
             tb: "table".to_owned(),
             id: Id::String("42".to_owned()),
         };
         let serialized = serde_json::to_string(&thing).unwrap();
-        let expected = surrealdb::sql::Thing::from(("table", surrealdb::sql::Id::from("42")));
+        let expected = surrealdb::RecordId::from(("table", "42"));
         let expected = serde_json::to_string(&expected).unwrap();
         assert_eq!(serialized, expected);
     }
 
     #[test]
     fn test_deserialize() {
-        let serialized = serde_json::to_string(&Thing {
+        let serialized = serde_json::to_string(&RecordId {
             tb: "table".to_owned(),
             id: Id::String("42".to_owned()),
         })
         .unwrap();
 
-        let thing: Thing = serde_json::from_str(&serialized).unwrap();
+        let thing: RecordId = serde_json::from_str(&serialized).unwrap();
         assert_eq!(
             thing,
-            Thing {
+            RecordId {
                 tb: "table".to_owned(),
                 id: Id::String("42".to_owned()),
             }
         );
 
-        let thing: surrealdb::sql::Thing = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(
-            thing,
-            surrealdb::sql::Thing::from(("table", surrealdb::sql::Id::from("42")))
-        );
+        let thing: surrealdb::RecordId = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(thing, surrealdb::RecordId::from_table_key("table", "42"));
     }
 
     #[test]
@@ -257,35 +285,35 @@ mod thing {
         let id = Id::ulid();
 
         // valid things
-        let thing: Thing = format!("song:{id}").parse().unwrap();
-        assert_eq!(thing, Thing::from(("song", id.clone())));
-        let thing: Thing = format!("song:{id}: extra text").parse().unwrap();
-        assert_eq!(thing, Thing::from(("song", id.clone())));
+        let thing: RecordId = format!("song:{id}").parse().unwrap();
+        assert_eq!(thing, RecordId::from(("song", id.clone())));
+        let thing: RecordId = format!("song:{id}: extra text").parse().unwrap();
+        assert_eq!(thing, RecordId::from(("song", id.clone())));
 
         // id too short
-        let thing: Result<Thing, ()> = "song:42".parse();
+        let thing: Result<RecordId, ()> = "song:42".parse();
         assert!(thing.is_err());
-        let thing: Result<Thing, ()> = "song:42:extra text:".parse();
+        let thing: Result<RecordId, ()> = "song:42:extra text:".parse();
         assert!(thing.is_err());
 
         // id too long
-        let thing: Result<Thing, ()> = format!("song:{}", "a".repeat(27)).parse();
+        let thing: Result<RecordId, ()> = format!("song:{}", "a".repeat(27)).parse();
         assert!(thing.is_err());
-        let thing: Result<Thing, ()> = format!("song:{}: extra text", "a".repeat(27)).parse();
+        let thing: Result<RecordId, ()> = format!("song:{}: extra text", "a".repeat(27)).parse();
         assert!(thing.is_err());
 
         // extra text without colon
-        let thing: Result<Thing, ()> = format!("song:{id} extra text").parse();
+        let thing: Result<RecordId, ()> = format!("song:{id} extra text").parse();
         assert!(thing.is_err());
 
         // invalid table name
-        let thing: Result<Thing, ()> = format!("table:{id}").parse();
+        let thing: Result<RecordId, ()> = format!("table:{id}").parse();
         assert!(thing.is_err());
-        let thing: Result<Thing, ()> = format!("table:{id}: extra text").parse();
+        let thing: Result<RecordId, ()> = format!("table:{id}: extra text").parse();
         assert!(thing.is_err());
 
         // text is not a id at all
-        let thing: Result<Thing, ()> = "hello world!".parse();
+        let thing: Result<RecordId, ()> = "hello world!".parse();
         assert!(thing.is_err());
     }
 }

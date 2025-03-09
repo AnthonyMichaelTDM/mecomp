@@ -641,8 +641,8 @@ mod tests {
             .unwrap()
             .to_vec();
         assert_eq!(songs.len(), 4);
-        let third_song: mecomp_storage::db::schemas::Thing = songs[2].id.clone().into();
-        let fourth_song: mecomp_storage::db::schemas::Thing = songs[3].id.clone().into();
+        let third_song: mecomp_storage::db::schemas::RecordId = songs[2].id.clone().into();
+        let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(
@@ -700,9 +700,9 @@ mod tests {
             .unwrap()
             .to_vec();
         assert_eq!(songs.len(), 4);
-        let second_song: mecomp_storage::db::schemas::Thing = songs[1].id.clone().into();
-        let third_song: mecomp_storage::db::schemas::Thing = songs[2].id.clone().into();
-        let fourth_song: mecomp_storage::db::schemas::Thing = songs[3].id.clone().into();
+        let second_song: mecomp_storage::db::schemas::RecordId = songs[1].id.clone().into();
+        let third_song: mecomp_storage::db::schemas::RecordId = songs[2].id.clone().into();
+        let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(

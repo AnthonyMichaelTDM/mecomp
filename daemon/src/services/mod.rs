@@ -7,7 +7,7 @@ use mecomp_storage::{
         dynamic::{DynamicPlaylist, TABLE_NAME as DYNAMIC_PLAYLIST_TABLE_NAME},
         playlist::{Playlist, TABLE_NAME as PLAYLIST_TABLE_NAME},
         song::{Song, TABLE_NAME as SONG_TABLE_NAME},
-        Thing,
+        RecordId,
     },
     errors::{Error, StorageResult},
 };
@@ -30,7 +30,7 @@ pub mod radio;
 #[inline]
 pub async fn get_songs_from_things<C: Connection>(
     db: &Surreal<C>,
-    things: &[Thing],
+    things: &[RecordId],
 ) -> StorageResult<OneOrMany<Song>> {
     // go through the list, and get songs for each thing (depending on what it is)
     let mut songs: OneOrMany<Song> = OneOrMany::None;

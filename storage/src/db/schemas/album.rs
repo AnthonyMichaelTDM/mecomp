@@ -1,14 +1,15 @@
 #![allow(clippy::module_name_repetitions)]
 
+use super::Id;
 #[cfg(not(feature = "db"))]
-use super::{Id, Thing};
+use super::RecordId;
 use std::time::Duration;
 #[cfg(feature = "db")]
-use surrealdb::sql::{Id, Thing};
+use surrealdb::RecordId;
 
 use one_or_many::OneOrMany;
 
-pub type AlbumId = Thing;
+pub type AlbumId = RecordId;
 
 pub const TABLE_NAME: &str = "album";
 
@@ -20,7 +21,7 @@ pub const TABLE_NAME: &str = "album";
 #[cfg_attr(feature = "db", Table("album"))]
 pub struct Album {
     /// The unique identifier for this [`Album`].
-    #[cfg_attr(feature = "db", field("any"))]
+    #[cfg_attr(feature = "db", field("record"))]
     pub id: AlbumId,
     /// Title of the [`Album`].
     #[cfg_attr(feature = "db", field(dt = "string", index(text("custom_analyzer"))))]
@@ -63,7 +64,7 @@ impl Album {
     #[must_use]
     #[inline]
     pub fn generate_id() -> AlbumId {
-        Thing::from((TABLE_NAME, Id::ulid()))
+        RecordId::from_table_key(TABLE_NAME, Id::ulid())
     }
 }
 

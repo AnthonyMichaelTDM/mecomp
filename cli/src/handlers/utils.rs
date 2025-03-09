@@ -1,9 +1,9 @@
 use core::fmt;
 use std::io;
 
-use mecomp_storage::db::schemas::Thing;
+use mecomp_storage::db::schemas::RecordId;
 
-pub fn parse_things_from_lines<Lines>(lines: Lines) -> Vec<Thing>
+pub fn parse_things_from_lines<Lines>(lines: Lines) -> Vec<RecordId>
 where
     Lines: Iterator<Item = String>,
 {

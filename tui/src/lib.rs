@@ -103,7 +103,7 @@ mod subscriber_tests {
     };
     use one_or_many::OneOrMany;
     use rstest::{fixture, rstest};
-    use surrealdb::{engine::local::Db, sql::Thing, Surreal};
+    use surrealdb::{engine::local::Db, RecordId, Surreal};
     use tarpc::context::Context;
     use tempfile::tempdir;
     use termination::create_termination;
@@ -114,12 +114,12 @@ mod subscriber_tests {
     async fn db_with_state() -> Arc<Surreal<Db>> {
         let db = Arc::new(init_test_database().await.unwrap());
 
-        let album_id = Thing::from(("album", surrealdb::sql::Id::from(item_id())));
-        let analysis_id = Thing::from(("analysis", surrealdb::sql::Id::from(item_id())));
-        let artist_id = Thing::from(("artist", surrealdb::sql::Id::from(item_id())));
-        let collection_id = Thing::from(("collection", surrealdb::sql::Id::from(item_id())));
-        let playlist_id = Thing::from(("playlist", surrealdb::sql::Id::from(item_id())));
-        let song_id = Thing::from(("song", surrealdb::sql::Id::from(item_id())));
+        let album_id = RecordId::from_table_key("album", item_id());
+        let analysis_id = RecordId::from_table_key("analysis", item_id());
+        let artist_id = RecordId::from_table_key("artist", item_id());
+        let collection_id = RecordId::from_table_key("collection", item_id());
+        let playlist_id = RecordId::from_table_key("playlist", item_id());
+        let song_id = RecordId::from_table_key("song", item_id());
 
         // create a song, artist, album, collection, and playlist
         let song = Song {

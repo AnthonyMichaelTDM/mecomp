@@ -1,7 +1,7 @@
 use mecomp_core::{rpc::SearchResult, state::library::LibraryFull};
 use mecomp_storage::db::schemas::{
     album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
-    playlist::Playlist, song::Song, Id, Thing,
+    playlist::Playlist, song::Song, Id, RecordId,
 };
 use one_or_many::OneOrMany;
 use ratatui::{backend::TestBackend, layout::Rect, Terminal};
@@ -53,12 +53,12 @@ pub fn item_id() -> Id {
 /// Create an `AppState` that has the 1 of every type of item in the library (song, artist, album, ...)
 /// and `ContentView` as the active component, also, every view has data to display.
 pub fn state_with_everything() -> AppState {
-    let album_id = Thing::from(("album", item_id()));
-    let artist_id = Thing::from(("artist", item_id()));
-    let collection_id = Thing::from(("collection", item_id()));
-    let playlist_id = Thing::from(("playlist", item_id()));
-    let song_id = Thing::from(("song", item_id()));
-    let dynamic_id = Thing::from(("dynamic", item_id()));
+    let album_id = RecordId::from(("album", item_id()));
+    let artist_id = RecordId::from(("artist", item_id()));
+    let collection_id = RecordId::from(("collection", item_id()));
+    let playlist_id = RecordId::from(("playlist", item_id()));
+    let song_id = RecordId::from(("song", item_id()));
+    let dynamic_id = RecordId::from(("dynamic", item_id()));
 
     let song = Song {
         id: song_id.clone().into(),

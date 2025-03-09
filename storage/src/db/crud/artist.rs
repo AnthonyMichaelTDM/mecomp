@@ -1,7 +1,7 @@
 //! CRUD operations for the artist table
 use std::time::Duration;
 
-use surrealdb::{Connection, RecordId, Surreal};
+use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
@@ -29,10 +29,7 @@ impl Artist {
         db: &Surreal<C>,
         artist: Self,
     ) -> StorageResult<Option<Self>> {
-        Ok(db
-            .create(RecordId::from_inner(artist.id.clone()))
-            .content(artist)
-            .await?)
+        Ok(db.create(artist.id.clone()).content(artist).await?)
     }
 
     #[instrument]
@@ -103,7 +100,7 @@ impl Artist {
 
     #[instrument]
     pub async fn read<C: Connection>(db: &Surreal<C>, id: ArtistId) -> StorageResult<Option<Self>> {
-        Ok(db.select(RecordId::from_inner(id)).await?)
+        Ok(db.select(id).await?)
     }
 
     #[instrument]
@@ -145,7 +142,7 @@ impl Artist {
         id: ArtistId,
         changes: ArtistChangeSet,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.update(RecordId::from_inner(id)).merge(changes).await?)
+        Ok(db.update(id).merge(changes).await?)
     }
 
     #[instrument]
@@ -153,7 +150,7 @@ impl Artist {
         db: &Surreal<C>,
         id: ArtistId,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.delete(RecordId::from_inner(id)).await?)
+        Ok(db.delete(id).await?)
     }
 
     #[instrument]

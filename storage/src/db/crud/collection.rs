@@ -1,7 +1,7 @@
 //! CRUD operations for the collection table
 use std::time::Duration;
 
-use surrealdb::{Connection, RecordId, Surreal};
+use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 use crate::{
@@ -22,10 +22,7 @@ impl Collection {
         db: &Surreal<C>,
         collection: Self,
     ) -> StorageResult<Option<Self>> {
-        Ok(db
-            .create(RecordId::from_inner(collection.id.clone()))
-            .content(collection)
-            .await?)
+        Ok(db.create(collection.id.clone()).content(collection).await?)
     }
 
     #[instrument]
@@ -38,7 +35,7 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.select(RecordId::from_inner(id)).await?)
+        Ok(db.select(id).await?)
     }
 
     #[instrument]
@@ -47,7 +44,7 @@ impl Collection {
         id: CollectionId,
         changes: CollectionChangeSet,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.update(RecordId::from_inner(id)).merge(changes).await?)
+        Ok(db.update(id).merge(changes).await?)
     }
 
     #[instrument]
@@ -63,7 +60,7 @@ impl Collection {
             .collect::<Vec<_>>();
         Self::remove_songs(db, id.clone(), songs).await?;
 
-        Ok(db.delete(RecordId::from_inner(id)).await?)
+        Ok(db.delete(id).await?)
     }
 
     #[instrument]

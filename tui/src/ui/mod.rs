@@ -39,7 +39,7 @@ use mecomp_core::{
     rpc::{MusicPlayerClient, SearchResult},
     state::{library::LibraryFull, StateAudio},
 };
-use mecomp_storage::db::schemas::{album, artist, collection, dynamic, playlist, song, Thing};
+use mecomp_storage::db::schemas::{album, artist, collection, dynamic, playlist, song, RecordId};
 use one_or_many::OneOrMany;
 use ratatui::prelude::*;
 use tarpc::context::Context;
@@ -235,7 +235,7 @@ async fn handle_additional_view_data(
 ) -> Option<ViewData> {
     match active_view {
         ActiveView::Song(id) => {
-            let song_id = Thing {
+            let song_id = RecordId {
                 tb: song::TABLE_NAME.to_string(),
                 id: id.to_owned(),
             };
@@ -273,7 +273,7 @@ async fn handle_additional_view_data(
             }
         }
         ActiveView::Album(id) => {
-            let album_id = Thing {
+            let album_id = RecordId {
                 tb: album::TABLE_NAME.to_string(),
                 id: id.to_owned(),
             };
@@ -301,7 +301,7 @@ async fn handle_additional_view_data(
             }
         }
         ActiveView::Artist(id) => {
-            let artist_id = Thing {
+            let artist_id = RecordId {
                 tb: artist::TABLE_NAME.to_string(),
                 id: id.to_owned(),
             };
@@ -329,7 +329,7 @@ async fn handle_additional_view_data(
             }
         }
         ActiveView::Playlist(id) => {
-            let playlist_id = Thing {
+            let playlist_id = RecordId {
                 tb: playlist::TABLE_NAME.to_string(),
                 id: id.to_owned(),
             };
@@ -355,7 +355,7 @@ async fn handle_additional_view_data(
             }
         }
         ActiveView::DynamicPlaylist(id) => {
-            let dynamic_playlist_id = Thing {
+            let dynamic_playlist_id = RecordId {
                 tb: dynamic::TABLE_NAME.to_string(),
                 id: id.to_owned(),
             };
@@ -381,7 +381,7 @@ async fn handle_additional_view_data(
             }
         }
         ActiveView::Collection(id) => {
-            let collection_id = Thing {
+            let collection_id = RecordId {
                 tb: collection::TABLE_NAME.to_string(),
                 id: id.to_owned(),
             };

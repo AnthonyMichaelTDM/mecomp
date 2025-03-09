@@ -1,19 +1,19 @@
-#![allow(clippy::module_name_repetitions)]
 //----------------------------------------------------------------------------------------- std lib
 use std::path::PathBuf;
 //--------------------------------------------------------------------------------- other libraries
+use super::Id;
 #[cfg(not(feature = "db"))]
-use super::{Id, Thing};
+use super::RecordId;
 use lofty::{file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
 use std::time::Duration;
 #[cfg(feature = "db")]
-use surrealdb::sql::{Id, Thing};
+use surrealdb::RecordId;
 use tracing::instrument;
 //----------------------------------------------------------------------------------- local modules
 use crate::errors::SongIOError;
 use one_or_many::OneOrMany;
 
-pub type SongId = Thing;
+pub type SongId = RecordId;
 
 pub const TABLE_NAME: &str = "song";
 
@@ -24,7 +24,7 @@ pub const TABLE_NAME: &str = "song";
 #[cfg_attr(feature = "db", Table("song"))]
 pub struct Song {
     /// The unique identifier for this [`Song`].
-    #[cfg_attr(feature = "db", field("any"))]
+    #[cfg_attr(feature = "db", field("record"))]
     pub id: SongId,
     /// Title of the [`Song`].
     #[cfg_attr(feature = "db", field(dt = "string", index(text("custom_analyzer"))))]
@@ -88,7 +88,7 @@ impl Song {
     #[must_use]
     #[inline]
     pub fn generate_id() -> SongId {
-        Thing::from((TABLE_NAME, Id::ulid()))
+        RecordId::from_table_key(TABLE_NAME, Id::ulid())
     }
 }
 
@@ -393,7 +393,7 @@ mod tests {
     #[fixture]
     fn song() -> Song {
         Song {
-            id: Thing::from((TABLE_NAME, "id")),
+            id: RecordId::from((TABLE_NAME, "id")),
             title: "song".into(),
             artist: OneOrMany::One("artist".into()),
             album_artist: OneOrMany::One("artist".into()),
@@ -411,7 +411,7 @@ mod tests {
     #[fixture]
     fn song_brief() -> SongBrief {
         SongBrief {
-            id: Thing::from((TABLE_NAME, "id")),
+            id: RecordId::from((TABLE_NAME, "id")),
             title: "song".into(),
             artist: OneOrMany::One("artist".into()),
             album: "album".into(),
@@ -445,7 +445,7 @@ mod tests {
         path: PathBuf::from("path"),
     },
     Song {
-        id: Thing::from((TABLE_NAME, "id")),
+        id: RecordId::from((TABLE_NAME, "id")),
         title: "song".into(),
         artist: OneOrMany::One("artist".into()),
         album_artist: OneOrMany::One("artist".into()),
@@ -473,7 +473,7 @@ mod tests {
         path: PathBuf::from("path"),
     },
     Song {
-        id: Thing::from((TABLE_NAME, "id")),
+        id: RecordId::from((TABLE_NAME, "id")),
         title: "song".into(),
         artist: OneOrMany::One("artist".into()),
         album_artist: OneOrMany::One("artist".into()),

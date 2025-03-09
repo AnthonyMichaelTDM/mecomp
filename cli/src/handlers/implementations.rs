@@ -26,7 +26,7 @@ use mecomp_storage::db::schemas::{
     dynamic::{self, DynamicPlaylist, DynamicPlaylistChangeSet},
     playlist::{self, Playlist, PlaylistBrief},
     song::{self, Song, SongBrief},
-    Id, Thing,
+    Id, RecordId,
 };
 use one_or_many::OneOrMany;
 
@@ -280,7 +280,7 @@ impl CommandHandler for LibraryCommand {
                         let resp: Option<Artist> = client
                             .library_artist_get(
                                 ctx,
-                                Thing {
+                                RecordId {
                                     tb: artist::TABLE_NAME.to_owned(),
                                     id: Id::String(id.to_owned()),
                                 },
@@ -292,7 +292,7 @@ impl CommandHandler for LibraryCommand {
                         let resp: Option<Album> = client
                             .library_album_get(
                                 ctx,
-                                Thing {
+                                RecordId {
                                     tb: album::TABLE_NAME.to_owned(),
                                     id: Id::String(id.to_owned()),
                                 },
@@ -304,7 +304,7 @@ impl CommandHandler for LibraryCommand {
                         let resp: Option<Song> = client
                             .library_song_get(
                                 ctx,
-                                Thing {
+                                RecordId {
                                     tb: song::TABLE_NAME.to_owned(),
                                     id: Id::String(id.to_owned()),
                                 },
@@ -316,7 +316,7 @@ impl CommandHandler for LibraryCommand {
                         let resp: Option<Playlist> = client
                             .playlist_get(
                                 ctx,
-                                Thing {
+                                RecordId {
                                     tb: playlist::TABLE_NAME.to_owned(),
                                     id: Id::String(id.to_owned()),
                                 },
@@ -561,7 +561,7 @@ impl CommandHandler for QueueCommand {
                     QueueAddTarget::Artist => client
                         .queue_add(
                             ctx,
-                            Thing {
+                            RecordId {
                                 tb: artist::TABLE_NAME.to_owned(),
                                 id: Id::String(id.clone()),
                             },
@@ -571,7 +571,7 @@ impl CommandHandler for QueueCommand {
                     QueueAddTarget::Album => client
                         .queue_add(
                             ctx,
-                            Thing {
+                            RecordId {
                                 tb: album::TABLE_NAME.to_owned(),
                                 id: Id::String(id.clone()),
                             },
@@ -581,7 +581,7 @@ impl CommandHandler for QueueCommand {
                     QueueAddTarget::Song => client
                         .queue_add(
                             ctx,
-                            Thing {
+                            RecordId {
                                 tb: song::TABLE_NAME.to_owned(),
                                 id: Id::String(id.clone()),
                             },
@@ -591,7 +591,7 @@ impl CommandHandler for QueueCommand {
                     QueueAddTarget::Playlist => client
                         .queue_add(
                             ctx,
-                            Thing {
+                            RecordId {
                                 tb: playlist::TABLE_NAME.to_owned(),
                                 id: Id::String(id.clone()),
                             },
@@ -601,7 +601,7 @@ impl CommandHandler for QueueCommand {
                     QueueAddTarget::Collection => client
                         .queue_add(
                             ctx,
-                            Thing {
+                            RecordId {
                                 tb: collection::TABLE_NAME.to_owned(),
                                 id: Id::String(id.clone()),
                             },
@@ -611,7 +611,7 @@ impl CommandHandler for QueueCommand {
                     QueueAddTarget::Dynamic => client
                         .queue_add(
                             ctx,
-                            Thing {
+                            RecordId {
                                 tb: dynamic::TABLE_NAME.to_owned(),
                                 id: Id::String(id.clone()),
                             },
@@ -641,7 +641,7 @@ impl CommandHandler for QueueCommand {
                         "No input provided, this command is meant to be used with a pipe"
                     )?;
                 } else {
-                    let list: Vec<Thing> = utils::parse_things_from_lines(
+                    let list: Vec<RecordId> = utils::parse_things_from_lines(
                         stdin.lock().lines().filter_map(|l| match l {
                             Ok(line) => Some(line),
                             Err(e) => {
@@ -687,7 +687,7 @@ impl CommandHandler for super::PlaylistCommand {
                         client
                             .playlist_get(
                                 ctx,
-                                Thing {
+                                RecordId {
                                     tb: playlist::TABLE_NAME.to_owned(),
                                     id: Id::String(target.clone()),
                                 },
@@ -707,7 +707,7 @@ impl CommandHandler for super::PlaylistCommand {
                 Ok(())
             }
             Self::Create { name } => {
-                let resp: Thing = client.playlist_get_or_create(ctx, name.clone()).await??;
+                let resp: RecordId = client.playlist_get_or_create(ctx, name.clone()).await??;
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                 Ok(())
             }
@@ -715,7 +715,7 @@ impl CommandHandler for super::PlaylistCommand {
                 let resp: Playlist = client
                     .playlist_rename(
                         ctx,
-                        Thing {
+                        RecordId {
                             tb: playlist::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
@@ -733,7 +733,7 @@ impl CommandHandler for super::PlaylistCommand {
                 match client
                     .playlist_get_songs(
                         ctx,
-                        Thing {
+                        RecordId {
                             tb: playlist::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
@@ -758,7 +758,7 @@ impl CommandHandler for super::PlaylistCommand {
                 client
                     .playlist_remove(
                         ctx,
-                        Thing {
+                        RecordId {
                             tb: playlist::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
@@ -772,13 +772,13 @@ impl CommandHandler for super::PlaylistCommand {
                 client
                     .playlist_remove_songs(
                         ctx,
-                        Thing {
+                        RecordId {
                             tb: playlist::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
                         item_ids
                             .iter()
-                            .map(|id| Thing {
+                            .map(|id| RecordId {
                                 tb: song::TABLE_NAME.to_owned(),
                                 id: Id::String(id.clone()),
                             })
@@ -807,11 +807,11 @@ impl CommandHandler for super::PlaylistAddCommand {
             Self::Artist { id, artist_id } => client
                 .playlist_add(
                     ctx,
-                    Thing {
+                    RecordId {
                         tb: artist::TABLE_NAME.to_owned(),
                         id: Id::String(artist_id.clone()),
                     },
-                    Thing {
+                    RecordId {
                         tb: playlist::TABLE_NAME.to_owned(),
                         id: Id::String(id.clone()),
                     },
@@ -821,11 +821,11 @@ impl CommandHandler for super::PlaylistAddCommand {
             Self::Album { id, album_id } => client
                 .playlist_add(
                     ctx,
-                    Thing {
+                    RecordId {
                         tb: album::TABLE_NAME.to_owned(),
                         id: Id::String(album_id.clone()),
                     },
-                    Thing {
+                    RecordId {
                         tb: playlist::TABLE_NAME.to_owned(),
                         id: Id::String(id.clone()),
                     },
@@ -835,13 +835,13 @@ impl CommandHandler for super::PlaylistAddCommand {
             Self::Song { id, song_ids } => client
                 .playlist_add_list(
                     ctx,
-                    Thing {
+                    RecordId {
                         tb: playlist::TABLE_NAME.to_owned(),
                         id: Id::String(id.clone()),
                     },
                     song_ids
                         .iter()
-                        .map(|id| Thing {
+                        .map(|id| RecordId {
                             tb: song::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         })
@@ -854,7 +854,7 @@ impl CommandHandler for super::PlaylistAddCommand {
                 if stdin.is_terminal() {
                     bail!("No input provided, this command is meant to be used with a pipe");
                 }
-                let list: Vec<Thing> =
+                let list: Vec<RecordId> =
                     utils::parse_things_from_lines(stdin.lock().lines().filter_map(|l| match l {
                         Ok(line) => Some(line),
                         Err(e) => {
@@ -866,7 +866,7 @@ impl CommandHandler for super::PlaylistAddCommand {
                 client
                     .playlist_add_list(
                         ctx,
-                        Thing {
+                        RecordId {
                             tb: playlist::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
@@ -933,7 +933,7 @@ impl CommandHandler for super::DynamicCommand {
                 let resp: Option<DynamicPlaylist> = client
                     .dynamic_playlist_get(
                         ctx,
-                        Thing {
+                        RecordId {
                             tb: dynamic::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
@@ -946,7 +946,7 @@ impl CommandHandler for super::DynamicCommand {
                 match client
                     .dynamic_playlist_get_songs(
                         ctx,
-                        Thing {
+                        RecordId {
                             tb: dynamic::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
@@ -967,7 +967,7 @@ impl CommandHandler for super::DynamicCommand {
                 Ok(())
             }
             Self::Create { name, query } => {
-                let resp: Thing = client
+                let resp: RecordId = client
                     .dynamic_playlist_create(ctx, name.clone(), query.clone())
                     .await??;
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
@@ -977,7 +977,7 @@ impl CommandHandler for super::DynamicCommand {
                 client
                     .dynamic_playlist_remove(
                         ctx,
-                        Thing {
+                        RecordId {
                             tb: dynamic::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
@@ -998,7 +998,7 @@ impl CommandHandler for super::DynamicCommand {
                 let resp: DynamicPlaylist = client
                     .dynamic_playlist_update(
                         ctx,
-                        Thing {
+                        RecordId {
                             tb: dynamic::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
@@ -1043,7 +1043,7 @@ impl CommandHandler for super::CollectionCommand {
                 let resp: Option<Collection> = client
                     .collection_get(
                         ctx,
-                        Thing {
+                        RecordId {
                             tb: collection::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
@@ -1056,7 +1056,7 @@ impl CommandHandler for super::CollectionCommand {
                 match client
                     .collection_get_songs(
                         ctx,
-                        Thing {
+                        RecordId {
                             tb: collection::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
@@ -1085,10 +1085,10 @@ impl CommandHandler for super::CollectionCommand {
                 Ok(())
             }
             Self::Freeze { id, name } => {
-                let resp: Thing = client
+                let resp: RecordId = client
                     .collection_freeze(
                         ctx,
-                        Thing {
+                        RecordId {
                             tb: collection::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         },
@@ -1114,10 +1114,10 @@ impl CommandHandler for super::RadioCommand {
     ) -> Self::Output {
         match self {
             Self::Song { id, n } => {
-                let resp: Box<[Thing]> = client
+                let resp: Box<[RecordId]> = client
                     .radio_get_similar_ids(
                         ctx,
-                        vec![Thing {
+                        vec![RecordId {
                             tb: song::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         }],
@@ -1128,10 +1128,10 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Artist { id, n } => {
-                let resp: Box<[Thing]> = client
+                let resp: Box<[RecordId]> = client
                     .radio_get_similar_ids(
                         ctx,
-                        vec![Thing {
+                        vec![RecordId {
                             tb: artist::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         }],
@@ -1142,10 +1142,10 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Album { id, n } => {
-                let resp: Box<[Thing]> = client
+                let resp: Box<[RecordId]> = client
                     .radio_get_similar_ids(
                         ctx,
-                        vec![Thing {
+                        vec![RecordId {
                             tb: album::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         }],
@@ -1156,10 +1156,10 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Playlist { id, n } => {
-                let resp: Box<[Thing]> = client
+                let resp: Box<[RecordId]> = client
                     .radio_get_similar_ids(
                         ctx,
-                        vec![Thing {
+                        vec![RecordId {
                             tb: playlist::TABLE_NAME.to_owned(),
                             id: Id::String(id.clone()),
                         }],
@@ -1174,7 +1174,7 @@ impl CommandHandler for super::RadioCommand {
                 if stdin.is_terminal() {
                     bail!("No input provided, this command is meant to be used with a pipe");
                 }
-                let list: Vec<Thing> =
+                let list: Vec<RecordId> =
                     utils::parse_things_from_lines(stdin.lock().lines().filter_map(|l| match l {
                         Ok(line) => Some(line),
                         Err(e) => {
@@ -1183,7 +1183,7 @@ impl CommandHandler for super::RadioCommand {
                         }
                     }));
 
-                let resp: Box<[Thing]> = client.radio_get_similar_ids(ctx, list, *n).await??;
+                let resp: Box<[RecordId]> = client.radio_get_similar_ids(ctx, list, *n).await??;
                 writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
                 Ok(())
             }

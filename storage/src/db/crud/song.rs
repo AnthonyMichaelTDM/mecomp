@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use log::info;
-use surrealdb::{Connection, RecordId, Surreal};
+use surrealdb::{Connection, Surreal};
 use tracing::instrument;
 
 #[cfg(feature = "analysis")]
@@ -53,10 +53,7 @@ impl From<(SongId, bool)> for DeleteArgs {
 impl Song {
     #[instrument]
     pub async fn create<C: Connection>(db: &Surreal<C>, song: Self) -> StorageResult<Option<Self>> {
-        Ok(db
-            .create(RecordId::from_inner(song.id.clone()))
-            .content(song)
-            .await?)
+        Ok(db.create(song.id.clone()).content(song).await?)
     }
 
     #[instrument]
@@ -66,7 +63,7 @@ impl Song {
 
     #[instrument]
     pub async fn read<C: Connection>(db: &Surreal<C>, id: SongId) -> StorageResult<Option<Self>> {
-        Ok(db.select(RecordId::from_inner(id)).await?)
+        Ok(db.select(id).await?)
     }
 
     #[instrument]
@@ -222,7 +219,7 @@ impl Song {
             }
         }
 
-        Ok(db.update(RecordId::from_inner(id)).merge(changes).await?)
+        Ok(db.update(id).merge(changes).await?)
     }
 
     /// Delete a song from the database,
@@ -247,7 +244,7 @@ impl Song {
 
         // if we're not deleting orphans, we can just delete the song
         if !delete_orphans {
-            return Ok(db.delete(RecordId::from_inner(id)).await?);
+            return Ok(db.delete(id).await?);
         }
 
         // remove the song from any playlists or collections it's in
@@ -279,7 +276,7 @@ impl Song {
             }
         }
 
-        Ok(db.delete(RecordId::from_inner(id)).await?)
+        Ok(db.delete(id).await?)
     }
 
     /// Create a new [`Song`] from song metadata and load it into the database.

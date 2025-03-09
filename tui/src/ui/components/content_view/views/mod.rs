@@ -2,7 +2,7 @@ pub mod dynamic;
 use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::{
     album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
-    playlist::Playlist, song::Song, Thing,
+    playlist::Playlist, song::Song, RecordId,
 };
 use one_or_many::OneOrMany;
 use ratatui::{
@@ -44,14 +44,14 @@ pub struct ViewData {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AlbumViewProps {
-    pub id: Thing,
+    pub id: RecordId,
     pub album: Album,
     pub artists: OneOrMany<Artist>,
     pub songs: Box<[Song]>,
 }
 
 impl ItemViewProps for AlbumViewProps {
-    fn id(&self) -> &Thing {
+    fn id(&self) -> &RecordId {
         &self.id
     }
 
@@ -121,14 +121,14 @@ impl ItemViewProps for AlbumViewProps {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArtistViewProps {
-    pub id: Thing,
+    pub id: RecordId,
     pub artist: Artist,
     pub albums: Box<[Album]>,
     pub songs: Box<[Song]>,
 }
 
 impl ItemViewProps for ArtistViewProps {
-    fn id(&self) -> &Thing {
+    fn id(&self) -> &RecordId {
         &self.id
     }
 
@@ -190,28 +190,28 @@ impl ItemViewProps for ArtistViewProps {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CollectionViewProps {
-    pub id: Thing,
+    pub id: RecordId,
     pub collection: Collection,
     pub songs: Box<[Song]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DynamicPlaylistViewProps {
-    pub id: Thing,
+    pub id: RecordId,
     pub dynamic_playlist: DynamicPlaylist,
     pub songs: Box<[Song]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlaylistViewProps {
-    pub id: Thing,
+    pub id: RecordId,
     pub playlist: Playlist,
     pub songs: Box<[Song]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SongViewProps {
-    pub id: Thing,
+    pub id: RecordId,
     pub song: Song,
     pub artists: OneOrMany<Artist>,
     pub album: Album,
@@ -220,7 +220,7 @@ pub struct SongViewProps {
 }
 
 impl ItemViewProps for SongViewProps {
-    fn id(&self) -> &Thing {
+    fn id(&self) -> &RecordId {
         &self.id
     }
 
@@ -321,18 +321,18 @@ pub struct RadioViewProps {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RandomViewProps {
     /// id of a random album
-    pub album: Thing,
+    pub album: RecordId,
     /// id of a random artist
-    pub artist: Thing,
+    pub artist: RecordId,
     /// id of a random song
-    pub song: Thing,
+    pub song: RecordId,
 }
 
 pub mod checktree_utils {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     use mecomp_storage::db::schemas::{
         album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
-        playlist::Playlist, song::Song, Thing,
+        playlist::Playlist, song::Song, RecordId,
     };
     use ratatui::{
         layout::Position,
@@ -354,19 +354,19 @@ pub mod checktree_utils {
     impl CheckTreeState<String> {
         /// Get the checked things from the tree state
         #[must_use]
-        pub fn get_checked_things(&self) -> Vec<Thing> {
+        pub fn get_checked_things(&self) -> Vec<RecordId> {
             self.checked()
                 .iter()
-                .filter_map(|id| id.iter().find_map(|id| id.parse::<Thing>().ok()))
+                .filter_map(|id| id.iter().find_map(|id| id.parse::<RecordId>().ok()))
                 .collect()
         }
 
         /// Get the selected thing from the tree state
         #[must_use]
-        pub fn get_selected_thing(&self) -> Option<Thing> {
+        pub fn get_selected_thing(&self) -> Option<RecordId> {
             self.selected()
                 .iter()
-                .find_map(|id| id.parse::<Thing>().ok())
+                .find_map(|id| id.parse::<RecordId>().ok())
         }
 
         /// Handle mouse events interacting with the tree
@@ -451,8 +451,8 @@ pub mod checktree_utils {
     /// Some(Action) - if there are checked things or the current thing is Some
     #[must_use]
     pub fn construct_add_to_playlist_action(
-        checked_things: Vec<Thing>,
-        current_thing: Option<&Thing>,
+        checked_things: Vec<RecordId>,
+        current_thing: Option<&RecordId>,
     ) -> Option<Action> {
         if checked_things.is_empty() {
             current_thing
@@ -473,8 +473,8 @@ pub mod checktree_utils {
     /// Some(Action) - if there are checked things or the current thing is Some
     #[must_use]
     pub fn construct_add_to_queue_action(
-        checked_things: Vec<Thing>,
-        current_thing: Option<&Thing>,
+        checked_things: Vec<RecordId>,
+        current_thing: Option<&RecordId>,
     ) -> Option<Action> {
         if checked_things.is_empty() {
             current_thing
@@ -495,8 +495,8 @@ pub mod checktree_utils {
     /// Some(Action) - if there are checked things or the current thing is Some
     #[must_use]
     pub fn construct_start_radio_action(
-        checked_things: Vec<Thing>,
-        current_thing: Option<&Thing>,
+        checked_things: Vec<RecordId>,
+        current_thing: Option<&RecordId>,
     ) -> Option<Action> {
         if checked_things.is_empty() {
             current_thing

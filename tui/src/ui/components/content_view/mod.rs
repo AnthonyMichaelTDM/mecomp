@@ -3,7 +3,9 @@
 pub mod views;
 
 use crossterm::event::{MouseButton, MouseEventKind};
-use mecomp_storage::db::schemas::{album, artist, collection, dynamic, playlist, song, Id, Thing};
+use mecomp_storage::db::schemas::{
+    album, artist, collection, dynamic, playlist, song, Id, RecordId,
+};
 use ratatui::layout::Position;
 use tokio::sync::mpsc::UnboundedSender;
 use views::{
@@ -97,14 +99,14 @@ pub enum ActiveView {
     /// A view of a specific collection.
     Collection(Id),
     /// A view of a radio
-    Radio(Vec<Thing>),
+    Radio(Vec<RecordId>),
     /// A view for getting a random song, album, etc.
     Random,
     // TODO: views for genres, settings, etc.
 }
 
-impl From<Thing> for ActiveView {
-    fn from(value: Thing) -> Self {
+impl From<RecordId> for ActiveView {
+    fn from(value: RecordId) -> Self {
         match value.tb.as_str() {
             album::TABLE_NAME => Self::Album(value.id),
             artist::TABLE_NAME => Self::Artist(value.id),
@@ -326,7 +328,7 @@ mod tests {
     #[case(ActiveView::DynamicPlaylist(item_id()))]
     #[case(ActiveView::Collections)]
     #[case(ActiveView::Collection(item_id()))]
-    #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))]))]
+    #[case(ActiveView::Radio(vec![RecordId::from(("song", item_id()))]))]
     #[case(ActiveView::Random)]
     fn smoke_render(#[case] active_view: ActiveView, #[values(true, false)] is_focused: bool) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
@@ -357,7 +359,7 @@ mod tests {
     #[case(ActiveView::DynamicPlaylist(item_id()))]
     #[case(ActiveView::Collections)]
     #[case(ActiveView::Collection(item_id()))]
-    #[case(ActiveView::Radio(vec![Thing::from(("song", item_id()))]))]
+    #[case(ActiveView::Radio(vec![RecordId::from(("song", item_id()))]))]
     #[case(ActiveView::Random)]
     fn test_get_active_view_component(#[case] active_view: ActiveView) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
