@@ -2,7 +2,7 @@ use surrealdb::opt::IntoQuery;
 
 use crate::db::schemas;
 
-use super::generic::read_related_in;
+use super::{generic::read_related_in, parse_query};
 
 /// Query to read a song by its path
 ///
@@ -27,12 +27,10 @@ use super::generic::read_related_in;
 #[must_use]
 #[inline]
 pub fn read_song_by_path() -> impl IntoQuery {
-    format!(
+    parse_query(format!(
         "SELECT * FROM {} WHERE path = $path LIMIT 1",
         schemas::song::TABLE_NAME
-    )
-    .into_query()
-    .unwrap()
+    ))
 }
 
 /// query to read the album of a song
@@ -181,70 +179,22 @@ pub fn read_collections() -> impl IntoQuery {
 
 #[cfg(test)]
 mod query_validation_tests {
-    use pretty_assertions::assert_eq;
-    use surrealdb::opt::IntoQuery;
+    use crate::db::queries::validate_query;
+    use rstest::rstest;
 
     use super::*;
 
-    #[test]
-    fn test_read_song_by_path() {
-        let statement = read_song_by_path();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM song WHERE path = $path LIMIT 1"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_album() {
-        let statement = read_album();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $id<-album_to_song.in".into_query().unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_artist() {
-        let statement = read_artist();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $id<-artist_to_song.in".into_query().unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_album_artist() {
-        let statement = read_album_artist();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_playlists() {
-        let statement = read_playlists();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $id<-playlist_to_song.in"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_collections() {
-        let statement = read_collections();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $id<-collection_to_song.in"
-                .into_query()
-                .unwrap()
-        );
+    #[rstest]
+    #[case::read_song_by_path(read_song_by_path(), "SELECT * FROM song WHERE path = $path LIMIT 1")]
+    #[case::read_album(read_album(), "SELECT * FROM $id<-album_to_song.in")]
+    #[case::read_artist(read_artist(), "SELECT * FROM $id<-artist_to_song.in")]
+    #[case::read_album_artist(
+        read_album_artist(),
+        "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in"
+    )]
+    #[case::read_playlists(read_playlists(), "SELECT * FROM $id<-playlist_to_song.in")]
+    #[case::read_collections(read_collections(), "SELECT * FROM $id<-collection_to_song.in")]
+    fn test_queries(#[case] query: impl IntoQuery, #[case] expected: &str) {
+        validate_query(query, expected);
     }
 }

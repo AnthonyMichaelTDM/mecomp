@@ -1,4 +1,4 @@
-use crate::db::schemas;
+use crate::db::{queries::parse_query, schemas};
 use surrealdb::opt::IntoQuery;
 
 use super::generic::{read_related_in, read_related_out, relate};
@@ -105,12 +105,10 @@ pub fn read_song() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_songs_without_analysis() -> impl IntoQuery {
-    format!(
+    parse_query(format!(
         "SELECT * FROM {} WHERE count(<-analysis_to_song.in) = 0",
         schemas::song::TABLE_NAME
-    )
-    .into_query()
-    .unwrap()
+    ))
 }
 
 /// Query to find the `n` nearest neighbors to a given analysis
@@ -136,12 +134,10 @@ pub fn read_songs_without_analysis() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn nearest_neighbors(n: u32) -> impl IntoQuery {
-    format!(
+    parse_query(format!(
         "SELECT * FROM {} WHERE id IS NOT $id AND features <|{n}|> $target",
         schemas::analysis::TABLE_NAME
-    )
-    .into_query()
-    .unwrap()
+    ))
 }
 
 /// Query to find the `n` nearest neighbors to a list of analyses, excluding the given analyses
@@ -166,82 +162,38 @@ pub fn nearest_neighbors(n: u32) -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn nearest_neighbors_to_many(n: u32) -> impl IntoQuery {
-    format!(
+    parse_query(format!(
         "SELECT * FROM {} WHERE id NOT IN $ids AND features <|{n}|> $target",
         schemas::analysis::TABLE_NAME
-    )
-    .into_query()
-    .unwrap()
+    ))
 }
 
 #[cfg(test)]
 mod query_validation_tests {
-    use pretty_assertions::assert_eq;
+    use rstest::rstest;
     use surrealdb::opt::IntoQuery;
+
+    use crate::db::queries::validate_query;
 
     use super::*;
 
-    #[test]
-    fn test_add_to_song() {
-        let statement = add_to_song();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "RELATE $id->analysis_to_song->$song".into_query().unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_for_song() {
-        let statement = read_for_song();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $song<-analysis_to_song.in"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_song() {
-        let statement = read_song();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $id->analysis_to_song.out"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_songs_without_analysis() {
-        let statement = read_songs_without_analysis();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM song WHERE count(<-analysis_to_song.in) = 0"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_nearest_neighbors() {
-        let statement = nearest_neighbors(5);
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM analysis WHERE id IS NOT $id AND features <|5|> $target"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_nearest_neighbors_to_many() {
-        let statement = nearest_neighbors_to_many(5);
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM analysis WHERE id NOT IN $ids AND features <|5|> $target"
-                .into_query()
-                .unwrap()
-        );
+    #[rstest]
+    #[case::add_to_song(add_to_song(), "RELATE $id->analysis_to_song->$song")]
+    #[case::read_for_song(read_for_song(), "SELECT * FROM $song<-analysis_to_song.in")]
+    #[case::read_song(read_song(), "SELECT * FROM $id->analysis_to_song.out")]
+    #[case::read_songs_without_analysis(
+        read_songs_without_analysis(),
+        "SELECT * FROM song WHERE count(<-analysis_to_song.in) = 0"
+    )]
+    #[case::nearest_neighbors(
+        nearest_neighbors(5),
+        "SELECT * FROM analysis WHERE id IS NOT $id AND features <|5|> $target"
+    )]
+    #[case::nearest_neighbors_to_many(
+        nearest_neighbors_to_many(5),
+        "SELECT * FROM analysis WHERE id NOT IN $ids AND features <|5|> $target"
+    )]
+    fn test_queries(#[case] query: impl IntoQuery, #[case] expected: &str) {
+        validate_query(query, expected);
     }
 }

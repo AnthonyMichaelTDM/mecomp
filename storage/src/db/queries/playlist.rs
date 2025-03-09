@@ -2,7 +2,10 @@ use surrealdb::opt::IntoQuery;
 
 use crate::db::schemas;
 
-use super::generic::{read_related_out, relate, unrelate};
+use super::{
+    generic::{read_related_out, relate, unrelate},
+    parse_query,
+};
 
 /// Query to relate a playlist to its songs.
 ///
@@ -109,60 +112,25 @@ pub fn remove_songs() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_by_name() -> impl IntoQuery {
-    format!(
+    parse_query(format!(
         "SELECT * FROM {} WHERE name = $name LIMIT 1",
         schemas::playlist::TABLE_NAME
-    )
-    .into_query()
-    .unwrap()
+    ))
 }
 
 #[cfg(test)]
 mod query_validation_tests {
-    use pretty_assertions::assert_eq;
-    use surrealdb::opt::IntoQuery;
+    use crate::db::queries::validate_query;
+    use rstest::rstest;
 
     use super::*;
 
-    #[test]
-    fn test_add_songs() {
-        let statement = add_songs();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "RELATE $id->playlist_to_song->$songs".into_query().unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_songs() {
-        let statement = read_songs();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $id->playlist_to_song.out"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_remove_songs() {
-        let statement = remove_songs();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "DELETE $id->playlist_to_song WHERE out IN $songs"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_by_name() {
-        let statement = read_by_name();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM playlist WHERE name = $name LIMIT 1"
-                .into_query()
-                .unwrap()
-        );
+    #[rstest]
+    #[case::add_songs(add_songs(), "RELATE $id->playlist_to_song->$songs")]
+    #[case::read_songs(read_songs(), "SELECT * FROM $id->playlist_to_song.out")]
+    #[case::remove_songs(remove_songs(), "DELETE $id->playlist_to_song WHERE out IN $songs")]
+    #[case::read_by_name(read_by_name(), "SELECT * FROM playlist WHERE name = $name LIMIT 1")]
+    fn test_queries(#[case] statement: impl IntoQuery, #[case] expected: &str) {
+        validate_query(statement, expected);
     }
 }
