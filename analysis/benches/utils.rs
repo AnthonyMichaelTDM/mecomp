@@ -27,6 +27,7 @@ fn bench_reflect_pad(c: &mut Criterion) {
     });
 }
 
+#[allow(clippy::too_many_lines)]
 fn bench_geometric_mean(c: &mut Criterion) {
     let input = [
         0.024_454_033,

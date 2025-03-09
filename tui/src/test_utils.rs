@@ -52,6 +52,7 @@ pub fn item_id() -> Id {
 
 /// Create an `AppState` that has the 1 of every type of item in the library (song, artist, album, ...)
 /// and `ContentView` as the active component, also, every view has data to display.
+#[allow(clippy::too_many_lines)]
 pub fn state_with_everything() -> AppState {
     let album_id = RecordId::from(("album", item_id()));
     let artist_id = RecordId::from(("artist", item_id()));

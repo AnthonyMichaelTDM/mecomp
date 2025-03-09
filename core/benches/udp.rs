@@ -80,6 +80,10 @@ impl<const B: usize> MockListener<B> {
     }
 
     /// Receive a message from the UDP socket.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the message cannot be received.
     pub async fn recv(&mut self) -> Result<(usize, SocketAddr), std::io::Error> {
         self.socket.recv_from(&mut self.buffer).await
     }
@@ -176,7 +180,8 @@ impl MockSender {
 }
 
 fn _bench_mutex(c: &mut Criterion) {
-    let rt = Runtime::new().unwrap();
+    // The number of messages to send in each test
+    const MESSAGE_COUNT: usize = 64;
 
     // the sizes of messages, in bytes, to test
     let message_sizes = vec![1, 10, 100];
@@ -187,8 +192,7 @@ fn _bench_mutex(c: &mut Criterion) {
     // The number of "server threads" sending messages concurrently
     let server_thread_counts = vec![1, 2, 4, 8];
 
-    // The number of messages to send in each test
-    const MESSAGE_COUNT: usize = 64;
+    let rt = Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("udp_sender_mutex");
     group.warm_up_time(Duration::from_secs(1));
@@ -201,6 +205,7 @@ fn _bench_mutex(c: &mut Criterion) {
             ));
 
             // create the listeners
+            #[allow(clippy::collection_is_never_read)]
             let mut listeners = Vec::with_capacity(*subscriber_count);
 
             for _ in 0..*subscriber_count {
@@ -259,7 +264,8 @@ fn _bench_mutex(c: &mut Criterion) {
 }
 
 fn _bench_rwlock(c: &mut Criterion) {
-    let rt = Runtime::new().unwrap();
+    // The number of messages to send in each test
+    const MESSAGE_COUNT: usize = 64;
 
     // the sizes of messages, in bytes, to test
     let message_sizes = vec![1, 10, 100];
@@ -270,8 +276,7 @@ fn _bench_rwlock(c: &mut Criterion) {
     // The number of "server threads" sending messages concurrently
     let server_thread_counts = vec![1, 2, 4, 8];
 
-    // The number of messages to send in each test
-    const MESSAGE_COUNT: usize = 64;
+    let rt = Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("udp_sender_rwlock");
     group.warm_up_time(Duration::from_secs(1));
@@ -284,6 +289,7 @@ fn _bench_rwlock(c: &mut Criterion) {
             ));
 
             // create the listeners
+            #[allow(clippy::collection_is_never_read)]
             let mut listeners = Vec::with_capacity(*subscriber_count);
 
             for _ in 0..*subscriber_count {
@@ -345,19 +351,19 @@ fn _bench_rwlock(c: &mut Criterion) {
 ///
 /// does this by splitting the messages to send evenly among the threads
 fn bench_performance(c: &mut Criterion) {
-    let rt = Runtime::new().unwrap();
-
     // the sizes of messages, in bytes, to test
     const MESSAGE_SIZE: usize = 10;
 
     // The number of subscribers to send messages to in each test
     const SUBSCRIBER_COUNT: usize = 3;
 
+    // The number of messages to send in each test
+    const MESSAGE_COUNT: usize = 64;
+
     // The number of "server threads" sending messages concurrently
     let server_thread_counts = vec![1, 2, 4, 8, 16];
 
-    // The number of messages to send in each test
-    const MESSAGE_COUNT: usize = 64;
+    let rt = Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("mutex vs rwlock performance");
 
@@ -366,6 +372,7 @@ fn bench_performance(c: &mut Criterion) {
     let mut rwlock_sender = rt.block_on(MockSender::new(MESSAGE_SIZE)).unwrap();
 
     // create the listeners
+    #[allow(clippy::collection_is_never_read)]
     let mut listeners = Vec::with_capacity(SUBSCRIBER_COUNT);
 
     for _ in 0..SUBSCRIBER_COUNT {
@@ -466,19 +473,19 @@ fn bench_performance(c: &mut Criterion) {
 ///
 /// does this by giving each thread 64 messages to send, regardless of the number of threads
 fn bench_throughput(c: &mut Criterion) {
-    let rt = Runtime::new().unwrap();
-
     // the sizes of messages, in bytes, to test
     const MESSAGE_SIZE: usize = 10;
 
     // The number of subscribers to send messages to in each test
     const SUBSCRIBER_COUNT: usize = 3;
 
+    // The number of messages to send in each test
+    const MESSAGE_COUNT: usize = 64;
+
     // The number of "server threads" sending messages concurrently
     let server_thread_counts = vec![1, 2, 4, 8, 16];
 
-    // The number of messages to send in each test
-    const MESSAGE_COUNT: usize = 64;
+    let rt = Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("mutex vs rwlock throughput");
 
@@ -487,6 +494,7 @@ fn bench_throughput(c: &mut Criterion) {
     let mut rwlock_sender = rt.block_on(MockSender::new(MESSAGE_SIZE)).unwrap();
 
     // create the listeners
+    #[allow(clippy::collection_is_never_read)]
     let mut listeners = Vec::with_capacity(SUBSCRIBER_COUNT);
 
     for _ in 0..SUBSCRIBER_COUNT {

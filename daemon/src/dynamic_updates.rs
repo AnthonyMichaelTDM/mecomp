@@ -481,14 +481,14 @@ mod tests {
         music_lib.close().unwrap();
     }
 
-    fn modify_song_metadata(path: PathBuf, new_name: String) -> anyhow::Result<()> {
+    fn modify_song_metadata(path: &PathBuf, new_name: String) -> anyhow::Result<()> {
         use lofty::{file::TaggedFileExt, tag::Accessor};
-        let mut tagged_file = lofty::probe::Probe::open(&path)?.read()?;
+        let mut tagged_file = lofty::probe::Probe::open(path)?.read()?;
         let tag = tagged_file
             .primary_tag_mut()
-            .ok_or(anyhow::anyhow!("ERROR: No tags found"))?;
+            .ok_or_else(|| anyhow::anyhow!("ERROR: No tags found"))?;
         tag.set_title(new_name);
-        tagged_file.save_to_path(&path, lofty::config::WriteOptions::default())?;
+        tagged_file.save_to_path(path, lofty::config::WriteOptions::default())?;
         Ok(())
     }
 
@@ -517,7 +517,7 @@ mod tests {
         assert_eq!(metadata, song.clone().into());
 
         // let's modify the song metadata in the file
-        modify_song_metadata(path.clone(), "new song name".to_string()).unwrap();
+        modify_song_metadata(&path, "new song name".to_string()).unwrap();
 
         // this should trigger the modify event handler to update the song in the database, so let's see if it's there
         while Song::read_by_path(&db, path.clone())

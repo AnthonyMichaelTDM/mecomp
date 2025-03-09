@@ -42,7 +42,7 @@ mod tests {
     #[Table("one_or_many_test_table")]
     struct TestStruct {
         #[field("record")]
-        _id: RecordId,
+        id: RecordId,
         #[field("option<array<int> | int>")]
         #[serde(default)]
         foo: OneOrMany<usize>,
@@ -51,7 +51,7 @@ mod tests {
     impl TestStruct {
         pub fn new(foo: OneOrMany<usize>) -> Self {
             Self {
-                _id: RecordId::from_table_key(TABLE_NAME, RecordIdKey::from_inner(Id::ulid())),
+                id: RecordId::from_table_key(TABLE_NAME, RecordIdKey::from_inner(Id::ulid())),
                 foo,
             }
         }
@@ -82,13 +82,13 @@ mod tests {
 
         // store a None variant into the database
         let create: TestStruct = db
-            .create(to_write._id.clone())
+            .create(to_write.id.clone())
             .content(to_write.clone())
             .await?
             .unwrap();
 
         // read a None variant from the database
-        let read: TestStruct = db.select(to_write._id.clone()).await?.unwrap();
+        let read: TestStruct = db.select(to_write.id.clone()).await?.unwrap();
 
         assert_eq!(create, read);
 
@@ -112,7 +112,7 @@ mod tests {
         // next, we add an item to the database so our next query will return One
         let struct1: TestStruct = TestStruct::new(OneOrMany::One(3));
         let struct1: TestStruct = db
-            .create(struct1._id.clone())
+            .create(struct1.id.clone())
             .content(struct1.clone())
             .await?
             .unwrap();
@@ -127,7 +127,7 @@ mod tests {
         // next, we add another item to the database so our next query will return Many
         let struct2: TestStruct = TestStruct::new(OneOrMany::Many(vec![1, 2, 3]));
         let struct2: TestStruct = db
-            .create(struct2._id.clone())
+            .create(struct2.id.clone())
             .content(struct2.clone())
             .await?
             .unwrap();

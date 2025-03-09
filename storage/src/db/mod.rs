@@ -144,7 +144,7 @@ mod minimal_reproduction {
         favorite_numbers: [i32; 7],
     }
 
-    static SCHEMA_SQL: &str = r#"
+    static SCHEMA_SQL: &str = r"
     BEGIN;
     DEFINE TABLE users SCHEMAFULL;
     COMMIT;
@@ -158,7 +158,7 @@ mod minimal_reproduction {
     DEFINE INDEX users_name_unique_index ON users FIELDS name UNIQUE;
     DEFINE INDEX users_age_normal_index ON users FIELDS age;
     DEFINE INDEX users_favorite_numbers_vector_index ON users FIELDS favorite_numbers MTREE DIMENSION 7;
-    "#;
+    ";
 
     #[tokio::test]
     async fn minimal_reproduction() {
