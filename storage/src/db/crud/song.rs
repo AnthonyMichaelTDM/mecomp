@@ -847,40 +847,52 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_delete_without_orphan_pruning() -> Result<()> {
-        let db = init_test_database().await?;
+    async fn test_delete_without_orphan_pruning() {
+        let db = init_test_database().await.unwrap();
         let song_case = arb_song_case()();
-        let song =
-            create_song_with_overrides(&db, song_case.clone(), SongChangeSet::default()).await?;
+        let song = create_song_with_overrides(&db, song_case.clone(), SongChangeSet::default())
+            .await
+            .unwrap();
         let album = Album::read_or_create_by_name_and_album_artist(
             &db,
             &song.album,
             song.album_artist.clone(),
         )
-        .await?
-        .ok_or_else(|| anyhow!("Album not found/created"))?;
-        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
-        let artists = Artist::read_or_create_by_names(&db, song.artist.clone()).await?;
+        .await
+        .unwrap()
+        .unwrap();
+        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()])
+            .await
+            .unwrap();
+        let artists = Artist::read_or_create_by_names(&db, song.artist.clone())
+            .await
+            .unwrap();
         assert!(!artists.is_empty());
         for artist in artists {
-            Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
+            Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()])
+                .await
+                .unwrap();
         }
-        let album_artists = Artist::read_or_create_by_names(&db, song.album_artist.clone()).await?;
+        let album_artists = Artist::read_or_create_by_names(&db, song.album_artist.clone())
+            .await
+            .unwrap();
         assert!(!album_artists.is_empty());
         for artist in album_artists {
-            Artist::add_album(&db, artist.id.clone(), album.id.clone()).await?;
+            Artist::add_album(&db, artist.id.clone(), album.id.clone())
+                .await
+                .unwrap();
         }
 
-        let deleted = Song::delete(&db, (song.id.clone(), false)).await?;
+        let deleted = Song::delete(&db, (song.id.clone(), false)).await.unwrap();
         assert_eq!(deleted, Some(song.clone()));
 
-        let read = Song::read(&db, song.id.clone()).await?;
+        let read = Song::read(&db, song.id.clone()).await.unwrap();
         assert_eq!(read, None);
 
         // database should be empty
-        assert_eq!(count_songs(&db).await?, 0);
+        assert_eq!(count_songs(&db).await.unwrap(), 0);
         assert_eq!(
-            count_artists(&db).await?,
+            count_artists(&db).await.unwrap(),
             song_case
                 .album_artists
                 .iter()
@@ -888,9 +900,7 @@ mod test {
                 .collect::<std::collections::HashSet<_>>()
                 .len()
         );
-        assert_eq!(count_albums(&db).await?, 1);
-
-        Ok(())
+        assert_eq!(count_albums(&db).await.unwrap(), 1);
     }
 
     #[tokio::test]

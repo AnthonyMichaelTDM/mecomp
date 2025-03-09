@@ -1,4 +1,4 @@
-use crate::db::schemas;
+use crate::db::{queries::parse_query, schemas};
 use surrealdb::opt::IntoQuery;
 
 use super::generic::{read_related_in, read_related_out, relate, unrelate};
@@ -26,12 +26,10 @@ use super::generic::{read_related_in, read_related_out, relate, unrelate};
 #[allow(clippy::missing_panics_doc)] // can only panic if the query is invalid, which should never happen
 #[must_use]
 pub fn read_by_name() -> impl IntoQuery {
-    format!(
+    parse_query(format!(
         "SELECT * FROM {} WHERE title=$name",
         schemas::album::TABLE_NAME
-    )
-    .into_query()
-    .unwrap()
+    ))
 }
 
 /// Query to read an album by its name and album artist.
@@ -56,12 +54,10 @@ pub fn read_by_name() -> impl IntoQuery {
 /// ```
 #[must_use]
 pub fn read_by_name_and_album_artist() -> impl IntoQuery {
-    format!(
+    parse_query(format!(
         "SELECT * FROM {} WHERE title=$title AND artist=$artist",
         schemas::album::TABLE_NAME
-    )
-    .into_query()
-    .unwrap()
+    ))
 }
 
 /// Query to relate an album to its songs.
@@ -172,72 +168,22 @@ pub fn read_artist() -> impl IntoQuery {
 
 #[cfg(test)]
 mod query_validation_tests {
-    use pretty_assertions::assert_eq;
-    use surrealdb::opt::IntoQuery;
+    use rstest::rstest;
 
     use super::*;
+    use crate::db::queries::validate_query;
 
-    #[test]
-    fn test_read_by_name() {
-        let statement = read_by_name();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM album WHERE title=$name"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_by_name_and_album_artist() {
-        let statement = read_by_name_and_album_artist();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM album WHERE title=$title AND artist=$artist"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_add_songs() {
-        let statement = add_songs();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "RELATE $album->album_to_song->$songs".into_query().unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_songs() {
-        let statement = read_songs();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $album->album_to_song.out"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_remove_songs() {
-        let statement = remove_songs();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "DELETE $album->album_to_song WHERE out IN $songs"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_artist() {
-        let statement = read_artist();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $id<-artist_to_album.in"
-                .into_query()
-                .unwrap()
-        );
+    #[rstest]
+    #[case::read_by_name(read_by_name(), "SELECT * FROM album WHERE title=$name")]
+    #[case::read_by_name_and_album_artist(
+        read_by_name_and_album_artist(),
+        "SELECT * FROM album WHERE title=$title AND artist=$artist"
+    )]
+    #[case::add_songs(add_songs(), "RELATE $album->album_to_song->$songs")]
+    #[case::read_songs(read_songs(), "SELECT * FROM $album->album_to_song.out")]
+    #[case::remove_songs(remove_songs(), "DELETE $album->album_to_song WHERE out IN $songs")]
+    #[case::read_artist(read_artist(), "SELECT * FROM $id<-artist_to_album.in")]
+    fn test_queries(#[case] query: impl IntoQuery, #[case] expected: &str) {
+        validate_query(query, expected);
     }
 }

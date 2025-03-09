@@ -126,3 +126,122 @@ mod test {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod minimal_reproduction {
+    //! This module contains minimal reproductions of issues from MECOMPs past.
+    //! They exist to ensure that the issues are indeed fixed.
+    use serde::{Deserialize, Serialize};
+    use surrealdb::{engine::local::Mem, method::Stats, RecordId, Surreal};
+
+    use crate::db::queries::generic::{count, Count};
+
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+    struct User {
+        id: RecordId,
+        name: String,
+        age: i32,
+        favorite_numbers: [i32; 7],
+    }
+
+    static SCHEMA_SQL: &str = r#"
+    BEGIN;
+    DEFINE TABLE users SCHEMAFULL;
+    COMMIT;
+    BEGIN;
+    DEFINE FIELD id ON users TYPE record;
+    DEFINE FIELD name ON users TYPE string;
+    DEFINE FIELD age ON users TYPE int;
+    DEFINE FIELD favorite_numbers ON users TYPE array<int>;
+    COMMIT;
+    BEGIN;
+    DEFINE INDEX users_name_unique_index ON users FIELDS name UNIQUE;
+    DEFINE INDEX users_age_normal_index ON users FIELDS age;
+    DEFINE INDEX users_favorite_numbers_vector_index ON users FIELDS favorite_numbers MTREE DIMENSION 7;
+    "#;
+
+    #[tokio::test]
+    async fn minimal_reproduction() {
+        let db = Surreal::new::<Mem>(()).await.unwrap();
+        db.use_ns("test").use_db("test").await.unwrap();
+
+        db.query(SCHEMA_SQL).await.unwrap();
+
+        let cnt: Option<Count> = db
+            // new syntax
+            .query(count("users"))
+            .await
+            .unwrap()
+            .take(0)
+            .unwrap();
+
+        assert_eq!(cnt, Some(Count::new(0)));
+
+        let john_id = RecordId::from(("users", "1"));
+        let john = User {
+            id: john_id.clone(),
+            name: "John".to_string(),
+            age: 42,
+            favorite_numbers: [1, 2, 3, 4, 5, 6, 7],
+        };
+
+        let sally_id = RecordId::from(("users", "2"));
+        let sally = User {
+            id: sally_id.clone(),
+            name: "Sally".to_string(),
+            age: 24,
+            favorite_numbers: [8, 9, 10, 11, 12, 13, 14],
+        };
+
+        let result: Option<User> = db
+            .create(john_id.clone())
+            .content(john.clone())
+            .await
+            .unwrap();
+
+        assert_eq!(result, Some(john.clone()));
+
+        let result: Option<User> = db
+            .create(sally_id.clone())
+            .content(sally.clone())
+            .await
+            .unwrap();
+
+        assert_eq!(result, Some(sally.clone()));
+
+        let result: Option<User> = db.select(john_id).await.unwrap();
+
+        assert_eq!(result, Some(john.clone()));
+
+        let mut resp_new = db
+            // new syntax
+            .query("SELECT count() FROM users GROUP ALL")
+            .with_stats()
+            .await
+            .unwrap();
+        dbg!(&resp_new);
+        let res = resp_new.take(0).unwrap();
+        let cnt: Option<Count> = res.1.unwrap();
+        assert_eq!(cnt, Some(Count::new(2)));
+        let stats_new: Stats = res.0;
+
+        let mut resp_old = db
+            // old syntax
+            .query("RETURN array::len((SELECT * FROM users))")
+            .with_stats()
+            .await
+            .unwrap();
+        dbg!(&resp_old);
+        let res = resp_old.take(0).unwrap();
+        let cnt: Option<usize> = res.1.unwrap();
+        assert_eq!(cnt, Some(2));
+        let stats_old: Stats = res.0;
+
+        // just a check to ensure the new syntax is faster
+        assert!(stats_new.execution_time.unwrap() < stats_old.execution_time.unwrap());
+
+        let result: Vec<User> = db.delete("users").await.unwrap();
+
+        assert_eq!(result, vec![john.clone(), sally.clone()]);
+    }
+}

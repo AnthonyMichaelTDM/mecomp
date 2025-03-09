@@ -11,7 +11,7 @@ pub mod song;
 
 /// NOTE: for some reason, having more than one tokenizer causes the parser to fail, so we're just not going to support that for now
 #[must_use]
-#[track_caller]
+#[inline]
 pub fn define_analyzer(
     name: &str,
     tokenizer: Option<Tokenizer>,
@@ -24,7 +24,35 @@ pub fn define_analyzer(
         format!(" FILTERS {filters}")
     });
 
-    format!("DEFINE ANALYZER OVERWRITE {name}{tokenizer_string}{filter_string}")
+    parse_query(format!(
+        "DEFINE ANALYZER OVERWRITE {name}{tokenizer_string}{filter_string}"
+    ))
+}
+
+/// Parse a query (string) into a `surrealdb::sql::Query`
+///
+/// This is primarily used to validate the syntax of queries before they are executed
+pub fn parse_query(query: impl AsRef<str>) -> surrealdb::sql::Query {
+    surrealdb::syn::parse(query.as_ref()).unwrap()
+}
+
+#[cfg(test)]
+
+pub fn validate_query(query: impl IntoQuery, expected: &str) {
+    use pretty_assertions::assert_eq;
+    // first check if we can use IntoQuery to parse the query
+    let compiled_query: surrealdb::sql::Query = if let Some(query_str) = query.as_str() {
+        surrealdb::syn::parse(query_str).unwrap()
+    } else {
+        query.into_query().unwrap().into()
+    };
+
+    let compiled_expeceted = surrealdb::syn::parse(expected).unwrap();
+    assert!(
+        compiled_expeceted.0.len() > 0,
+        "Expected query compiled to an empty list of statements: \"{expected}\""
+    );
+    assert_eq!(compiled_query, compiled_expeceted);
 }
 
 #[cfg(test)]
@@ -37,14 +65,14 @@ mod tests {
     #[case::basic(
         "test",
         Some(Tokenizer::Class),
-        vec!["snowball(english)"],
-        "DEFINE ANALYZER OVERWRITE test TOKENIZERS class FILTERS snowball(english);"
+        vec!["snowball(English)"],
+        "DEFINE ANALYZER OVERWRITE test TOKENIZERS class FILTERS snowball(English);"
     )]
     #[case::no_tokenizers(
         "test",
         None,
-        vec!["snowball(english)"],
-        "DEFINE ANALYZER OVERWRITE test FILTERS snowball(english);"
+        vec!["snowball(English)"],
+        "DEFINE ANALYZER OVERWRITE test FILTERS snowball(English);"
     )]
     #[case::no_filters(
         "test",
@@ -52,7 +80,7 @@ mod tests {
         vec![],
         "DEFINE ANALYZER OVERWRITE test TOKENIZERS class;"
     )]
-    #[case::no_tokenizers_or_filters("test", None, vec![], "DEFINE ANALYZER  OVERWRITE test;")]
+    #[case::no_tokenizers_or_filters("test", None, vec![], "DEFINE ANALYZER OVERWRITE test;")]
     // #[case::multiple_tokenizers(
     //     "test",
     //     vec![Tokenizer::Class, Tokenizer::Punct],
@@ -62,8 +90,8 @@ mod tests {
     #[case::multiple_filters(
         "test",
         Some(Tokenizer::Class),
-        vec!["snowball(english)", "lowercase"],
-        "DEFINE ANALYZER OVERWRITE test TOKENIZERS class FILTERS snowball(english),lowercase;"
+        vec!["snowball(English)", "lowercase"],
+        "DEFINE ANALYZER OVERWRITE test TOKENIZERS class FILTERS snowball(English),lowercase;"
     )]
     // #[case::multiple_tokenizers_and_filters(
     //     "test",
@@ -78,9 +106,7 @@ mod tests {
         #[case] expected: &str,
     ) {
         let statement = define_analyzer(name, tokenizer, &filters);
-        let statements = statement.into_query().unwrap();
 
-        assert_eq!(statements, expected.into_query().unwrap());
-        assert!(!statements.is_empty());
+        validate_query(statement, expected);
     }
 }

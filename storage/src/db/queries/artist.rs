@@ -1,4 +1,4 @@
-use crate::db::schemas;
+use crate::db::{queries::parse_query, schemas};
 
 use surrealdb::opt::IntoQuery;
 
@@ -26,12 +26,10 @@ use super::generic::{read_related_out, relate, unrelate};
 /// ```
 #[must_use]
 pub fn read_by_name() -> impl IntoQuery {
-    format!(
+    parse_query(format!(
         "SELECT * FROM {} WHERE name = $name LIMIT 1",
         schemas::artist::TABLE_NAME
-    )
-    .into_query()
-    .unwrap()
+    ))
 }
 
 /// Query to read a artists by their names.
@@ -56,12 +54,10 @@ pub fn read_by_name() -> impl IntoQuery {
 /// ```
 #[must_use]
 pub fn read_by_names() -> impl IntoQuery {
-    format!(
+    parse_query(format!(
         "SELECT * FROM {} WHERE name IN $names",
         schemas::artist::TABLE_NAME
-    )
-    .into_query()
-    .unwrap()
+    ))
 }
 
 /// Query to read many artists
@@ -248,99 +244,26 @@ pub const fn read_songs() -> impl IntoQuery {
 
 #[cfg(test)]
 mod query_validation_tests {
-    use pretty_assertions::assert_eq;
-    use surrealdb::opt::IntoQuery;
+    use rstest::rstest;
+
+    use crate::db::queries::validate_query;
 
     use super::*;
 
-    #[test]
-    fn test_read_by_name() {
-        let statement = read_by_name();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM artist WHERE name = $name LIMIT 1"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_by_names() {
-        let statement = read_by_names();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM artist WHERE name IN $names"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_many() {
-        let statement = read_many();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $ids".into_query().unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_albums() {
-        let statement = read_albums();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $id->artist_to_album.out"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_add_album() {
-        let statement = add_album();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "RELATE $id->artist_to_album->$album".into_query().unwrap()
-        );
-    }
-
-    #[test]
-    fn test_add_album_to_artists() {
-        let statement = add_album_to_artists();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "RELATE $ids->artist_to_album->$album".into_query().unwrap()
-        );
-    }
-
-    #[test]
-    fn test_add_songs() {
-        let statement = add_songs();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "RELATE $id->artist_to_song->$songs".into_query().unwrap()
-        );
-    }
-
-    #[test]
-    fn test_remove_songs() {
-        let statement = remove_songs();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "DELETE $artist->artist_to_song WHERE out IN $songs"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_songs() {
-        let statement = read_songs();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "RETURN array::union((SELECT * FROM $artist->artist_to_song.out), (SELECT * FROM $artist->artist_to_album->album->album_to_song.out))"
-                .into_query()
-                .unwrap()
-        );
+    #[rstest]
+    #[case::read_by_name(read_by_name(), "SELECT * FROM artist WHERE name = $name LIMIT 1")]
+    #[case::read_by_names(read_by_names(), "SELECT * FROM artist WHERE name IN $names")]
+    #[case::read_many(read_many(), "SELECT * FROM $ids")]
+    #[case::read_albums(read_albums(), "SELECT * FROM $id->artist_to_album.out")]
+    #[case::add_album(add_album(), "RELATE $id->artist_to_album->$album")]
+    #[case::add_album_to_artists(add_album_to_artists(), "RELATE $ids->artist_to_album->$album")]
+    #[case::add_songs(add_songs(), "RELATE $id->artist_to_song->$songs")]
+    #[case::remove_songs(remove_songs(), "DELETE $artist->artist_to_song WHERE out IN $songs")]
+    #[case::read_songs(
+        read_songs(),
+        "RETURN array::union((SELECT * FROM $artist->artist_to_song.out), (SELECT * FROM $artist->artist_to_album->album->album_to_song.out))"
+    )]
+    fn test_queries(#[case] query: impl IntoQuery, #[case] expected: &str) {
+        validate_query(query, expected);
     }
 }

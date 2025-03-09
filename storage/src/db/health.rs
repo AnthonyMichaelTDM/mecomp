@@ -5,57 +5,51 @@ use tracing::instrument;
 
 use surrealqlx::traits::Table;
 
-use crate::db::queries::generic::{count, count_orphaned, count_orphaned_both};
-use crate::db::schemas::{
-    album::Album, artist::Artist, collection::Collection, playlist::Playlist, song::Song,
+use crate::{
+    db::{
+        queries::generic::Count,
+        schemas::{
+            album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
+            playlist::Playlist, song::Song,
+        },
+    },
+    errors::Error,
 };
-use crate::errors::Error;
-
-use super::schemas::dynamic::DynamicPlaylist;
 
 /// Count the number of albums in the database
 #[instrument]
 pub async fn count_albums<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
-    let result: Option<usize> = db.query(count(Album::TABLE_NAME)).await?.take(0)?;
-    Ok(result.unwrap_or_default())
+    Count::count(db, Album::TABLE_NAME).await
 }
 
 /// Count the number of artists in the database
 #[instrument]
 pub async fn count_artists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
-    let result: Option<usize> = db.query(count(Artist::TABLE_NAME)).await?.take(0)?;
-    Ok(result.unwrap_or_default())
+    Count::count(db, Artist::TABLE_NAME).await
 }
 
 /// Count the number of playlists in the database
 #[instrument]
 pub async fn count_playlists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
-    let result: Option<usize> = db.query(count(Playlist::TABLE_NAME)).await?.take(0)?;
-    Ok(result.unwrap_or_default())
+    Count::count(db, Playlist::TABLE_NAME).await
 }
 
 /// Count the number of collections in the database
 #[instrument]
 pub async fn count_collections<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
-    let result: Option<usize> = db.query(count(Collection::TABLE_NAME)).await?.take(0)?;
-    Ok(result.unwrap_or_default())
+    Count::count(db, Collection::TABLE_NAME).await
 }
 
 /// Count the number of dynamic playlists in the database
 #[instrument]
 pub async fn count_dynamic_playlists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
-    let result: Option<usize> = db
-        .query(count(DynamicPlaylist::TABLE_NAME))
-        .await?
-        .take(0)?;
-    Ok(result.unwrap_or_default())
+    Count::count(db, DynamicPlaylist::TABLE_NAME).await
 }
 
 /// Count the number of songs in the database
 #[instrument]
 pub async fn count_songs<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
-    let result: Option<usize> = db.query(count(Song::TABLE_NAME)).await?.take(0)?;
-    Ok(result.unwrap_or_default())
+    Count::count(db, Song::TABLE_NAME).await
 }
 
 /// Count the number of songs without analysis in the database
@@ -72,48 +66,28 @@ pub async fn count_unanalyzed_songs<C: Connection>(db: &Surreal<C>) -> Result<us
 /// This is the number of albums that have no songs
 #[instrument]
 pub async fn count_orphaned_albums<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
-    let result: Option<usize> = db
-        .query(count_orphaned(Album::TABLE_NAME, "album_to_song"))
-        .await?
-        .take(0)?;
-    Ok(result.unwrap_or_default())
+    Count::count_orphaned(db, Album::TABLE_NAME, "album_to_song").await
 }
 
 /// Count the number of orphaned artists in the database
 /// This is the number of artists that have no songs, and no albums
 #[instrument]
 pub async fn count_orphaned_artists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
-    let result: Option<usize> = db
-        .query(count_orphaned_both(
-            Artist::TABLE_NAME,
-            "artist_to_album",
-            "artist_to_song",
-        ))
-        .await?
-        .take(0)?;
-    Ok(result.unwrap_or_default())
+    Count::count_orphaned_both(db, Artist::TABLE_NAME, "artist_to_album", "artist_to_song").await
 }
 
 /// Count the number of orphaned collections in the database
 /// This is the number of collections that have no songs
 #[instrument]
 pub async fn count_orphaned_collections<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
-    let result: Option<usize> = db
-        .query(count_orphaned(Collection::TABLE_NAME, "collection_to_song"))
-        .await?
-        .take(0)?;
-    Ok(result.unwrap_or_default())
+    Count::count_orphaned(db, Collection::TABLE_NAME, "collection_to_song").await
 }
 
 /// Count the number of orphaned playlists in the database
 /// This is the number of playlists that have no songs
 #[instrument]
 pub async fn count_orphaned_playlists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
-    let result: Option<usize> = db
-        .query(count_orphaned(Playlist::TABLE_NAME, "playlist_to_song"))
-        .await?
-        .take(0)?;
-    Ok(result.unwrap_or_default())
+    Count::count_orphaned(db, Playlist::TABLE_NAME, "playlist_to_song").await
 }
 
 #[cfg(test)]
@@ -327,7 +301,15 @@ mod tests {
             .unwrap();
         assert_eq!(count_songs(&db).await.unwrap(), 1);
 
-        // if we delete that song, there will be no songs
+        // if we add another song, there will be two songs
+        let song2 = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+            .await
+            .unwrap();
+        assert_eq!(count_songs(&db).await.unwrap(), 2);
+
+        // if we start deleting songs, the count will decrease
+        Song::delete(&db, song2.id).await.unwrap();
+        assert_eq!(count_songs(&db).await.unwrap(), 1);
         Song::delete(&db, song.id).await.unwrap();
         assert_eq!(count_songs(&db).await.unwrap(), 0);
     }

@@ -82,42 +82,17 @@ pub fn remove_songs() -> impl IntoQuery {
 
 #[cfg(test)]
 mod query_validation_tests {
-    use pretty_assertions::assert_eq;
+    use rstest::rstest;
 
-    use surrealdb::opt::IntoQuery;
+    use crate::db::queries::validate_query;
 
     use super::*;
 
-    #[test]
-    fn test_add_songs() {
-        let statement = add_songs();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "RELATE $id->collection_to_song->$songs"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_songs() {
-        let statement = read_songs();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "SELECT * FROM $id->collection_to_song.out"
-                .into_query()
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_remove_songs() {
-        let statement = remove_songs();
-        assert_eq!(
-            statement.into_query().unwrap(),
-            "DELETE $id->collection_to_song WHERE out IN $songs"
-                .into_query()
-                .unwrap()
-        );
+    #[rstest]
+    #[case::add_songs(add_songs(), "RELATE $id->collection_to_song->$songs")]
+    #[case::read_songs(read_songs(), "SELECT * FROM $id->collection_to_song.out")]
+    #[case::remove_songs(remove_songs(), "DELETE $id->collection_to_song WHERE out IN $songs")]
+    fn test_queries(#[case] query: impl IntoQuery, #[case] expected: &str) {
+        validate_query(query, expected);
     }
 }
