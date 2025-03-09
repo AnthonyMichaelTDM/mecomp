@@ -87,7 +87,7 @@ mod tests {
     use rstest::rstest;
     use std::path::Path;
 
-    fn _test_decode(path: &Path, expected_hash: u32) {
+    fn verify_decoding_output(path: &Path, expected_hash: u32) {
         let song = Decoder::decode(path).unwrap();
         let mut hasher = RollingAdler32::new();
         for sample in &song.samples {
@@ -109,7 +109,7 @@ mod tests {
     #[case::decode_mp3(Path::new("data/s32_stereo_44_1_kHz.mp3"), 0x69ca_6906)]
     #[case::decode_wav(Path::new("data/piano.wav"), 0xde83_1e82)]
     fn test_decode(#[case] path: &Path, #[case] expected_hash: u32) {
-        _test_decode(path, expected_hash);
+        verify_decoding_output(path, expected_hash);
     }
 
     #[test]

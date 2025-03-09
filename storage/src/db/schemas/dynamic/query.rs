@@ -565,6 +565,7 @@ mod tests {
     #[case::field(PhantomData::<Field>, "release_year", "release_year")]
     #[case::compound_query(PhantomData::<CompoundClause>, "(title = \"foo\" AND \"bar\" INSIDE artist)", "(title = \"foo\" AND \"bar\" INSIDE array::flatten([artist][? $this]))")]
     #[case::complex_query(PhantomData::<Query>, "((title = \"foo\" AND (artist CONTAINSNOT \"bar\" OR album = \"baz\")) AND release_year > 2020)", "((title = \"foo\" AND (array::flatten([artist][? $this]) CONTAINSNOT \"bar\" OR album = \"baz\")) AND release_year > 2020)")]
+    #[allow(clippy::used_underscore_binding)]
     fn test_compile_for_execution<T>(
         #[case] _phantom: PhantomData<T>,
         #[case] storage: &str,
@@ -589,8 +590,7 @@ mod tests {
         #[case] expected: T,
         #[case] input: &str,
     ) where
-        <T as std::str::FromStr>::Err: std::fmt::Debug,
-        <T as std::str::FromStr>::Err: PartialEq,
+        <T as std::str::FromStr>::Err: std::fmt::Debug + PartialEq,
     {
         let parsed = T::from_str(input);
         assert_eq!(parsed, Ok(expected));

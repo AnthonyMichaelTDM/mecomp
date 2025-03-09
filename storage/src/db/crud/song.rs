@@ -538,22 +538,22 @@ mod test {
         )
         .await?;
 
-        let playlists = Song::read_playlists(&db, song1.id.clone()).await?;
-        assert_eq!(playlists.len(), 1);
-        assert_eq!(playlists[0].id, playlist1.id);
+        let playlists_with_song1 = Song::read_playlists(&db, song1.id.clone()).await?;
+        assert_eq!(playlists_with_song1.len(), 1);
+        assert_eq!(playlists_with_song1[0].id, playlist1.id);
 
-        let playlists: Vec<_> = Song::read_playlists(&db, song2.id.clone())
+        let playlists_with_song2: Vec<_> = Song::read_playlists(&db, song2.id.clone())
             .await?
             .into_iter()
             .map(|p| p.id)
             .collect();
-        assert_eq!(playlists.len(), 2);
-        assert!(playlists.contains(&playlist1.id));
-        assert!(playlists.contains(&playlist2.id));
+        assert_eq!(playlists_with_song2.len(), 2);
+        assert!(playlists_with_song2.contains(&playlist1.id));
+        assert!(playlists_with_song2.contains(&playlist2.id));
 
-        let playlists = Song::read_playlists(&db, song3.id.clone()).await?;
-        assert_eq!(playlists.len(), 1);
-        assert_eq!(playlists[0].id, playlist2.id);
+        let playlists_with_song3 = Song::read_playlists(&db, song3.id.clone()).await?;
+        assert_eq!(playlists_with_song3.len(), 1);
+        assert_eq!(playlists_with_song3[0].id, playlist2.id);
 
         Ok(())
     }
@@ -592,13 +592,13 @@ mod test {
         Collection::add_songs(&db, collection1.id.clone(), vec![song1.id.clone()]).await?;
         Collection::add_songs(&db, collection2.id.clone(), vec![song2.id.clone()]).await?;
 
-        let collections = Song::read_collections(&db, song1.id.clone()).await?;
-        assert_eq!(collections.len(), 1);
-        assert_eq!(collections[0].id, collection1.id);
+        let collections_with_song1 = Song::read_collections(&db, song1.id.clone()).await?;
+        assert_eq!(collections_with_song1.len(), 1);
+        assert_eq!(collections_with_song1[0].id, collection1.id);
 
-        let collections = Song::read_collections(&db, song2.id.clone()).await?;
-        assert_eq!(collections.len(), 1);
-        assert_eq!(collections[0].id, collection2.id);
+        let collections_with_song2 = Song::read_collections(&db, song2.id.clone()).await?;
+        assert_eq!(collections_with_song2.len(), 1);
+        assert_eq!(collections_with_song2[0].id, collection2.id);
 
         Ok(())
     }

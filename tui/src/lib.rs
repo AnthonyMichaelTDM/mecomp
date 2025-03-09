@@ -205,7 +205,7 @@ mod subscriber_tests {
         let music_dir = Arc::new(tempdir().unwrap());
 
         let db = db_with_state().await;
-        let mut settings: Settings = Default::default();
+        let mut settings = Settings::default();
         settings.daemon.library_paths = vec![music_dir.path().to_path_buf()].into_boxed_slice();
         let settings = Arc::new(settings);
         let (tx, _) = std::sync::mpsc::channel();

@@ -472,6 +472,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[tokio::test]
+    #[allow(clippy::too_many_lines)]
     async fn test_rescan() {
         init();
         let tempdir = tempfile::tempdir().unwrap();
@@ -708,7 +709,7 @@ mod tests {
         // load some songs into the database
         let song_cases = arb_vec(&arb_song_case(), 10..=15)();
         let song_cases = song_cases.into_iter().enumerate().map(|(i, sc)| SongCase {
-            song: i as u8,
+            song: u8::try_from(i).unwrap(),
             ..sc
         });
         let metadatas = song_cases
@@ -781,7 +782,7 @@ mod tests {
         // load some songs into the database
         let song_cases = arb_vec(&arb_song_case(), 32..=32)();
         let song_cases = song_cases.into_iter().enumerate().map(|(i, sc)| SongCase {
-            song: i as u8,
+            song: u8::try_from(i).unwrap(),
             ..sc
         });
         let metadatas = song_cases

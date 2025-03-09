@@ -37,22 +37,20 @@ pub fn parse_query(query: impl AsRef<str>) -> surrealdb::sql::Query {
 }
 
 #[cfg(test)]
-
 pub fn validate_query(query: impl IntoQuery, expected: &str) {
     use pretty_assertions::assert_eq;
     // first check if we can use IntoQuery to parse the query
-    let compiled_query: surrealdb::sql::Query = if let Some(query_str) = query.as_str() {
-        surrealdb::syn::parse(query_str).unwrap()
-    } else {
-        query.into_query().unwrap().into()
-    };
+    let compiled_query: surrealdb::sql::Query = query
+        .as_str()
+        .map(surrealdb::syn::parse)
+        .map_or_else(|| query.into_query().unwrap().into(), Result::unwrap);
 
-    let compiled_expeceted = surrealdb::syn::parse(expected).unwrap();
+    let compiled_expected = surrealdb::syn::parse(expected).unwrap();
     assert!(
-        compiled_expeceted.0.len() > 0,
+        compiled_expected.0.len() > 0,
         "Expected query compiled to an empty list of statements: \"{expected}\""
     );
-    assert_eq!(compiled_query, compiled_expeceted);
+    assert_eq!(compiled_query, compiled_expected);
 }
 
 #[cfg(test)]
