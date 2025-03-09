@@ -1,7 +1,10 @@
 use crate::db::{queries::parse_query, schemas};
 use surrealdb::opt::IntoQuery;
 
-use super::generic::{read_related_in, read_related_out, relate};
+use super::{
+    generic::{read_related_in, read_related_out, relate},
+    relations::ANALYSIS_TO_SONG,
+};
 
 /// Query to relate an analysis to a song
 ///
@@ -26,7 +29,7 @@ use super::generic::{read_related_in, read_related_out, relate};
 #[must_use]
 #[inline]
 pub fn add_to_song() -> impl IntoQuery {
-    relate("id", "song", "analysis_to_song")
+    relate("id", "song", ANALYSIS_TO_SONG)
 }
 
 /// Query to read the analysis for a song
@@ -52,7 +55,7 @@ pub fn add_to_song() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_for_song() -> impl IntoQuery {
-    read_related_in("song", "analysis_to_song")
+    read_related_in("song", ANALYSIS_TO_SONG)
 }
 
 /// Query to read the song for an analyses
@@ -78,7 +81,7 @@ pub fn read_for_song() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_song() -> impl IntoQuery {
-    read_related_out("id", "analysis_to_song")
+    read_related_out("id", ANALYSIS_TO_SONG)
 }
 
 /// Query to find all the songs that don't have an analysis

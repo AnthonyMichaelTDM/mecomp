@@ -2,7 +2,10 @@ use crate::db::{queries::parse_query, schemas};
 
 use surrealdb::opt::IntoQuery;
 
-use super::generic::{read_related_out, relate, unrelate};
+use super::{
+    generic::{read_related_out, relate, unrelate},
+    relations::{ARTIST_TO_ALBUM, ARTIST_TO_SONG},
+};
 
 /// Query to read an artist by their name.
 ///
@@ -109,7 +112,7 @@ pub const fn read_many() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_albums() -> impl IntoQuery {
-    read_related_out("id", "artist_to_album")
+    read_related_out("id", ARTIST_TO_ALBUM)
 }
 
 /// Query to relate an artist to an album.
@@ -135,7 +138,7 @@ pub fn read_albums() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn add_album() -> impl IntoQuery {
-    relate("id", "album", "artist_to_album")
+    relate("id", "album", ARTIST_TO_ALBUM)
 }
 
 /// Query to relate artists to an album.
@@ -161,7 +164,7 @@ pub fn add_album() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn add_album_to_artists() -> impl IntoQuery {
-    relate("ids", "album", "artist_to_album")
+    relate("ids", "album", ARTIST_TO_ALBUM)
 }
 
 /// Query to relate an artists to songs.
@@ -187,7 +190,7 @@ pub fn add_album_to_artists() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn add_songs() -> impl IntoQuery {
-    relate("id", "songs", "artist_to_song")
+    relate("id", "songs", ARTIST_TO_SONG)
 }
 
 /// Query to remove songs from an artist.
@@ -213,7 +216,7 @@ pub fn add_songs() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn remove_songs() -> impl IntoQuery {
-    unrelate("artist", "songs", "artist_to_song")
+    unrelate("artist", "songs", ARTIST_TO_SONG)
 }
 
 /// Query to read all the songs associated with an artist.

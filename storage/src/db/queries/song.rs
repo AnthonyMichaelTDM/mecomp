@@ -2,7 +2,11 @@ use surrealdb::opt::IntoQuery;
 
 use crate::db::schemas;
 
-use super::{generic::read_related_in, parse_query};
+use super::{
+    generic::read_related_in,
+    parse_query,
+    relations::{ALBUM_TO_SONG, ARTIST_TO_SONG, COLLECTION_TO_SONG, PLAYLIST_TO_SONG},
+};
 
 /// Query to read a song by its path
 ///
@@ -56,7 +60,7 @@ pub fn read_song_by_path() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_album() -> impl IntoQuery {
-    read_related_in("id", "album_to_song")
+    read_related_in("id", ALBUM_TO_SONG)
 }
 
 /// Query to read the artist of a song
@@ -82,7 +86,7 @@ pub fn read_album() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_artist() -> impl IntoQuery {
-    read_related_in("id", "artist_to_song")
+    read_related_in("id", ARTIST_TO_SONG)
 }
 
 /// Query to read the album artist of a song
@@ -105,10 +109,6 @@ pub fn read_artist() -> impl IntoQuery {
 ///     "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in".into_query().unwrap()
 /// );
 /// ```
-///
-/// # Panics
-///
-/// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
 #[inline]
 pub const fn read_album_artist() -> impl IntoQuery {
@@ -136,14 +136,10 @@ pub const fn read_album_artist() -> impl IntoQuery {
 ///   "SELECT * FROM $id<-playlist_to_song.in".into_query().unwrap()
 /// );
 /// ```
-///
-/// # Panics
-///
-/// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
 #[inline]
 pub fn read_playlists() -> impl IntoQuery {
-    read_related_in("id", "playlist_to_song")
+    read_related_in("id", PLAYLIST_TO_SONG)
 }
 
 /// Query to read the collections a song is in
@@ -167,14 +163,10 @@ pub fn read_playlists() -> impl IntoQuery {
 ///     "SELECT * FROM $id<-collection_to_song.in".into_query().unwrap()
 /// );
 /// ```
-///
-/// # Panics
-///
-/// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
 #[inline]
 pub fn read_collections() -> impl IntoQuery {
-    read_related_in("id", "collection_to_song")
+    read_related_in("id", COLLECTION_TO_SONG)
 }
 
 #[cfg(test)]
