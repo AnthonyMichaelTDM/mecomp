@@ -220,7 +220,7 @@ pub fn remove_songs() -> impl IntoQuery {
 ///
 /// Compiles to:
 /// ```sql, ignore
-/// RETURN array::union((SELECT * FROM $artist->artist_to_song.out), (SELECT * FROM $artist->artist_to_album->album->album_to_song.out))
+/// SELECT * FROM song WHERE $artist->artist_to_song->song OR $artist->artist_to_album->album->album_to_song->song
 /// ```
 ///
 /// # Example
@@ -233,13 +233,13 @@ pub fn remove_songs() -> impl IntoQuery {
 /// let statement = read_songs();
 /// assert_eq!(
 ///     statement.into_query().unwrap(),
-///     "RETURN array::union((SELECT * FROM $artist->artist_to_song.out), (SELECT * FROM $artist->artist_to_album->album->album_to_song.out))".into_query().unwrap()
+///     "SELECT * FROM song WHERE $artist->artist_to_song->song OR $artist->artist_to_album->album->album_to_song->song".into_query().unwrap()
 /// );
 /// ```
 #[must_use]
 #[inline]
 pub const fn read_songs() -> impl IntoQuery {
-    "RETURN array::union((SELECT * FROM $artist->artist_to_song.out), (SELECT * FROM $artist->artist_to_album->album->album_to_song.out))"
+    "SELECT * FROM song WHERE $artist->artist_to_song->song OR $artist->artist_to_album->album->album_to_song->song"
 }
 
 #[cfg(test)]
@@ -261,7 +261,7 @@ mod query_validation_tests {
     #[case::remove_songs(remove_songs(), "DELETE $artist->artist_to_song WHERE out IN $songs")]
     #[case::read_songs(
         read_songs(),
-        "RETURN array::union((SELECT * FROM $artist->artist_to_song.out), (SELECT * FROM $artist->artist_to_album->album->album_to_song.out))"
+        "SELECT * FROM song WHERE $artist->artist_to_song->song OR $artist->artist_to_album->album->album_to_song->song"
     )]
     fn test_queries(#[case] query: impl IntoQuery, #[case] expected: &str) {
         validate_query(query, expected);

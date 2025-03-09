@@ -213,7 +213,7 @@ impl Count {
 ///
 /// Compiles to:
 /// ```sql, ignore
-/// RETURN array::len((SELECT * FROM table))
+/// SELECT count() FROM table GROUP ALL
 /// ```
 ///
 /// # Example
@@ -243,7 +243,7 @@ pub fn count<Table: AsRef<str>>(table: Table) -> impl IntoQuery {
 ///
 /// Compiles to:
 /// ```sql, ignore
-/// RETURN array::len((SELECT * FROM table WHERE count(->rel) = 0))
+/// SELECT count() FROM table WHERE count(->relation) = 0 GROUP ALL
 /// ```
 ///
 /// # Example
@@ -280,7 +280,7 @@ pub fn count_orphaned<Table: AsRef<str>, Rel: AsRef<str>>(
 ///
 /// Compiles to:
 /// ```sql, ignore
-/// RETURN array::len((SELECT * FROM table WHERE count(->rel1.out) = 0 AND count(->rel2.out) = 0))
+/// SELECT count() FROM artist WHERE count(->artist_to_album) = 0 AND count(->artist_to_song) = 0 GROUP ALL
 /// ```
 ///
 /// # Example
