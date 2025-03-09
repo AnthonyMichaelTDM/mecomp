@@ -799,7 +799,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "Failed to send command to audio kernel: sending on a closed channel"]
     fn test_audio_kernel_send_closed_channel() {
         let (tx, _) = mpsc::channel();
         let sender = AudioKernelSender::new(tx);
@@ -819,13 +819,16 @@ mod tests {
     #[rstest]
     fn test_volume_control(audio_kernel: AudioKernel) {
         audio_kernel.volume_control(VolumeCommand::Up(0.1));
-        assert_eq!(*audio_kernel.volume.lock().unwrap(), 1.1);
+        let volume = *audio_kernel.volume.lock().unwrap();
+        assert!(f32::EPSILON > (volume - 1.1).abs(), "{volume} != 1.1");
 
         audio_kernel.volume_control(VolumeCommand::Down(0.1));
-        assert_eq!(*audio_kernel.volume.lock().unwrap(), 1.0);
+        let volume = *audio_kernel.volume.lock().unwrap();
+        assert!(f32::EPSILON > (volume - 1.0).abs(), "{volume} != 1.0");
 
         audio_kernel.volume_control(VolumeCommand::Set(0.5));
-        assert_eq!(*audio_kernel.volume.lock().unwrap(), 0.5);
+        let volume = *audio_kernel.volume.lock().unwrap();
+        assert!(f32::EPSILON > (volume - 0.5).abs(), "{volume} != 0.5");
 
         audio_kernel.volume_control(VolumeCommand::Mute);
         assert_eq!(
