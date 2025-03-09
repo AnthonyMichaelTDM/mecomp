@@ -1,11 +1,11 @@
 #![allow(clippy::module_name_repetitions)]
 
+use super::Id;
 #[cfg(not(feature = "db"))]
-use super::{Id, RecordId};
+use super::RecordId;
 use query::Query;
-use surrealdb::RecordIdKey;
 #[cfg(feature = "db")]
-use surrealdb::{opt::IntoQuery, sql::Id, RecordId};
+use surrealdb::{opt::IntoQuery, RecordId};
 
 pub mod query;
 
@@ -39,7 +39,7 @@ impl DynamicPlaylist {
     #[must_use]
     #[inline]
     pub fn generate_id() -> DynamicPlaylistId {
-        RecordId::from((TABLE_NAME, RecordIdKey::from_inner(Id::ulid())))
+        RecordId::from_table_key(TABLE_NAME, Id::ulid())
     }
 
     #[must_use]

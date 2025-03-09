@@ -1,8 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
 use std::str::FromStr;
 
-use surrealdb::RecordIdKey;
-
 pub mod album;
 #[cfg(feature = "analysis")]
 pub mod analysis;
@@ -107,6 +105,20 @@ impl RecordId {
     pub const fn key(&self) -> &Id {
         &self.id
     }
+
+    /// Create a new `RecordId` from a table name and an id.
+    #[must_use]
+    #[inline]
+    pub fn from_table_key<S, K>(table: S, key: K) -> Self
+    where
+        S: Into<String>,
+        K: Into<Id>,
+    {
+        Self {
+            tb: table.into(),
+            id: key.into(),
+        }
+    }
 }
 
 impl FromStr for RecordId {
@@ -179,9 +191,9 @@ impl std::fmt::Display for Id {
 }
 
 #[cfg(feature = "db")]
-impl From<RecordIdKey> for Id {
+impl From<surrealdb::RecordIdKey> for Id {
     #[inline]
-    fn from(value: RecordIdKey) -> Self {
+    fn from(value: surrealdb::RecordIdKey) -> Self {
         match value.into_inner() {
             surrealdb::sql::Id::Number(n) => Self::Number(n),
             surrealdb::sql::Id::String(s) => Self::String(s),
@@ -191,7 +203,7 @@ impl From<RecordIdKey> for Id {
 }
 
 #[cfg(feature = "db")]
-impl From<Id> for RecordIdKey {
+impl From<Id> for surrealdb::RecordIdKey {
     #[inline]
     fn from(id: Id) -> Self {
         match id {
@@ -205,7 +217,7 @@ impl From<Id> for RecordIdKey {
 impl From<RecordId> for surrealdb::RecordId {
     #[inline]
     fn from(thing: RecordId) -> Self {
-        Self::from_table_key(thing.tb, RecordIdKey::from(thing.id))
+        Self::from_table_key(thing.tb, surrealdb::RecordIdKey::from(thing.id))
     }
 }
 
