@@ -21,7 +21,7 @@ struct Flags {
     port: Option<u16>,
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
     init_panic_hook();
 

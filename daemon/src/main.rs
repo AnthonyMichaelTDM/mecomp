@@ -26,12 +26,11 @@ struct Flags {
     log_level: Option<log::LevelFilter>,
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     let flags = Flags::try_parse()?;
 
-    let config_file = match flags.config {
-        Some(ref config_file) if config_file.exists() => config_file.clone(),
+    let config_file: PathBuf = match &flags.config {
+        Some(config_file) if config_file.exists() => config_file.clone(),
         Some(_) => anyhow::bail!("Config file does not exist at user specified path"),
         None => Settings::get_config_path()?,
     };
@@ -54,11 +53,13 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let settings = Settings::init(
-        flags.config.unwrap_or(config_file),
-        flags.port,
-        flags.log_level,
-    )?;
+    let settings = Settings::init(config_file, flags.port, flags.log_level)?;
 
-    start_daemon(settings, db_dir, Some(log_file)).await
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        // SurrealDB recommends a 10MB stack size, but I think that's a bit much for our use case
+        // (we're not processing millions of records)
+        // .thread_stack_size(10 * 1024 * 1024) // 10MB
+        .build()?
+        .block_on(start_daemon(settings, db_dir, Some(log_file)))
 }
