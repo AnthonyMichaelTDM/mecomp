@@ -268,7 +268,6 @@ mod tests {
         test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
         ui::components::content_view::ActiveView,
     };
-    use anyhow::Result;
     use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
@@ -297,7 +296,7 @@ mod tests {
     }
 
     #[test]
-    fn test_render_empty() -> Result<()> {
+    fn test_render_empty() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = RadioView::new(&AppState::default(), tx);
 
@@ -319,12 +318,10 @@ mod tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]
-    fn test_render() -> Result<()> {
+    fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = RadioView::new(&state_with_everything(), tx);
 
@@ -348,12 +345,10 @@ mod tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]
-    fn test_render_with_checked() -> Result<()> {
+    fn test_render_with_checked() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = RadioView::new(&state_with_everything(), tx);
         let (mut terminal, area) = setup_test_terminal(50, 6);
@@ -394,8 +389,6 @@ mod tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]

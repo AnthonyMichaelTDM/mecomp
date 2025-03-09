@@ -553,7 +553,6 @@ mod item_view_tests {
         test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
         ui::{components::content_view::ActiveView, widgets::popups::PopupType},
     };
-    use anyhow::Result;
     use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
@@ -584,7 +583,7 @@ mod item_view_tests {
         );
     }
     #[test]
-    fn test_render_no_collection() -> Result<()> {
+    fn test_render_no_collection() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = CollectionView::new(&AppState::default(), tx);
 
@@ -606,12 +605,10 @@ mod item_view_tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]
-    fn test_render() -> Result<()> {
+    fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = CollectionView::new(&state_with_everything(), tx);
 
@@ -638,12 +635,10 @@ mod item_view_tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]
-    fn test_render_with_checked() -> Result<()> {
+    fn test_render_with_checked() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = CollectionView::new(&state_with_everything(), tx);
         let (mut terminal, area) = setup_test_terminal(60, 9);
@@ -692,8 +687,6 @@ mod item_view_tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]
@@ -783,6 +776,7 @@ mod item_view_tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_mouse_event() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let mut view = CollectionView::new(&state_with_everything(), tx);
@@ -913,7 +907,6 @@ mod library_view_tests {
         test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
         ui::components::content_view::ActiveView,
     };
-    use anyhow::Result;
     use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
@@ -939,7 +932,7 @@ mod library_view_tests {
     }
 
     #[test]
-    fn test_render() -> Result<()> {
+    fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = LibraryCollectionsView::new(&state_with_everything(), tx);
 
@@ -963,8 +956,6 @@ mod library_view_tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]

@@ -216,7 +216,6 @@ mod tests {
         test_utils::{assert_buffer_eq, setup_test_terminal, state_with_everything},
         ui::components::content_view::ActiveView,
     };
-    use anyhow::Result;
     use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use mecomp_storage::db::schemas::{album::Album, artist::Artist, song::Song};
     use pretty_assertions::assert_eq;
@@ -281,7 +280,7 @@ mod tests {
 
     #[test]
     /// Test rendering when there are no items available (e.g., empty library)
-    fn test_render_empty() -> Result<()> {
+    fn test_render_empty() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = RandomView::new(&AppState::default(), tx);
 
@@ -303,12 +302,10 @@ mod tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]
-    fn test_render() -> Result<()> {
+    fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = RandomView::new(&state_with_everything(), tx);
 
@@ -331,8 +328,6 @@ mod tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]
@@ -386,6 +381,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_mouse() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let state = state_with_everything();
