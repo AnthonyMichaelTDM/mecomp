@@ -72,11 +72,10 @@ mod tests {
         test_utils::{assert_buffer_eq, setup_test_terminal, state_with_everything},
         ui::components::content_view::ActiveView,
     };
-    use anyhow::Result;
     use ratatui::buffer::Buffer;
 
     #[test]
-    fn test_render() -> Result<()> {
+    fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = NoneView::new(&AppState::default(), tx).move_with_state(&AppState {
             active_view: ActiveView::None,
@@ -101,7 +100,5 @@ mod tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 }

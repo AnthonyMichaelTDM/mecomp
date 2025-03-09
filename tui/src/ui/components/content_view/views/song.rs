@@ -356,7 +356,6 @@ mod item_view_tests {
     use crate::test_utils::{
         assert_buffer_eq, item_id, setup_test_terminal, state_with_everything,
     };
-    use anyhow::Result;
     use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
@@ -385,7 +384,7 @@ mod item_view_tests {
     }
 
     #[test]
-    fn test_render_no_song() -> Result<()> {
+    fn test_render_no_song() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = SongView::new(&AppState::default(), tx);
 
@@ -407,12 +406,11 @@ mod item_view_tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]
-    fn test_render_no_playlist_no_collection() -> Result<()> {
+    #[allow(clippy::too_many_lines)]
+    fn test_render_no_playlist_no_collection() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut state = state_with_everything();
         state.additional_view_data.song.as_mut().unwrap().playlists = [].into();
@@ -530,8 +528,6 @@ mod item_view_tests {
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]

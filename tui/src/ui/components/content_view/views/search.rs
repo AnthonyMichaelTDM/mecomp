@@ -346,14 +346,13 @@ mod tests {
         test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
         ui::components::content_view::ActiveView,
     };
-    use anyhow::Result;
     use crossterm::event::KeyEvent;
     use crossterm::event::KeyModifiers;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
     #[test]
-    fn test_render_search_focused() -> Result<()> {
+    fn test_render_search_focused() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
             active_view: ActiveView::Search,
@@ -382,12 +381,10 @@ mod tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]
-    fn test_render_empty() -> Result<()> {
+    fn test_render_empty() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
             active_view: ActiveView::Search,
@@ -417,12 +414,10 @@ mod tests {
         ]);
 
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]
-    fn test_render_search_unfocused() -> Result<()> {
+    fn test_render_search_unfocused() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
             active_view: ActiveView::Search,
@@ -454,8 +449,6 @@ mod tests {
             "└ ⏎ : Open | ←/↑/↓/→: Navigate─┘",
         ]);
         assert_buffer_eq(&buffer, &expected);
-
-        Ok(())
     }
 
     #[test]
@@ -475,7 +468,8 @@ mod tests {
     }
 
     #[test]
-    fn test_keys() -> Result<()> {
+    #[allow(clippy::too_many_lines)]
+    fn test_keys() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let mut view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
             active_view: ActiveView::Search,
@@ -620,11 +614,10 @@ mod tests {
             )
                 .into()])))
         );
-
-        Ok(())
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_mouse() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let mut view = SearchView::new(&state_with_everything(), tx);
