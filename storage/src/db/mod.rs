@@ -67,6 +67,8 @@ pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
     #[cfg(feature = "analysis")]
     surrealqlx::register_tables!(&db, schemas::analysis::Analysis)?;
 
+    queries::relations::define_relation_tables(&db).await?;
+
     Ok(db)
 }
 
@@ -120,6 +122,10 @@ mod test {
         <Collection as Table>::init_table(&db).await?;
         <Playlist as Table>::init_table(&db).await?;
         <DynamicPlaylist as Table>::init_table(&db).await?;
+
+        // then we init the relation tables
+        queries::relations::define_relation_tables(&db).await?;
+
         // then we try initializing one of the tables again to ensure that initialization won't mess with existing tables/data
         <Album as Table>::init_table(&db).await?;
 

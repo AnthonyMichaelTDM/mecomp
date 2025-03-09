@@ -1,6 +1,9 @@
 use surrealdb::opt::IntoQuery;
 
-use super::generic::{read_related_out, relate, unrelate};
+use super::{
+    generic::{read_related_out, relate, unrelate},
+    relations::COLLECTION_TO_SONG,
+};
 
 /// Query to relate a collection to its songs.
 ///
@@ -25,7 +28,7 @@ use super::generic::{read_related_out, relate, unrelate};
 #[must_use]
 #[inline]
 pub fn add_songs() -> impl IntoQuery {
-    relate("id", "songs", "collection_to_song")
+    relate("id", "songs", COLLECTION_TO_SONG)
 }
 
 /// Query to read the songs of a collection
@@ -51,7 +54,7 @@ pub fn add_songs() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_songs() -> impl IntoQuery {
-    read_related_out("id", "collection_to_song")
+    read_related_out("id", COLLECTION_TO_SONG)
 }
 
 /// Query to remove songs from a collection
@@ -77,7 +80,7 @@ pub fn read_songs() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn remove_songs() -> impl IntoQuery {
-    unrelate("id", "songs", "collection_to_song")
+    unrelate("id", "songs", COLLECTION_TO_SONG)
 }
 
 #[cfg(test)]

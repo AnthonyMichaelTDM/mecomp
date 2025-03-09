@@ -40,7 +40,9 @@ pub const ARTIST_NAME_SEPARATOR: &str = ", ";
 #[cfg(feature = "db")]
 #[allow(clippy::missing_inline_in_public_items)]
 pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
-    use crate::db::schemas::dynamic::DynamicPlaylist;
+    use crate::db::{
+        queries::relations::define_relation_tables, schemas::dynamic::DynamicPlaylist,
+    };
 
     let db = Surreal::new::<Mem>(()).await?;
     db.use_ns("test").use_db("test").await?;
@@ -57,6 +59,8 @@ pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
     )?;
     #[cfg(feature = "analysis")]
     surrealqlx::register_tables!(&db, Analysis)?;
+
+    define_relation_tables(&db).await?;
 
     Ok(db)
 }

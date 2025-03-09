@@ -5,6 +5,7 @@ use crate::db::schemas;
 use super::{
     generic::{read_related_out, relate, unrelate},
     parse_query,
+    relations::PLAYLIST_TO_SONG,
 };
 
 /// Query to relate a playlist to its songs.
@@ -30,7 +31,7 @@ use super::{
 #[must_use]
 #[inline]
 pub fn add_songs() -> impl IntoQuery {
-    relate("id", "songs", "playlist_to_song")
+    relate("id", "songs", PLAYLIST_TO_SONG)
 }
 
 /// Query to read the songs of a playlist
@@ -56,7 +57,7 @@ pub fn add_songs() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_songs() -> impl IntoQuery {
-    read_related_out("id", "playlist_to_song")
+    read_related_out("id", PLAYLIST_TO_SONG)
 }
 
 /// Query to remove songs from a playlist
@@ -82,7 +83,7 @@ pub fn read_songs() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn remove_songs() -> impl IntoQuery {
-    unrelate("id", "songs", "playlist_to_song")
+    unrelate("id", "songs", PLAYLIST_TO_SONG)
 }
 
 /// Query to read a playlist by its name.
@@ -105,10 +106,6 @@ pub fn remove_songs() -> impl IntoQuery {
 ///     "SELECT * FROM playlist WHERE name = $name LIMIT 1".into_query().unwrap()
 /// );
 /// ```
-///
-/// # Panics
-///
-/// This function will panic if the query cannot be parsed, which should never happen.
 #[must_use]
 #[inline]
 pub fn read_by_name() -> impl IntoQuery {
