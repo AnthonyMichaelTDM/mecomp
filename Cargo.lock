@@ -3018,7 +3018,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-analysis"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "adler32",
  "bliss-audio-aubio-rs",
@@ -3049,7 +3049,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-cli"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -3069,7 +3069,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-core"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "ciborium",
@@ -3108,7 +3108,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-daemon"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -3137,7 +3137,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-mpris"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -3160,7 +3160,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-storage"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "criterion",
@@ -3189,7 +3189,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-tui"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -3795,7 +3795,7 @@ checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
 
 [[package]]
 name = "one-or-many"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "mecomp-workspace-hack",
