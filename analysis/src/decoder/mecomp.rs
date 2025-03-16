@@ -1,6 +1,6 @@
 //! Implementation of the mecomp decoder, which is rodio/rubato based.
 
-use std::{fs::File, io::BufReader};
+use std::{f32::consts::SQRT_2, fs::File, io::BufReader};
 
 use rodio::Source;
 use rubato::{FastFixedIn, PolynomialDegree, Resampler};
@@ -32,29 +32,33 @@ impl Decoder for MecompDecoder {
         // TODO: Figure out how ffmpeg does it, and do it the same way
         let num_channels = source.channels() as usize;
         let sample_rate = source.sample_rate();
-        let Some(total_duration) = source.total_duration() else {
-            return Err(AnalysisError::InfiniteAudioSource);
-        };
-        let mut mono_sample_array = if num_channels == 1 {
-            source.into_iter().collect()
-        } else {
-            source.into_iter().enumerate().fold(
-                // pre-allocate the right capacity
-                #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-                Vec::with_capacity((total_duration.as_secs() as usize + 1) * sample_rate as usize),
-                // collapse the channels into one channel
-                |mut acc, (i, sample)| {
-                    let channel = i % num_channels;
-                    #[allow(clippy::cast_precision_loss)]
-                    if channel == 0 {
-                        acc.push(sample / num_channels as f32);
-                    } else {
-                        let last_index = acc.len() - 1;
-                        acc[last_index] = sample.mul_add(1. / num_channels as f32, acc[last_index]);
-                    }
-                    acc
-                },
-            )
+        if source.total_duration().is_none() {
+            return Err(AnalysisError::IndeterminateDuration);
+        }
+
+        let mut mono_sample_array: Vec<f32> = match num_channels {
+            0 => {
+                return Err(AnalysisError::DecodeError(
+                    rodio::decoder::DecoderError::NoStreams,
+                ))
+            }
+            // audio is already mono
+            1 => source.collect(),
+            // stereo
+            2 => source
+                .collect::<Vec<_>>()
+                .chunks_exact(2)
+                .map(|chunk| (chunk[0] + chunk[1]) * SQRT_2 / 2.)
+                .collect(),
+            // other, mayby 2.1 / 5.1 surround sound?
+            _ => {
+                log::warn!("The audio source has more than 2 channels (might be 2.1 or 5.1 surround sound), will collapse to mono by averaging the channels");
+                source
+                    .collect::<Vec<_>>()
+                    .chunks_exact(num_channels)
+                    .map(|chunk| chunk.iter().sum::<f32>() / num_channels as f32)
+                    .collect()
+            }
         };
 
         // then we need to resample the audio source into 22050 Hz
@@ -100,12 +104,11 @@ mod tests {
     // expected hash Obtained through
     // ffmpeg -i data/s16_stereo_22_5kHz.flac -ar 22050 -ac 1 -c:a pcm_f32le -f hash -hash adler32 -
     #[rstest]
-    #[ignore = "fails when asked to convert stereo to mono, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
+    #[ignore = "fails when asked to resample to 22050 Hz, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
     #[case::resample_multi(Path::new("data/s32_stereo_44_1_kHz.flac"), 0xbbcb_a1cf)]
-    #[ignore = "fails when asked to convert stereo to mono, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
     #[case::resample_stereo(Path::new("data/s16_stereo_22_5kHz.flac"), 0x1d7b_2d6d)]
     #[case::decode_mono(Path::new("data/s16_mono_22_5kHz.flac"), 0x5e01_930b)]
-    #[ignore = "fails when asked to convert stereo to mono, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
+    #[ignore = "fails when asked to resample to 22050 Hz, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
     #[case::decode_mp3(Path::new("data/s32_stereo_44_1_kHz.mp3"), 0x69ca_6906)]
     #[case::decode_wav(Path::new("data/piano.wav"), 0xde83_1e82)]
     fn test_decode(#[case] path: &Path, #[case] expected_hash: u32) {

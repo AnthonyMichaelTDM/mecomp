@@ -15,7 +15,7 @@ pub enum AnalysisError {
     #[error("Samples are empty or too short")]
     EmptySamples,
     #[error("Audio Source length is unknown or infinite")]
-    InfiniteAudioSource,
+    IndeterminateDuration,
     #[error("Too many or too little features were provided at the end of the analysis")]
     InvalidFeaturesLen,
 }
