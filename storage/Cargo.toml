@@ -61,6 +61,9 @@ rstest = { workspace = true }
 rstest_reuse = { workspace = true }
 criterion = { workspace = true, features = ["async_tokio"] }
 
+[lib]
+bench = false
+
 [[bench]]
 name = "song"
 harness = false

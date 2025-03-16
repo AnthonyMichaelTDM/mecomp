@@ -49,6 +49,9 @@ pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 criterion = { workspace = true }
 
+[lib]
+bench = false
+
 [[bench]]
 name = "analysis"
 harness = false
