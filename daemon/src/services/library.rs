@@ -220,6 +220,7 @@ pub async fn rescan<C: Connection>(
 /// Analyze the library.
 ///
 /// In order, this function will:
+/// - if `overwrite` is true, delete all existing analyses.
 /// - get all the songs that aren't currently analyzed.
 /// - start analyzing those songs in batches.
 /// - update the database with the analyses.
@@ -232,7 +233,19 @@ pub async fn rescan<C: Connection>(
 ///
 /// This function will panic if the thread(s) that analyzes the songs panics.
 #[instrument]
-pub async fn analyze<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
+pub async fn analyze<C: Connection>(db: &Surreal<C>, overwrite: bool) -> Result<(), Error> {
+    if overwrite {
+        // delete all the analyses
+        async {
+            for analysis in Analysis::read_all(db).await? {
+                Analysis::delete(db, analysis.id.clone()).await?;
+            }
+            <Result<(), Error>>::Ok(())
+        }
+        .instrument(tracing::info_span!("Deleting existing analyses"))
+        .await?;
+    }
+
     // get all the songs that don't have an analysis
     let songs_to_analyze: Vec<Song> = Analysis::read_songs_without_analysis(db).await?;
     // crate a hashmap mapping paths to song ids
@@ -736,7 +749,7 @@ mod tests {
         );
 
         // analyze the library
-        analyze(&db).await.unwrap();
+        analyze(&db, true).await.unwrap();
 
         // check that all the songs have analyses
         assert_eq!(

@@ -38,7 +38,7 @@ fn benchmark_rescan(c: &mut Criterion) {
                 .unwrap()
             },
             |db| async move {
-                analyze(&db).await.unwrap();
+                analyze(&db, false).await.unwrap();
             },
         );
     });

@@ -3,5 +3,20 @@ source: cli/src/handlers/smoke_tests.rs
 expression: "String::from_utf8(stdout.0.clone()).unwrap()"
 ---
 Daemon response:
-Artists:
-	artist:01J1K5B6RJ84WJXCWYJ5WNE12E: "Test Artist"
+Ok(
+    LibraryHealth {
+        artists: 1,
+        albums: 1,
+        songs: 1,
+        unanalyzed_songs: Some(
+            0,
+        ),
+        playlists: 1,
+        collections: 1,
+        dynamic_playlists: 1,
+        orphaned_artists: 0,
+        orphaned_albums: 0,
+        orphaned_playlists: 0,
+        orphaned_collections: 0,
+    },
+)

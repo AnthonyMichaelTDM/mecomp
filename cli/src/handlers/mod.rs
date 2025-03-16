@@ -95,7 +95,11 @@ pub enum LibraryCommand {
     /// Rescan the library
     Rescan,
     /// Analyze the library
-    Analyze,
+    Analyze {
+        /// Whether to overwrite existing analysis
+        #[clap(long)]
+        overwrite: bool,
+    },
     /// Recluster the library
     Recluster,
     /// Get brief library info
