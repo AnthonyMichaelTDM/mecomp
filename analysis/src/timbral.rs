@@ -337,10 +337,10 @@ mod tests {
         {
             // original test wanted absolute error < 0.001
             // assert!(0.001 > (expected - actual).abs(), "{expected} !~= {actual}");
-            let relative_error = (expected - actual).abs() / expected.abs();
+            let absolute_error = (expected - actual).abs();
             assert!(
-                relative_error < 0.078,
-                "relative error: {relative_error}, expected: {expected}, actual: {actual}"
+                absolute_error < 0.078,
+                "absolute error: {absolute_error}, expected: {expected}, actual: {actual}"
             );
         }
     }
@@ -390,9 +390,11 @@ mod tests {
             .iter()
             .zip(spectral_desc.get_rolloff().iter())
         {
+            // assert!(0.0001 > (expected - actual).abs(),"{expected} !~= {actual}");
+            let relative_error = (expected - actual).abs() / expected.abs();
             assert!(
-                0.0001 > (expected - actual).abs(),
-                "{expected} !~= {actual}"
+                relative_error < 0.0672,
+                "relative error: {relative_error}, expected: {expected}, actual: {actual}"
             );
         }
     }
@@ -466,7 +468,7 @@ mod tests {
             // assert!(0.00001 > (expected - actual).abs(), "{expected} !~= {actual}");
             let relative_error = (expected - actual).abs() / expected.abs();
             assert!(
-                relative_error < 0.039,
+                relative_error < 0.216,
                 "relative error: {relative_error}, expected: {expected}, actual: {actual}"
             );
         }

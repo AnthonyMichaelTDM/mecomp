@@ -5,7 +5,7 @@ pub enum AnalysisError {
     #[error("Failed to open file: {0}")]
     FileOpenError(#[from] std::io::Error),
     #[error("Failed to decode audio: {0}")]
-    DecodeError(#[from] rodio::decoder::DecoderError),
+    DecodeError(#[from] symphonia::core::errors::Error),
     #[error("Failed to resample audio: {0}")]
     ResampleError(#[from] rubato::ResampleError),
     #[error("Failed to create resampler: {0}")]
@@ -15,7 +15,7 @@ pub enum AnalysisError {
     #[error("Samples are empty or too short")]
     EmptySamples,
     #[error("Audio Source length is unknown or infinite")]
-    IndeterminateDuration,
+    IndeterminantDuration,
     #[error("Too many or too little features were provided at the end of the analysis")]
     InvalidFeaturesLen,
 }

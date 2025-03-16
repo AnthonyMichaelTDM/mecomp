@@ -28,8 +28,8 @@ noisy_float = { version = "0.2.0" }
 # plotters = { version = "0.3.0", optional = true }
 rand.workspace = true
 rayon = "1.10"
-rodio = { workspace = true }
 rubato = { workspace = true }
+symphonia = { workspace = true }
 rustfft = { version = "6.2" }
 serde = { workspace = true }
 statrs = "0.18.0"
