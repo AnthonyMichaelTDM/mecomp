@@ -110,7 +110,10 @@ mod tests {
 
     #[test]
     fn test_tempo_real() {
-        let song = Decoder::decode(Path::new("data/s16_mono_22_5kHz.flac")).unwrap();
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/s16_mono_22_5kHz.flac"))
+            .unwrap();
         let mut tempo_desc = BPMDesc::new(SAMPLE_RATE).unwrap();
         for chunk in song.samples.chunks_exact(BPMDesc::HOP_SIZE) {
             tempo_desc.do_(chunk).unwrap();

@@ -297,7 +297,10 @@ mod tests {
 
     #[test]
     fn test_zcr() {
-        let song = Decoder::decode(Path::new("data/s16_mono_22_5kHz.flac")).unwrap();
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/s16_mono_22_5kHz.flac"))
+            .unwrap();
         let mut zcr_desc = ZeroCrossingRateDesc::default();
         for chunk in song.samples.chunks_exact(SpectralDesc::HOP_SIZE) {
             zcr_desc.do_(chunk);
@@ -323,7 +326,10 @@ mod tests {
             );
         }
 
-        let song = Decoder::decode(Path::new("data/white_noise.mp3")).unwrap();
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/white_noise.mp3"))
+            .unwrap();
         let mut spectral_desc = SpectralDesc::new(22050).unwrap();
         for chunk in song.samples.chunks_exact(SpectralDesc::HOP_SIZE) {
             spectral_desc.do_(chunk).unwrap();
@@ -337,17 +343,20 @@ mod tests {
         {
             // original test wanted absolute error < 0.001
             // assert!(0.001 > (expected - actual).abs(), "{expected} !~= {actual}");
-            let absolute_error = (expected - actual).abs();
+            let relative_error = (expected - actual).abs() / expected.abs();
             assert!(
-                absolute_error < 0.078,
-                "absolute error: {absolute_error}, expected: {expected}, actual: {actual}"
+                relative_error < 0.078,
+                "releative error: {relative_error}, expected: {expected}, actual: {actual}"
             );
         }
     }
 
     #[test]
     fn test_spectral_flatness() {
-        let song = Decoder::decode(Path::new("data/s16_mono_22_5kHz.flac")).unwrap();
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/s16_mono_22_5kHz.flac"))
+            .unwrap();
         let mut spectral_desc = SpectralDesc::new(SAMPLE_RATE).unwrap();
         for chunk in song.samples.chunks_exact(SpectralDesc::HOP_SIZE) {
             spectral_desc.do_(chunk).unwrap();
@@ -380,7 +389,10 @@ mod tests {
             );
         }
 
-        let song = Decoder::decode(Path::new("data/tone_11080Hz.flac")).unwrap();
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/tone_11080Hz.flac"))
+            .unwrap();
         let mut spectral_desc = SpectralDesc::new(SAMPLE_RATE).unwrap();
         for chunk in song.samples.chunks_exact(SpectralDesc::HOP_SIZE) {
             spectral_desc.do_(chunk).unwrap();
@@ -390,18 +402,19 @@ mod tests {
             .iter()
             .zip(spectral_desc.get_rolloff().iter())
         {
-            // assert!(0.0001 > (expected - actual).abs(),"{expected} !~= {actual}");
-            let relative_error = (expected - actual).abs() / expected.abs();
             assert!(
-                relative_error < 0.0672,
-                "relative error: {relative_error}, expected: {expected}, actual: {actual}"
+                0.0001 > (expected - actual).abs(),
+                "{expected} !~= {actual}"
             );
         }
     }
 
     #[test]
     fn test_spectral_roll_off() {
-        let song = Decoder::decode(Path::new("data/s16_mono_22_5kHz.flac")).unwrap();
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/s16_mono_22_5kHz.flac"))
+            .unwrap();
         let mut spectral_desc = SpectralDesc::new(SAMPLE_RATE).unwrap();
         for chunk in song.samples.chunks_exact(SpectralDesc::HOP_SIZE) {
             spectral_desc.do_(chunk).unwrap();
@@ -419,7 +432,10 @@ mod tests {
 
     #[test]
     fn test_spectral_centroid() {
-        let song = Decoder::decode(Path::new("data/s16_mono_22_5kHz.flac")).unwrap();
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/s16_mono_22_5kHz.flac"))
+            .unwrap();
         let mut spectral_desc = SpectralDesc::new(SAMPLE_RATE).unwrap();
         for chunk in song.samples.chunks_exact(SpectralDesc::HOP_SIZE) {
             spectral_desc.do_(chunk).unwrap();
@@ -454,7 +470,10 @@ mod tests {
                 "{expected} !~= {actual}"
             );
         }
-        let song = Decoder::decode(Path::new("data/tone_11080Hz.flac")).unwrap();
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/tone_11080Hz.flac"))
+            .unwrap();
         let mut spectral_desc = SpectralDesc::new(SAMPLE_RATE).unwrap();
         for chunk in song.samples.chunks_exact(SpectralDesc::HOP_SIZE) {
             spectral_desc.do_(chunk).unwrap();
@@ -468,7 +487,7 @@ mod tests {
             // assert!(0.00001 > (expected - actual).abs(), "{expected} !~= {actual}");
             let relative_error = (expected - actual).abs() / expected.abs();
             assert!(
-                relative_error < 0.216,
+                relative_error < 0.039,
                 "relative error: {relative_error}, expected: {expected}, actual: {actual}"
             );
         }

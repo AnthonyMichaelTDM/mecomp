@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use decoder::{Decoder, MecompDecoder};
+use decoder::{Decoder as _, MecompDecoder as Decoder};
 use mecomp_analysis::{decoder, Analysis};
 use std::path::Path;
 
@@ -9,7 +9,7 @@ fn bench_analysis_from_samples(c: &mut Criterion) {
         .canonicalize()
         .unwrap();
 
-    let samples = MecompDecoder::decode(&path).unwrap();
+    let samples = Decoder::new().unwrap().decode(&path).unwrap();
 
     c.bench_function("mecomp-analysis: lib.rs: Analysis::from_samples", |b| {
         b.iter(|| {

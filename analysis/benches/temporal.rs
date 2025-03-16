@@ -2,20 +2,22 @@ use std::path::Path;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use mecomp_analysis::{
-    decoder::{Decoder, MecompDecoder},
+    decoder::{Decoder as _, MecompDecoder as Decoder},
     temporal::BPMDesc,
     SAMPLE_RATE,
 };
 
 fn bench_bpm_desc(c: &mut Criterion) {
-    let signal = MecompDecoder::decode(
-        &Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/music.mp3")
-            .canonicalize()
-            .unwrap(),
-    )
-    .unwrap()
-    .samples;
+    let signal = Decoder::new()
+        .unwrap()
+        .decode(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../assets/music.mp3")
+                .canonicalize()
+                .unwrap(),
+        )
+        .unwrap()
+        .samples;
 
     c.bench_function("mecomp-analysis: temporal.rs: BPMDesc", |b| {
         b.iter(|| {

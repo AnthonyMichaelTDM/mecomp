@@ -2,19 +2,21 @@ use std::path::Path;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use mecomp_analysis::{
-    decoder::{Decoder, MecompDecoder},
+    decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder},
     timbral::{SpectralDesc, ZeroCrossingRateDesc},
 };
 
 fn bench_spectral_desc(c: &mut Criterion) {
-    let signal = MecompDecoder::decode(
-        &Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/music.mp3")
-            .canonicalize()
-            .unwrap(),
-    )
-    .unwrap()
-    .samples;
+    let signal = Decoder::new()
+        .unwrap()
+        .decode(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../assets/music.mp3")
+                .canonicalize()
+                .unwrap(),
+        )
+        .unwrap()
+        .samples;
 
     c.bench_function("mecomp-analysis: timbral.rs: SpectralDesc", |b| {
         b.iter(|| {
@@ -56,14 +58,16 @@ fn bench_spectral_desc(c: &mut Criterion) {
 
 fn bench_zcr_desc(c: &mut Criterion) {
     let zcr_desc = ZeroCrossingRateDesc::new(10);
-    let signal = MecompDecoder::decode(
-        &Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/music.mp3")
-            .canonicalize()
-            .unwrap(),
-    )
-    .unwrap()
-    .samples;
+    let signal = Decoder::new()
+        .unwrap()
+        .decode(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../assets/music.mp3")
+                .canonicalize()
+                .unwrap(),
+        )
+        .unwrap()
+        .samples;
 
     c.bench_function("mecomp-analysis: timbral.rs: ZeroCrossingRateDesc", |b| {
         b.iter(|| {
