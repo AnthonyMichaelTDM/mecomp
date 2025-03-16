@@ -71,7 +71,10 @@ mod tests {
 
     #[test]
     fn test_loudness() {
-        let song = Decoder::decode(Path::new("data/s16_mono_22_5kHz.flac")).unwrap();
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/s16_mono_22_5kHz.flac"))
+            .unwrap();
         let mut loudness_desc = LoudnessDesc::default();
         for chunk in song.samples.chunks_exact(LoudnessDesc::WINDOW_SIZE) {
             loudness_desc.do_(chunk);

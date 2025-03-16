@@ -495,7 +495,10 @@ mod test {
 
     #[test]
     fn test_chroma_desc() {
-        let song = Decoder::decode(Path::new("data/s16_mono_22_5kHz.flac")).unwrap();
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/s16_mono_22_5kHz.flac"))
+            .unwrap();
         let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
         chroma_desc.do_(&song.samples).unwrap();
         let expected_values = [
@@ -522,7 +525,9 @@ mod test {
 
     #[test]
     fn test_chroma_stft_decode() {
-        let signal = Decoder::decode(Path::new("data/s16_mono_22_5kHz.flac"))
+        let signal = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/s16_mono_22_5kHz.flac"))
             .unwrap()
             .samples;
         let mut stft = stft(&signal, 8192, 2205);
@@ -563,7 +568,9 @@ mod test {
 
     #[test]
     fn test_estimate_tuning_decode() {
-        let signal = Decoder::decode(Path::new("data/s16_mono_22_5kHz.flac"))
+        let signal = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/s16_mono_22_5kHz.flac"))
             .unwrap()
             .samples;
         let stft = stft(&signal, 8192, 2205);

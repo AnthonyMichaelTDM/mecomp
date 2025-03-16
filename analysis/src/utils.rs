@@ -487,7 +487,10 @@ mod tests {
         let file = File::open("data/librosa-stft.npy").unwrap();
         let expected_stft = Array2::<f32>::read_npy(file).unwrap().mapv(f64::from);
 
-        let song = Decoder::decode(Path::new("data/piano.flac")).unwrap();
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/piano.flac"))
+            .unwrap();
 
         let stft = stft(&song.samples, 2048, 512);
 

@@ -135,9 +135,12 @@ fn bench_mecomp_decoder_decode(c: &mut Criterion) {
         .unwrap();
 
     c.bench_function("mecomp-analysis: decoder.rs: MecompDecoder::decode", |b| {
-        b.iter(|| {
-            let _ = black_box(Decoder::decode(black_box(&path)));
-        });
+        b.iter_with_setup(
+            || Decoder::new().unwrap(),
+            |decoder| {
+                let _ = black_box(decoder.decode(black_box(&path)));
+            },
+        );
     });
 }
 
@@ -150,9 +153,12 @@ fn bench_mecomp_decoder_analyze_path(c: &mut Criterion) {
     c.bench_function(
         "mecomp-analysis: decoder.rs: MecompDecoder::analyze_path",
         |b| {
-            b.iter(|| {
-                let _ = black_box(Decoder::analyze_path(black_box(&path)));
-            });
+            b.iter_with_setup(
+                || Decoder::new().unwrap(),
+                |decoder| {
+                    let _ = black_box(decoder.analyze_path(black_box(&path)));
+                },
+            );
         },
     );
 }
@@ -175,9 +181,12 @@ fn bench_mecomp_decoder_analyze_paths(c: &mut Criterion) {
     c.bench_function(
         "mecomp-analysis: decoder.rs: MecompDecoder::analyze_paths",
         |b| {
-            b.iter(|| {
-                let _ = black_box(Decoder::analyze_paths(black_box(&paths)));
-            });
+            b.iter_with_setup(
+                || Decoder::new().unwrap(),
+                |decoder| {
+                    let _ = black_box(decoder.analyze_paths(black_box(&paths)));
+                },
+            );
         },
     );
 }

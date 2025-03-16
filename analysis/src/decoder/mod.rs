@@ -42,7 +42,7 @@ pub trait Decoder {
     ///
     /// The error type returned should give a hint as to whether it was a
     /// decoding or an analysis error.
-    fn decode(path: &Path) -> AnalysisResult<ResampledAudio>;
+    fn decode(&self, path: &Path) -> AnalysisResult<ResampledAudio>;
 
     /// Returns a decoded song's `Analysis` given a file path, or an error if the song
     /// could not be analyzed for some reason.
@@ -60,8 +60,8 @@ pub trait Decoder {
     /// The error type returned should give a hint as to whether it was a
     /// decoding or an analysis error.
     #[inline]
-    fn analyze_path<P: AsRef<Path>>(path: P) -> AnalysisResult<Analysis> {
-        Self::decode(path.as_ref())?.try_into()
+    fn analyze_path<P: AsRef<Path>>(&self, path: P) -> AnalysisResult<Analysis> {
+        self.decode(path.as_ref())?.try_into()
     }
 
     /// Analyze songs in `paths`, and return the `Analysis` objects through an
@@ -72,10 +72,14 @@ pub trait Decoder {
     /// and a `Result<Analysis>`.
     #[inline]
     fn analyze_paths<P: Into<PathBuf>, F: IntoIterator<Item = P>>(
+        &self,
         paths: F,
-    ) -> mpsc::IntoIter<(PathBuf, AnalysisResult<Analysis>)> {
+    ) -> mpsc::IntoIter<(PathBuf, AnalysisResult<Analysis>)>
+    where
+        Self: Sync + Send,
+    {
         let cores = thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
-        Self::analyze_paths_with_cores(paths, cores)
+        self.analyze_paths_with_cores(paths, cores)
     }
 
     /// Analyze songs in `paths`, and return the `Analysis` objects through an
@@ -88,9 +92,13 @@ pub trait Decoder {
     /// the song path (to display to the user in case the analysis failed),
     /// and a `Result<Analysis>`.
     fn analyze_paths_with_cores<P: Into<PathBuf>, F: IntoIterator<Item = P>>(
+        &self,
         paths: F,
         number_cores: NonZeroUsize,
-    ) -> mpsc::IntoIter<(PathBuf, AnalysisResult<Analysis>)> {
+    ) -> mpsc::IntoIter<(PathBuf, AnalysisResult<Analysis>)>
+    where
+        Self: Sync + Send,
+    {
         let mut cores = thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
         if cores > number_cores {
             cores = number_cores;
@@ -100,27 +108,31 @@ pub trait Decoder {
         if paths.is_empty() {
             return rx.into_iter();
         }
-        let mut handles = Vec::new();
         let mut chunk_length = paths.len() / cores;
         if chunk_length == 0 {
             chunk_length = paths.len();
         }
-        for chunk in paths.chunks(chunk_length) {
-            let tx_thread = tx.clone();
-            let owned_chunk = chunk.to_owned();
-            let child = thread::spawn(move || {
-                for path in owned_chunk {
-                    info!("Analyzing file '{:?}'", path);
-                    let song = Self::analyze_path(&path);
-                    tx_thread.send((path.clone(), song)).unwrap();
-                }
-            });
-            handles.push(child);
-        }
 
-        for handle in handles {
-            handle.join().unwrap();
-        }
+        thread::scope(|scope| {
+            let mut handles = Vec::new();
+
+            for chunk in paths.chunks(chunk_length) {
+                let tx_thread = tx.clone();
+                let owned_chunk = chunk.to_owned();
+                let child = scope.spawn(move || {
+                    for path in owned_chunk {
+                        info!("Analyzing file '{:?}'", path);
+                        let song = self.analyze_path(&path);
+                        tx_thread.send((path.clone(), song)).unwrap();
+                    }
+                });
+                handles.push(child);
+            }
+
+            for handle in handles {
+                handle.join().unwrap();
+            }
+        });
 
         rx.into_iter()
     }
@@ -152,10 +164,11 @@ pub trait DecoderWithCallback: Decoder {
     /// decoding or an analysis error.
     #[inline]
     fn analyze_path_with_callback<P: AsRef<Path>, CallbackState>(
+        &self,
         path: P,
         callback: mpsc::Sender<(P, AnalysisResult<Analysis>)>,
     ) {
-        let song = Self::analyze_path(&path);
+        let song = self.analyze_path(&path);
         callback.send((path, song)).unwrap();
 
         // We don't need to return the result of the send, as the receiver will
@@ -169,11 +182,14 @@ pub trait DecoderWithCallback: Decoder {
     /// and a `Result<Analysis>`.
     #[inline]
     fn analyze_paths_with_callback<P: Into<PathBuf>, I: Send + IntoIterator<Item = P>>(
+        &self,
         paths: I,
         callback: mpsc::Sender<(PathBuf, AnalysisResult<Analysis>)>,
-    ) {
+    ) where
+        Self: Sync + Send,
+    {
         let cores = thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
-        Self::analyze_paths_with_cores_with_callback(paths, cores, callback);
+        self.analyze_paths_with_cores_with_callback(paths, cores, callback);
     }
 
     /// Analyze songs in `paths`, and return the `Analysis` objects through an
@@ -186,10 +202,13 @@ pub trait DecoderWithCallback: Decoder {
     /// the song path (to display to the user in case the analysis failed),
     /// and a `Result<Analysis>`.
     fn analyze_paths_with_cores_with_callback<P: Into<PathBuf>, I: IntoIterator<Item = P>>(
+        &self,
         paths: I,
         number_cores: NonZeroUsize,
         callback: mpsc::Sender<(PathBuf, AnalysisResult<Analysis>)>,
-    ) {
+    ) where
+        Self: Sync + Send,
+    {
         let mut cores = thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
         if cores > number_cores {
             cores = number_cores;
@@ -215,7 +234,7 @@ pub trait DecoderWithCallback: Decoder {
                     for path in owned_chunk {
                         info!("Analyzing file '{:?}'", path);
 
-                        let song = Self::analyze_path(&path);
+                        let song = self.analyze_path(&path);
 
                         tx_thread.send((path, song)).unwrap();
                     }

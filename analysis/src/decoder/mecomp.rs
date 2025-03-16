@@ -1,8 +1,8 @@
 //! Implementation of the mecomp decoder, which is rodio/rubato based.
 
-use std::{f32::consts::SQRT_2, fs::File, time::Duration};
+use std::{f32::consts::SQRT_2, fs::File, sync::Mutex, time::Duration};
 
-use rubato::{FftFixedIn, Resampler, ResamplerConstructionError};
+use rubato::{FastFixedIn, Resampler};
 use symphonia::{
     core::{
         audio::{AudioBufferRef, Layout, SampleBuffer, SignalSpec},
@@ -185,9 +185,26 @@ impl Iterator for SymphoniaSource {
 }
 
 #[allow(clippy::module_name_repetitions)]
-pub struct MecompDecoder();
+pub struct MecompDecoder<R = FastFixedIn<f32>> {
+    resampler: Mutex<R>,
+}
 
 impl MecompDecoder {
+    /// Create a new `MecompDecoder`
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the resampler could not be created.
+    #[inline]
+    pub fn new() -> Result<Self, AnalysisError> {
+        let resampler =
+            FastFixedIn::new(1.0, 10.0, rubato::PolynomialDegree::Cubic, CHUNK_SIZE, 1)?;
+        let resampler = Mutex::new(resampler);
+        Ok(Self { resampler })
+    }
+}
+
+impl<R: Resampler<f32>> MecompDecoder<R> {
     /// we need to collapse the audio source into one channel
     /// channels are interleaved, so if we have 2 channels, `[1, 2, 3, 4]` and `[5, 6, 7, 8]`,
     /// they will be stored as `[1, 5, 2, 6, 3, 7, 4, 8]`
@@ -242,12 +259,9 @@ impl MecompDecoder {
 
     /// Resample the given mono samples to 22050 Hz
     #[inline]
-    fn resample_mono_samples<
-        R: Resampler<f32>,
-        F: Fn() -> Result<R, ResamplerConstructionError>,
-    >(
+    fn resample_mono_samples(
+        &self,
         mut samples: Vec<f32>,
-        resampler: F,
         sample_rate: u32,
         total_duration: Duration,
     ) -> Result<Vec<f32>, AnalysisError> {
@@ -261,7 +275,8 @@ impl MecompDecoder {
                 * SAMPLE_RATE as usize,
         );
 
-        let mut resampler = resampler()?;
+        let mut resampler = self.resampler.lock().unwrap();
+        resampler.set_resample_ratio(f64::from(SAMPLE_RATE) / f64::from(sample_rate), false)?;
 
         let delay = resampler.output_delay();
 
@@ -300,18 +315,21 @@ impl MecompDecoder {
             resampled_frames.extend_from_slice(&output_buffer[0][..output_written]);
         }
 
+        resampler.reset();
+        drop(resampler);
+
         Ok(resampled_frames[delay..new_length + delay].to_vec())
     }
 }
 
-impl Decoder for MecompDecoder {
+impl<R: Resampler<f32>> Decoder for MecompDecoder<R> {
     /// A function that should decode and resample a song, optionally
     /// extracting the song's metadata such as the artist, the album, etc.
     ///
     /// The output sample array should be resampled to f32le, one channel, with a sampling rate
     /// of 22050 Hz. Anything other than that will yield wrong results.
     #[allow(clippy::missing_inline_in_public_items)]
-    fn decode(path: &std::path::Path) -> AnalysisResult<ResampledAudio> {
+    fn decode(&self, path: &std::path::Path) -> AnalysisResult<ResampledAudio> {
         // open the file
         let file = File::open(path)?;
         // create the media source stream
@@ -337,12 +355,12 @@ impl Decoder for MecompDecoder {
         //     )
         // };
 
-        let resampler =
-            || FftFixedIn::new(sample_rate as usize, SAMPLE_RATE as usize, CHUNK_SIZE, 4, 1);
+        // let resampler =
+        //     || FftFixedIn::new(sample_rate as usize, SAMPLE_RATE as usize, CHUNK_SIZE, 4, 1);
 
         // then we need to resample the audio source into 22050 Hz
         let resampled_array =
-            Self::resample_mono_samples(mono_sample_array, resampler, sample_rate, total_duration)?;
+            self.resample_mono_samples(mono_sample_array, sample_rate, total_duration)?;
 
         Ok(ResampledAudio {
             path: path.to_owned(),
@@ -360,7 +378,8 @@ mod tests {
     use std::path::Path;
 
     fn verify_decoding_output(path: &Path, expected_hash: u32) {
-        let song = Decoder::decode(path).unwrap();
+        let decoder = Decoder::new().unwrap();
+        let song = decoder.decode(path).unwrap();
         let mut hasher = RollingAdler32::new();
         for sample in &song.samples {
             hasher.update_buffer(&sample.to_le_bytes());
@@ -386,13 +405,13 @@ mod tests {
     #[test]
     fn test_dont_panic_no_channel_layout() {
         let path = Path::new("data/no_channel.wav");
-        Decoder::decode(path).unwrap();
+        Decoder::new().unwrap().decode(path).unwrap();
     }
 
     #[test]
     fn test_decode_right_capacity_vec() {
         let path = Path::new("data/s16_mono_22_5kHz.flac");
-        let song = Decoder::decode(path).unwrap();
+        let song = Decoder::new().unwrap().decode(path).unwrap();
         let sample_array = song.samples;
         assert_eq!(
             sample_array.len(), // + SAMPLE_RATE as usize, // The + SAMPLE_RATE is because bliss-rs would add an extra second as a buffer, we don't need to because we know the exact length of the song
@@ -400,7 +419,7 @@ mod tests {
         );
 
         let path = Path::new("data/s32_stereo_44_1_kHz.flac");
-        let song = Decoder::decode(path).unwrap();
+        let song = Decoder::new().unwrap().decode(path).unwrap();
         let sample_array = song.samples;
         assert_eq!(
             sample_array.len(), // + SAMPLE_RATE as usize,
@@ -409,7 +428,7 @@ mod tests {
 
         // NOTE: originally used the .ogg file, but it was failing to decode with `DecodeError(IoError("end of stream"))`
         let path = Path::new("data/capacity_fix.wav");
-        let song = Decoder::decode(path).unwrap();
+        let song = Decoder::new().unwrap().decode(path).unwrap();
         let sample_array = song.samples;
         assert_eq!(
             sample_array.len(), // + SAMPLE_RATE as usize,

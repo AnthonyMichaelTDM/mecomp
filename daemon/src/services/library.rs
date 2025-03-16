@@ -245,9 +245,14 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
 
     let (tx, rx) = std::sync::mpsc::channel();
 
+    let Ok(decoder) = MecompDecoder::new() else {
+        error!("Error creating decoder");
+        return Ok(());
+    };
+
     // analyze the songs in batches
     let handle = std::thread::spawn(move || {
-        MecompDecoder::analyze_paths_with_callback(keys, tx);
+        decoder.analyze_paths_with_callback(keys, tx);
     });
 
     async {

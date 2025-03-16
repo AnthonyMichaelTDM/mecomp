@@ -6,7 +6,9 @@ use ndarray::Array;
 use std::path::Path;
 
 fn bench_compute_stft(c: &mut Criterion) {
-    let signal = Decoder::decode(Path::new("data/piano.flac"))
+    let signal = Decoder::new()
+        .unwrap()
+        .decode(Path::new("data/piano.flac"))
         .unwrap()
         .samples;
 

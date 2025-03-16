@@ -86,14 +86,16 @@ fn bench_normalize_feature_sequence(c: &mut Criterion) {
 
 fn bench_chroma_desc(c: &mut Criterion) {
     let chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
-    let signal = Decoder::decode(
-        &Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/music.mp3")
-            .canonicalize()
-            .unwrap(),
-    )
-    .unwrap()
-    .samples;
+    let signal = Decoder::new()
+        .unwrap()
+        .decode(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../assets/music.mp3")
+                .canonicalize()
+                .unwrap(),
+        )
+        .unwrap()
+        .samples;
 
     c.bench_function("mecomp-analysis: chroma.rs: ChromaDesc", |b| {
         b.iter(|| {
@@ -105,14 +107,16 @@ fn bench_chroma_desc(c: &mut Criterion) {
 }
 
 fn bench_chroma_stft(c: &mut Criterion) {
-    let signal = Decoder::decode(
-        &Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/music.mp3")
-            .canonicalize()
-            .unwrap(),
-    )
-    .unwrap()
-    .samples;
+    let signal = Decoder::new()
+        .unwrap()
+        .decode(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../assets/music.mp3")
+                .canonicalize()
+                .unwrap(),
+        )
+        .unwrap()
+        .samples;
     let stft = stft(&signal, 8192, 2205);
 
     c.bench_function("mecomp-analysis: chroma.rs: chroma_stft", |b| {
