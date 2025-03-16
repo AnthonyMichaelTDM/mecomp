@@ -114,23 +114,16 @@ pub trait Decoder {
         }
 
         thread::scope(|scope| {
-            let mut handles = Vec::new();
-
             for chunk in paths.chunks(chunk_length) {
                 let tx_thread = tx.clone();
                 let owned_chunk = chunk.to_owned();
-                let child = scope.spawn(move || {
+                scope.spawn(move || {
                     for path in owned_chunk {
                         info!("Analyzing file '{:?}'", path);
                         let song = self.analyze_path(&path);
                         tx_thread.send((path.clone(), song)).unwrap();
                     }
                 });
-                handles.push(child);
-            }
-
-            for handle in handles {
-                handle.join().unwrap();
             }
         });
 
@@ -224,13 +217,11 @@ pub trait DecoderWithCallback: Decoder {
         }
 
         thread::scope(move |scope| {
-            let mut handles = Vec::new();
             for chunk in paths.chunks(chunk_length) {
                 let owned_chunk = chunk.to_owned();
-
                 let tx_thread: mpsc::Sender<_> = callback.clone();
 
-                let child = scope.spawn(move || {
+                scope.spawn(move || {
                     for path in owned_chunk {
                         info!("Analyzing file '{:?}'", path);
 
@@ -239,11 +230,6 @@ pub trait DecoderWithCallback: Decoder {
                         tx_thread.send((path, song)).unwrap();
                     }
                 });
-                handles.push(child);
-            }
-
-            for handle in handles {
-                handle.join().unwrap();
             }
         });
     }
