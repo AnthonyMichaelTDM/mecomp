@@ -161,7 +161,7 @@ impl Iterator for SymphoniaSource {
                     // formats can have packets with only metadata, particularly when rewinding, in
                     // which case the iterator would otherwise end with `None`.
                     // Note: checking `decoded.frames()` is more reliable than `packet.dur()`, which
-                    // can resturn non-zero durations for packets without audio frames.
+                    // can returns non-zero durations for packets without audio frames.
                     Ok(decoded) if decoded.frames() > 0 => break decoded,
                     Ok(_) => continue,
                     Err(Error::DecodeError(_)) if decode_errors < MAX_DECODE_RETRIES => {

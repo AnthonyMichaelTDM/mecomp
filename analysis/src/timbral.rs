@@ -346,7 +346,7 @@ mod tests {
             let relative_error = (expected - actual).abs() / expected.abs();
             assert!(
                 relative_error < 0.078,
-                "releative error: {relative_error}, expected: {expected}, actual: {actual}"
+                "relative error: {relative_error}, expected: {expected}, actual: {actual}"
             );
         }
     }
