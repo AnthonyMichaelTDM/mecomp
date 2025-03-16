@@ -75,7 +75,7 @@ pub trait MusicPlayer {
     /// Check if a rescan is in progress.
     async fn library_rescan_in_progress() -> bool;
     /// Analyze the music library, only error is if an analysis is already in progress.
-    async fn library_analyze() -> Result<(), SerializableLibraryError>;
+    async fn library_analyze(overwrite: bool) -> Result<(), SerializableLibraryError>;
     /// Check if an analysis is in progress.
     async fn library_analyze_in_progress() -> bool;
     /// Recluster the music library, only error is if a recluster is already in progress.

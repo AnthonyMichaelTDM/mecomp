@@ -148,7 +148,11 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// Analyze the music library, only error is if an analysis is already in progress.
     #[instrument]
-    async fn library_analyze(self, context: Context) -> Result<(), SerializableLibraryError> {
+    async fn library_analyze(
+        self,
+        context: Context,
+        overwrite: bool,
+    ) -> Result<(), SerializableLibraryError> {
         #[cfg(not(feature = "analysis"))]
         {
             warn!("Analysis is not enabled");
@@ -171,7 +175,7 @@ impl MusicPlayer for MusicPlayerServer {
                     futures::executor::block_on(
                         async {
                             let _guard = self.library_analyze_lock.lock().await;
-                            match services::library::analyze(&self.db).await {
+                            match services::library::analyze(&self.db, overwrite).await {
                                 Ok(()) => info!("Library analysis complete"),
                                 Err(e) => error!("Error in library_analyze: {e}"),
                             }

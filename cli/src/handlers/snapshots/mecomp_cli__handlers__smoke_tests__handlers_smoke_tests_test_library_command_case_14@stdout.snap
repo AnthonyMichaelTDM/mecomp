@@ -4,25 +4,16 @@ expression: "String::from_utf8(stdout.0.clone()).unwrap()"
 ---
 Daemon response:
 Some(
-    Album {
+    Artist {
         id: Thing {
-            tb: "album",
+            tb: "artist",
             id: String(
                 "01J1K5B6RJ84WJXCWYJ5WNE12E",
             ),
         },
-        title: "Test Album",
-        artist: One(
-            "Test Artist",
-        ),
-        release: Some(
-            2021,
-        ),
+        name: "Test Artist",
         runtime: 180s,
+        album_count: 1,
         song_count: 1,
-        discs: 1,
-        genre: One(
-            "Test Genre",
-        ),
     },
 )

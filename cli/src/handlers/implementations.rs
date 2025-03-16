@@ -180,8 +180,8 @@ impl CommandHandler for LibraryCommand {
                 }
                 Ok(())
             }
-            Self::Analyze => {
-                let resp: Result<(), _> = client.library_analyze(ctx).await?;
+            Self::Analyze { overwrite } => {
+                let resp: Result<(), _> = client.library_analyze(ctx, *overwrite).await?;
                 if let Err(e) = resp {
                     writeln!(stdout, "Daemon response:\n{e}")?;
                 } else {

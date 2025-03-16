@@ -166,7 +166,7 @@ async fn rescan_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<()> {
 async fn analyze_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<()> {
     let ctx = tarpc::context::current();
 
-    daemon.library_analyze(ctx).await??;
+    daemon.library_analyze(ctx, false).await??;
 
     Ok(())
 }

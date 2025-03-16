@@ -3,13 +3,4 @@ source: cli/src/handlers/smoke_tests.rs
 expression: "String::from_utf8(stdout.0.clone()).unwrap()"
 ---
 Daemon response:
-Ok(
-    LibraryBrief {
-        artists: 1,
-        albums: 1,
-        songs: 1,
-        playlists: 1,
-        collections: 1,
-        dynamic_playlists: 1,
-    },
-)
+Ok(LibraryFull { artists: [Artist { id: Thing { tb: "artist", id: String("01J1K5B6RJ84WJXCWYJ5WNE12E") }, name: "Test Artist", runtime: 180s, album_count: 1, song_count: 1 }], albums: [Album { id: Thing { tb: "album", id: String("01J1K5B6RJ84WJXCWYJ5WNE12E") }, title: "Test Album", artist: One("Test Artist"), release: Some(2021), runtime: 180s, song_count: 1, discs: 1, genre: One("Test Genre") }], songs: [Song { id: Thing { tb: "song", id: String("01J1K5B6RJ84WJXCWYJ5WNE12E") }, title: "Test Song", artist: One("Test Artist"), album_artist: One("Test Artist"), album: "Test Album", genre: One("Test Genre"), runtime: 180s, track: Some(0), disc: Some(0), release_year: Some(2021), extension: "mp3", path: "test.mp3" }], playlists: [Playlist { id: Thing { tb: "playlist", id: String("01J1K5B6RJ84WJXCWYJ5WNE12E") }, name: "Test Playlist", runtime: 180s, song_count: 1 }], collections: [Collection { id: Thing { tb: "collection", id: String("01J1K5B6RJ84WJXCWYJ5WNE12E") }, name: "Collection 0", runtime: 180s, song_count: 1 }], dynamic_playlists: [DynamicPlaylist { id: Thing { tb: "dynamic", id: String("01J1K5B6RJ84WJXCWYJ5WNE12E") }, name: "Test Dynamic", query: Query { root: Leaf(LeafClause { left: Field(Title), operator: Equal, right: String("Test Song") }) } }] })
