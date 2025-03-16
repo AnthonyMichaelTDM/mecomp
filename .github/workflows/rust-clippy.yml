@@ -54,7 +54,7 @@ jobs:
       - name: Setup cache
         uses: Swatinem/rust-cache@v2
         with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          shared-key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }} 
 
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
