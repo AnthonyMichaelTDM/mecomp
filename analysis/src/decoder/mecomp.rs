@@ -1,8 +1,9 @@
 //! Implementation of the mecomp decoder, which is rodio/rubato based.
 
-use std::{f32::consts::SQRT_2, fs::File, sync::Mutex, time::Duration};
+use std::{f32::consts::SQRT_2, fs::File, num::NonZeroUsize, time::Duration};
 
-use rubato::{FastFixedIn, Resampler};
+use object_pool::Pool;
+use rubato::{FastFixedIn, Resampler, ResamplerConstructionError};
 use symphonia::{
     core::{
         audio::{AudioBufferRef, Layout, SampleBuffer, SignalSpec},
@@ -186,25 +187,15 @@ impl Iterator for SymphoniaSource {
 
 #[allow(clippy::module_name_repetitions)]
 pub struct MecompDecoder<R = FastFixedIn<f32>> {
-    resampler: Mutex<R>,
+    resampler: Pool<Result<R, ResamplerConstructionError>>,
 }
 
-impl MecompDecoder {
-    /// Create a new `MecompDecoder`
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if the resampler could not be created.
+impl<R> MecompDecoder<R> {
     #[inline]
-    pub fn new() -> Result<Self, AnalysisError> {
-        let resampler =
-            FastFixedIn::new(1.0, 10.0, rubato::PolynomialDegree::Cubic, CHUNK_SIZE, 1)?;
-        let resampler = Mutex::new(resampler);
-        Ok(Self { resampler })
+    fn generate_resampler() -> Result<FastFixedIn<f32>, ResamplerConstructionError> {
+        FastFixedIn::new(1.0, 10.0, rubato::PolynomialDegree::Cubic, CHUNK_SIZE, 1)
     }
-}
 
-impl<R: Resampler<f32>> MecompDecoder<R> {
     /// we need to collapse the audio source into one channel
     /// channels are interleaved, so if we have 2 channels, `[1, 2, 3, 4]` and `[5, 6, 7, 8]`,
     /// they will be stored as `[1, 5, 2, 6, 3, 7, 4, 8]`
@@ -256,6 +247,25 @@ impl<R: Resampler<f32>> MecompDecoder<R> {
             }
         }
     }
+}
+
+impl MecompDecoder {
+    /// Create a new `MecompDecoder`
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the resampler could not be created.
+    #[inline]
+    pub fn new() -> Result<Self, AnalysisError> {
+        // try to generate a resampler first, so we can return an error if it fails (if it fails, it's likely all future calls will too)
+        let first = Self::generate_resampler()?;
+
+        let pool_size = std::thread::available_parallelism().map_or(1, NonZeroUsize::get);
+        let resampler = Pool::new(pool_size, Self::generate_resampler);
+        resampler.attach(Ok(first));
+
+        Ok(Self { resampler })
+    }
 
     /// Resample the given mono samples to 22050 Hz
     #[inline]
@@ -275,7 +285,8 @@ impl<R: Resampler<f32>> MecompDecoder<R> {
                 * SAMPLE_RATE as usize,
         );
 
-        let mut resampler = self.resampler.lock().unwrap();
+        let (pool, resampler) = self.resampler.pull(Self::generate_resampler).detach();
+        let mut resampler = resampler?;
         resampler.set_resample_ratio(f64::from(SAMPLE_RATE) / f64::from(sample_rate), false)?;
 
         let delay = resampler.output_delay();
@@ -316,13 +327,13 @@ impl<R: Resampler<f32>> MecompDecoder<R> {
         }
 
         resampler.reset();
-        drop(resampler);
+        pool.attach(Ok(resampler));
 
         Ok(resampled_frames[delay..new_length + delay].to_vec())
     }
 }
 
-impl<R: Resampler<f32>> Decoder for MecompDecoder<R> {
+impl Decoder for MecompDecoder {
     /// A function that should decode and resample a song, optionally
     /// extracting the song's metadata such as the artist, the album, etc.
     ///
