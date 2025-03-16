@@ -66,6 +66,7 @@ ignored = [
     "smallvec",
     "string_cache",
     "subtle",
+    "symphonia",
     "syn",
     "time",
     "toml_datetime",
@@ -138,6 +139,7 @@ serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
 subtle = { version = "2" }
+symphonia = { version = "0.5", default-features = false, features = ["aac", "adpcm", "flac", "isomp4", "mp3", "ogg", "pcm", "vorbis", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 time = { version = "0.3", features = ["formatting", "local-offset", "macros", "parsing"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
@@ -203,6 +205,7 @@ serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
 subtle = { version = "2" }
+symphonia = { version = "0.5", default-features = false, features = ["aac", "adpcm", "flac", "isomp4", "mp3", "ogg", "pcm", "vorbis", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 time = { version = "0.3", features = ["formatting", "local-offset", "macros", "parsing"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }

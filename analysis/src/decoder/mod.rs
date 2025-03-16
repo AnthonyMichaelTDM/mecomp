@@ -15,7 +15,7 @@ use crate::{errors::AnalysisResult, Analysis, ResampledAudio};
 
 mod mecomp;
 #[allow(clippy::module_name_repetitions)]
-pub use mecomp::MecompDecoder;
+pub use mecomp::{MecompDecoder, SymphoniaSource};
 
 /// Trait used to implement your own decoder.
 ///
