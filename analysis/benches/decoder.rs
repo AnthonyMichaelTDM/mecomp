@@ -131,39 +131,154 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_mecomp_decoder_decode(c: &mut Criterion) {
+fn bench_different_resampling_techniques(c: &mut Criterion) {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("data")
+        .join("s32_stereo_44_1_kHz.flac")
         .canonicalize()
         .unwrap();
+    let mss = MediaSourceStream::new(
+        Box::new(File::open(&path).unwrap()),
+        MediaSourceStreamOptions::default(),
+    );
+    let source = SymphoniaSource::new(mss).unwrap();
+    let sample_rate = source.sample_rate();
+    let total_duration = source.total_duration().unwrap();
+    let channels = source.channels();
+    assert!(sample_rate == 44100);
+    assert!(channels == 2);
+    let samples: Vec<f32> = Decoder::into_mono_samples(source.collect(), channels).unwrap();
 
-    let mut group = c.benchmark_group("mecomp-analysis: decoder.rs: MecompDecoder::decode");
+    let resample_ratio = f64::from(SAMPLE_RATE) / f64::from(sample_rate);
 
-    let files = &[
-        "s16_mono_22_5kHz.flac",
-        "s16_stereo_22_5kHz.flac",
-        "s32_mono_44_1_kHz.flac",
-        "s32_stereo_44_1_kHz.flac",
-        "s32_stereo_44_1_kHz.mp3",
-        "5_mins_of_noise_stereo_48kHz.ogg",
-    ];
+    let mut group = c.benchmark_group("mecomp-analysis: resampling");
 
-    for file in files {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(file),
-            &path.join(file),
-            |b, path| {
-                b.iter_with_setup(
-                    || Decoder::new().unwrap(),
-                    |decoder| {
-                        decoder.decode(black_box(&path)).unwrap();
-                    },
-                );
-            },
-        );
-    }
+    group.bench_function("one-shot FastFixedIn", |b| {
+        b.iter(|| {
+            let mut resampler = FastFixedIn::new(
+                resample_ratio,
+                1.0,
+                PolynomialDegree::Cubic,
+                samples.len(),
+                1,
+            )
+            .unwrap();
+            black_box(resampler.process(&[&samples], None).unwrap());
+        });
+    });
 
-    group.finish();
+    group.bench_function("chunked FastFixedIn", |b| {
+        const CHUNK_SIZE: usize = 4096;
+
+        b.iter(|| {
+            let mut resampler =
+                FastFixedIn::new(resample_ratio, 1.0, PolynomialDegree::Cubic, CHUNK_SIZE, 1)
+                    .unwrap();
+            let mut resampled_frames = Vec::with_capacity(
+                (usize::try_from(total_duration.as_secs()).unwrap_or(usize::MAX) + 1)
+                    * SAMPLE_RATE as usize,
+            );
+
+            let delay = resampler.output_delay();
+
+            let new_length = samples.len() * SAMPLE_RATE as usize / sample_rate as usize;
+            let mut output_buffer = resampler.output_buffer_allocate(true);
+
+            // chunks of frames, each being CHUNKSIZE long.
+            let sample_chunks = samples.chunks_exact(CHUNK_SIZE);
+            let remainder = sample_chunks.remainder();
+
+            for chunk in sample_chunks {
+                let (_, output_written) = resampler
+                    .process_into_buffer(&[chunk], output_buffer.as_mut_slice(), None)
+                    .unwrap();
+                resampled_frames.extend_from_slice(&output_buffer[0][..output_written]);
+            }
+
+            // process the remainder
+            if !remainder.is_empty() {
+                let (_, output_written) = resampler
+                    .process_partial_into_buffer(
+                        Some(&[remainder]),
+                        output_buffer.as_mut_slice(),
+                        None,
+                    )
+                    .unwrap();
+                resampled_frames.extend_from_slice(&output_buffer[0][..output_written]);
+            }
+
+            // flush final samples from resampler
+            if resampled_frames.len() < new_length + delay {
+                let (_, output_written) = resampler
+                    .process_partial_into_buffer(
+                        Option::<&[&[f32]]>::None,
+                        output_buffer.as_mut_slice(),
+                        None,
+                    )
+                    .unwrap();
+                resampled_frames.extend_from_slice(&output_buffer[0][..output_written]);
+            }
+
+            black_box(resampled_frames[delay..new_length + delay].to_vec());
+        });
+    });
+
+    group.bench_function("chunked FftFixedIn", |b| {
+        const CHUNK_SIZE: usize = 4096;
+
+        b.iter(|| {
+            let mut resampler =
+                FftFixedIn::new(sample_rate as usize, SAMPLE_RATE as usize, CHUNK_SIZE, 4, 1)
+                    .unwrap();
+
+            let mut resampled_frames = Vec::with_capacity(
+                (usize::try_from(total_duration.as_secs()).unwrap_or(usize::MAX) + 1)
+                    * SAMPLE_RATE as usize,
+            );
+
+            let delay = resampler.output_delay();
+
+            let new_length = samples.len() * SAMPLE_RATE as usize / sample_rate as usize;
+            let mut output_buffer = resampler.output_buffer_allocate(true);
+
+            // chunks of frames, each being CHUNKSIZE long.
+            let sample_chunks = samples.chunks_exact(CHUNK_SIZE);
+            let remainder = sample_chunks.remainder();
+
+            for chunk in sample_chunks {
+                let (_, output_written) = resampler
+                    .process_into_buffer(&[chunk], output_buffer.as_mut_slice(), None)
+                    .unwrap();
+                resampled_frames.extend_from_slice(&output_buffer[0][..output_written]);
+            }
+
+            // process the remainder
+            if !remainder.is_empty() {
+                let (_, output_written) = resampler
+                    .process_partial_into_buffer(
+                        Some(&[remainder]),
+                        output_buffer.as_mut_slice(),
+                        None,
+                    )
+                    .unwrap();
+                resampled_frames.extend_from_slice(&output_buffer[0][..output_written]);
+            }
+
+            // flush final samples from resampler
+            if resampled_frames.len() < new_length + delay {
+                let (_, output_written) = resampler
+                    .process_partial_into_buffer(
+                        Option::<&[&[f32]]>::None,
+                        output_buffer.as_mut_slice(),
+                        None,
+                    )
+                    .unwrap();
+                resampled_frames.extend_from_slice(&output_buffer[0][..output_written]);
+            }
+
+            black_box(resampled_frames[delay..new_length + delay].to_vec());
+        });
+    });
 }
 
 fn bench_mecomp_decoder_analyze_path(c: &mut Criterion) {
@@ -248,12 +363,19 @@ fn bench_mecomp_decoder_analyze_paths(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(downmixing, bench_different_downmixing_techniques);
+criterion_group!(
+    decoder_stages,
+    bench_different_downmixing_techniques,
+    bench_different_resampling_techniques,
+);
 criterion_group!(
     name = benches;
     config = Criterion::default().measurement_time(std::time::Duration::from_secs(20));
-    targets = bench_mecomp_decoder_decode,
-    bench_mecomp_decoder_analyze_path,
-    bench_mecomp_decoder_analyze_paths
+    targets = bench_mecomp_decoder_analyze_path,
 );
-criterion_main!(benches, downmixing);
+criterion_group!(
+    name = analyze_paths;
+    config = Criterion::default().measurement_time(std::time::Duration::from_secs(20)).sample_size(30);
+    targets = bench_mecomp_decoder_analyze_paths
+);
+criterion_main!(decoder_stages, benches, analyze_paths);

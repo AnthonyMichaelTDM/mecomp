@@ -66,6 +66,10 @@ name = "decoder"
 harness = false
 
 [[bench]]
+name = "decoder_steps"
+harness = false
+
+[[bench]]
 name = "descriptors"
 harness = false
 

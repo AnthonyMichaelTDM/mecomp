@@ -6,7 +6,7 @@ use object_pool::Pool;
 use rubato::{FastFixedIn, Resampler, ResamplerConstructionError};
 use symphonia::{
     core::{
-        audio::{AudioBufferRef, Layout, SampleBuffer, SignalSpec},
+        audio::{AudioBufferRef, SampleBuffer, SignalSpec},
         codecs::{DecoderOptions, CODEC_TYPE_NULL},
         errors::Error,
         formats::{FormatOptions, FormatReader},
@@ -190,7 +190,7 @@ pub struct MecompDecoder<R = FastFixedIn<f32>> {
     resampler: Pool<Result<R, ResamplerConstructionError>>,
 }
 
-impl<R> MecompDecoder<R> {
+impl MecompDecoder {
     #[inline]
     fn generate_resampler() -> Result<FastFixedIn<f32>, ResamplerConstructionError> {
         FastFixedIn::new(1.0, 10.0, rubato::PolynomialDegree::Cubic, CHUNK_SIZE, 1)
@@ -206,25 +206,21 @@ impl<R> MecompDecoder<R> {
     ///
     /// TODO: Figure out how ffmpeg does it for 2.1 and 5.1 surround sound, and do it the same way
     #[inline]
-    fn into_mono_samples(source: SymphoniaSource) -> Result<Vec<f32>, AnalysisError> {
-        let num_channels = source.spec.channels.count();
-        if source.total_duration.is_none() {
-            return Err(AnalysisError::IndeterminantDuration);
-        }
-
+    #[doc(hidden)]
+    pub fn into_mono_samples(
+        source: Vec<f32>,
+        num_channels: usize,
+    ) -> Result<Vec<f32>, AnalysisError> {
         match num_channels {
             // no channels
             0 => Err(AnalysisError::DecodeError(Error::DecodeError(
                 "The audio source has no channels",
             ))),
             // mono
-            1 => Ok(source.collect()),
+            1 => Ok(source),
             // stereo
             2 => {
-                assert!(source.spec.channels == Layout::Stereo.into_channels());
-
                 let mono_samples = source
-                    .collect::<Vec<_>>()
                     .chunks_exact(2)
                     .map(|chunk| (chunk[0] + chunk[1]) * SQRT_2 / 2.)
                     .collect();
@@ -238,7 +234,6 @@ impl<R> MecompDecoder<R> {
                 #[allow(clippy::cast_precision_loss)]
                 let num_channels_f32 = num_channels as f32;
                 let mono_samples = source
-                    .collect::<Vec<_>>()
                     .chunks_exact(num_channels)
                     .map(|chunk| chunk.iter().sum::<f32>() / num_channels_f32)
                     .collect();
@@ -269,7 +264,8 @@ impl MecompDecoder {
 
     /// Resample the given mono samples to 22050 Hz
     #[inline]
-    fn resample_mono_samples(
+    #[doc(hidden)]
+    pub fn resample_mono_samples(
         &self,
         mut samples: Vec<f32>,
         sample_rate: u32,
@@ -353,21 +349,10 @@ impl Decoder for MecompDecoder {
         let Some(total_duration) = source.total_duration else {
             return Err(AnalysisError::IndeterminantDuration);
         };
+        let num_channels = source.channels();
 
-        let mono_sample_array = Self::into_mono_samples(source)?;
-
-        // let resampler = || {
-        //     rubato::FastFixedIn::new(
-        //         f64::from(SAMPLE_RATE) / f64::from(sample_rate),
-        //         1.,
-        //         rubato::PolynomialDegree::Cubic,
-        //         CHUNK_SIZE,
-        //         1,
-        //     )
-        // };
-
-        // let resampler =
-        //     || FftFixedIn::new(sample_rate as usize, SAMPLE_RATE as usize, CHUNK_SIZE, 4, 1);
+        let mono_sample_array =
+            Self::into_mono_samples(source.into_iter().collect(), num_channels)?;
 
         // then we need to resample the audio source into 22050 Hz
         let resampled_array =
