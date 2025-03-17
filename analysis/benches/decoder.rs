@@ -1,12 +1,11 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use mecomp_analysis::decoder::Decoder as DecoderTrait;
-use mecomp_analysis::decoder::MecompDecoder as Decoder;
-use mecomp_analysis::decoder::SymphoniaSource;
-use std::f32::consts::SQRT_2;
-use std::fs::File;
-use std::path::Path;
-use symphonia::core::io::MediaSourceStream;
-use symphonia::core::io::MediaSourceStreamOptions;
+use mecomp_analysis::{
+    decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder, SymphoniaSource},
+    SAMPLE_RATE,
+};
+use rubato::{FastFixedIn, FftFixedIn, PolynomialDegree, Resampler};
+use std::{f32::consts::SQRT_2, fs::File, num::NonZeroUsize, path::Path};
+use symphonia::core::io::{MediaSourceStream, MediaSourceStreamOptions};
 
 fn bench_different_downmixing_techniques(c: &mut Criterion) {
     let path = Path::new("data/s32_stereo_44_1_kHz.flac");
@@ -19,7 +18,9 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
     let sample_rate = source.sample_rate();
     let samples: Vec<f32> = source.into_iter().collect();
 
-    c.bench_function("mecomp-analysis: downmixing with fold", |b| {
+    let mut group = c.benchmark_group("mecomp-analysis: downmixing");
+
+    group.bench_function("with fold", |b| {
         b.iter_with_setup(
             || samples.clone(),
             |source| {
@@ -47,7 +48,7 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
         );
     });
 
-    c.bench_function("mecomp-analysis: downmixing with iterator", |b| {
+    group.bench_function("with iterator", |b| {
         b.iter_with_setup(
             || samples.clone(),
             |source| {
@@ -67,7 +68,7 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
         );
     });
 
-    c.bench_function("mecomp_analysis: downmixing boomer loop", |b| {
+    group.bench_function("boomer loop", |b| {
         b.iter_with_setup(
             || samples.clone(),
             |source| {
@@ -82,7 +83,7 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
         );
     });
 
-    c.bench_function("mecomp_analysis: downmixing with chunks", |b| {
+    group.bench_function("with chunks", |b| {
         b.iter(|| {
             let source = samples.clone();
             let _: Vec<_> = black_box(
@@ -94,7 +95,7 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("mecomp_analysis: downmixing side-by-side", |b| {
+    group.bench_function("side-by-side", |b| {
         b.iter_with_setup(
             || samples.clone(),
             |source| {
@@ -109,7 +110,7 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
         );
     });
 
-    c.bench_function("mecomp_analysis: downmixing with take", |b| {
+    group.bench_function("with take", |b| {
         b.iter_with_setup(
             || samples.clone(),
             |source| {
@@ -126,22 +127,43 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
             },
         );
     });
+
+    group.finish();
 }
 
 fn bench_mecomp_decoder_decode(c: &mut Criterion) {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../assets/music.mp3")
+        .join("data")
         .canonicalize()
         .unwrap();
 
-    c.bench_function("mecomp-analysis: decoder.rs: MecompDecoder::decode", |b| {
-        b.iter_with_setup(
-            || Decoder::new().unwrap(),
-            |decoder| {
-                let _ = black_box(decoder.decode(black_box(&path)));
+    let mut group = c.benchmark_group("mecomp-analysis: decoder.rs: MecompDecoder::decode");
+
+    let files = &[
+        "s16_mono_22_5kHz.flac",
+        "s16_stereo_22_5kHz.flac",
+        "s32_mono_44_1_kHz.flac",
+        "s32_stereo_44_1_kHz.flac",
+        "s32_stereo_44_1_kHz.mp3",
+        "5_mins_of_noise_stereo_48kHz.ogg",
+    ];
+
+    for file in files {
+        group.bench_with_input(
+            BenchmarkId::from_parameter(file),
+            &path.join(file),
+            |b, path| {
+                b.iter_with_setup(
+                    || Decoder::new().unwrap(),
+                    |decoder| {
+                        decoder.decode(black_box(&path)).unwrap();
+                    },
+                );
             },
         );
-    });
+    }
+
+    group.finish();
 }
 
 fn bench_mecomp_decoder_analyze_path(c: &mut Criterion) {
@@ -155,9 +177,7 @@ fn bench_mecomp_decoder_analyze_path(c: &mut Criterion) {
         |b| {
             b.iter_with_setup(
                 || Decoder::new().unwrap(),
-                |decoder| {
-                    let _ = black_box(decoder.analyze_path(black_box(&path)));
-                },
+                |decoder| decoder.analyze_path(black_box(&path)).unwrap(),
             );
         },
     );
@@ -165,7 +185,7 @@ fn bench_mecomp_decoder_analyze_path(c: &mut Criterion) {
 
 fn bench_mecomp_decoder_analyze_paths(c: &mut Criterion) {
     // get the paths to every music file in the "data" directory
-    let paths = Path::new(env!("CARGO_MANIFEST_DIR"))
+    let mut paths = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("data")
         .read_dir()
         .unwrap()
@@ -178,17 +198,54 @@ fn bench_mecomp_decoder_analyze_paths(c: &mut Criterion) {
         })
         .collect::<Vec<_>>();
 
-    c.bench_function(
-        "mecomp-analysis: decoder.rs: MecompDecoder::analyze_paths",
-        |b| {
-            b.iter_with_setup(
-                || Decoder::new().unwrap(),
-                |decoder| {
-                    let _ = black_box(decoder.analyze_paths(black_box(&paths)));
-                },
-            );
-        },
-    );
+    // quadruple the number of paths to analyze
+    paths.extend(paths.clone());
+    paths.extend(paths.clone());
+
+    let mut group = c.benchmark_group("mecomp-analysis: decoder.rs: MecompDecoder::analyze_paths");
+
+    group.bench_function("current default", |b| {
+        b.iter_with_setup(
+            || Decoder::new().unwrap(),
+            |decoder| {
+                decoder.analyze_paths(black_box(&paths));
+            },
+        );
+    });
+
+    let cores = std::thread::available_parallelism().map_or(1usize, NonZeroUsize::get);
+    let half = NonZeroUsize::new(cores / 2).unwrap();
+    let quarter = NonZeroUsize::new(cores / 4).unwrap();
+    let full = NonZeroUsize::new(cores).unwrap();
+
+    group.bench_function("full parallelism", |b| {
+        b.iter_with_setup(
+            || Decoder::new().unwrap(),
+            |decoder| {
+                decoder.analyze_paths_with_cores(black_box(&paths), full);
+            },
+        );
+    });
+
+    group.bench_function("half parallelism", |b| {
+        b.iter_with_setup(
+            || Decoder::new().unwrap(),
+            |decoder| {
+                decoder.analyze_paths_with_cores(black_box(&paths), half);
+            },
+        );
+    });
+
+    group.bench_function("quarter parallelism", |b| {
+        b.iter_with_setup(
+            || Decoder::new().unwrap(),
+            |decoder| {
+                decoder.analyze_paths_with_cores(black_box(&paths), quarter);
+            },
+        );
+    });
+
+    group.finish();
 }
 
 criterion_group!(downmixing, bench_different_downmixing_techniques);

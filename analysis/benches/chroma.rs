@@ -1,16 +1,15 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use mecomp_analysis::decoder::Decoder as DecoderTrait;
-use mecomp_analysis::decoder::MecompDecoder as Decoder;
-use mecomp_analysis::utils::stft;
-use mecomp_analysis::SAMPLE_RATE;
+use mecomp_analysis::{
+    decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder},
+    utils::stft,
+};
 use ndarray::{arr2, Array1, Array2};
 use ndarray_npy::ReadNpyExt;
-use std::fs::File;
-use std::path::Path;
+use std::{fs::File, path::Path};
 
 use mecomp_analysis::chroma::{
     chroma_filter, chroma_stft, estimate_tuning, normalize_feature_sequence, pip_track,
-    pitch_tuning, ChromaDesc,
+    pitch_tuning,
 };
 
 fn bench_estimate_tuning(c: &mut Criterion) {
@@ -84,28 +83,6 @@ fn bench_normalize_feature_sequence(c: &mut Criterion) {
     );
 }
 
-fn bench_chroma_desc(c: &mut Criterion) {
-    let chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
-    let signal = Decoder::new()
-        .unwrap()
-        .decode(
-            &Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../assets/music.mp3")
-                .canonicalize()
-                .unwrap(),
-        )
-        .unwrap()
-        .samples;
-
-    c.bench_function("mecomp-analysis: chroma.rs: ChromaDesc", |b| {
-        b.iter(|| {
-            let mut chroma_desc = chroma_desc.clone();
-            chroma_desc.do_(black_box(&signal)).unwrap();
-            chroma_desc.get_value();
-        });
-    });
-}
-
 fn bench_chroma_stft(c: &mut Criterion) {
     let signal = Decoder::new()
         .unwrap()
@@ -141,7 +118,6 @@ criterion_group!(
     bench_pip_track,
     bench_chroma_filter,
     bench_normalize_feature_sequence,
-    bench_chroma_desc,
     bench_chroma_stft,
 );
 criterion_main!(benches);

@@ -16,6 +16,9 @@ test = false
 bench = false
 doctest = false
 
+[lib]
+bench = false
+
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
