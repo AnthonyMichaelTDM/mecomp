@@ -211,20 +211,6 @@ impl Analysis {
         }
 
         std::thread::scope(|s| -> AnalysisResult<Self> {
-            let child_tempo: std::thread::ScopedJoinHandle<AnalysisResult<Feature>> =
-                s.spawn(|| {
-                    let mut tempo_desc = BPMDesc::new(SAMPLE_RATE)?;
-                    let windows = audio
-                        .samples
-                        .windows(BPMDesc::WINDOW_SIZE)
-                        .step_by(BPMDesc::HOP_SIZE);
-
-                    for window in windows {
-                        tempo_desc.do_(window)?;
-                    }
-                    Ok(tempo_desc.get_value())
-                });
-
             let child_chroma: std::thread::ScopedJoinHandle<AnalysisResult<Vec<Feature>>> = s
                 .spawn(|| {
                     let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
@@ -250,29 +236,44 @@ impl Analysis {
                 Ok((centroid, rolloff, flatness))
             });
 
-            let child_zcr: std::thread::ScopedJoinHandle<AnalysisResult<Feature>> = s.spawn(|| {
+            // we do BPM, ZCR, and Loudness at the same time since they are so much faster than the others
+            let child_temp_zcr_loudness: std::thread::ScopedJoinHandle<
+                AnalysisResult<(Feature, Feature, Vec<Feature>)>,
+            > = s.spawn(|| {
+                // BPM
+                let mut tempo_desc = BPMDesc::new(SAMPLE_RATE)?;
+                let windows = audio
+                    .samples
+                    .windows(BPMDesc::WINDOW_SIZE)
+                    .step_by(BPMDesc::HOP_SIZE);
+                for window in windows {
+                    tempo_desc.do_(window)?;
+                }
+                let tempo = tempo_desc.get_value();
+                drop(tempo_desc);
+
+                // ZCR
                 let mut zcr_desc = ZeroCrossingRateDesc::default();
                 zcr_desc.do_(&audio.samples);
-                Ok(zcr_desc.get_value())
+                let zcr = zcr_desc.get_value();
+                drop(zcr_desc);
+
+                // Loudness
+                let mut loudness_desc = LoudnessDesc::default();
+                let windows = audio.samples.chunks(LoudnessDesc::WINDOW_SIZE);
+                for window in windows {
+                    loudness_desc.do_(window);
+                }
+                let loudness = loudness_desc.get_value();
+                drop(loudness_desc);
+
+                Ok((tempo, zcr, loudness))
             });
 
-            let child_loudness: std::thread::ScopedJoinHandle<AnalysisResult<Vec<Feature>>> = s
-                .spawn(|| {
-                    let mut loudness_desc = LoudnessDesc::default();
-                    let windows = audio.samples.chunks(LoudnessDesc::WINDOW_SIZE);
-
-                    for window in windows {
-                        loudness_desc.do_(window);
-                    }
-                    Ok(loudness_desc.get_value())
-                });
-
             // Non-streaming approach for that one
-            let tempo = child_tempo.join().unwrap()?;
             let chroma = child_chroma.join().unwrap()?;
             let (centroid, rolloff, flatness) = child_timbral.join().unwrap()?;
-            let loudness = child_loudness.join().unwrap()?;
-            let zcr = child_zcr.join().unwrap()?;
+            let (tempo, zcr, loudness) = child_temp_zcr_loudness.join().unwrap()?;
 
             let mut result = vec![tempo, zcr];
             result.extend_from_slice(&centroid);
