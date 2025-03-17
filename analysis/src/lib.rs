@@ -250,13 +250,11 @@ impl Analysis {
                     tempo_desc.do_(window)?;
                 }
                 let tempo = tempo_desc.get_value();
-                drop(tempo_desc);
 
                 // ZCR
                 let mut zcr_desc = ZeroCrossingRateDesc::default();
                 zcr_desc.do_(&audio.samples);
                 let zcr = zcr_desc.get_value();
-                drop(zcr_desc);
 
                 // Loudness
                 let mut loudness_desc = LoudnessDesc::default();
@@ -265,7 +263,6 @@ impl Analysis {
                     loudness_desc.do_(window);
                 }
                 let loudness = loudness_desc.get_value();
-                drop(loudness_desc);
 
                 Ok((tempo, zcr, loudness))
             });
