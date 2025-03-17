@@ -99,46 +99,11 @@ pub trait Decoder {
     where
         Self: Sync + Send,
     {
-        let mut cores = thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
-        if cores > number_cores {
-            cores = number_cores;
-        }
-        let paths: Vec<PathBuf> = paths.into_iter().map(Into::into).collect();
         let (tx, rx) = mpsc::channel::<(PathBuf, AnalysisResult<Analysis>)>();
-        if paths.is_empty() {
-            return rx.into_iter();
-        }
-        let mut chunk_length = paths.len() / cores;
-        if chunk_length == 0 {
-            chunk_length = paths.len();
-        }
-
-        thread::scope(|scope| {
-            for chunk in paths.chunks(chunk_length) {
-                let tx_thread = tx.clone();
-                let owned_chunk = chunk.to_owned();
-                scope.spawn(move || {
-                    for path in owned_chunk {
-                        info!("Analyzing file '{:?}'", path);
-                        let song = self.analyze_path(&path);
-                        tx_thread.send((path.clone(), song)).unwrap();
-                    }
-                });
-            }
-        });
-
+        self.analyze_paths_with_cores_with_callback(paths, number_cores, tx);
         rx.into_iter()
     }
-}
 
-/// This trait implements functions in the [`Decoder`] trait that take a callback to run on the results.
-///
-/// It should not be implemented directly, it will be automatically implemented for any type that implements
-/// the [`Decoder`] trait.
-///
-/// Instead of sending an iterator of results, this trait sends each result over the provided channel as soon as it's ready
-#[allow(clippy::module_name_repetitions)]
-pub trait DecoderWithCallback: Decoder {
     /// Returns a decoded song's `Analysis` given a file path, or an error if the song
     /// could not be analyzed for some reason.
     ///
@@ -156,7 +121,7 @@ pub trait DecoderWithCallback: Decoder {
     /// The error type returned should give a hint as to whether it was a
     /// decoding or an analysis error.
     #[inline]
-    fn analyze_path_with_callback<P: AsRef<Path>, CallbackState>(
+    fn analyze_path_with_callback<P: AsRef<Path>>(
         &self,
         path: P,
         callback: mpsc::Sender<(P, AnalysisResult<Analysis>)>,
@@ -224,9 +189,7 @@ pub trait DecoderWithCallback: Decoder {
                 scope.spawn(move || {
                     for path in owned_chunk {
                         info!("Analyzing file '{:?}'", path);
-
                         let song = self.analyze_path(&path);
-
                         tx_thread.send((path, song)).unwrap();
                     }
                 });
@@ -234,5 +197,3 @@ pub trait DecoderWithCallback: Decoder {
         });
     }
 }
-
-impl<T: Decoder> DecoderWithCallback for T {}
