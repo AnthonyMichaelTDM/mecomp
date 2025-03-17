@@ -7,7 +7,7 @@ use std::{
 use log::{debug, error, info, warn};
 use mecomp_analysis::{
     clustering::{ClusteringHelper, KOptimal, NotInitialized},
-    decoder::{DecoderWithCallback, MecompDecoder},
+    decoder::{Decoder, MecompDecoder},
 };
 use mecomp_core::{
     config::ReclusterSettings,
