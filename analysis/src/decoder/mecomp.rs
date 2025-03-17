@@ -382,6 +382,8 @@ impl Decoder for MecompDecoder {
 
 #[cfg(test)]
 mod tests {
+    use crate::NUMBER_FEATURES;
+
     use super::{Decoder as DecoderTrait, MecompDecoder as Decoder};
     use adler32::RollingAdler32;
     use pretty_assertions::assert_eq;
@@ -403,11 +405,13 @@ mod tests {
     // ffmpeg -i data/s16_stereo_22_5kHz.flac -ar 22050 -ac 1 -c:a pcm_f32le -f hash -hash adler32 -
     #[rstest]
     #[ignore = "fails when asked to resample to 22050 Hz, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
-    #[case::resample_multi(Path::new("data/s32_stereo_44_1_kHz.flac"), 0xbbcb_a1cf)]
-    #[case::resample_stereo(Path::new("data/s16_stereo_22_5kHz.flac"), 0x1d7b_2d6d)]
+    #[case::resample_stereo(Path::new("data/s32_stereo_44_1_kHz.flac"), 0xbbcb_a1cf)]
+    #[ignore = "fails when asked to resample to 22050 Hz, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
+    #[case::resample_mono(Path::new("data/s32_mono_44_1_kHz.flac"), 0xa0f8b8af)]
+    #[case::decode_stereo(Path::new("data/s16_stereo_22_5kHz.flac"), 0x1d7b_2d6d)]
     #[case::decode_mono(Path::new("data/s16_mono_22_5kHz.flac"), 0x5e01_930b)]
     #[ignore = "fails when asked to resample to 22050 Hz, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
-    #[case::decode_mp3(Path::new("data/s32_stereo_44_1_kHz.mp3"), 0x69ca_6906)]
+    #[case::resample_mp3(Path::new("data/s32_stereo_44_1_kHz.mp3"), 0x69ca_6906)]
     #[case::decode_wav(Path::new("data/piano.wav"), 0xde83_1e82)]
     fn test_decode(#[case] path: &Path, #[case] expected_hash: u32) {
         verify_decoding_output(path, expected_hash);
@@ -445,5 +449,43 @@ mod tests {
             sample_array.len(), // + SAMPLE_RATE as usize,
             sample_array.capacity()
         );
+    }
+
+    const PATH_AND_EXPECTED_ANALYSIS: (&str, [f64; NUMBER_FEATURES]) = (
+        "data/s16_mono_22_5kHz.flac",
+        [
+            0.3846389,
+            -0.849141,
+            -0.75481045,
+            -0.8790748,
+            -0.63258266,
+            -0.7258959,
+            -0.775738,
+            -0.8146726,
+            0.2716726,
+            0.25779057,
+            -0.35661936,
+            -0.63578653,
+            -0.29593682,
+            0.06421304,
+            0.21852458,
+            -0.581239,
+            -0.9466835,
+            -0.9481153,
+            -0.9820945,
+            -0.95968974,
+        ],
+    );
+
+    #[test]
+    fn test_analyze() {
+        let (path, expected_analysis) = PATH_AND_EXPECTED_ANALYSIS;
+        let analysis = Decoder::new()
+            .unwrap()
+            .analyze_path(Path::new(path))
+            .unwrap();
+        for (x, y) in analysis.as_vec().iter().zip(expected_analysis) {
+            assert!(0.01 > (x - y).abs());
+        }
     }
 }
