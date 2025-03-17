@@ -10,6 +10,12 @@ categories.workspace = true
 readme.workspace = true
 license.workspace = true
 
+[[bin]]
+name = "mecomp-cli"
+bench = false
+doctest = false
+
+
 [features]
 default = []
 

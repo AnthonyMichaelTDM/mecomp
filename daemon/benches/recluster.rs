@@ -6,12 +6,16 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use mecomp_core::config::{ClusterAlgorithm, ReclusterSettings};
 use mecomp_daemon::services::library::recluster;
-use mecomp_storage::db::schemas::analysis::Analysis;
-use mecomp_storage::db::schemas::collection::{Collection, TABLE_NAME};
-use mecomp_storage::db::schemas::song::Song;
-use mecomp_storage::test_utils::{
-    arb_analysis_features, arb_song_case, arb_vec, create_song_metadata, init_test_database,
-    SongCase,
+use mecomp_storage::{
+    db::schemas::{
+        analysis::Analysis,
+        collection::{Collection, TABLE_NAME},
+        song::Song,
+    },
+    test_utils::{
+        arb_analysis_features, arb_song_case, arb_vec, create_song_metadata, init_test_database,
+        SongCase,
+    },
 };
 use tokio::runtime::Runtime;
 
@@ -27,7 +31,7 @@ fn benchmark_recluster(c: &mut Criterion) {
     };
 
     // load some songs into the database
-    let song_cases = arb_vec(&arb_song_case(), 100..=150)();
+    let song_cases = arb_vec(&arb_song_case(), 150..=150)();
     let song_cases = song_cases.into_iter().enumerate().map(|(i, sc)| SongCase {
         song: u8::try_from(i).unwrap_or(u8::MAX),
         ..sc
@@ -58,7 +62,9 @@ fn benchmark_recluster(c: &mut Criterion) {
         .unwrap();
     }
 
-    c.bench_function("mecomp_daemon: recluster (gmm)", |b| {
+    let mut group = c.benchmark_group("mecomp_daemon: recluster");
+
+    group.bench_function("gmm", |b| {
         b.to_async(Runtime::new().unwrap()).iter_with_setup(
             || async {
                 let _: Vec<Collection> = db.delete(TABLE_NAME).await.unwrap();
@@ -76,7 +82,7 @@ fn benchmark_recluster(c: &mut Criterion) {
         ..settings
     };
 
-    c.bench_function("mecomp_daemon: recluster (kmeans)", |b| {
+    group.bench_function("kmeans", |b| {
         b.to_async(Runtime::new().unwrap()).iter_with_setup(
             || async {
                 let _: Vec<Collection> = db.delete(TABLE_NAME).await.unwrap();
@@ -88,11 +94,13 @@ fn benchmark_recluster(c: &mut Criterion) {
             },
         );
     });
+
+    group.finish();
 }
 
 criterion_group!(
     name = benches;
-    config = Criterion::default().sample_size(10);
+    config = Criterion::default().measurement_time(std::time::Duration::from_secs(30)).sample_size(20);
     targets = benchmark_recluster
 );
 criterion_main!(benches);

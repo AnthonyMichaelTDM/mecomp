@@ -10,6 +10,9 @@ categories.workspace = true
 readme = "README.md"
 license.workspace = true
 
+[lib]
+bench = false
+
 [features]
 default = []
 serde = ["dep:serde"]

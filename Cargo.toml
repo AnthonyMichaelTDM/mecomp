@@ -56,6 +56,9 @@ lto = false
 strip = "none"
 opt-level = 1
 
+[profile.bench]
+debug = true
+
 [profile.test.package]
 insta.opt-level = 3
 similar.opt-level = 3
