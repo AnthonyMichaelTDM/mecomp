@@ -10,6 +10,7 @@ use std::{
 };
 
 use log::info;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{errors::AnalysisResult, Analysis, ResampledAudio};
 
@@ -172,28 +173,21 @@ pub trait Decoder {
             cores = number_cores;
         }
         let paths: Vec<PathBuf> = paths.into_iter().map(Into::into).collect();
-        let mut chunk_length = paths.len() / cores;
-        if chunk_length == 0 {
-            chunk_length = paths.len();
-        }
 
         if paths.is_empty() {
             return;
         }
 
-        thread::scope(move |scope| {
-            for chunk in paths.chunks(chunk_length) {
-                let owned_chunk = chunk.to_owned();
-                let tx_thread: mpsc::Sender<_> = callback.clone();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(cores.get())
+            .build()
+            .unwrap();
 
-                scope.spawn(move || {
-                    for path in owned_chunk {
-                        info!("Analyzing file '{:?}'", path);
-                        let song = self.analyze_path(&path);
-                        tx_thread.send((path, song)).unwrap();
-                    }
-                });
-            }
+        pool.install(|| {
+            paths.into_par_iter().for_each(|path| {
+                info!("Analyzing file '{:?}'", path);
+                self.analyze_path_with_callback(path, callback.clone());
+            });
         });
     }
 }
