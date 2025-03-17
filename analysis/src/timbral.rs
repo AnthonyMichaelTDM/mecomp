@@ -235,8 +235,8 @@ impl Normalize for SpectralDesc {
  */
 #[derive(Default, Clone)]
 pub struct ZeroCrossingRateDesc {
-    values: Vec<u32>,
-    number_samples: usize,
+    crossings_sum: u32,
+    samples_checked: usize,
 }
 
 impl ZeroCrossingRateDesc {
@@ -249,8 +249,8 @@ impl ZeroCrossingRateDesc {
     /// Count the number of zero-crossings for the current `chunk`.
     #[inline]
     pub fn do_(&mut self, chunk: &[f32]) {
-        self.values.push(number_crossings(chunk));
-        self.number_samples += chunk.len();
+        self.crossings_sum += number_crossings(chunk);
+        self.samples_checked += chunk.len();
     }
 
     /// Sum the number of zero-crossings witnessed and divide by
@@ -258,9 +258,7 @@ impl ZeroCrossingRateDesc {
     #[allow(clippy::cast_precision_loss)]
     #[inline]
     pub fn get_value(&mut self) -> Feature {
-        self.normalize(
-            Feature::from(self.values.iter().sum::<u32>()) / self.number_samples as Feature,
-        )
+        self.normalize(Feature::from(self.crossings_sum) / self.samples_checked as Feature)
     }
 }
 
