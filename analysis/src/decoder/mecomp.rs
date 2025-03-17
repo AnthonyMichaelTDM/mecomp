@@ -77,11 +77,7 @@ impl SymphoniaSource {
 
         let mut decode_errors: usize = 0;
         let decoded_audio = loop {
-            let current_span = match probed.format.next_packet() {
-                Ok(packet) => packet,
-                Err(Error::IoError(_)) => break decoder.last_decoded(),
-                Err(e) => return Err(e),
-            };
+            let current_span = probed.format.next_packet()?;
 
             // If the packet does not belong to the selected track, skip over it
             if current_span.track_id() != track_id {
@@ -196,6 +192,23 @@ impl MecompDecoder {
         FastFixedIn::new(1.0, 10.0, rubato::PolynomialDegree::Cubic, CHUNK_SIZE, 1)
     }
 
+    /// Create a new `MecompDecoder`
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the resampler could not be created.
+    #[inline]
+    pub fn new() -> Result<Self, AnalysisError> {
+        // try to generate a resampler first, so we can return an error if it fails (if it fails, it's likely all future calls will too)
+        let first = Self::generate_resampler()?;
+
+        let pool_size = std::thread::available_parallelism().map_or(1, NonZeroUsize::get);
+        let resampler = Pool::new(pool_size, Self::generate_resampler);
+        resampler.attach(Ok(first));
+
+        Ok(Self { resampler })
+    }
+
     /// we need to collapse the audio source into one channel
     /// channels are interleaved, so if we have 2 channels, `[1, 2, 3, 4]` and `[5, 6, 7, 8]`,
     /// they will be stored as `[1, 5, 2, 6, 3, 7, 4, 8]`
@@ -241,25 +254,6 @@ impl MecompDecoder {
                 Ok(mono_samples)
             }
         }
-    }
-}
-
-impl MecompDecoder {
-    /// Create a new `MecompDecoder`
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if the resampler could not be created.
-    #[inline]
-    pub fn new() -> Result<Self, AnalysisError> {
-        // try to generate a resampler first, so we can return an error if it fails (if it fails, it's likely all future calls will too)
-        let first = Self::generate_resampler()?;
-
-        let pool_size = std::thread::available_parallelism().map_or(1, NonZeroUsize::get);
-        let resampler = Pool::new(pool_size, Self::generate_resampler);
-        resampler.attach(Ok(first));
-
-        Ok(Self { resampler })
     }
 
     /// Resample the given mono samples to 22050 Hz
