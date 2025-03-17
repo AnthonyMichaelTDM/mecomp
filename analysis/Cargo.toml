@@ -21,7 +21,7 @@ linfa-clustering = "0.7.0"
 linfa-tsne = "0.7.0"
 linfa-nn = "0.7.0"
 log = { workspace = true }
-ndarray = { version = "0.15.6", features = ["rayon"] }
+ndarray = { version = "0.15.6" }
 ndarray-rand = "0.14.0"
 ndarray-stats = { version = "0.5.1" }
 noisy_float = { version = "0.2.0" }
