@@ -45,7 +45,6 @@ ignored = [
     "lalrpop-util",
     "linfa-linalg",
     "log",
-    "matrixmultiply",
     "memchr",
     "ndarray",
     "num-complex",
@@ -67,7 +66,6 @@ ignored = [
     "subtle",
     "symphonia",
     "syn",
-    "time",
     "toml_datetime",
     "toml_edit",
     "tokio",
@@ -117,7 +115,6 @@ itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
 linfa-linalg = { version = "0.1" }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
-matrixmultiply = { version = "0.3", features = ["cgemm"] }
 memchr = { version = "2" }
 ndarray = { version = "0.15", features = ["approx", "rayon"] }
 num-complex = { version = "0.4" }
@@ -139,7 +136,6 @@ string_cache = { version = "0.8" }
 subtle = { version = "2" }
 symphonia = { version = "0.5", default-features = false, features = ["aac", "adpcm", "flac", "isomp4", "mp3", "ogg", "pcm", "vorbis", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-time = { version = "0.3", features = ["formatting", "local-offset", "macros", "parsing"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
@@ -182,7 +178,6 @@ itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
 linfa-linalg = { version = "0.1" }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
-matrixmultiply = { version = "0.3", features = ["cgemm"] }
 memchr = { version = "2" }
 ndarray = { version = "0.15", features = ["approx", "rayon"] }
 num-complex = { version = "0.4" }
@@ -204,7 +199,6 @@ string_cache = { version = "0.8" }
 subtle = { version = "2" }
 symphonia = { version = "0.5", default-features = false, features = ["aac", "adpcm", "flac", "isomp4", "mp3", "ogg", "pcm", "vorbis", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-time = { version = "0.3", features = ["formatting", "local-offset", "macros", "parsing"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }

@@ -33,7 +33,7 @@ one-or-many = { workspace = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
-insta = "1.42"
+insta = { version = "1.42", default-features = false }
 pretty_assertions = { workspace = true }
 mecomp-core = { workspace = true, features = ["rpc", "mock_playback"] }
 mecomp-storage = { workspace = true, features = [

@@ -21,7 +21,7 @@ linfa-clustering = "0.7.1"
 linfa-tsne = "0.7.1"
 linfa-nn = "0.7.1"
 log = { workspace = true }
-ndarray = { version = "0.15.6" }
+ndarray = { version = "0.15.6", default-features = false }
 ndarray-rand = "0.14.0"
 ndarray-stats = { version = "0.5.1" }
 noisy_float = { version = "0.2.0" }
@@ -31,9 +31,9 @@ rand.workspace = true
 rayon = "1.10"
 rubato = { workspace = true }
 symphonia = { workspace = true }
-rustfft = { version = "6.2" }
+rustfft = { version = "6.2", default-features = false }
 serde = { workspace = true }
-statrs = "0.18.0"
+statrs = { version = "0.18.0", default-features = false }
 strum.workspace = true
 thiserror = { workspace = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
@@ -45,7 +45,7 @@ bliss-audio-aubio-rs = { version = "0.2.2", features = ["static", "bindgen"] }
 
 [dev-dependencies]
 ndarray-npy = { version = "0.8", default-features = false }
-adler32 = "1.2"
+adler32 = { version = "1.2", default-features = false }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 criterion = { workspace = true }

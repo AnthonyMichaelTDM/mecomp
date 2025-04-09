@@ -27,7 +27,7 @@ mecomp-core = { workspace = true, features = ["rpc"] }
 mecomp-storage = { workspace = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 mpris-server = "0.8.1"
-percent-encoding = "2.3.1"
+percent-encoding = { version = "2.3.1", default-features = false }
 shellexpand.workspace = true
 tarpc.workspace = true
 tokio.workspace = true
