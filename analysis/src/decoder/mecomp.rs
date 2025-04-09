@@ -51,15 +51,16 @@ impl SymphoniaSource {
         let hint = Hint::new();
         let format_opts = FormatOptions::default();
         let metadata_opts = MetadataOptions::default();
-        let mut probed = get_probe().format(&hint, mss, &format_opts, &metadata_opts)?;
+        let mut probed_format = get_probe()
+            .format(&hint, mss, &format_opts, &metadata_opts)?
+            .format;
 
-        let Some(stream) = probed.format.default_track() else {
+        let Some(stream) = probed_format.default_track() else {
             return Ok(None);
         };
 
         // Select the first supported track
-        let track = probed
-            .format
+        let track = probed_format
             .tracks()
             .iter()
             .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
@@ -77,7 +78,7 @@ impl SymphoniaSource {
 
         let mut decode_errors: usize = 0;
         let decoded_audio = loop {
-            let current_span = probed.format.next_packet()?;
+            let current_span = probed_format.next_packet()?;
 
             // If the packet does not belong to the selected track, skip over it
             if current_span.track_id() != track_id {
@@ -88,7 +89,6 @@ impl SymphoniaSource {
                 Ok(audio) => break audio,
                 Err(Error::DecodeError(_)) if decode_errors < MAX_DECODE_RETRIES => {
                     decode_errors += 1;
-                    continue;
                 }
                 Err(e) => return Err(e),
             }
@@ -99,7 +99,7 @@ impl SymphoniaSource {
         Ok(Some(Self {
             decoder,
             current_span_offset: 0,
-            format: probed.format,
+            format: probed_format,
             total_duration,
             buffer,
             spec,
@@ -148,36 +148,35 @@ impl Iterator for SymphoniaSource {
     }
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_span_offset >= self.buffer.len() {
-            let mut decode_errors = 0;
-            let decoded = loop {
-                let packet = self.format.next_packet().ok()?;
-                match self.decoder.decode(&packet) {
-                    // Loop until we get a packet with audio frames. This is necessary because some
-                    // formats can have packets with only metadata, particularly when rewinding, in
-                    // which case the iterator would otherwise end with `None`.
-                    // Note: checking `decoded.frames()` is more reliable than `packet.dur()`, which
-                    // can returns non-zero durations for packets without audio frames.
-                    Ok(decoded) if decoded.frames() > 0 => break decoded,
-                    Ok(_) => continue,
-                    Err(Error::DecodeError(_)) if decode_errors < MAX_DECODE_RETRIES => {
-                        decode_errors += 1;
-                        continue;
-                    }
-                    Err(_) => return None,
-                }
-            };
+        if self.current_span_offset < self.buffer.len() {
+            let sample = self.buffer.samples().get(self.current_span_offset);
+            self.current_span_offset += 1;
 
-            decoded.spec().clone_into(&mut self.spec);
-            self.buffer = Self::get_buffer(decoded, self.spec);
-            self.current_span_offset = 1;
-            return self.buffer.samples().first().copied();
+            return sample.copied();
         }
 
-        let sample = self.buffer.samples().get(self.current_span_offset);
-        self.current_span_offset += 1;
+        let mut decode_errors = 0;
+        let decoded = loop {
+            let packet = self.format.next_packet().ok()?;
+            match self.decoder.decode(&packet) {
+                // Loop until we get a packet with audio frames. This is necessary because some
+                // formats can have packets with only metadata, particularly when rewinding, in
+                // which case the iterator would otherwise end with `None`.
+                // Note: checking `decoded.frames()` is more reliable than `packet.dur()`, which
+                // can returns non-zero durations for packets without audio frames.
+                Ok(decoded) if decoded.frames() > 0 => break decoded,
+                Ok(_) => {}
+                Err(Error::DecodeError(_)) if decode_errors < MAX_DECODE_RETRIES => {
+                    decode_errors += 1;
+                }
+                Err(_) => return None,
+            }
+        };
 
-        sample.copied()
+        decoded.spec().clone_into(&mut self.spec);
+        self.buffer = Self::get_buffer(decoded, self.spec);
+        self.current_span_offset = 1;
+        self.buffer.samples().first().copied()
     }
 }
 
@@ -232,14 +231,10 @@ impl MecompDecoder {
             // mono
             1 => Ok(source),
             // stereo
-            2 => {
-                let mono_samples = source
-                    .chunks_exact(2)
-                    .map(|chunk| (chunk[0] + chunk[1]) * SQRT_2 / 2.)
-                    .collect();
-
-                Ok(mono_samples)
-            }
+            2 => Ok(source
+                .chunks_exact(2)
+                .map(|chunk| (chunk[0] + chunk[1]) * SQRT_2 / 2.)
+                .collect()),
             // 2.1 or 5.1 surround
             _ => {
                 log::warn!("The audio source has more than 2 channels (might be 2.1 or 5.1 surround sound), will collapse to mono by averaging the channels");

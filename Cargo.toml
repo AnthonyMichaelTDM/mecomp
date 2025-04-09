@@ -80,7 +80,7 @@ opt-level = 0
 [workspace.dependencies]
 # shared dependencies
 anyhow = { version = "1.0", default-features = false }
-lofty = { version = "0.22.2" }
+lofty = { version = "0.22.3" }
 clap = { version = "4.5", default-features = false, features = [
     "color",
     "error-context",
@@ -91,20 +91,20 @@ clap = { version = "4.5", default-features = false, features = [
     "derive",
 ] }
 ciborium = { version = "0.2.2" }
-config = { version = "0.15.8", default-features = false, features = ["toml"] }
+config = { version = "0.15.11", default-features = false, features = ["toml"] }
 directories = "6.0.0"
-env_logger = { version = "0.11.6", features = [
+env_logger = { version = "0.11.8", features = [
     "color",
 ], default-features = false }
 futures = { version = "0.3.31", features = ["alloc"], default-features = false }
 # image = { version = "0.25.0" }
-log = { version = "0.4.26", features = ["serde"] }
+log = { version = "0.4.27", features = ["serde"] }
 notify-debouncer-full = { version = "0.5.0", default-features = false }
 notify = { version = "8.0", default-features = false, features = [
     "macos_fsevent",
 ] }
 object-pool = "0.6.0"
-once_cell = "1.20"
+once_cell = "1.21"
 rand = { version = "0.8.5", features = ["small_rng"] }
 rodio = { version = "0.20.1", features = ["symphonia-all"] }
 symphonia = { version = "0.5.4", default-features = false, features = [
@@ -121,7 +121,7 @@ symphonia = { version = "0.5.4", default-features = false, features = [
     "vorbis",
 ] }
 
-rubato = { version = "0.16.0" }
+rubato = { version = "0.16.2" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 shellexpand = "3.1"
 strum = { version = "0.27.1", features = ["derive"] }
@@ -132,14 +132,14 @@ surrealdb = { version = "=2.2.1", features = [
 ], default-features = false }
 tap = { version = "1.0" }
 thiserror = { version = "2.0" }
-tokio = { version = "1.43", features = [
+tokio = { version = "1.44", features = [
     "macros",
     "rt-multi-thread",
     "sync",
     "time",
 ] }
 walkdir = { version = "2.5" }
-tarpc = { version = "0.35.0", features = [
+tarpc = { version = "0.36.0", features = [
     "serde-transport",
     "serde-transport-json",
     "tcp",
@@ -166,7 +166,7 @@ one-or-many = { path = "one-or-many", version = "=0.1.2" }
 pretty_assertions = "1.4"
 rstest = "0.25.0"
 rstest_reuse = { version = "0.7.0" }
-tempfile = { version = "3.17" }
+tempfile = { version = "3.19" }
 criterion = { version = "0.5.1", features = ["html_reports"] }
 
 # [lints.rust]

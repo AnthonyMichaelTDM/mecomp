@@ -142,7 +142,7 @@ fn create_table_field_queries<'a>(
             ))) => {
                 if !index.is_empty() {
                     field_indexes = index;
-                };
+                }
                 type_.value()
             }
             Some(Ok((

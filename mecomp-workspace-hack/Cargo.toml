@@ -20,7 +20,6 @@ ignored = [
     "approx-9fbad63c4bcf4a8f",
     "approx-d8f496e17d97b5cb",
     "bitflags",
-    "byteorder",
     "bytes",
     "castaway",
     "clap",
@@ -93,7 +92,6 @@ anyhow = { version = "1" }
 approx-9fbad63c4bcf4a8f = { package = "approx", version = "0.4" }
 approx-d8f496e17d97b5cb = { package = "approx", version = "0.5" }
 bitflags = { version = "2", default-features = false, features = ["std"] }
-byteorder = { version = "1" }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "usage"] }
@@ -158,7 +156,6 @@ anyhow = { version = "1" }
 approx-9fbad63c4bcf4a8f = { package = "approx", version = "0.4" }
 approx-d8f496e17d97b5cb = { package = "approx", version = "0.5" }
 bitflags = { version = "2", default-features = false, features = ["std"] }
-byteorder = { version = "1" }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
 cc = { version = "1", default-features = false, features = ["parallel"] }
