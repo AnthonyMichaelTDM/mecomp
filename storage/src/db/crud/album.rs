@@ -142,7 +142,7 @@ impl Album {
             .await?;
             Ok(Some(album))
         } else {
-            warn!("Failed to create album {}", title);
+            warn!("Failed to create album {title}");
             Ok(None)
         }
     }

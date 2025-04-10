@@ -85,7 +85,7 @@ pub fn init_music_library_watcher(
                                 Ok(events) => {
                                     for event in events {
                                         if let Err(e) = handler.handle_event(event).await {
-                                            error!("failed to handle event: {:?}", e);
+                                            error!("failed to handle event: {e:?}");
                                         }
                                     }
                                 }
@@ -110,7 +110,7 @@ pub fn init_music_library_watcher(
 
     // Add all library paths to the debouncer.
     for path in library_paths {
-        log::debug!("watching path: {:?}", path);
+        log::debug!("watching path: {path:?}");
         // Add a path to be watched. All files and directories at that path and
         // below will be monitored for changes.
         debouncer.watch(path, RecursiveMode::Recursive)?;

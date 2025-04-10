@@ -58,6 +58,7 @@ impl<T> OneOrMany<T> {
 
     /// Returns the first value, or `None` if the `OneOrMany` is empty.
     #[inline]
+    #[allow(clippy::missing_const_for_fn)] // TODO: make this const when possible
     pub fn first(&self) -> Option<&T> {
         match self {
             Self::One(t) => Some(t),
@@ -143,6 +144,7 @@ impl<T> OneOrMany<T> {
 
     /// Gets a slice of the `OneOrMany`.
     #[inline]
+    #[allow(clippy::missing_const_for_fn)] // TODO: make this const when possible
     pub fn as_slice(&self) -> &[T] {
         match self {
             Self::One(t) => std::slice::from_ref(t),
@@ -153,6 +155,7 @@ impl<T> OneOrMany<T> {
 
     /// Gets a mutable slice of the `OneOrMany`.
     #[inline]
+    #[allow(clippy::missing_const_for_fn)] // TODO: make this const when possible
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         match self {
             Self::One(t) => std::slice::from_mut(t),

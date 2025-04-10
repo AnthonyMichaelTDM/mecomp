@@ -1,3 +1,5 @@
+#![allow(clippy::needless_continue)]
+
 pub mod interfaces;
 
 use std::time::Duration;
@@ -114,7 +116,7 @@ impl Mpris {
                 Ok(()) => return Ok(()),
                 Err(e) => {
                     retries += 1;
-                    log::warn!("Failed to connect to daemon: {}", e);
+                    log::warn!("Failed to connect to daemon: {e}");
                     tokio::time::sleep(BASE_DELAY * u32::from(retries)).await;
                 }
             }
@@ -222,7 +224,7 @@ impl Subscriber {
         state: &mut StateAudio,
         daemon: Option<&MusicPlayerClient>,
     ) -> anyhow::Result<MessageOutcomes> {
-        log::info!("Received event: {:?}", message);
+        log::info!("Received event: {message:?}");
         match message {
             Message::Event(
                 Event::LibraryAnalysisFinished

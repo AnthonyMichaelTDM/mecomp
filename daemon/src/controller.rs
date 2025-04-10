@@ -760,7 +760,7 @@ impl MusicPlayer for MusicPlayerServer {
     /// set the repeat mode.
     #[instrument]
     async fn playback_repeat(self, context: Context, mode: RepeatMode) {
-        info!("Setting repeat mode to: {}", mode);
+        info!("Setting repeat mode to: {mode}");
         self.audio_kernel
             .send(AudioCommand::Queue(QueueCommand::SetRepeatMode(mode)));
     }
@@ -1043,7 +1043,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn playlist_get(self, context: Context, id: PlaylistId) -> Option<Playlist> {
         let id = id.into();
-        info!("Getting playlist by ID: {}", id);
+        info!("Getting playlist by ID: {id}");
 
         Playlist::read(&self.db, id)
             .await

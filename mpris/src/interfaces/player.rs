@@ -121,7 +121,7 @@ impl PlayerInterface for Mpris {
         // ensure the file type is supported
         if !SUPPORTED_MIME_TYPES
             .iter()
-            .filter_map(|s| s.split('/').last())
+            .filter_map(|s| s.split('/').next_back())
             .any(|ext| path.extension().is_some_and(|e| e == ext))
         {
             return Err(fdo::Error::InvalidArgs(

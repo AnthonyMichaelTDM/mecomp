@@ -79,6 +79,7 @@ where
     }
 
     #[must_use]
+    #[allow(clippy::missing_const_for_fn)] // TODO: make this const
     pub fn children(&self) -> &[Self] {
         &self.children
     }

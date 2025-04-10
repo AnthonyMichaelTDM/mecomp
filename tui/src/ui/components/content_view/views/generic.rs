@@ -194,13 +194,17 @@ where
                 .title_top(Line::from(vec![
                     Span::raw("Performing operations on "),
                     Span::raw(
-                        self.tree_state
+                        if self
+                            .tree_state
                             .lock()
                             .unwrap()
                             .get_checked_things()
                             .is_empty()
-                            .then(Props::none_checked_string)
-                            .unwrap_or("checked items"),
+                        {
+                            Props::none_checked_string()
+                        } else {
+                            "checked items"
+                        },
                     )
                     .fg(TEXT_HIGHLIGHT),
                 ]))

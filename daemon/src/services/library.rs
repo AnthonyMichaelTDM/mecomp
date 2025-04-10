@@ -121,7 +121,7 @@ pub async fn rescan<C: Connection>(
     // now, index all the songs in the library that haven't been indexed yet
     let mut visited_paths = paths_to_skip;
 
-    debug!("Indexing paths: {:?}", paths);
+    debug!("Indexing paths: {paths:?}");
     async {
         for path in paths
             .iter()
