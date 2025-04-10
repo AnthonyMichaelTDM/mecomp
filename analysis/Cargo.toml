@@ -31,7 +31,7 @@ rand.workspace = true
 rayon = "1.10"
 rubato = { workspace = true }
 symphonia = { workspace = true }
-rustfft = { version = "6.2", default-features = false }
+rustfft = { version = "6.2" }
 serde = { workspace = true }
 statrs = { version = "0.18.0", default-features = false }
 strum.workspace = true
