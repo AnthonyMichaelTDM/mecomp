@@ -6,8 +6,13 @@ use std::{
     sync::Arc,
 };
 //--------------------------------------------------------------------------------- other libraries
-use futures::{future, prelude::*};
-use log::info;
+use futures::{
+    future,
+    prelude::*,
+    stream::{AbortHandle, Abortable},
+    FutureExt,
+};
+use log::{error, info};
 use surrealdb::{engine::local::Db, Surreal};
 use tarpc::{
     self,
@@ -16,7 +21,7 @@ use tarpc::{
 };
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
-    audio::AudioKernelSender,
+    audio::{commands::AudioCommand, AudioKernelSender},
     config::Settings,
     is_server_running,
     logger::{init_logger, init_tracing},
@@ -34,6 +39,7 @@ pub mod controller;
 #[cfg(feature = "dynamic_updates")]
 pub mod dynamic_updates;
 pub mod services;
+mod termination;
 #[cfg(test)]
 pub use mecomp_core::test_utils;
 
@@ -49,7 +55,7 @@ use crate::controller::MusicPlayerServer;
 ///
 /// * `settings` - The settings to use.
 /// * `db_dir` - The directory where the database is stored.
-///              If the directory does not exist, it will be created.
+///   If the directory does not exist, it will be created.
 /// * `log_file_path` - The path to the file where logs will be written.
 ///
 /// # Errors
@@ -91,30 +97,41 @@ pub async fn start_daemon(
         settings.daemon.genre_separator.clone(),
     )?;
 
-    // Start the audio kernel.
+    // initialize the event publisher
     let (event_tx, event_rx) = std::sync::mpsc::channel();
-    let audio_kernel = AudioKernelSender::start(event_tx);
     let event_publisher = Arc::new(RwLock::new(Sender::new().await?));
+
+    // initialize the termination handler
+    let (terminator, mut interrupt_rx) = termination::create_termination();
+
+    // Start the audio kernel.
+    let audio_kernel = AudioKernelSender::start(event_tx);
+
+    // Initialize the server.
     let server = MusicPlayerServer::new(
         db.clone(),
         settings.clone(),
         audio_kernel.clone(),
         event_publisher.clone(),
+        terminator.clone(),
     );
 
     // Start StateChange publisher thread.
     // this thread listens for events from the audio kernel and forwards them to the event publisher (managed by the daemon)
     // the event publisher then pushes them to all the clients
-    let eft_guard = tokio::spawn(async move {
-        while let Ok(event) = event_rx.recv() {
-            event_publisher
-                .read()
-                .await
-                .send(Message::StateChange(event))
-                .await
-                .unwrap();
-        }
-    });
+    let eft_guard = {
+        let event_publisher = event_publisher.clone();
+        tokio::spawn(async move {
+            while let Ok(event) = event_rx.recv() {
+                event_publisher
+                    .read()
+                    .await
+                    .send(Message::StateChange(event))
+                    .await
+                    .unwrap();
+            }
+        })
+    };
 
     // TODO: set up some kind of signal handler to ensure that the daemon is shut down gracefully (including sending a `DaemonShutdown` event to all clients)
 
@@ -124,7 +141,7 @@ pub async fn start_daemon(
     let mut listener = tarpc::serde_transport::tcp::listen(&server_addr, Json::default).await?;
     info!("Listening on {}", listener.local_addr());
     listener.config_mut().max_frame_length(usize::MAX);
-    listener
+    let server_handle = listener
         // Ignore accept errors.
         .filter_map(|r| future::ready(r.ok()))
         .map(BaseChannel::with_defaults)
@@ -140,11 +157,45 @@ pub async fn start_daemon(
         //       and have too much of a skill issue to fix it, we can set this number to 1.
         .buffer_unordered(10)
         .for_each(|()| async {})
-        .await;
+        // make it fused so we can stop it later
+        .fuse();
+    // make the server abortable
+    let (abort_handle, abort_registration) = AbortHandle::new_pair();
+    let abortable_server_handle = Abortable::new(server_handle, abort_registration);
+
+    // run the server until it is terminated
+    tokio::select! {
+        _ = abortable_server_handle => {
+            error!("Server stopped unexpectedly");
+        },
+        // Wait for the server to be stopped.
+        // This will be triggered by the signal handler.
+        reason = interrupt_rx.recv() => {
+            match reason {
+                Ok(termination::Interrupted::UserInt) => info!("Stopping server per user request"),
+                Ok(termination::Interrupted::OsSigInt) => info!("Stopping server because of an os sig int"),
+                Ok(termination::Interrupted::OsSigTerm) => info!("Stopping server because of an os sig term"),
+                Ok(termination::Interrupted::OsSigQuit) => info!("Stopping server because of an os sig quit"),
+                Err(_) => error!("Stopping server because of an unexpected error"),
+            }
+        }
+    }
+
+    // abort the server
+    abort_handle.abort();
+
+    // send an exit command to the audio kernel
+    audio_kernel.send(AudioCommand::Exit);
 
     #[cfg(feature = "dynamic_updates")]
     guard.stop();
 
+    // send a shutdown event to all clients (ignore errors)
+    event_publisher
+        .read()
+        .await
+        .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
+        .await?;
     eft_guard.abort();
 
     Ok(())
@@ -165,15 +216,25 @@ pub async fn init_test_client_server(
     let (client_transport, server_transport) = tarpc::transport::channel::unbounded();
 
     let event_publisher = Arc::new(RwLock::new(Sender::new().await?));
-    let server = MusicPlayerServer::new(db, settings, audio_kernel, event_publisher);
-    tokio::spawn(
-        tarpc::server::BaseChannel::with_defaults(server_transport)
-            .execute(server.serve())
-            // Handle all requests concurrently.
-            .for_each(|response| async move {
-                tokio::spawn(response);
-            }),
-    );
+    // initialize the termination handler
+    let (terminator, mut interrupt_rx) = termination::create_termination();
+    tokio::spawn(async move {
+        let server =
+            MusicPlayerServer::new(db, settings, audio_kernel, event_publisher, terminator);
+        tokio::select! {
+            () = tarpc::server::BaseChannel::with_defaults(server_transport)
+                .execute(server.serve())
+                // Handle all requests concurrently.
+                .for_each(|response| async move {
+                    tokio::spawn(response);
+                }) => {},
+            // Wait for the server to be stopped.
+            _ = interrupt_rx.recv() => {
+                // Stop the server.
+                info!("Stopping server...");
+            }
+        }
+    });
 
     // MusicPlayerClient is generated by the #[tarpc::service] attribute. It has a constructor `new`
     // that takes a config and any Transport as input.
