@@ -59,7 +59,7 @@ opt-level = 1
 [profile.bench]
 debug = true
 
-[profile.test.package]
+[profile.dev.package]
 insta.opt-level = 3
 similar.opt-level = 3
 # Set math libraries to optimize for speed in tests
@@ -119,6 +119,8 @@ symphonia = { version = "0.5.4", default-features = false, features = [
     # for ogg
     "ogg",
     "vorbis",
+    # enable simd 
+    "opt-simd",
 ] }
 
 rubato = { version = "0.16.2" }

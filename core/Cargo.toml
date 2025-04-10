@@ -43,7 +43,6 @@ config = { workspace = true }
 directories = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
-once_cell = { workspace = true }
 rand = { workspace = true, optional = true }
 rodio = { workspace = true, optional = true }
 serde = { workspace = true }

@@ -3121,7 +3121,6 @@ dependencies = [
  "mecomp-storage",
  "mecomp-workspace-hack",
  "object-pool",
- "once_cell",
  "one-or-many",
  "opentelemetry 0.28.0",
  "opentelemetry-otlp",
@@ -3296,6 +3295,7 @@ dependencies = [
  "regex",
  "regex-automata 0.4.9",
  "regex-syntax 0.8.5",
+ "rustfft",
  "semver",
  "serde",
  "serde_json",
@@ -5873,6 +5873,7 @@ dependencies = [
  "bytemuck",
  "lazy_static",
  "log",
+ "rustfft",
 ]
 
 [[package]]
