@@ -29,7 +29,7 @@ async fn main() {
 
     // connect to the daemon
     if let Err(e) = mpris.connect_with_retry().await {
-        log::error!("Failed to connect to daemon: {}", e);
+        log::error!("Failed to connect to daemon: {e}");
         return;
     }
 
@@ -39,14 +39,14 @@ async fn main() {
     let server = match mpris.start_server(&bus_name_suffix).await {
         Ok(server) => server,
         Err(e) => {
-            log::error!("Failed to start Mpris server: {}", e);
+            log::error!("Failed to start Mpris server: {e}");
             return;
         }
     };
 
     // start the event loop (listens for UDP events from the daemon forever)
     if let Err(e) = Subscriber.main_loop(&server).await {
-        log::error!("Failed to start subscriber: {}", e);
+        log::error!("Failed to start subscriber: {e}");
         return;
     }
     // std::future::pending::<()>().await;

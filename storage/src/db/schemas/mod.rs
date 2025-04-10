@@ -95,6 +95,7 @@ impl RecordId {
     /// Get the table name.
     #[must_use]
     #[inline]
+    #[allow(clippy::missing_const_for_fn)] // TODO: make this const when possible
     pub fn table(&self) -> &str {
         &self.tb
     }

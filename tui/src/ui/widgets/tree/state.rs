@@ -41,6 +41,7 @@ where
 
     /// Refers to the current cursor selection.
     #[must_use]
+    #[allow(clippy::missing_const_for_fn)] // TODO: make this const when we can deref a vector in const context
     pub fn selected(&self) -> &[Identifier] {
         &self.selected
     }
@@ -258,7 +259,7 @@ where
     }
 
     /// Ensure the selected [`CheckTreeItem`] is in view on next render
-    pub fn scroll_selected_into_view(&mut self) {
+    pub const fn scroll_selected_into_view(&mut self) {
         self.ensure_selected_in_view_on_next_render = true;
     }
 
@@ -266,7 +267,7 @@ where
     ///
     /// Returns `true` when the scroll position changed.
     /// Returns `false` when the scrolling has reached the top.
-    pub fn scroll_up(&mut self, lines: usize) -> bool {
+    pub const fn scroll_up(&mut self, lines: usize) -> bool {
         let before = self.offset;
         self.offset = self.offset.saturating_sub(lines);
         before != self.offset

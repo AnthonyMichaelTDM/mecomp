@@ -360,7 +360,7 @@ impl AudioKernel {
 
         if let Some(song) = self.queue.lock().unwrap().current_song() {
             if let Err(e) = self.append_song_to_player(song) {
-                error!("Failed to append song to player: {}", e);
+                error!("Failed to append song to player: {e}");
             }
 
             match status {
@@ -492,7 +492,7 @@ impl AudioKernel {
 
         if let Some(song) = next_song {
             if let Err(e) = self.append_song_to_player(&song) {
-                error!("Failed to append song to player: {}", e);
+                error!("Failed to append song to player: {e}");
             }
 
             let binding = self.queue.lock().unwrap();
@@ -519,7 +519,7 @@ impl AudioKernel {
 
         if let Some(song) = next_song {
             if let Err(e) = self.append_song_to_player(&song) {
-                error!("Failed to append song to player: {}", e);
+                error!("Failed to append song to player: {e}");
             }
             match status {
                 Status::Stopped => {}
