@@ -133,8 +133,6 @@ pub async fn start_daemon(
         })
     };
 
-    // TODO: set up some kind of signal handler to ensure that the daemon is shut down gracefully (including sending a `DaemonShutdown` event to all clients)
-
     // Start the RPC server.
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.daemon.rpc_port);
 
@@ -191,11 +189,11 @@ pub async fn start_daemon(
     guard.stop();
 
     // send a shutdown event to all clients (ignore errors)
-    event_publisher
+    let _ = event_publisher
         .read()
         .await
         .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
-        .await?;
+        .await;
     eft_guard.abort();
 
     Ok(())
@@ -219,8 +217,13 @@ pub async fn init_test_client_server(
     // initialize the termination handler
     let (terminator, mut interrupt_rx) = termination::create_termination();
     tokio::spawn(async move {
-        let server =
-            MusicPlayerServer::new(db, settings, audio_kernel, event_publisher, terminator);
+        let server = MusicPlayerServer::new(
+            db,
+            settings,
+            audio_kernel.clone(),
+            event_publisher.clone(),
+            terminator,
+        );
         tokio::select! {
             () = tarpc::server::BaseChannel::with_defaults(server_transport)
                 .execute(server.serve())
@@ -232,6 +235,9 @@ pub async fn init_test_client_server(
             _ = interrupt_rx.recv() => {
                 // Stop the server.
                 info!("Stopping server...");
+                audio_kernel.send(AudioCommand::Exit);
+                let _ = event_publisher.read().await.send(Message::Event(mecomp_core::udp::Event::DaemonShutdown)).await;
+                info!("Server stopped");
             }
         }
     });
