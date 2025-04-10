@@ -1,9 +1,8 @@
-use std::io::Write;
 use std::time::Instant;
+use std::{io::Write, sync::LazyLock};
 
 use env_logger::fmt::style::{RgbColor, Style};
-use log::info;
-use once_cell::sync::Lazy;
+use log::{info, Record};
 #[cfg(feature = "otel_tracing")]
 use opentelemetry::trace::TracerProvider as _;
 #[cfg(feature = "otel_tracing")]
@@ -19,7 +18,7 @@ use crate::format_duration;
 
 // This will get initialized below.
 /// Returns the init [`Instant`]
-pub static INIT_INSTANT: Lazy<Instant> = Lazy::new(Instant::now);
+pub static INIT_INSTANT: LazyLock<Instant> = LazyLock::new(Instant::now);
 
 /// Returns the seconds since [`INIT_INSTANT`].
 #[cfg(not(tarpaulin_include))]
@@ -48,14 +47,15 @@ pub fn uptime() -> u64 {
 #[allow(clippy::missing_inline_in_public_items)]
 pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::PathBuf>) {
     // Initialize timer.
-    let now = Lazy::force(&INIT_INSTANT);
+    let now = LazyLock::force(&INIT_INSTANT);
 
     // create a new log file (if enabled).
     let log_file = log_file_path.map(|path| {
-        let path = path
-            .is_dir()
-            .then(|| path.join("mecomp.log"))
-            .unwrap_or(path);
+        let path = if path.is_dir() {
+            path.join("mecomp.log")
+        } else {
+            path
+        };
 
         let log_file = std::fs::OpenOptions::new()
             .create(true)
@@ -129,8 +129,8 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
                 //                                                                                             v        v
                 "| {level_style}{level}{level_style:#} | {dimmed_style}{}{dimmed_style:#} | {dimmed_style}{: >39} @ {: <4}{dimmed_style:#} | {}",
                 format_duration(&now.elapsed()),
-                process_file(record.file().unwrap_or("???")),
-                record.line().unwrap_or(0),
+                process_path_of(record),
+                record.line().unwrap_or_default(),
                 record.args(),
             );
             writeln!(buf, "{log_line}")?;
@@ -162,12 +162,38 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
     }
 }
 
-/// Sometimes the file paths we get are full file paths, in this case we don't care about anything before (and including) the `/mecomp/` part.
-fn process_file(file: &str) -> &str {
-    if file.contains("mecomp/") {
-        file.split("mecomp/").last().unwrap_or(file)
-    } else {
-        file
+/// In debug builds, we want file paths so that we can Ctrl+Click them in an IDE to open the relevant file.
+/// But in release, all we want is to be able to tell what module the log is coming from.
+///
+/// This function will behave differently depending on the build type in order to achieve this.
+///
+/// In debug builds, if we get an absolute file path for a mecomp file, we want to strip everything before the `mecomp/` part to keep things clean.
+fn process_path_of<'a>(record: &'a Record<'a>) -> &'a str {
+    #[cfg(debug_assertions)]
+    const DEBUG_BUILD: bool = true;
+    #[cfg(not(debug_assertions))]
+    const DEBUG_BUILD: bool = false;
+
+    let module_path = record.module_path();
+    let file_path = record.file();
+
+    match (DEBUG_BUILD, module_path, file_path) {
+        // In debug builds, if we get an absolute file path for a mecomp file, we want to strip everything before the `mecomp/` part to keep things clean.
+        // and in debug builds, we fall back to this if the file path is not available.
+        (true, _, Some(file)) | (false, None, Some(file)) => {
+            // if the file is an absolute path, strip everything before the `mecomp/` part
+            if file.contains("mecomp/") {
+                file.split("mecomp/").last().unwrap_or(file)
+            } else {
+                file
+            }
+        }
+        // in debug builds, we fallback to the module path if the file is not available
+        // and in release builds, we want to use the module path by default.
+        (true, Some(module), None) | (false, Some(module), _) => module,
+
+        // otherwise just use a fallback
+        (true | false, None, None) => "??",
     }
 }
 
