@@ -61,5 +61,8 @@ fn main() -> anyhow::Result<()> {
         // (we're not processing millions of records)
         // .thread_stack_size(10 * 1024 * 1024) // 10MB
         .build()?
-        .block_on(start_daemon(settings, db_dir, Some(log_file)))
+        .block_on(start_daemon(settings, db_dir, Some(log_file)))?;
+
+    println!("exiting");
+    Ok(())
 }

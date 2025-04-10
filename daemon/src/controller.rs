@@ -40,7 +40,10 @@ use mecomp_storage::{
 };
 use one_or_many::OneOrMany;
 
-use crate::services;
+use crate::{
+    services,
+    termination::{self, Terminator},
+};
 
 #[derive(Clone, Debug)]
 pub struct MusicPlayerServer {
@@ -51,6 +54,7 @@ pub struct MusicPlayerServer {
     library_analyze_lock: Arc<Mutex<()>>,
     collection_recluster_lock: Arc<Mutex<()>>,
     publisher: Arc<RwLock<Sender<Message>>>,
+    terminator: Arc<Mutex<Terminator>>,
 }
 
 impl MusicPlayerServer {
@@ -61,6 +65,7 @@ impl MusicPlayerServer {
         settings: Arc<Settings>,
         audio_kernel: Arc<AudioKernelSender>,
         event_publisher: Arc<RwLock<Sender<Message>>>,
+        terminator: Terminator,
     ) -> Self {
         Self {
             db,
@@ -70,6 +75,7 @@ impl MusicPlayerServer {
             library_rescan_lock: Arc::new(Mutex::new(())),
             library_analyze_lock: Arc::new(Mutex::new(())),
             collection_recluster_lock: Arc::new(Mutex::new(())),
+            terminator: Arc::new(Mutex::new(terminator)),
         }
     }
 
@@ -506,15 +512,21 @@ impl MusicPlayer for MusicPlayerServer {
     async fn daemon_shutdown(self, context: Context) {
         let publisher = self.publisher.clone();
         let audio_kernel = self.audio_kernel.clone();
+        let terminator = self.terminator.clone();
         std::thread::Builder::new()
             .name(String::from("Daemon Shutdown"))
             .spawn(move || {
                 std::thread::sleep(std::time::Duration::from_secs(1));
+                let terminate_result = terminator
+                    .blocking_lock()
+                    .terminate(termination::Interrupted::UserInt);
+                if let Err(e) = terminate_result {
+                    error!("Error terminating daemon: {e}");
+                }
                 let _ = futures::executor::block_on(
                     publisher.blocking_read().send(Event::DaemonShutdown),
                 );
                 audio_kernel.send(AudioCommand::Exit);
-                std::process::exit(0);
             })
             .unwrap();
         info!("Shutting down daemon in 1 second");
