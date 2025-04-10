@@ -510,8 +510,6 @@ impl MusicPlayer for MusicPlayerServer {
     /// tells the daemon to shutdown.
     #[instrument]
     async fn daemon_shutdown(self, context: Context) {
-        let publisher = self.publisher.clone();
-        let audio_kernel = self.audio_kernel.clone();
         let terminator = self.terminator.clone();
         std::thread::Builder::new()
             .name(String::from("Daemon Shutdown"))
@@ -521,12 +519,9 @@ impl MusicPlayer for MusicPlayerServer {
                     .blocking_lock()
                     .terminate(termination::Interrupted::UserInt);
                 if let Err(e) = terminate_result {
-                    error!("Error terminating daemon: {e}");
+                    error!("Error terminating daemon, panicking instead: {e}");
+                    panic!("Error terminating daemon: {e}");
                 }
-                let _ = futures::executor::block_on(
-                    publisher.blocking_read().send(Event::DaemonShutdown),
-                );
-                audio_kernel.send(AudioCommand::Exit);
             })
             .unwrap();
         info!("Shutting down daemon in 1 second");
