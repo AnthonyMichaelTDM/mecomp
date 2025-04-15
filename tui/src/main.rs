@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 #[cfg(feature = "autostart-daemon")]
 use mecomp_core::is_server_running;
 use mecomp_core::{config::Settings, rpc::init_client};
@@ -16,13 +16,17 @@ use tokio::sync::mpsc;
 #[derive(Debug, Parser)]
 #[command(name = "mecomp-tui", version = env!("CARGO_PKG_VERSION"), about)]
 struct Flags {
-    /// Sets the port number to listen on.
-    #[clap(long)]
+    /// Set the TCP port that the daemon is running on
+    #[clap(
+        long,
+        value_hint = clap::ValueHint::Other
+    )]
     port: Option<u16>,
 }
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
+    clap_complete::CompleteEnv::with_factory(Flags::command).complete();
     init_panic_hook();
 
     let flags = Flags::parse();

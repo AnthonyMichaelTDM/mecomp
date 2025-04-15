@@ -21,6 +21,7 @@ default = []
 
 [dependencies]
 clap = { workspace = true }
+clap_complete = { workspace = true }
 anyhow = { workspace = true }
 tarpc = { workspace = true }
 tokio = { workspace = true }

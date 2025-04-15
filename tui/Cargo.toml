@@ -25,6 +25,7 @@ autostart-daemon = []
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
+clap_complete.workspace = true
 crossterm = { version = "0.29", features = [
     "bracketed-paste",
     "derive-more",
