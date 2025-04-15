@@ -90,6 +90,7 @@ clap = { version = "4.5", default-features = false, features = [
     "suggestions",
     "derive",
 ] }
+clap_complete = { version = "4.5", features = ["unstable-dynamic"] }
 ciborium = { version = "0.2.2" }
 config = { version = "0.15.11", default-features = false, features = ["toml"] }
 directories = "6.0.0"

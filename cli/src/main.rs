@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 
 mod handlers;
 
@@ -8,17 +8,24 @@ use handlers::{utils::WriteAdapter, CommandHandler};
 #[derive(Debug, Parser)]
 #[command(name = "mecomp-cli", version = env!("CARGO_PKG_VERSION"), about)]
 struct Flags {
-    /// Sets the port number to listen on.
-    #[clap(long, default_value = "6600")]
+    /// Set the TCP port that the daemon is running on
+    #[clap(long, default_value = "6600", value_hint = clap::ValueHint::Other)]
     port: u16,
     /// subcommand to run
     #[clap(subcommand)]
     subcommand: Option<handlers::Command>,
 }
 
+#[test]
+fn verify_cli() {
+    Flags::command().debug_assert();
+}
+
 #[tokio::main(flavor = "current_thread")]
 #[cfg(not(tarpaulin_include))]
 async fn main() -> anyhow::Result<()> {
+    clap_complete::CompleteEnv::with_factory(Flags::command).complete();
+
     let flags = Flags::parse();
 
     let client = mecomp_core::rpc::init_client(flags.port).await?;

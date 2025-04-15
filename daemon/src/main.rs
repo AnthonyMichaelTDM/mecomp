@@ -4,10 +4,14 @@
 
 use std::path::PathBuf;
 
+use clap::{
+    builder::{PossibleValuesParser, TypedValueParser},
+    CommandFactory, Parser,
+};
+use log::LevelFilter;
+
 use mecomp_core::{config::Settings, get_data_dir};
 use mecomp_daemon::start_daemon;
-
-use clap::Parser;
 
 #[cfg(not(feature = "cli"))]
 compile_error!("The cli feature is required to build the daemon binary");
@@ -15,18 +19,33 @@ compile_error!("The cli feature is required to build the daemon binary");
 /// Options configurable via the CLI.
 #[derive(Parser)]
 struct Flags {
-    /// Sets the port number to listen on.
-    #[clap(long)]
+    /// Set the TCP port that the daemon will listen on
+    #[clap(
+        long,
+        value_hint = clap::ValueHint::Other,
+    )]
     port: Option<u16>,
     /// config file path
-    #[clap(long)]
+    #[clap(
+        long,
+        short,
+        help = "Use this config file instead of the one in the default location",
+        value_hint = clap::ValueHint::FilePath,
+    )]
     config: Option<PathBuf>,
-    /// log level
-    #[clap(long)]
-    log_level: Option<log::LevelFilter>,
+    /// Set the log level
+    #[clap(
+        long,
+        short,
+        value_parser = PossibleValuesParser::new([ "off", "trace", "debug", "info", "warn", "error"])
+            .map(|s| s.parse::<LevelFilter>().unwrap())
+    )]
+    log_level: Option<LevelFilter>,
 }
 
 fn main() -> anyhow::Result<()> {
+    clap_complete::CompleteEnv::with_factory(Flags::command).complete();
+
     let flags = Flags::try_parse()?;
 
     let config_file: PathBuf = match &flags.config {

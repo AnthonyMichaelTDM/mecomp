@@ -302,8 +302,8 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library artists full");
         Ok(Artist::read_all(&self.db)
             .await
-            .map(std::vec::Vec::into_boxed_slice)
-            .tap_err(|e| warn!("Error in library_artists_brief: {e}"))?)
+            .tap_err(|e| warn!("Error in library_artists_brief: {e}"))?
+            .into_boxed_slice())
     }
     /// Returns brief information about the music library's albums.
     #[instrument]

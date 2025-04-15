@@ -66,6 +66,7 @@ use crate::controller::MusicPlayerServer;
 ///
 /// Panics if the peer address of the underlying TCP transport cannot be determined.
 #[inline]
+#[allow(clippy::redundant_pub_crate)]
 pub async fn start_daemon(
     settings: Settings,
     db_dir: std::path::PathBuf,
@@ -174,7 +175,7 @@ pub async fn start_daemon(
                 Ok(termination::Interrupted::OsSigInt) => info!("Stopping server because of an os sig int"),
                 Ok(termination::Interrupted::OsSigTerm) => info!("Stopping server because of an os sig term"),
                 Ok(termination::Interrupted::OsSigQuit) => info!("Stopping server because of an os sig quit"),
-                Err(_) => error!("Stopping server because of an unexpected error"),
+                Err(e) => error!("Stopping server because of an unexpected error: {e}"),
             }
         }
     }
@@ -216,6 +217,7 @@ pub async fn init_test_client_server(
     let event_publisher = Arc::new(RwLock::new(Sender::new().await?));
     // initialize the termination handler
     let (terminator, mut interrupt_rx) = termination::create_termination();
+    #[allow(clippy::redundant_pub_crate)]
     tokio::spawn(async move {
         let server = MusicPlayerServer::new(
             db,

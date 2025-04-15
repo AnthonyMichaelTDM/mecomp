@@ -35,7 +35,10 @@ harness = false
 
 [features]
 default = ["cli", "dynamic_updates", "analysis"]
-cli = ["dep:clap"]                               # features needed for the CLI (binary crate)
+cli = [
+    "dep:clap",
+    "dep:clap_complete",
+] # features needed for the CLI (binary crate)
 # otel_tracing = ["mecomp-core/otel_tracing"]
 # flame = ["mecomp-core/flame"]
 dynamic_updates = ["dep:notify-debouncer-full", "dep:notify"]
@@ -45,6 +48,7 @@ analysis = ["mecomp-storage/analysis", "mecomp-analysis"]
 # shared dependencies
 anyhow = { workspace = true }
 clap = { workspace = true, optional = true }
+clap_complete = { workspace = true, optional = true }
 futures = { workspace = true }
 log = { workspace = true }
 notify = { workspace = true, optional = true }
@@ -53,7 +57,7 @@ rand = { workspace = true }
 surrealdb = { workspace = true }
 tap = { workspace = true }
 tarpc = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["signal"] }
 tracing = { workspace = true }
 walkdir = { workspace = true }
 
