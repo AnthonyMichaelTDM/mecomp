@@ -1,6 +1,6 @@
 [package]
 name = "mecomp-daemon"
-description = "The RPC daemon for the mecomp music player, contains client library and server executable."
+description = "RPC server for the Mecomp, the Metadata Enhanced Collection Orientated Music Player"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
