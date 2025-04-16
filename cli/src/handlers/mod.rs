@@ -42,20 +42,33 @@ pub enum Command {
     /// State commands
     State,
     /// Current (audio state)
-    Current { target: CurrentTarget },
+    Current {
+        /// Get the current <TARGET> from the library
+        #[clap(value_enum)]
+        target: CurrentTarget,
+    },
     /// Rand (audio state)
-    Rand { target: RandTarget },
+    Rand {
+        /// Get a random <TARGET> from the library
+        #[clap(value_enum)]
+        target: RandTarget,
+    },
     /// Search (fuzzy keys)
-    #[clap(hide = true)]
     Search {
-        /// What we're searching for
+        /// Show only the ids of the items
+        #[clap(long, short, action = clap::ArgAction::SetTrue)]
+        quiet: bool,
+
+        #[clap(value_enum)]
+        /// Search for <TARGET>s in the library matching the query
         target: SearchTarget,
 
         /// The search query
+        #[clap(value_hint = clap::ValueHint::Other)]
         query: String,
 
-        /// The number of results to return
-        #[clap(default_value = "10")]
+        /// The maximum number of results to return
+        #[clap(default_value = "10", value_hint = clap::ValueHint::Other)]
         limit: u32,
     },
     /// Playback control
@@ -114,13 +127,16 @@ pub enum LibraryCommand {
         #[clap(long)]
         full: bool,
         /// What to list (artists, albums, songs)
+        #[clap(value_enum)]
         target: LibraryListTarget,
     },
     /// Get a db item by its id
     Get {
         /// What to get (artist, album, song, playlist)
+        #[clap(value_enum)]
         target: LibraryGetTarget,
         /// The id of the item
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
     },
 }
@@ -200,6 +216,7 @@ pub enum PlaybackCommand {
     /// Set repeat mode
     Repeat {
         /// The repeat mode to set to (none, once, continuous)
+        #[clap(value_enum)]
         mode: RepeatMode,
     },
     /// Shuffle the queue
@@ -211,21 +228,32 @@ pub enum SeekCommand {
     /// Seek forwards by a given amount (in seconds)
     #[clap(alias = "f", alias = "+", alias = "ahead")]
     Forward {
-        /// The amount to seek by
+        /// The amount to seek by, in seconds
+        #[clap(default_value = "5.0", value_hint = clap::ValueHint::Other)]
         amount: f32,
     },
     /// Seek backwards by a given amount
     #[clap(alias = "b", alias = "-", alias = "back")]
     Backward {
-        /// The amount to seek by
+        /// The amount to seek by, in seconds
+        #[clap(default_value = "5.0", value_hint = clap::ValueHint::Other)]
         amount: f32,
     },
     /// Seek to a given position
     #[clap(alias = "a", alias = "=", alias = "to")]
     Absolute {
-        /// The position to seek to
+        /// The position to seek to, in seconds
+        #[clap(value_hint = clap::ValueHint::Other)]
         position: f32,
     },
+}
+
+fn float_value_parser(s: &str) -> Result<f32, String> {
+    let volume = s.parse::<f32>().map_err(|_| "Invalid volume".to_string())?;
+    if !(0.0..=100.0).contains(&volume) {
+        return Err("Volume must be between 0 and 100".to_string());
+    }
+    Ok(volume)
 }
 
 #[derive(Debug, Subcommand, PartialEq)]
@@ -233,18 +261,21 @@ pub enum VolumeCommand {
     /// Set the volume
     Set {
         /// The volume to set to (0 is mute, 100 is max)
+        #[clap(value_hint = clap::ValueHint::Other, value_parser = float_value_parser)]
         volume: f32,
     },
     /// Increase the volume
     #[clap(alias = "up")]
     Increase {
         /// The amount to increase the volume by (0-100)
+        #[clap(value_hint = clap::ValueHint::Other, value_parser = float_value_parser)]
         amount: f32,
     },
     /// Decrease the volume
     #[clap(alias = "down")]
     Decrease {
         /// The amount to decrease the volume by (0-100)
+        #[clap(value_hint = clap::ValueHint::Other, value_parser = float_value_parser)]
         amount: f32,
     },
     /// Mute the volume
@@ -279,23 +310,29 @@ pub enum QueueCommand {
     /// Add to the queue
     Add {
         /// What to add (artist, album, song, playlist)
+        #[clap(value_enum)]
         target: QueueAddTarget,
         /// The id of the item
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
     },
     /// Remove a range of items from the queue
     Remove {
         /// The start index of the range to remove
+        #[clap(value_hint = clap::ValueHint::Other)]
         start: usize,
         /// The end index of the range to remove
+        #[clap(value_hint = clap::ValueHint::Other)]
         end: usize,
     },
     /// set the current song to the given index
     Set {
         /// The index to set the current song to
+        #[clap(value_hint = clap::ValueHint::Other)]
         index: usize,
     },
     /// Add a list of items to the queue (from a pipe)
+    ///
     /// ex:
     /// ```sh, ignore
     /// mecomp-cli search all "the beatles" -q | mecomp-cli queue pipe
@@ -321,31 +358,37 @@ pub enum PlaylistCommand {
     /// Get a playlist by its id or name
     Get {
         /// What to get by (id, name)
+        #[clap(value_enum)]
         method: PlaylistGetMethod,
         /// The id or name of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         target: String,
     },
     /// Create a playlist
     Create {
         /// The name of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         name: String,
     },
     /// Rename a playlist
     Update {
         /// The id of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
         /// The new name of the playlist
-        #[clap(short, long)]
+        #[clap(short, long, value_hint = clap::ValueHint::Other)]
         name: String,
     },
     /// Get the songs in a playlist
     Songs {
         /// The id of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
     },
     /// Delete a playlist
     Delete {
         /// The id of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
     },
     /// Add to a playlist
@@ -356,8 +399,10 @@ pub enum PlaylistCommand {
     /// Remove from a playlist
     Remove {
         /// The id of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
         /// The id of the songs(s) to remove
+        #[clap(value_hint = clap::ValueHint::Other)]
         item_ids: Vec<String>,
     },
 }
@@ -373,25 +418,32 @@ pub enum PlaylistAddCommand {
     /// Add an artist to a playlist
     Artist {
         /// The id of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
         /// The id of the artist
+        #[clap(value_hint = clap::ValueHint::Other)]
         artist_id: String,
     },
     /// Add an album to a playlist
     Album {
         /// The id of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
         /// The id of the album
+        #[clap(value_hint = clap::ValueHint::Other)]
         album_id: String,
     },
     /// Add a song to a playlist
     Song {
         /// The id of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
         /// The ids of the song(s) to add
+        #[clap(value_hint = clap::ValueHint::Other)]
         song_ids: Vec<String>,
     },
     /// Add a list of items to the playlist (from a pipe)
+    ///
     /// ex:
     /// ```sh, ignore
     /// mecomp-cli search all "the beatles" -q | mecomp-cli playlist add pipe
@@ -399,6 +451,7 @@ pub enum PlaylistAddCommand {
     /// This will add all the results of the search to the playlist
     Pipe {
         /// The id of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
     },
 }
@@ -410,16 +463,19 @@ pub enum DynamicCommand {
     /// Get a dynamic playlist by its id
     Get {
         /// The id of the dynamic playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
     },
     /// Get the songs in a dynamic playlist
     Songs {
         /// The id of the dynamic playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
     },
     /// Create a dynamic playlist
     Create {
         /// The name of the dynamic playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         name: String,
         /// The query to use to generate the playlist
         #[clap(value_parser = Query::from_str)]
@@ -428,12 +484,15 @@ pub enum DynamicCommand {
     /// Delete a dynamic playlist
     Delete {
         /// The id of the dynamic playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
     },
     /// Update a dynamic playlist
     Update {
         /// The id of the dynamic playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
+
         #[clap(flatten)]
         update: DynamicUpdate,
     },
@@ -446,11 +505,11 @@ pub enum DynamicCommand {
 pub struct DynamicUpdate {
     /// The new name of the dynamic playlist
     /// (if None, the name will not be updated)
-    #[clap(short, long)]
+    #[clap(short, long, value_hint = clap::ValueHint::Other)]
     pub name: Option<String>,
     /// The new query of the dynamic playlist
     /// (if None, the query will not be updated)
-    #[clap(short, long, value_parser = Query::from_str)]
+    #[clap(short, long, value_parser = Query::from_str, value_hint = clap::ValueHint::Other)]
     pub query: Option<Query>,
 }
 
@@ -461,11 +520,13 @@ pub enum CollectionCommand {
     /// Get a collection by its id
     Get {
         /// The id of the collection
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
     },
     /// Get the songs in a collection
     Songs {
         /// The id of the collection
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
     },
     /// Recluster collections
@@ -473,8 +534,10 @@ pub enum CollectionCommand {
     /// Freeze a collection
     Freeze {
         /// The id of the collection
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
         /// The new name of the collection
+        #[clap(value_hint = clap::ValueHint::Other)]
         name: String,
     },
 }
@@ -484,32 +547,41 @@ pub enum RadioCommand {
     /// get the 'n' most similar songs to the given song
     Song {
         /// The id of the song
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
         /// The number of songs to get
+        #[clap(value_hint = clap::ValueHint::Other)]
         n: u32,
     },
     /// get the 'n' most similar songs to the given artist
     Artist {
         /// The id of the artist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
         /// The number of songs to get
+        #[clap(value_hint = clap::ValueHint::Other)]
         n: u32,
     },
     /// get the 'n' most similar songs to the given album
     Album {
         /// The id of the album
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
         /// The number of songs to get
+        #[clap(value_hint = clap::ValueHint::Other)]
         n: u32,
     },
     /// get the 'n' most similar songs to the given playlist
     Playlist {
         /// The id of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
         id: String,
         /// The number of songs to get
+        #[clap(value_hint = clap::ValueHint::Other)]
         n: u32,
     },
     /// Add a list of items to the radio (from a pipe)
+    ///
     /// ex:
     /// ```sh, ignore
     /// mecomp-cli search all "the beatles" -q | mecomp-cli radio pipe
@@ -517,6 +589,7 @@ pub enum RadioCommand {
     /// This will add all the results of the search to the radio
     Pipe {
         /// The number of songs to get
+        #[clap(value_hint = clap::ValueHint::Other)]
         n: u32,
     },
 }
