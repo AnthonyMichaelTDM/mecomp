@@ -160,6 +160,10 @@ impl Analysis {
         ids: Vec<AnalysisId>,
         n: u32,
     ) -> StorageResult<Vec<Self>> {
+        if ids.is_empty() || n == 0 {
+            return Ok(vec![]);
+        }
+
         // find the average "features" of the given analyses
         let analyses =
             futures::future::try_join_all(ids.iter().map(|id| Self::read(db, id.clone())))
@@ -502,6 +506,103 @@ mod test {
         // find the nearest neighbor to analysis1
         let result = Analysis::nearest_neighbors(&db, analysis1.id, 1).await?;
         assert_eq!(result, vec![analysis2.clone()]);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_nearest_neighbors_to_many() -> Result<()> {
+        let db = init_test_database().await?;
+
+        let song1 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let song2 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let song3 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let song4 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+
+        let analysis1 = Analysis {
+            id: Analysis::generate_id(),
+            features: [0.; 20],
+        };
+        let analysis2 = Analysis {
+            id: Analysis::generate_id(),
+            features: [0.; 20],
+        };
+        let analysis3 = Analysis {
+            id: Analysis::generate_id(),
+            features: [1.; 20],
+        };
+        let analysis4 = Analysis {
+            id: Analysis::generate_id(),
+            features: [1.; 20],
+        };
+
+        // create the analyses
+        let result1 = Analysis::create(&db, song1.id.clone(), analysis1.clone()).await?;
+        assert_eq!(result1, Some(analysis1.clone()));
+        let result2 = Analysis::create(&db, song2.id.clone(), analysis2.clone()).await?;
+        assert_eq!(result2, Some(analysis2.clone()));
+        let result3 = Analysis::create(&db, song3.id.clone(), analysis3.clone()).await?;
+        assert_eq!(result3, Some(analysis3.clone()));
+        let result4 = Analysis::create(&db, song4.id.clone(), analysis4.clone()).await?;
+        assert_eq!(result4, Some(analysis4.clone()));
+
+        // find the nearest neighbor to analysis1 and analysis2
+        // with n = 0, we should get an empty list
+        let result = Analysis::nearest_neighbors_to_many(
+            &db,
+            vec![analysis1.id.clone(), analysis2.id.clone()],
+            0,
+        )
+        .await?;
+        assert_eq!(result.len(), 0);
+        // with n = 1, we should get one of the two analyses
+        let result = Analysis::nearest_neighbors_to_many(
+            &db,
+            vec![analysis1.id.clone(), analysis2.id.clone()],
+            1,
+        )
+        .await?;
+        assert_eq!(result.len(), 1);
+        assert!((result[0] == analysis3) || (result[0] == analysis4));
+        // with n = 2, we should get both analyses
+        let result = Analysis::nearest_neighbors_to_many(
+            &db,
+            vec![analysis1.id.clone(), analysis2.id.clone()],
+            2,
+        )
+        .await?;
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], analysis3);
+        assert_eq!(result[1], analysis4);
+        // with n > 2, we should get both analyses
+        let result = Analysis::nearest_neighbors_to_many(
+            &db,
+            vec![analysis1.id.clone(), analysis2.id.clone()],
+            3,
+        )
+        .await?;
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], analysis3);
+        assert_eq!(result[1], analysis4);
+
+        // find the nearest neighbor to analysis3 and analysis4
+        let result = Analysis::nearest_neighbors_to_many(
+            &db,
+            vec![analysis3.id.clone(), analysis4.id.clone()],
+            3,
+        )
+        .await?;
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], analysis1);
+        assert_eq!(result[1], analysis2);
+
+        // if we pass an empty list, we should get an empty list
+        let result = Analysis::nearest_neighbors_to_many(&db, vec![], 3).await?;
+        assert_eq!(result.len(), 0);
 
         Ok(())
     }

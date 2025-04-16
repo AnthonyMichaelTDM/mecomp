@@ -35,43 +35,21 @@ pub async fn get_songs_from_things<C: Connection>(
     // go through the list, and get songs for each thing (depending on what it is)
     let mut songs: OneOrMany<Song> = OneOrMany::None;
     for thing in things {
+        let thing = thing.clone();
         match thing.tb.as_str() {
-            ALBUM_TABLE_NAME => {
-                for song in Album::read_songs(db, thing.clone().into()).await? {
-                    songs.push(song);
-                }
+            ALBUM_TABLE_NAME => songs.extend(Album::read_songs(db, thing.into()).await?),
+            ARTIST_TABLE_NAME => songs.extend(Artist::read_songs(db, thing.into()).await?),
+            COLLECTION_TABLE_NAME => songs.extend(Collection::read_songs(db, thing.into()).await?),
+            PLAYLIST_TABLE_NAME => songs.extend(Playlist::read_songs(db, thing.into()).await?),
+            SONG_TABLE_NAME => {
+                songs.push(Song::read(db, thing.into()).await?.ok_or(Error::NotFound)?);
             }
-            ARTIST_TABLE_NAME => {
-                for song in Artist::read_songs(db, thing.clone().into()).await? {
-                    songs.push(song);
-                }
-            }
-            COLLECTION_TABLE_NAME => {
-                for song in Collection::read_songs(db, thing.clone().into()).await? {
-                    songs.push(song);
-                }
-            }
-            PLAYLIST_TABLE_NAME => {
-                for song in Playlist::read_songs(db, thing.clone().into()).await? {
-                    songs.push(song);
-                }
-            }
-            SONG_TABLE_NAME => songs.push(
-                Song::read(db, thing.clone().into())
-                    .await?
-                    .ok_or(Error::NotFound)?,
-            ),
             DYNAMIC_PLAYLIST_TABLE_NAME => {
-                for song in DynamicPlaylist::run_query_by_id(db, thing.clone().into())
-                    .await?
-                    .unwrap_or_default()
-                {
-                    songs.push(song);
+                if let Some(new_songs) = DynamicPlaylist::run_query_by_id(db, thing.into()).await? {
+                    songs.extend(new_songs);
                 }
             }
-            _ => {
-                warn!("Unknown thing type: {}", thing.tb);
-            }
+            _ => warn!("Unknown thing type: {}", thing.tb),
         }
     }
 
