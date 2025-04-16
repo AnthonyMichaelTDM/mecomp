@@ -21,6 +21,10 @@ pub async fn get_similar<C: Connection>(
     things: Vec<RecordId>,
     n: u32,
 ) -> StorageResult<Vec<Song>> {
+    if things.is_empty() || n == 0 {
+        return Ok(vec![]);
+    }
+
     // go through the list, and get songs for each thing (depending on what it is)
     let songs: Vec<SongId> = get_songs_from_things(db, &things)
         .await?
@@ -28,16 +32,12 @@ pub async fn get_similar<C: Connection>(
         .map(|s| s.id)
         .collect();
 
-    let neighbors = Analysis::nearest_neighbors_to_many(
-        db,
-        Analysis::read_for_songs(db, songs)
-            .await?
-            .into_iter()
-            .filter_map(|a| a.map(|a| a.id))
-            .collect(),
-        n,
-    )
-    .await?;
+    let analyses = Analysis::read_for_songs(db, songs)
+        .await?
+        .into_iter()
+        .filter_map(|a| a.map(|a| a.id))
+        .collect();
+    let neighbors = Analysis::nearest_neighbors_to_many(db, analyses, n).await?;
     Ok(
         Analysis::read_songs(db, neighbors.iter().map(|a| a.id.clone()).collect())
             .await?

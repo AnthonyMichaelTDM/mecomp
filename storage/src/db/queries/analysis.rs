@@ -58,7 +58,7 @@ pub fn read_for_song() -> impl IntoQuery {
     read_related_in("song", ANALYSIS_TO_SONG)
 }
 
-/// Query to read the song for an analyses
+/// Query to read the song for an analysis
 ///
 /// Compiles to:
 /// ```sql, ignore
