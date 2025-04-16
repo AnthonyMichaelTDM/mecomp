@@ -226,21 +226,21 @@ pub enum PlaybackCommand {
 #[derive(Debug, Subcommand, PartialEq)]
 pub enum SeekCommand {
     /// Seek forwards by a given amount (in seconds)
-    #[clap(alias = "f", alias = "+", alias = "ahead")]
+    #[clap(alias = "f", visible_alias = "+", alias = "ahead")]
     Forward {
         /// The amount to seek by, in seconds
         #[clap(default_value = "5.0", value_hint = clap::ValueHint::Other)]
         amount: f32,
     },
     /// Seek backwards by a given amount
-    #[clap(alias = "b", alias = "-", alias = "back")]
+    #[clap(alias = "b", visible_alias = "-", alias = "back")]
     Backward {
         /// The amount to seek by, in seconds
         #[clap(default_value = "5.0", value_hint = clap::ValueHint::Other)]
         amount: f32,
     },
     /// Seek to a given position
-    #[clap(alias = "a", alias = "=", alias = "to")]
+    #[clap(alias = "a", visible_alias = "=", alias = "to")]
     Absolute {
         /// The position to seek to, in seconds
         #[clap(value_hint = clap::ValueHint::Other)]
@@ -259,20 +259,21 @@ fn float_value_parser(s: &str) -> Result<f32, String> {
 #[derive(Debug, Subcommand, PartialEq)]
 pub enum VolumeCommand {
     /// Set the volume
+    #[clap(visible_alias = "=")]
     Set {
         /// The volume to set to (0 is mute, 100 is max)
         #[clap(value_hint = clap::ValueHint::Other, value_parser = float_value_parser)]
         volume: f32,
     },
     /// Increase the volume
-    #[clap(alias = "up")]
+    #[clap(alias = "up", visible_alias = "+")]
     Increase {
         /// The amount to increase the volume by (0-100)
         #[clap(value_hint = clap::ValueHint::Other, value_parser = float_value_parser)]
         amount: f32,
     },
     /// Decrease the volume
-    #[clap(alias = "down")]
+    #[clap(alias = "down", visible_alias = "-")]
     Decrease {
         /// The amount to decrease the volume by (0-100)
         #[clap(value_hint = clap::ValueHint::Other, value_parser = float_value_parser)]
