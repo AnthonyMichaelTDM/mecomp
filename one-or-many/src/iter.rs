@@ -3,11 +3,8 @@ use crate::OneOrMany;
 impl<T: ToOwned<Owned = T>> FromIterator<T> for OneOrMany<T> {
     #[inline]
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let iter: <I as IntoIterator>::IntoIter = iter.into_iter();
         let mut result: Self = Self::None;
-        for item in iter {
-            result.push(item);
-        }
+        result.extend(iter);
         result
     }
 }

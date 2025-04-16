@@ -346,6 +346,19 @@ where
     }
 }
 
+// implement Extend
+impl<T> Extend<T> for OneOrMany<T>
+where
+    T: ToOwned<Owned = T>,
+{
+    #[inline]
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        for item in iter {
+            self.push(item);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -775,5 +788,31 @@ mod tests {
     {
         input.dedup_by_key(Clone::clone);
         assert_eq!(input, expected);
+    }
+
+    #[rstest]
+    #[case::none_with_none(OneOrMany::<usize>::None, vec![], OneOrMany::<usize>::None)]
+    #[case::none_with_one(OneOrMany::<usize>::None, vec![1], OneOrMany::One(1))]
+    #[case::none_with_many(OneOrMany::<usize>::None, vec![1, 2, 3], OneOrMany::Many(vec![1, 2, 3]))]
+    #[case::none_with_many(OneOrMany::<usize>::None, vec![1, 1, 2, 3], OneOrMany::Many(vec![1, 1, 2, 3]))]
+    #[case::one_with_none(OneOrMany::One(1), vec![], OneOrMany::One(1))]
+    #[case::one_with_one(OneOrMany::One(1), vec![2], OneOrMany::Many(vec![1, 2]))]
+    #[case::one_with_one(OneOrMany::One(1), vec![1], OneOrMany::Many(vec![1, 1]))]
+    #[case::one_with_many(OneOrMany::One(1), vec![2, 3, 4], OneOrMany::Many(vec![1, 2, 3, 4]))]
+    #[case::one_with_many(OneOrMany::One(1), vec![1, 2, 3], OneOrMany::Many(vec![1, 1, 2, 3]))]
+    #[case::many_with_none(OneOrMany::Many(vec![1, 2, 3]), vec![], OneOrMany::Many(vec![1, 2, 3]))]
+    #[case::many_with_one(OneOrMany::Many(vec![1, 2, 3]), vec![4], OneOrMany::Many(vec![1, 2, 3, 4]))]
+    #[case::many_with_one(OneOrMany::Many(vec![1, 2, 3]), vec![1], OneOrMany::Many(vec![1, 2, 3, 1]))]
+    #[case::many_with_many(OneOrMany::Many(vec![1, 2, 3]), vec![4, 5, 6], OneOrMany::Many(vec![1, 2, 3, 4, 5, 6]))]
+    #[case::many_with_many(OneOrMany::Many(vec![1, 2, 3]), vec![3, 5, 6], OneOrMany::Many(vec![1, 2, 3, 3, 5, 6]))]
+    fn test_extend<T>(
+        #[case] mut base: OneOrMany<T>,
+        #[case] extend: impl IntoIterator<Item = T>,
+        #[case] expected: OneOrMany<T>,
+    ) where
+        T: Clone + PartialEq + std::fmt::Debug,
+    {
+        base.extend(extend);
+        assert_eq!(base, expected);
     }
 }
