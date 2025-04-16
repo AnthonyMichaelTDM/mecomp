@@ -4,12 +4,12 @@ use std::fmt::Write;
 
 use mecomp_core::state::StateAudio;
 use mecomp_storage::db::schemas::{
-    album::{Album, AlbumBrief},
-    artist::{Artist, ArtistBrief},
+    album::Album,
+    artist::Artist,
     collection::CollectionBrief,
     dynamic::{query::Compile, DynamicPlaylist},
     playlist::PlaylistBrief,
-    song::{Song, SongBrief},
+    song::Song,
     RecordId,
 };
 
@@ -69,87 +69,83 @@ pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
     Ok(output)
 }
 
-pub fn song_list(prefix: &str, songs: &[Song], indexed: bool) -> Result<String, std::fmt::Error> {
+pub fn indexed_song_list(prefix: &str, songs: &[Song]) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
 
-    if indexed {
-        for (i, song) in songs.iter().enumerate() {
-            writeln!(output, "\t{}: \"{}\" (id: {}),", i, song.title, song.id)?;
+    for (i, song) in songs.iter().enumerate() {
+        writeln!(output, "\t{}:\t{}: \"{}\"", i, song.id, song.title)?;
+    }
+
+    Ok(output)
+}
+
+pub fn song_list(prefix: &str, songs: &[Song], quiet: bool) -> Result<String, std::fmt::Error> {
+    let mut output = String::new();
+
+    writeln!(output, "{prefix}:")?;
+
+    if quiet {
+        for song in songs {
+            writeln!(output, "\t{}", song.id)?;
         }
     } else {
         for song in songs {
-            writeln!(output, "\t{}: \"{}\"", song.id, song.title)?;
+            writeln!(
+                output,
+                "\t{}: \"{}\" (by: {:?}, album: {})",
+                song.id, song.title, song.artist, song.album
+            )?;
         }
     }
 
     Ok(output)
 }
 
-pub fn song_brief_list(prefix: &str, songs: &[SongBrief]) -> Result<String, std::fmt::Error> {
+pub fn album_list(prefix: &str, albums: &[Album], quiet: bool) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
 
-    for song in songs {
-        writeln!(output, "\t\"{}\" (id: {}),", song.title, song.id)?;
+    if quiet {
+        for album in albums {
+            writeln!(output, "\t{}", album.id)?;
+        }
+    } else {
+        for album in albums {
+            writeln!(
+                output,
+                "\t{}: \"{}\" (by: {:?}, {} songs)",
+                album.id, album.title, album.artist, album.song_count
+            )?;
+        }
     }
 
     Ok(output)
 }
 
-pub fn album_list(prefix: &str, albums: &[Album]) -> Result<String, std::fmt::Error> {
+pub fn artist_list(
+    prefix: &str,
+    artists: &[Artist],
+    quiet: bool,
+) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
 
-    for album in albums {
-        writeln!(
-            output,
-            "\t{}: \"{}\" (by: {:?}),",
-            album.id, album.title, album.artist
-        )?;
-    }
-
-    Ok(output)
-}
-
-pub fn album_brief_list(prefix: &str, albums: &[AlbumBrief]) -> Result<String, std::fmt::Error> {
-    let mut output = String::new();
-
-    writeln!(output, "{prefix}:")?;
-
-    for album in albums {
-        writeln!(
-            output,
-            "\t{}: \"{}\" (by: {:?}),",
-            album.id, album.title, album.artist
-        )?;
-    }
-
-    Ok(output)
-}
-
-pub fn artist_list(prefix: &str, artists: &[Artist]) -> Result<String, std::fmt::Error> {
-    let mut output = String::new();
-
-    writeln!(output, "{prefix}:")?;
-
-    for artist in artists {
-        writeln!(output, "\t{}: \"{}\"", artist.id, artist.name)?;
-    }
-
-    Ok(output)
-}
-
-pub fn artist_brief_list(prefix: &str, artists: &[ArtistBrief]) -> Result<String, std::fmt::Error> {
-    let mut output = String::new();
-
-    writeln!(output, "{prefix}:")?;
-
-    for artist in artists {
-        writeln!(output, "\t{}: \"{}\"", artist.id, artist.name)?;
+    if quiet {
+        for artist in artists {
+            writeln!(output, "\t{}", artist.id)?;
+        }
+    } else {
+        for artist in artists {
+            writeln!(
+                output,
+                "\t{}: \"{}\" ({} albums, {} songs)",
+                artist.id, artist.name, artist.album_count, artist.song_count
+            )?;
+        }
     }
 
     Ok(output)
