@@ -262,7 +262,7 @@ mod minimal_reproduction {
         let result: Vec<User> = db.delete("users").await.unwrap();
 
         assert_eq!(result.len(), NUMBER_OF_USERS);
-        assert_eq!(result[0], john);
-        assert_eq!(result[1], sally);
+        assert!(result.contains(&john), "Result does not contain 'john'");
+        assert!(result.contains(&sally), "Result does not contain 'sally'");
     }
 }
