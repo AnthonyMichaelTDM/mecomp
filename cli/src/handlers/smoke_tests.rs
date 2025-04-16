@@ -242,27 +242,27 @@ async fn test_stop_command(#[future] client: MusicPlayerClient) {
 #[case(LibraryCommand::Brief)]
 #[case(LibraryCommand::Health)]
 #[case(LibraryCommand::List {
-    full: false,
+    quiet: false,
     target: LibraryListTarget::Artists,
 })]
 #[case(LibraryCommand::List {
-    full: true,
+    quiet: true,
     target: LibraryListTarget::Artists,
 })]
 #[case(LibraryCommand::List {
-    full: false,
+    quiet: false,
     target: LibraryListTarget::Albums,
 })]
 #[case(LibraryCommand::List {
-    full: true,
+    quiet: true,
     target: LibraryListTarget::Albums,
 })]
 #[case(LibraryCommand::List {
-    full: false,
+    quiet: false,
     target: LibraryListTarget::Songs,
 })]
 #[case(LibraryCommand::List {
-    full: true,
+    quiet: true,
     target: LibraryListTarget::Songs,
 })]
 #[case(LibraryCommand::Get {
@@ -388,9 +388,14 @@ async fn test_rand_command(#[future] client: MusicPlayerClient, #[case] target: 
 #[case(SearchTarget::Song)]
 #[case(SearchTarget::All)]
 #[tokio::test]
-async fn test_search_command(#[future] client: MusicPlayerClient, #[case] target: SearchTarget) {
+async fn test_search_command(
+    #[future] client: MusicPlayerClient,
+    #[case] target: SearchTarget,
+    #[values(true, false)] quiet: bool,
+) {
     let ctx = tarpc::context::current();
     let command = Command::Search {
+        quiet,
         target,
         query: "test".to_string(),
         limit: 10,
@@ -457,7 +462,8 @@ async fn test_playback_command(
 #[case(QueueCommand::Add { id: item_id().to_string(), target: QueueAddTarget::Dynamic })]
 #[case(QueueCommand::Remove { start: 0, end: 1 })]
 #[case(QueueCommand::Clear)]
-#[case(QueueCommand::List)]
+#[case(QueueCommand::List { quiet: false })]
+#[case(QueueCommand::List { quiet: true })]
 #[case(QueueCommand::Set { index: 0 })]
 #[tokio::test]
 async fn test_queue_command(#[future] client: MusicPlayerClient, #[case] command: QueueCommand) {

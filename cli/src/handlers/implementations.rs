@@ -20,12 +20,12 @@ use mecomp_core::{
     },
 };
 use mecomp_storage::db::schemas::{
-    album::{self, Album, AlbumBrief},
-    artist::{self, Artist, ArtistBrief},
+    album::{self, Album},
+    artist::{self, Artist},
     collection::{self, Collection, CollectionBrief},
     dynamic::{self, DynamicPlaylist, DynamicPlaylistChangeSet},
     playlist::{self, Playlist, PlaylistBrief},
-    song::{self, Song, SongBrief},
+    song::{self, Song},
     Id, RecordId,
 };
 use one_or_many::OneOrMany;
@@ -100,6 +100,7 @@ impl CommandHandler for Command {
                 Ok(())
             }
             Self::Search {
+                quiet,
                 target,
                 query,
                 limit,
@@ -114,9 +115,9 @@ impl CommandHandler for Command {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}\n{}\n{}",
-                            printing::song_list("Songs", &songs, false)?,
-                            printing::album_list("Albums", &albums)?,
-                            printing::artist_list("Artists", &artists)?
+                            printing::song_list("Songs", &songs, *quiet)?,
+                            printing::album_list("Albums", &albums, *quiet)?,
+                            printing::artist_list("Artists", &artists, *quiet)?
                         )?;
                     }
                     SearchTarget::Artist => {
@@ -125,7 +126,7 @@ impl CommandHandler for Command {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
-                            printing::artist_list("Artists", &resp)?
+                            printing::artist_list("Artists", &resp, *quiet)?
                         )?;
                     }
                     SearchTarget::Album => {
@@ -134,7 +135,7 @@ impl CommandHandler for Command {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
-                            printing::album_list("Albums", &resp)?
+                            printing::album_list("Albums", &resp, *quiet)?
                         )?;
                     }
                     SearchTarget::Song => {
@@ -143,7 +144,7 @@ impl CommandHandler for Command {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
-                            printing::song_list("Songs", &resp, false)?
+                            printing::song_list("Songs", &resp, *quiet)?
                         )?;
                     }
                 }
@@ -213,65 +214,33 @@ impl CommandHandler for LibraryCommand {
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                 Ok(())
             }
-            Self::List { full, target } => {
-                if *full {
-                    match target {
-                        LibraryListTarget::Artists => {
-                            let resp: Box<[Artist]> = client.library_artists_full(ctx).await??;
-                            writeln!(
-                                stdout,
-                                "Daemon response:\n{}",
-                                printing::artist_list("Artists", &resp)?
-                            )?;
-                        }
-                        LibraryListTarget::Albums => {
-                            let resp: Box<[Album]> = client.library_albums_full(ctx).await??;
-                            writeln!(
-                                stdout,
-                                "Daemon response:\n{}",
-                                printing::album_list("Albums", &resp)?
-                            )?;
-                        }
-                        LibraryListTarget::Songs => {
-                            let resp: Box<[Song]> = client.library_songs_full(ctx).await??;
-                            writeln!(
-                                stdout,
-                                "Daemon response:\n{}",
-                                printing::song_list("Songs", &resp, false)?
-                            )?;
-                        }
+            Self::List { quiet, target } => {
+                match target {
+                    LibraryListTarget::Artists => {
+                        let resp: Box<[Artist]> = client.library_artists_full(ctx).await??;
+                        writeln!(
+                            stdout,
+                            "Daemon response:\n{}",
+                            printing::artist_list("Artists", &resp, *quiet)?
+                        )?;
                     }
-                } else {
-                    match target {
-                        LibraryListTarget::Artists => {
-                            let resp: Box<[ArtistBrief]> =
-                                client.library_artists_brief(ctx).await??;
-                            writeln!(
-                                stdout,
-                                "Daemon response:\n{}",
-                                printing::artist_brief_list("Artists", &resp)?
-                            )?;
-                        }
-                        LibraryListTarget::Albums => {
-                            let resp: Box<[AlbumBrief]> =
-                                client.library_albums_brief(ctx).await??;
-                            writeln!(
-                                stdout,
-                                "Daemon response:\n{}",
-                                printing::album_brief_list("Albums", &resp)?
-                            )?;
-                        }
-                        LibraryListTarget::Songs => {
-                            let resp: Box<[SongBrief]> = client.library_songs_brief(ctx).await??;
-                            writeln!(
-                                stdout,
-                                "Daemon response:\n{}",
-                                printing::song_brief_list("Songs", &resp)?
-                            )?;
-                        }
+                    LibraryListTarget::Albums => {
+                        let resp: Box<[Album]> = client.library_albums_full(ctx).await??;
+                        writeln!(
+                            stdout,
+                            "Daemon response:\n{}",
+                            printing::album_list("Albums", &resp, *quiet)?
+                        )?;
+                    }
+                    LibraryListTarget::Songs => {
+                        let resp: Box<[Song]> = client.library_songs_full(ctx).await??;
+                        writeln!(
+                            stdout,
+                            "Daemon response:\n{}",
+                            printing::song_list("Songs", &resp, false)?
+                        )?;
                     }
                 }
-
                 Ok(())
             }
             Self::Get { target, id } => {
@@ -544,7 +513,19 @@ impl CommandHandler for QueueCommand {
                 client.playback_clear(ctx).await?;
                 writeln!(stdout, "Daemon response:\nqueue cleared")?;
             }
-            Self::List => {
+            Self::List { quiet: false } => {
+                let resp: Option<Box<[Song]>> = client.state_audio(ctx).await?.map(|s| s.queue);
+                if let Some(songs) = resp {
+                    writeln!(
+                        stdout,
+                        "Daemon response:\n{}",
+                        printing::indexed_song_list("Queue", &songs)?
+                    )?;
+                } else {
+                    writeln!(stdout, "Daemon response:\nNo queue available")?;
+                }
+            }
+            Self::List { quiet: true } => {
                 let resp: Option<Box<[Song]>> = client.state_audio(ctx).await?.map(|s| s.queue);
                 if let Some(songs) = resp {
                     writeln!(

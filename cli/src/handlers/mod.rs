@@ -123,9 +123,9 @@ pub enum LibraryCommand {
     Health,
     /// List of stuff in the library
     List {
-        /// List detailed info
-        #[clap(long)]
-        full: bool,
+        /// show only the ids of the items
+        #[clap(long, short, action = clap::ArgAction::SetTrue)]
+        quiet: bool,
         /// What to list (artists, albums, songs)
         #[clap(value_enum)]
         target: LibraryListTarget,
@@ -307,7 +307,11 @@ pub enum QueueCommand {
     /// Clear the queue
     Clear,
     /// List the queue
-    List,
+    List {
+        /// Only show the ids of the items in the queue
+        #[clap(long, short, action = clap::ArgAction::SetTrue)]
+        quiet: bool,
+    },
     /// Add to the queue
     Add {
         /// What to add (artist, album, song, playlist)
