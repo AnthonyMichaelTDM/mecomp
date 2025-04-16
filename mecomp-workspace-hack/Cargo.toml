@@ -93,8 +93,8 @@ approx-d8f496e17d97b5cb = { package = "approx", version = "0.5" }
 bitflags = { version = "2", default-features = false, features = ["std"] }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
-clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "usage"] }
-clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "usage"] }
+clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
+clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
 concurrent-queue = { version = "2" }
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
 digest = { version = "0.10", features = ["mac", "std"] }
@@ -157,8 +157,8 @@ bitflags = { version = "2", default-features = false, features = ["std"] }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
 cc = { version = "1", default-features = false, features = ["parallel"] }
-clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "usage"] }
-clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "usage"] }
+clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
+clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
 concurrent-queue = { version = "2" }
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
 digest = { version = "0.10", features = ["mac", "std"] }
