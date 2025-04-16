@@ -183,7 +183,7 @@ mod minimal_reproduction {
 
         assert_eq!(cnt, Some(Count::new(0)));
 
-        let john_id = RecordId::from(("users", "1"));
+        let john_id = RecordId::from(("users", "0"));
         let john = User {
             id: john_id.clone(),
             name: "John".to_string(),
@@ -191,7 +191,7 @@ mod minimal_reproduction {
             favorite_numbers: [1, 2, 3, 4, 5, 6, 7],
         };
 
-        let sally_id = RecordId::from(("users", "2"));
+        let sally_id = RecordId::from(("users", "1"));
         let sally = User {
             id: sally_id.clone(),
             name: "Sally".to_string(),
@@ -219,6 +219,19 @@ mod minimal_reproduction {
 
         assert_eq!(result, Some(john.clone()));
 
+        const NUMBER_OF_USERS: usize = 100;
+        // create like 100 more users
+        for i in 2..NUMBER_OF_USERS {
+            let user_id = RecordId::from(("users", i.to_string()));
+            let user = User {
+                id: user_id.clone(),
+                name: format!("User {}", i),
+                age: i as i32,
+                favorite_numbers: [i as i32; 7],
+            };
+            let _: Option<User> = db.create(user_id.clone()).content(user).await.unwrap();
+        }
+
         let mut resp_new = db
             // new syntax
             .query("SELECT count() FROM users GROUP ALL")
@@ -228,7 +241,7 @@ mod minimal_reproduction {
         dbg!(&resp_new);
         let res = resp_new.take(0).unwrap();
         let cnt: Option<Count> = res.1.unwrap();
-        assert_eq!(cnt, Some(Count::new(2)));
+        assert_eq!(cnt, Some(Count::new(NUMBER_OF_USERS)));
         let stats_new: Stats = res.0;
 
         let mut resp_old = db
@@ -240,7 +253,7 @@ mod minimal_reproduction {
         dbg!(&resp_old);
         let res = resp_old.take(0).unwrap();
         let cnt: Option<usize> = res.1.unwrap();
-        assert_eq!(cnt, Some(2));
+        assert_eq!(cnt, Some(NUMBER_OF_USERS));
         let stats_old: Stats = res.0;
 
         // just a check to ensure the new syntax is faster
@@ -248,6 +261,8 @@ mod minimal_reproduction {
 
         let result: Vec<User> = db.delete("users").await.unwrap();
 
-        assert_eq!(result, vec![john.clone(), sally.clone()]);
+        assert_eq!(result.len(), NUMBER_OF_USERS);
+        assert_eq!(result[0], john);
+        assert_eq!(result[1], sally);
     }
 }
