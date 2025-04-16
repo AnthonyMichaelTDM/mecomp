@@ -2,7 +2,7 @@
 
 # Run cargo machete
 echo "Running cargo machete..."
-cargo machete
+cargo machete --skip-target-dir
 if [ $? -ne 0 ]; then
   echo "cargo machete failed, aborting commit"
   exit 1
