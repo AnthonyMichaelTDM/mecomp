@@ -18,6 +18,7 @@ compile_error!("The cli feature is required to build the daemon binary");
 
 /// Options configurable via the CLI.
 #[derive(Parser)]
+#[command(name = "mecomp-daemon", version = env!("CARGO_PKG_VERSION"), about)]
 struct Flags {
     /// Set the TCP port that the daemon will listen on
     #[clap(
