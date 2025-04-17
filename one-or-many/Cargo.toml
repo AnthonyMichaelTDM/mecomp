@@ -1,6 +1,6 @@
 [package]
 name = "one-or-many"
-version = "0.2.0"
+version = "0.3.0"
 edition.workspace = true
 authors.workspace = true
 description = "Utility container for working with data that can either be null, a single value, or a list of values."
@@ -14,7 +14,7 @@ license.workspace = true
 bench = false
 
 [features]
-default = []
+default = ["serde"]
 serde = ["dep:serde"]
 surrealdb = ["serde", "dep:surrealdb"]
 
@@ -26,6 +26,7 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 [dev-dependencies]
 rstest = { workspace = true }
 pretty_assertions = { workspace = true }
+serde_json = "1.0"
 surrealqlx = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
