@@ -292,6 +292,7 @@ pub fn create_song_metadata(
     Ok(SongMetadata::load_from_path(
         new_path,
         &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
+        &OneOrMany::None,
         None,
     )?)
 }

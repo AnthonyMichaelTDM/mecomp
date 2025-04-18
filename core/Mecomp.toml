@@ -20,6 +20,24 @@ library_paths = ["~/Music"]
 ## artist_separator = [" & ", "; "]
 ## ```
 artist_separator = ["; ", ", ", " & ", " feat. ", " ft. "]
+## Exceptions for artist name separation, for example:
+## "Foo & Bar; Baz" would be split into \["Foo", "Bar", "Baz"\] if the separators are set to "&" and "; ".
+## 
+## However, if the following exception is set:
+## ```toml
+## [daemon]
+## protected_artist_names = ["Foo & Bar"]
+## ```
+## Then the artist "Foo & Bar; Baz" would be split into \["Foo & Bar", "Baz"\].
+## 
+## Note that the exception applies to the entire "name", so:
+## ```toml
+## [daemon]
+## protected_artist_names = ["Foo & Bar"]
+## ```
+## would split "Foo & Bar" into \["Foo & Bar"\], 
+## but "Foo & BarBaz" would still be split into \["Foo", "BarBaz"\].
+protected_artist_names = []
 ## Separators for genres in song metadata.
 ## For example, "Foo, Bar, Baz" would be split into ["Foo", "Bar", "Baz"]. if the separator is ", ".
 ## If the separator is not found, the entire string is considered as a single genre.

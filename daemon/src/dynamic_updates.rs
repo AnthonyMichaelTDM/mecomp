@@ -59,6 +59,7 @@ pub fn init_music_library_watcher(
     db: Arc<Surreal<Db>>,
     library_paths: &[PathBuf],
     artist_name_separator: OneOrMany<String>,
+    protected_artist_names: OneOrMany<String>,
     genre_separator: Option<String>,
 ) -> anyhow::Result<MusicLibEventHandlerGuard> {
     let (tx, rx) = futures::channel::mpsc::unbounded();
@@ -69,7 +70,12 @@ pub fn init_music_library_watcher(
     std::thread::Builder::new()
         .name(String::from("Music Library Watcher"))
         .spawn(move || {
-            let handler = MusicLibEventHandler::new(db, artist_name_separator, genre_separator);
+            let handler = MusicLibEventHandler::new(
+                db,
+                artist_name_separator,
+                protected_artist_names,
+                genre_separator,
+            );
             futures::executor::block_on(async {
                 let mut stop_rx = stop_rx.fuse();
                 let mut rx = rx.fuse();
@@ -137,6 +143,7 @@ impl MusicLibEventHandlerGuard {
 struct MusicLibEventHandler {
     db: Arc<Surreal<Db>>,
     artist_name_separator: OneOrMany<String>,
+    protected_artist_names: OneOrMany<String>,
     genre_separator: Option<String>,
 }
 
@@ -145,11 +152,13 @@ impl MusicLibEventHandler {
     pub const fn new(
         db: Arc<Surreal<Db>>,
         artist_name_separator: OneOrMany<String>,
+        protected_artist_names: OneOrMany<String>,
         genre_separator: Option<String>,
     ) -> Self {
         Self {
             db,
             artist_name_separator,
+            protected_artist_names,
             genre_separator,
         }
     }
@@ -238,6 +247,7 @@ impl MusicLibEventHandler {
                             let metadata = SongMetadata::load_from_path(
                                 path.to_owned(),
                                 &self.artist_name_separator,
+                                &self.protected_artist_names,
                                 self.genre_separator.as_deref(),
                             )?;
 
@@ -284,6 +294,7 @@ impl MusicLibEventHandler {
                         let new_metadata: SongMetadata = SongMetadata::load_from_path(
                             path.to_owned(),
                             &self.artist_name_separator,
+                            &self.protected_artist_names,
                             self.genre_separator.as_deref(),
                         )?;
 
@@ -398,6 +409,7 @@ mod tests {
             db.clone(),
             &[music_lib.path().to_owned()],
             OneOrMany::One(ARTIST_NAME_SEPARATOR.into()),
+            OneOrMany::None,
             Some(ARTIST_NAME_SEPARATOR.into()),
         )
         .expect("Failed to create music library watcher");
