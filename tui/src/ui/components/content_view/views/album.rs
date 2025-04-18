@@ -164,10 +164,12 @@ impl Component for LibraryAlbumsView {
             KeyCode::Char('s') => {
                 self.props.sort_mode = self.props.sort_mode.next();
                 self.props.sort_mode.sort_items(&mut self.props.albums);
+                self.tree_state.lock().unwrap().scroll_selected_into_view();
             }
             KeyCode::Char('S') => {
                 self.props.sort_mode = self.props.sort_mode.prev();
                 self.props.sort_mode.sort_items(&mut self.props.albums);
+                self.tree_state.lock().unwrap().scroll_selected_into_view();
             }
             _ => {}
         }
