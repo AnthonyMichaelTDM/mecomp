@@ -202,6 +202,15 @@ yt-dlp --extract-audio --audio-format mp3 --yes-playlist --embed-thumbnail --emb
 
 you can then use an audio tagger such as [MusicBrainz Picard](https://picard.musicbrainz.org/) to tag the music files with missing metadata.
 
+### Shell Completions
+
+All the MECOMP binaries have `COMPLETE=$SHELL <bin>` integration thanks to [clap_complete](https://docs.rs/clap_complete/latest/clap_complete/env/index.html).
+To use it, you can run (or add to your .zshrc / .bashrc) the following:
+```sh
+source <(COMPLETE=bash mecomp-cli)
+```
+(repeat for `mecomp-daemon`, `mecomp-tui`, etc.)
+
 ## Architecture
 
 MECOMP is designed to be modular and extensible, and is composed of a daemon (which is the core of the application), and several clients that communicate with the daemon.
