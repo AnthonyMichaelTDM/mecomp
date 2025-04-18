@@ -159,25 +159,20 @@ impl AudioKernel {
         let (sink, mut queue_rx) = rodio::Sink::new_idle();
 
         // start a detached thread that continuously polls the queue_rx, until it receives a command to exit
-        let (tx, rx) = tokio::sync::oneshot::channel();
+        let (tx, mut rx) = tokio::sync::oneshot::channel();
 
         std::thread::spawn(move || {
             // basically, call rx.await and while it is waiting for a command, poll the queue_rx
-            tokio::runtime::Builder::new_current_thread()
-                .enable_time()
-                .build()
-                .unwrap()
-                .block_on(async {
-                    tokio::select! {
-                        _ = rx => {},
-                        () = async {
-                            loop {
-                                queue_rx.next();
-                                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
-                            }
-                        } => {},
-                    }
-                });
+            loop {
+                if matches!(
+                    rx.try_recv(),
+                    Ok(()) | Err(tokio::sync::oneshot::error::TryRecvError::Closed)
+                ) {
+                    break;
+                }
+                queue_rx.next();
+                std::thread::sleep(Duration::from_millis(1));
+            }
         });
 
         sink.pause();
