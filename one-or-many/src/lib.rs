@@ -20,13 +20,42 @@ use serde::{Deserialize, Serialize};
 ///
 /// To let it be useful in other contexts, it aims to implement many of the same traits and functions as `Vec<T>` and `Option<T>`.
 #[derive(Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum OneOrMany<T> {
     One(T),
     Many(Vec<T>),
     #[default]
     None,
+}
+
+#[cfg(feature = "serde")]
+impl<'de, T> Deserialize<'de> for OneOrMany<T>
+where
+    T: Deserialize<'de> + Clone,
+{
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Inner<T> {
+            One(T),
+            Many(Vec<T>),
+            None,
+        }
+
+        let inner = Inner::deserialize(deserializer)?;
+        Ok(match inner {
+            Inner::One(t) => Self::One(t),
+            Inner::Many(t) if t.is_empty() => Self::None,
+            Inner::Many(t) if t.len() == 1 => Self::One(t[0].clone()),
+            Inner::Many(t) => Self::Many(t),
+            Inner::None => Self::None,
+        })
+    }
 }
 
 impl<T> OneOrMany<T> {
@@ -364,6 +393,20 @@ mod tests {
     use super::*;
     use pretty_assertions::{assert_eq, assert_ne};
     use rstest::rstest;
+
+    #[rstest]
+    #[case::none(OneOrMany::<usize>::None, "null")]
+    #[case::none(OneOrMany::<usize>::None, "[]")]
+    #[case::one(OneOrMany::One(1), "1")]
+    #[case::one(OneOrMany::One(1), "[1]")]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), "[1, 2, 3]")]
+    fn test_deserialize(#[case] expected: OneOrMany<usize>, #[case] input: &str)
+    where
+        usize: serde::de::DeserializeOwned,
+    {
+        let actual: OneOrMany<usize> = serde_json::from_str(input).unwrap();
+        assert_eq!(actual, expected);
+    }
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, 0)]
