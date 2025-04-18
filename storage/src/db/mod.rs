@@ -7,7 +7,7 @@ pub(crate) mod queries;
 pub mod schemas;
 
 #[cfg(feature = "db")]
-use surrealdb::{engine::local::Db, Surreal};
+use surrealdb::{Surreal, engine::local::Db};
 
 #[cfg(feature = "db")]
 #[cfg(not(tarpaulin_include))]
@@ -138,9 +138,9 @@ mod minimal_reproduction {
     //! This module contains minimal reproductions of issues from MECOMPs past.
     //! They exist to ensure that the issues are indeed fixed.
     use serde::{Deserialize, Serialize};
-    use surrealdb::{engine::local::Mem, method::Stats, RecordId, Surreal};
+    use surrealdb::{RecordId, Surreal, engine::local::Mem, method::Stats};
 
-    use crate::db::queries::generic::{count, Count};
+    use crate::db::queries::generic::{Count, count};
 
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
     struct User {

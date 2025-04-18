@@ -1,8 +1,8 @@
 pub mod dynamic;
 use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::{
-    album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
-    playlist::Playlist, song::Song, RecordId,
+    RecordId, album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
+    playlist::Playlist, song::Song,
 };
 use one_or_many::OneOrMany;
 use ratatui::{
@@ -331,8 +331,8 @@ pub struct RandomViewProps {
 pub mod checktree_utils {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     use mecomp_storage::db::schemas::{
-        album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
-        playlist::Playlist, song::Song, RecordId,
+        RecordId, album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
+        playlist::Playlist, song::Song,
     };
     use ratatui::{
         layout::Position,

@@ -7,7 +7,7 @@ use std::{sync::Arc, time::Duration};
 
 use tokio::sync::{
     broadcast,
-    mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+    mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
 
 use mecomp_core::state::{Percent, StateAudio};

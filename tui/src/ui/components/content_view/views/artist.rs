@@ -15,19 +15,19 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, AudioAction, PopupAction, QueueAction, ViewAction},
     ui::{
-        colors::{border_color, TEXT_HIGHLIGHT},
-        components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
+        AppState,
+        colors::{TEXT_HIGHLIGHT, border_color},
+        components::{Component, ComponentRender, RenderProps, content_view::ActiveView},
         widgets::{
             popups::PopupType,
-            tree::{state::CheckTreeState, CheckTree},
+            tree::{CheckTree, state::CheckTreeState},
         },
-        AppState,
     },
 };
 
 use super::{
-    checktree_utils::create_artist_tree_leaf, generic::ItemView, sort_mode::NameSort,
-    traits::SortMode, ArtistViewProps,
+    ArtistViewProps, checktree_utils::create_artist_tree_leaf, generic::ItemView,
+    sort_mode::NameSort, traits::SortMode,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -477,29 +477,23 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
-                "artist",
-                item_id()
-            )
-                .into()])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
+                ("artist", item_id()).into()
+            ])))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![(
-                "artist",
-                item_id()
-            )
-                .into()],)))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![
+                ("artist", item_id()).into()
+            ],)))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
-                "artist",
-                item_id()
-            )
-                .into()])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                ("artist", item_id()).into()
+            ])))
         );
 
         // there are checked items
@@ -524,33 +518,27 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
-                "song",
-                item_id()
-            )
-                .into()])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
+                ("song", item_id()).into()
+            ])))
         );
 
         // start radio
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![(
-                "song",
-                item_id()
-            )
-                .into()],)))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![
+                ("song", item_id()).into()
+            ],)))
         );
 
         // add to playlist
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
-                "song",
-                item_id()
-            )
-                .into()])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                ("song", item_id()).into()
+            ])))
         );
     }
 
@@ -844,11 +832,9 @@ mod library_view_tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
-                "artist",
-                item_id()
-            )
-                .into()])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
+                ("artist", item_id()).into()
+            ])))
         );
 
         // start radio
@@ -856,11 +842,9 @@ mod library_view_tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![(
-                "artist",
-                item_id()
-            )
-                .into()],)))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![
+                ("artist", item_id()).into()
+            ],)))
         );
 
         // add to playlist
@@ -868,11 +852,9 @@ mod library_view_tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
-                "artist",
-                item_id()
-            )
-                .into()])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                ("artist", item_id()).into()
+            ])))
         );
     }
 

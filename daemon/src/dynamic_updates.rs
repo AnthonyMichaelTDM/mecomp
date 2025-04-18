@@ -16,13 +16,13 @@ use notify::INotifyWatcher;
 #[cfg(target_os = "windows")]
 use notify::ReadDirectoryChangesWatcher;
 use notify::{
-    event::{CreateKind, MetadataKind, ModifyKind, RemoveKind, RenameMode},
     EventKind, RecursiveMode,
+    event::{CreateKind, MetadataKind, ModifyKind, RemoveKind, RenameMode},
 };
 use notify_debouncer_full::RecommendedCache;
-use notify_debouncer_full::{new_debouncer, DebouncedEvent, Debouncer};
+use notify_debouncer_full::{DebouncedEvent, Debouncer, new_debouncer};
 use one_or_many::OneOrMany;
-use surrealdb::{engine::local::Db, Surreal};
+use surrealdb::{Surreal, engine::local::Db};
 
 #[cfg(target_os = "linux")]
 type WatcherType = INotifyWatcher;
@@ -394,10 +394,10 @@ mod tests {
     use lofty::file::AudioFile;
     use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
-    use tempfile::{tempdir, TempDir};
+    use tempfile::{TempDir, tempdir};
 
     use mecomp_storage::test_utils::{
-        arb_song_case, create_song_metadata, init_test_database, ARTIST_NAME_SEPARATOR,
+        ARTIST_NAME_SEPARATOR, arb_song_case, create_song_metadata, init_test_database,
     };
 
     #[fixture]

@@ -6,11 +6,11 @@ use std::fmt::Display;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{
+    Frame,
     layout::{Alignment, Margin, Position, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState},
-    Frame,
 };
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -20,10 +20,10 @@ use crate::{
         component::ActiveComponent,
     },
     ui::{
-        colors::{border_color, TEXT_HIGHLIGHT, TEXT_NORMAL},
+        AppState,
+        colors::{TEXT_HIGHLIGHT, TEXT_NORMAL, border_color},
         components::{Component, ComponentRender, RenderProps},
         widgets::popups::PopupType,
-        AppState,
     },
 };
 

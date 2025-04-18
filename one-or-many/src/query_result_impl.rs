@@ -30,11 +30,11 @@ mod tests {
     use rstest::rstest;
     use serde::{Deserialize, Serialize};
     use surrealdb::{
+        RecordId, RecordIdKey, Surreal,
         engine::local::{Db, Mem},
         sql::Id,
-        RecordId, RecordIdKey, Surreal,
     };
-    use surrealqlx::{register_tables, Table};
+    use surrealqlx::{Table, register_tables};
 
     const TABLE_NAME: &str = "one_or_many_test_table";
 

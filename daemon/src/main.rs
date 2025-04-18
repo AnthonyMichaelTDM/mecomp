@@ -5,8 +5,8 @@
 use std::path::PathBuf;
 
 use clap::{
-    builder::{PossibleValuesParser, TypedValueParser},
     CommandFactory, Parser,
+    builder::{PossibleValuesParser, TypedValueParser},
 };
 use log::LevelFilter;
 

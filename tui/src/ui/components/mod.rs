@@ -4,7 +4,7 @@ pub mod queuebar;
 pub mod sidebar;
 
 use crossterm::event::{KeyEvent, MouseEvent};
-use ratatui::{layout::Rect, Frame};
+use ratatui::{Frame, layout::Rect};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::state::action::Action;

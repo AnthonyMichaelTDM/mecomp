@@ -12,7 +12,7 @@ use std::{
 use log::info;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::{errors::AnalysisResult, Analysis, ResampledAudio};
+use crate::{Analysis, ResampledAudio, errors::AnalysisResult};
 
 mod mecomp;
 #[allow(clippy::module_name_repetitions)]

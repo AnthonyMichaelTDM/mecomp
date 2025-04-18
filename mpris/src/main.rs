@@ -1,6 +1,6 @@
 use clap::{
-    builder::{PossibleValuesParser, TypedValueParser},
     CommandFactory, Parser, ValueHint,
+    builder::{PossibleValuesParser, TypedValueParser},
 };
 use log::LevelFilter;
 

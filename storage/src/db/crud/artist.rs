@@ -279,7 +279,7 @@ mod tests {
     use super::*;
     use crate::test_utils::init_test_database;
 
-    use anyhow::{anyhow, Result};
+    use anyhow::{Result, anyhow};
     use pretty_assertions::assert_eq;
 
     fn create_artist() -> Artist {

@@ -2,14 +2,14 @@
 
 use std::path::Path;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use mecomp_analysis::{
+    SAMPLE_RATE,
     chroma::ChromaDesc,
     decoder::{Decoder as _, MecompDecoder as Decoder},
     misc::LoudnessDesc,
     temporal::BPMDesc,
     timbral::{SpectralDesc, ZeroCrossingRateDesc},
-    SAMPLE_RATE,
 };
 
 fn bench_descriptors(c: &mut Criterion) {

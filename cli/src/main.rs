@@ -2,7 +2,7 @@ use clap::{CommandFactory, Parser};
 
 mod handlers;
 
-use handlers::{utils::WriteAdapter, CommandHandler};
+use handlers::{CommandHandler, utils::WriteAdapter};
 
 /// Options configurable via the CLI.
 #[derive(Debug, Parser)]

@@ -20,7 +20,7 @@ use rand::distributions::Uniform;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use statrs::statistics::Statistics;
 
-use crate::{errors::ClusteringError, Analysis, Feature, NUMBER_FEATURES};
+use crate::{Analysis, Feature, NUMBER_FEATURES, errors::ClusteringError};
 
 pub struct AnalysisArray(pub(crate) Array2<Feature>);
 
@@ -95,11 +95,7 @@ const EMBEDDING_SIZE: usize =
     //  2;
     {
         let log2 = usize::ilog2(NUMBER_FEATURES) as usize;
-        if log2 < 2 {
-            2
-        } else {
-            log2
-        }
+        if log2 < 2 { 2 } else { log2 }
     };
 
 #[allow(clippy::module_name_repetitions)]
@@ -496,16 +492,20 @@ mod tests {
         let ref_data = generate_ref_single(data.view());
 
         // First column all vals between 10.0 and 30.0
-        assert!(ref_data
-            .slice(s![.., 0])
-            .iter()
-            .all(|v| *v >= 10.0 && *v <= 30.0));
+        assert!(
+            ref_data
+                .slice(s![.., 0])
+                .iter()
+                .all(|v| *v >= 10.0 && *v <= 30.0)
+        );
 
         // Second column all vals between -10.0 and -30.0
-        assert!(ref_data
-            .slice(s![.., 1])
-            .iter()
-            .all(|v| *v <= -10.0 && *v >= -30.0));
+        assert!(
+            ref_data
+                .slice(s![.., 1])
+                .iter()
+                .all(|v| *v <= -10.0 && *v >= -30.0)
+        );
 
         // check that the shape is correct
         assert_eq!(ref_data.shape(), data.shape());

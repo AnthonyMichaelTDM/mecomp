@@ -17,7 +17,7 @@ use crate::{
         action::{Action, AudioAction, ComponentAction, QueueAction},
         component::ActiveComponent,
     },
-    ui::colors::{border_color, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL},
+    ui::colors::{TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL, border_color},
 };
 
 use super::{AppState, Component, ComponentRender, RenderProps};

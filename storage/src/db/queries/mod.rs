@@ -17,7 +17,7 @@ pub fn define_analyzer(
     name: &str,
     tokenizer: Option<Tokenizer>,
     filters: &[&str],
-) -> impl IntoQuery {
+) -> impl IntoQuery + use<> {
     let tokenizer_string = tokenizer.map_or_else(String::new, |t| format!(" TOKENIZERS {t}"));
 
     let filter_string = filters.is_empty().then(String::new).unwrap_or_else(|| {

@@ -2,17 +2,17 @@ use std::time::Instant;
 use std::{io::Write, sync::LazyLock};
 
 use env_logger::fmt::style::{RgbColor, Style};
-use log::{info, Record};
+use log::{Record, info};
 #[cfg(feature = "otel_tracing")]
 use opentelemetry::trace::TracerProvider as _;
 #[cfg(feature = "otel_tracing")]
 use opentelemetry_otlp::WithExportConfig as _;
 #[cfg(feature = "otel_tracing")]
 use opentelemetry_sdk::Resource;
-#[cfg(any(feature = "otel_tracing", feature = "flame"))]
-use tracing_subscriber::layer::SubscriberExt as _;
 #[cfg(feature = "otel_tracing")]
 use tracing_subscriber::Layer as _;
+#[cfg(any(feature = "otel_tracing", feature = "flame"))]
+use tracing_subscriber::layer::SubscriberExt as _;
 
 use crate::format_duration;
 
@@ -69,15 +69,20 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
     // If `RUST_LOG` isn't set, override it and disables
     // all library crate logs except for mecomp and its sub-crates.
     let mut env = String::new();
-    #[allow(clippy::option_if_let_else)]
     match std::env::var("RUST_LOG") {
         Ok(e) => {
-            std::env::set_var("RUST_LOG", &e);
+            unsafe {
+                // SAFETY: This is safe because this code runs before we start spawning threads.
+                std::env::set_var("RUST_LOG", &e);
+            }
             env = e;
         }
         // SOMEDAY:
         // Support frontend names without *mecomp*.
-        _ => std::env::set_var("RUST_LOG", format!("off,mecomp={filter}")),
+        _ => unsafe {
+            // SAFETY: This is safe because this code runs before we start spawning threads.
+            std::env::set_var("RUST_LOG", format!("off,mecomp={filter}"));
+        },
     }
 
     env_logger::Builder::new()
@@ -227,7 +232,10 @@ pub fn init_tracing() -> impl tracing::Subscriber {
         .add_directive("reqwest=off".parse().unwrap());
 
     #[cfg(feature = "otel_tracing")]
-    std::env::set_var("OTEL_BSP_MAX_EXPORT_BATCH_SIZE", "12");
+    unsafe {
+        // SAFETY: This is safe because this code runs before we start spawning threads.
+        std::env::set_var("OTEL_BSP_MAX_EXPORT_BATCH_SIZE", "12");
+    }
     #[cfg(feature = "otel_tracing")]
     let tracer = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_batch_exporter(

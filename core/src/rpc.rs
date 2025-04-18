@@ -10,13 +10,13 @@ use std::{
 };
 
 use mecomp_storage::db::schemas::{
+    RecordId,
     album::{Album, AlbumBrief},
     artist::{Artist, ArtistBrief},
     collection::{Collection, CollectionBrief},
-    dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistChangeSet},
+    dynamic::{DynamicPlaylist, DynamicPlaylistChangeSet, query::Query},
     playlist::{Playlist, PlaylistBrief},
     song::{Song, SongBrief},
-    RecordId,
 };
 use one_or_many::OneOrMany;
 use serde::{Deserialize, Serialize};
@@ -25,8 +25,8 @@ use tarpc::{client, tokio_serde::formats::Json};
 use crate::{
     errors::SerializableLibraryError,
     state::{
-        library::{LibraryBrief, LibraryFull, LibraryHealth},
         RepeatMode, SeekType, StateAudio,
+        library::{LibraryBrief, LibraryFull, LibraryHealth},
     },
 };
 
@@ -297,7 +297,7 @@ pub trait MusicPlayer {
     ) -> Result<DynamicPlaylist, SerializableLibraryError>;
     /// Dynamic Playlists: remove a DP
     async fn dynamic_playlist_remove(id: DynamicPlaylistId)
-        -> Result<(), SerializableLibraryError>;
+    -> Result<(), SerializableLibraryError>;
     /// Dynamic Playlists: get a DP by its ID
     async fn dynamic_playlist_get(id: DynamicPlaylistId) -> Option<DynamicPlaylist>;
     /// Dynamic Playlists: get the songs of a DP

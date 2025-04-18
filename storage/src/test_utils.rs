@@ -9,18 +9,18 @@ use std::{
 use anyhow::Result;
 use lofty::{config::WriteOptions, file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
 use one_or_many::OneOrMany;
-use rand::{seq::IteratorRandom, Rng};
+use rand::{Rng, seq::IteratorRandom};
 #[cfg(feature = "db")]
 use surrealdb::{
+    Connection, Surreal,
     engine::local::{Db, Mem},
     sql::Id,
-    Connection, Surreal,
 };
 
-#[cfg(feature = "analysis")]
-use crate::db::schemas::analysis::Analysis;
 #[cfg(not(feature = "db"))]
 use crate::db::schemas::Id;
+#[cfg(feature = "analysis")]
+use crate::db::schemas::analysis::Analysis;
 use crate::db::schemas::{
     album::Album,
     artist::Artist,

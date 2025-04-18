@@ -18,21 +18,21 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, ViewAction},
     ui::{
-        colors::{border_color, TEXT_HIGHLIGHT, TEXT_NORMAL},
-        components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
-        widgets::tree::{state::CheckTreeState, CheckTree},
         AppState,
+        colors::{TEXT_HIGHLIGHT, TEXT_NORMAL, border_color},
+        components::{Component, ComponentRender, RenderProps, content_view::ActiveView},
+        widgets::tree::{CheckTree, state::CheckTreeState},
     },
 };
 
 use super::{
+    CollectionViewProps,
     checktree_utils::{
         construct_add_to_playlist_action, construct_add_to_queue_action,
         create_collection_tree_leaf, create_song_tree_leaf,
     },
     sort_mode::{NameSort, SongSort},
     traits::SortMode,
-    CollectionViewProps,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -724,20 +724,16 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
-                "collection",
-                item_id()
-            )
-                .into()])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
+                ("collection", item_id()).into()
+            ])))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
-                "collection",
-                item_id()
-            )
-                .into()])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                ("collection", item_id()).into()
+            ])))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('d')));
 
@@ -760,22 +756,18 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
-                "song",
-                item_id()
-            )
-                .into()])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
+                ("song", item_id()).into()
+            ])))
         );
 
         // add to collection
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
-                "song",
-                item_id()
-            )
-                .into()])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                ("song", item_id()).into()
+            ])))
         );
     }
 

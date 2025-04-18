@@ -3,7 +3,7 @@
 
 use tokio::sync::{
     broadcast,
-    mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+    mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
 
 use crate::{state::action::PopupAction, termination::Interrupted, ui::widgets::popups::PopupType};

@@ -1,9 +1,9 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use mecomp_analysis::{
     decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder},
     utils::stft,
 };
-use ndarray::{arr2, Array1, Array2};
+use ndarray::{Array1, Array2, arr2};
 use ndarray_npy::ReadNpyExt;
 use std::{fs::File, path::Path};
 

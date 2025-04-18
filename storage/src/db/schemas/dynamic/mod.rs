@@ -5,7 +5,7 @@ use super::Id;
 use super::RecordId;
 use query::Query;
 #[cfg(feature = "db")]
-use surrealdb::{opt::IntoQuery, RecordId};
+use surrealdb::{RecordId, opt::IntoQuery};
 
 pub mod query;
 
@@ -45,7 +45,7 @@ impl DynamicPlaylist {
     #[must_use]
     #[cfg(feature = "db")]
     #[inline]
-    pub fn get_query(&self) -> impl IntoQuery {
+    pub fn get_query(&self) -> impl IntoQuery + use<> {
         use query::Compile;
 
         format!(

@@ -2,41 +2,41 @@ use std::{str::FromStr, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::format_duration;
-use mecomp_storage::db::schemas::dynamic::{query::Query, DynamicPlaylist};
+use mecomp_storage::db::schemas::dynamic::{DynamicPlaylist, query::Query};
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
-    Frame,
 };
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     state::action::{Action, LibraryAction, PopupAction, ViewAction},
     ui::{
+        AppState,
         colors::{
-            border_color, BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT,
-            TEXT_NORMAL,
+            BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
+            border_color,
         },
-        components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
+        components::{Component, ComponentRender, RenderProps, content_view::ActiveView},
         widgets::{
             input_box::{self, InputBox},
             popups::PopupType,
-            tree::{state::CheckTreeState, CheckTree},
+            tree::{CheckTree, state::CheckTreeState},
         },
-        AppState,
     },
 };
 
 use super::{
+    DynamicPlaylistViewProps,
     checktree_utils::{
         construct_add_to_playlist_action, construct_add_to_queue_action,
         construct_start_radio_action, create_dynamic_playlist_tree_leaf, create_song_tree_leaf,
     },
     sort_mode::{NameSort, SongSort},
     traits::SortMode,
-    DynamicPlaylistViewProps,
 };
 
 /// A Query Building interface for Dynamic Playlists

@@ -2,7 +2,7 @@
 
 use std::num::NonZeroUsize;
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use mecomp_daemon::services::library::analyze;
 use mecomp_storage::{
     db::schemas::song::Song,
@@ -43,7 +43,7 @@ fn benchmark_analyze(c: &mut Criterion) {
                 .join()
                 .unwrap()
             },
-            |db| async move {
+            async |db| {
                 analyze(&db, false).await.unwrap();
             },
         );

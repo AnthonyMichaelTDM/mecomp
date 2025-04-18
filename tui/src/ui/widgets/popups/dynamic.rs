@@ -4,27 +4,27 @@ use std::str::FromStr;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_storage::db::schemas::{
-    dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistChangeSet},
     RecordId,
+    dynamic::{DynamicPlaylist, DynamicPlaylistChangeSet, query::Query},
 };
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Position, Rect},
     style::Style,
     text::Line,
     widgets::Block,
-    Frame,
 };
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     state::action::{Action, LibraryAction, PopupAction},
     ui::{
+        AppState,
         colors::{
             BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
         },
         components::{Component, ComponentRender},
         widgets::input_box::{InputBox, RenderProps},
-        AppState,
     },
 };
 

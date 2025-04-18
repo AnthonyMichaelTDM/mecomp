@@ -4,17 +4,17 @@ pub mod interfaces;
 
 use std::time::Duration;
 
-use anyhow::{anyhow, Context as _, Result};
+use anyhow::{Context as _, Result, anyhow};
 
 use mecomp_core::{
-    rpc::{init_client, MusicPlayerClient},
+    rpc::{MusicPlayerClient, init_client},
     state::{Percent, RepeatMode, StateAudio, Status},
     udp::{Event, Listener, Message, StateChange},
 };
 use mecomp_storage::db::schemas::song::Song;
 use mpris_server::{
-    zbus::{zvariant::ObjectPath, Error as ZbusError},
     LoopStatus, Metadata, PlaybackStatus, Property, Server, Signal, Time, TrackId,
+    zbus::{Error as ZbusError, zvariant::ObjectPath},
 };
 use tarpc::context::Context;
 use tokio::sync::{RwLock, RwLockReadGuard};
@@ -112,13 +112,12 @@ impl Mpris {
         let mut retries = 0;
 
         while retries < MAX_RETRIES {
-            match self.connect().await {
-                Ok(()) => return Ok(()),
-                Err(e) => {
-                    retries += 1;
-                    log::warn!("Failed to connect to daemon: {e}");
-                    tokio::time::sleep(BASE_DELAY * u32::from(retries)).await;
-                }
+            if let Err(e) = self.connect().await {
+                retries += 1;
+                log::warn!("Failed to connect to daemon: {e}");
+                tokio::time::sleep(BASE_DELAY * u32::from(retries)).await;
+            } else {
+                return Ok(());
             }
         }
 
@@ -408,7 +407,7 @@ pub mod test_utils {
     use mecomp_daemon::init_test_client_server;
     use mecomp_storage::test_utils::{arb_song_case, init_test_database_with_state};
     use rstest::fixture;
-    use surrealdb::{engine::local::Db, Surreal};
+    use surrealdb::{Surreal, engine::local::Db};
     use tempfile::TempDir;
 
     // Create a database with some songs, a playlist, and a collection

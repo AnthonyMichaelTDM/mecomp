@@ -2,18 +2,18 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseEvent};
 use ratatui::{
+    Frame,
     layout::{Position, Rect},
     style::Style,
     widgets::{Block, Paragraph},
-    Frame,
 };
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     state::action::Action,
     ui::{
-        components::{Component, ComponentRender},
         AppState,
+        components::{Component, ComponentRender},
     },
 };
 

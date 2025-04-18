@@ -103,7 +103,7 @@ mod subscriber_tests {
     };
     use one_or_many::OneOrMany;
     use rstest::{fixture, rstest};
-    use surrealdb::{engine::local::Db, RecordId, Surreal};
+    use surrealdb::{RecordId, Surreal, engine::local::Db};
     use tarpc::context::Context;
     use tempfile::tempdir;
     use termination::create_termination;

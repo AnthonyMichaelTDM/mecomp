@@ -9,8 +9,8 @@ use mecomp_core::{
     udp::StateChange,
 };
 use mecomp_storage::db::schemas::{
-    dynamic::{query::Query, DynamicPlaylistChangeSet},
     RecordId,
+    dynamic::{DynamicPlaylistChangeSet, query::Query},
 };
 
 use crate::ui::{components::content_view::ActiveView, widgets::popups::PopupType};

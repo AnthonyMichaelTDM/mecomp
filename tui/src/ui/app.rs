@@ -5,11 +5,11 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
     text::Span,
     widgets::Block,
-    Frame,
 };
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -19,13 +19,13 @@ use crate::state::{
 };
 
 use super::{
+    AppState,
     colors::{APP_BORDER, APP_BORDER_TEXT, TEXT_NORMAL},
     components::{
-        content_view::ContentView, control_panel::ControlPanel, queuebar::QueueBar,
-        sidebar::Sidebar, Component, ComponentRender, RenderProps,
+        Component, ComponentRender, RenderProps, content_view::ContentView,
+        control_panel::ControlPanel, queuebar::QueueBar, sidebar::Sidebar,
     },
     widgets::popups::Popup,
-    AppState,
 };
 
 #[must_use]
@@ -370,7 +370,7 @@ mod tests {
     use crossterm::event::KeyModifiers;
     use mecomp_core::{
         rpc::SearchResult,
-        state::{library::LibraryFull, Percent, RepeatMode, StateAudio, StateRuntime, Status},
+        state::{Percent, RepeatMode, StateAudio, StateRuntime, Status, library::LibraryFull},
     };
     use mecomp_storage::db::schemas::song::Song;
     use one_or_many::OneOrMany;

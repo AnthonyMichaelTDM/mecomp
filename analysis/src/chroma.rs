@@ -8,10 +8,10 @@ extern crate noisy_float;
 use crate::Feature;
 
 use super::errors::{AnalysisError, AnalysisResult};
-use super::utils::{hz_to_octs_inplace, stft, Normalize};
-use ndarray::{arr1, arr2, concatenate, s, Array, Array1, Array2, Axis, Zip};
-use ndarray_stats::interpolate::Midpoint;
+use super::utils::{Normalize, hz_to_octs_inplace, stft};
+use ndarray::{Array, Array1, Array2, Axis, Zip, arr1, arr2, concatenate, s};
 use ndarray_stats::QuantileExt;
+use ndarray_stats::interpolate::Midpoint;
 use noisy_float::prelude::*;
 
 /**
@@ -190,13 +190,8 @@ pub fn chroma_filter(
 
     let mut binwidth_bins = Array::ones(freq_bins.raw_dim());
     binwidth_bins.slice_mut(s![0..freq_bins.len() - 1]).assign(
-        &(&freq_bins.slice(s![1..]) - &freq_bins.slice(s![..-1])).mapv(|x| {
-            if x <= 1. {
-                1.
-            } else {
-                x
-            }
-        }),
+        &(&freq_bins.slice(s![1..]) - &freq_bins.slice(s![..-1]))
+            .mapv(|x| if x <= 1. { 1. } else { x }),
     );
 
     let mut d: Array2<f64> = Array::zeros((n_chroma as usize, (freq_bins).len()));
@@ -355,7 +350,7 @@ pub fn estimate_tuning(
     let (filtered_pitch, filtered_mag): (Vec<N64>, Vec<N64>) = pitch
         .iter()
         .zip(&mag)
-        .filter(|(&p, _)| p > 0.)
+        .filter(|&(&p, _)| p > 0.)
         .map(|(x, y)| (n64(*x), n64(*y)))
         .unzip();
 
@@ -406,11 +401,11 @@ pub fn chroma_stft(
 mod test {
     use super::*;
     use crate::{
+        SAMPLE_RATE,
         decoder::{Decoder as _, MecompDecoder as Decoder},
         utils::stft,
-        SAMPLE_RATE,
     };
-    use ndarray::{arr1, arr2, Array2};
+    use ndarray::{Array2, arr1, arr2};
     use ndarray_npy::ReadNpyExt as _;
     use std::{fs::File, path::Path};
 

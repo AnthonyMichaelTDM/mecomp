@@ -1,8 +1,8 @@
 use mecomp_storage::{
     db::schemas::{
+        RecordId,
         analysis::Analysis,
         song::{Song, SongId},
-        RecordId,
     },
     errors::StorageResult,
 };

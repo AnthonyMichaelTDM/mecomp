@@ -12,19 +12,19 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, ViewAction},
     ui::{
-        colors::{border_color, TEXT_HIGHLIGHT, TEXT_NORMAL},
-        components::{Component, ComponentRender, RenderProps},
-        widgets::tree::{state::CheckTreeState, CheckTree},
         AppState,
+        colors::{TEXT_HIGHLIGHT, TEXT_NORMAL, border_color},
+        components::{Component, ComponentRender, RenderProps},
+        widgets::tree::{CheckTree, state::CheckTreeState},
     },
 };
 
 use super::{
+    ItemViewProps,
     checktree_utils::{
         construct_add_to_playlist_action, construct_add_to_queue_action,
         construct_start_radio_action,
     },
-    ItemViewProps,
 };
 
 #[derive(Debug)]

@@ -3,7 +3,7 @@ pub mod notification;
 pub mod playlist;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_storage::db::schemas::{dynamic::DynamicPlaylist, playlist::Playlist, RecordId};
+use mecomp_storage::db::schemas::{RecordId, dynamic::DynamicPlaylist, playlist::Playlist};
 use ratatui::{
     layout::Position,
     prelude::Rect,
@@ -15,7 +15,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     state::action::{Action, PopupAction},
-    ui::{colors::POPUP_BORDER, components::ComponentRender, AppState},
+    ui::{AppState, colors::POPUP_BORDER, components::ComponentRender},
 };
 
 pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {

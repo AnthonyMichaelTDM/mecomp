@@ -3,7 +3,7 @@ use std::sync::Arc;
 use action::Action;
 use mecomp_core::{
     rpc::{MusicPlayerClient, SearchResult},
-    state::{library::LibraryFull, StateAudio},
+    state::{StateAudio, library::LibraryFull},
 };
 use tokio::sync::{
     broadcast,

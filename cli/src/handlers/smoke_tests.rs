@@ -12,14 +12,14 @@ use mecomp_storage::{
 };
 use one_or_many::OneOrMany;
 use rstest::{fixture, rstest};
-use surrealdb::{engine::local::Db, RecordId, Surreal};
+use surrealdb::{RecordId, Surreal, engine::local::Db};
 use tempfile::tempdir;
 
 use crate::handlers::{
-    utils::WriteAdapter, CollectionCommand, Command, CommandHandler, CurrentTarget, DynamicCommand,
-    DynamicUpdate, LibraryCommand, LibraryGetTarget, LibraryListTarget, PlaybackCommand,
-    PlaylistAddCommand, PlaylistCommand, PlaylistGetMethod, QueueAddTarget, QueueCommand,
-    RadioCommand, RandTarget, RepeatMode, SearchTarget, SeekCommand, StatusCommand, VolumeCommand,
+    CollectionCommand, Command, CommandHandler, CurrentTarget, DynamicCommand, DynamicUpdate,
+    LibraryCommand, LibraryGetTarget, LibraryListTarget, PlaybackCommand, PlaylistAddCommand,
+    PlaylistCommand, PlaylistGetMethod, QueueAddTarget, QueueCommand, RadioCommand, RandTarget,
+    RepeatMode, SearchTarget, SeekCommand, StatusCommand, VolumeCommand, utils::WriteAdapter,
 };
 
 #[test]

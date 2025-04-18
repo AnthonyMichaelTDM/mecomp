@@ -1,8 +1,8 @@
 use std::borrow::Borrow;
 
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
-use syn::{parse::Parse, punctuated::Punctuated, Data, DeriveInput, ExprAssign, ExprLit};
+use quote::{ToTokens, quote};
+use syn::{Data, DeriveInput, ExprAssign, ExprLit, parse::Parse, punctuated::Punctuated};
 
 #[cfg(test)]
 mod tests;
@@ -209,20 +209,33 @@ impl Parse for FieldAnnotation {
 
         while !input.is_empty() {
             match input.parse::<syn::Expr>()? {
-                syn::Expr::Assign(assign) => match assign.left.to_token_stream().to_string().as_str() {
-                    "dt" => match *assign.right {
-                        syn::Expr::Lit(lit)=>match lit.lit {
-                            syn::Lit::Str(strlit) => type_=Some(strlit),
-                            l => return Err(syn::Error::new_spanned(l, "unexpected literal, the `dt` attribute expects a string literal")),
+                syn::Expr::Assign(assign) => {
+                    match assign.left.to_token_stream().to_string().as_str() {
+                        "dt" => match *assign.right {
+                            syn::Expr::Lit(lit) => match lit.lit {
+                                syn::Lit::Str(strlit) => type_ = Some(strlit),
+                                l => {
+                                    return Err(syn::Error::new_spanned(
+                                        l,
+                                        "unexpected literal, the `dt` attribute expects a string literal",
+                                    ));
+                                }
+                            },
+                            rhs => {
+                                return Err(syn::Error::new_spanned(
+                                    rhs,
+                                    "unexpected expression, the `dt` attribute expects a string literal",
+                                ));
+                            }
                         },
-                        rhs => return Err(syn::Error::new_spanned(rhs,"unexpected expression, the `dt` attribute expects a string literal")),
+                        _ => {
+                            return Err(syn::Error::new_spanned(
+                                assign.left,
+                                "Unknown field attribute",
+                            ));
+                        }
                     }
-                    _ =>
-                    return Err(syn::Error::new_spanned(
-                        assign.left,
-                        "Unknown field attribute",
-                    ))
-                },
+                }
                 syn::Expr::Call(call) => match call.func.to_token_stream().to_string().as_str() {
                     "index" => {
                         index.push(IndexAnnotation::parse(call.args.borrow())?);
@@ -231,11 +244,11 @@ impl Parse for FieldAnnotation {
                         return Err(syn::Error::new_spanned(
                             call.func,
                             "Unknown field attribute",
-                        ))
+                        ));
                     }
                 },
                 syn::Expr::Lit(lit) => match lit.lit {
-                    syn::Lit::Str(strlit) => type_=Some(strlit),
+                    syn::Lit::Str(strlit) => type_ = Some(strlit),
                     l => return Err(syn::Error::new_spanned(l, "unexpected literal")),
                 },
                 syn::Expr::Path(path) => match path.to_token_stream().to_string().as_str() {
@@ -252,8 +265,13 @@ impl Parse for FieldAnnotation {
                             ),
                         ));
                     }
+                },
+                expr => {
+                    return Err(syn::Error::new_spanned(
+                        expr,
+                        "Unexpected expression syntax found, attribute parameters should be in the forms: `foo`, `\"foo\"`, `foo = ...`, or `foo(...)`",
+                    ));
                 }
-                expr => return Err(syn::Error::new_spanned(expr, "Unexpected expression syntax found, attribute parameters should be in the forms: `foo`, `\"foo\"`, `foo = ...`, or `foo(...)`")),
             }
 
             let _ = input.parse::<syn::Token![,]>();
@@ -329,7 +347,7 @@ impl IndexAnnotation {
                 return Err(syn::Error::new_spanned(
                     arg,
                     "unexpected parameters in index attribute",
-                ))
+                ));
             }
             None => compound.unwrap_or_default(),
         };
@@ -360,7 +378,7 @@ impl CompoundIndexAnnotation {
                     return Err(syn::Error::new_spanned(
                         arg,
                         "Compound index attribute expects string literals representing the other field names",
-                    ))
+                    ));
                 }
             }
         }
@@ -440,7 +458,10 @@ impl VectorIndexAnnotation {
                         ..
                     }) => int.base10_parse()?,
                     _ => {
-                        return Err(syn::Error::new_spanned(right, "`dim` expects an integer literal representing the number of dimensions in the vector"));
+                        return Err(syn::Error::new_spanned(
+                            right,
+                            "`dim` expects an integer literal representing the number of dimensions in the vector",
+                        ));
                     }
                 }
             }
@@ -452,7 +473,7 @@ impl VectorIndexAnnotation {
                 return Err(syn::Error::new_spanned(
                     arg,
                     "Unsupported expression syntax",
-                ))
+                ));
             }
         };
 
@@ -490,10 +511,12 @@ impl TextIndexAnnotation {
                 lit: syn::Lit::Str(strlit),
                 ..
             })) => strlit.value(),
-            _ => return Err(syn::Error::new_spanned(
-                arg,
-                "Text index attribute expects a string literal representing the analyzer to use",
-            )),
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    arg,
+                    "Text index attribute expects a string literal representing the analyzer to use",
+                ));
+            }
         };
 
         Ok(Self { analyzer })

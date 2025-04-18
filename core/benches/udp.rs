@@ -41,7 +41,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use object_pool::Pool;
 use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
@@ -238,7 +238,7 @@ fn _bench_mutex(c: &mut Criterion) {
                                         .collect::<Vec<u8>>(),
                                 )
                             },
-                            |(sender, message)| async move {
+                            async |(sender, message)| {
                                 let mut handles = JoinSet::new();
 
                                 for _ in 0..server_thread_count {
@@ -322,7 +322,7 @@ fn _bench_rwlock(c: &mut Criterion) {
                                         .collect::<Vec<u8>>(),
                                 )
                             },
-                            |(sender, message)| async move {
+                            async |(sender, message)| {
                                 let mut handles = JoinSet::new();
 
                                 for _ in 0..server_thread_count {
@@ -405,7 +405,7 @@ fn bench_performance(c: &mut Criterion) {
                                 .collect::<Vec<u8>>(),
                         )
                     },
-                    |(sender, message)| async move {
+                    async |(sender, message)| {
                         let mut handles = JoinSet::new();
 
                         for _ in 0..server_thread_count {
@@ -441,7 +441,7 @@ fn bench_performance(c: &mut Criterion) {
                                 .collect::<Vec<u8>>(),
                         )
                     },
-                    |(sender, message)| async move {
+                    async |(sender, message)| {
                         let mut handles = JoinSet::new();
 
                         for _ in 0..server_thread_count {
@@ -527,7 +527,7 @@ fn bench_throughput(c: &mut Criterion) {
                                 .collect::<Vec<u8>>(),
                         )
                     },
-                    |(sender, message)| async move {
+                    async |(sender, message)| {
                         let mut handles = JoinSet::new();
 
                         for _ in 0..server_thread_count {
@@ -563,7 +563,7 @@ fn bench_throughput(c: &mut Criterion) {
                                 .collect::<Vec<u8>>(),
                         )
                     },
-                    |(sender, message)| async move {
+                    async |(sender, message)| {
                         let mut handles = JoinSet::new();
 
                         for _ in 0..server_thread_count {

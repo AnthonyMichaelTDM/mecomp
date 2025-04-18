@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use mecomp_analysis::decoder::Decoder as DecoderTrait;
 use mecomp_analysis::decoder::MecompDecoder as Decoder;
 use mecomp_analysis::utils::{geometric_mean, reflect_pad, stft};
