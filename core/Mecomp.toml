@@ -68,6 +68,10 @@ max_clusters = 24
 ## The clustering algorithm to use.
 ## Either "kmeans" or "gmm".
 algorithm = "gmm"
+## The projection method to preprocess the data with before clustering.
+## Either "tsne", "pca" (not implemented yet), or "none".
+## Default is "none".
+projection_method = "tsne"
 
 # Settings for the TUI
 [tui]

@@ -4,7 +4,7 @@
 //! my real music library
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use mecomp_core::config::{ClusterAlgorithm, ReclusterSettings};
+use mecomp_core::config::{ClusterAlgorithm, ProjectionMethod, ReclusterSettings};
 use mecomp_daemon::services::library::recluster;
 use mecomp_storage::{
     db::schemas::{
@@ -28,6 +28,7 @@ fn benchmark_recluster(c: &mut Criterion) {
         gap_statistic_reference_datasets: 50,
         max_clusters: 16,
         algorithm: ClusterAlgorithm::GMM,
+        projection_method: ProjectionMethod::TSne,
     };
 
     // load some songs into the database

@@ -231,6 +231,26 @@ impl From<ClusterAlgorithm> for mecomp_analysis::clustering::ClusteringMethod {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ProjectionMethod {
+    #[default]
+    None,
+    TSne,
+    Pca,
+}
+
+impl From<ProjectionMethod> for mecomp_analysis::clustering::ProjectionMethod {
+    #[inline]
+    fn from(proj: ProjectionMethod) -> Self {
+        match proj {
+            ProjectionMethod::None => Self::None,
+            ProjectionMethod::TSne => Self::TSne,
+            ProjectionMethod::Pca => Self::Pca,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 pub struct ReclusterSettings {
     /// The number of reference datasets to use for the gap statistic.
@@ -250,6 +270,11 @@ pub struct ReclusterSettings {
     /// Either "kmeans" or "gmm".
     #[serde(default)]
     pub algorithm: ClusterAlgorithm,
+    /// The projection method to preprocess the data with before clustering.
+    /// Either "tsne", "pca", or "none".
+    /// Default is "none".
+    #[serde(default)]
+    pub projection_method: ProjectionMethod,
 }
 
 const fn default_gap_statistic_reference_datasets() -> usize {
@@ -270,6 +295,7 @@ impl Default for ReclusterSettings {
             gap_statistic_reference_datasets: default_gap_statistic_reference_datasets(),
             max_clusters: default_max_clusters(),
             algorithm: ClusterAlgorithm::default(),
+            projection_method: ProjectionMethod::default(),
         }
     }
 }
@@ -377,6 +403,7 @@ radio_count = 21
                 gap_statistic_reference_datasets: 50,
                 max_clusters: 24,
                 algorithm: ClusterAlgorithm::GMM,
+                projection_method: ProjectionMethod::None,
             },
             tui: TuiSettings { radio_count: 21 },
         };
@@ -427,6 +454,7 @@ radio_count = 21
                 gap_statistic_reference_datasets: 50,
                 max_clusters: 24,
                 algorithm: ClusterAlgorithm::GMM,
+                projection_method: ProjectionMethod::None,
             },
             tui: TuiSettings { radio_count: 21 },
         };
