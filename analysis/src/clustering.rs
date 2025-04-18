@@ -470,32 +470,25 @@ fn calc_pairwise_distances(
     );
 
     // for each cluster, calculate the sum of the pairwise distances between samples in that cluster
-    (0..k)
-        .map(|k| {
-            (
-                k,
-                samples
-                    .outer_iter()
-                    .zip(labels.iter())
-                    .filter_map(|(s, &l)| (l == k).then_some(s))
-                    .collect::<Vec<_>>(),
-            )
-        })
-        .fold(Array1::zeros(k), |mut distances, (label, cluster)| {
-            distances[label] += cluster
-                .iter()
-                .enumerate()
-                .map(|(i, &a)| {
-                    cluster
-                        .iter()
-                        .skip(i + 1)
-                        .map(|&b| L2Dist.distance(a, b))
-                        .sum::<Feature>()
-                })
-                .sum::<Feature>()
-                * 2.;
-            distances
-        })
+    let mut distances = Array1::zeros(k);
+    for k in 0..k {
+        let cluster = samples
+            .outer_iter()
+            .zip(labels.iter())
+            .filter_map(|(s, &l)| (l == k).then_some(s))
+            .collect::<Vec<_>>();
+        let cluster_len = cluster.len();
+        let mut pairwise_dists = 0.;
+        for i in 0..cluster_len {
+            let a = cluster[i];
+            let rest = &cluster[i..];
+            for &b in rest {
+                pairwise_dists += L2Dist.distance(a, b);
+            }
+        }
+        distances[k] += pairwise_dists + pairwise_dists;
+    }
+    distances
 }
 
 /// Functions available for Initialized state
