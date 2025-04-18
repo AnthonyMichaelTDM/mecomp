@@ -121,12 +121,14 @@ impl Component for CollectionView {
                 self.sort_mode = self.sort_mode.next();
                 if let Some(props) = &mut self.props {
                     self.sort_mode.sort_items(&mut props.songs);
+                    self.tree_state.lock().unwrap().scroll_selected_into_view();
                 }
             }
             KeyCode::Char('S') => {
                 self.sort_mode = self.sort_mode.prev();
                 if let Some(props) = &mut self.props {
                     self.sort_mode.sort_items(&mut props.songs);
+                    self.tree_state.lock().unwrap().scroll_selected_into_view();
                 }
             }
             // Enter key opens selected view
@@ -414,10 +416,12 @@ impl Component for LibraryCollectionsView {
             KeyCode::Char('s') => {
                 self.props.sort_mode = self.props.sort_mode.next();
                 self.props.sort_mode.sort_items(&mut self.props.collections);
+                self.tree_state.lock().unwrap().scroll_selected_into_view();
             }
             KeyCode::Char('S') => {
                 self.props.sort_mode = self.props.sort_mode.prev();
                 self.props.sort_mode.sort_items(&mut self.props.collections);
+                self.tree_state.lock().unwrap().scroll_selected_into_view();
             }
             _ => {}
         }
