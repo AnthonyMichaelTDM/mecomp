@@ -12,6 +12,7 @@
 use linfa::prelude::*;
 use linfa_clustering::{GaussianMixtureModel, KMeans};
 use linfa_nn::distance::{Distance, L2Dist};
+use linfa_reduction::Pca;
 use linfa_tsne::TSneParams;
 use log::{debug, info};
 use ndarray::{Array, Array1, Array2, ArrayView1, ArrayView2, Axis};
@@ -20,7 +21,10 @@ use rand::distributions::Uniform;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use statrs::statistics::Statistics;
 
-use crate::{Analysis, Feature, NUMBER_FEATURES, errors::ClusteringError};
+use crate::{
+    Analysis, Feature, NUMBER_FEATURES,
+    errors::{ClusteringError, ProjectionError},
+};
 
 pub struct AnalysisArray(pub(crate) Array2<Feature>);
 
@@ -90,13 +94,86 @@ pub enum KOptimal {
     DaviesBouldin,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+/// Should the data be projected into a lower-dimensional space before clustering, if so how?
+pub enum ProjectionMethod {
+    /// Use t-SNE to project the data into a lower-dimensional space
+    TSne,
+    /// Use PCA to project the data into a lower-dimensional space
+    Pca,
+    #[default]
+    /// Don't project the data
+    None,
+}
+
+impl ProjectionMethod {
+    /// Project the data into a lower-dimensional space
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if there was an error projecting the data into a lower-dimensional space
+    #[inline]
+    pub fn project(self, samples: AnalysisArray) -> Result<Array2<Feature>, ProjectionError> {
+        let result = match self {
+            Self::TSne => {
+                let nrecords = samples.0.nrows();
+                // first use the t-SNE algorithm to project the data into a lower-dimensional space
+                debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using t-SNE");
+                #[allow(clippy::cast_precision_loss)]
+                let mut embeddings = TSneParams::embedding_size(EMBEDDING_SIZE)
+                    .perplexity(f64::max(samples.0.nrows() as f64 / 20., 5.))
+                    .approx_threshold(0.5)
+                    .transform(samples.0)?;
+                debug_assert_eq!(embeddings.shape(), &[nrecords, EMBEDDING_SIZE]);
+
+                // normalize the embeddings so each dimension is between -1 and 1
+                debug!("Normalizing embeddings");
+                normalize_embeddings_inplace::<EMBEDDING_SIZE>(&mut embeddings);
+                embeddings
+            }
+            Self::Pca => {
+                let nrecords = samples.0.nrows();
+                // use the PCA algorithm to project the data into a lower-dimensional space
+                debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using PCA");
+                let data = Dataset::from(samples.0);
+                let pca: Pca<f64> = Pca::params(EMBEDDING_SIZE).whiten(true).fit(&data)?;
+                let mut embeddings = pca.predict(&data);
+                debug_assert_eq!(embeddings.shape(), &[nrecords, EMBEDDING_SIZE]);
+
+                // normalize the embeddings so each dimension is between -1 and 1
+                debug!("Normalizing embeddings");
+                normalize_embeddings_inplace::<EMBEDDING_SIZE>(&mut embeddings);
+                embeddings
+            }
+            Self::None => {
+                debug!("Using original data as embeddings");
+                samples.0
+            }
+        };
+        debug!("Embeddings shape: {:?}", result.shape());
+        Ok(result)
+    }
+}
+
+// Normalize the embeddings to between 0.0 and 1.0, in-place.
+// Pass the embedding size as an argument to enable more compiler optimizations
+fn normalize_embeddings_inplace<const SIZE: usize>(embeddings: &mut Array2<f64>) {
+    for i in 0..SIZE {
+        let min = embeddings.column(i).min();
+        let max = embeddings.column(i).max();
+        let range = max - min;
+        embeddings
+            .column_mut(i)
+            .mapv_inplace(|v| ((v - min) / range).mul_add(2., -1.));
+    }
+}
+
 // log the number of features
-const EMBEDDING_SIZE: usize =
-    //  2;
-    {
-        let log2 = usize::ilog2(NUMBER_FEATURES) as usize;
-        if log2 < 2 { 2 } else { log2 }
-    };
+/// Dimensionality that the T-SNE and PCA projection methods aim to project the data into.
+const EMBEDDING_SIZE: usize = {
+    let log2 = usize::ilog2(NUMBER_FEATURES) as usize;
+    if log2 < 2 { 2 } else { log2 }
+};
 
 #[allow(clippy::module_name_repetitions)]
 pub struct ClusteringHelper<S>
@@ -140,32 +217,14 @@ impl ClusteringHelper<EntryPoint> {
         k_max: usize,
         optimizer: KOptimal,
         clustering_method: ClusteringMethod,
+        projection_method: ProjectionMethod,
     ) -> Result<ClusteringHelper<NotInitialized>, ClusteringError> {
-        // first use the t-SNE algorithm to project the data into a lower-dimensional space
-        debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using t-SNE",);
-
         if samples.0.nrows() <= 15 {
             return Err(ClusteringError::SmallLibrary);
         }
 
-        #[allow(clippy::cast_precision_loss)]
-        let mut embeddings = TSneParams::embedding_size(EMBEDDING_SIZE)
-            .perplexity(f64::max(samples.0.nrows() as f64 / 20., 5.))
-            .approx_threshold(0.5)
-            .transform(samples.0)?;
-
-        debug!("Embeddings shape: {:?}", embeddings.shape());
-
-        // normalize the embeddings so each dimension is between -1 and 1
-        debug!("Normalizing embeddings");
-        for i in 0..EMBEDDING_SIZE {
-            let min = embeddings.column(i).min();
-            let max = embeddings.column(i).max();
-            let range = max - min;
-            embeddings
-                .column_mut(i)
-                .mapv_inplace(|v| ((v - min) / range).mul_add(2., -1.));
-        }
+        // project the data into a lower-dimensional space
+        let embeddings = projection_method.project(samples)?;
 
         Ok(ClusteringHelper {
             state: NotInitialized {
@@ -483,7 +542,9 @@ impl ClusteringHelper<Finished> {
 mod tests {
     use super::*;
     use ndarray::{arr1, arr2, s};
+    use ndarray_rand::rand_distr::StandardNormal;
     use pretty_assertions::assert_eq;
+    use rstest::rstest;
 
     #[test]
     fn test_generate_reference_data_set() {
@@ -584,6 +645,51 @@ mod tests {
         // axis 1
         for column in array.0.axis_iter(Axis(1)) {
             assert_eq!(column.to_vec(), vec![1.0, 2.0, 3.0]);
+        }
+    }
+
+    #[test]
+    fn test_calc_within_dispersion() {
+        let labels = arr1(&[0, 1, 0, 1]);
+        let pairwise_distances = arr1(&[1.0, 2.0]);
+        let result = calc_within_dispersion(labels.view(), 2, pairwise_distances.view());
+
+        // `W_k = \sum_{r=1}^{k} \frac{D_r}{2*n_r}` = 1/4 * 1.0 + 1/4 * 2.0 = 0.25 + 0.5 = 0.75
+        assert!(f64::EPSILON > (result - 0.75).abs(), "{} != 0.75", result);
+    }
+
+    #[rstest]
+    #[case::project_none(ProjectionMethod::None, NUMBER_FEATURES)]
+    #[case::project_tsne(ProjectionMethod::TSne, EMBEDDING_SIZE)]
+    #[case::project_pca(ProjectionMethod::Pca, EMBEDDING_SIZE)]
+    fn test_project(
+        #[case] projection_method: ProjectionMethod,
+        #[case] expected_embedding_size: usize,
+    ) {
+        // generate 100 random samples, we use a normal distribution because with a uniform distribution
+        // the data has no real "principle components" and PCA will not work as expected since almost all the eigenvalues
+        // with fall below the cutoff
+        let mut samples = Array2::random((100, NUMBER_FEATURES), StandardNormal);
+        normalize_embeddings_inplace::<NUMBER_FEATURES>(&mut samples);
+        let samples = AnalysisArray(samples);
+
+        let result = projection_method.project(samples).unwrap();
+
+        // ensure embeddings are the correct shape
+        assert_eq!(result.shape(), &[100, expected_embedding_size]);
+
+        // ensure the data is normalized
+        for i in 0..expected_embedding_size {
+            let min = result.column(i).min();
+            let max = result.column(i).max();
+            assert!(
+                f64::EPSILON > (min + 1.0).abs(),
+                "Min value of column {i} is not -1.0: {min}",
+            );
+            assert!(
+                f64::EPSILON > (max - 1.0).abs(),
+                "Max value of column {i} is not 1.0: {max}",
+            );
         }
     }
 }

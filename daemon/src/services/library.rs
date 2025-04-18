@@ -343,6 +343,7 @@ pub async fn recluster<C: Connection>(
             b: settings.gap_statistic_reference_datasets,
         },
         settings.algorithm.into(),
+        settings.projection_method.into(),
     ) {
         Err(e) => {
             error!("There was an error creating the clustering helper: {e}",);
@@ -482,7 +483,7 @@ mod tests {
     use super::*;
     use crate::test_utils::init;
 
-    use mecomp_core::config::ClusterAlgorithm;
+    use mecomp_core::config::{ClusterAlgorithm, ProjectionMethod};
     use mecomp_storage::db::schemas::song::{SongChangeSet, SongMetadata};
     use mecomp_storage::test_utils::{
         ARTIST_NAME_SEPARATOR, SongCase, arb_analysis_features, arb_song_case, arb_vec,
@@ -490,6 +491,7 @@ mod tests {
     };
     use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
+    use rstest::rstest;
 
     #[tokio::test]
     #[allow(clippy::too_many_lines)]
@@ -799,8 +801,12 @@ mod tests {
         }
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn test_recluster() {
+    async fn test_recluster(
+        #[values(ProjectionMethod::TSne, ProjectionMethod::None, ProjectionMethod::Pca)]
+        projection_method: ProjectionMethod,
+    ) {
         init();
         let dir = tempfile::tempdir().unwrap();
         let db = init_test_database().await.unwrap();
@@ -808,6 +814,7 @@ mod tests {
             gap_statistic_reference_datasets: 5,
             max_clusters: 18,
             algorithm: ClusterAlgorithm::GMM,
+            projection_method,
         };
 
         // load some songs into the database
