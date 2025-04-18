@@ -10,7 +10,7 @@ use std::time::Duration;
 use surrealdb::RecordId;
 use tracing::instrument;
 //----------------------------------------------------------------------------------- local modules
-use crate::errors::SongIOError;
+use crate::{errors::SongIOError, util::split_artist_name};
 use one_or_many::OneOrMany;
 
 pub type SongId = RecordId;
@@ -266,12 +266,14 @@ impl SongMetadata {
     ///
     /// * `path` - The path to the file.
     /// * `artist_name_separator` - The separator used to separate multiple artists in the metadata.
+    /// * `protected_artist_names` - The artists that should not be split by the separator.
     /// * `genre_separator` - The separator used to separate multiple genres in the metadata.
     ///
     #[instrument()]
     pub fn load_from_path(
         path: PathBuf,
         artist_name_separator: &OneOrMany<String>,
+        protected_artist_names: &OneOrMany<String>,
         genre_separator: Option<&str>,
     ) -> Result<Self, SongIOError> {
         // check if the file exists
@@ -299,37 +301,13 @@ impl SongMetadata {
             // split the artist string into multiple artists using user provided separators
             .map_or_else(
                 || OneOrMany::One("Unknown Artist".into()),
-                |a| {
-                    // first we remove null characters from the string
-                    // then, we replace all instances of any separator with a single separator (in this case, the null character)
-                    // I'll use a fold here to make that all nice and pretty.
-                    let a = artist_name_separator
-                        .iter()
-                        .fold(a.replace('\0', ""), |a, sep| a.replace(sep, "\0"));
-
-                    // now we split the string into multiple artists
-                    if a.contains('\0') {
-                        OneOrMany::Many(a.split('\0').map(str::trim).map(Into::into).collect())
-                    } else {
-                        OneOrMany::One(a.trim().into())
-                    }
-                },
+                |a| split_artist_name(a, artist_name_separator, protected_artist_names),
             );
         artist.dedup();
 
         let mut album_artist = tag.get_string(&ItemKey::AlbumArtist).map_or_else(
             || OneOrMany::One(artist.get(0).unwrap().clone()),
-            |a| {
-                let a = artist_name_separator
-                    .iter()
-                    .fold(a.replace('\0', ""), |a, sep| a.replace(sep, "\0"));
-
-                if a.contains('\0') {
-                    OneOrMany::Many(a.split('\0').map(str::trim).map(Into::into).collect())
-                } else {
-                    OneOrMany::One(a.trim().into())
-                }
-            },
+            |a| split_artist_name(a, artist_name_separator, protected_artist_names),
         );
         album_artist.dedup();
 

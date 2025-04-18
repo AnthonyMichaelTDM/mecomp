@@ -130,6 +130,25 @@ pub struct DaemonSettings {
     /// ```
     #[serde(default, deserialize_with = "de_artist_separator")]
     pub artist_separator: OneOrMany<String>,
+    /// Exceptions for artist name separation, for example:
+    /// "Foo & Bar; Baz" would be split into \["Foo", "Bar", "Baz"\] if the separators are set to "&" and "; ".
+    ///
+    /// However, if the following exception is set:
+    /// ```toml
+    /// [daemon]
+    /// protected_artist_names = ["Foo & Bar"]
+    /// ```
+    /// Then the artist "Foo & Bar; Baz" would be split into \["Foo & Bar", "Baz"\].
+    ///
+    /// Note that the exception applies to the entire "name", so:
+    /// ```toml
+    /// [daemon]
+    /// protected_artist_names = ["Foo & Bar"]
+    /// ```
+    /// would split "Foo & Bar" into \["Foo & Bar"\],
+    /// but "Foo & Bar Baz" would still be split into \["Foo", "Bar Baz"\].
+    #[serde(default)]
+    pub protected_artist_names: OneOrMany<String>,
     #[serde(default)]
     pub genre_separator: Option<String>,
     /// how conflicting metadata should be resolved
@@ -186,6 +205,7 @@ impl Default for DaemonSettings {
             rpc_port: default_port(),
             library_paths: default_library_paths(),
             artist_separator: OneOrMany::None,
+            protected_artist_names: OneOrMany::None,
             genre_separator: None,
             conflict_resolution: MetadataConflictResolution::Overwrite,
             log_level: default_log_level(),
@@ -348,6 +368,57 @@ radio_count = 21
                 rpc_port: 6600,
                 library_paths: ["/Music".into()].into(),
                 artist_separator: vec!["; ".into()].into(),
+                protected_artist_names: OneOrMany::None,
+                genre_separator: Some(", ".into()),
+                conflict_resolution: MetadataConflictResolution::Overwrite,
+                log_level: log::LevelFilter::Debug,
+            },
+            reclustering: ReclusterSettings {
+                gap_statistic_reference_datasets: 50,
+                max_clusters: 24,
+                algorithm: ClusterAlgorithm::GMM,
+            },
+            tui: TuiSettings { radio_count: 21 },
+        };
+
+        let settings = Settings::init(config_path, None, None).unwrap();
+
+        assert_eq!(settings, expected);
+    }
+
+    #[test]
+    fn test_artist_names_to_not_split() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(
+            &config_path,
+            r#"            
+[daemon]
+rpc_port = 6600
+library_paths = ["/Music"]
+artist_separator = ["; "]
+protected_artist_names = ["Foo & Bar"]
+genre_separator = ", "
+conflict_resolution = "overwrite"
+log_level = "debug"
+
+[reclustering]
+gap_statistic_reference_datasets = 50
+max_clusters = 24
+algorithm = "gmm"
+
+[tui]
+radio_count = 21
+            "#,
+        )
+        .unwrap();
+
+        let expected = Settings {
+            daemon: DaemonSettings {
+                rpc_port: 6600,
+                library_paths: ["/Music".into()].into(),
+                artist_separator: vec!["; ".into()].into(),
+                protected_artist_names: OneOrMany::One("Foo & Bar".into()),
                 genre_separator: Some(", ".into()),
                 conflict_resolution: MetadataConflictResolution::Overwrite,
                 log_level: log::LevelFilter::Debug,

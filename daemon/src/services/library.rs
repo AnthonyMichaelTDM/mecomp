@@ -52,6 +52,7 @@ pub async fn rescan<C: Connection>(
     db: &Surreal<C>,
     paths: &[PathBuf],
     artist_name_separator: &OneOrMany<String>,
+    protected_artist_names: &OneOrMany<String>,
     genre_separator: Option<&str>,
     conflict_resolution_mode: MetadataConflictResolution,
 ) -> Result<(), Error> {
@@ -72,7 +73,7 @@ pub async fn rescan<C: Connection>(
 
             debug!("loading metadata for {}", path.to_string_lossy());
             // check if the metadata of the file is the same as the metadata in the database
-            match SongMetadata::load_from_path(path.clone(), artist_name_separator, genre_separator) {
+            match SongMetadata::load_from_path(path.clone(), artist_name_separator,protected_artist_names, genre_separator) {
                 // if we have metadata and the metadata is different from the song's metadata, and ...
                 Ok(metadata) if metadata != SongMetadata::from(&song) => {
                     let log_postfix = if conflict_resolution_mode == MetadataConflictResolution::Skip {
@@ -144,6 +145,7 @@ pub async fn rescan<C: Connection>(
             match SongMetadata::load_from_path(
                 path.path().to_owned(),
                 artist_name_separator,
+                protected_artist_names,
                 genre_separator,
             ) {
                 Ok(metadata) => Song::try_load_into_db(db, metadata).await.map_or_else(
@@ -544,6 +546,7 @@ mod tests {
             &db,
             &[tempdir.path().to_owned()],
             &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
+            &OneOrMany::None,
             Some(ARTIST_NAME_SEPARATOR),
             MetadataConflictResolution::Overwrite,
         )
@@ -664,6 +667,7 @@ mod tests {
             &db,
             &[tempdir.path().to_owned()],
             &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
+            &OneOrMany::None,
             Some(ARTIST_NAME_SEPARATOR),
             MetadataConflictResolution::Overwrite,
         )
@@ -707,6 +711,7 @@ mod tests {
             &db,
             &[tempdir.path().to_owned()],
             &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
+            &OneOrMany::None,
             Some(ARTIST_NAME_SEPARATOR),
             MetadataConflictResolution::Overwrite,
         )

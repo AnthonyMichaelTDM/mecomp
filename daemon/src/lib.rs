@@ -95,6 +95,7 @@ pub async fn start_daemon(
         db.clone(),
         &settings.daemon.library_paths,
         settings.daemon.artist_separator.clone(),
+        settings.daemon.protected_artist_names.clone(),
         settings.daemon.genre_separator.clone(),
     )?;
 
