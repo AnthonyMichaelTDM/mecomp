@@ -1,7 +1,7 @@
 //! Benchmarks for each step of the decoding process.
 use std::{fs::File, path::Path};
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use mecomp_analysis::decoder::{
     Decoder as DecoderTrait, MecompDecoder as Decoder, SymphoniaSource,
 };

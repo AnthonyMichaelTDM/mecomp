@@ -7,21 +7,20 @@ use std::{
 };
 //--------------------------------------------------------------------------------- other libraries
 use futures::{
-    future,
+    FutureExt, future,
     prelude::*,
     stream::{AbortHandle, Abortable},
-    FutureExt,
 };
 use log::{error, info};
-use surrealdb::{engine::local::Db, Surreal};
+use surrealdb::{Surreal, engine::local::Db};
 use tarpc::{
     self,
-    server::{incoming::Incoming as _, BaseChannel, Channel as _},
+    server::{BaseChannel, Channel as _, incoming::Incoming as _},
     tokio_serde::formats::Json,
 };
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
-    audio::{commands::AudioCommand, AudioKernelSender},
+    audio::{AudioKernelSender, commands::AudioCommand},
     config::Settings,
     is_server_running,
     logger::{init_logger, init_tracing},
@@ -156,7 +155,7 @@ pub async fn start_daemon(
         // NOTE: if we have issues with concurrency (e.g. deadlocks or data-races),
         //       and have too much of a skill issue to fix it, we can set this number to 1.
         .buffer_unordered(10)
-        .for_each(|()| async {})
+        .for_each(async |()| {})
         // make it fused so we can stop it later
         .fuse();
     // make the server abortable
@@ -231,7 +230,7 @@ pub async fn init_test_client_server(
             () = tarpc::server::BaseChannel::with_defaults(server_transport)
                 .execute(server.serve())
                 // Handle all requests concurrently.
-                .for_each(|response| async move {
+                .for_each(async |response| {
                     tokio::spawn(response);
                 }) => {},
             // Wait for the server to be stopped.
@@ -262,11 +261,11 @@ mod test_client_tests {
     use mecomp_storage::{
         db::schemas::{
             collection::Collection,
-            dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistChangeSet},
+            dynamic::{DynamicPlaylist, DynamicPlaylistChangeSet, query::Query},
             playlist::Playlist,
             song::SongChangeSet,
         },
-        test_utils::{create_song_with_overrides, init_test_database, SongCase},
+        test_utils::{SongCase, create_song_with_overrides, init_test_database},
     };
 
     use pretty_assertions::assert_eq;

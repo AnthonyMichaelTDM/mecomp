@@ -4,11 +4,11 @@ use std::fmt::Display;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{
+    Frame,
     layout::{Alignment, Margin, Position, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, List, ListItem, ListState},
-    Frame,
 };
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -16,9 +16,9 @@ use super::RandomViewProps;
 use crate::{
     state::action::{Action, ViewAction},
     ui::{
-        colors::{border_color, TEXT_HIGHLIGHT, TEXT_NORMAL},
-        components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
         AppState,
+        colors::{TEXT_HIGHLIGHT, TEXT_NORMAL, border_color},
+        components::{Component, ComponentRender, RenderProps, content_view::ActiveView},
     },
 };
 

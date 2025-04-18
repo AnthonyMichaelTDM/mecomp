@@ -4,11 +4,11 @@
 //! existing categories.
 
 use bliss_audio_aubio_rs::level_lin;
-use ndarray::{arr1, Axis};
+use ndarray::{Axis, arr1};
 
 use crate::Feature;
 
-use super::utils::{mean, Normalize};
+use super::utils::{Normalize, mean};
 
 /**
  * Loudness (in dB) detection object.

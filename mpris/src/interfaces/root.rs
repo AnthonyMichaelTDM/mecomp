@@ -3,8 +3,8 @@
 //! [org.mpris.MediaPlayer2](https://specifications.freedesktop.org/mpris-spec/latest/Media_Player.html)
 
 use mpris_server::{
-    zbus::{fdo, Error as ZbusError},
     RootInterface,
+    zbus::{Error as ZbusError, fdo},
 };
 use tarpc::context::Context;
 

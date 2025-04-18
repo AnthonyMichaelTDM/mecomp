@@ -10,8 +10,8 @@ use super::utils::Normalize;
 use bliss_audio_aubio_rs::{OnsetMode, Tempo};
 use log::warn;
 use ndarray::arr1;
-use ndarray_stats::interpolate::Midpoint;
 use ndarray_stats::Quantile1dExt;
+use ndarray_stats::interpolate::Midpoint;
 use noisy_float::prelude::*;
 
 /**
@@ -103,8 +103,8 @@ impl Normalize for BPMDesc {
 mod tests {
     use super::*;
     use crate::{
-        decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder},
         SAMPLE_RATE,
+        decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder},
     };
     use std::path::Path;
 

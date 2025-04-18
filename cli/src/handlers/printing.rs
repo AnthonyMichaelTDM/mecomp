@@ -4,13 +4,13 @@ use std::fmt::Write;
 
 use mecomp_core::state::StateAudio;
 use mecomp_storage::db::schemas::{
+    RecordId,
     album::Album,
     artist::Artist,
     collection::CollectionBrief,
-    dynamic::{query::Compile, DynamicPlaylist},
+    dynamic::{DynamicPlaylist, query::Compile},
     playlist::PlaylistBrief,
     song::Song,
-    RecordId,
 };
 
 pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {

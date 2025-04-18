@@ -1,7 +1,7 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use mecomp_analysis::{
-    decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder, SymphoniaSource},
     SAMPLE_RATE,
+    decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder, SymphoniaSource},
 };
 use rubato::{FastFixedIn, FftFixedIn, PolynomialDegree, Resampler};
 use std::{f32::consts::SQRT_2, fs::File, num::NonZeroUsize, path::Path};

@@ -16,7 +16,7 @@ use mecomp_core::{
 use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
 use tap::TapFallible;
-use tracing::{instrument, Instrument};
+use tracing::{Instrument, instrument};
 use walkdir::WalkDir;
 
 use mecomp_storage::{
@@ -485,8 +485,8 @@ mod tests {
     use mecomp_core::config::ClusterAlgorithm;
     use mecomp_storage::db::schemas::song::{SongChangeSet, SongMetadata};
     use mecomp_storage::test_utils::{
-        arb_analysis_features, arb_song_case, arb_vec, create_song_metadata,
-        create_song_with_overrides, init_test_database, SongCase, ARTIST_NAME_SEPARATOR,
+        ARTIST_NAME_SEPARATOR, SongCase, arb_analysis_features, arb_song_case, arb_vec,
+        create_song_metadata, create_song_with_overrides, init_test_database,
     };
     use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
@@ -569,12 +569,14 @@ mod tests {
             None
         );
         // - `song_with_outdated_metadata` was updated
-        assert!(Song::read(&db, song_with_outdated_metadata.id)
-            .await
-            .unwrap()
-            .unwrap()
-            .genre
-            .is_some());
+        assert!(
+            Song::read(&db, song_with_outdated_metadata.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .genre
+                .is_some()
+        );
         // - all the other songs were added
         //   and their artists, albums, and album_artists were added and linked correctly
         for metadata in metadatas {
@@ -596,10 +598,12 @@ mod tests {
             // the song is linked to the artists
             for artist in &artists {
                 assert!(metadata.artist.contains(&artist.name));
-                assert!(Artist::read_songs(&db, artist.id.clone())
-                    .await
-                    .unwrap()
-                    .contains(&song));
+                assert!(
+                    Artist::read_songs(&db, artist.id.clone())
+                        .await
+                        .unwrap()
+                        .contains(&song)
+                );
             }
             // the artists are linked to the song
             if let Ok(song_artists) = Song::read_artist(&db, song.id.clone()).await {
@@ -626,10 +630,12 @@ mod tests {
                 Some(album.clone())
             );
             // the album is linked to the song
-            assert!(Album::read_songs(&db, album.id.clone())
-                .await
-                .unwrap()
-                .contains(&song));
+            assert!(
+                Album::read_songs(&db, album.id.clone())
+                    .await
+                    .unwrap()
+                    .contains(&song)
+            );
 
             // the album's album artists were created
             let album_artists =
@@ -640,10 +646,12 @@ mod tests {
             // the album is linked to the album artists
             for album_artist in album_artists {
                 assert!(metadata.album_artist.contains(&album_artist.name));
-                assert!(Artist::read_albums(&db, album_artist.id.clone())
-                    .await
-                    .unwrap()
-                    .contains(&album));
+                assert!(
+                    Artist::read_albums(&db, album_artist.id.clone())
+                        .await
+                        .unwrap()
+                        .contains(&album)
+                );
             }
         }
     }

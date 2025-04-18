@@ -15,14 +15,14 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, AudioAction, PopupAction, QueueAction, ViewAction},
     ui::{
-        colors::{border_color, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL},
-        components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
+        AppState,
+        colors::{TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL, border_color},
+        components::{Component, ComponentRender, RenderProps, content_view::ActiveView},
         widgets::{
             input_box::{self, InputBox},
             popups::PopupType,
-            tree::{state::CheckTreeState, CheckTree},
+            tree::{CheckTree, state::CheckTreeState},
         },
-        AppState,
     },
 };
 
@@ -586,33 +586,27 @@ mod tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
-                "song",
-                item_id()
-            )
-                .into()])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
+                ("song", item_id()).into()
+            ])))
         );
 
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![(
-                "song",
-                item_id()
-            )
-                .into()],)))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![
+                ("song", item_id()).into()
+            ],)))
         );
 
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
-                "song",
-                item_id()
-            )
-                .into()])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                ("song", item_id()).into()
+            ])))
         );
     }
 

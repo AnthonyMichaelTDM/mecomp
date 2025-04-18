@@ -4,25 +4,25 @@ use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::{
+    Frame,
     layout::{Alignment, Margin, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
-    Frame,
 };
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::{checktree_utils::create_song_tree_leaf, RadioViewProps};
+use super::{RadioViewProps, checktree_utils::create_song_tree_leaf};
 use crate::{
     state::action::{Action, AudioAction, PopupAction, QueueAction, ViewAction},
     ui::{
-        colors::{border_color, TEXT_HIGHLIGHT, TEXT_NORMAL},
+        AppState,
+        colors::{TEXT_HIGHLIGHT, TEXT_NORMAL, border_color},
         components::{Component, ComponentRender, RenderProps},
         widgets::{
             popups::PopupType,
-            tree::{state::CheckTreeState, CheckTree},
+            tree::{CheckTree, state::CheckTreeState},
         },
-        AppState,
     },
 };
 
@@ -422,20 +422,16 @@ mod tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
-                "song",
-                item_id()
-            )
-                .into()])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
+                ("song", item_id()).into()
+            ])))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
-                "song",
-                item_id()
-            )
-                .into()])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                ("song", item_id()).into()
+            ])))
         );
 
         // there are checked items
@@ -457,22 +453,18 @@ mod tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
-                "song",
-                item_id()
-            )
-                .into()])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
+                ("song", item_id()).into()
+            ])))
         );
 
         // add to playlist
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
-                "song",
-                item_id()
-            )
-                .into()])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                ("song", item_id()).into()
+            ])))
         );
     }
 

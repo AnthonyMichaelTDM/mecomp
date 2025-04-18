@@ -9,7 +9,7 @@ use std::{
 
 use mecomp_storage::db::schemas::RecordId;
 use object_pool::Pool;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tokio::net::UdpSocket;
 
 use crate::{

@@ -1,7 +1,7 @@
 use log::warn;
-use ndarray::{arr1, s, Array, Array1, Array2};
-use rustfft::num_complex::Complex;
+use ndarray::{Array, Array1, Array2, arr1, s};
 use rustfft::FftPlanner;
+use rustfft::num_complex::Complex;
 use std::f32::consts::PI;
 
 use crate::Feature;
@@ -157,7 +157,7 @@ pub(crate) fn hz_to_octs_inplace(
 mod tests {
     use super::*;
     use crate::decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder};
-    use ndarray::{arr1, Array, Array2};
+    use ndarray::{Array, Array2, arr1};
     use ndarray_npy::ReadNpyExt;
     use std::{fs::File, path::Path};
 

@@ -3,9 +3,9 @@
 use ratatui::{layout::Alignment, style::Style, text::Line, widgets::Block};
 
 use crate::ui::{
-    colors::{border_color, TEXT_NORMAL},
-    components::{Component, ComponentRender, RenderProps},
     AppState,
+    colors::{TEXT_NORMAL, border_color},
+    components::{Component, ComponentRender, RenderProps},
 };
 
 #[allow(clippy::module_name_repetitions)]

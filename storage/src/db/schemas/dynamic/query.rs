@@ -565,7 +565,6 @@ mod tests {
     #[case::field(PhantomData::<Field>, "release_year", "release_year")]
     #[case::compound_query(PhantomData::<CompoundClause>, "(title = \"foo\" AND \"bar\" INSIDE artist)", "(title = \"foo\" AND \"bar\" INSIDE array::flatten([artist][? $this]))")]
     #[case::complex_query(PhantomData::<Query>, "((title = \"foo\" AND (artist CONTAINSNOT \"bar\" OR album = \"baz\")) AND release_year > 2020)", "((title = \"foo\" AND (array::flatten([artist][? $this]) CONTAINSNOT \"bar\" OR album = \"baz\")) AND release_year > 2020)")]
-    #[allow(clippy::used_underscore_binding)]
     fn test_compile_for_execution<T>(
         #[case] _phantom: PhantomData<T>,
         #[case] storage: &str,
@@ -625,7 +624,7 @@ impl_from_str!(
 mod parser {
     use std::str::FromStr;
 
-    use pom::parser::{call, end, list, none_of, one_of, seq, sym, Parser};
+    use pom::parser::{Parser, call, end, list, none_of, one_of, seq, sym};
 
     use super::{Clause, CompoundClause, CompoundKind, Field, LeafClause, Operator, Query, Value};
 

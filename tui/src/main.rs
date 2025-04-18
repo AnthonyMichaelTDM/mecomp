@@ -5,10 +5,10 @@ use clap::{CommandFactory, Parser};
 use mecomp_core::is_server_running;
 use mecomp_core::{config::Settings, rpc::init_client};
 use mecomp_tui::{
-    state::Dispatcher,
-    termination::{create_termination, Interrupted},
-    ui::{init_panic_hook, UiManager},
     Subscriber,
+    state::Dispatcher,
+    termination::{Interrupted, create_termination},
+    ui::{UiManager, init_panic_hook},
 };
 use tokio::sync::mpsc;
 

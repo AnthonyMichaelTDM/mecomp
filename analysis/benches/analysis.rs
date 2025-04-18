@@ -1,6 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use decoder::{Decoder as _, MecompDecoder as Decoder};
-use mecomp_analysis::{decoder, Analysis};
+use mecomp_analysis::{Analysis, decoder};
 use std::path::Path;
 
 fn bench_analysis_from_samples(c: &mut Criterion) {

@@ -16,25 +16,25 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     state::action::{Action, LibraryAction, PopupAction, ViewAction},
     ui::{
-        colors::{border_color, BORDER_FOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL},
-        components::{content_view::ActiveView, Component, ComponentRender, RenderProps},
+        AppState,
+        colors::{BORDER_FOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL, border_color},
+        components::{Component, ComponentRender, RenderProps, content_view::ActiveView},
         widgets::{
             input_box::{self, InputBox},
             popups::PopupType,
-            tree::{state::CheckTreeState, CheckTree},
+            tree::{CheckTree, state::CheckTreeState},
         },
-        AppState,
     },
 };
 
 use super::{
+    PlaylistViewProps,
     checktree_utils::{
         construct_add_to_playlist_action, construct_add_to_queue_action,
         construct_start_radio_action, create_playlist_tree_leaf, create_song_tree_leaf,
     },
     sort_mode::{NameSort, SongSort},
     traits::SortMode,
-    PlaylistViewProps,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -877,29 +877,23 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
-                "playlist",
-                item_id()
-            )
-                .into()])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
+                ("playlist", item_id()).into()
+            ])))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![(
-                "playlist",
-                item_id()
-            )
-                .into()],)))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![
+                ("playlist", item_id()).into()
+            ],)))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
-                "playlist",
-                item_id()
-            )
-                .into()])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                ("playlist", item_id()).into()
+            ])))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('d')));
 
@@ -922,33 +916,27 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![(
-                "song",
-                item_id()
-            )
-                .into()])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
+                ("song", item_id()).into()
+            ])))
         );
 
         // start radio
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![(
-                "song",
-                item_id()
-            )
-                .into()],)))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![
+                ("song", item_id()).into()
+            ],)))
         );
 
         // add to playlist
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![(
-                "song",
-                item_id()
-            )
-                .into()])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
+                ("song", item_id()).into()
+            ])))
         );
 
         // remove from playlist

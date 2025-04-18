@@ -5,14 +5,14 @@
 //! a given Song.
 
 use bliss_audio_aubio_rs::vec::CVec;
-use bliss_audio_aubio_rs::{bin_to_freq, PVoc, SpecDesc, SpecShape};
-use ndarray::{arr1, Axis};
+use bliss_audio_aubio_rs::{PVoc, SpecDesc, SpecShape, bin_to_freq};
+use ndarray::{Axis, arr1};
 
 use crate::Feature;
 
-use super::errors::{AnalysisError, AnalysisResult};
-use super::utils::{geometric_mean, mean, number_crossings, Normalize};
 use super::SAMPLE_RATE;
+use super::errors::{AnalysisError, AnalysisResult};
+use super::utils::{Normalize, geometric_mean, mean, number_crossings};
 
 /**
  * General object holding all the spectral descriptor.

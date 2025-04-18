@@ -1,13 +1,13 @@
 use log::warn;
 use mecomp_storage::{
     db::schemas::{
+        RecordId,
         album::{Album, TABLE_NAME as ALBUM_TABLE_NAME},
         artist::{Artist, TABLE_NAME as ARTIST_TABLE_NAME},
         collection::{Collection, TABLE_NAME as COLLECTION_TABLE_NAME},
         dynamic::{DynamicPlaylist, TABLE_NAME as DYNAMIC_PLAYLIST_TABLE_NAME},
         playlist::{Playlist, TABLE_NAME as PLAYLIST_TABLE_NAME},
         song::{Song, TABLE_NAME as SONG_TABLE_NAME},
-        RecordId,
     },
     errors::{Error, StorageResult},
 };

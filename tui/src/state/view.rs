@@ -2,7 +2,7 @@
 
 use tokio::sync::{
     broadcast,
-    mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+    mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
 
 use crate::{termination::Interrupted, ui::components::content_view::ActiveView};

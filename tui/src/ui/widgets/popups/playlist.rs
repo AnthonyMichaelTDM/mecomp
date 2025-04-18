@@ -11,29 +11,29 @@
 use std::{ops::Not, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_storage::db::schemas::{playlist::Playlist, RecordId};
+use mecomp_storage::db::schemas::{RecordId, playlist::Playlist};
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
     text::Line,
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
-    Frame,
 };
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     state::action::{Action, LibraryAction, PopupAction},
     ui::{
+        AppState,
         colors::{BORDER_FOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT},
         components::{
-            content_view::views::{checktree_utils::create_playlist_tree_leaf, playlist::Props},
             Component, ComponentRender,
+            content_view::views::{checktree_utils::create_playlist_tree_leaf, playlist::Props},
         },
         widgets::{
             input_box::{InputBox, RenderProps},
-            tree::{state::CheckTreeState, CheckTree},
+            tree::{CheckTree, state::CheckTreeState},
         },
-        AppState,
     },
 };
 
@@ -444,13 +444,13 @@ mod selector_tests {
     use crate::{
         state::component::ActiveComponent,
         test_utils::setup_test_terminal,
-        ui::components::content_view::{views::ViewData, ActiveView},
+        ui::components::content_view::{ActiveView, views::ViewData},
     };
     use anyhow::Result;
     use mecomp_core::{
         config::Settings,
         rpc::SearchResult,
-        state::{library::LibraryFull, StateAudio},
+        state::{StateAudio, library::LibraryFull},
     };
     use mecomp_storage::db::schemas::playlist::Playlist;
     use pretty_assertions::assert_eq;
@@ -642,13 +642,13 @@ mod editor_tests {
     use crate::{
         state::component::ActiveComponent,
         test_utils::{assert_buffer_eq, setup_test_terminal},
-        ui::components::content_view::{views::ViewData, ActiveView},
+        ui::components::content_view::{ActiveView, views::ViewData},
     };
     use anyhow::Result;
     use mecomp_core::{
         config::Settings,
         rpc::SearchResult,
-        state::{library::LibraryFull, StateAudio},
+        state::{StateAudio, library::LibraryFull},
     };
     use mecomp_storage::db::schemas::playlist::Playlist;
     use pretty_assertions::assert_eq;

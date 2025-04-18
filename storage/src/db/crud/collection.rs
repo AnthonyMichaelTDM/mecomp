@@ -176,7 +176,7 @@ mod tests {
         test_utils::{arb_song_case, create_song_with_overrides, init_test_database},
     };
 
-    use anyhow::{anyhow, Result};
+    use anyhow::{Result, anyhow};
     use pretty_assertions::assert_eq;
 
     fn create_collection() -> Collection {

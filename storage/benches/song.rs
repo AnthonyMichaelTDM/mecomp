@@ -1,8 +1,8 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use mecomp_storage::db::schemas::song::Song;
+use mecomp_storage::test_utils::SongCase;
 use mecomp_storage::test_utils::create_song_metadata;
 use mecomp_storage::test_utils::init_test_database;
-use mecomp_storage::test_utils::SongCase;
 
 fn benchmark_try_load_into_db(c: &mut Criterion) {
     let tempdir = tempfile::tempdir().unwrap();
@@ -21,7 +21,7 @@ fn benchmark_try_load_into_db(c: &mut Criterion) {
 
     c.bench_function("mecomp_storage: Song::try_load_into_db", |b| {
         b.to_async(tokio::runtime::Runtime::new().unwrap())
-            .iter(|| async {
+            .iter(async || {
                 let db = init_test_database().await.unwrap();
                 let _song = Song::try_load_into_db(&db, metadata.clone()).await.unwrap();
             });

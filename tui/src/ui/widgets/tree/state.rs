@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use ratatui::layout::{Position, Rect};
 
 use super::{
-    flatten::{flatten, Flattened},
+    flatten::{Flattened, flatten},
     item::CheckTreeItem,
 };
 

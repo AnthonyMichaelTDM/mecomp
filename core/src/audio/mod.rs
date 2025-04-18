@@ -5,15 +5,15 @@ use std::{
     io::BufReader,
     ops::Range,
     sync::{
+        Arc, Mutex,
         atomic::AtomicBool,
         mpsc::{Receiver, Sender},
-        Arc, Mutex,
     },
     time::Duration,
 };
 
 use log::{debug, error};
-use rodio::{source::SeekError, Decoder, Source};
+use rodio::{Decoder, Source, source::SeekError};
 use tracing::instrument;
 
 use crate::{
@@ -290,7 +290,9 @@ impl AudioKernel {
                     if let Err(e) = tx.send(state) {
                         // if there was an error, then the receiver will never receive the state, this can cause a permanent hang
                         // so we stop the audio kernel if this happens (which will cause any future calls to `send` to panic)
-                        error!("Audio Kernel failed to send state to the receiver, state receiver likely has been dropped. State: {e}");
+                        error!(
+                            "Audio Kernel failed to send state to the receiver, state receiver likely has been dropped. State: {e}"
+                        );
                         break;
                     }
                 }

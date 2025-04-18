@@ -361,7 +361,7 @@ mod test {
         },
     };
 
-    use anyhow::{anyhow, Result};
+    use anyhow::{Result, anyhow};
     use pretty_assertions::assert_eq;
     use std::time::Duration;
 

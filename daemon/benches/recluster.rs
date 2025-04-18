@@ -3,7 +3,7 @@
 //! because it actually cares about what the audio features are, we'll be running this on
 //! my real music library
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use mecomp_core::config::{ClusterAlgorithm, ReclusterSettings};
 use mecomp_daemon::services::library::recluster;
 use mecomp_storage::{
@@ -13,8 +13,8 @@ use mecomp_storage::{
         song::Song,
     },
     test_utils::{
-        arb_analysis_features, arb_song_case, arb_vec, create_song_metadata, init_test_database,
-        SongCase,
+        SongCase, arb_analysis_features, arb_song_case, arb_vec, create_song_metadata,
+        init_test_database,
     },
 };
 use tokio::runtime::Runtime;
@@ -66,11 +66,11 @@ fn benchmark_recluster(c: &mut Criterion) {
 
     group.bench_function("gmm", |b| {
         b.to_async(Runtime::new().unwrap()).iter_with_setup(
-            || async {
+            async || {
                 let _: Vec<Collection> = db.delete(TABLE_NAME).await.unwrap();
                 db.clone()
             },
-            |db| async move {
+            async |db| {
                 let db = db.await;
                 recluster(&db, &settings).await.unwrap();
             },
@@ -84,11 +84,11 @@ fn benchmark_recluster(c: &mut Criterion) {
 
     group.bench_function("kmeans", |b| {
         b.to_async(Runtime::new().unwrap()).iter_with_setup(
-            || async {
+            async || {
                 let _: Vec<Collection> = db.delete(TABLE_NAME).await.unwrap();
                 db.clone()
             },
-            |db| async move {
+            async |db| {
                 let db = db.await;
                 recluster(&db, &settings).await.unwrap();
             },

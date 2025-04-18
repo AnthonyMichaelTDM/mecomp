@@ -37,7 +37,7 @@ pub fn relate<Source: AsRef<str>, Target: AsRef<str>, Rel: AsRef<str>>(
     target: Target,
     rel: Rel,
 ) -> impl IntoQuery {
-    fn relate_statement(source: &str, target: &str, rel: &str) -> impl IntoQuery {
+    fn relate_statement(source: &str, target: &str, rel: &str) -> impl IntoQuery + use<> {
         parse_query(format!("RELATE ${source}->{rel}->${target}"))
     }
 
@@ -71,7 +71,7 @@ pub fn unrelate<Source: AsRef<str>, Target: AsRef<str>, Rel: AsRef<str>>(
     target: Target,
     rel: Rel,
 ) -> impl IntoQuery {
-    fn unrelate_statement(source: &str, target: &str, rel: &str) -> impl IntoQuery {
+    fn unrelate_statement(source: &str, target: &str, rel: &str) -> impl IntoQuery + use<> {
         parse_query(format!("DELETE ${source}->{rel} WHERE out IN ${target}"))
     }
 
@@ -103,7 +103,7 @@ pub fn read_related_out<Source: AsRef<str>, Rel: AsRef<str>>(
     source: Source,
     rel: Rel,
 ) -> impl IntoQuery {
-    fn read_related_statement(source: &str, rel: &str) -> impl IntoQuery {
+    fn read_related_statement(source: &str, rel: &str) -> impl IntoQuery + use<> {
         parse_query(format!("SELECT * FROM ${source}->{rel}.out"))
     }
 
@@ -137,7 +137,7 @@ pub fn read_related_in<Target: AsRef<str>, Rel: AsRef<str>>(
     target: Target,
     rel: Rel,
 ) -> impl IntoQuery {
-    fn read_related_statement(target: &str, rel: &str) -> impl IntoQuery {
+    fn read_related_statement(target: &str, rel: &str) -> impl IntoQuery + use<> {
         parse_query(format!("SELECT * FROM ${target}<-{rel}.in"))
     }
 
@@ -232,7 +232,7 @@ impl Count {
 /// ```
 #[must_use]
 pub fn count<Table: AsRef<str>>(table: Table) -> impl IntoQuery {
-    fn count_statement(table: &str) -> impl IntoQuery {
+    fn count_statement(table: &str) -> impl IntoQuery + use<> {
         parse_query(format!("SELECT count() FROM {table} GROUP ALL"))
     }
 
@@ -265,7 +265,7 @@ pub fn count_orphaned<Table: AsRef<str>, Rel: AsRef<str>>(
     table: Table,
     rel: Rel,
 ) -> impl IntoQuery {
-    fn count_orphaned_statement(table: &str, rel: &str) -> impl IntoQuery {
+    fn count_orphaned_statement(table: &str, rel: &str) -> impl IntoQuery + use<> {
         parse_query(format!(
             "SELECT count() FROM {table} WHERE count(->{rel}) = 0 GROUP ALL"
         ))
@@ -303,7 +303,11 @@ pub fn count_orphaned_both<Table: AsRef<str>, Rel1: AsRef<str>, Rel2: AsRef<str>
     rel1: Rel1,
     rel2: Rel2,
 ) -> impl IntoQuery {
-    fn count_orphaned_both_statement(table: &str, rel1: &str, rel2: &str) -> impl IntoQuery {
+    fn count_orphaned_both_statement(
+        table: &str,
+        rel1: &str,
+        rel2: &str,
+    ) -> impl IntoQuery + use<> {
         parse_query(format!(
             "SELECT count() FROM {table} WHERE count(->{rel1}) = 0 AND count(->{rel2}) = 0 GROUP ALL"
         ))
@@ -339,7 +343,7 @@ pub fn full_text_search<Table: AsRef<str>, Field: AsRef<str>>(
     field: Field,
     limit: i64,
 ) -> impl IntoQuery {
-    fn full_text_search_statement(table: &str, field: &str, limit: i64) -> impl IntoQuery {
+    fn full_text_search_statement(table: &str, field: &str, limit: i64) -> impl IntoQuery + use<> {
         parse_query(format!(
             "SELECT * FROM {table} WHERE {field} @@ ${field} ORDER BY relevance DESC LIMIT {limit}"
         ))

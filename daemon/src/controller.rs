@@ -4,15 +4,15 @@ use std::{ops::Range, path::PathBuf, sync::Arc, time::Duration};
 use ::tarpc::context::Context;
 use log::{debug, error, info, warn};
 use rand::seq::SliceRandom;
-use surrealdb::{engine::local::Db, Surreal};
+use surrealdb::{Surreal, engine::local::Db};
 use tap::TapFallible;
 use tokio::sync::{Mutex, RwLock};
-use tracing::{instrument, Instrument};
+use tracing::{Instrument, instrument};
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
     audio::{
-        commands::{AudioCommand, QueueCommand, VolumeCommand},
         AudioKernelSender,
+        commands::{AudioCommand, QueueCommand, VolumeCommand},
     },
     config::Settings,
     errors::SerializableLibraryError,
@@ -21,8 +21,8 @@ use mecomp_core::{
         SongId,
     },
     state::{
-        library::{LibraryBrief, LibraryFull, LibraryHealth},
         RepeatMode, SeekType, StateAudio,
+        library::{LibraryBrief, LibraryFull, LibraryHealth},
     },
     udp::{Event, Message, Sender},
 };
@@ -32,7 +32,7 @@ use mecomp_storage::{
         album::{Album, AlbumBrief},
         artist::{Artist, ArtistBrief},
         collection::{Collection, CollectionBrief},
-        dynamic::{query::Query, DynamicPlaylist, DynamicPlaylistChangeSet},
+        dynamic::{DynamicPlaylist, DynamicPlaylistChangeSet, query::Query},
         playlist::{Playlist, PlaylistBrief, PlaylistChangeSet},
         song::{Song, SongBrief},
     },

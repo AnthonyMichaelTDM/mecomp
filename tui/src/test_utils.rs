@@ -1,19 +1,19 @@
 use mecomp_core::{rpc::SearchResult, state::library::LibraryFull};
 use mecomp_storage::db::schemas::{
-    album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
-    playlist::Playlist, song::Song, Id, RecordId,
+    Id, RecordId, album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
+    playlist::Playlist, song::Song,
 };
 use one_or_many::OneOrMany;
-use ratatui::{backend::TestBackend, layout::Rect, Terminal};
+use ratatui::{Terminal, backend::TestBackend, layout::Rect};
 
 use crate::{
     state::component::ActiveComponent,
     ui::{
+        AppState,
         components::content_view::views::{
             AlbumViewProps, ArtistViewProps, CollectionViewProps, DynamicPlaylistViewProps,
             PlaylistViewProps, RadioViewProps, RandomViewProps, SongViewProps, ViewData,
         },
-        AppState,
     },
 };
 

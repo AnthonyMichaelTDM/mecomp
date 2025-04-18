@@ -4,7 +4,7 @@ pub mod views;
 
 use crossterm::event::{MouseButton, MouseEventKind};
 use mecomp_storage::db::schemas::{
-    album, artist, collection, dynamic, playlist, song, Id, RecordId,
+    Id, RecordId, album, artist, collection, dynamic, playlist, song,
 };
 use ratatui::layout::Position;
 use tokio::sync::mpsc::UnboundedSender;

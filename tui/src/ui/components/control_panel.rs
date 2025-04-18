@@ -21,7 +21,7 @@ use crate::{
         action::{Action, AudioAction, ComponentAction, PlaybackAction, VolumeAction},
         component::ActiveComponent,
     },
-    ui::colors::{border_color, GAUGE_FILLED, GAUGE_UNFILLED, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL},
+    ui::colors::{GAUGE_FILLED, GAUGE_UNFILLED, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL, border_color},
 };
 
 use super::{AppState, Component, ComponentRender, RenderProps};

@@ -7,7 +7,7 @@ use rubato::{FastFixedIn, Resampler, ResamplerConstructionError};
 use symphonia::{
     core::{
         audio::{AudioBufferRef, SampleBuffer, SignalSpec},
-        codecs::{DecoderOptions, CODEC_TYPE_NULL},
+        codecs::{CODEC_TYPE_NULL, DecoderOptions},
         errors::Error,
         formats::{FormatOptions, FormatReader},
         io::{MediaSourceStream, MediaSourceStreamOptions},
@@ -18,7 +18,7 @@ use symphonia::{
     default::get_probe,
 };
 
-use crate::{errors::AnalysisError, errors::AnalysisResult, ResampledAudio, SAMPLE_RATE};
+use crate::{ResampledAudio, SAMPLE_RATE, errors::AnalysisError, errors::AnalysisResult};
 
 use super::Decoder;
 
@@ -237,7 +237,9 @@ impl MecompDecoder {
                 .collect()),
             // 2.1 or 5.1 surround
             _ => {
-                log::warn!("The audio source has more than 2 channels (might be 2.1 or 5.1 surround sound), will collapse to mono by averaging the channels");
+                log::warn!(
+                    "The audio source has more than 2 channels (might be 2.1 or 5.1 surround sound), will collapse to mono by averaging the channels"
+                );
 
                 #[allow(clippy::cast_precision_loss)]
                 let num_channels_f32 = num_channels as f32;

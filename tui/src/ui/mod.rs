@@ -18,28 +18,28 @@ use std::{
 use anyhow::Context as _;
 use app::App;
 use components::{
+    Component, ComponentRender,
     content_view::{
+        ActiveView,
         views::{
             AlbumViewProps, ArtistViewProps, CollectionViewProps, DynamicPlaylistViewProps,
             PlaylistViewProps, RadioViewProps, RandomViewProps, SongViewProps, ViewData,
         },
-        ActiveView,
     },
-    Component, ComponentRender,
 };
 use crossterm::{
     event::{
         DisableMouseCapture, EnableMouseCapture, Event, EventStream, PopKeyboardEnhancementFlags,
     },
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use mecomp_core::{
     config::Settings,
     rpc::{MusicPlayerClient, SearchResult},
-    state::{library::LibraryFull, StateAudio},
+    state::{StateAudio, library::LibraryFull},
 };
-use mecomp_storage::db::schemas::{album, artist, collection, dynamic, playlist, song, RecordId};
+use mecomp_storage::db::schemas::{RecordId, album, artist, collection, dynamic, playlist, song};
 use one_or_many::OneOrMany;
 use ratatui::prelude::*;
 use tarpc::context::Context;
@@ -47,7 +47,7 @@ use tokio::sync::{broadcast, mpsc};
 use tokio_stream::StreamExt;
 
 use crate::{
-    state::{action::Action, component::ActiveComponent, Receivers},
+    state::{Receivers, action::Action, component::ActiveComponent},
     termination::Interrupted,
 };
 
@@ -408,21 +408,18 @@ async fn handle_additional_view_data(
         }
         ActiveView::Radio(ids) => {
             let count = state.settings.tui.radio_count;
-            if let Ok(Ok(songs)) = daemon
+            let radio_view_props = if let Ok(Ok(songs)) = daemon
                 .radio_get_similar(Context::current(), ids.clone(), count)
                 .await
             {
-                let radio_view_props = RadioViewProps { count, songs };
-                Some(ViewData {
-                    radio: Some(radio_view_props),
-                    ..state.additional_view_data.clone()
-                })
+                Some(RadioViewProps { count, songs })
             } else {
-                Some(ViewData {
-                    radio: None,
-                    ..state.additional_view_data.clone()
-                })
-            }
+                None
+            };
+            Some(ViewData {
+                radio: radio_view_props,
+                ..state.additional_view_data.clone()
+            })
         }
         ActiveView::Random => {
             if let Ok((Some(album), Some(artist), Some(song))) = tokio::try_join!(

@@ -6,12 +6,12 @@ use std::{path::PathBuf, str::FromStr, time::Duration};
 
 use mecomp_core::state::{RepeatMode, SeekType, Status};
 use mpris_server::{
-    zbus::{fdo, Error as ZbusError},
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Time, TrackId, Volume,
+    zbus::{Error as ZbusError, fdo},
 };
 use tarpc::context::Context;
 
-use crate::{interfaces::root::SUPPORTED_MIME_TYPES, metadata_from_opt_song, Mpris};
+use crate::{Mpris, interfaces::root::SUPPORTED_MIME_TYPES, metadata_from_opt_song};
 
 impl PlayerInterface for Mpris {
     async fn next(&self) -> fdo::Result<()> {
@@ -382,10 +382,10 @@ impl PlayerInterface for Mpris {
 // that simply report the state.
 #[cfg(test)]
 mod tests {
-    use std::sync::{mpsc::Receiver, Arc};
+    use std::sync::{Arc, mpsc::Receiver};
 
     use mecomp_core::{
-        audio::{commands::AudioCommand, AudioKernelSender},
+        audio::{AudioKernelSender, commands::AudioCommand},
         test_utils::init,
         udp::StateChange,
     };
