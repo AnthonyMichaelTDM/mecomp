@@ -178,8 +178,7 @@ pub fn chroma_filter(
     let ctroct = 5.0;
     let octwidth = 2.;
     let n_chroma_float = f64::from(n_chroma);
-    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
-    let n_chroma2 = (n_chroma_float / 2.0).round(); // NOTE: used to be f64::from((n_chroma_float / 2.0).round() as usize)
+    let n_chroma2 = (n_chroma_float / 2.0).round();
 
     let frequencies = Array::linspace(0., f64::from(sample_rate), n_fft + 1);
 
@@ -220,14 +219,7 @@ pub fn chroma_filter(
     wts *= &freq_bins;
 
     // np.roll(), np bro
-    let mut uninit: Vec<f64> = vec![0.; (wts).len()];
-    unsafe {
-        uninit.set_len(wts.len());
-    }
-    let mut b = Array::from(uninit)
-        .to_shape(wts.dim())
-        .map_err(|e| AnalysisError::AnalysisError(format!("in chroma: {e}")))?
-        .to_owned();
+    let mut b = Array2::zeros(wts.dim());
     b.slice_mut(s![-3.., ..]).assign(&wts.slice(s![..3, ..]));
     b.slice_mut(s![..-3, ..]).assign(&wts.slice(s![3.., ..]));
 
@@ -260,7 +252,7 @@ pub fn pip_track(
 
     let ref_value = spectrum.map_axis(Axis(0), |x| {
         let first: f64 = *x.first().expect("empty spectrum axis");
-        let max = x.fold(first, |acc, &elem| if acc > elem { acc } else { elem });
+        let max = x.fold(first, |acc, &elem| acc.max(elem));
         threshold * max
     });
 
@@ -284,7 +276,7 @@ pub fn pip_track(
         .and(spectrum.slice(s![beginning + 1..end - 2, ..]))
         .and(spectrum.slice(s![beginning + 2..end - 1, ..]));
 
-    // No need to handle the last column, since freq_mask[length - 1] is
+    // No need to handle the last column, since freq_mask[length - 1] is
     // always going to be `false` for 22.5kHz
     zipped.for_each(|(i, j), &before_elem, &elem, &after_elem| {
         if elem > ref_value[j] && after_elem <= elem && before_elem < elem {

@@ -30,10 +30,11 @@ pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f
     debug_assert!(window_length % 2 == 0, "Window length must be even");
     debug_assert!(window_length < signal.len(), "Signal is too short");
     debug_assert!(hop_length < window_length, "Hop length is too large");
-    // Take advantage of raw-major order to have contiguous window for the
+    let half_window_length = window_length / 2;
+    // Take advantage of row-major order to have contiguous window for the
     // `assign`, reversing the axes to have the expected shape at the end only.
-    let mut stft = Array2::zeros((signal.len().div_ceil(hop_length), window_length / 2 + 1));
-    let signal = reflect_pad(signal, window_length / 2);
+    let mut stft = Array2::zeros((signal.len().div_ceil(hop_length), half_window_length + 1));
+    let signal = reflect_pad(signal, half_window_length);
 
     // Periodic, so window_size + 1
     let mut hann_window = Array::zeros(window_length + 1);
@@ -61,7 +62,7 @@ pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f
 
         stft_col.assign(
             &signal
-                .slice(s![..=window_length / 2])
+                .slice(s![..=half_window_length])
                 .mapv(|x| f64::from(x.re.hypot(x.im))),
         );
     }
