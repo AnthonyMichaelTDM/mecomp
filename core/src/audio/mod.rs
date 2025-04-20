@@ -31,8 +31,8 @@ pub mod queue;
 use commands::{AudioCommand, QueueCommand, VolumeCommand};
 use queue::Queue;
 
-const DURATION_WATCHER_TICK_MS: u64 = 50;
-const DURATION_WATCHER_NEXT_SONG_THRESHOLD_MS: u64 = 100;
+const DURATION_WATCHER_TICK: Duration = Duration::from_millis(50);
+const DURATION_WATCHER_NEXT_SONG_THRESHOLD: Duration = Duration::from_millis(100);
 
 /// The minimum volume that can be set, currently set to 0.0 (no sound)
 const MIN_VOLUME: f32 = 0.0;
@@ -210,48 +210,54 @@ impl AudioKernel {
         rx: Receiver<(AudioCommand, tracing::Span)>,
     ) {
         // duration watcher signalers
-        let (dw_tx, dw_rx) = tokio::sync::oneshot::channel();
+        let (dw_tx, mut dw_rx) = tokio::sync::oneshot::channel();
 
-        // we won't be able to access this AudioKernel instance reliably, so we need to clone Arcs to all the values we need
+        // we won't be able to access this AudioKernel instance reliably,
+        // so we need to clone the Arcs to all the values we need
         let duration_info = self.duration_info.clone();
         let status = self.status.clone();
 
-        // NOTE: as of rodio v0.19.0, we have access to the `get_pos` command, which allows us to get the current position of the audio stream
-        // it may seem like this means we don't need to have a duration watcher, but the key point is that we need to know when to skip to the next song
-        // the duration watcher both tracks the duration of the song, and skips to the next song when the song is over
-        let _duration_watcher = std::thread::Builder::new().name(String::from("Duration Watcher")).spawn(move || {
-            let sleep_time = std::time::Duration::from_millis(DURATION_WATCHER_TICK_MS);
-            let duration_threshold =
-                std::time::Duration::from_millis(DURATION_WATCHER_NEXT_SONG_THRESHOLD_MS);
+        // NOTE: as of rodio v0.19.0, we have access to the `get_pos` command,
+        // which allows us to get the current position of the audio stream
+        // it may seem like this means we don't need to have a duration watcher,
+        // but the key point is that we need to know when to skip to the next song
+        // the duration watcher both tracks the duration of the song,
+        // and skips to the next song when the song is over
+        let _duration_watcher = std::thread::Builder::new()
+            .name(String::from("Duration Watcher"))
+            .spawn(move || {
+                const NEXT_SONG_COMMAND: AudioCommand =
+                    AudioCommand::Queue(QueueCommand::PlayNextSong);
 
-            tokio::runtime::Builder::new_current_thread()
-                .enable_time()
-                .build()
-                .unwrap()
-                .block_on(async {
-                    log::info!("Duration Watcher started");
-                    tokio::select! {
-                        _ = dw_rx => {},
-                        () = async {
-                            loop {
-                                tokio::time::sleep(sleep_time).await;
-                                let mut duration_info = duration_info.lock().unwrap();
-                                if *status.lock().unwrap() == Status::Playing {
-                                    // if we aren't paused, increment the time played
-                                    duration_info.time_played += sleep_time;
-                                    // if we're within the threshold of the end of the song, signal to the audio kernel to skip to the next song
-                                    if duration_info.time_played >= duration_info.current_duration.saturating_sub(duration_threshold) {
-                                        if let Err(e) = tx.send((AudioCommand::Queue(QueueCommand::PlayNextSong), tracing::Span::current())) {
-                                            error!("Failed to send command to audio kernel: {e}");
-                                            panic!("Failed to send command to audio kernel: {e}");
-                                        }
-                                    }
-                                }
-                            }
-                        } => {},
+                log::info!("Duration Watcher started");
+
+                loop {
+                    if matches!(
+                        dw_rx.try_recv(),
+                        Ok(()) | Err(tokio::sync::oneshot::error::TryRecvError::Closed)
+                    ) {
+                        break;
                     }
-                });
-        });
+                    std::thread::sleep(DURATION_WATCHER_TICK);
+
+                    if *status.lock().unwrap() == Status::Playing {
+                        let mut duration_info = duration_info.lock().unwrap();
+                        // if we aren't paused, increment the time played
+                        duration_info.time_played += DURATION_WATCHER_TICK;
+                        // if we're within the threshold of the end of the song,
+                        // signal the audio kernel to skip to the next song
+                        let time_to_start_next_song = duration_info
+                            .current_duration
+                            .saturating_sub(DURATION_WATCHER_NEXT_SONG_THRESHOLD);
+                        if duration_info.time_played >= time_to_start_next_song {
+                            if let Err(e) = tx.send((NEXT_SONG_COMMAND, tracing::Span::current())) {
+                                error!("Failed to send command to audio kernel: {e}");
+                                panic!("Failed to send command to audio kernel: {e}");
+                            }
+                        }
+                    }
+                }
+            });
 
         for (command, ctx) in rx {
             let _guard = ctx.enter();
@@ -259,32 +265,26 @@ impl AudioKernel {
             let prev_status = *self.status.lock().unwrap();
 
             match command {
-                AudioCommand::Play => {
-                    self.play();
-                }
-                AudioCommand::Pause => {
-                    self.pause();
-                }
-                AudioCommand::TogglePlayback => {
-                    self.toggle_playback();
-                }
+                AudioCommand::Play => self.play(),
+                AudioCommand::Pause => self.pause(),
+                AudioCommand::TogglePlayback => self.toggle_playback(),
                 AudioCommand::RestartSong => {
                     self.restart_song();
                     let _ = self
                         .event_tx
                         .send(StateChange::Seeked(Duration::from_secs(0)));
                 }
-                AudioCommand::ClearPlayer => {
-                    self.clear_player();
-                }
+                AudioCommand::ClearPlayer => self.clear_player(),
                 AudioCommand::Queue(command) => self.queue_control(command),
                 AudioCommand::Exit => break,
                 AudioCommand::ReportStatus(tx) => {
                     let state = self.state();
 
                     if let Err(e) = tx.send(state) {
-                        // if there was an error, then the receiver will never receive the state, this can cause a permanent hang
-                        // so we stop the audio kernel if this happens (which will cause any future calls to `send` to panic)
+                        // if there was an error, then the receiver will never receive the state,
+                        // this can cause a permanent hang
+                        // so we stop the audio kernel if this happens
+                        // (which will cause any future calls to `send` to panic)
                         error!(
                             "Audio Kernel failed to send state to the receiver, state receiver likely has been dropped. State: {e}"
                         );
@@ -713,13 +713,7 @@ impl AudioKernel {
             SeekType::RelativeForwards => duration_info.time_played.saturating_add(duration),
             SeekType::RelativeBackwards => duration_info.time_played.saturating_sub(duration),
         };
-        let new_time = if new_time > duration_info.current_duration {
-            duration_info.current_duration
-        } else if new_time < Duration::from_secs(0) {
-            Duration::from_secs(0)
-        } else {
-            new_time
-        };
+        let new_time = new_time.min(duration_info.current_duration);
 
         // try to seek to the new time.
         // if the seek fails, log the error and continue
