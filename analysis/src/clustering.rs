@@ -471,17 +471,17 @@ fn calc_pairwise_distances(
 
     // for each cluster, calculate the sum of the pairwise distances between samples in that cluster
     let mut distances = Array1::zeros(k);
-    for k in 0..k {
-        let cluster = samples
-            .outer_iter()
-            .zip(labels.iter())
-            .filter_map(|(s, &l)| (l == k).then_some(s))
-            .collect::<Vec<_>>();
-        let cluster_len = cluster.len();
+    let mut clusters = vec![Vec::new(); k];
+    // build clusters
+    for (sample, label) in samples.outer_iter().zip(labels.iter()) {
+        clusters[*label].push(sample);
+    }
+    // calculate pairwise dist. within each cluster
+    for (k, cluster) in clusters.iter().enumerate() {
         let mut pairwise_dists = 0.;
-        for i in 0..cluster_len {
+        for i in 0..cluster.len() - 1 {
             let a = cluster[i];
-            let rest = &cluster[i..];
+            let rest = &cluster[i + 1..];
             for &b in rest {
                 pairwise_dists += L2Dist.distance(a, b);
             }
