@@ -752,9 +752,9 @@ dependencies = [
 
 [[package]]
 name = "blake3"
-version = "1.8.1"
+version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "389a099b34312839e16420d499a9cad9650541715937ffbdd40d36f49e77eeb3"
+checksum = "3888aaa89e4b2a40fca9848e400f6a658a5a3978de7be858e209cafa8be9a4a0"
 dependencies = [
  "arrayref",
  "arrayvec",
@@ -3116,7 +3116,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-analysis"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "adler32",
  "bliss-audio-aubio-rs",
@@ -3149,7 +3149,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-cli"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -3170,7 +3170,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-core"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "ciborium",
@@ -3208,7 +3208,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-daemon"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -3238,7 +3238,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-mpris"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -3262,7 +3262,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-storage"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "criterion",
@@ -3291,7 +3291,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-tui"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -5395,9 +5395,9 @@ dependencies = [
 
 [[package]]
 name = "signal-hook-registry"
-version = "1.4.2"
+version = "1.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9e9e0b4211b72e7b8b6e85c807d36c212bdb33ea8587f7569562a84df5465b1"
+checksum = "9203b8055f63a2a00e2f593bb0510367fe707d7ff1e5c872de2f537b339e5410"
 dependencies = [
  "libc",
 ]

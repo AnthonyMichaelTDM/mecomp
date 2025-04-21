@@ -20,7 +20,7 @@ exclude = ["external", "target", "assets", "scripts"]
 resolver = "2"
 
 [workspace.package]
-version = "0.3.2"
+version = "0.3.3"
 edition = "2024"
 authors = [
     "Anthony Rubick <68485672+AnthonyMichaelTDM@users.noreply.github.com>",
@@ -156,10 +156,10 @@ opentelemetry-otlp = { version = "0.28.0", features = ["grpc-tonic"] }
 tracing-flame = "0.2.0"
 
 # MECOMP packages
-mecomp-analysis = { path = "analysis", version = "=0.3.2" }
-mecomp-core = { path = "core", default-features = false, version = "=0.3.2" }
-mecomp-daemon = { path = "daemon", version = "=0.3.2" }
-mecomp-storage = { path = "storage", default-features = false, version = "=0.3.2" }
+mecomp-analysis = { path = "analysis", version = "=0.3.3" }
+mecomp-core = { path = "core", default-features = false, version = "=0.3.3" }
+mecomp-daemon = { path = "daemon", version = "=0.3.3" }
+mecomp-storage = { path = "storage", default-features = false, version = "=0.3.3" }
 surrealqlx = { path = "surrealqlx/lib", version = "=0.1.3" }
 surrealqlx-macros = { path = "surrealqlx/macros", version = "=0.1.3" }
 surrealqlx-macros-impl = { path = "surrealqlx/macros-impl", version = "=0.1.3" }
