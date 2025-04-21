@@ -238,10 +238,8 @@ impl AudioKernel {
                     ) {
                         break;
                     }
-                    std::thread::sleep(DURATION_WATCHER_TICK);
-
+                    let mut duration_info = duration_info.lock().unwrap();
                     if *status.lock().unwrap() == Status::Playing {
-                        let mut duration_info = duration_info.lock().unwrap();
                         // if we aren't paused, increment the time played
                         duration_info.time_played += DURATION_WATCHER_TICK;
                         // if we're within the threshold of the end of the song,
@@ -256,6 +254,8 @@ impl AudioKernel {
                             }
                         }
                     }
+                    drop(duration_info);
+                    std::thread::sleep(DURATION_WATCHER_TICK);
                 }
             });
 
@@ -1593,17 +1593,18 @@ mod tests {
                 OneOrMany::One(song.clone()),
             ))));
             sender.send(AudioCommand::Stop);
-            let state: StateAudio = get_state(sender.clone()).await;
             sender.send(AudioCommand::Seek(
                 SeekType::Absolute,
                 Duration::from_secs(0),
             ));
+            let state: StateAudio = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert_eq!(state.status, Status::Stopped);
             assert_eq!(
                 state.runtime.unwrap().duration,
                 Duration::from_secs(10) + Duration::from_nanos(6)
             );
+            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(0));
 
             // skip ahead a bit
             sender.send(AudioCommand::Seek(
