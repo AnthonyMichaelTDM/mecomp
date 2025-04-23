@@ -1,3 +1,5 @@
+use std::{fmt::Debug, path::PathBuf};
+
 use mecomp_storage::errors::Error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -21,6 +23,49 @@ pub enum DirectoryError {
     Config,
     #[error("Unable to find the data directory for mecomp.")]
     Data,
+}
+
+/// Errors that can occur when importing or exporting playlists or dynamic playlists
+#[derive(Error, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum BackupError {
+    #[error("The file \"{0}\" already exists")]
+    FileExists(PathBuf),
+    #[error("The file \"{0}\" does not exist")]
+    FileNotFound(PathBuf),
+    #[error("The file \"{0}\" has the wrong extension, expected: {1}")]
+    WrongExtension(PathBuf, String),
+    #[error("{0} is a directory, not a file")]
+    PathIsDirectory(PathBuf),
+    #[error("CSV error: {0}")]
+    CsvError(String),
+    #[error("IO Error: {0}")]
+    IoError(String),
+    #[error("Invalid playlist format")]
+    InvalidDynamicPlaylistFormat,
+    #[error("Error parsing dynamic playlist query in record {1}: {0}")]
+    InvalidDynamicPlaylistQuery(String, usize),
+    #[error("Error parsing playlist name in line {0}, name is empty or already set")]
+    PlaylistNameInvalidOrAlreadySet(usize),
+    #[error(
+        "Out of {0} entries, no valid songs were found in the playlist, consult the logs for more information"
+    )]
+    NoValidSongs(usize),
+    #[error("No valid playlists were found in the csv file.")]
+    NoValidPlaylists,
+}
+
+impl From<csv::Error> for BackupError {
+    #[inline]
+    fn from(value: csv::Error) -> Self {
+        Self::CsvError(format!("{value}"))
+    }
+}
+
+impl From<std::io::Error> for BackupError {
+    #[inline]
+    fn from(e: std::io::Error) -> Self {
+        Self::IoError(e.to_string())
+    }
 }
 
 /// Errors that can occur with the library.
@@ -55,6 +100,8 @@ pub enum SerializableLibraryError {
     #[error("UdpError: {0}")]
     #[cfg(feature = "rpc")]
     Udp(String),
+    #[error("Backup Error: {0}")]
+    BackupError(#[from] BackupError),
 }
 
 impl From<Error> for SerializableLibraryError {

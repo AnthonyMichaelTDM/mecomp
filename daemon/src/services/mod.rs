@@ -14,6 +14,7 @@ use mecomp_storage::{
 use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
 
+pub mod backup;
 pub mod library;
 #[cfg(feature = "analysis")]
 pub mod radio;
