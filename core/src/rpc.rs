@@ -255,6 +255,14 @@ pub trait MusicPlayer {
         id: PlaylistId,
         name: String,
     ) -> Result<Playlist, SerializableLibraryError>;
+    /// Export a playlist to a .m3u file
+    async fn playlist_export(id: PlaylistId, path: PathBuf)
+    -> Result<(), SerializableLibraryError>;
+    /// Import a playlist from a .m3u file
+    async fn playlist_import(
+        path: PathBuf,
+        name: Option<String>,
+    ) -> Result<PlaylistId, SerializableLibraryError>;
 
     // Auto Curration commands.
     // (collections, radios, smart playlists, etc.)
@@ -302,6 +310,12 @@ pub trait MusicPlayer {
     async fn dynamic_playlist_get(id: DynamicPlaylistId) -> Option<DynamicPlaylist>;
     /// Dynamic Playlists: get the songs of a DP
     async fn dynamic_playlist_get_songs(id: DynamicPlaylistId) -> Option<Box<[Song]>>;
+    /// Dynamic Playlists: export dynamic playlists to a csv file
+    async fn dynamic_playlist_export(path: PathBuf) -> Result<(), SerializableLibraryError>;
+    /// Dynamic Playlists: import dynamic playlists from a csv file
+    async fn dynamic_playlist_import(
+        path: PathBuf,
+    ) -> Result<Vec<DynamicPlaylist>, SerializableLibraryError>;
 }
 
 /// Initialize the music player client

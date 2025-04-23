@@ -5,7 +5,7 @@ pub mod utils;
 #[cfg(test)]
 mod smoke_tests;
 
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr};
 
 use clap::{Subcommand, ValueEnum};
 use mecomp_storage::db::schemas::dynamic::query::Query;
@@ -410,6 +410,24 @@ pub enum PlaylistCommand {
         #[clap(value_hint = clap::ValueHint::Other)]
         item_ids: Vec<String>,
     },
+    /// Export a playlist to a .m3u file
+    Export {
+        /// The id of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
+        id: String,
+        /// The path to the .m3u file
+        #[clap(value_hint = clap::ValueHint::FilePath)]
+        path: PathBuf,
+    },
+    /// Import a playlist from a .m3u file
+    Import {
+        /// The path to the .m3u file
+        #[clap(value_hint = clap::ValueHint::FilePath)]
+        path: PathBuf,
+        /// The name of the playlist
+        #[clap(value_hint = clap::ValueHint::Other)]
+        name: Option<String>,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, ValueEnum)]
@@ -502,7 +520,20 @@ pub enum DynamicCommand {
         update: DynamicUpdate,
     },
     /// Get the BNF Grammar for queries
+    #[clap(alias = "bnf")]
     ShowBNF,
+    /// Export all dynamic playlists to a CSV file
+    Export {
+        /// The path to the CSV file
+        #[clap(value_hint = clap::ValueHint::FilePath)]
+        path: PathBuf,
+    },
+    /// Import dynamic playlists from a CSV file
+    Import {
+        /// The path to the CSV file
+        #[clap(value_hint = clap::ValueHint::FilePath)]
+        path: PathBuf,
+    },
 }
 
 #[derive(Debug, clap::Args, PartialEq, Eq)]

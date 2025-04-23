@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------- std lib
-use std::{ops::Range, path::PathBuf, sync::Arc, time::Duration};
+use std::{fs::File, ops::Range, path::PathBuf, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
 use log::{debug, error, info, warn};
@@ -15,7 +15,7 @@ use mecomp_core::{
         commands::{AudioCommand, QueueCommand, VolumeCommand},
     },
     config::Settings,
-    errors::SerializableLibraryError,
+    errors::{BackupError, SerializableLibraryError},
     rpc::{
         AlbumId, ArtistId, CollectionId, DynamicPlaylistId, MusicPlayer, PlaylistId, SearchResult,
         SongId,
@@ -41,7 +41,13 @@ use mecomp_storage::{
 use one_or_many::OneOrMany;
 
 use crate::{
-    services,
+    services::{
+        self,
+        backup::{
+            export_dynamic_playlists, export_playlist, import_dynamic_playlists, import_playlist,
+            validate_file_path,
+        },
+    },
     termination::{self, Terminator},
 };
 
@@ -1084,6 +1090,109 @@ impl MusicPlayer for MusicPlayerServer {
             .await?
             .ok_or(Error::NotFound.into())
     }
+    /// Export a playlist to a .m3u file
+    #[instrument]
+    async fn playlist_export(
+        self,
+        context: Context,
+        id: PlaylistId,
+        path: PathBuf,
+    ) -> Result<(), SerializableLibraryError> {
+        // validate the path
+        validate_file_path(&path, "m3u", false)?;
+
+        // read the playlist
+        let playlist = Playlist::read(&self.db, id.into())
+            .await
+            .tap_err(|e| warn!("Error in playlist_export: {e}"))
+            .ok()
+            .flatten()
+            .ok_or(Error::NotFound)?;
+        // get the songs in the playlist
+        let songs = Playlist::read_songs(&self.db, playlist.id)
+            .await
+            .tap_err(|e| warn!("Error in playlist_export: {e}"))
+            .ok()
+            .unwrap_or_default();
+
+        // create the file
+        let file = File::create(&path).tap_err(|e| warn!("Error in playlist_export: {e}"))?;
+        // write the playlist to the file
+        export_playlist(&playlist.name, &songs, file)
+            .tap_err(|e| warn!("Error in playlist_export: {e}"))?;
+        info!("Exported playlist to: {path:?}");
+        Ok(())
+    }
+    /// Import a playlist from a .m3u file
+    #[instrument]
+    async fn playlist_import(
+        self,
+        context: Context,
+        path: PathBuf,
+        name: Option<String>,
+    ) -> Result<PlaylistId, SerializableLibraryError> {
+        // validate the path
+        validate_file_path(&path, "m3u", true)?;
+
+        // read file
+        let file = File::open(&path).tap_err(|e| warn!("Error in playlist_import: {e}"))?;
+        let (parsed_name, song_paths) =
+            import_playlist(file).tap_err(|e| warn!("Error in playlist_import: {e}"))?;
+
+        let name = match (name, parsed_name) {
+            (Some(name), _) | (None, Some(name)) => name,
+            (None, None) => "Imported Playlist".to_owned(),
+        };
+
+        // check if the playlist already exists
+        if let Ok(Some(playlist)) = Playlist::read_by_name(&self.db, name.clone()).await {
+            // if it does, return the id
+            info!("Playlist \"{name}\" already exists, will not import");
+            return Ok(playlist.id.into());
+        }
+
+        // create the playlist
+        let playlist = Playlist::create(
+            &self.db,
+            Playlist {
+                id: Playlist::generate_id(),
+                name,
+                runtime: Duration::from_secs(0),
+                song_count: 0,
+            },
+        )
+        .await
+        .tap_err(|e| warn!("Error in playlist_import: {e}"))?
+        .ok_or(Error::NotCreated)?;
+
+        // lookup all the songs
+        let mut songs = Vec::new();
+        for path in &song_paths {
+            let Some(song) = Song::read_by_path(&self.db, path.clone())
+                .await
+                .tap_err(|e| warn!("Error in playlist_import: {e}"))?
+            else {
+                warn!("Song at {} not found in the library", path.display());
+                continue;
+            };
+
+            songs.push(song.id);
+        }
+
+        if songs.is_empty() {
+            return Err(BackupError::NoValidSongs(song_paths.len()).into());
+        }
+
+        // add the songs to the playlist
+        Playlist::add_songs(&self.db, playlist.id.clone(), songs)
+            .await
+            .tap_err(|e| {
+                warn!("Error in playlist_import: {e}");
+            })?;
+
+        // return the playlist id
+        Ok(playlist.id.into())
+    }
 
     /// Collections: Return brief information about the users auto curration collections.
     #[instrument]
@@ -1264,5 +1373,78 @@ impl MusicPlayer for MusicPlayerServer {
             .ok()
             .flatten()
             .map(Into::into)
+    }
+    /// Dynamic Playlists: export dynamic playlists to a csv file
+    #[instrument]
+    async fn dynamic_playlist_export(
+        self,
+        context: Context,
+        path: PathBuf,
+    ) -> Result<(), SerializableLibraryError> {
+        // validate the path
+        validate_file_path(&path, "csv", false)?;
+
+        // read the playlists
+        let playlists = DynamicPlaylist::read_all(&self.db)
+            .await
+            .tap_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
+
+        // create the file
+        let file =
+            File::create(&path).tap_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
+        let writter = csv::Writer::from_writer(std::io::BufWriter::new(file));
+        // write the playlists to the file
+        export_dynamic_playlists(&playlists, writter)
+            .tap_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
+        info!("Exported dynamic playlists to: {path:?}");
+        Ok(())
+    }
+    /// Dynamic Playlists: import dynamic playlists from a csv file
+    #[instrument]
+    async fn dynamic_playlist_import(
+        self,
+        context: Context,
+        path: PathBuf,
+    ) -> Result<Vec<DynamicPlaylist>, SerializableLibraryError> {
+        // validate the path
+        validate_file_path(&path, "csv", true)?;
+
+        // read file
+        let file = File::open(&path).tap_err(|e| warn!("Error in dynamic_playlist_import: {e}"))?;
+        let reader = csv::ReaderBuilder::new()
+            .has_headers(true)
+            .from_reader(std::io::BufReader::new(file));
+
+        // read the playlists from the file
+        let playlists = import_dynamic_playlists(reader)
+            .tap_err(|e| warn!("Error in dynamic_playlist_import: {e}"))?;
+
+        if playlists.is_empty() {
+            return Err(BackupError::NoValidPlaylists.into());
+        }
+
+        // create the playlists
+        let mut ids = Vec::new();
+        for playlist in playlists {
+            // if a playlist with the same name already exists, skip this one
+            if let Ok(Some(existing_playlist)) =
+                DynamicPlaylist::read_by_name(&self.db, playlist.name.clone()).await
+            {
+                info!(
+                    "Dynamic Playlist \"{}\" already exists, will not import",
+                    existing_playlist.name
+                );
+                continue;
+            }
+
+            ids.push(
+                DynamicPlaylist::create(&self.db, playlist)
+                    .await
+                    .tap_err(|e| warn!("Error in dynamic_playlist_import: {e}"))?
+                    .ok_or(Error::NotCreated)?,
+            );
+        }
+
+        Ok(ids)
     }
 }

@@ -770,6 +770,36 @@ impl CommandHandler for super::PlaylistCommand {
 
                 Ok(())
             }
+            Self::Export { id, path } => {
+                client
+                    .playlist_export(
+                        ctx,
+                        RecordId {
+                            tb: playlist::TABLE_NAME.to_owned(),
+                            id: Id::String(id.clone()),
+                        },
+                        path.clone(),
+                    )
+                    .await??;
+                writeln!(
+                    stdout,
+                    "Daemon response:\nplaylist exported to {}",
+                    path.display()
+                )?;
+                Ok(())
+            }
+            Self::Import { path, name } => {
+                let resp: RecordId = client
+                    .playlist_import(ctx, path.clone(), name.clone())
+                    .await??;
+                writeln!(
+                    stdout,
+                    "Daemon response:\nplaylist imported from {}\n\t{}",
+                    path.display(),
+                    resp.id
+                )?;
+                Ok(())
+            }
         }
     }
 }
@@ -893,6 +923,7 @@ The syntax for queries is as follows:
 impl CommandHandler for super::DynamicCommand {
     type Output = anyhow::Result<()>;
 
+    #[allow(clippy::too_many_lines)]
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
         ctx: tarpc::context::Context,
@@ -994,6 +1025,25 @@ impl CommandHandler for super::DynamicCommand {
             }
             Self::ShowBNF => {
                 writeln!(stdout, "{BNF_GRAMMAR}")?;
+                Ok(())
+            }
+            Self::Export { path } => {
+                client.dynamic_playlist_export(ctx, path.clone()).await??;
+                writeln!(
+                    stdout,
+                    "Daemon response:\nDynamic playlists exported to {}",
+                    path.display()
+                )?;
+                Ok(())
+            }
+            Self::Import { path } => {
+                let resp: Vec<DynamicPlaylist> =
+                    client.dynamic_playlist_import(ctx, path.clone()).await??;
+                writeln!(
+                    stdout,
+                    "Daemon response:\n{}",
+                    printing::dynamic_playlist_list("Dynamic Playlists", &resp)?
+                )?;
                 Ok(())
             }
         }

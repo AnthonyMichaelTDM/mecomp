@@ -255,9 +255,14 @@ mod test_client_tests {
     //! - the `init_test_client_server` function
     //! - daemon endpoints that aren't covered in other tests
 
+    use std::io::{Read, Write};
+
     use super::*;
     use anyhow::Result;
-    use mecomp_core::state::library::LibraryFull;
+    use mecomp_core::{
+        errors::{BackupError, SerializableLibraryError},
+        state::library::LibraryFull,
+    };
     use mecomp_storage::{
         db::schemas::{
             collection::Collection,
@@ -268,7 +273,7 @@ mod test_client_tests {
         test_utils::{SongCase, create_song_with_overrides, init_test_database},
     };
 
-    use pretty_assertions::assert_eq;
+    use pretty_assertions::{assert_eq, assert_str_eq};
     use rstest::{fixture, rstest};
 
     #[fixture]
@@ -288,6 +293,7 @@ mod test_client_tests {
                 artist: Some(one_or_many::OneOrMany::One("Artist 0".into())),
                 album_artist: Some(one_or_many::OneOrMany::One("Artist 0".into())),
                 album: Some("Album 0".into()),
+                path: Some("/path/to/song.mp3".into()),
                 ..Default::default()
             },
         )
@@ -818,6 +824,357 @@ mod test_client_tests {
             .unwrap();
 
         assert_eq!(response.len(), 1);
+
+        Ok(())
+    }
+
+    // Dynamic Playlist Import Tests
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_import(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let tmpfile = tempfile::NamedTempFile::with_suffix("dps.csv")?;
+
+        // write a csv file to the temp file
+        let mut file = tmpfile.reopen()?;
+        writeln!(file, "dynamic playlist name,query")?;
+        writeln!(file, "Dynamic Playlist 0,artist CONTAINS \"Artist 0\"")?;
+
+        let tmpfile_path = tmpfile.path().to_path_buf();
+
+        let query: Query = "artist CONTAINS \"Artist 0\"".parse()?;
+
+        let ctx = tarpc::context::current();
+        let response = client.dynamic_playlist_import(ctx, tmpfile_path).await??;
+
+        let expected = DynamicPlaylist {
+            id: response[0].id.clone(),
+            name: "Dynamic Playlist 0".into(),
+            query: query.clone(),
+        };
+
+        assert_eq!(response, vec![expected]);
+
+        Ok(())
+    }
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_import_file_nonexistant(
+        #[future] client: MusicPlayerClient,
+    ) -> Result<()> {
+        let client = client.await;
+
+        let tmpfile = tempfile::NamedTempFile::with_suffix("dps.csv")?;
+
+        // write a csv file to the temp file
+        let mut file = tmpfile.reopen()?;
+        writeln!(file, "artist,album,album_artist,title")?;
+
+        let tmpfile_path = "/this/path/does/not/exist.csv";
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .dynamic_playlist_import(ctx, tmpfile_path.into())
+            .await?;
+        assert!(response.is_err(), "response: {response:?}");
+        assert_eq!(
+            response.unwrap_err().to_string(),
+            format!("Backup Error: The file \"{tmpfile_path}\" does not exist")
+        );
+        Ok(())
+    }
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_import_file_wrong_extension(
+        #[future] client: MusicPlayerClient,
+    ) -> Result<()> {
+        let client = client.await;
+
+        let tmpfile = tempfile::NamedTempFile::with_suffix("dps.txt")?;
+
+        // write a csv file to the temp file
+        let mut file = tmpfile.reopen()?;
+        writeln!(file, "artist,album,album_artist,title")?;
+
+        let tmpfile_path = tmpfile.path().to_path_buf();
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .dynamic_playlist_import(ctx, tmpfile_path.clone())
+            .await?;
+        assert!(response.is_err(), "response: {response:?}");
+        assert_eq!(
+            response.unwrap_err().to_string(),
+            format!(
+                "Backup Error: The file \"{}\" has the wrong extension, expected: csv",
+                tmpfile_path.display()
+            )
+        );
+        Ok(())
+    }
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_import_file_is_directory(
+        #[future] client: MusicPlayerClient,
+    ) -> Result<()> {
+        let client = client.await;
+
+        let tmpfile = tempfile::tempdir()?;
+
+        let tmpfile_path = tmpfile.path().to_path_buf();
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .dynamic_playlist_import(ctx, tmpfile_path.clone())
+            .await?;
+        assert!(response.is_err());
+        assert_eq!(
+            response.unwrap_err().to_string(),
+            format!(
+                "Backup Error: {} is a directory, not a file",
+                tmpfile_path.display()
+            )
+        );
+        Ok(())
+    }
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_import_file_invalid_format(
+        #[future] client: MusicPlayerClient,
+    ) -> Result<()> {
+        let client = client.await;
+
+        let tmpfile = tempfile::NamedTempFile::with_suffix("dps.csv")?;
+
+        // write a csv file to the temp file
+        let mut file = tmpfile.reopen()?;
+        writeln!(file, "artist,album,album_artist,title")?;
+
+        let tmpfile_path = tmpfile.path().to_path_buf();
+
+        let ctx = tarpc::context::current();
+        let response = client.dynamic_playlist_import(ctx, tmpfile_path).await?;
+        assert!(response.is_err());
+        assert_eq!(
+            response.unwrap_err().to_string(),
+            "Backup Error: No valid playlists were found in the csv file."
+        );
+        Ok(())
+    }
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_import_file_invalid_query(
+        #[future] client: MusicPlayerClient,
+    ) -> Result<()> {
+        let client = client.await;
+
+        let tmpfile = tempfile::NamedTempFile::with_suffix("dps.csv")?;
+
+        // write a csv file to the temp file
+        let mut file = tmpfile.reopen()?;
+        writeln!(file, "dynamic playlist name,query")?;
+        writeln!(file, "Dynamic Playlist 0,artist CONTAINS \"Artist 0\"")?;
+        writeln!(file, "Dynamic Playlist 1,artist CONTAINS \"")?;
+
+        let tmpfile_path = tmpfile.path().to_path_buf();
+
+        let ctx = tarpc::context::current();
+        let response = client.dynamic_playlist_import(ctx, tmpfile_path).await?;
+        assert!(
+            matches!(
+                response,
+                Err(SerializableLibraryError::BackupError(
+                    BackupError::InvalidDynamicPlaylistQuery(_, 2)
+                ))
+            ),
+            "response: {response:?}"
+        );
+        Ok(())
+    }
+
+    // Dynamic Playlist Export Tests
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_export(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let tmpdir = tempfile::tempdir()?;
+        let path = tmpdir.path().join("test.csv");
+
+        let query: Query = "artist CONTAINS \"Artist 0\"".parse()?;
+        let ctx = tarpc::context::current();
+        let _ = client
+            .dynamic_playlist_create(ctx, "Dynamic Playlist 0".into(), query.clone())
+            .await?
+            .unwrap();
+
+        let expected = r#"dynamic playlist name,query
+Dynamic Playlist 0,"artist CONTAINS ""Artist 0"""
+"#;
+
+        let response = client.dynamic_playlist_export(ctx, path.clone()).await?;
+        assert_eq!(response, Ok(()));
+
+        let mut file = std::fs::File::open(path.clone())?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+        assert_str_eq!(contents, expected);
+
+        Ok(())
+    }
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_export_file_exists(
+        #[future] client: MusicPlayerClient,
+    ) -> Result<()> {
+        let client = client.await;
+
+        let tmpfile = tempfile::NamedTempFile::with_suffix("dps.csv")?;
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .dynamic_playlist_export(ctx, tmpfile.path().to_path_buf())
+            .await?;
+        assert!(
+            matches!(
+                response,
+                Err(SerializableLibraryError::BackupError(
+                    BackupError::FileExists(_)
+                ))
+            ),
+            "response: {response:?}"
+        );
+        Ok(())
+    }
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_export_file_is_directory(
+        #[future] client: MusicPlayerClient,
+    ) -> Result<()> {
+        let client = client.await;
+
+        let tmpfile = tempfile::tempdir()?;
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .dynamic_playlist_export(ctx, tmpfile.path().to_path_buf())
+            .await?;
+        assert!(
+            matches!(
+                response,
+                Err(SerializableLibraryError::BackupError(
+                    BackupError::PathIsDirectory(_)
+                ))
+            ),
+            "response: {response:?}"
+        );
+        Ok(())
+    }
+    #[rstest]
+    #[tokio::test]
+    async fn test_dynamic_playlist_export_file_invalid_extension(
+        #[future] client: MusicPlayerClient,
+    ) -> Result<()> {
+        let client = client.await;
+
+        let tmpfile = tempfile::NamedTempFile::with_suffix("dps.txt")?;
+
+        let ctx = tarpc::context::current();
+        let response = client
+            .dynamic_playlist_export(ctx, tmpfile.path().to_path_buf())
+            .await?;
+        assert!(response.is_err(), "response: {response:?}");
+        let err = response.unwrap_err();
+        assert!(
+            matches!(
+                &err,
+                SerializableLibraryError::BackupError(
+                    BackupError::WrongExtension(_, expected_extension)
+                ) if expected_extension == "csv"
+            ),
+            "response: {err:?}"
+        );
+
+        Ok(())
+    }
+
+    // Playlist import test
+    #[rstest]
+    #[tokio::test]
+    async fn test_playlist_import(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let tmpfile = tempfile::NamedTempFile::with_suffix("pl.m3u")?;
+
+        // write a csv file to the temp file
+        let mut file = tmpfile.reopen()?;
+        write!(
+            file,
+            r"#EXTM3U
+#EXTINF:123,Sample Artist - Sample title
+/path/to/song.mp3
+"
+        )?;
+
+        let tmpfile_path = tmpfile.path().to_path_buf();
+
+        let ctx = tarpc::context::current();
+        let response = client.playlist_import(ctx, tmpfile_path, None).await?;
+        assert!(response.is_ok());
+        let response = response.unwrap();
+
+        let ctx = tarpc::context::current();
+        let playlist = client.playlist_get(ctx, response.clone()).await?.unwrap();
+
+        assert_eq!(playlist.name, "Imported Playlist");
+        assert_eq!(playlist.song_count, 1);
+
+        let ctx = tarpc::context::current();
+        let songs = client
+            .playlist_get_songs(ctx, response.clone())
+            .await?
+            .unwrap();
+        assert_eq!(songs.len(), 1);
+        assert_eq!(songs[0].path.to_string_lossy(), "/path/to/song.mp3");
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_playlist_export(#[future] client: MusicPlayerClient) -> Result<()> {
+        let client = client.await;
+
+        let tmpdir = tempfile::tempdir()?;
+        let path = tmpdir.path().join("test.m3u");
+
+        let ctx = tarpc::context::current();
+        let library_full: LibraryFull = client.library_full(ctx).await??;
+
+        let playlist = library_full.playlists[0].clone();
+
+        let response = client
+            .playlist_export(ctx, playlist.id.clone().into(), path.clone())
+            .await?;
+        assert_eq!(response, Ok(()));
+
+        let mut file = std::fs::File::open(path.clone())?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+        assert_str_eq!(
+            contents,
+            r"#EXTM3U
+
+#PLAYLIST:Playlist 0
+
+#EXTINF:120,Song 0 - Artist 0
+#EXTGENRE:Genre 0
+#EXTALB:Artist 0
+/path/to/song.mp3
+
+"
+        );
 
         Ok(())
     }
