@@ -860,7 +860,7 @@ mod test_client_tests {
     }
     #[rstest]
     #[tokio::test]
-    async fn test_dynamic_playlist_import_file_nonexistant(
+    async fn test_dynamic_playlist_import_file_nonexistent(
         #[future] client: MusicPlayerClient,
     ) -> Result<()> {
         let client = client.await;
