@@ -137,7 +137,21 @@ pub async fn start_daemon(
     // Start the RPC server.
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.daemon.rpc_port);
 
-    let mut listener = tarpc::serde_transport::tcp::listen(&server_addr, Json::default).await?;
+    let mut listener = match tarpc::serde_transport::tcp::listen(&server_addr, Json::default).await
+    {
+        Ok(listener) => listener,
+        Err(e) => {
+            error!("Failed to start server: {e}");
+
+            // If the server fails to start, we need to clean up the database and exit.
+            audio_kernel.send(AudioCommand::Exit);
+            #[cfg(feature = "dynamic_updates")]
+            guard.stop();
+            eft_guard.abort();
+
+            return Err(anyhow::anyhow!("Failed to start server: {e}"));
+        }
+    };
     info!("Listening on {}", listener.local_addr());
     listener.config_mut().max_frame_length(usize::MAX);
     let server_handle = listener
