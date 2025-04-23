@@ -1392,9 +1392,9 @@ impl MusicPlayer for MusicPlayerServer {
         // create the file
         let file =
             File::create(&path).tap_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
-        let writter = csv::Writer::from_writer(std::io::BufWriter::new(file));
+        let writer = csv::Writer::from_writer(std::io::BufWriter::new(file));
         // write the playlists to the file
-        export_dynamic_playlists(&playlists, writter)
+        export_dynamic_playlists(&playlists, writer)
             .tap_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
         info!("Exported dynamic playlists to: {path:?}");
         Ok(())
