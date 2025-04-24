@@ -1098,6 +1098,8 @@ impl MusicPlayer for MusicPlayerServer {
         id: PlaylistId,
         path: PathBuf,
     ) -> Result<(), SerializableLibraryError> {
+        info!("Exporting playlist to: {}", path.display());
+
         // validate the path
         validate_file_path(&path, "m3u", false)?;
 
@@ -1131,6 +1133,8 @@ impl MusicPlayer for MusicPlayerServer {
         path: PathBuf,
         name: Option<String>,
     ) -> Result<PlaylistId, SerializableLibraryError> {
+        info!("Importing playlist from: {}", path.display());
+
         // validate the path
         validate_file_path(&path, "m3u", true)?;
 
@@ -1381,6 +1385,8 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         path: PathBuf,
     ) -> Result<(), SerializableLibraryError> {
+        info!("Exporting dynamic playlists to: {path:?}");
+
         // validate the path
         validate_file_path(&path, "csv", false)?;
 
@@ -1406,6 +1412,8 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         path: PathBuf,
     ) -> Result<Vec<DynamicPlaylist>, SerializableLibraryError> {
+        info!("Importing dynamic playlists from: {path:?}");
+
         // validate the path
         validate_file_path(&path, "csv", true)?;
 

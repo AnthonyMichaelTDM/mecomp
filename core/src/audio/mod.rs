@@ -111,7 +111,7 @@ pub(crate) struct AudioKernel {
     /// Channel that the audio kernel might use to send `AudioCommand`'s
     /// to itself over (e.g., in a callback)
     command_tx: Sender<(AudioCommand, tracing::Span)>,
-    /// Channel that the audio kernel recieves `AudioCommand`'s over
+    /// Channel that the audio kernel receives `AudioCommand`'s over
     command_rx: Receiver<(AudioCommand, tracing::Span)>,
     /// Event publisher for when the audio kernel changes state
     event_tx: Sender<StateChange>,
