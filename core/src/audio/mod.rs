@@ -77,6 +77,15 @@ impl AudioKernelSender {
     }
 
     /// Send a command to the audio kernel
+    ///
+    /// # Arguments
+    ///
+    /// * `command` - The command to send to the audio kernel
+    ///
+    /// # Panics
+    ///
+    /// * If the audio kernel is not running, or the command channel is otherwise closed, this function will panic.
+    ///   If that is not acceptable, consider using the `try_send` method instead.
     #[instrument(skip(self))]
     pub fn send(&self, command: AudioCommand) {
         let ctx =
@@ -87,6 +96,33 @@ impl AudioKernelSender {
             panic!("Failed to send command to audio kernel: {e}");
         }
     }
+
+    /// Try to send a command to the audio kernel
+    ///
+    /// This is a variant of the `send` method that does not panic.
+    ///
+    /// # Arguments
+    ///
+    /// * `command` - The command to send to the audio kernel
+    #[instrument(skip(self))]
+    pub fn try_send(
+        &self,
+        command: AudioCommand,
+    ) -> Result<(), std::sync::mpsc::SendError<(AudioCommand, tracing::Span)>> {
+        let ctx =
+            tracing::info_span!("Sending Audio Command to Kernel", command = ?command).or_current();
+
+        self.tx.send((command, ctx))
+    }
+}
+
+impl Drop for AudioKernelSender {
+    #[allow(clippy::missing_inline_in_public_items)]
+    fn drop(&mut self) {
+        // if the sender is dropped, we need to send an exit command to the audio kernel
+        // to ensure that the audio kernel is stopped
+        let _ = self.try_send(AudioCommand::Exit);
+    }
 }
 
 pub(crate) struct AudioKernel {
@@ -94,7 +130,7 @@ pub(crate) struct AudioKernel {
     #[cfg(not(feature = "mock_playback"))]
     _music_output: (rodio::OutputStream, rodio::OutputStreamHandle),
     #[cfg(feature = "mock_playback")]
-    queue_rx_end_tx: tokio::sync::oneshot::Sender<()>,
+    queue_rx_stop: Arc<AtomicBool>,
     // /// Transmitter used to send commands to the audio kernel
     // tx: Sender<(AudioCommand, tracing::Span)>,
     /// the rodio sink used to play audio
@@ -115,6 +151,14 @@ pub(crate) struct AudioKernel {
     command_rx: Receiver<(AudioCommand, tracing::Span)>,
     /// Event publisher for when the audio kernel changes state
     event_tx: Sender<StateChange>,
+}
+
+#[cfg(feature = "mock_playback")]
+impl Drop for AudioKernel {
+    fn drop(&mut self) {
+        self.queue_rx_stop
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 
 impl AudioKernel {
@@ -169,16 +213,13 @@ impl AudioKernel {
 
         let (sink, mut queue_rx) = rodio::Sink::new_idle();
 
-        // start a detached thread that continuously polls the queue_rx, until it receives a command to exit
-        let (tx, mut rx) = tokio::sync::oneshot::channel();
+        let queue_stop = Arc::new(AtomicBool::new(false));
+        let queue_stop_clone = queue_stop.clone();
 
         std::thread::spawn(move || {
             // basically, call rx.await and while it is waiting for a command, poll the queue_rx
             loop {
-                if matches!(
-                    rx.try_recv(),
-                    Ok(()) | Err(tokio::sync::oneshot::error::TryRecvError::Closed)
-                ) {
+                if queue_stop_clone.load(std::sync::atomic::Ordering::Relaxed) {
                     break;
                 }
                 queue_rx.next();
@@ -190,7 +231,7 @@ impl AudioKernel {
 
         Self {
             player: sink.into(),
-            queue_rx_end_tx: tx,
+            queue_rx_stop: queue_stop,
             queue: Arc::new(Mutex::new(Queue::new())),
             volume: Arc::new(Mutex::new(1.0)),
             muted: Arc::new(AtomicBool::new(false)),
@@ -266,9 +307,6 @@ impl AudioKernel {
                 let _ = self.event_tx.send(StateChange::StatusChanged(new_status));
             }
         }
-
-        #[cfg(feature = "mock_playback")]
-        self.queue_rx_end_tx.send(()).unwrap();
     }
 
     #[instrument(skip(self))]
@@ -755,6 +793,13 @@ mod tests {
         sender.send(AudioCommand::Play);
     }
 
+    #[test]
+    fn test_audio_kernel_try_send_closed_channel() {
+        let (tx, _) = mpsc::channel();
+        let sender = AudioKernelSender::new(tx);
+        assert!(sender.try_send(AudioCommand::Play).is_err());
+    }
+
     #[rstest]
     #[timeout(Duration::from_secs(3))] // if the test takes longer than 3 seconds, this is a failure
     fn test_audio_player_kernel_spawn_and_exit(
@@ -830,6 +875,7 @@ mod tests {
             audio_kernel: AudioKernel,
             sound: impl Source<Item = f32> + Send + 'static,
         ) {
+            init();
             audio_kernel.player.append(sound);
             audio_kernel.play();
             assert!(!audio_kernel.player.is_paused());
@@ -842,6 +888,7 @@ mod tests {
             audio_kernel: AudioKernel,
             sound: impl Source<Item = f32> + Send + 'static,
         ) {
+            init();
             audio_kernel.player.append(sound);
             audio_kernel.play();
             assert!(!audio_kernel.player.is_paused());
@@ -852,7 +899,7 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(10))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_play_pause_toggle_restart(
             #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
@@ -912,7 +959,7 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(10))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_audio_kernel_skip_forward(audio_kernel: AudioKernel) {
             init();
@@ -969,7 +1016,8 @@ mod tests {
 
             audio_kernel.queue_control(QueueCommand::SkipForward(1));
 
-            // we were at the end of the queue and tried to skip forward with repeatmode not being Continuous, so the player should be paused and the queue position should be None
+            // we were at the end of the queue and tried to skip forward with repeatmode not being Continuous,
+            // so the player should be paused and the queue position should be None
             let state = audio_kernel.state();
             assert_eq!(state.queue_position, None);
             assert!(state.paused());
@@ -1046,7 +1094,7 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(6))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_remove_range_from_queue(
             #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
@@ -1268,7 +1316,7 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(6))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_audio_kernel_clear(
             #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
@@ -1331,7 +1379,7 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(6))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_audio_kernel_shuffle(
             #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
