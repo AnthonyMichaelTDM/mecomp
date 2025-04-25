@@ -63,32 +63,6 @@ pub fn read_by_names() -> impl IntoQuery {
     ))
 }
 
-/// Query to read many artists
-///
-/// Compiles to:
-/// ```sql, ignore
-/// SELECT * FROM $ids
-/// ```
-///
-/// # Example
-///
-/// ```ignore
-/// # use pretty_assertions::assert_eq;
-/// use mecomp_storage::db::crud::queries::artist::read_many;
-/// use surrealdb::opt::IntoQuery;
-///
-/// let statement = read_many();
-/// assert_eq!(
-///     statement.into_query().unwrap(),
-///     "SELECT * FROM $ids".into_query().unwrap()
-/// );
-/// ```
-#[must_use]
-#[inline]
-pub const fn read_many() -> impl IntoQuery {
-    "SELECT * FROM $ids"
-}
-
 /// Query to read the albums by an artist.
 ///
 /// Compiles to:
@@ -256,7 +230,6 @@ mod query_validation_tests {
     #[rstest]
     #[case::read_by_name(read_by_name(), "SELECT * FROM artist WHERE name = $name LIMIT 1")]
     #[case::read_by_names(read_by_names(), "SELECT * FROM artist WHERE name IN $names")]
-    #[case::read_many(read_many(), "SELECT * FROM $ids")]
     #[case::read_albums(read_albums(), "SELECT * FROM $id->artist_to_album.out")]
     #[case::add_album(add_album(), "RELATE $id->artist_to_album->$album")]
     #[case::add_album_to_artists(add_album_to_artists(), "RELATE $ids->artist_to_album->$album")]
