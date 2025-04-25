@@ -151,6 +151,7 @@ pub async fn start_daemon(
         audio_kernel.clone(),
         event_publisher_guard.dispatcher.clone(),
         terminator.clone(),
+        interrupt_rx.resubscribe(),
     );
 
     // Start the RPC server.
@@ -248,6 +249,7 @@ pub async fn init_test_client_server(
             audio_kernel.clone(),
             event_publisher.clone(),
             terminator,
+            interrupt_rx.resubscribe(),
         );
         tokio::select! {
             () = tarpc::server::BaseChannel::with_defaults(server_transport)
@@ -257,7 +259,7 @@ pub async fn init_test_client_server(
                     tokio::spawn(response);
                 }) => {},
             // Wait for the server to be stopped.
-            _ = interrupt_rx.recv() => {
+            _ = interrupt_rx.wait() => {
                 // Stop the server.
                 info!("Stopping server...");
                 audio_kernel.send(AudioCommand::Exit);

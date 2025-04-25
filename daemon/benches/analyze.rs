@@ -3,7 +3,7 @@
 use std::num::NonZeroUsize;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use mecomp_daemon::services::library::analyze;
+use mecomp_daemon::{services::library::analyze, termination::InterruptReceiver};
 use mecomp_storage::{
     db::schemas::song::Song,
     test_utils::{arb_song_case, arb_vec, create_song_metadata, init_test_database},
@@ -44,7 +44,9 @@ fn benchmark_analyze(c: &mut Criterion) {
                 .unwrap()
             },
             async |db| {
-                analyze(&db, false).await.unwrap();
+                analyze(&db, InterruptReceiver::dummy(), false)
+                    .await
+                    .unwrap();
             },
         );
     });

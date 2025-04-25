@@ -61,6 +61,7 @@ pub struct MusicPlayerServer {
     collection_recluster_lock: Arc<Mutex<()>>,
     publisher: Arc<RwLock<Sender<Message>>>,
     terminator: Arc<Mutex<Terminator>>,
+    interrupt: Arc<termination::InterruptReceiver>,
 }
 
 impl MusicPlayerServer {
@@ -72,6 +73,7 @@ impl MusicPlayerServer {
         audio_kernel: Arc<AudioKernelSender>,
         event_publisher: Arc<RwLock<Sender<Message>>>,
         terminator: Terminator,
+        interrupt: termination::InterruptReceiver,
     ) -> Self {
         Self {
             db,
@@ -82,6 +84,7 @@ impl MusicPlayerServer {
             library_analyze_lock: Arc::new(Mutex::new(())),
             collection_recluster_lock: Arc::new(Mutex::new(())),
             terminator: Arc::new(Mutex::new(terminator)),
+            interrupt: Arc::new(interrupt),
         }
     }
 
@@ -183,6 +186,7 @@ impl MusicPlayer for MusicPlayerServer {
                     let _guard = self.library_analyze_lock.lock().await;
                     match services::library::analyze(
                         &self.db,
+                        self.interrupt.resubscribe(),
                         overwrite,
                     )
                     .await

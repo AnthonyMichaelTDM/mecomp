@@ -5,7 +5,7 @@ use std::{
     marker::Send,
     num::NonZeroUsize,
     path::{Path, PathBuf},
-    sync::mpsc,
+    sync::mpsc::{self, SendError},
     thread,
 };
 
@@ -101,7 +101,8 @@ pub trait Decoder {
         Self: Sync + Send,
     {
         let (tx, rx) = mpsc::channel::<(PathBuf, AnalysisResult<Analysis>)>();
-        self.analyze_paths_with_cores_with_callback(paths, number_cores, tx);
+        self.analyze_paths_with_cores_with_callback(paths, number_cores, tx)
+            .unwrap();
         rx.into_iter()
     }
 
@@ -115,20 +116,15 @@ pub trait Decoder {
     ///
     /// # Errors
     ///
-    /// This function will return an error if the file path is invalid, if
-    /// the file path points to a file containing no or corrupted audio stream,
-    /// or if the analysis could not be conducted to the end for some reason.
-    ///
-    /// The error type returned should give a hint as to whether it was a
-    /// decoding or an analysis error.
+    /// Errors if the `callback` channel is closed.
     #[inline]
     fn analyze_path_with_callback<P: AsRef<Path>>(
         &self,
         path: P,
         callback: mpsc::Sender<(P, AnalysisResult<Analysis>)>,
-    ) {
+    ) -> Result<(), SendError<()>> {
         let song = self.analyze_path(&path);
-        callback.send((path, song)).unwrap();
+        callback.send((path, song)).map_err(|_| SendError(()))
 
         // We don't need to return the result of the send, as the receiver will
     }
@@ -139,16 +135,23 @@ pub trait Decoder {
     /// Returns an iterator, whose items are a tuple made of
     /// the song path (to display to the user in case the analysis failed),
     /// and a `Result<Analysis>`.
+    ///
+    /// You can cancel the job by dropping the `callback` channel.
+    ///
+    /// # Errors
+    ///
+    /// Errors if the `callback` channel is closed.
     #[inline]
     fn analyze_paths_with_callback<P: Into<PathBuf>, I: Send + IntoIterator<Item = P>>(
         &self,
         paths: I,
         callback: mpsc::Sender<(PathBuf, AnalysisResult<Analysis>)>,
-    ) where
+    ) -> Result<(), SendError<()>>
+    where
         Self: Sync + Send,
     {
         let cores = thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
-        self.analyze_paths_with_cores_with_callback(paths, cores, callback);
+        self.analyze_paths_with_cores_with_callback(paths, cores, callback)
     }
 
     /// Analyze songs in `paths`, and return the `Analysis` objects through an
@@ -160,12 +163,19 @@ pub trait Decoder {
     /// Return an iterator, whose items are a tuple made of
     /// the song path (to display to the user in case the analysis failed),
     /// and a `Result<Analysis>`.
+    ///
+    /// You can cancel the job by dropping the `callback` channel.
+    ///
+    /// # Errors
+    ///
+    /// Errors if the `callback` channel is closed.
     fn analyze_paths_with_cores_with_callback<P: Into<PathBuf>, I: IntoIterator<Item = P>>(
         &self,
         paths: I,
         number_cores: NonZeroUsize,
         callback: mpsc::Sender<(PathBuf, AnalysisResult<Analysis>)>,
-    ) where
+    ) -> Result<(), SendError<()>>
+    where
         Self: Sync + Send,
     {
         let mut cores = thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
@@ -175,7 +185,7 @@ pub trait Decoder {
         let paths: Vec<PathBuf> = paths.into_iter().map(Into::into).collect();
 
         if paths.is_empty() {
-            return;
+            return Ok(());
         }
 
         let pool = rayon::ThreadPoolBuilder::new()
@@ -184,10 +194,10 @@ pub trait Decoder {
             .unwrap();
 
         pool.install(|| {
-            paths.into_par_iter().for_each(|path| {
+            paths.into_par_iter().try_for_each(|path| {
                 info!("Analyzing file '{path:?}'");
-                self.analyze_path_with_callback(path, callback.clone());
-            });
-        });
+                self.analyze_path_with_callback(path, callback.clone())
+            })
+        })
     }
 }

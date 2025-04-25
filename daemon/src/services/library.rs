@@ -40,6 +40,8 @@ use mecomp_storage::{
     util::MetadataConflictResolution,
 };
 
+use crate::termination::InterruptReceiver;
+
 /// Index the library.
 ///
 /// # Errors
@@ -235,7 +237,11 @@ pub async fn rescan<C: Connection>(
 ///
 /// This function will panic if the thread(s) that analyzes the songs panics.
 #[instrument]
-pub async fn analyze<C: Connection>(db: &Surreal<C>, overwrite: bool) -> Result<(), Error> {
+pub async fn analyze<C: Connection>(
+    db: &Surreal<C>,
+    interrupt: InterruptReceiver,
+    overwrite: bool,
+) -> Result<(), Error> {
     if overwrite {
         // delete all the analyses
         async {
@@ -270,6 +276,11 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>, overwrite: bool) -> Result<
 
     async {
         for (song_path, maybe_analysis) in rx {
+            if interrupt.is_stopped() {
+                info!("Analysis interrupted");
+                break;
+            }
+
             let Some(song_id) = paths.get(&song_path) else {
                 error!("No song id found for path: {}", song_path.to_string_lossy());
                 continue;
@@ -305,7 +316,10 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>, overwrite: bool) -> Result<
     .instrument(tracing::info_span!("Adding analyses to database"))
     .await?;
 
-    handle.join().expect("Couldn't join thread");
+    if let Err(e) = handle.await.expect("Couldn't join task") {
+        error!("Error analyzing songs: {e}");
+        return Ok(());
+    }
 
     info!("Library analysis complete");
     info!("Library brief: {:?}", brief(db).await?);
@@ -744,6 +758,7 @@ mod tests {
         init();
         let dir = tempfile::tempdir().unwrap();
         let db = init_test_database().await.unwrap();
+        let interrupt = InterruptReceiver::dummy();
 
         // load some songs into the database
         let song_cases = arb_vec(&arb_song_case(), 10..=15)();
@@ -770,7 +785,7 @@ mod tests {
         );
 
         // analyze the library
-        analyze(&db, true).await.unwrap();
+        analyze(&db, interrupt, true).await.unwrap();
 
         // check that all the songs have analyses
         assert_eq!(
@@ -808,7 +823,7 @@ mod tests {
     }
 
     #[rstest]
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_recluster(
         #[values(ProjectionMethod::TSne, ProjectionMethod::None, ProjectionMethod::Pca)]
         projection_method: ProjectionMethod,
