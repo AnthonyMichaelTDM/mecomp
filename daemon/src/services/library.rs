@@ -265,10 +265,8 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>, overwrite: bool) -> Result<
         return Ok(());
     };
 
-    // analyze the songs in batches
-    let handle = std::thread::spawn(move || {
-        decoder.analyze_paths_with_callback(keys, tx);
-    });
+    // analyze the songs in batches, this is a blocking operation
+    let handle = tokio::task::spawn_blocking(move || decoder.analyze_paths_with_callback(keys, tx));
 
     async {
         for (song_path, maybe_analysis) in rx {
@@ -329,37 +327,45 @@ pub async fn recluster<C: Connection>(
 ) -> Result<(), Error> {
     // collect all the analyses
     let samples = Analysis::read_all(db).await?;
+    let samples_ref = &samples;
 
     let entered = tracing::info_span!("Clustering library").entered();
     // use clustering algorithm to cluster the analyses
-    let model: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
-        samples
-            .iter()
-            .map(Into::into)
-            .collect::<Vec<mecomp_analysis::Analysis>>()
-            .into(),
-        settings.max_clusters,
-        KOptimal::GapStatistic {
-            b: settings.gap_statistic_reference_datasets,
-        },
-        settings.algorithm.into(),
-        settings.projection_method.into(),
-    ) {
-        Err(e) => {
-            error!("There was an error creating the clustering helper: {e}",);
-            return Ok(());
-        }
-        Ok(kmeans) => kmeans,
-    };
+    let handle = tokio::task::block_in_place(|| {
+        let model: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
+            samples_ref
+                .iter()
+                .map(Into::into)
+                .collect::<Vec<mecomp_analysis::Analysis>>()
+                .into(),
+            settings.max_clusters,
+            KOptimal::GapStatistic {
+                b: settings.gap_statistic_reference_datasets,
+            },
+            settings.algorithm.into(),
+            settings.projection_method.into(),
+        ) {
+            Err(e) => {
+                error!("There was an error creating the clustering helper: {e}",);
+                return None;
+            }
+            Ok(kmeans) => kmeans,
+        };
 
-    let model = match model.initialize() {
-        Err(e) => {
-            error!("There was an error initializing the clustering helper: {e}",);
-            return Ok(());
-        }
-        Ok(kmeans) => kmeans.cluster(),
-    };
+        let model = match model.initialize() {
+            Err(e) => {
+                error!("There was an error initializing the clustering helper: {e}",);
+                return None;
+            }
+            Ok(kmeans) => kmeans.cluster(),
+        };
+
+        Some(model)
+    });
     drop(entered);
+    let Some(model) = handle else {
+        return Ok(());
+    };
 
     // delete all the collections
     async {
