@@ -6,11 +6,7 @@ use std::{
     sync::Arc,
 };
 //--------------------------------------------------------------------------------- other libraries
-use futures::{
-    FutureExt, future,
-    prelude::*,
-    stream::{AbortHandle, Abortable},
-};
+use futures::{FutureExt, future, pin_mut, prelude::*};
 use log::{error, info};
 use surrealdb::{Surreal, engine::local::Db};
 use tarpc::{
@@ -25,7 +21,7 @@ use mecomp_core::{
     is_server_running,
     logger::{init_logger, init_tracing},
     rpc::{MusicPlayer as _, MusicPlayerClient},
-    udp::{Message, Sender},
+    udp::{Message, Sender, StateChange},
 };
 use mecomp_storage::db::{init_database, set_database_path};
 use tokio::sync::RwLock;
@@ -38,7 +34,7 @@ pub mod controller;
 #[cfg(feature = "dynamic_updates")]
 pub mod dynamic_updates;
 pub mod services;
-mod termination;
+pub mod termination;
 #[cfg(test)]
 pub use mecomp_core::test_utils;
 
@@ -139,6 +135,7 @@ pub async fn start_daemon(
         settings.daemon.artist_separator.clone(),
         settings.daemon.protected_artist_names.clone(),
         settings.daemon.genre_separator.clone(),
+        interrupt_rx.resubscribe(),
     )?;
 
     // initialize the event publisher

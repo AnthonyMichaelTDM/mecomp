@@ -1,3 +1,5 @@
+use std::sync::{Arc, atomic::AtomicBool};
+
 #[cfg(unix)]
 use tokio::signal::unix::signal;
 use tokio::sync::broadcast;
@@ -10,13 +12,88 @@ pub enum Interrupted {
     UserInt,
 }
 
+#[derive(Debug)]
+/// Used to handle the termination of the application.
+///
+/// A struct that handles listening for interrupt signals, and/or tracking whether an interrupt signal has been received.
+///
+/// Essentially, the receiving side of the broadcast channel.
+///
+/// Usefull to stop processes that we can't terminate otherwise.
+pub struct InterruptReceiver {
+    interrupt_rx: broadcast::Receiver<Interrupted>,
+    stopped: Arc<AtomicBool>,
+}
+
+impl InterruptReceiver {
+    #[must_use]
+    #[inline]
+    pub fn new(interrupt_rx: broadcast::Receiver<Interrupted>) -> Self {
+        Self {
+            interrupt_rx,
+            stopped: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn dummy() -> Self {
+        Self {
+            interrupt_rx: broadcast::channel(1).1,
+            stopped: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    /// Wait for an interrupt signal to be received.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the interrupt signal cannot be received (e.g. the sender has been dropped)
+    #[inline]
+    pub async fn wait(&mut self) -> Result<Interrupted, tokio::sync::broadcast::error::RecvError> {
+        let interrupted = self.interrupt_rx.recv().await?;
+
+        // Set the stopped flag to true
+        self.stopped
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+
+        Ok(interrupted)
+    }
+
+    /// Re-subscribe to the broadcast channel.
+    ///
+    /// Gives you a new receiver that can be used to receive interrupt signals.
+    #[must_use]
+    #[inline]
+    pub fn resubscribe(&self) -> Self {
+        // Resubscribe to the broadcast channel
+        Self {
+            interrupt_rx: self.interrupt_rx.resubscribe(),
+            stopped: self.stopped.clone(),
+        }
+    }
+
+    /// Check if an interrupt signal has been received previously.
+    #[must_use]
+    #[inline]
+    pub fn is_stopped(&self) -> bool {
+        self.stopped.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
 #[derive(Debug, Clone)]
+/// Used to handle the termination of the application.
+///
+/// A struct that handles sending interrupt signals to the application.
+///
+/// Essentially, the sending side of the broadcast channel.
 pub struct Terminator {
     interrupt_tx: broadcast::Sender<Interrupted>,
 }
 
 impl Terminator {
     #[must_use]
+    #[inline]
     pub const fn new(interrupt_tx: broadcast::Sender<Interrupted>) -> Self {
         Self { interrupt_tx }
     }
@@ -26,6 +103,7 @@ impl Terminator {
     /// # Errors
     ///
     /// Fails if the interrupt signal cannot be sent (e.g. the receiver has been dropped)
+    #[inline]
     pub fn terminate(&self, interrupted: Interrupted) -> anyhow::Result<()> {
         self.interrupt_tx.send(interrupted)?;
 
@@ -34,6 +112,7 @@ impl Terminator {
 }
 
 #[cfg(unix)]
+#[inline]
 async fn terminate_by_signal(terminator: Terminator) {
     let mut interrupt_signal = signal(tokio::signal::unix::SignalKind::interrupt())
         .expect("failed to create interrupt signal stream");
@@ -82,14 +161,16 @@ async fn terminate_by_signal(mut terminator: Terminator) {
 // create a broadcast channel for retrieving the application kill signal
 #[allow(clippy::module_name_repetitions)]
 #[must_use]
-pub fn create_termination() -> (Terminator, broadcast::Receiver<Interrupted>) {
+#[inline]
+pub fn create_termination() -> (Terminator, InterruptReceiver) {
     let (tx, rx) = broadcast::channel(1);
     let terminator = Terminator::new(tx);
+    let interrupt = InterruptReceiver::new(rx);
 
     #[cfg(unix)]
     tokio::spawn(terminate_by_signal(terminator.clone()));
 
-    (terminator, rx)
+    (terminator, interrupt)
 }
 
 #[cfg(test)]
@@ -110,6 +191,6 @@ mod test {
             .terminate(Interrupted::UserInt)
             .expect("failed to send interrupt signal");
 
-        assert_eq!(rx.recv().await, Ok(Interrupted::UserInt));
+        assert_eq!(rx.wait().await, Ok(Interrupted::UserInt));
     }
 }

@@ -7,6 +7,7 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use futures::FutureExt;
 use futures::StreamExt;
+use futures::pin_mut;
 use log::{debug, error, info, trace, warn};
 use mecomp_storage::db::schemas::song::{Song, SongChangeSet, SongMetadata};
 #[cfg(target_os = "macos")]
@@ -23,6 +24,8 @@ use notify_debouncer_full::RecommendedCache;
 use notify_debouncer_full::{DebouncedEvent, Debouncer, new_debouncer};
 use one_or_many::OneOrMany;
 use surrealdb::{Surreal, engine::local::Db};
+
+use crate::termination::InterruptReceiver;
 
 #[cfg(target_os = "linux")]
 type WatcherType = INotifyWatcher;
@@ -61,6 +64,7 @@ pub fn init_music_library_watcher(
     artist_name_separator: OneOrMany<String>,
     protected_artist_names: OneOrMany<String>,
     genre_separator: Option<String>,
+    mut interrupt: InterruptReceiver,
 ) -> anyhow::Result<MusicLibEventHandlerGuard> {
     let (tx, rx) = futures::channel::mpsc::unbounded();
     // create a oneshot that can be used to stop the watcher
@@ -77,13 +81,19 @@ pub fn init_music_library_watcher(
                 genre_separator,
             );
             futures::executor::block_on(async {
-                let mut stop_rx = stop_rx.fuse();
-                let mut rx = rx.fuse();
+                let stop_rx = stop_rx.fuse();
+                let rx = rx.fuse();
+                let interrupt = interrupt.wait().fuse();
+                pin_mut!(stop_rx, rx, interrupt);
 
                 loop {
                     futures::select! {
                         _ = stop_rx => {
                             debug!("stopping watcher");
+                            break;
+                        }
+                        _ = interrupt => {
+                            info!("interrupt signal received, stopping watcher");
                             break;
                         }
                         result = rx.select_next_some() => {
@@ -130,6 +140,7 @@ pub struct MusicLibEventHandlerGuard {
     stop_tx: futures::channel::oneshot::Sender<()>,
 }
 
+// TODO: find a way to make this a drop guard
 impl MusicLibEventHandlerGuard {
     #[inline]
     pub fn stop(self) {
@@ -405,12 +416,14 @@ mod tests {
         init();
         let music_lib = tempdir().expect("Failed to create temporary directory");
         let db = Arc::new(init_test_database().await.unwrap());
+        let interrupt = InterruptReceiver::dummy();
         let handler = init_music_library_watcher(
             db.clone(),
             &[music_lib.path().to_owned()],
             OneOrMany::One(ARTIST_NAME_SEPARATOR.into()),
             OneOrMany::None,
             Some(ARTIST_NAME_SEPARATOR.into()),
+            interrupt,
         )
         .expect("Failed to create music library watcher");
 
