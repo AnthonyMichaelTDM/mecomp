@@ -58,6 +58,26 @@ pub fn read_for_song() -> impl IntoQuery {
     read_related_in("song", ANALYSIS_TO_SONG)
 }
 
+/// Query to read the analyses for a list of songs
+///
+/// Compiles to:
+/// ```sql, ignore
+/// "array::flatten($songs<-analysis_to_song<-analysis)"
+/// ```
+///
+/// Let's break this down:
+/// - `$songs<-analysis_to_song<-analysis`: for each song in `$songs`, get the list of analyses
+///   `RecordIds` that are related to it.
+///   - `Vec<Vec<AnalysisId>>`
+/// - `array::flatten(...)`: flatten the list of lists into a single list.
+///   - `Vec<AnalysisId>`
+///
+#[must_use]
+#[inline]
+pub fn read_for_songs() -> impl IntoQuery {
+    "array::flatten($songs<-analysis_to_song<-analysis)"
+}
+
 /// Query to read the song for an analysis
 ///
 /// Compiles to:
@@ -82,6 +102,18 @@ pub fn read_for_song() -> impl IntoQuery {
 #[inline]
 pub fn read_song() -> impl IntoQuery {
     read_related_out("id", ANALYSIS_TO_SONG)
+}
+
+/// Query to read the songs for a list of analyses
+///
+/// Compiles to:
+/// ```sql, ignore
+/// SELECT * FROM array::flatten($ids->analysis_to_song->song)
+/// ```
+#[must_use]
+#[inline]
+pub fn read_songs() -> impl IntoQuery {
+    "SELECT * FROM array::flatten($ids->analysis_to_song->song)"
 }
 
 /// Query to find all the songs that don't have an analysis
@@ -183,7 +215,12 @@ mod query_validation_tests {
     #[rstest]
     #[case::add_to_song(add_to_song(), "RELATE $id->analysis_to_song->$song")]
     #[case::read_for_song(read_for_song(), "SELECT * FROM $song<-analysis_to_song.in")]
+    #[case::read_for_songs(read_for_songs(), "array::flatten($songs<-analysis_to_song<-analysis)")]
     #[case::read_song(read_song(), "SELECT * FROM $id->analysis_to_song.out")]
+    #[case::read_songs(
+        read_songs(),
+        "SELECT * FROM array::flatten($ids->analysis_to_song->song)"
+    )]
     #[case::read_songs_without_analysis(
         read_songs_without_analysis(),
         "SELECT * FROM song WHERE count(<-analysis_to_song.in) = 0"

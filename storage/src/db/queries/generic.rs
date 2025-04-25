@@ -352,6 +352,32 @@ pub fn full_text_search<Table: AsRef<str>, Field: AsRef<str>>(
     full_text_search_statement(table.as_ref(), field.as_ref(), limit)
 }
 
+/// Query to read many items from a table.
+///
+/// Compiles to:
+/// ```sql, ignore
+/// SELECT * FROM $ids
+/// ```
+///
+/// # Example
+///
+/// ```ignore
+/// # use pretty_assertions::assert_eq;
+/// use mecomp_storage::db::crud::queries::artist::read_many;
+/// use surrealdb::opt::IntoQuery;
+///
+/// let statement = read_many();
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "SELECT * FROM $ids".into_query().unwrap()
+/// );
+/// ```
+#[must_use]
+#[inline]
+pub const fn read_many() -> impl IntoQuery {
+    "SELECT * FROM $ids"
+}
+
 #[cfg(test)]
 mod query_validation_tests {
     use super::super::validate_query;
@@ -392,6 +418,7 @@ mod query_validation_tests {
         full_text_search("song", "title", 10),
         "SELECT * FROM song WHERE title @@ $title ORDER BY relevance DESC LIMIT 10"
     )]
+    #[case::read_many(read_many(), "SELECT * FROM $ids")]
     fn test_queries(#[case] statement: impl IntoQuery, #[case] expected: &str) {
         validate_query(statement, expected);
     }

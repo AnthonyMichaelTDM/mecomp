@@ -9,9 +9,9 @@ use crate::{
         queries::{
             artist::{
                 add_album, add_album_to_artists, add_songs, read_albums, read_by_name,
-                read_by_names, read_many, read_songs, remove_songs,
+                read_by_names, read_songs, remove_songs,
             },
-            generic::full_text_search,
+            generic::{full_text_search, read_many},
         },
         schemas::{
             album::{Album, AlbumId},

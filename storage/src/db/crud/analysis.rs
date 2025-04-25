@@ -6,9 +6,12 @@ use tracing::instrument;
 
 use crate::{
     db::{
-        queries::analysis::{
-            add_to_song, nearest_neighbors, nearest_neighbors_to_many, read_for_song, read_song,
-            read_songs_without_analysis,
+        queries::{
+            analysis::{
+                add_to_song, nearest_neighbors, nearest_neighbors_to_many, read_for_song,
+                read_for_songs, read_song, read_songs, read_songs_without_analysis,
+            },
+            generic::read_many,
         },
         schemas::{
             analysis::{Analysis, AnalysisId, TABLE_NAME},
@@ -77,18 +80,17 @@ impl Analysis {
             .take(0)?)
     }
 
-    /// Read the analysis for OneOrMany song(s)
-    ///
-    /// Needed for clustering(?)
-    ///
-    /// We return a Vec<Option<Analysis>>, where None means the song doesn't have an analysis, so that it's up to the caller to handle songs without analyses.
+    /// Read the analyses for a list of songs
     #[instrument]
     pub async fn read_for_songs<C: Connection>(
         db: &Surreal<C>,
         song_ids: Vec<SongId>,
-    ) -> StorageResult<Vec<Option<Self>>> {
-        futures::future::try_join_all(song_ids.into_iter().map(|id| Self::read_for_song(db, id)))
-            .await
+    ) -> StorageResult<Vec<AnalysisId>> {
+        Ok(db
+            .query(read_for_songs())
+            .bind(("songs", song_ids))
+            .await?
+            .take(0)?)
     }
 
     /// Read the song for an analysis
@@ -101,17 +103,19 @@ impl Analysis {
         )
     }
 
-    /// Read the song for OneOrMany analyses
+    /// Read the songs of a list of analyses
     ///
     /// needed to convert a list of analyses (such as what we get from nearest_neighbors) into a list of songs
     #[instrument]
     pub async fn read_songs<C: Connection>(
         db: &Surreal<C>,
-        ids: OneOrMany<AnalysisId>,
+        ids: Vec<AnalysisId>,
     ) -> StorageResult<OneOrMany<Song>> {
-        futures::future::try_join_all(ids.into_iter().map(|id| Self::read_song(db, id)))
-            .await
-            .map(OneOrMany::from)
+        Ok(db
+            .query(read_songs())
+            .bind(("ids", ids.clone()))
+            .await?
+            .take(0)?)
     }
 
     /// Get all the songs that don't have an analysis
@@ -165,12 +169,11 @@ impl Analysis {
         }
 
         // find the average "features" of the given analyses
-        let analyses =
-            futures::future::try_join_all(ids.iter().map(|id| Self::read(db, id.clone())))
-                .await?
-                .into_iter()
-                .map(|analysis| analysis.ok_or(Error::NotFound))
-                .collect::<Result<Vec<Self>, Error>>()?;
+        let analyses: Vec<Self> = db
+            .query(read_many())
+            .bind(("ids", ids.clone()))
+            .await?
+            .take(0)?;
 
         #[allow(clippy::cast_precision_loss)]
         let num_analyses = analyses.len() as f64;
@@ -334,7 +337,7 @@ mod test {
             vec![song1.id.clone(), song2.id.clone(), song3.id.clone()],
         )
         .await?;
-        assert_eq!(result, vec![Some(analysis1), Some(analysis2), None]);
+        assert_eq!(result, vec![analysis1.id, analysis2.id]);
 
         Ok(())
     }
@@ -387,11 +390,8 @@ mod test {
         assert_eq!(result, Some(analysis2.clone()));
 
         // read the songs for the analyses
-        let result = Analysis::read_songs(
-            &db,
-            OneOrMany::Many(vec![analysis1.id.clone(), analysis2.id.clone()]),
-        )
-        .await?;
+        let result =
+            Analysis::read_songs(&db, vec![analysis1.id.clone(), analysis2.id.clone()]).await?;
         assert_eq!(result, OneOrMany::Many(vec![song1, song2]));
 
         Ok(())
