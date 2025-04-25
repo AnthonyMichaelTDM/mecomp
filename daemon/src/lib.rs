@@ -44,6 +44,46 @@ pub use mecomp_core::test_utils;
 
 use crate::controller::MusicPlayerServer;
 
+/// Event Publisher guard
+///
+/// This is a newtype for the event publisher that ensures it is stopped when the guard is dropped.
+struct EventPublisher {
+    dispatcher: Arc<RwLock<Sender<Message>>>,
+    event_tx: std::sync::mpsc::Sender<StateChange>,
+    handle: tokio::task::JoinHandle<()>,
+}
+
+impl EventPublisher {
+    /// Start the event publisher
+    pub async fn new() -> Self {
+        let (event_tx, event_rx) = std::sync::mpsc::channel();
+        let event_publisher = Arc::new(RwLock::const_new(Sender::new().await.unwrap()));
+        let event_publisher_clone = event_publisher.clone();
+        let handle = tokio::spawn(async move {
+            while let Ok(event) = event_rx.recv() {
+                event_publisher_clone
+                    .read()
+                    .await
+                    .send(Message::StateChange(event))
+                    .await
+                    .unwrap();
+            }
+        });
+        Self {
+            dispatcher: event_publisher,
+            event_tx,
+            handle,
+        }
+    }
+}
+
+impl Drop for EventPublisher {
+    fn drop(&mut self) {
+        // Stop the event publisher thread
+        self.handle.abort();
+    }
+}
+
 // TODO: at some point, we should probably add a panic handler to the daemon to ensure graceful shutdown.
 
 /// Run the daemon
@@ -88,6 +128,9 @@ pub async fn start_daemon(
     let db = Arc::new(init_database().await?);
     tracing::subscriber::set_global_default(init_tracing())?;
 
+    // initialize the termination handler
+    let (terminator, mut interrupt_rx) = termination::create_termination();
+
     // Start the music library watcher.
     #[cfg(feature = "dynamic_updates")]
     let guard = dynamic_updates::init_music_library_watcher(
@@ -99,40 +142,19 @@ pub async fn start_daemon(
     )?;
 
     // initialize the event publisher
-    let (event_tx, event_rx) = std::sync::mpsc::channel();
-    let event_publisher = Arc::new(RwLock::new(Sender::new().await?));
-
-    // initialize the termination handler
-    let (terminator, mut interrupt_rx) = termination::create_termination();
+    let event_publisher_guard = EventPublisher::new().await;
 
     // Start the audio kernel.
-    let audio_kernel = AudioKernelSender::start(event_tx);
+    let audio_kernel = AudioKernelSender::start(event_publisher_guard.event_tx.clone());
 
     // Initialize the server.
     let server = MusicPlayerServer::new(
         db.clone(),
         settings.clone(),
         audio_kernel.clone(),
-        event_publisher.clone(),
+        event_publisher_guard.dispatcher.clone(),
         terminator.clone(),
     );
-
-    // Start StateChange publisher thread.
-    // this thread listens for events from the audio kernel and forwards them to the event publisher (managed by the daemon)
-    // the event publisher then pushes them to all the clients
-    let eft_guard = {
-        let event_publisher = event_publisher.clone();
-        tokio::spawn(async move {
-            while let Ok(event) = event_rx.recv() {
-                event_publisher
-                    .read()
-                    .await
-                    .send(Message::StateChange(event))
-                    .await
-                    .unwrap();
-            }
-        })
-    };
 
     // Start the RPC server.
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.daemon.rpc_port);
@@ -143,11 +165,8 @@ pub async fn start_daemon(
         Err(e) => {
             error!("Failed to start server: {e}");
 
-            // If the server fails to start, we need to clean up the database and exit.
-            audio_kernel.send(AudioCommand::Exit);
             #[cfg(feature = "dynamic_updates")]
             guard.stop();
-            eft_guard.abort();
 
             return Err(anyhow::anyhow!("Failed to start server: {e}"));
         }
@@ -172,18 +191,17 @@ pub async fn start_daemon(
         .for_each(async |()| {})
         // make it fused so we can stop it later
         .fuse();
-    // make the server abortable
-    let (abort_handle, abort_registration) = AbortHandle::new_pair();
-    let abortable_server_handle = Abortable::new(server_handle, abort_registration);
+
+    pin_mut!(server_handle);
 
     // run the server until it is terminated
     tokio::select! {
-        _ = abortable_server_handle => {
+        () = server_handle => {
             error!("Server stopped unexpectedly");
         },
         // Wait for the server to be stopped.
         // This will be triggered by the signal handler.
-        reason = interrupt_rx.recv() => {
+        reason = interrupt_rx.wait() => {
             match reason {
                 Ok(termination::Interrupted::UserInt) => info!("Stopping server per user request"),
                 Ok(termination::Interrupted::OsSigInt) => info!("Stopping server because of an os sig int"),
@@ -194,22 +212,16 @@ pub async fn start_daemon(
         }
     }
 
-    // abort the server
-    abort_handle.abort();
-
-    // send an exit command to the audio kernel
-    audio_kernel.send(AudioCommand::Exit);
-
     #[cfg(feature = "dynamic_updates")]
     guard.stop();
 
     // send a shutdown event to all clients (ignore errors)
-    let _ = event_publisher
+    let _ = event_publisher_guard
+        .dispatcher
         .read()
         .await
         .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
         .await;
-    eft_guard.abort();
 
     Ok(())
 }
