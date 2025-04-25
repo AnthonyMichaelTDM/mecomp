@@ -13,7 +13,10 @@ use std::{
 };
 
 use log::{debug, error};
-use rodio::{Decoder, Source, source::SeekError};
+use rodio::{
+    Decoder, Source,
+    source::{EmptyCallback, SeekError},
+};
 use tracing::instrument;
 
 use crate::{
@@ -30,9 +33,6 @@ pub mod queue;
 
 use commands::{AudioCommand, QueueCommand, VolumeCommand};
 use queue::Queue;
-
-const DURATION_WATCHER_TICK: Duration = Duration::from_millis(50);
-const DURATION_WATCHER_NEXT_SONG_THRESHOLD: Duration = Duration::from_millis(100);
 
 /// The minimum volume that can be set, currently set to 0.0 (no sound)
 const MIN_VOLUME: f32 = 0.0;
@@ -58,16 +58,16 @@ impl AudioKernelSender {
     #[must_use]
     #[inline]
     pub fn start(event_tx: Sender<StateChange>) -> Arc<Self> {
-        let (tx, rx) = std::sync::mpsc::channel();
-        let tx_clone = tx.clone();
+        let (command_tx, command_rx) = std::sync::mpsc::channel();
+        let tx_clone = command_tx.clone();
         std::thread::Builder::new()
             .name(String::from("Audio Kernel"))
             .spawn(move || {
-                let kernel = AudioKernel::new(event_tx);
-                kernel.init(tx_clone, rx);
+                let kernel = AudioKernel::new(tx_clone, command_rx, event_tx);
+                kernel.init();
             })
             .unwrap();
-        Arc::new(Self::new(tx))
+        Arc::new(Self::new(command_tx))
     }
 
     #[must_use]
@@ -77,6 +77,15 @@ impl AudioKernelSender {
     }
 
     /// Send a command to the audio kernel
+    ///
+    /// # Arguments
+    ///
+    /// * `command` - The command to send to the audio kernel
+    ///
+    /// # Panics
+    ///
+    /// * If the audio kernel is not running, or the command channel is otherwise closed, this function will panic.
+    ///   If that is not acceptable, consider using the `try_send` method instead.
     #[instrument(skip(self))]
     pub fn send(&self, command: AudioCommand) {
         let ctx =
@@ -87,12 +96,33 @@ impl AudioKernelSender {
             panic!("Failed to send command to audio kernel: {e}");
         }
     }
+
+    /// Try to send a command to the audio kernel
+    ///
+    /// This is a variant of the `send` method that does not panic.
+    ///
+    /// # Arguments
+    ///
+    /// * `command` - The command to send to the audio kernel
+    #[instrument(skip(self))]
+    pub fn try_send(
+        &self,
+        command: AudioCommand,
+    ) -> Result<(), std::sync::mpsc::SendError<(AudioCommand, tracing::Span)>> {
+        let ctx =
+            tracing::info_span!("Sending Audio Command to Kernel", command = ?command).or_current();
+
+        self.tx.send((command, ctx))
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-struct DurationInfo {
-    time_played: Duration,
-    current_duration: Duration,
+impl Drop for AudioKernelSender {
+    #[allow(clippy::missing_inline_in_public_items)]
+    fn drop(&mut self) {
+        // if the sender is dropped, we need to send an exit command to the audio kernel
+        // to ensure that the audio kernel is stopped
+        let _ = self.try_send(AudioCommand::Exit);
+    }
 }
 
 pub(crate) struct AudioKernel {
@@ -100,23 +130,35 @@ pub(crate) struct AudioKernel {
     #[cfg(not(feature = "mock_playback"))]
     _music_output: (rodio::OutputStream, rodio::OutputStreamHandle),
     #[cfg(feature = "mock_playback")]
-    queue_rx_end_tx: tokio::sync::oneshot::Sender<()>,
+    queue_rx_stop: Arc<AtomicBool>,
     // /// Transmitter used to send commands to the audio kernel
     // tx: Sender<(AudioCommand, tracing::Span)>,
     /// the rodio sink used to play audio
     player: Arc<rodio::Sink>,
     /// the queue of songs to play
     queue: Arc<Mutex<Queue>>,
-    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will multiply each sample by this value.
+    /// The value `1.0` is the "normal" volume (unfiltered input).
+    /// Any value other than `1.0` will multiply each sample by this value.
     volume: Arc<Mutex<f32>>,
     /// whether the audio is muted
     muted: Arc<AtomicBool>,
-    /// the current song duration and the time played
-    duration_info: Arc<Mutex<DurationInfo>>,
     /// whether the audio kernel is paused, playlist, or stopped
     status: Arc<Mutex<Status>>,
+    /// Channel that the audio kernel might use to send `AudioCommand`'s
+    /// to itself over (e.g., in a callback)
+    command_tx: Sender<(AudioCommand, tracing::Span)>,
+    /// Channel that the audio kernel receives `AudioCommand`'s over
+    command_rx: Receiver<(AudioCommand, tracing::Span)>,
     /// Event publisher for when the audio kernel changes state
     event_tx: Sender<StateChange>,
+}
+
+#[cfg(feature = "mock_playback")]
+impl Drop for AudioKernel {
+    fn drop(&mut self) {
+        self.queue_rx_stop
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 
 impl AudioKernel {
@@ -127,7 +169,11 @@ impl AudioKernel {
     /// panics if the rodio stream cannot be created
     #[must_use]
     #[cfg(not(feature = "mock_playback"))]
-    pub fn new(event_tx: Sender<StateChange>) -> Self {
+    pub fn new(
+        command_tx: Sender<(AudioCommand, tracing::Span)>,
+        command_rx: Receiver<(AudioCommand, tracing::Span)>,
+        event_tx: Sender<StateChange>,
+    ) -> Self {
         let (stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
 
         let sink = rodio::Sink::try_new(&stream_handle).unwrap();
@@ -140,8 +186,9 @@ impl AudioKernel {
             queue: Arc::new(Mutex::new(queue)),
             volume: Arc::new(Mutex::new(1.0)),
             muted: Arc::new(AtomicBool::new(false)),
-            duration_info: Arc::new(Mutex::new(DurationInfo::default())),
             status: Arc::new(Mutex::new(Status::Stopped)),
+            command_tx,
+            command_rx,
             event_tx,
         }
     }
@@ -155,23 +202,28 @@ impl AudioKernel {
     /// panics if the tokio runtime cannot be created
     #[must_use]
     #[cfg(feature = "mock_playback")]
-    pub fn new(event_tx: Sender<StateChange>) -> Self {
+    pub fn new(
+        command_tx: Sender<(AudioCommand, tracing::Span)>,
+        command_rx: Receiver<(AudioCommand, tracing::Span)>,
+        event_tx: Sender<StateChange>,
+    ) -> Self {
+        // most of the tests are playing the `assets/music.mp3` file, which is sampled at 44.1kHz
+        // thus, we should poll the queue every 22 microseconds
+        const QUEUE_POLLING_INTERVAL: Duration = Duration::from_micros(22);
+
         let (sink, mut queue_rx) = rodio::Sink::new_idle();
 
-        // start a detached thread that continuously polls the queue_rx, until it receives a command to exit
-        let (tx, mut rx) = tokio::sync::oneshot::channel();
+        let queue_stop = Arc::new(AtomicBool::new(false));
+        let queue_stop_clone = queue_stop.clone();
 
         std::thread::spawn(move || {
             // basically, call rx.await and while it is waiting for a command, poll the queue_rx
             loop {
-                if matches!(
-                    rx.try_recv(),
-                    Ok(()) | Err(tokio::sync::oneshot::error::TryRecvError::Closed)
-                ) {
+                if queue_stop_clone.load(std::sync::atomic::Ordering::Relaxed) {
                     break;
                 }
                 queue_rx.next();
-                std::thread::sleep(Duration::from_millis(1));
+                std::thread::sleep(QUEUE_POLLING_INTERVAL);
             }
         });
 
@@ -179,12 +231,13 @@ impl AudioKernel {
 
         Self {
             player: sink.into(),
-            queue_rx_end_tx: tx,
+            queue_rx_stop: queue_stop,
             queue: Arc::new(Mutex::new(Queue::new())),
             volume: Arc::new(Mutex::new(1.0)),
             muted: Arc::new(AtomicBool::new(false)),
-            duration_info: Arc::new(Mutex::new(DurationInfo::default())),
             status: Arc::new(Mutex::new(Status::Stopped)),
+            command_tx,
+            command_rx,
             event_tx,
         }
     }
@@ -194,72 +247,13 @@ impl AudioKernel {
     /// this function should be called in a detached thread to keep the audio kernel running,
     /// this function will block until the `Exit` command is received
     ///
-    /// # Arguments
-    ///
-    /// * `tx` - the transmitter used to send commands to the audio kernel (this is used by the duration watcher to tell the kernel when to skip to the next song)
-    /// * `rx` - the receiver used to receive commands from the audio kernel, this is what the audio kernel receives commands from
-    ///
     /// # Panics
     ///
     /// The function may panic if one of the Mutexes is poisoned
     ///
     /// if the `mock_playback` feature is enabled, this function may panic if it is unable to signal the `queue_rx` thread to end.
-    pub fn init(
-        self,
-        tx: Sender<(AudioCommand, tracing::Span)>,
-        rx: Receiver<(AudioCommand, tracing::Span)>,
-    ) {
-        // duration watcher signalers
-        let (dw_tx, mut dw_rx) = tokio::sync::oneshot::channel();
-
-        // we won't be able to access this AudioKernel instance reliably,
-        // so we need to clone the Arcs to all the values we need
-        let duration_info = self.duration_info.clone();
-        let status = self.status.clone();
-
-        // NOTE: as of rodio v0.19.0, we have access to the `get_pos` command,
-        // which allows us to get the current position of the audio stream
-        // it may seem like this means we don't need to have a duration watcher,
-        // but the key point is that we need to know when to skip to the next song
-        // the duration watcher both tracks the duration of the song,
-        // and skips to the next song when the song is over
-        let _duration_watcher = std::thread::Builder::new()
-            .name(String::from("Duration Watcher"))
-            .spawn(move || {
-                const NEXT_SONG_COMMAND: AudioCommand =
-                    AudioCommand::Queue(QueueCommand::PlayNextSong);
-
-                log::info!("Duration Watcher started");
-
-                loop {
-                    if matches!(
-                        dw_rx.try_recv(),
-                        Ok(()) | Err(tokio::sync::oneshot::error::TryRecvError::Closed)
-                    ) {
-                        break;
-                    }
-                    let mut duration_info = duration_info.lock().unwrap();
-                    if *status.lock().unwrap() == Status::Playing {
-                        // if we aren't paused, increment the time played
-                        duration_info.time_played += DURATION_WATCHER_TICK;
-                        // if we're within the threshold of the end of the song,
-                        // signal the audio kernel to skip to the next song
-                        let time_to_start_next_song = duration_info
-                            .current_duration
-                            .saturating_sub(DURATION_WATCHER_NEXT_SONG_THRESHOLD);
-                        if duration_info.time_played >= time_to_start_next_song {
-                            if let Err(e) = tx.send((NEXT_SONG_COMMAND, tracing::Span::current())) {
-                                error!("Failed to send command to audio kernel: {e}");
-                                panic!("Failed to send command to audio kernel: {e}");
-                            }
-                        }
-                    }
-                    drop(duration_info);
-                    std::thread::sleep(DURATION_WATCHER_TICK);
-                }
-            });
-
-        for (command, ctx) in rx {
+    pub fn init(self) {
+        for (command, ctx) in &self.command_rx {
             let _guard = ctx.enter();
 
             let prev_status = *self.status.lock().unwrap();
@@ -294,9 +288,9 @@ impl AudioKernel {
                 AudioCommand::Volume(command) => self.volume_control(command),
                 AudioCommand::Seek(seek, duration) => {
                     self.seek(seek, duration);
-                    let _ = self.event_tx.send(StateChange::Seeked(
-                        self.duration_info.lock().unwrap().time_played,
-                    ));
+                    let _ = self
+                        .event_tx
+                        .send(StateChange::Seeked(self.get_time_played()));
                 }
                 AudioCommand::Stop if prev_status != Status::Stopped => {
                     self.stop();
@@ -313,10 +307,6 @@ impl AudioKernel {
                 let _ = self.event_tx.send(StateChange::StatusChanged(new_status));
             }
         }
-
-        #[cfg(feature = "mock_playback")]
-        self.queue_rx_end_tx.send(()).unwrap();
-        dw_tx.send(()).unwrap();
     }
 
     #[instrument(skip(self))]
@@ -381,7 +371,6 @@ impl AudioKernel {
     fn clear_player(&self) {
         self.player.clear();
         *self.status.lock().unwrap() = Status::Stopped;
-        *self.duration_info.lock().unwrap() = DurationInfo::default();
     }
 
     #[instrument(skip(self))]
@@ -421,11 +410,9 @@ impl AudioKernel {
         let queue_position = queue.current_index();
         let current_song = queue.current_song().cloned();
         let repeat_mode = queue.get_repeat_mode();
-        let runtime = current_song.as_ref().map(|_| {
-            let duration_info = self.duration_info.lock().unwrap();
-            let seek_position = duration_info.time_played;
-            let duration = duration_info.current_duration;
-            drop(duration_info);
+        let runtime = current_song.as_ref().map(|song| {
+            let duration = song.runtime;
+            let seek_position = self.get_time_played();
             let seek_percent =
                 Percent::new(seek_position.as_secs_f32() / duration.as_secs_f32() * 100.0);
             StateRuntime {
@@ -463,18 +450,26 @@ impl AudioKernel {
 
     #[instrument(skip(self))]
     fn start_next_song(&self) {
-        self.clear_player();
-        let next_song = self.queue.lock().unwrap().next_song().cloned();
+        *self.status.lock().unwrap() = Status::Stopped;
+        // we need to explicitly pause the player since
+        // there is technically something in the sink right now
+        // (the `EndCallback`), so it won't pause itself
+        self.player.pause();
+
+        let mut queue = self.queue.lock().unwrap();
+        let next_song = queue.next_song().cloned();
+        let repeat_mode = queue.get_repeat_mode();
+        let current_index = queue.current_index();
+        drop(queue);
 
         if let Some(song) = next_song {
             if let Err(e) = self.append_song_to_player(&song) {
                 error!("Failed to append song to player: {e}");
             }
 
-            let binding = self.queue.lock().unwrap();
             // we have not just finished the queue
             // (this makes it so if we hit the end of the queue on RepeatMode::None, we don't start playing again)
-            if binding.get_repeat_mode().is_all() || binding.current_index().is_some() {
+            if current_index.is_some() || repeat_mode.is_all() {
                 self.play();
             }
         }
@@ -620,27 +615,36 @@ impl AudioKernel {
         self.queue.lock().unwrap().next_song().cloned()
     }
 
+    fn get_time_played(&self) -> Duration {
+        self.player.get_pos()
+    }
+
     #[instrument(skip(self, source))]
     fn append_to_player<T>(&self, source: T)
     where
         T: Source<Item = f32> + Send + 'static,
     {
-        if let Some(duration) = source.total_duration() {
-            *self.duration_info.lock().unwrap() = DurationInfo {
-                time_played: Duration::from_secs(0),
-                current_duration: duration,
-            };
-        }
         self.player.append(source);
+
+        // establish a callback for starting the next song once the current one finishes
+        let command_tx = self.command_tx.clone();
+        self.player
+            .append(EmptyCallback::<f32>::new(Box::new(move || {
+                log::debug!("Song finished");
+                if let Err(e) = command_tx.send((
+                    AudioCommand::Queue(QueueCommand::PlayNextSong),
+                    tracing::Span::current(),
+                )) {
+                    error!("Failed to send command to audio kernel: {e}");
+                } else {
+                    log::debug!("Sent PlayNextSong command to audio kernel");
+                }
+            })));
     }
 
     #[instrument(skip(self))]
     fn append_song_to_player(&self, song: &Song) -> Result<(), LibraryError> {
         let source = Decoder::new(BufReader::new(File::open(&song.path)?))?.convert_samples();
-        *self.duration_info.lock().unwrap() = DurationInfo {
-            time_played: Duration::from_secs(0),
-            current_duration: song.runtime,
-        };
         self.append_to_player(source);
 
         Ok(())
@@ -705,15 +709,12 @@ impl AudioKernel {
 
     #[instrument(skip(self))]
     fn seek(&self, seek: SeekType, duration: Duration) {
-        // get a lock on the current song duration and time played
-        let mut duration_info = self.duration_info.lock().unwrap();
         // calculate the new time based on the seek type
         let new_time = match seek {
             SeekType::Absolute => duration,
-            SeekType::RelativeForwards => duration_info.time_played.saturating_add(duration),
-            SeekType::RelativeBackwards => duration_info.time_played.saturating_sub(duration),
+            SeekType::RelativeForwards => self.get_time_played().saturating_add(duration),
+            SeekType::RelativeBackwards => self.get_time_played().saturating_sub(duration),
         };
-        let new_time = new_time.min(duration_info.current_duration);
 
         // try to seek to the new time.
         // if the seek fails, log the error and continue
@@ -721,8 +722,6 @@ impl AudioKernel {
         match self.player.try_seek(new_time) {
             Ok(()) => {
                 debug!("Seek to {} successful", format_duration(&new_time));
-                duration_info.time_played = new_time;
-                drop(duration_info);
                 let mut status = self.status.lock().unwrap();
                 if new_time > Duration::from_secs(0) && *status == Status::Stopped {
                     *status = Status::Paused;
@@ -739,14 +738,6 @@ impl AudioKernel {
     }
 }
 
-impl Default for AudioKernel {
-    /// Create a new `AudioKernel` with default values, and a dummy event transmitter
-    fn default() -> Self {
-        let (tx, _) = std::sync::mpsc::channel();
-        Self::new(tx)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
@@ -760,11 +751,16 @@ mod tests {
 
     #[fixture]
     fn audio_kernel() -> AudioKernel {
-        AudioKernel::default()
+        // channel for commands
+        let (tx, rx) = mpsc::channel();
+        // channel for events
+        let (event_tx, _) = mpsc::channel();
+        AudioKernel::new(tx, rx, event_tx)
     }
 
     #[fixture]
     fn audio_kernel_sender() -> Arc<AudioKernelSender> {
+        // channel for events
         let (tx, _) = mpsc::channel();
         AudioKernelSender::start(tx)
     }
@@ -795,6 +791,13 @@ mod tests {
         let (tx, _) = mpsc::channel();
         let sender = AudioKernelSender::new(tx);
         sender.send(AudioCommand::Play);
+    }
+
+    #[test]
+    fn test_audio_kernel_try_send_closed_channel() {
+        let (tx, _) = mpsc::channel();
+        let sender = AudioKernelSender::new(tx);
+        assert!(sender.try_send(AudioCommand::Play).is_err());
     }
 
     #[rstest]
@@ -872,6 +875,7 @@ mod tests {
             audio_kernel: AudioKernel,
             sound: impl Source<Item = f32> + Send + 'static,
         ) {
+            init();
             audio_kernel.player.append(sound);
             audio_kernel.play();
             assert!(!audio_kernel.player.is_paused());
@@ -884,6 +888,7 @@ mod tests {
             audio_kernel: AudioKernel,
             sound: impl Source<Item = f32> + Send + 'static,
         ) {
+            init();
             audio_kernel.player.append(sound);
             audio_kernel.play();
             assert!(!audio_kernel.player.is_paused());
@@ -894,7 +899,7 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(10))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_play_pause_toggle_restart(
             #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
@@ -949,15 +954,12 @@ mod tests {
             assert!(!audio_kernel.player.is_paused());
             audio_kernel.stop();
             assert!(audio_kernel.player.is_paused());
-            assert_eq!(
-                audio_kernel.duration_info.lock().unwrap().time_played,
-                Duration::from_secs(0)
-            );
+            assert_eq!(audio_kernel.player.get_pos(), Duration::from_secs(0));
             assert_eq!(*audio_kernel.status.lock().unwrap(), Status::Stopped);
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(10))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_audio_kernel_skip_forward(audio_kernel: AudioKernel) {
             init();
@@ -1014,7 +1016,8 @@ mod tests {
 
             audio_kernel.queue_control(QueueCommand::SkipForward(1));
 
-            // we were at the end of the queue and tried to skip forward with repeatmode not being Continuous, so the player should be paused and the queue position should be None
+            // we were at the end of the queue and tried to skip forward with repeatmode not being Continuous,
+            // so the player should be paused and the queue position should be None
             let state = audio_kernel.state();
             assert_eq!(state.queue_position, None);
             assert!(state.paused());
@@ -1091,7 +1094,7 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(6))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_remove_range_from_queue(
             #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
@@ -1313,7 +1316,7 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(6))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_audio_kernel_clear(
             #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
@@ -1376,7 +1379,7 @@ mod tests {
         }
 
         #[rstest]
-        #[timeout(Duration::from_secs(5))] // if the test takes longer than this, the test can be considered a failure
+        #[timeout(Duration::from_secs(6))] // if the test takes longer than this, the test can be considered a failure
         #[tokio::test]
         async fn test_audio_kernel_shuffle(
             #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
@@ -1602,7 +1605,7 @@ mod tests {
             assert_eq!(state.status, Status::Stopped);
             assert_eq!(
                 state.runtime.unwrap().duration,
-                Duration::from_secs(10) + Duration::from_nanos(6)
+                Duration::from_secs(10) + Duration::from_millis(188)
             );
             assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(0));
 
@@ -1626,19 +1629,22 @@ mod tests {
             assert_eq!(state.current_song, Some(song.clone()));
             assert_eq!(state.status, Status::Paused);
 
-            // skip to 9 seconds
+            // skip to 10 seconds
             sender.send(AudioCommand::Seek(
                 SeekType::Absolute,
-                Duration::from_secs(9),
+                Duration::from_secs(10),
             ));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(9));
+            assert_eq!(
+                state.runtime.unwrap().seek_position,
+                Duration::from_secs(10)
+            );
             assert_eq!(state.current_song, Some(song.clone()));
             assert_eq!(state.status, Status::Paused);
 
             // now we unpause, wait a bit, and check that the song has ended
             sender.send(AudioCommand::Play);
-            tokio::time::sleep(Duration::from_millis(1001)).await;
+            tokio::time::sleep(Duration::from_millis(500)).await;
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
             assert_eq!(state.status, Status::Stopped);

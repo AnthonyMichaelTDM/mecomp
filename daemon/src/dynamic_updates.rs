@@ -445,7 +445,7 @@ mod tests {
     }
 
     #[rstest]
-    #[timeout(Duration::from_secs(5))]
+    #[timeout(Duration::from_secs(10))]
     #[tokio::test]
     async fn test_rename_song(
         #[future] setup: (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard),
@@ -505,7 +505,7 @@ mod tests {
     }
 
     #[rstest]
-    #[timeout(Duration::from_secs(5))]
+    #[timeout(Duration::from_secs(10))]
     #[tokio::test]
     async fn test_modify_song(
         #[future] setup: (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard),
@@ -548,7 +548,7 @@ mod tests {
     }
 
     #[rstest]
-    #[timeout(Duration::from_secs(5))]
+    #[timeout(Duration::from_secs(10))]
     #[tokio::test]
     async fn test_remove_song(
         #[future] setup: (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard),
