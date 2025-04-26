@@ -23,7 +23,7 @@ db = [
 ]
 serde = ["one-or-many/serde", "dep:serde"]
 test_utils = ["dep:tempfile", "dep:anyhow"]
-analysis = ["dep:futures", "dep:mecomp-analysis"]
+analysis = ["dep:mecomp-analysis"]
 # trace_parser = ["pom/trace"]
 
 [dependencies]
@@ -43,7 +43,6 @@ tempfile = { workspace = true, optional = true }
 ulid = "1.1"
 
 # dependencies for the analysis feature
-futures = { workspace = true, optional = true }
 mecomp-analysis = { workspace = true, optional = true }
 
 # dependencies for the test_utils feature
