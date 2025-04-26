@@ -315,6 +315,35 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn test_add_duplicate_songs() -> Result<()> {
+        let db = init_test_database().await?;
+        let playlist = create_playlist();
+        Playlist::create(&db, playlist.clone()).await?;
+        let song =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+
+        Playlist::add_songs(&db, playlist.id.clone(), vec![song.id.clone()]).await?;
+        Playlist::add_songs(&db, playlist.id.clone(), vec![song.id.clone()]).await?;
+        Playlist::add_songs(
+            &db,
+            playlist.id.clone(),
+            vec![song.id.clone(), song.id.clone()],
+        )
+        .await?;
+
+        let result = Playlist::read_songs(&db, playlist.id.clone()).await?;
+        assert_eq!(result, vec![song.clone()]);
+
+        let read = Playlist::read(&db, playlist.id.clone())
+            .await?
+            .ok_or_else(|| anyhow!("Playlist not found"))?;
+        assert_eq!(read.song_count, 1);
+        assert_eq!(read.runtime, song.runtime);
+
+        Ok(())
+    }
+
     #[rstest]
     #[tokio::test]
     async fn test_remove_songs() -> Result<()> {

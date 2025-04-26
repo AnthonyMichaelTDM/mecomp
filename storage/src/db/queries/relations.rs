@@ -14,11 +14,17 @@ pub async fn define_relation_tables<C: Connection>(db: &Surreal<C>) -> surrealdb
     db.query(
         r"  
     DEFINE TABLE album_to_song TYPE RELATION IN album OUT song ENFORCED;
+    DEFINE INDEX unique_album_to_song_relationships ON TABLE album_to_song COLUMNS in, out UNIQUE;
     DEFINE TABLE analysis_to_song TYPE RELATION IN analysis OUT song ENFORCED;
+    DEFINE INDEX unique_analysis_to_song_relationships ON TABLE analysis_to_song COLUMNS in, out UNIQUE;
     DEFINE TABLE artist_to_album TYPE RELATION IN artist OUT album ENFORCED; 
+    DEFINE INDEX unique_artist_to_album_relationships ON TABLE artist_to_album COLUMNS in, out UNIQUE;
     DEFINE TABLE artist_to_song TYPE RELATION IN artist OUT song ENFORCED;
+    DEFINE INDEX unique_artist_to_song_relationships ON TABLE artist_to_song COLUMNS in, out UNIQUE;
     DEFINE TABLE collection_to_song TYPE RELATION IN collection OUT song ENFORCED;
+    DEFINE INDEX unique_collection_to_song_relationships ON TABLE collection_to_song COLUMNS in, out UNIQUE;
     DEFINE TABLE playlist_to_song TYPE RELATION IN playlist OUT song ENFORCED;
+    DEFINE INDEX unique_playlist_to_song_relationships ON TABLE playlist_to_song COLUMNS in, out UNIQUE;
     ",
     )
     .await?;
