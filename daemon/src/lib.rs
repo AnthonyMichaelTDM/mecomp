@@ -6,14 +6,17 @@ use std::{
     sync::Arc,
 };
 //--------------------------------------------------------------------------------- other libraries
-use futures::{FutureExt, future, pin_mut, prelude::*};
+use futures::{future, prelude::*};
 use log::{error, info};
 use surrealdb::{Surreal, engine::local::Db};
 use tarpc::{
     self,
+    serde_transport::tcp,
     server::{BaseChannel, Channel as _, incoming::Incoming as _},
     tokio_serde::formats::Json,
 };
+use tokio::{runtime::Handle, sync::RwLock};
+use tracing::Instrument;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
     audio::{AudioKernelSender, commands::AudioCommand},
@@ -24,10 +27,19 @@ use mecomp_core::{
     udp::{Message, Sender, StateChange},
 };
 use mecomp_storage::db::{init_database, set_database_path};
-use tokio::sync::RwLock;
 
-async fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
-    tokio::spawn(fut);
+async fn spawn<F>(fut: F)
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    if size_of::<F>() > 1024 {
+        // if the future is too big, box it before spawning
+        let fut = Box::pin(fut);
+        tokio::spawn(fut);
+    } else {
+        // if the future is small enough, spawn it directly
+        tokio::spawn(fut);
+    }
 }
 
 pub mod controller;
@@ -55,20 +67,28 @@ impl EventPublisher {
         let (event_tx, event_rx) = std::sync::mpsc::channel();
         let event_publisher = Arc::new(RwLock::const_new(Sender::new().await.unwrap()));
         let event_publisher_clone = event_publisher.clone();
-        let handle = tokio::spawn(async move {
+
+        let handle = tokio::task::spawn_blocking(move || {
             while let Ok(event) = event_rx.recv() {
-                event_publisher_clone
-                    .read()
-                    .await
-                    .send(Message::StateChange(event))
-                    .await
-                    .unwrap();
+                // re-enter the async context to send the event over UDP
+                Handle::current().block_on(async {
+                    if let Err(e) = event_publisher_clone
+                        .read()
+                        .await
+                        .send(Message::StateChange(event))
+                        .await
+                    {
+                        error!("Failed to send event over UDP: {e}");
+                    }
+                });
             }
-        });
+        })
+        .instrument(tracing::info_span!("event_publisher"));
+
         Self {
             dispatcher: event_publisher,
             event_tx,
-            handle,
+            handle: handle.into_inner(),
         }
     }
 }
@@ -157,8 +177,7 @@ pub async fn start_daemon(
     // Start the RPC server.
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.daemon.rpc_port);
 
-    let mut listener = match tarpc::serde_transport::tcp::listen(&server_addr, Json::default).await
-    {
+    let mut listener = match tcp::listen(&server_addr, Json::default).await {
         Ok(listener) => listener,
         Err(e) => {
             error!("Failed to start server: {e}");
@@ -185,12 +204,10 @@ pub async fn start_daemon(
         // this means that we will only process 10 requests at a time
         // NOTE: if we have issues with concurrency (e.g. deadlocks or data-races),
         //       and have too much of a skill issue to fix it, we can set this number to 1.
-        .buffer_unordered(10)
+        .buffer_unordered(5)
         .for_each(async |()| {})
         // make it fused so we can stop it later
         .fuse();
-
-    pin_mut!(server_handle);
 
     // run the server until it is terminated
     tokio::select! {
@@ -220,6 +237,8 @@ pub async fn start_daemon(
         .await
         .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
         .await;
+
+    log::info!("Cleanup complete, exiting...");
 
     Ok(())
 }
