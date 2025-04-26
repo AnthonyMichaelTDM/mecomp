@@ -37,9 +37,17 @@ impl InterruptReceiver {
 
     #[must_use]
     #[inline]
+    /// Create a dummy receiver that doesn't receive any signals
+    ///
+    /// Attempting to wait on this receiver will wait indefinitely.
     pub fn dummy() -> Self {
+        let (tx, rx) = broadcast::channel(1);
+
+        // forget the sender so it's dropped w/o calling its destructor
+        std::mem::forget(tx);
+
         Self {
-            interrupt_rx: broadcast::channel(1).1,
+            interrupt_rx: rx,
             stopped: Arc::new(AtomicBool::new(false)),
         }
     }

@@ -5,7 +5,7 @@
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use mecomp_core::config::{ClusterAlgorithm, ProjectionMethod, ReclusterSettings};
-use mecomp_daemon::services::library::recluster;
+use mecomp_daemon::{services::library::recluster, termination::InterruptReceiver};
 use mecomp_storage::{
     db::schemas::{
         analysis::Analysis,
@@ -69,11 +69,12 @@ fn benchmark_recluster(c: &mut Criterion) {
         b.to_async(Runtime::new().unwrap()).iter_with_setup(
             async || {
                 let _: Vec<Collection> = db.delete(TABLE_NAME).await.unwrap();
-                db.clone()
+                let interrupt = InterruptReceiver::dummy();
+                (db.clone(), interrupt)
             },
-            async |db| {
-                let db = db.await;
-                recluster(&db, &settings).await.unwrap();
+            async |setup| {
+                let (db, interrupt) = setup.await;
+                recluster(&db, settings, interrupt).await.unwrap();
             },
         );
     });
@@ -87,11 +88,12 @@ fn benchmark_recluster(c: &mut Criterion) {
         b.to_async(Runtime::new().unwrap()).iter_with_setup(
             async || {
                 let _: Vec<Collection> = db.delete(TABLE_NAME).await.unwrap();
-                db.clone()
+                let interrupt = InterruptReceiver::dummy();
+                (db.clone(), interrupt)
             },
-            async |db| {
-                let db = db.await;
-                recluster(&db, &settings).await.unwrap();
+            async |setup| {
+                let (db, interrupt) = setup.await;
+                recluster(&db, settings, interrupt).await.unwrap();
             },
         );
     });

@@ -234,7 +234,12 @@ impl MusicPlayer for MusicPlayerServer {
             tokio::task::spawn(
                 async move {
                     let _guard = self.collection_recluster_lock.lock().await;
-                    match services::library::recluster(&self.db, &self.settings.reclustering).await
+                    match services::library::recluster(
+                        &self.db,
+                        self.settings.reclustering,
+                        self.interrupt.resubscribe(),
+                    )
+                    .await
                     {
                         Ok(()) => info!("Collection reclustering complete"),
                         Err(e) => error!("Error in library_recluster: {e}"),

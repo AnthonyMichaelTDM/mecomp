@@ -239,7 +239,7 @@ pub async fn rescan<C: Connection>(
 #[instrument]
 pub async fn analyze<C: Connection>(
     db: &Surreal<C>,
-    interrupt: InterruptReceiver,
+    mut interrupt: InterruptReceiver,
     overwrite: bool,
 ) -> Result<(), Error> {
     if overwrite {
@@ -273,6 +273,7 @@ pub async fn analyze<C: Connection>(
 
     // analyze the songs in batches, this is a blocking operation
     let handle = tokio::task::spawn_blocking(move || decoder.analyze_paths_with_callback(keys, tx));
+    let abort = handle.abort_handle();
 
     async {
         for (song_path, maybe_analysis) in rx {
@@ -316,13 +317,26 @@ pub async fn analyze<C: Connection>(
     .instrument(tracing::info_span!("Adding analyses to database"))
     .await?;
 
-    if let Err(e) = handle.await.expect("Couldn't join task") {
-        error!("Error analyzing songs: {e}");
-        return Ok(());
+    tokio::select! {
+        // wait for the interrupt signal
+        _ = interrupt.wait() => {
+            info!("Analysis interrupted");
+            abort.abort();
+        }
+        // wait for the analysis to finish
+        result = handle => match result {
+            Ok(Ok(())) => {
+                info!("Analysis complete");
+                info!("Library brief: {:?}", brief(db).await?);
+            }
+            Ok(Err(e)) => {
+                error!("Error analyzing songs: {e}");
+            }
+            Err(e) => {
+                error!("Error joining task: {e}");
+            }
+        }
     }
-
-    info!("Library analysis complete");
-    info!("Library brief: {:?}", brief(db).await?);
 
     Ok(())
 }
@@ -337,15 +351,21 @@ pub async fn analyze<C: Connection>(
 #[instrument]
 pub async fn recluster<C: Connection>(
     db: &Surreal<C>,
-    settings: &ReclusterSettings,
+    settings: ReclusterSettings,
+    mut interrupt: InterruptReceiver,
 ) -> Result<(), Error> {
     // collect all the analyses
     let samples = Analysis::read_all(db).await?;
-    let samples_ref = &samples;
 
-    let entered = tracing::info_span!("Clustering library").entered();
+    if samples.is_empty() {
+        info!("No analyses found, nothing to recluster");
+        return Ok(());
+    }
+
+    let samples_ref = samples.clone();
+
     // use clustering algorithm to cluster the analyses
-    let handle = tokio::task::block_in_place(|| {
+    let clustering = move || {
         let model: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
             samples_ref
                 .iter()
@@ -375,10 +395,30 @@ pub async fn recluster<C: Connection>(
         };
 
         Some(model)
-    });
-    drop(entered);
-    let Some(model) = handle else {
-        return Ok(());
+    };
+
+    // use clustering algorithm to cluster the analyses
+    let handle = tokio::task::spawn_blocking(clustering)
+        .instrument(tracing::info_span!("Clustering library"));
+    let abort = handle.inner().abort_handle();
+
+    // wait for the clustering to finish
+    let model = tokio::select! {
+        _ = interrupt.wait() => {
+            info!("Reclustering interrupted");
+            abort.abort();
+            return Ok(());
+        }
+        result = handle => match result {
+            Ok(Some(model)) => model,
+            Ok(None) => {
+                return Ok(());
+            }
+            Err(e) => {
+                error!("Error joining task: {e}");
+                return Ok(());
+            }
+        }
     };
 
     // delete all the collections
@@ -869,7 +909,9 @@ mod tests {
         }
 
         // recluster the library
-        recluster(&db, &settings).await.unwrap();
+        recluster(&db, settings, InterruptReceiver::dummy())
+            .await
+            .unwrap();
 
         // check that there are collections
         let collections = Collection::read_all(&db).await.unwrap();
