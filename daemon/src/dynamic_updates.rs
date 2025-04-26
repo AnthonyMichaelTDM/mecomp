@@ -6,8 +6,6 @@
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use futures::FutureExt;
-use futures::StreamExt;
-use futures::pin_mut;
 use log::{debug, error, info, trace, warn};
 use mecomp_storage::db::schemas::song::{Song, SongChangeSet, SongMetadata};
 #[cfg(target_os = "macos")]
@@ -66,62 +64,59 @@ pub fn init_music_library_watcher(
     genre_separator: Option<String>,
     mut interrupt: InterruptReceiver,
 ) -> anyhow::Result<MusicLibEventHandlerGuard> {
-    let (tx, rx) = futures::channel::mpsc::unbounded();
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
     // create a oneshot that can be used to stop the watcher
-    let (stop_tx, stop_rx) = futures::channel::oneshot::channel();
+    let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
 
     // spawn the event handler in a new thread
-    std::thread::Builder::new()
-        .name(String::from("Music Library Watcher"))
-        .spawn(move || {
+    tokio::task::spawn(
+        async move {
             let handler = MusicLibEventHandler::new(
                 db,
                 artist_name_separator,
                 protected_artist_names,
                 genre_separator,
             );
-            futures::executor::block_on(async {
-                let stop_rx = stop_rx.fuse();
-                let rx = rx.fuse();
-                let interrupt = interrupt.wait().fuse();
-                pin_mut!(stop_rx, rx, interrupt);
 
-                loop {
-                    futures::select! {
-                        _ = stop_rx => {
-                            debug!("stopping watcher");
-                            break;
-                        }
-                        _ = interrupt => {
-                            info!("interrupt signal received, stopping watcher");
-                            break;
-                        }
-                        result = rx.select_next_some() => {
-                            match result {
-                                Ok(events) => {
-                                    for event in events {
-                                        if let Err(e) = handler.handle_event(event).await {
-                                            error!("failed to handle event: {e:?}");
-                                        }
+            let mut stop = Box::pin(stop_rx);
+
+            loop {
+                tokio::select! {
+                    _ = &mut stop => {
+                        info!("stop signal received, stopping watcher");
+                        break;
+                    }
+                    _ = interrupt.wait() => {
+                        info!("interrupt signal received, stopping watcher");
+                        break;
+                    }
+                    Some(result) = rx.recv() => {
+                        match result {
+                            Ok(events) => {
+                                for event in events {
+                                    if let Err(e) = handler.handle_event(event).await {
+                                        error!("failed to handle event: {e:?}");
                                     }
                                 }
-                                Err(errors) => {
-                                    for error in errors {
-                                        error!("watch error: {error:?}");
-                                    }
+                            }
+                            Err(errors) => {
+                                for error in errors {
+                                    error!("watch error: {error:?}");
                                 }
                             }
                         }
                     }
                 }
-            });
-        })?;
+            }
+        }
+        .boxed(),
+    );
 
     // Select recommended watcher for debouncer.
     // Using a callback here, could also be a channel.
     let mut debouncer: Debouncer<WatcherType, _> =
         new_debouncer(MAX_DEBOUNCE_TIME, None, move |event| {
-            let _ = tx.unbounded_send(event);
+            let _ = tx.send(event);
         })?;
 
     // Add all library paths to the debouncer.
@@ -137,7 +132,7 @@ pub fn init_music_library_watcher(
 
 pub struct MusicLibEventHandlerGuard {
     debouncer: Debouncer<WatcherType, RecommendedCache>,
-    stop_tx: futures::channel::oneshot::Sender<()>,
+    stop_tx: tokio::sync::oneshot::Sender<()>,
 }
 
 // TODO: find a way to make this a drop guard
