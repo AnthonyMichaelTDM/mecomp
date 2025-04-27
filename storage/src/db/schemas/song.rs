@@ -280,6 +280,9 @@ impl SongMetadata {
         if !path.exists() || !path.is_file() {
             return Err(SongIOError::FileNotFound(path));
         }
+        // attempt to canonicalize the path
+        let path = path.canonicalize()?;
+
         // get metadata from the file
         let tagged_file = Probe::open(&path)
             .map_err(SongIOError::LoftyError)?

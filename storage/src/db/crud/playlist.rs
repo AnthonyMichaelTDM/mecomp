@@ -320,26 +320,36 @@ mod tests {
         let db = init_test_database().await?;
         let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
-        let song =
+        let song1 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let song2 =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        Playlist::add_songs(&db, playlist.id.clone(), vec![song.id.clone()]).await?;
-        Playlist::add_songs(&db, playlist.id.clone(), vec![song.id.clone()]).await?;
+        Playlist::add_songs(&db, playlist.id.clone(), vec![song1.id.clone()]).await?;
+        Playlist::add_songs(&db, playlist.id.clone(), vec![song1.id.clone()]).await?;
         Playlist::add_songs(
             &db,
             playlist.id.clone(),
-            vec![song.id.clone(), song.id.clone()],
+            vec![song1.id.clone(), song1.id.clone(), song2.id.clone()],
         )
         .await?;
 
         let result = Playlist::read_songs(&db, playlist.id.clone()).await?;
-        assert_eq!(result, vec![song.clone()]);
+        assert_eq!(result.len(), 2);
+        assert!(
+            result.contains(&song1),
+            "Playlist should contain song1, but it doesn't: {result:?}"
+        );
+        assert!(
+            result.contains(&song2),
+            "Playlist should contain song2, but it doesn't: {result:?}"
+        );
 
         let read = Playlist::read(&db, playlist.id.clone())
             .await?
             .ok_or_else(|| anyhow!("Playlist not found"))?;
-        assert_eq!(read.song_count, 1);
-        assert_eq!(read.runtime, song.runtime);
+        assert_eq!(read.song_count, 2);
+        assert_eq!(read.runtime, song1.runtime + song2.runtime);
 
         Ok(())
     }

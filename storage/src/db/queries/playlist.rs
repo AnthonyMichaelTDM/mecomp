@@ -3,7 +3,7 @@ use surrealdb::opt::IntoQuery;
 use crate::db::schemas;
 
 use super::{
-    generic::{read_related_out, relate, unrelate},
+    generic::{read_related_out, unrelate},
     parse_query,
     relations::PLAYLIST_TO_SONG,
 };
@@ -12,26 +12,20 @@ use super::{
 ///
 /// Compiles to:
 /// ```sql, ignore
-/// RELATE $id->playlist_to_song->$songs
+/// "RELATE $id->playlist_to_song->(array::complement(array::distinct($songs), $id->playlist_to_song.out))"
 /// ```
 ///
-/// # Example
-///
-/// ```ignore
-/// # use pretty_assertions::assert_eq;
-/// use mecomp_storage::db::crud::queries::playlist::add_songs;
-/// use surrealdb::opt::IntoQuery;
-///
-/// let statement = add_songs();
-/// assert_eq!(
-///     statement.into_query().unwrap(),
-///     "RELATE $id->playlist_to_song->$songs".into_query().unwrap()
-/// );
-/// ```
+/// Let's break this down:
+/// - `RELATE $id->playlist_to_song->(...)` creates a relation between the playlist and a set of songs.
+/// - `array::complement(array::distinct($songs), $id->playlist_to_song.out)` ensures that only songs
+///   that are not already related to the playlist are added.
+/// - `array::distinct($songs)` ensures that the input songs are unique.
+/// - `$id->playlist_to_song.out` retrieves the current related songs.
 #[must_use]
 #[inline]
 pub fn add_songs() -> impl IntoQuery {
-    relate("id", "songs", PLAYLIST_TO_SONG)
+    // only songs that aren't already related to the playlist should be added
+    "RELATE $id->playlist_to_song->(array::complement(array::distinct($songs), $id->playlist_to_song.out))"
 }
 
 /// Query to read the songs of a playlist
@@ -123,7 +117,10 @@ mod query_validation_tests {
     use super::*;
 
     #[rstest]
-    #[case::add_songs(add_songs(), "RELATE $id->playlist_to_song->$songs")]
+    #[case::add_songs(
+        add_songs(),
+        "RELATE $id->playlist_to_song->(array::complement(array::distinct($songs), $id->playlist_to_song.out))"
+    )]
     #[case::read_songs(read_songs(), "SELECT * FROM $id->playlist_to_song.out")]
     #[case::remove_songs(remove_songs(), "DELETE $id->playlist_to_song WHERE out IN $songs")]
     #[case::read_by_name(read_by_name(), "SELECT * FROM playlist WHERE name = $name LIMIT 1")]
