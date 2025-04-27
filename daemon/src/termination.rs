@@ -20,8 +20,6 @@ const FORCE_QUIT_THRESHOLD: u8 = 3;
 /// A struct that handles listening for interrupt signals, and/or tracking whether an interrupt signal has been received.
 ///
 /// Essentially, the receiving side of the broadcast channel.
-///
-/// Usefull to stop processes that we can't terminate otherwise.
 pub struct InterruptReceiver {
     interrupt_rx: broadcast::Receiver<Interrupted>,
     stopped: Arc<AtomicBool>,
