@@ -206,9 +206,11 @@ you can then use an audio tagger such as [MusicBrainz Picard](https://picard.mus
 
 All the MECOMP binaries have `COMPLETE=$SHELL <bin>` integration thanks to [clap_complete](https://docs.rs/clap_complete/latest/clap_complete/env/index.html).
 To use it, you can run (or add to your .zshrc / .bashrc) the following:
+
 ```sh
 source <(COMPLETE=bash mecomp-cli)
 ```
+
 (repeat for `mecomp-daemon`, `mecomp-tui`, etc.)
 
 ## Architecture
@@ -293,7 +295,21 @@ Note about bugs: if you encounter a bug, please provide as much information as p
 
 ## Tracings
 
-> Note: this section is only relevant if you are a developer working on MECOMP.
+> Note: this section is only relevant if you are a developer working on MECOMP, or are trying to debug a problem with MECOMP.
+
+### Tokio Console
+
+MECOMP can be run with the `tokio-console` feature of the `mecomp-core` crate enabled, which will allow you to use the [tokio-console](https://github.com/tokio-rs/console?tab=readme-ov-file) tool to monitor the tokio tasks and their states.
+
+```sh
+cargo run --features tokio-console
+```
+
+you can then run the console by running the following command in a separate terminal (assuming you have `tokio-console` installed):
+
+```sh
+tokio-console
+```
 
 ### OpenTelemetry
 
