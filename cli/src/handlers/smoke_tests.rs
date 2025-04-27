@@ -17,7 +17,7 @@ use tempfile::tempdir;
 
 use crate::handlers::{
     CollectionCommand, Command, CommandHandler, CurrentTarget, DynamicCommand, DynamicUpdate,
-    LibraryCommand, LibraryGetTarget, LibraryListTarget, PlaybackCommand, PlaylistAddCommand,
+    LibraryCommand, LibraryGetCommand, LibraryListTarget, PlaybackCommand, PlaylistAddCommand,
     PlaylistCommand, PlaylistGetMethod, QueueAddTarget, QueueCommand, RadioCommand, RandTarget,
     RepeatMode, SearchTarget, SeekCommand, StatusCommand, VolumeCommand, utils::WriteAdapter,
 };
@@ -265,21 +265,47 @@ async fn test_stop_command(#[future] client: MusicPlayerClient) {
     quiet: true,
     target: LibraryListTarget::Songs,
 })]
-#[case(LibraryCommand::Get {
-    target: LibraryGetTarget::Artist,
-    id: item_id().to_string(),
+#[case(LibraryCommand::List {
+    quiet: false,
+    target: LibraryListTarget::Playlists,
+})]
+#[case(LibraryCommand::List {
+    quiet: true,
+    target: LibraryListTarget::Playlists,
+})]
+#[case(LibraryCommand::List {
+    quiet: false,
+    target: LibraryListTarget::DynamicPlaylists,
+})]
+#[case(LibraryCommand::List {
+    quiet: true,
+    target: LibraryListTarget::DynamicPlaylists,
+})]
+#[case(LibraryCommand::List {
+    quiet: false,
+    target: LibraryListTarget::Collections,
+})]
+#[case(LibraryCommand::List {
+    quiet: true,
+    target: LibraryListTarget::Collections,
 })]
 #[case(LibraryCommand::Get {
-    target: LibraryGetTarget::Album,
-    id: item_id().to_string(),
+    command: LibraryGetCommand::Artist {id: item_id().to_string()},
 })]
 #[case(LibraryCommand::Get {
-    target: LibraryGetTarget::Song,
-    id: item_id().to_string(),
+    command: LibraryGetCommand::Album {id: item_id().to_string()},
 })]
 #[case(LibraryCommand::Get {
-    target: LibraryGetTarget::Playlist,
-    id: item_id().to_string(),
+    command: LibraryGetCommand::Song {id: item_id().to_string()},
+})]
+#[case(LibraryCommand::Get {
+    command: LibraryGetCommand::Playlist {id: item_id().to_string()},
+})]
+#[case(LibraryCommand::Get {
+    command: LibraryGetCommand::Dynamic {id: item_id().to_string()},
+})]
+#[case(LibraryCommand::Get {
+    command: LibraryGetCommand::Collection {id: item_id().to_string()},
 })]
 #[tokio::test]
 async fn test_library_command(

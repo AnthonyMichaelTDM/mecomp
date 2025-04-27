@@ -21,27 +21,32 @@ fn verify_cli() {
     Flags::command().debug_assert();
 }
 
-#[tokio::main(flavor = "current_thread")]
 #[cfg(not(tarpaulin_include))]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     clap_complete::CompleteEnv::with_factory(Flags::command).complete();
 
     let flags = Flags::parse();
 
-    let client = mecomp_core::rpc::init_client(flags.port).await?;
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
 
-    let ctx = tarpc::context::current();
+    rt.block_on(async {
+        let client = mecomp_core::rpc::init_client(flags.port).await?;
 
-    let mut stdout_adapter = WriteAdapter(std::io::stdout());
-    let mut stderr_adapter = WriteAdapter(std::io::stderr());
+        let ctx = tarpc::context::current();
 
-    if let Some(command) = flags.subcommand {
-        command
-            .handle(ctx, client, &mut stdout_adapter, &mut stderr_adapter)
-            .await?;
-    } else {
-        eprintln!("No subcommand provided");
-    }
+        let mut stdout_adapter = WriteAdapter(std::io::stdout());
+        let mut stderr_adapter = WriteAdapter(std::io::stderr());
 
-    Ok(())
+        if let Some(command) = flags.subcommand {
+            command
+                .handle(ctx, client, &mut stdout_adapter, &mut stderr_adapter)
+                .await?;
+        } else {
+            eprintln!("No subcommand provided");
+        }
+
+        Ok(())
+    })
 }
