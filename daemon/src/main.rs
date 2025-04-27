@@ -77,6 +77,7 @@ fn main() -> anyhow::Result<()> {
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
+        .worker_threads(mecomp_daemon::MAX_CONCURRENT_REQUESTS)
         // SurrealDB recommends a 10MB stack size, but I think that's a bit much for our use case
         // (we're not processing millions of records)
         // .thread_stack_size(10 * 1024 * 1024) // 10MB
