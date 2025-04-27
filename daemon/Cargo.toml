@@ -42,7 +42,7 @@ cli = [
 # otel_tracing = ["mecomp-core/otel_tracing"]
 # flame = ["mecomp-core/flame"]
 dynamic_updates = ["dep:notify-debouncer-full", "dep:notify"]
-analysis = ["mecomp-storage/analysis", "mecomp-analysis"]
+analysis = ["mecomp-storage/analysis", "dep:mecomp-analysis"]
 
 [dependencies]
 # shared dependencies
@@ -63,7 +63,7 @@ tracing = { workspace = true }
 walkdir = { workspace = true }
 
 # MECOMP dependencies
-mecomp-core = { workspace = true, features = ["rpc", "audio"] }
+mecomp-core = { workspace = true, features = ["rpc", "audio", "tokio_console"] }
 mecomp-storage = { workspace = true, features = ["serde", "db"] }
 mecomp-analysis = { workspace = true, optional = true }
 one-or-many = { workspace = true }

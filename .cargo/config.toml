@@ -5,6 +5,8 @@ coverage = "tarpaulin --skip-clean --out Html --workspace --profile tarpaulin"
 
 [build]
 rustflags = [
+    # tokio console
+    "--cfg", "tokio_unstable",
     # for profiling
     # "-C",
     # "symbol-mangling-version=v0",

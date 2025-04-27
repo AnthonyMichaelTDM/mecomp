@@ -29,7 +29,8 @@ otel_tracing = [
     "dep:opentelemetry-otlp",
 ]
 audio = ["dep:rodio", "dep:tokio", "dep:rand"]
-flame = ["tracing-flame"]
+flame = ["dep:tracing-flame"]
+tokio_console = ["dep:console-subscriber", "dep:tokio", "tokio/tracing"]
 verbose_tracing = []
 test_utils = []
 
@@ -40,6 +41,7 @@ mock_playback = []
 # shared dependencies
 ciborium = { workspace = true, optional = true }
 config = { workspace = true }
+console-subscriber = { workspace = true, optional = true }
 csv.workspace = true
 directories = { workspace = true }
 env_logger = { workspace = true }

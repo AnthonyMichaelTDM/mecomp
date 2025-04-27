@@ -66,6 +66,7 @@ ignored = [
     "subtle",
     "symphonia",
     "syn",
+    "sync_wrapper",
     "toml_datetime",
     "toml_edit",
     "tokio",
@@ -136,7 +137,8 @@ string_cache = { version = "0.8" }
 subtle = { version = "2" }
 symphonia = { version = "0.5", default-features = false, features = ["aac", "adpcm", "flac", "isomp4", "mp3", "ogg", "opt-simd", "pcm", "vorbis", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
 toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
@@ -199,7 +201,8 @@ string_cache = { version = "0.8" }
 subtle = { version = "2" }
 symphonia = { version = "0.5", default-features = false, features = ["aac", "adpcm", "flac", "isomp4", "mp3", "ogg", "opt-simd", "pcm", "vorbis", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
 toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }

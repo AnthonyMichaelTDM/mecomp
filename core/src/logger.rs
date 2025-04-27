@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::{io::Write, sync::LazyLock};
 
 use env_logger::fmt::style::{RgbColor, Style};
@@ -11,7 +11,7 @@ use opentelemetry_otlp::WithExportConfig as _;
 use opentelemetry_sdk::Resource;
 #[cfg(feature = "otel_tracing")]
 use tracing_subscriber::Layer as _;
-#[cfg(any(feature = "otel_tracing", feature = "flame"))]
+#[cfg(any(feature = "otel_tracing", feature = "flame", feature = "tokio_console"))]
 use tracing_subscriber::layer::SubscriberExt as _;
 
 use crate::format_duration;
@@ -256,6 +256,14 @@ pub fn init_tracing() -> impl tracing::Subscriber {
             .with_tracer(tracer)
             .with_filter(filter),
     );
+
+    #[cfg(feature = "tokio_console")]
+    let console_layer = console_subscriber::Builder::default()
+        .retention(Duration::from_secs(60 * 20)) // 20 minutes
+        .enable_self_trace(true)
+        .spawn();
+    #[cfg(feature = "tokio_console")]
+    let subscriber = subscriber.with(console_layer);
 
     subscriber
 }
