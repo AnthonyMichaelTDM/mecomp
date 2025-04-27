@@ -7,7 +7,7 @@ pub(crate) mod queries;
 pub mod schemas;
 
 #[cfg(feature = "db")]
-use surrealdb::{Surreal, engine::local::Db};
+use surrealdb::{Surreal, engine::local::Db, opt::Config};
 
 #[cfg(feature = "db")]
 #[cfg(not(tarpaulin_include))]
@@ -44,13 +44,15 @@ pub fn set_database_path(path: std::path::PathBuf) -> Result<(), crate::errors::
 #[cfg(feature = "db")]
 #[allow(clippy::missing_inline_in_public_items)]
 pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
-    let db = Surreal::new(DB_DIR
-        .get().cloned()
-        .unwrap_or_else(|| {
-            log::warn!("DB_DIR not set, defaulting to a temporary directory `{}`, this is likely a bug because `init_database` should be called before `db`", TEMP_DB_DIR.path().display());
-            TEMP_DB_DIR.path()
-            .to_path_buf()
-        })).await?;
+    let config = Config::new().strict();
+    let db_path = DB_DIR
+    .get().cloned()
+    .unwrap_or_else(|| {
+        log::warn!("DB_DIR not set, defaulting to a temporary directory `{}`, this is likely a bug because `set_database_path` should be called before `init_database`", TEMP_DB_DIR.path().display());
+        TEMP_DB_DIR.path()
+        .to_path_buf()
+    });
+    let db = Surreal::new((db_path, config)).await?;
 
     db.use_ns("mecomp").use_db("music").await?;
 

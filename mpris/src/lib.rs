@@ -178,6 +178,7 @@ impl Subscriber {
         drop(maybe_daemon);
 
         let mut ticker = tokio::time::interval(TICK_RATE);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         #[allow(clippy::redundant_pub_crate)]
         loop {

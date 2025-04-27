@@ -54,8 +54,10 @@ impl AudioState {
 
         // the ticker
         let mut ticker = tokio::time::interval(TICK_RATE);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         let mut update_ticker = tokio::time::interval(Duration::from_secs(1));
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         let result = loop {
             tokio::select! {
