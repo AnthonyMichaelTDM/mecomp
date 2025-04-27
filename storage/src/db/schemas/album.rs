@@ -38,7 +38,13 @@ pub struct Album {
     #[cfg_attr(feature = "serde", serde(default))]
     pub release: Option<i32>,
     /// Total runtime of this [`Album`].
-    #[cfg_attr(feature = "db", field(dt = "duration"))]
+    #[cfg_attr(
+        feature = "db",
+        field(dt = "any VALUE <future> {
+LET $songs = (SELECT runtime FROM $this.id->album_to_song->song);
+RETURN IF $songs IS NONE { 0s } ELSE { $songs.fold(0s, |$acc, $song| $acc + $song.runtime) };
+} ")
+    )]
     #[cfg_attr(
         feature = "db",
         serde(
@@ -48,7 +54,13 @@ pub struct Album {
     )]
     pub runtime: Duration,
     /// [`Song`] count of this [`Album`].
-    #[cfg_attr(feature = "db", field(dt = "int"))]
+    #[cfg_attr(
+        feature = "db",
+        field(dt = "any VALUE <future> {
+LET $count = (SELECT count() FROM $this.id->album_to_song->song GROUP ALL);
+RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]).count };
+} ")
+    )]
     pub song_count: usize,
     /// How many discs are in this [`Album`]?
     /// (Most will only have 1).
@@ -77,14 +89,6 @@ pub struct AlbumChangeSet {
     pub artist: Option<OneOrMany<String>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub release: Option<Option<i32>>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    #[cfg_attr(
-        feature = "db",
-        serde(serialize_with = "super::serialize_duration_option_as_sql_duration",)
-    )]
-    pub runtime: Option<Duration>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub song_count: Option<usize>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub discs: Option<u32>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]

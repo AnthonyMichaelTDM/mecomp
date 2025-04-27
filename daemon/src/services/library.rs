@@ -85,7 +85,7 @@ pub async fn rescan<C: Connection>(
                     };
                     info!(
                         "{} has conflicting metadata with index, {log_postfix}",
-                        path.to_string_lossy(),
+                        path.display(),
                     );
 
                     match conflict_resolution_mode {
@@ -103,9 +103,8 @@ pub async fn rescan<C: Connection>(
                 // if we have an error, delete the song from the library
                 Err(e) => {
                     warn!(
-                        "Error reading metadata for {}: {}",
-                        path.to_string_lossy(),
-                        e
+                        "Error reading metadata for {}: {e}",
+                        path.display()
                     );
                     info!("assuming the file isn't a song or doesn't exist anymore, removing from library");
                     Song::delete(db, song.id).await?;
@@ -143,6 +142,8 @@ pub async fn rescan<C: Connection>(
 
             visited_paths.insert(path.path().to_owned());
 
+            let displayable_path = path.path().display();
+
             // if the file is a song, add it to the library
             match SongMetadata::load_from_path(
                 path.path().to_owned(),
@@ -151,14 +152,10 @@ pub async fn rescan<C: Connection>(
                 genre_separator,
             ) {
                 Ok(metadata) => Song::try_load_into_db(db, metadata).await.map_or_else(
-                    |e| warn!("Error indexing {}: {}", path.path().to_string_lossy(), e),
-                    |_| debug!("Indexed {}", path.path().to_string_lossy()),
+                    |e| warn!("Error indexing {displayable_path}: {e}"),
+                    |_| debug!("Indexed {displayable_path}"),
                 ),
-                Err(e) => warn!(
-                    "Error reading metadata for {}: {}",
-                    path.path().to_string_lossy(),
-                    e
-                ),
+                Err(e) => warn!("Error reading metadata for {displayable_path}: {e}"),
             }
         }
 
@@ -168,52 +165,34 @@ pub async fn rescan<C: Connection>(
     .await?;
 
     // find and delete any remaining orphaned albums and artists
-    // TODO: create a custom query for this
 
-    async {
-        for album in Album::read_all(db).await? {
-            if Album::repair(db, album.id.clone()).await? {
-                info!("Deleted orphaned album {}", album.id.clone());
-                Album::delete(db, album.id.clone()).await?;
-            }
-        }
-        <Result<(), Error>>::Ok(())
+    let orphans = Album::delete_orphaned(db)
+        .instrument(tracing::info_span!("Deleting orphaned albums"))
+        .await?;
+    if !orphans.is_empty() {
+        info!("Deleted orphaned albums: {orphans:?}");
     }
-    .instrument(tracing::info_span!("Repairing albums"))
-    .await?;
-    async {
-        for artist in Artist::read_all(db).await? {
-            if Artist::repair(db, artist.id.clone()).await? {
-                info!("Deleted orphaned artist {}", artist.id.clone());
-                Artist::delete(db, artist.id.clone()).await?;
-            }
-        }
-        <Result<(), Error>>::Ok(())
+
+    let orphans = Artist::delete_orphaned(db)
+        .instrument(tracing::info_span!("Repairing artists"))
+        .await?;
+    if !orphans.is_empty() {
+        info!("Deleted orphaned artists: {orphans:?}");
     }
-    .instrument(tracing::info_span!("Repairing artists"))
-    .await?;
-    async {
-        for collection in Collection::read_all(db).await? {
-            if Collection::repair(db, collection.id.clone()).await? {
-                info!("Deleted orphaned collection {}", collection.id.clone());
-                Collection::delete(db, collection.id.clone()).await?;
-            }
-        }
-        <Result<(), Error>>::Ok(())
+
+    let orphans = Collection::delete_orphaned(db)
+        .instrument(tracing::info_span!("Repairing collections"))
+        .await?;
+    if !orphans.is_empty() {
+        info!("Deleted orphaned collections: {orphans:?}");
     }
-    .instrument(tracing::info_span!("Repairing collections"))
-    .await?;
-    async {
-        for playlist in Playlist::read_all(db).await? {
-            if Playlist::repair(db, playlist.id.clone()).await? {
-                info!("Deleted orphaned playlist {}", playlist.id.clone());
-                Playlist::delete(db, playlist.id.clone()).await?;
-            }
-        }
-        <Result<(), Error>>::Ok(())
+
+    let orphans = Playlist::delete_orphaned(db)
+        .instrument(tracing::info_span!("Repairing playlists"))
+        .await?;
+    if !orphans.is_empty() {
+        info!("Deleted orphaned playlists: {orphans:?}");
     }
-    .instrument(tracing::info_span!("Repairing playlists"))
-    .await?;
 
     info!("Library rescan complete");
     info!("Library brief: {:?}", brief(db).await?);
@@ -747,6 +726,11 @@ mod tests {
         // check that the album and artist deleted
         assert_eq!(Song::read_all(&db).await.unwrap().len(), 0);
         assert_eq!(Album::read_all(&db).await.unwrap().len(), 0);
+        let artists = Artist::read_all(&db).await.unwrap();
+        for artist in artists {
+            assert_eq!(artist.album_count, 0);
+            assert_eq!(artist.song_count, 0);
+        }
         assert_eq!(Artist::read_all(&db).await.unwrap().len(), 0);
     }
 

@@ -180,7 +180,8 @@ impl Song {
 
             // remove song from the old album, if it existed
             if let Some(old_album) = old_album {
-                if Album::remove_songs(db, old_album.id.clone(), vec![id.clone()]).await? {
+                Album::remove_songs(db, old_album.id.clone(), vec![id.clone()]).await?;
+                if old_album.song_count <= 1 {
                     // if the album is left without any songs, delete it
                     info!("Deleting orphaned album: {:?}", old_album.id);
                     Album::delete(db, old_album.id).await?;
@@ -189,7 +190,8 @@ impl Song {
 
             // remove the album from the old album artist(s)
             for artist in Self::read_album_artist(db, id.clone()).await? {
-                if Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await? {
+                Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await?;
+                if artist.song_count <= 1 {
                     // if the artist is left without any songs, delete it
                     info!("Deleting orphaned artist: {:?}", artist.id);
                     Artist::delete(db, artist.id).await?;
@@ -207,7 +209,8 @@ impl Song {
 
             // remove song from the old artists
             for artist in old_artist {
-                if Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await? {
+                Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await?;
+                if artist.song_count <= 1 {
                     // if the artist is left without any songs, delete it
                     info!("Deleting orphaned artist: {:?}", artist.id);
                     Artist::delete(db, artist.id).await?;
@@ -252,25 +255,26 @@ impl Song {
             Playlist::remove_songs(db, playlist.id, vec![id.clone()]).await?;
         }
         for collection in Self::read_collections(db, id.clone()).await? {
-            if Collection::remove_songs(db, collection.id.clone(), vec![id.clone()]).await? {
-                info!("Deleting orphaned collection: {:?}", collection.id);
-                Collection::delete(db, collection.id).await?;
-            }
+            Collection::remove_songs(db, collection.id.clone(), vec![id.clone()]).await?;
         }
         if let Some(album) = Self::read_album(db, id.clone()).await? {
-            if Album::remove_songs(db, album.id.clone(), vec![id.clone()]).await? {
+            Album::remove_songs(db, album.id.clone(), vec![id.clone()]).await?;
+            if album.song_count <= 1 {
                 info!("Deleting orphaned album: {:?}", album.id);
                 Album::delete(db, album.id).await?;
             }
         }
         for artist in Self::read_album_artist(db, id.clone()).await? {
-            if Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await? {
+            Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await?;
+            if artist.song_count <= 1 {
                 info!("Deleting orphaned artist: {:?}", artist.id);
                 Artist::delete(db, artist.id).await?;
             }
         }
         for artist in Self::read_artist(db, id.clone()).await? {
-            if Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await? {
+            Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await?;
+            if artist.song_count <= 1 {
+                // if I'm the only song, delete the artist
                 info!("Deleting orphaned artist: {:?}", artist.id);
                 Artist::delete(db, artist.id).await?;
             }

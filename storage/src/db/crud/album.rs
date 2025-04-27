@@ -158,8 +158,6 @@ impl Album {
             .bind(("songs", song_ids))
             .await?;
 
-        Self::repair(db, id).await?;
-
         Ok(())
     }
 
@@ -181,12 +179,12 @@ impl Album {
         db: &Surreal<C>,
         id: AlbumId,
         song_ids: Vec<SongId>,
-    ) -> StorageResult<bool> {
+    ) -> StorageResult<()> {
         db.query(remove_songs())
             .bind(("album", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-        Self::repair(db, id).await
+        Ok(())
     }
 
     #[instrument]
@@ -197,32 +195,15 @@ impl Album {
         Ok(db.query(read_artist()).bind(("id", id)).await?.take(0)?)
     }
 
-    /// update counts and runtime
+    /// Deletes all orphaned albums from the database
     ///
-    /// # Arguments
-    ///
-    /// * `id` - The id of the album to repair
-    ///
-    /// # Returns
-    ///
-    /// Returns a boolean indicating if the album should be removed (if it has no songs left in it)
-    #[instrument()]
-    pub async fn repair<C: Connection>(db: &Surreal<C>, id: AlbumId) -> StorageResult<bool> {
-        // remove or update the album and return
-        let songs = Self::read_songs(db, id.clone()).await?;
-
-        Self::update(
-            db,
-            id,
-            AlbumChangeSet {
-                song_count: Some(songs.len()),
-                runtime: Some(songs.iter().map(|s| s.runtime).sum()),
-                ..Default::default()
-            },
-        )
-        .await?;
-
-        Ok(songs.is_empty())
+    /// An orphaned album is an album that has no songs in it
+    #[instrument]
+    pub async fn delete_orphaned<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
+        Ok(db
+            .query("DELETE FROM album WHERE type::int(song_count) = 0 RETURN BEFORE")
+            .await?
+            .take(0)?)
     }
 }
 
@@ -551,8 +532,11 @@ mod tests {
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
         Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
-        assert!(Album::remove_songs(&db, album.id.clone(), vec![song.id.clone()]).await?);
+        let read = Album::read_songs(&db, album.id.clone()).await?;
+        assert_eq!(read.len(), 1);
+        assert_eq!(read[0], song);
 
+        Album::remove_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
         let read = Album::read_songs(&db, album.id.clone()).await?;
         assert_eq!(read.len(), 0);
         Ok(())

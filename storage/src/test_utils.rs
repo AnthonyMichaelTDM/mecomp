@@ -14,6 +14,7 @@ use rand::{Rng, seq::IteratorRandom};
 use surrealdb::{
     Connection, Surreal,
     engine::local::{Db, Mem},
+    opt::Config,
     sql::Id,
 };
 
@@ -44,8 +45,13 @@ pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
         queries::relations::define_relation_tables, schemas::dynamic::DynamicPlaylist,
     };
 
-    let db = Surreal::new::<Mem>(()).await?;
-    db.use_ns("test").use_db("test").await?;
+    let config = Config::new().strict();
+    let db = Surreal::new::<Mem>(config).await?;
+
+    db.query("DEFINE NAMESPACE IF NOT EXISTS test").await?;
+    db.use_ns("test").await?;
+    db.query("DEFINE DATABASE IF NOT EXISTS test").await?;
+    db.use_db("test").await?;
 
     crate::db::register_custom_analyzer(&db).await?;
     surrealqlx::register_tables!(

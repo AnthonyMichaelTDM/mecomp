@@ -1,5 +1,4 @@
 //! CRUD operations for the playlist table
-use std::time::Duration;
 
 use surrealdb::{Connection, Surreal};
 use tracing::instrument;
@@ -40,8 +39,7 @@ impl Playlist {
             Self {
                 id: Self::generate_id(),
                 name: format!("{} (copy)", playlist.name),
-                song_count: 0,
-                runtime: Duration::from_secs(0),
+                ..playlist
             },
         )
         .await?
@@ -116,7 +114,6 @@ impl Playlist {
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-        Self::repair(db, id).await?;
         Ok(())
     }
 
@@ -143,31 +140,18 @@ impl Playlist {
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-        Self::repair(db, id).await?;
         Ok(())
     }
 
-    /// updates the song_count and runtime of the playlist
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - the id of the playlist to repair
     #[instrument]
-    pub async fn repair<C: Connection>(db: &Surreal<C>, id: PlaylistId) -> StorageResult<bool> {
-        let songs = Self::read_songs(db, id.clone()).await?;
-
-        Self::update(
-            db,
-            id,
-            PlaylistChangeSet {
-                song_count: Some(songs.len()),
-                runtime: Some(songs.iter().map(|song| song.runtime).sum::<Duration>()),
-                ..Default::default()
-            },
-        )
-        .await?;
-
-        Ok(songs.is_empty())
+    /// Deletes all orphaned playlists from the database
+    ///
+    /// An orphaned playlist is a playlist that has no songs in it
+    pub async fn delete_orphaned<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
+        Ok(db
+            .query("DELETE FROM playlist WHERE type::int(song_count) = 0 RETURN BEFORE")
+            .await?
+            .take(0)?)
     }
 }
 
@@ -320,26 +304,36 @@ mod tests {
         let db = init_test_database().await?;
         let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
-        let song =
+        let song1 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let song2 =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        Playlist::add_songs(&db, playlist.id.clone(), vec![song.id.clone()]).await?;
-        Playlist::add_songs(&db, playlist.id.clone(), vec![song.id.clone()]).await?;
+        Playlist::add_songs(&db, playlist.id.clone(), vec![song1.id.clone()]).await?;
+        Playlist::add_songs(&db, playlist.id.clone(), vec![song1.id.clone()]).await?;
         Playlist::add_songs(
             &db,
             playlist.id.clone(),
-            vec![song.id.clone(), song.id.clone()],
+            vec![song1.id.clone(), song1.id.clone(), song2.id.clone()],
         )
         .await?;
 
         let result = Playlist::read_songs(&db, playlist.id.clone()).await?;
-        assert_eq!(result, vec![song.clone()]);
+        assert_eq!(result.len(), 2);
+        assert!(
+            result.contains(&song1),
+            "Playlist should contain song1, but it doesn't: {result:?}"
+        );
+        assert!(
+            result.contains(&song2),
+            "Playlist should contain song2, but it doesn't: {result:?}"
+        );
 
         let read = Playlist::read(&db, playlist.id.clone())
             .await?
             .ok_or_else(|| anyhow!("Playlist not found"))?;
-        assert_eq!(read.song_count, 1);
-        assert_eq!(read.runtime, song.runtime);
+        assert_eq!(read.song_count, 2);
+        assert_eq!(read.runtime, song1.runtime + song2.runtime);
 
         Ok(())
     }

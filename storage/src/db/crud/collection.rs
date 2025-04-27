@@ -73,7 +73,6 @@ impl Collection {
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-        Self::repair(db, id).await?;
         Ok(())
     }
 
@@ -95,39 +94,23 @@ impl Collection {
         db: &Surreal<C>,
         id: CollectionId,
         song_ids: Vec<SongId>,
-    ) -> StorageResult<bool> {
+    ) -> StorageResult<()> {
         db.query(remove_songs())
             .bind(("id", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-        Self::repair(db, id).await
+        Ok(())
     }
 
-    /// updates the song_count and runtime of the collection
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - The id of the collection to repair
-    ///
-    /// # Returns
-    ///
-    /// * `bool` - True if the collection is empty
     #[instrument]
-    pub async fn repair<C: Connection>(db: &Surreal<C>, id: CollectionId) -> StorageResult<bool> {
-        let songs = Self::read_songs(db, id.clone()).await?;
-
-        Self::update(
-            db,
-            id,
-            CollectionChangeSet {
-                song_count: Some(songs.len()),
-                runtime: Some(songs.iter().map(|song| song.runtime).sum::<Duration>()),
-                ..Default::default()
-            },
-        )
-        .await?;
-
-        Ok(songs.is_empty())
+    /// Delete all orphaned collections
+    ///
+    /// An orphaned collection is a collection that has no songs in it
+    pub async fn delete_orphaned<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
+        Ok(db
+            .query("DELETE FROM collection WHERE type::int(song_count) = 0 RETURN BEFORE")
+            .await?
+            .take(0)?)
     }
 
     /// "Freeze" a collection, this will create a playlist with the given name that contains all the songs in the given collection
@@ -280,8 +263,10 @@ mod tests {
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
         Collection::add_songs(&db, collection.id.clone(), vec![song.id.clone()]).await?;
-        assert!(Collection::remove_songs(&db, collection.id.clone(), vec![song.id.clone()]).await?);
+        let result = Collection::read_songs(&db, collection.id.clone()).await?;
+        assert_eq!(result, vec![song.clone()]);
 
+        Collection::remove_songs(&db, collection.id.clone(), vec![song.id.clone()]).await?;
         let result = Collection::read_songs(&db, collection.id.clone()).await?;
         assert_eq!(result, vec![]);
 

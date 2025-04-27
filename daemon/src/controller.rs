@@ -1137,6 +1137,9 @@ impl MusicPlayer for MusicPlayerServer {
         let (parsed_name, song_paths) =
             import_playlist(file).tap_err(|e| warn!("Error in playlist_import: {e}"))?;
 
+        log::debug!("Parsed playlist name: {parsed_name:?}");
+        log::debug!("Parsed song paths: {song_paths:?}");
+
         let name = match (name, parsed_name) {
             (Some(name), _) | (None, Some(name)) => name,
             (None, None) => "Imported Playlist".to_owned(),

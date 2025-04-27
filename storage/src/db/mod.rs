@@ -54,7 +54,10 @@ pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
     });
     let db = Surreal::new((db_path, config)).await?;
 
-    db.use_ns("mecomp").use_db("music").await?;
+    db.query("DEFINE NAMESPACE IF NOT EXISTS mecomp").await?;
+    db.use_ns("mecomp").await?;
+    db.query("DEFINE DATABASE IF NOT EXISTS music").await?;
+    db.use_db("music").await?;
 
     register_custom_analyzer(&db).await?;
     surrealqlx::register_tables!(
@@ -110,9 +113,14 @@ mod test {
 
     #[tokio::test]
     async fn test_register_tables() -> anyhow::Result<()> {
+        let config = Config::new().strict();
         // use an in-memory db for testing
-        let db = Surreal::new::<Mem>(()).await?;
-        db.use_ns("test").use_db("test").await?;
+        let db = Surreal::new::<Mem>(config).await?;
+
+        db.query("DEFINE NAMESPACE IF NOT EXISTS test").await?;
+        db.use_ns("test").await?;
+        db.query("DEFINE DATABASE IF NOT EXISTS test").await?;
+        db.use_db("test").await?;
 
         // register the custom analyzer
         register_custom_analyzer(&db).await?;
