@@ -37,7 +37,6 @@ ignored = [
     "futures-executor",
     "futures-io",
     "futures-lite",
-    "futures-task",
     "futures-util",
     "hashbrown",
     "indexmap",
@@ -67,9 +66,11 @@ ignored = [
     "subtle",
     "symphonia",
     "syn",
+    "sync_wrapper",
     "toml_datetime",
     "toml_edit",
     "tokio",
+    "tokio-stream",
     "tokio-util",
     "tracing",
     "tracing-core",
@@ -107,7 +108,6 @@ futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-lite = { version = "2" }
-futures-task = { version = "0.3", default-features = false, features = ["std"] }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
 hashbrown = { version = "0.15" }
 indexmap = { version = "2", features = ["serde"] }
@@ -139,6 +139,7 @@ symphonia = { version = "0.5", default-features = false, features = ["aac", "adp
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
+tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
 toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
 toml_edit = { version = "0.22", default-features = false, features = ["parse", "serde"] }
@@ -171,7 +172,6 @@ futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-lite = { version = "2" }
-futures-task = { version = "0.3", default-features = false, features = ["std"] }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
 hashbrown = { version = "0.15" }
 indexmap = { version = "2", features = ["serde"] }
@@ -203,6 +203,7 @@ symphonia = { version = "0.5", default-features = false, features = ["aac", "adp
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
+tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
 toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
 toml_edit = { version = "0.22", default-features = false, features = ["parse", "serde"] }

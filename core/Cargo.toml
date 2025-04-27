@@ -20,7 +20,7 @@ name = "udp"
 harness = false
 
 [features]
-default = ["audio", "rpc", "tokio_console"]
+default = ["audio", "rpc"]
 rpc = ["dep:tarpc", "dep:ciborium", "dep:tokio", "dep:object-pool"]
 otel_tracing = [
     "dep:tracing-opentelemetry",
