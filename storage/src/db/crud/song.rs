@@ -189,7 +189,8 @@ impl Song {
 
             // remove the album from the old album artist(s)
             for artist in Self::read_album_artist(db, id.clone()).await? {
-                if Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await? {
+                Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await?;
+                if artist.song_count <= 1 {
                     // if the artist is left without any songs, delete it
                     info!("Deleting orphaned artist: {:?}", artist.id);
                     Artist::delete(db, artist.id).await?;
@@ -207,7 +208,8 @@ impl Song {
 
             // remove song from the old artists
             for artist in old_artist {
-                if Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await? {
+                Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await?;
+                if artist.song_count <= 1 {
                     // if the artist is left without any songs, delete it
                     info!("Deleting orphaned artist: {:?}", artist.id);
                     Artist::delete(db, artist.id).await?;
@@ -261,13 +263,16 @@ impl Song {
             }
         }
         for artist in Self::read_album_artist(db, id.clone()).await? {
-            if Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await? {
+            Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await?;
+            if artist.song_count <= 1 {
                 info!("Deleting orphaned artist: {:?}", artist.id);
                 Artist::delete(db, artist.id).await?;
             }
         }
         for artist in Self::read_artist(db, id.clone()).await? {
-            if Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await? {
+            Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await?;
+            if artist.song_count <= 1 {
+                // if I'm the only song, delete the artist
                 info!("Deleting orphaned artist: {:?}", artist.id);
                 Artist::delete(db, artist.id).await?;
             }

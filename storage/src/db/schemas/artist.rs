@@ -30,7 +30,16 @@ pub struct Artist {
     pub name: String,
 
     /// Total runtime.
-    #[cfg_attr(feature = "db", field(dt = "duration"))]
+    #[cfg_attr(
+        feature = "db",
+        field(dt = "any VALUE <future> {
+LET $songs = (SELECT id,runtime FROM $this.id->artist_to_song->song);
+LET $albums = (SELECT id,runtime FROM $this.id->artist_to_album->album->album_to_song->song);
+LET $distinct = array::distinct(array::concat($songs, $albums));
+LET $total = $distinct.fold(0s, |$acc, $song| $acc + $song.runtime);
+RETURN IF $total IS NONE { 0s } ELSE { $total };
+} ")
+    )]
     #[cfg_attr(
         feature = "db",
         serde(
@@ -41,11 +50,29 @@ pub struct Artist {
     pub runtime: Duration,
 
     /// the number of albums this artist has.
-    #[cfg_attr(feature = "db", field(dt = "int"))]
+    #[cfg_attr(
+        feature = "db",
+        field(dt = "any VALUE <future> { 
+LET $count = (SELECT count() FROM $this.id->artist_to_album->album GROUP ALL);
+RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]).count };
+} ")
+    )]
     pub album_count: usize,
 
     /// the number of songs this artist has.
-    #[cfg_attr(feature = "db", field(dt = "int"))]
+    ///
+    /// This computed field is a bit more complex than the others,
+    /// as it needs to count the number of songs in both albums and singles.
+    #[cfg_attr(
+        feature = "db",
+        field(dt = "any VALUE <future> {
+LET $songs = (SELECT id FROM $this.id->artist_to_song->song);
+LET $albums = (SELECT id FROM $this.id->artist_to_album->album->album_to_song->song);
+LET $distinct = array::distinct(array::concat($songs, $albums));
+LET $count = count($distinct);
+RETURN $count;
+} ")
+    )]
     pub song_count: usize,
 }
 
@@ -62,16 +89,6 @@ impl Artist {
 pub struct ArtistChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub name: Option<String>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    #[cfg_attr(
-        feature = "db",
-        serde(serialize_with = "super::serialize_duration_option_as_sql_duration")
-    )]
-    pub runtime: Option<Duration>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub album_count: Option<usize>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub song_count: Option<usize>,
 }
 
 /// This struct holds all the metadata about a particular [`Artist`].

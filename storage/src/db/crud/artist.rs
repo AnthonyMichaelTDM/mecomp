@@ -175,8 +175,6 @@ impl Artist {
             .bind(("id", id.clone()))
             .bind(("album", album_id))
             .await?;
-        // update runtime, and song/album count
-        Self::repair(db, id).await?;
         Ok(())
     }
 
@@ -192,9 +190,6 @@ impl Artist {
             .bind(("ids", ids.clone()))
             .bind(("album", album_id))
             .await?;
-        for id in ids {
-            Self::repair(db, id.clone()).await?;
-        }
         Ok(())
     }
 
@@ -210,7 +205,6 @@ impl Artist {
             .bind(("id", id.clone()))
             .bind(("songs", songs))
             .await?;
-        Self::repair(db, id).await?;
         Ok(())
     }
 
@@ -224,13 +218,12 @@ impl Artist {
         db: &Surreal<C>,
         id: ArtistId,
         song_ids: Vec<SongId>,
-    ) -> StorageResult<bool> {
+    ) -> StorageResult<()> {
         db.query(remove_songs())
             .bind(("artist", id.clone()))
             .bind(("songs", song_ids))
             .await?;
-
-        Self::repair(db, id).await
+        Ok(())
     }
 
     #[instrument]
@@ -242,33 +235,16 @@ impl Artist {
         Ok(db.query(read_songs()).bind(("artist", id)).await?.take(0)?)
     }
 
-    /// updates the album count, song count, and runtime of the artist
+    /// Deletes all orphaned artists from the database
     ///
-    /// # Arguments
-    ///
-    /// * `id` - the id of the artist to repair
-    ///
-    /// # Returns
-    ///
-    /// * `bool` - whether the artist should be removed or not (if it has no songs or albums, it should be removed)
+    /// An orphaned artist is an artist that has no associated songs
+    /// or albums
     #[instrument]
-    pub async fn repair<C: Connection>(db: &Surreal<C>, id: ArtistId) -> StorageResult<bool> {
-        let albums: Vec<Album> = Self::read_albums(db, id.clone()).await?;
-        let songs: Vec<Song> = Self::read_songs(db, id.clone()).await?;
-
-        Self::update(
-            db,
-            id.clone(),
-            ArtistChangeSet {
-                album_count: Some(albums.len()),
-                song_count: Some(songs.len()),
-                runtime: Some(songs.iter().map(|s| s.runtime).sum()),
-                ..Default::default()
-            },
-        )
-        .await?;
-
-        Ok(albums.is_empty() && songs.is_empty())
+    pub async fn delete_orphaned<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
+        Ok(db
+            .query("DELETE FROM artist WHERE type::int(song_count) = 0 RETURN BEFORE")
+            .await?
+            .take(0)?)
     }
 }
 
@@ -659,6 +635,7 @@ mod tests {
             album.id.clone(),
         )
         .await?;
+        Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
 
         let read = Artist::read_many(&db, vec![artist.id.clone(), artist2.id.clone()]).await?;
 
@@ -736,13 +713,16 @@ mod tests {
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
         Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
-
-        assert!(Artist::remove_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?);
-
         let read = Artist::read(&db, artist.id.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
+        assert_eq!(read.song_count, 1);
+        assert_eq!(read.runtime, song.runtime);
 
+        Artist::remove_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
+        let read = Artist::read(&db, artist.id.clone())
+            .await?
+            .ok_or_else(|| anyhow!("Failed to read artist"))?;
         assert_eq!(read.runtime, Duration::from_secs(0));
         assert_eq!(read.song_count, 0);
 
