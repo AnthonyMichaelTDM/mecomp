@@ -40,6 +40,8 @@ use mecomp_storage::{
     util::MetadataConflictResolution,
 };
 
+use crate::termination::InterruptReceiver;
+
 /// Index the library.
 ///
 /// # Errors
@@ -235,7 +237,11 @@ pub async fn rescan<C: Connection>(
 ///
 /// This function will panic if the thread(s) that analyzes the songs panics.
 #[instrument]
-pub async fn analyze<C: Connection>(db: &Surreal<C>, overwrite: bool) -> Result<(), Error> {
+pub async fn analyze<C: Connection>(
+    db: &Surreal<C>,
+    mut interrupt: InterruptReceiver,
+    overwrite: bool,
+) -> Result<(), Error> {
     if overwrite {
         // delete all the analyses
         async {
@@ -265,13 +271,17 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>, overwrite: bool) -> Result<
         return Ok(());
     };
 
-    // analyze the songs in batches
-    let handle = std::thread::spawn(move || {
-        decoder.analyze_paths_with_callback(keys, tx);
-    });
+    // analyze the songs in batches, this is a blocking operation
+    let handle = tokio::task::spawn_blocking(move || decoder.analyze_paths_with_callback(keys, tx));
+    let abort = handle.abort_handle();
 
     async {
         for (song_path, maybe_analysis) in rx {
+            if interrupt.is_stopped() {
+                info!("Analysis interrupted");
+                break;
+            }
+
             let Some(song_id) = paths.get(&song_path) else {
                 error!("No song id found for path: {}", song_path.to_string_lossy());
                 continue;
@@ -307,10 +317,26 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>, overwrite: bool) -> Result<
     .instrument(tracing::info_span!("Adding analyses to database"))
     .await?;
 
-    handle.join().expect("Couldn't join thread");
-
-    info!("Library analysis complete");
-    info!("Library brief: {:?}", brief(db).await?);
+    tokio::select! {
+        // wait for the interrupt signal
+        _ = interrupt.wait() => {
+            info!("Analysis interrupted");
+            abort.abort();
+        }
+        // wait for the analysis to finish
+        result = handle => match result {
+            Ok(Ok(())) => {
+                info!("Analysis complete");
+                info!("Library brief: {:?}", brief(db).await?);
+            }
+            Ok(Err(e)) => {
+                error!("Error analyzing songs: {e}");
+            }
+            Err(e) => {
+                error!("Error joining task: {e}");
+            }
+        }
+    }
 
     Ok(())
 }
@@ -325,41 +351,75 @@ pub async fn analyze<C: Connection>(db: &Surreal<C>, overwrite: bool) -> Result<
 #[instrument]
 pub async fn recluster<C: Connection>(
     db: &Surreal<C>,
-    settings: &ReclusterSettings,
+    settings: ReclusterSettings,
+    mut interrupt: InterruptReceiver,
 ) -> Result<(), Error> {
     // collect all the analyses
     let samples = Analysis::read_all(db).await?;
 
-    let entered = tracing::info_span!("Clustering library").entered();
+    if samples.is_empty() {
+        info!("No analyses found, nothing to recluster");
+        return Ok(());
+    }
+
+    let samples_ref = samples.clone();
+
     // use clustering algorithm to cluster the analyses
-    let model: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
-        samples
-            .iter()
-            .map(Into::into)
-            .collect::<Vec<mecomp_analysis::Analysis>>()
-            .into(),
-        settings.max_clusters,
-        KOptimal::GapStatistic {
-            b: settings.gap_statistic_reference_datasets,
-        },
-        settings.algorithm.into(),
-        settings.projection_method.into(),
-    ) {
-        Err(e) => {
-            error!("There was an error creating the clustering helper: {e}",);
-            return Ok(());
-        }
-        Ok(kmeans) => kmeans,
+    let clustering = move || {
+        let model: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
+            samples_ref
+                .iter()
+                .map(Into::into)
+                .collect::<Vec<mecomp_analysis::Analysis>>()
+                .into(),
+            settings.max_clusters,
+            KOptimal::GapStatistic {
+                b: settings.gap_statistic_reference_datasets,
+            },
+            settings.algorithm.into(),
+            settings.projection_method.into(),
+        ) {
+            Err(e) => {
+                error!("There was an error creating the clustering helper: {e}",);
+                return None;
+            }
+            Ok(kmeans) => kmeans,
+        };
+
+        let model = match model.initialize() {
+            Err(e) => {
+                error!("There was an error initializing the clustering helper: {e}",);
+                return None;
+            }
+            Ok(kmeans) => kmeans.cluster(),
+        };
+
+        Some(model)
     };
 
-    let model = match model.initialize() {
-        Err(e) => {
-            error!("There was an error initializing the clustering helper: {e}",);
+    // use clustering algorithm to cluster the analyses
+    let handle = tokio::task::spawn_blocking(clustering)
+        .instrument(tracing::info_span!("Clustering library"));
+    let abort = handle.inner().abort_handle();
+
+    // wait for the clustering to finish
+    let model = tokio::select! {
+        _ = interrupt.wait() => {
+            info!("Reclustering interrupted");
+            abort.abort();
             return Ok(());
         }
-        Ok(kmeans) => kmeans.cluster(),
+        result = handle => match result {
+            Ok(Some(model)) => model,
+            Ok(None) => {
+                return Ok(());
+            }
+            Err(e) => {
+                error!("Error joining task: {e}");
+                return Ok(());
+            }
+        }
     };
-    drop(entered);
 
     // delete all the collections
     async {
@@ -738,6 +798,7 @@ mod tests {
         init();
         let dir = tempfile::tempdir().unwrap();
         let db = init_test_database().await.unwrap();
+        let interrupt = InterruptReceiver::dummy();
 
         // load some songs into the database
         let song_cases = arb_vec(&arb_song_case(), 10..=15)();
@@ -764,7 +825,7 @@ mod tests {
         );
 
         // analyze the library
-        analyze(&db, true).await.unwrap();
+        analyze(&db, interrupt, true).await.unwrap();
 
         // check that all the songs have analyses
         assert_eq!(
@@ -802,7 +863,7 @@ mod tests {
     }
 
     #[rstest]
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_recluster(
         #[values(ProjectionMethod::TSne, ProjectionMethod::None, ProjectionMethod::Pca)]
         projection_method: ProjectionMethod,
@@ -848,7 +909,9 @@ mod tests {
         }
 
         // recluster the library
-        recluster(&db, &settings).await.unwrap();
+        recluster(&db, settings, InterruptReceiver::dummy())
+            .await
+            .unwrap();
 
         // check that there are collections
         let collections = Collection::read_all(&db).await.unwrap();

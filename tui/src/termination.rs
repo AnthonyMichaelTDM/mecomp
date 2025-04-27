@@ -68,7 +68,6 @@ pub fn create_termination() -> (Terminator, broadcast::Receiver<Interrupted>) {
     let (tx, rx) = broadcast::channel(1);
     let terminator = Terminator::new(tx);
 
-    #[cfg(unix)]
     tokio::spawn(terminate_by_unix_signal(terminator.clone()));
 
     (terminator, rx)

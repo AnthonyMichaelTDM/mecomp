@@ -61,6 +61,7 @@ pub struct MusicPlayerServer {
     collection_recluster_lock: Arc<Mutex<()>>,
     publisher: Arc<RwLock<Sender<Message>>>,
     terminator: Arc<Mutex<Terminator>>,
+    interrupt: Arc<termination::InterruptReceiver>,
 }
 
 impl MusicPlayerServer {
@@ -72,6 +73,7 @@ impl MusicPlayerServer {
         audio_kernel: Arc<AudioKernelSender>,
         event_publisher: Arc<RwLock<Sender<Message>>>,
         terminator: Terminator,
+        interrupt: termination::InterruptReceiver,
     ) -> Self {
         Self {
             db,
@@ -82,6 +84,7 @@ impl MusicPlayerServer {
             library_analyze_lock: Arc::new(Mutex::new(())),
             collection_recluster_lock: Arc::new(Mutex::new(())),
             terminator: Arc::new(Mutex::new(terminator)),
+            interrupt: Arc::new(interrupt),
         }
     }
 
@@ -123,34 +126,30 @@ impl MusicPlayer for MusicPlayerServer {
 
         let span = tracing::Span::current();
 
-        std::thread::Builder::new()
-            .name(String::from("Library Rescan"))
-            .spawn(move || {
-                futures::executor::block_on(
-                    async {
-                        let _guard = self.library_rescan_lock.lock().await;
-                        match services::library::rescan(
-                            &self.db,
-                            &self.settings.daemon.library_paths,
-                            &self.settings.daemon.artist_separator,
-                            &self.settings.daemon.protected_artist_names,
-                            self.settings.daemon.genre_separator.as_deref(),
-                            self.settings.daemon.conflict_resolution,
-                        )
-                        .await
-                        {
-                            Ok(()) => info!("Library rescan complete"),
-                            Err(e) => error!("Error in library_rescan: {e}"),
-                        }
+        tokio::task::spawn(
+            async move {
+                let _guard = self.library_rescan_lock.lock().await;
+                match services::library::rescan(
+                    &self.db,
+                    &self.settings.daemon.library_paths,
+                    &self.settings.daemon.artist_separator,
+                    &self.settings.daemon.protected_artist_names,
+                    self.settings.daemon.genre_separator.as_deref(),
+                    self.settings.daemon.conflict_resolution,
+                )
+                .await
+                {
+                    Ok(()) => info!("Library rescan complete"),
+                    Err(e) => error!("Error in library_rescan: {e}"),
+                }
 
-                        let result = self.publish(Event::LibraryRescanFinished).await;
-                        if let Err(e) = result {
-                            error!("Error notifying clients that library_rescan_finished: {e}");
-                        }
-                    }
-                    .instrument(span),
-                );
-            })?;
+                let result = self.publish(Event::LibraryRescanFinished).await;
+                if let Err(e) = result {
+                    error!("Error notifying clients that library_rescan_finished: {e}");
+                }
+            }
+            .instrument(span),
+        );
 
         Ok(())
     }
@@ -182,27 +181,27 @@ impl MusicPlayer for MusicPlayerServer {
             }
             let span = tracing::Span::current();
 
-            std::thread::Builder::new()
-                .name(String::from("Library Analysis"))
-                .spawn(move || {
-                    futures::executor::block_on(
-                        async {
-                            let _guard = self.library_analyze_lock.lock().await;
-                            match services::library::analyze(&self.db, overwrite).await {
-                                Ok(()) => info!("Library analysis complete"),
-                                Err(e) => error!("Error in library_analyze: {e}"),
-                            }
+            tokio::task::spawn(
+                async move {
+                    let _guard = self.library_analyze_lock.lock().await;
+                    match services::library::analyze(
+                        &self.db,
+                        self.interrupt.resubscribe(),
+                        overwrite,
+                    )
+                    .await
+                    {
+                        Ok(()) => info!("Library analysis complete"),
+                        Err(e) => error!("Error in library_analyze: {e}"),
+                    }
 
-                            let result = &self.publish(Event::LibraryAnalysisFinished).await;
-                            if let Err(e) = result {
-                                error!(
-                                    "Error notifying clients that library_analysis_finished: {e}"
-                                );
-                            }
-                        }
-                        .instrument(span),
-                    );
-                })?;
+                    let result = self.publish(Event::LibraryAnalysisFinished).await;
+                    if let Err(e) = result {
+                        error!("Error notifying clients that library_analysis_finished: {e}");
+                    }
+                }
+                .instrument(span),
+            );
 
             Ok(())
         }
@@ -232,32 +231,27 @@ impl MusicPlayer for MusicPlayerServer {
 
             let span = tracing::Span::current();
 
-            std::thread::Builder::new()
-                .name(String::from("Collection Recluster"))
-                .spawn(move || {
-                    futures::executor::block_on(
-                        async {
-                            let _guard = self.collection_recluster_lock.lock().await;
-                            match services::library::recluster(
-                                &self.db,
-                                &self.settings.reclustering,
-                            )
-                            .await
-                            {
-                                Ok(()) => info!("Collection reclustering complete"),
-                                Err(e) => error!("Error in collection_recluster: {e}"),
-                            }
+            tokio::task::spawn(
+                async move {
+                    let _guard = self.collection_recluster_lock.lock().await;
+                    match services::library::recluster(
+                        &self.db,
+                        self.settings.reclustering,
+                        self.interrupt.resubscribe(),
+                    )
+                    .await
+                    {
+                        Ok(()) => info!("Collection reclustering complete"),
+                        Err(e) => error!("Error in library_recluster: {e}"),
+                    }
 
-                            let result = &self.publish(Event::LibraryReclusterFinished).await;
-                            if let Err(e) = result {
-                                error!(
-                                    "Error notifying clients that library_recluster_finished: {e}"
-                                );
-                            }
-                        }
-                        .instrument(span),
-                    );
-                })?;
+                    let result = self.publish(Event::LibraryReclusterFinished).await;
+                    if let Err(e) = result {
+                        error!("Error notifying clients that library_recluster_finished: {e}");
+                    }
+                }
+                .instrument(span),
+            );
 
             Ok(())
         }
