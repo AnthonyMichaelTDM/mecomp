@@ -192,17 +192,13 @@ pub async fn rescan<C: Connection>(
     }
     .instrument(tracing::info_span!("Repairing artists"))
     .await?;
-    async {
-        for collection in Collection::read_all(db).await? {
-            if Collection::repair(db, collection.id.clone()).await? {
-                info!("Deleted orphaned collection {}", collection.id.clone());
-                Collection::delete(db, collection.id.clone()).await?;
-            }
-        }
-        <Result<(), Error>>::Ok(())
+
+    let orphans = Collection::delete_orphaned(db)
+        .instrument(tracing::info_span!("Repairing collections"))
+        .await?;
+    if !orphans.is_empty() {
+        info!("Deleted orphaned collections: {orphans:?}");
     }
-    .instrument(tracing::info_span!("Repairing collections"))
-    .await?;
 
     let orphans = Playlist::delete_orphaned(db)
         .instrument(tracing::info_span!("Repairing playlists"))

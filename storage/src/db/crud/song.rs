@@ -252,10 +252,7 @@ impl Song {
             Playlist::remove_songs(db, playlist.id, vec![id.clone()]).await?;
         }
         for collection in Self::read_collections(db, id.clone()).await? {
-            if Collection::remove_songs(db, collection.id.clone(), vec![id.clone()]).await? {
-                info!("Deleting orphaned collection: {:?}", collection.id);
-                Collection::delete(db, collection.id).await?;
-            }
+            Collection::remove_songs(db, collection.id.clone(), vec![id.clone()]).await?;
         }
         if let Some(album) = Self::read_album(db, id.clone()).await? {
             if Album::remove_songs(db, album.id.clone(), vec![id.clone()]).await? {

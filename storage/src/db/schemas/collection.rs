@@ -25,7 +25,13 @@ pub struct Collection {
     pub name: String,
 
     /// Total runtime.
-    #[cfg_attr(feature = "db", field(dt = "duration"))]
+    #[cfg_attr(
+        feature = "db",
+        field(dt = "any VALUE <future> {
+LET $songs = (SELECT runtime FROM $this.id->?->song);
+RETURN IF $songs IS NONE { 0s } ELSE { $songs.fold(0s, |$acc, $song| $acc + $song.runtime) };
+} ")
+    )]
     #[cfg_attr(
         feature = "db",
         serde(
@@ -36,7 +42,13 @@ pub struct Collection {
     pub runtime: Duration,
 
     /// the number of songs this collection has.
-    #[cfg_attr(feature = "db", field(dt = "int"))]
+    #[cfg_attr(
+        feature = "db",
+        field(dt = "any VALUE <future> { 
+LET $count = (SELECT count() FROM $this.id->?->song GROUP ALL);
+RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]).count };
+} ")
+    )]
     pub song_count: usize,
 }
 
@@ -53,14 +65,6 @@ impl Collection {
 pub struct CollectionChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub name: Option<String>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    #[cfg_attr(
-        feature = "db",
-        serde(serialize_with = "super::serialize_duration_option_as_sql_duration")
-    )]
-    pub runtime: Option<Duration>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub song_count: Option<usize>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
