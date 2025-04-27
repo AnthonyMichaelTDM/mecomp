@@ -180,7 +180,8 @@ impl Song {
 
             // remove song from the old album, if it existed
             if let Some(old_album) = old_album {
-                if Album::remove_songs(db, old_album.id.clone(), vec![id.clone()]).await? {
+                Album::remove_songs(db, old_album.id.clone(), vec![id.clone()]).await?;
+                if old_album.song_count <= 1 {
                     // if the album is left without any songs, delete it
                     info!("Deleting orphaned album: {:?}", old_album.id);
                     Album::delete(db, old_album.id).await?;
@@ -257,7 +258,8 @@ impl Song {
             Collection::remove_songs(db, collection.id.clone(), vec![id.clone()]).await?;
         }
         if let Some(album) = Self::read_album(db, id.clone()).await? {
-            if Album::remove_songs(db, album.id.clone(), vec![id.clone()]).await? {
+            Album::remove_songs(db, album.id.clone(), vec![id.clone()]).await?;
+            if album.song_count <= 1 {
                 info!("Deleting orphaned album: {:?}", album.id);
                 Album::delete(db, album.id).await?;
             }

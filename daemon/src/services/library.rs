@@ -166,17 +166,12 @@ pub async fn rescan<C: Connection>(
 
     // find and delete any remaining orphaned albums and artists
 
-    async {
-        for album in Album::read_all(db).await? {
-            if Album::repair(db, album.id.clone()).await? {
-                info!("Deleted orphaned album {}", album.id.clone());
-                Album::delete(db, album.id.clone()).await?;
-            }
-        }
-        <Result<(), Error>>::Ok(())
+    let orphans = Album::delete_orphaned(db)
+        .instrument(tracing::info_span!("Deleting orphaned albums"))
+        .await?;
+    if !orphans.is_empty() {
+        info!("Deleted orphaned albums: {orphans:?}");
     }
-    .instrument(tracing::info_span!("Repairing albums"))
-    .await?;
 
     let orphans = Artist::delete_orphaned(db)
         .instrument(tracing::info_span!("Repairing artists"))

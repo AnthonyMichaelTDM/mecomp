@@ -510,7 +510,7 @@ mod tests {
             title: "Test Album".into(),
             artist: OneOrMany::One(artist.name.clone()),
             song_count: 4,
-            runtime: Duration::from_secs(5),
+            runtime: Duration::from_secs(8),
             release: None,
             discs: 1,
             genre: OneOrMany::None,
@@ -522,6 +522,27 @@ mod tests {
         let _ = Album::create(&db, album.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create album"))?;
+
+        for i in 0..album.song_count {
+            let song = Song {
+                id: Song::generate_id(),
+                title: format!("Test Song {}", i),
+                artist: OneOrMany::One(artist.name.clone()),
+                album: album.title.clone(),
+                runtime: Duration::from_secs(2),
+                track: Some(i as u16 + 1),
+                disc: Some(1),
+                genre: OneOrMany::None,
+                album_artist: OneOrMany::One(artist.name.clone()),
+                release_year: None,
+                extension: "mp3".into(),
+                path: PathBuf::from(format!("song{}.mp3", i)),
+            };
+            let _ = Song::create(&db, song.clone())
+                .await?
+                .ok_or_else(|| anyhow!("Failed to create song"))?;
+            Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        }
 
         Artist::add_album(&db, artist.id.clone(), album.id.clone()).await?;
 
