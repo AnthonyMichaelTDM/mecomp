@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use std::{io::Write, sync::LazyLock};
 
 use env_logger::fmt::style::{RgbColor, Style};
@@ -259,7 +259,7 @@ pub fn init_tracing() -> impl tracing::Subscriber {
 
     #[cfg(feature = "tokio_console")]
     let console_layer = console_subscriber::Builder::default()
-        .retention(Duration::from_secs(60 * 20)) // 20 minutes
+        .retention(std::time::Duration::from_secs(60 * 20)) // 20 minutes
         .enable_self_trace(true)
         .spawn();
     #[cfg(feature = "tokio_console")]
