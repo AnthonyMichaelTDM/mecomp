@@ -191,7 +191,7 @@ pub fn dynamic_playlist_list(
     Ok(output)
 }
 
-pub fn playlist_collection_list(
+pub fn collection_list(
     prefix: &str,
     collections: &[CollectionBrief],
 ) -> Result<String, std::fmt::Error> {

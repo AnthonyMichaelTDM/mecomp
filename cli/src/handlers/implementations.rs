@@ -6,7 +6,7 @@ use std::{
 use crate::handlers::{printing, utils};
 
 use super::{
-    Command, CommandHandler, CurrentTarget, LibraryCommand, LibraryGetTarget, LibraryListTarget,
+    Command, CommandHandler, CurrentTarget, LibraryCommand, LibraryGetCommand, LibraryListTarget,
     PlaylistGetMethod, QueueAddTarget, QueueCommand, RandTarget, SearchTarget, SeekCommand,
     VolumeCommand,
 };
@@ -240,12 +240,37 @@ impl CommandHandler for LibraryCommand {
                             printing::song_list("Songs", &resp, false)?
                         )?;
                     }
+                    LibraryListTarget::Playlists => {
+                        let resp: Box<[PlaylistBrief]> = client.playlist_list(ctx).await?;
+                        writeln!(
+                            stdout,
+                            "Daemon response:\n{}",
+                            printing::playlist_brief_list("Playlists", &resp)?
+                        )?;
+                    }
+                    LibraryListTarget::DynamicPlaylists => {
+                        let resp: Box<[DynamicPlaylist]> =
+                            client.dynamic_playlist_list(ctx).await?;
+                        writeln!(
+                            stdout,
+                            "Daemon response:\n{}",
+                            printing::dynamic_playlist_list("Dynamic Playlists", &resp)?
+                        )?;
+                    }
+                    LibraryListTarget::Collections => {
+                        let resp: Box<[CollectionBrief]> = client.collection_list(ctx).await?;
+                        writeln!(
+                            stdout,
+                            "Daemon response:\n{}",
+                            printing::collection_list("Collections", &resp)?
+                        )?;
+                    }
                 }
                 Ok(())
             }
-            Self::Get { target, id } => {
-                match target {
-                    LibraryGetTarget::Artist => {
+            Self::Get { command } => {
+                match command {
+                    LibraryGetCommand::Artist { id } => {
                         let resp: Option<Artist> = client
                             .library_artist_get(
                                 ctx,
@@ -257,7 +282,7 @@ impl CommandHandler for LibraryCommand {
                             .await?;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
-                    LibraryGetTarget::Album => {
+                    LibraryGetCommand::Album { id } => {
                         let resp: Option<Album> = client
                             .library_album_get(
                                 ctx,
@@ -269,7 +294,7 @@ impl CommandHandler for LibraryCommand {
                             .await?;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
-                    LibraryGetTarget::Song => {
+                    LibraryGetCommand::Song { id } => {
                         let resp: Option<Song> = client
                             .library_song_get(
                                 ctx,
@@ -281,12 +306,36 @@ impl CommandHandler for LibraryCommand {
                             .await?;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
-                    LibraryGetTarget::Playlist => {
+                    LibraryGetCommand::Playlist { id } => {
                         let resp: Option<Playlist> = client
                             .playlist_get(
                                 ctx,
                                 RecordId {
                                     tb: playlist::TABLE_NAME.to_owned(),
+                                    id: Id::String(id.to_owned()),
+                                },
+                            )
+                            .await?;
+                        writeln!(stdout, "Daemon response:\n{resp:#?}")?;
+                    }
+                    LibraryGetCommand::Dynamic { id } => {
+                        let resp: Option<DynamicPlaylist> = client
+                            .dynamic_playlist_get(
+                                ctx,
+                                RecordId {
+                                    tb: dynamic::TABLE_NAME.to_owned(),
+                                    id: Id::String(id.to_owned()),
+                                },
+                            )
+                            .await?;
+                        writeln!(stdout, "Daemon response:\n{resp:#?}")?;
+                    }
+                    LibraryGetCommand::Collection { id } => {
+                        let resp: Option<Collection> = client
+                            .collection_get(
+                                ctx,
+                                RecordId {
+                                    tb: collection::TABLE_NAME.to_owned(),
                                     id: Id::String(id.to_owned()),
                                 },
                             )
@@ -1066,7 +1115,7 @@ impl CommandHandler for super::CollectionCommand {
                 writeln!(
                     stdout,
                     "Daemon response:\n{}",
-                    printing::playlist_collection_list("Collections", &resp)?
+                    printing::collection_list("Collections", &resp)?
                 )?;
                 Ok(())
             }

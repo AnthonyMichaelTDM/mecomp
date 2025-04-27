@@ -1,3 +1,5 @@
+#[cfg(not(tarpaulin_include))]
+mod complete;
 pub mod implementations;
 pub mod printing;
 pub mod utils;
@@ -7,7 +9,9 @@ mod smoke_tests;
 
 use std::{path::PathBuf, str::FromStr};
 
-use clap::{Subcommand, ValueEnum};
+use clap::{Subcommand, ValueEnum, ValueHint};
+use clap_complete::{ArgValueCandidates, ArgValueCompleter, PathCompleter};
+use complete::CompletableTable;
 use mecomp_storage::db::schemas::dynamic::query::Query;
 
 pub trait CommandHandler {
@@ -64,11 +68,11 @@ pub enum Command {
         target: SearchTarget,
 
         /// The search query
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         query: String,
 
         /// The maximum number of results to return
-        #[clap(default_value = "10", value_hint = clap::ValueHint::Other)]
+        #[clap(default_value = "10", value_hint = ValueHint::Other)]
         limit: u32,
     },
     /// Playback control
@@ -133,11 +137,8 @@ pub enum LibraryCommand {
     /// Get a db item by its id
     Get {
         /// What to get (artist, album, song, playlist)
-        #[clap(value_enum)]
-        target: LibraryGetTarget,
-        /// The id of the item
-        #[clap(value_hint = clap::ValueHint::Other)]
-        id: String,
+        #[clap(subcommand)]
+        command: LibraryGetCommand,
     },
 }
 
@@ -146,13 +147,42 @@ pub enum LibraryListTarget {
     Artists,
     Albums,
     Songs,
+    Playlists,
+    DynamicPlaylists,
+    Collections,
 }
-#[derive(Debug, PartialEq, Eq, Clone, Copy, ValueEnum)]
-pub enum LibraryGetTarget {
-    Artist,
-    Album,
-    Song,
-    Playlist,
+#[derive(Debug, PartialEq, Eq, Subcommand)]
+pub enum LibraryGetCommand {
+    Artist {
+        /// The id of the item to get
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Artist)))]
+        id: String,
+    },
+    Album {
+        /// The id of the item to get
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Album)))]
+        id: String,
+    },
+    Song {
+        /// The id of the item to get
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Song)))]
+        id: String,
+    },
+    Playlist {
+        /// The id of the item to get
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
+        id: String,
+    },
+    Dynamic {
+        /// The id of the item to get
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::DynamicPlaylist)))]
+        id: String,
+    },
+    Collection {
+        /// The id of the item to get
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Collection)))]
+        id: String,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, ValueEnum)]
@@ -229,21 +259,21 @@ pub enum SeekCommand {
     #[clap(alias = "f", visible_alias = "+", alias = "ahead")]
     Forward {
         /// The amount to seek by, in seconds
-        #[clap(default_value = "5.0", value_hint = clap::ValueHint::Other)]
+        #[clap(default_value = "5.0", value_hint = ValueHint::Other)]
         amount: f32,
     },
     /// Seek backwards by a given amount
     #[clap(alias = "b", visible_alias = "-", alias = "back")]
     Backward {
         /// The amount to seek by, in seconds
-        #[clap(default_value = "5.0", value_hint = clap::ValueHint::Other)]
+        #[clap(default_value = "5.0", value_hint = ValueHint::Other)]
         amount: f32,
     },
     /// Seek to a given position
     #[clap(alias = "a", visible_alias = "=", alias = "to")]
     Absolute {
         /// The position to seek to, in seconds
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         position: f32,
     },
 }
@@ -262,21 +292,21 @@ pub enum VolumeCommand {
     #[clap(visible_alias = "=")]
     Set {
         /// The volume to set to (0 is mute, 100 is max)
-        #[clap(value_hint = clap::ValueHint::Other, value_parser = float_value_parser)]
+        #[clap(value_hint = ValueHint::Other, value_parser = float_value_parser)]
         volume: f32,
     },
     /// Increase the volume
     #[clap(alias = "up", visible_alias = "+")]
     Increase {
         /// The amount to increase the volume by (0-100)
-        #[clap(value_hint = clap::ValueHint::Other, value_parser = float_value_parser)]
+        #[clap(value_hint = ValueHint::Other, value_parser = float_value_parser)]
         amount: f32,
     },
     /// Decrease the volume
     #[clap(alias = "down", visible_alias = "-")]
     Decrease {
         /// The amount to decrease the volume by (0-100)
-        #[clap(value_hint = clap::ValueHint::Other, value_parser = float_value_parser)]
+        #[clap(value_hint = ValueHint::Other, value_parser = float_value_parser)]
         amount: f32,
     },
     /// Mute the volume
@@ -318,22 +348,22 @@ pub enum QueueCommand {
         #[clap(value_enum)]
         target: QueueAddTarget,
         /// The id of the item
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         id: String,
     },
     /// Remove a range of items from the queue
     Remove {
         /// The start index of the range to remove
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         start: usize,
         /// The end index of the range to remove
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         end: usize,
     },
     /// set the current song to the given index
     Set {
         /// The index to set the current song to
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         index: usize,
     },
     /// Add a list of items to the queue (from a pipe)
@@ -366,34 +396,34 @@ pub enum PlaylistCommand {
         #[clap(value_enum)]
         method: PlaylistGetMethod,
         /// The id or name of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         target: String,
     },
     /// Create a playlist
     Create {
         /// The name of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         name: String,
     },
     /// Rename a playlist
     Update {
         /// The id of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
         /// The new name of the playlist
-        #[clap(short, long, value_hint = clap::ValueHint::Other)]
+        #[clap(short, long, value_hint = ValueHint::Other)]
         name: String,
     },
     /// Get the songs in a playlist
     Songs {
         /// The id of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
     },
     /// Delete a playlist
     Delete {
         /// The id of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
     },
     /// Add to a playlist
@@ -404,28 +434,28 @@ pub enum PlaylistCommand {
     /// Remove from a playlist
     Remove {
         /// The id of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
         /// The id of the songs(s) to remove
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         item_ids: Vec<String>,
     },
     /// Export a playlist to a .m3u file
     Export {
         /// The id of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
         /// The path to the .m3u file
-        #[clap(value_hint = clap::ValueHint::FilePath)]
+        #[clap(value_hint = ValueHint::FilePath, add = ArgValueCompleter::new(PathCompleter::file()))]
         path: PathBuf,
     },
     /// Import a playlist from a .m3u file
     Import {
         /// The path to the .m3u file
-        #[clap(value_hint = clap::ValueHint::FilePath)]
+        #[clap(value_hint = ValueHint::FilePath, add = ArgValueCompleter::new(PathCompleter::file()))]
         path: PathBuf,
         /// The name of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         name: Option<String>,
     },
 }
@@ -441,28 +471,28 @@ pub enum PlaylistAddCommand {
     /// Add an artist to a playlist
     Artist {
         /// The id of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
         /// The id of the artist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Artist)))]
         artist_id: String,
     },
     /// Add an album to a playlist
     Album {
         /// The id of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
         /// The id of the album
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Album)))]
         album_id: String,
     },
     /// Add a song to a playlist
     Song {
         /// The id of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
         /// The ids of the song(s) to add
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Song)))]
         song_ids: Vec<String>,
     },
     /// Add a list of items to the playlist (from a pipe)
@@ -474,7 +504,7 @@ pub enum PlaylistAddCommand {
     /// This will add all the results of the search to the playlist
     Pipe {
         /// The id of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
     },
 }
@@ -486,19 +516,19 @@ pub enum DynamicCommand {
     /// Get a dynamic playlist by its id
     Get {
         /// The id of the dynamic playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::DynamicPlaylist)))]
         id: String,
     },
     /// Get the songs in a dynamic playlist
     Songs {
         /// The id of the dynamic playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::DynamicPlaylist)))]
         id: String,
     },
     /// Create a dynamic playlist
     Create {
         /// The name of the dynamic playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         name: String,
         /// The query to use to generate the playlist
         #[clap(value_parser = Query::from_str)]
@@ -507,13 +537,13 @@ pub enum DynamicCommand {
     /// Delete a dynamic playlist
     Delete {
         /// The id of the dynamic playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::DynamicPlaylist)))]
         id: String,
     },
     /// Update a dynamic playlist
     Update {
         /// The id of the dynamic playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::DynamicPlaylist)))]
         id: String,
 
         #[clap(flatten)]
@@ -525,13 +555,13 @@ pub enum DynamicCommand {
     /// Export all dynamic playlists to a CSV file
     Export {
         /// The path to the CSV file
-        #[clap(value_hint = clap::ValueHint::FilePath)]
+        #[clap(value_hint = ValueHint::FilePath, add = ArgValueCompleter::new(PathCompleter::file()))]
         path: PathBuf,
     },
     /// Import dynamic playlists from a CSV file
     Import {
         /// The path to the CSV file
-        #[clap(value_hint = clap::ValueHint::FilePath)]
+        #[clap(value_hint = ValueHint::FilePath, add = ArgValueCompleter::new(PathCompleter::file()))]
         path: PathBuf,
     },
 }
@@ -541,11 +571,11 @@ pub enum DynamicCommand {
 pub struct DynamicUpdate {
     /// The new name of the dynamic playlist
     /// (if None, the name will not be updated)
-    #[clap(short, long, value_hint = clap::ValueHint::Other)]
+    #[clap(short, long, value_hint = ValueHint::Other)]
     pub name: Option<String>,
     /// The new query of the dynamic playlist
     /// (if None, the query will not be updated)
-    #[clap(short, long, value_parser = Query::from_str, value_hint = clap::ValueHint::Other)]
+    #[clap(short, long, value_parser = Query::from_str, value_hint = ValueHint::Other)]
     pub query: Option<Query>,
 }
 
@@ -556,24 +586,24 @@ pub enum CollectionCommand {
     /// Get a collection by its id
     Get {
         /// The id of the collection
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Collection)))]
         id: String,
     },
     /// Get the songs in a collection
     Songs {
         /// The id of the collection
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Collection)))]
         id: String,
     },
     /// Recluster collections
     Recluster,
-    /// Freeze a collection
+    /// Freeze a collection into a playlist
     Freeze {
         /// The id of the collection
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Collection)))]
         id: String,
-        /// The new name of the collection
-        #[clap(value_hint = clap::ValueHint::Other)]
+        /// The name of the new playlist
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Collection)))]
         name: String,
     },
 }
@@ -583,49 +613,49 @@ pub enum RadioCommand {
     /// get the 'n' most similar songs to the given song
     Song {
         /// The id of the song
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Song)))]
         id: String,
         /// The number of songs to get
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         n: u32,
     },
     /// get the 'n' most similar songs to the given artist
     Artist {
         /// The id of the artist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Artist)))]
         id: String,
         /// The number of songs to get
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         n: u32,
     },
     /// get the 'n' most similar songs to the given album
     Album {
         /// The id of the album
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Album)))]
         id: String,
         /// The number of songs to get
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         n: u32,
     },
     /// get the 'n' most similar songs to the given playlist
     Playlist {
         /// The id of the playlist
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
         /// The number of songs to get
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         n: u32,
     },
     /// Add a list of items to the radio (from a pipe)
     ///
     /// ex:
     /// ```sh, ignore
-    /// mecomp-cli search all "the beatles" -q | mecomp-cli radio pipe
+    /// mecomp-cli search all "the beatles" -q | mecomp-cli radio pipe 5
     /// ```
-    /// This will add all the results of the search to the radio
+    /// This will add all the results of the search to the radio, and print out the 5 most similar songs
     Pipe {
         /// The number of songs to get
-        #[clap(value_hint = clap::ValueHint::Other)]
+        #[clap(value_hint = ValueHint::Other)]
         n: u32,
     },
 }
