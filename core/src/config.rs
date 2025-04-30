@@ -221,6 +221,7 @@ pub enum ClusterAlgorithm {
     GMM,
 }
 
+#[cfg(feature = "analysis")]
 impl From<ClusterAlgorithm> for mecomp_analysis::clustering::ClusteringMethod {
     #[inline]
     fn from(algo: ClusterAlgorithm) -> Self {
@@ -240,6 +241,7 @@ pub enum ProjectionMethod {
     Pca,
 }
 
+#[cfg(feature = "analysis")]
 impl From<ProjectionMethod> for mecomp_analysis::clustering::ProjectionMethod {
     #[inline]
     fn from(proj: ProjectionMethod) -> Self {

@@ -21,6 +21,7 @@ harness = false
 
 [features]
 default = ["audio", "rpc"]
+analysis = ["dep:mecomp-analysis"] # needed so configs can configure clustering
 rpc = ["dep:tarpc", "dep:ciborium", "dep:tokio", "dep:object-pool"]
 otel_tracing = [
     "dep:tracing-opentelemetry",
@@ -63,7 +64,7 @@ opentelemetry_sdk = { workspace = true, optional = true }
 opentelemetry-otlp = { workspace = true, optional = true }
 
 # MECOMP dependencies
-mecomp-analysis = { workspace = true }                                         # needed so configs can configure clustering
+mecomp-analysis = { workspace = true, optional = true }                        # needed so configs can configure clustering
 mecomp-storage = { workspace = true, features = ["serde"] }
 one-or-many = { workspace = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }

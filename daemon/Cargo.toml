@@ -63,7 +63,7 @@ tracing = { workspace = true }
 walkdir = { workspace = true }
 
 # MECOMP dependencies
-mecomp-core = { workspace = true, features = ["rpc", "audio"] }
+mecomp-core = { workspace = true, features = ["rpc", "audio", "analysis"] }
 mecomp-storage = { workspace = true, features = ["serde", "db"] }
 mecomp-analysis = { workspace = true, optional = true }
 one-or-many = { workspace = true }
