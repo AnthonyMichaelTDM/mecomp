@@ -39,7 +39,7 @@
 - [ ] allow users to create "smart playlists" that are automatically updated based on a set of criteria (e.g. "all songs with a play count greater than 10", "all songs by Green Day", "all songs with a similarity to Foo greater than X", etc.)
   - [x] these criteria should be able to be combined with set/boolean logic (union (AND), intersection (OR), difference (NOT))
   - [x] criteria can be scoped to allow for more complex queries
-- [ ] allow user to import/export playlists in a standard format (e.g. m3u, xspf, etc.)
+- [x] allow user to import/export playlists in a standard format (e.g. m3u, xspf, etc.)
 
 ### Radio (song suggestions)
 

@@ -1085,15 +1085,7 @@ Dynamic Playlist 0,"artist CONTAINS ""Artist 0"""
         let response = client
             .dynamic_playlist_export(ctx, tmpfile.path().to_path_buf())
             .await?;
-        assert!(
-            matches!(
-                response,
-                Err(SerializableLibraryError::BackupError(
-                    BackupError::FileExists(_)
-                ))
-            ),
-            "response: {response:?}"
-        );
+        assert!(matches!(response, Ok(())), "response: {response:?}");
         Ok(())
     }
     #[rstest]

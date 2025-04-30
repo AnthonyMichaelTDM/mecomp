@@ -28,8 +28,6 @@ pub enum DirectoryError {
 /// Errors that can occur when importing or exporting playlists or dynamic playlists
 #[derive(Error, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum BackupError {
-    #[error("The file \"{0}\" already exists")]
-    FileExists(PathBuf),
     #[error("The file \"{0}\" does not exist")]
     FileNotFound(PathBuf),
     #[error("The file \"{0}\" has the wrong extension, expected: {1}")]
