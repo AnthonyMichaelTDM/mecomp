@@ -19,26 +19,26 @@ pub const TABLE_NAME: &str = "artist";
 #[cfg_attr(feature = "db", Table("artist"))]
 pub struct Artist {
     /// the unique identifier for this [`Artist`].
-    #[cfg_attr(feature = "db", field("record"))]
+    #[cfg_attr(feature = "db", field(dt = "record"))]
     pub id: ArtistId,
 
     /// The [`Artist`]'s name.
-    #[cfg_attr(
-        feature = "db",
-        field(dt = "string", index(unique), index(text("custom_analyzer")))
-    )]
+    #[cfg_attr(feature = "db", field(dt = "string"))]
+    #[cfg_attr(feature = "db", index(unique, text("custom_analyzer")))]
     pub name: String,
 
     /// Total runtime.
     #[cfg_attr(
         feature = "db",
-        field(dt = "any VALUE <future> {
+        field(
+            "TYPE any VALUE <future> {
 LET $songs = (SELECT id,runtime FROM $this.id->artist_to_song->song);
 LET $albums = (SELECT id,runtime FROM $this.id->artist_to_album->album->album_to_song->song);
 LET $distinct = array::distinct(array::concat($songs, $albums));
 LET $total = $distinct.fold(0s, |$acc, $song| $acc + $song.runtime);
 RETURN IF $total IS NONE { 0s } ELSE { $total };
-} ")
+}"
+        )
     )]
     #[cfg_attr(
         feature = "db",
@@ -52,10 +52,12 @@ RETURN IF $total IS NONE { 0s } ELSE { $total };
     /// the number of albums this artist has.
     #[cfg_attr(
         feature = "db",
-        field(dt = "any VALUE <future> { 
+        field(
+            "TYPE any VALUE <future> { 
 LET $count = (SELECT count() FROM $this.id->artist_to_album->album GROUP ALL);
 RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]).count };
-} ")
+}"
+        )
     )]
     pub album_count: usize,
 
@@ -65,13 +67,15 @@ RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]
     /// as it needs to count the number of songs in both albums and singles.
     #[cfg_attr(
         feature = "db",
-        field(dt = "any VALUE <future> {
+        field(
+            "TYPE any VALUE <future> {
 LET $songs = (SELECT id FROM $this.id->artist_to_song->song);
 LET $albums = (SELECT id FROM $this.id->artist_to_album->album->album_to_song->song);
 LET $distinct = array::distinct(array::concat($songs, $albums));
 LET $count = count($distinct);
 RETURN $count;
-} ")
+} "
+        )
     )]
     pub song_count: usize,
 }

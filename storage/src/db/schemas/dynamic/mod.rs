@@ -21,17 +21,18 @@ pub const TABLE_NAME: &str = "dynamic";
 #[cfg_attr(feature = "db", Table("dynamic"))]
 pub struct DynamicPlaylist {
     /// the unique identifier for this [`DynamicPlaylist`].
-    #[cfg_attr(feature = "db", field("record"))]
+    #[cfg_attr(feature = "db", field(dt = "record"))]
     pub id: DynamicPlaylistId,
 
     /// The [`DynamicPlaylist`]'s name.
-    #[cfg_attr(feature = "db", field(dt = "string", index(unique)))]
+    #[cfg_attr(feature = "db", field(dt = "string"))]
+    #[cfg_attr(feature = "db", index(unique))]
     pub name: String,
 
     /// The query that generates the list of songs.
     /// This is a type that can compile into an SQL query that returns a list of song IDs.
     /// NOTE: we store it as the compiled string because `SurrealDB` wasn't storing records properly
-    #[cfg_attr(feature = "db", field("string"))]
+    #[cfg_attr(feature = "db", field(dt = "string"))]
     pub query: Query,
 }
 

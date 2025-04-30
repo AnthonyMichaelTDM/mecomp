@@ -17,20 +17,23 @@ pub const TABLE_NAME: &str = "collection";
 #[cfg_attr(feature = "db", Table("collection"))]
 pub struct Collection {
     /// the unique identifier for this [`Collection`].
-    #[cfg_attr(feature = "db", field("record"))]
+    #[cfg_attr(feature = "db", field(dt = "record"))]
     pub id: CollectionId,
 
     /// The name of the collection.
-    #[cfg_attr(feature = "db", field(dt = "string", index(unique)))]
+    #[cfg_attr(feature = "db", field(dt = "string"))]
+    #[cfg_attr(feature = "db", index(unique))]
     pub name: String,
 
     /// Total runtime.
     #[cfg_attr(
         feature = "db",
-        field(dt = "any VALUE <future> {
+        field(
+            "TYPE any VALUE <future> {
 LET $songs = (SELECT runtime FROM $this.id->?->song);
 RETURN IF $songs IS NONE { 0s } ELSE { $songs.fold(0s, |$acc, $song| $acc + $song.runtime) };
-} ")
+}"
+        )
     )]
     #[cfg_attr(
         feature = "db",
@@ -44,10 +47,12 @@ RETURN IF $songs IS NONE { 0s } ELSE { $songs.fold(0s, |$acc, $song| $acc + $son
     /// the number of songs this collection has.
     #[cfg_attr(
         feature = "db",
-        field(dt = "any VALUE <future> { 
+        field(
+            "TYPE any VALUE <future> { 
 LET $count = (SELECT count() FROM $this.id->?->song GROUP ALL);
 RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]).count };
-} ")
+}"
+        )
     )]
     pub song_count: usize,
 }

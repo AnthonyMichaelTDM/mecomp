@@ -41,9 +41,9 @@ mod tests {
     #[derive(Clone, Serialize, Deserialize, Table, PartialEq, Debug)]
     #[Table("one_or_many_test_table")]
     struct TestStruct {
-        #[field("record")]
+        #[field(dt = "record")]
         id: RecordId,
-        #[field("option<array<int> | int>")]
+        #[field(dt = "option<array<int> | int>")]
         #[serde(default)]
         foo: OneOrMany<usize>,
     }

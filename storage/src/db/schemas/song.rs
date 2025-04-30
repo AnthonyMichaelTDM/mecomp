@@ -24,16 +24,15 @@ pub const TABLE_NAME: &str = "song";
 #[cfg_attr(feature = "db", Table("song"))]
 pub struct Song {
     /// The unique identifier for this [`Song`].
-    #[cfg_attr(feature = "db", field("record"))]
+    #[cfg_attr(feature = "db", field(dt = "record"))]
     pub id: SongId,
     /// Title of the [`Song`].
-    #[cfg_attr(feature = "db", field(dt = "string", index(text("custom_analyzer"))))]
+    #[cfg_attr(feature = "db", field(dt = "string"))]
+    #[cfg_attr(feature = "db", index(text("custom_analyzer")))]
     pub title: String,
     /// Artist of the [`Song`]. (Can be multiple)
-    #[cfg_attr(
-        feature = "db",
-        field(dt = "option<set<string> | string>", index(text("custom_analyzer")))
-    )]
+    #[cfg_attr(feature = "db", field(dt = "option<set<string> | string>"))]
+    #[cfg_attr(feature = "db", index(text("custom_analyzer")))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub artist: OneOrMany<String>,
     /// album artist, if not found then defaults to first artist
@@ -80,7 +79,8 @@ pub struct Song {
     pub extension: String,
 
     /// The [`PathBuf`] this [`Song`] is located at.
-    #[cfg_attr(feature = "db", field(dt = "string", index(unique)))]
+    #[cfg_attr(feature = "db", field(dt = "string"))]
+    #[cfg_attr(feature = "db", index(unique))]
     pub path: PathBuf,
 }
 
