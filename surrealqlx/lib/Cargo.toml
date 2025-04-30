@@ -1,6 +1,6 @@
 [package]
 name = "surrealqlx"
-version = "0.1.3"
+version = "0.1.4"
 edition.workspace = true
 authors.workspace = true
 description = "Some traits and macros to make it easier to work with surrealdb"

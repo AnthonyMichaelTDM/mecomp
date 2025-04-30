@@ -19,11 +19,12 @@ pub const TABLE_NAME: &str = "analysis";
 #[cfg_attr(feature = "db", Table("analysis"))]
 pub struct Analysis {
     /// the unique identifier for this [`Analysis`].
-    #[cfg_attr(feature = "db", field("record"))]
+    #[cfg_attr(feature = "db", field(dt = "record"))]
     pub id: AnalysisId,
 
     /// The [`Song`]'s audio features.
-    #[cfg_attr(feature = "db", field(dt = "array<float>", index(vector(dim = 20))))]
+    #[cfg_attr(feature = "db", field(dt = "array<float>"))]
+    #[cfg_attr(feature = "db", index(vector(dim = 20)))]
     pub features: [f64; 20],
 }
 

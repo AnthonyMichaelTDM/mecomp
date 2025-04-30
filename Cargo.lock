@@ -3924,7 +3924,7 @@ checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
 name = "one-or-many"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "mecomp-workspace-hack",
@@ -5898,7 +5898,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "mecomp-workspace-hack",
  "surrealdb",
@@ -5907,7 +5907,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx-macros"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "mecomp-workspace-hack",
  "surrealqlx-macros-impl",
@@ -5916,7 +5916,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx-macros-impl"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "mecomp-workspace-hack",
  "pretty_assertions",

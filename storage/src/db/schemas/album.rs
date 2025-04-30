@@ -21,16 +21,15 @@ pub const TABLE_NAME: &str = "album";
 #[cfg_attr(feature = "db", Table("album"))]
 pub struct Album {
     /// The unique identifier for this [`Album`].
-    #[cfg_attr(feature = "db", field("record"))]
+    #[cfg_attr(feature = "db", field(dt = "record"))]
     pub id: AlbumId,
     /// Title of the [`Album`].
-    #[cfg_attr(feature = "db", field(dt = "string", index(text("custom_analyzer"))))]
+    #[cfg_attr(feature = "db", field(dt = "string"))]
+    #[cfg_attr(feature = "db", index(text("custom_analyzer")))]
     pub title: String,
     /// Artist of the [`Album`]. (Can be multiple)
-    #[cfg_attr(
-        feature = "db",
-        field(dt = "option<set<string> | string>", index(text("custom_analyzer")))
-    )]
+    #[cfg_attr(feature = "db", field(dt = "option<set<string> | string>"))]
+    #[cfg_attr(feature = "db", index(text("custom_analyzer")))]
     #[cfg_attr(feature = "serde", serde(default))]
     pub artist: OneOrMany<String>,
     /// Release year of this [`Album`].
@@ -40,10 +39,12 @@ pub struct Album {
     /// Total runtime of this [`Album`].
     #[cfg_attr(
         feature = "db",
-        field(dt = "any VALUE <future> {
+        field(
+            "TYPE any VALUE <future> {
 LET $songs = (SELECT runtime FROM $this.id->album_to_song->song);
 RETURN IF $songs IS NONE { 0s } ELSE { $songs.fold(0s, |$acc, $song| $acc + $song.runtime) };
-} ")
+}"
+        )
     )]
     #[cfg_attr(
         feature = "db",
@@ -56,10 +57,12 @@ RETURN IF $songs IS NONE { 0s } ELSE { $songs.fold(0s, |$acc, $song| $acc + $son
     /// [`Song`] count of this [`Album`].
     #[cfg_attr(
         feature = "db",
-        field(dt = "any VALUE <future> {
+        field(
+            "TYPE any VALUE <future> {
 LET $count = (SELECT count() FROM $this.id->album_to_song->song GROUP ALL);
 RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]).count };
-} ")
+}"
+        )
     )]
     pub song_count: usize,
     /// How many discs are in this [`Album`]?

@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{Data, DeriveInput, ExprAssign, ExprLit, parse::Parse, punctuated::Punctuated};
@@ -21,8 +19,7 @@ pub fn table_macro_impl(input: TokenStream) -> syn::Result<TokenStream> {
 
     let struct_fields = parse_struct_fields(&input)?;
 
-    let (table_field_queries, index_queries) =
-        create_table_field_queries(struct_fields, &table_name)?;
+    let (table_field_queries, index_queries) = parse_attributes(struct_fields, &table_name)?;
 
     let table_query = format!("DEFINE TABLE {table_name} SCHEMAFULL;");
 
@@ -75,6 +72,7 @@ fn parse_table_name(input: &DeriveInput) -> syn::Result<String> {
     Ok(table_name)
 }
 
+/// Get's the fields of the struct
 fn parse_struct_fields(input: &DeriveInput) -> syn::Result<impl Iterator<Item = &syn::Field>> {
     match input.data {
         Data::Struct(ref data) => match data.fields {
@@ -97,7 +95,8 @@ fn parse_struct_fields(input: &DeriveInput) -> syn::Result<impl Iterator<Item = 
     }
 }
 
-fn create_table_field_queries<'a>(
+/// Parses the `#[field]` and `#[index]` attributes on the fields of the struct
+fn parse_attributes<'a>(
     fields: impl Iterator<Item = &'a syn::Field>,
     table_name: &str,
 ) -> syn::Result<(Vec<String>, Vec<String>)> {
@@ -125,38 +124,17 @@ fn create_table_field_queries<'a>(
             })
             .peekable();
 
-        let mut field_indexes = Vec::new();
-
         // process the field attribute
-        let field_type = match field_attrs.next() {
-            Some(Ok((_, FieldAnnotation { skip: true, .. }))) => {
+
+        // what (if anything) should be appended to the plain field definition query
+        let extra = match field_attrs.next() {
+            Some(Ok((_, FieldAnnotation::Skip))) => {
                 continue;
             }
-            Some(Ok((
-                _,
-                FieldAnnotation {
-                    skip: false,
-                    type_: Some(type_),
-                    index,
-                },
-            ))) => {
-                if !index.is_empty() {
-                    field_indexes = index;
-                }
-                type_.value()
-            }
-            Some(Ok((
-                field_attr,
-                FieldAnnotation {
-                    skip: false,
-                    type_: None,
-                    ..
-                },
-            ))) => {
-                return Err(syn::Error::new_spanned(
-                    field_attr,
-                    "Field must have a type specified in the #[field] attribute",
-                ));
+            Some(Ok((_, FieldAnnotation::Plain))) => String::new(),
+            Some(Ok((_, FieldAnnotation::Typed { type_ }))) => format!(" TYPE {}", type_.value()),
+            Some(Ok((_, FieldAnnotation::CustomQuery { query }))) => {
+                format!(" {}", query.value())
             }
             Some(Err(err)) => {
                 return Err(err);
@@ -176,22 +154,37 @@ fn create_table_field_queries<'a>(
             ));
         }
 
-        table_field_queries.push(format!(
-            "DEFINE FIELD {field_name} ON {table_name} TYPE {field_type};",
-        ));
+        table_field_queries.push(format!("DEFINE FIELD {field_name} ON {table_name}{extra};",));
 
-        for index in field_indexes {
-            index_queries.push(index.to_query_string(table_name, &field_name.to_string()));
+        // next, we process the index attribute(s)
+        let index_attrs = field
+            .attrs
+            .iter()
+            .filter(|attr| attr.path().is_ident("index"))
+            .map(|attr| {
+                let parsed = attr.parse_args::<IndexAnnotation>();
+                match parsed {
+                    Ok(parsed) => Ok(parsed),
+                    Err(err) => Err(err),
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        for index in index_attrs {
+            for query in index.to_query_strings(table_name, &field_name.to_string()) {
+                index_queries.push(query);
+            }
         }
     }
 
     Ok((table_field_queries, index_queries))
 }
 
-struct FieldAnnotation {
-    skip: bool,
-    type_: Option<syn::LitStr>,
-    index: Vec<IndexAnnotation>,
+enum FieldAnnotation {
+    Skip,
+    Plain,
+    Typed { type_: syn::LitStr },
+    CustomQuery { query: syn::LitStr },
 }
 
 /// parses the `#[field]` attribute
@@ -201,179 +194,209 @@ struct FieldAnnotation {
 /// - `type`: the type of the field
 impl Parse for FieldAnnotation {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut skip = false;
-        let mut type_ = None;
-        let mut index = Vec::new();
+        let args: Punctuated<syn::Expr, syn::token::Comma> =
+            input.parse_terminated(syn::Expr::parse, syn::token::Comma)?;
 
-        // TODO: error if more than one of the same type of index is specified
-
-        while !input.is_empty() {
-            match input.parse::<syn::Expr>()? {
-                syn::Expr::Assign(assign) => {
-                    match assign.left.to_token_stream().to_string().as_str() {
-                        "dt" => match *assign.right {
-                            syn::Expr::Lit(lit) => match lit.lit {
-                                syn::Lit::Str(strlit) => type_ = Some(strlit),
-                                l => {
-                                    return Err(syn::Error::new_spanned(
-                                        l,
-                                        "unexpected literal, the `dt` attribute expects a string literal",
-                                    ));
-                                }
-                            },
-                            rhs => {
-                                return Err(syn::Error::new_spanned(
-                                    rhs,
-                                    "unexpected expression, the `dt` attribute expects a string literal",
-                                ));
-                            }
-                        },
-                        _ => {
-                            return Err(syn::Error::new_spanned(
-                                assign.left,
-                                "Unknown field attribute",
-                            ));
-                        }
-                    }
-                }
-                syn::Expr::Call(call) => match call.func.to_token_stream().to_string().as_str() {
-                    "index" => {
-                        index.push(IndexAnnotation::parse(call.args.borrow())?);
-                    }
-                    _ => {
-                        return Err(syn::Error::new_spanned(
-                            call.func,
-                            "Unknown field attribute",
-                        ));
-                    }
-                },
-                syn::Expr::Lit(lit) => match lit.lit {
-                    syn::Lit::Str(strlit) => type_ = Some(strlit),
-                    l => return Err(syn::Error::new_spanned(l, "unexpected literal")),
-                },
-                syn::Expr::Path(path) => match path.to_token_stream().to_string().as_str() {
-                    "skip" => {
-                        skip = true;
-                        break;
-                    }
-                    s => {
-                        // if it is neither `skip` nor `type`, try to parse a litstr as the type or return an error
-                        return Err(syn::Error::new_spanned(
-                            path,
-                            format!(
-                                "Unknown field attribute, expected `skip` or `dt`, found `{s}`"
-                            ),
-                        ));
-                    }
-                },
-                expr => {
-                    return Err(syn::Error::new_spanned(
-                        expr,
-                        "Unexpected expression syntax found, attribute parameters should be in the forms: `foo`, `\"foo\"`, `foo = ...`, or `foo(...)`",
-                    ));
-                }
-            }
-
-            let _ = input.parse::<syn::Token![,]>();
+        if args.is_empty() {
+            return Ok(Self::Plain);
         }
 
-        Ok(Self { skip, type_, index })
+        if args.len() > 1 {
+            return Err(syn::Error::new_spanned(
+                args,
+                "Field attribute can have at most one argument",
+            ));
+        }
+
+        match args.first() {
+            None => Ok(Self::Plain),
+            Some(syn::Expr::Path(path)) if path.to_token_stream().to_string().eq("skip") => {
+                Ok(Self::Skip)
+            }
+            Some(syn::Expr::Lit(ExprLit {
+                lit: syn::Lit::Str(strlit),
+                ..
+            })) => Ok(Self::CustomQuery {
+                query: strlit.clone(),
+            }),
+            Some(syn::Expr::Assign(ExprAssign { left, right, .. })) => {
+                if left.to_token_stream().to_string().eq("dt") {
+                    match *right.to_owned() {
+                        syn::Expr::Lit(ExprLit {
+                            lit: syn::Lit::Str(strlit),
+                            ..
+                        }) => Ok(Self::Typed { type_: strlit }),
+                        _ => Err(syn::Error::new_spanned(
+                            right,
+                            "The `dt` attribute expects a string literal",
+                        )),
+                    }
+                } else {
+                    Err(syn::Error::new_spanned(
+                        left,
+                        "Unknown field attribute, expected `dt`",
+                    ))
+                }
+            }
+            Some(expr) => Err(syn::Error::new_spanned(
+                expr,
+                "Unsupported expression syntax, expected `skip`, `dt = \"type\"`, or a string literal representing a custom query",
+            )),
+        }
     }
 }
 
 #[derive(Default, Debug, Clone)]
 struct IndexAnnotation {
-    compound: CompoundIndexAnnotation,
-    index_type: IndexTypeAnnotation,
+    indexes: Vec<IndexAnnotationInner>,
+}
+
+#[derive(Debug, Clone)]
+enum IndexAnnotationInner {
+    Compound(CompoundIndexAnnotation),
+    Single(IndexKind),
+}
+
+impl Parse for IndexAnnotation {
+    /// Parses the `#[index]` attribute
+    ///
+    /// The syntax for compound attributes is:
+    /// ```ignore
+    /// #[index(compound(unique, "field1", "field2")]
+    /// ```
+    ///
+    /// where `unique` is any of the valid index types, and `"field1"` and `"field2"` are the names of the fields to be indexed.
+    /// - you can have more than 2 fields in a compound index, really any amount > 1.
+    /// - the last arguments to `compound` must be strings representing field names the compound index is created on.
+    /// - the first argument, if not a string must be a valid index type, or nothing to default to a normal index.
+    ///
+    /// Here are some representative examples of valid index types:
+    /// ```ignore
+    /// #[index(unique)]
+    /// #[index()]
+    /// #[index(vector(dim = 128))]
+    /// #[index(text("english"))]
+    /// #[index(compound(unique, "field1", "field2"))]
+    /// #[index(compound("field1", "field2"))]
+    /// ```
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        // TODO: error if more than one of the same type of index is specified on the same field
+        let args: Punctuated<syn::Expr, syn::token::Comma> =
+            input.parse_terminated(syn::Expr::parse, syn::token::Comma)?;
+
+        if args.is_empty() {
+            return Ok(Self {
+                indexes: vec![IndexAnnotationInner::Single(IndexKind::Normal)],
+            });
+        }
+
+        let mut indexes = Vec::new();
+        for arg in &args {
+            match arg {
+                syn::Expr::Call(call) if call.func.to_token_stream().to_string().eq("compound") => {
+                    // parse the compound index from the
+                    indexes.push(IndexAnnotationInner::Compound(
+                        CompoundIndexAnnotation::parse(&call.args)?,
+                    ));
+                }
+                _ => {
+                    // parse the index type from the arg
+                    let index_type = IndexKind::parse(Some(arg))?;
+                    indexes.push(IndexAnnotationInner::Single(index_type));
+                }
+            }
+        }
+
+        Ok(Self { indexes })
+    }
 }
 
 impl IndexAnnotation {
     // if both vector and full-text indexes are set, return None
-    fn to_query_string(&self, table_name: &str, field_name: &str) -> String {
-        let (extra, index_type) = match &self.index_type {
-            IndexTypeAnnotation::Vector(vector) => {
-                (format!(" MTREE DIMENSION {}", vector.dim), "vector")
-            }
-            IndexTypeAnnotation::Text(text) => {
-                (format!(" SEARCH ANALYZER {} BM25", text.analyzer), "text")
-            }
-            IndexTypeAnnotation::Normal => (String::new(), "normal"),
-            IndexTypeAnnotation::Unique => (String::from(" UNIQUE"), "unique"),
-        };
-        let index_name = format!(
-            "{table_name}_{field_name}{compound_fields}_{index_type}_index",
-            compound_fields = if self.compound.is_empty() {
-                String::new()
-            } else {
-                format!("_{}", self.compound.join("_"))
-            }
-        );
+    fn to_query_strings(&self, table_name: &str, field_name: &str) -> Vec<String> {
+        let mut output = Vec::new();
+        for index in &self.indexes {
+            let (compound, index_type) = match index {
+                IndexAnnotationInner::Compound(compound_index_annotation) => (
+                    Some(&compound_index_annotation.fields),
+                    &compound_index_annotation.index,
+                ),
+                IndexAnnotationInner::Single(index_kind) => (None, index_kind),
+            };
 
-        format!(
-            "DEFINE INDEX {index_name} ON {table_name} FIELDS {field_name}{compound_fields}{extra};",
-            compound_fields = if self.compound.is_empty() {
-                String::new()
-            } else {
-                format!(",{}", self.compound.join(","))
-            }
-        )
-    }
-    fn parse(args: &Punctuated<syn::Expr, syn::token::Comma>) -> syn::Result<Self> {
-        let mut args_iter = args.iter();
-        // check first arg, if it is a call expr to "compound", parse the compound index and try to parse the index type from the next arg
+            let (extra, index_type) = match index_type {
+                IndexKind::Vector(vector) => (format!(" MTREE DIMENSION {}", vector.dim), "vector"),
+                IndexKind::Text(text) => {
+                    (format!(" SEARCH ANALYZER {} BM25", text.analyzer), "text")
+                }
+                IndexKind::Normal => (String::new(), "normal"),
+                IndexKind::Unique => (String::from(" UNIQUE"), "unique"),
+            };
+            let compound_fields = |sep: &str| match compound {
+                Some(compound) if !compound.is_empty() => {
+                    format!("{sep}{}", compound.join(sep))
+                }
+                _ => String::new(),
+            };
 
-        // check first arg, either compound or an index type
-        let (compound, index_type) = match args_iter.next() {
-            // if compound, parse the compound index and try to parse the index type from the next arg
-            Some(syn::Expr::Call(call))
-                if call.func.to_token_stream().to_string().eq("compound") =>
-            {
-                (
-                    Some(CompoundIndexAnnotation::parse(&call.args)?),
-                    IndexTypeAnnotation::parse(args_iter.next())?,
-                )
-            }
-            // if not compound, parse the index type from the arg
-            arg => (None, IndexTypeAnnotation::parse(arg)?),
-        };
-        // next, check the next arg, it should be compound, otherwise we have an error
-        let compound = match args_iter.next() {
-            Some(syn::Expr::Call(call))
-                if call.func.to_token_stream().to_string().eq("compound") =>
-            {
-                CompoundIndexAnnotation::parse(&call.args)?
-            }
-            Some(arg) => {
-                return Err(syn::Error::new_spanned(
-                    arg,
-                    "unexpected parameters in index attribute",
-                ));
-            }
-            None => compound.unwrap_or_default(),
-        };
+            let index_name = format!(
+                "{table_name}_{field_name}{extra_fields}_{index_type}_index",
+                extra_fields = compound_fields("_")
+            );
 
-        Ok(Self {
-            compound,
-            index_type,
-        })
+            let query = format!(
+                "DEFINE INDEX {index_name} ON {table_name} FIELDS {field_name}{extra_fields}{extra};",
+                extra_fields = compound_fields(",")
+            );
+
+            output.push(query);
+        }
+
+        output
     }
 }
 
 #[derive(Default, Debug, Clone)]
+/// A compound index is an index that is created across multiple fields.
 struct CompoundIndexAnnotation {
-    compound_fields: Vec<String>,
+    index: IndexKind,
+    fields: Vec<String>,
 }
 
 impl CompoundIndexAnnotation {
     fn parse(args: &Punctuated<syn::Expr, syn::token::Comma>) -> syn::Result<Self> {
-        let mut compound_fields = Vec::new();
+        let mut fields = Vec::new();
 
-        for arg in args {
+        let mut args_iter = args.iter();
+
+        // the first argument (if not a string)
+        let index = match args_iter.next() {
+            Some(syn::Expr::Lit(ExprLit {
+                lit: syn::Lit::Str(strlit),
+                ..
+            })) => {
+                fields.push(strlit.value());
+                IndexKind::Normal
+            }
+            arg => match IndexKind::parse(arg) {
+                Ok(index_type) => index_type,
+                Err(mut err) => {
+                    err.combine(syn::Error::new_spanned(
+                            arg,
+                            "Compound index attribute expects a valid index type or string literal representing the first field name as the first argument",
+                        ));
+                    return Err(err);
+                }
+            },
+        };
+
+        // the remaining arguments should be string literals representing field names
+        for arg in args_iter {
             match arg {
                 syn::Expr::Lit(ExprLit {
                     lit: syn::Lit::Str(strlit),
                     ..
-                }) => compound_fields.push(strlit.value()),
+                }) => fields.push(strlit.value()),
                 _ => {
                     return Err(syn::Error::new_spanned(
                         arg,
@@ -383,27 +406,19 @@ impl CompoundIndexAnnotation {
             }
         }
 
-        if compound_fields.is_empty() {
+        if fields.is_empty() {
             Err(syn::Error::new_spanned(
                 args,
                 "Compound index attribute expects at least one string literal representing the other field names",
             ))
         } else {
-            Ok(Self { compound_fields })
+            Ok(Self { index, fields })
         }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.compound_fields.is_empty()
-    }
-
-    fn join(&self, sep: &str) -> String {
-        self.compound_fields.join(sep)
     }
 }
 
 #[derive(Default, Debug, Clone)]
-enum IndexTypeAnnotation {
+enum IndexKind {
     Vector(VectorIndexAnnotation),
     Text(TextIndexAnnotation),
     #[default]
@@ -411,7 +426,7 @@ enum IndexTypeAnnotation {
     Unique,
 }
 
-impl IndexTypeAnnotation {
+impl IndexKind {
     fn parse(arg: Option<&syn::Expr>) -> syn::Result<Self> {
         match arg {
             None => Ok(Self::Normal),
