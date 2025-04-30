@@ -10,6 +10,12 @@ categories.workspace = true
 readme.workspace = true
 license.workspace = true
 
+[package.metadata.wix]
+upgrade-guid = "E61F1B2A-827C-4648-B446-00B5F3125FAF"
+path-guid = "2CD134C8-3E43-47F8-853E-41F481EA794D"
+license = false
+eula = false
+
 [[bin]]
 name = "mecomp-cli"
 bench = false

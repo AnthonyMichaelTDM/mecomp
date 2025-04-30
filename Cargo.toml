@@ -80,6 +80,11 @@ rodio.opt-level = 3
 inherits = "test"
 opt-level = 0
 
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
 [workspace.dependencies]
 # shared dependencies
 anyhow = { version = "1.0", default-features = false }

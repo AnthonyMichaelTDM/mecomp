@@ -10,6 +10,12 @@ categories.workspace = true
 readme.workspace = true
 license.workspace = true
 
+[package.metadata.wix]
+upgrade-guid = "7873C80B-76FE-4D7E-952E-63E9CF71C871"
+path-guid = "283BF54C-2683-4B55-805B-EAB030F33459"
+license = false
+eula = false
+
 [[bin]]
 name = "mecomp-mpris"
 test = false

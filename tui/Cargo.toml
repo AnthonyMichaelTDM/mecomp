@@ -10,6 +10,12 @@ categories.workspace = true
 readme.workspace = true
 license.workspace = true
 
+[package.metadata.wix]
+upgrade-guid = "57677435-1364-47BB-AA9A-4F7276A78F51"
+path-guid = "92DCCFD8-4F49-4CF5-A6ED-AFED2F5ABFFF"
+license = false
+eula = false
+
 [[bin]]
 name = "mecomp-tui"
 test = false
