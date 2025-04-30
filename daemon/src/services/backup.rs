@@ -20,8 +20,10 @@ use csv::{Reader, Writer};
 /// # Arguments
 ///
 /// * `path` - The path to validate
-/// * `exists` - Whether the file should exist or not
 /// * `extension` - The expected file extension
+/// * `exists` - Whether the file should exist or not
+///   * if true, the file must exist
+///   * if false, the file may not exist but will be overwritten if it does
 pub(crate) fn validate_file_path(
     path: &PathBuf,
     extension: &str,
@@ -39,9 +41,6 @@ pub(crate) fn validate_file_path(
     } else if exists && !path.exists() {
         log::warn!("Path does not exist: {path:?}");
         Err(BackupError::FileNotFound(path.clone()))
-    } else if !exists && path.exists() {
-        log::warn!("Path already exists: {path:?}");
-        Err(BackupError::FileExists(path.clone()))
     } else {
         Ok(())
     }
