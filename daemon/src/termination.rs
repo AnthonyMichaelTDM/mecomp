@@ -177,7 +177,7 @@ async fn terminate_by_signal(terminator: Terminator) {
 }
 
 #[cfg(not(unix))]
-async fn terminate_by_signal(mut terminator: Terminator) {
+async fn terminate_by_signal(terminator: Terminator) {
     // On non-unix systems, we don't have any signals to handle.
     // We can still use the ctrl_c signal to terminate the application.
 
