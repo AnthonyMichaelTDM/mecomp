@@ -26,6 +26,7 @@ ignored = [
     "clap_builder",
     "concurrent-queue",
     "criterion",
+    "crossbeam-utils",
     "digest",
     "either",
     "event-listener",
@@ -65,8 +66,8 @@ ignored = [
     "string_cache",
     "subtle",
     "symphonia",
+    "symphonia-core",
     "syn",
-    "sync_wrapper",
     "toml_datetime",
     "toml_edit",
     "tokio",
@@ -97,6 +98,7 @@ clap = { version = "4", default-features = false, features = ["color", "derive",
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
 concurrent-queue = { version = "2" }
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
+crossbeam-utils = { version = "0.8" }
 digest = { version = "0.10", features = ["mac", "std"] }
 either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
@@ -136,8 +138,8 @@ smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
 subtle = { version = "2" }
 symphonia = { version = "0.5", default-features = false, features = ["aac", "adpcm", "flac", "isomp4", "mp3", "ogg", "opt-simd", "pcm", "vorbis", "wav"] }
+symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
@@ -161,6 +163,7 @@ clap = { version = "4", default-features = false, features = ["color", "derive",
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
 concurrent-queue = { version = "2" }
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
+crossbeam-utils = { version = "0.8" }
 digest = { version = "0.10", features = ["mac", "std"] }
 either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
@@ -200,8 +203,8 @@ smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
 subtle = { version = "2" }
 symphonia = { version = "0.5", default-features = false, features = ["aac", "adpcm", "flac", "isomp4", "mp3", "ogg", "opt-simd", "pcm", "vorbis", "wav"] }
+symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }

@@ -77,7 +77,9 @@ pub fn format_duration(duration: &std::time::Duration) -> String {
 pub fn get_data_dir() -> Result<std::path::PathBuf, DirectoryError> {
     let directory = if let Ok(s) = std::env::var("MECOMP_DATA") {
         std::path::PathBuf::from(s)
-    } else if let Some(proj_dirs) = directories::ProjectDirs::from("", "", "mecomp") {
+    } else if let Some(proj_dirs) =
+        directories::ProjectDirs::from("com", "anthonymichaeltdm", "mecomp")
+    {
         proj_dirs.data_local_dir().to_path_buf()
     } else {
         return Err(DirectoryError::Data);
@@ -97,7 +99,9 @@ pub fn get_data_dir() -> Result<std::path::PathBuf, DirectoryError> {
 pub fn get_config_dir() -> Result<std::path::PathBuf, DirectoryError> {
     let directory = if let Ok(s) = std::env::var("MECOMP_CONFIG") {
         std::path::PathBuf::from(s)
-    } else if let Some(proj_dirs) = directories::ProjectDirs::from("", "", "mecomp") {
+    } else if let Some(proj_dirs) =
+        directories::ProjectDirs::from("com", "anthonymichaeltdm", "mecomp")
+    {
         proj_dirs.config_local_dir().to_path_buf()
     } else {
         return Err(DirectoryError::Config);
