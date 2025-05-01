@@ -11,7 +11,7 @@ use crate::{
                 add_album, add_album_to_artists, add_songs, read_albums, read_by_name,
                 read_by_names, read_songs, remove_songs,
             },
-            generic::{full_text_search, read_many},
+            generic::{full_text_search, read_many, read_rand},
         },
         schemas::{
             album::{Album, AlbumId},
@@ -121,6 +121,14 @@ impl Artist {
         ids: Vec<ArtistId>,
     ) -> StorageResult<Vec<Self>> {
         Ok(db.query(read_many()).bind(("ids", ids)).await?.take(0)?)
+    }
+
+    #[instrument]
+    pub async fn read_rand<C: Connection>(
+        db: &Surreal<C>,
+        limit: usize,
+    ) -> StorageResult<Vec<Self>> {
+        Ok(db.query(read_rand(TABLE_NAME, limit)).await?.take(0)?)
     }
 
     #[instrument]
@@ -343,6 +351,39 @@ mod tests {
 
         let read = Artist::read_many(&db, vec![artist.id.clone(), artist2.id.clone()]).await?;
         assert_eq!(read, vec![created, created2]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_read_rand() -> Result<()> {
+        let db = init_test_database().await?;
+        let artist1 = create_artist();
+        let mut artist2 = create_artist();
+        artist2.name = "Another Test Artist".to_string();
+
+        let _ = Artist::create(&db, artist1.clone())
+            .await?
+            .ok_or_else(|| anyhow!("Failed to create artist"))?;
+        let _ = Artist::create(&db, artist2.clone())
+            .await?
+            .ok_or_else(|| anyhow!("Failed to create artist"))?;
+
+        // n = # records
+        let read = Artist::read_rand(&db, 2).await?;
+        assert_eq!(read.len(), 2);
+        assert!(read.contains(&artist1) && read.contains(&artist2));
+        // n > # records
+        let read = Artist::read_rand(&db, 3).await?;
+        assert_eq!(read.len(), 2);
+        assert!(read.contains(&artist1) && read.contains(&artist2));
+        // n < # records
+        let read = Artist::read_rand(&db, 1).await?;
+        assert_eq!(read.len(), 1);
+        assert!(read.contains(&artist1) || read.contains(&artist2));
+        // n == 0
+        let read = Artist::read_rand(&db, 0).await?;
+        assert_eq!(read.len(), 0);
+
         Ok(())
     }
 

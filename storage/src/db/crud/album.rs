@@ -7,9 +7,12 @@ use tracing::instrument;
 
 use crate::{
     db::{
-        queries::album::{
-            add_songs, read_artist, read_by_name, read_by_name_and_album_artist, read_songs,
-            remove_songs,
+        queries::{
+            album::{
+                add_songs, read_artist, read_by_name, read_by_name_and_album_artist, read_songs,
+                remove_songs,
+            },
+            generic::read_rand,
         },
         schemas::{
             album::{Album, AlbumChangeSet, AlbumId, TABLE_NAME},
@@ -58,6 +61,14 @@ impl Album {
             .bind(("name", name.to_string()))
             .await?
             .take(0)?)
+    }
+
+    #[instrument]
+    pub async fn read_rand<C: Connection>(
+        db: &Surreal<C>,
+        limit: usize,
+    ) -> StorageResult<Vec<Self>> {
+        Ok(db.query(read_rand(TABLE_NAME, limit)).await?.take(0)?)
     }
 
     #[instrument()]
@@ -310,6 +321,39 @@ mod tests {
         let read = Album::read_by_name(&db, "Test Album").await?;
         assert_eq!(read.len(), 1);
         assert_eq!(read[0], album);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_read_rand() -> Result<()> {
+        let db = init_test_database().await?;
+        let album1 = create_album();
+        let mut album2 = create_album();
+        album2.title = "Another Test Album".into();
+
+        let _ = Album::create(&db, album1.clone())
+            .await?
+            .ok_or_else(|| anyhow!("Failed to create album"))?;
+        let _ = Album::create(&db, album2.clone())
+            .await?
+            .ok_or_else(|| anyhow!("Failed to create album"))?;
+
+        // n = # records
+        let read = Album::read_rand(&db, 2).await?;
+        assert_eq!(read.len(), 2);
+        assert!(read.contains(&album1) && read.contains(&album2));
+        // n > # records
+        let read = Album::read_rand(&db, 3).await?;
+        assert_eq!(read.len(), 2);
+        assert!(read.contains(&album1) && read.contains(&album2));
+        // n < # records
+        let read = Album::read_rand(&db, 1).await?;
+        assert_eq!(read.len(), 1);
+        assert!(read.contains(&album1) || read.contains(&album2));
+        // n == 0
+        let read = Album::read_rand(&db, 0).await?;
+        assert_eq!(read.len(), 0);
+
         Ok(())
     }
 
