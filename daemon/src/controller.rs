@@ -634,26 +634,26 @@ impl MusicPlayer for MusicPlayerServer {
 
     /// returns a list of artists, albums, and songs matching the given search query.
     #[instrument]
-    async fn search(self, context: Context, query: String, limit: u32) -> SearchResult {
+    async fn search(self, context: Context, query: String, limit: usize) -> SearchResult {
         info!("Searching for: {query}");
         // basic idea:
         // 1. search for songs
         // 2. search for albums
         // 3. search for artists
         // 4. return the results
-        let songs = Song::search(&self.db, &query, i64::from(limit))
+        let songs = Song::search(&self.db, &query, limit)
             .await
             .tap_err(|e| warn!("Error in search: {e}"))
             .unwrap_or_default()
             .into();
 
-        let albums = Album::search(&self.db, &query, i64::from(limit))
+        let albums = Album::search(&self.db, &query, limit)
             .await
             .tap_err(|e| warn!("Error in search: {e}"))
             .unwrap_or_default()
             .into();
 
-        let artists = Artist::search(&self.db, &query, i64::from(limit))
+        let artists = Artist::search(&self.db, &query, limit)
             .await
             .tap_err(|e| warn!("Error in search: {e}"))
             .unwrap_or_default()
@@ -666,9 +666,9 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns a list of artists matching the given search query.
     #[instrument]
-    async fn search_artist(self, context: Context, query: String, limit: u32) -> Box<[Artist]> {
+    async fn search_artist(self, context: Context, query: String, limit: usize) -> Box<[Artist]> {
         info!("Searching for artist: {query}");
-        Artist::search(&self.db, &query, i64::from(limit))
+        Artist::search(&self.db, &query, limit)
             .await
             .tap_err(|e| {
                 warn!("Error in search_artist: {e}");
@@ -678,9 +678,9 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns a list of albums matching the given search query.
     #[instrument]
-    async fn search_album(self, context: Context, query: String, limit: u32) -> Box<[Album]> {
+    async fn search_album(self, context: Context, query: String, limit: usize) -> Box<[Album]> {
         info!("Searching for album: {query}");
-        Album::search(&self.db, &query, i64::from(limit))
+        Album::search(&self.db, &query, limit)
             .await
             .tap_err(|e| {
                 warn!("Error in search_album: {e}");
@@ -690,9 +690,9 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns a list of songs matching the given search query.
     #[instrument]
-    async fn search_song(self, context: Context, query: String, limit: u32) -> Box<[Song]> {
+    async fn search_song(self, context: Context, query: String, limit: usize) -> Box<[Song]> {
         info!("Searching for song: {query}");
-        Song::search(&self.db, &query, i64::from(limit))
+        Song::search(&self.db, &query, limit)
             .await
             .tap_err(|e| {
                 warn!("Error in search_song: {e}");

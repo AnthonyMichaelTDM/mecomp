@@ -153,13 +153,13 @@ pub trait MusicPlayer {
 
     // Search (fuzzy keys)
     /// returns a list of artists, albums, and songs matching the given search query.
-    async fn search(query: String, limit: u32) -> SearchResult;
+    async fn search(query: String, limit: usize) -> SearchResult;
     /// returns a list of artists matching the given search query.
-    async fn search_artist(query: String, limit: u32) -> Box<[Artist]>;
+    async fn search_artist(query: String, limit: usize) -> Box<[Artist]>;
     /// returns a list of albums matching the given search query.
-    async fn search_album(query: String, limit: u32) -> Box<[Album]>;
+    async fn search_album(query: String, limit: usize) -> Box<[Album]>;
     /// returns a list of songs matching the given search query.
-    async fn search_song(query: String, limit: u32) -> Box<[Song]>;
+    async fn search_song(query: String, limit: usize) -> Box<[Song]>;
 
     // Playback control.
     /// toggles playback (play/pause).
