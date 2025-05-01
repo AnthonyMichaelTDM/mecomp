@@ -130,7 +130,7 @@ impl Song {
     pub async fn search<C: Connection>(
         db: &Surreal<C>,
         query: &str,
-        limit: i64,
+        limit: usize,
     ) -> StorageResult<Vec<Self>> {
         Ok(db
             .query("SELECT *, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM song WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit")

@@ -341,9 +341,13 @@ pub fn count_orphaned_both<Table: AsRef<str>, Rel1: AsRef<str>, Rel2: AsRef<str>
 pub fn full_text_search<Table: AsRef<str>, Field: AsRef<str>>(
     table: Table,
     field: Field,
-    limit: i64,
+    limit: usize,
 ) -> impl IntoQuery {
-    fn full_text_search_statement(table: &str, field: &str, limit: i64) -> impl IntoQuery + use<> {
+    fn full_text_search_statement(
+        table: &str,
+        field: &str,
+        limit: usize,
+    ) -> impl IntoQuery + use<> {
         parse_query(format!(
             "SELECT * FROM {table} WHERE {field} @@ ${field} ORDER BY relevance DESC LIMIT {limit}"
         ))

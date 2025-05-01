@@ -127,7 +127,7 @@ impl Artist {
     pub async fn search<C: Connection>(
         db: &Surreal<C>,
         query: &str,
-        limit: i64,
+        limit: usize,
     ) -> StorageResult<Vec<Self>> {
         Ok(db
             .query(full_text_search(TABLE_NAME, "name", limit))

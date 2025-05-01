@@ -73,7 +73,7 @@ pub enum Command {
 
         /// The maximum number of results to return
         #[clap(default_value = "10", value_hint = ValueHint::Other)]
-        limit: u32,
+        limit: usize,
     },
     /// Playback control
     Playback {
