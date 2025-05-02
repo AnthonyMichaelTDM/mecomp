@@ -164,46 +164,33 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         overwrite: bool,
     ) -> Result<(), SerializableLibraryError> {
-        #[cfg(not(feature = "analysis"))]
-        {
-            warn!("Analysis is not enabled");
-            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        info!("Analyzing library");
+
+        if self.library_analyze_lock.try_lock().is_err() {
+            warn!("Library analysis already in progress");
+            return Err(SerializableLibraryError::AnalysisInProgress);
         }
+        let span = tracing::Span::current();
 
-        #[cfg(feature = "analysis")]
-        {
-            info!("Analyzing library");
-
-            if self.library_analyze_lock.try_lock().is_err() {
-                warn!("Library analysis already in progress");
-                return Err(SerializableLibraryError::AnalysisInProgress);
-            }
-            let span = tracing::Span::current();
-
-            tokio::task::spawn(
-                async move {
-                    let _guard = self.library_analyze_lock.lock().await;
-                    match services::library::analyze(
-                        &self.db,
-                        self.interrupt.resubscribe(),
-                        overwrite,
-                    )
+        tokio::task::spawn(
+            async move {
+                let _guard = self.library_analyze_lock.lock().await;
+                match services::library::analyze(&self.db, self.interrupt.resubscribe(), overwrite)
                     .await
-                    {
-                        Ok(()) => info!("Library analysis complete"),
-                        Err(e) => error!("Error in library_analyze: {e}"),
-                    }
-
-                    let result = self.publish(Event::LibraryAnalysisFinished).await;
-                    if let Err(e) = result {
-                        error!("Error notifying clients that library_analysis_finished: {e}");
-                    }
+                {
+                    Ok(()) => info!("Library analysis complete"),
+                    Err(e) => error!("Error in library_analyze: {e}"),
                 }
-                .instrument(span),
-            );
 
-            Ok(())
-        }
+                let result = self.publish(Event::LibraryAnalysisFinished).await;
+                if let Err(e) = result {
+                    error!("Error notifying clients that library_analysis_finished: {e}");
+                }
+            }
+            .instrument(span),
+        );
+
+        Ok(())
     }
     /// Check if an analysis is in progress.
     #[instrument]
@@ -213,47 +200,38 @@ impl MusicPlayer for MusicPlayerServer {
     /// Recluster the music library, only error is if a recluster is already in progress.
     #[instrument]
     async fn library_recluster(self, context: Context) -> Result<(), SerializableLibraryError> {
-        #[cfg(not(feature = "analysis"))]
-        {
-            warn!("Analysis is not enabled");
-            return Err(SerializableLibraryError::AnalysisNotEnabled);
+        info!("Reclustering collections");
+
+        if self.collection_recluster_lock.try_lock().is_err() {
+            warn!("Collection reclustering already in progress");
+            return Err(SerializableLibraryError::ReclusterInProgress);
         }
 
-        #[cfg(feature = "analysis")]
-        {
-            info!("Reclustering collections");
+        let span = tracing::Span::current();
 
-            if self.collection_recluster_lock.try_lock().is_err() {
-                warn!("Collection reclustering already in progress");
-                return Err(SerializableLibraryError::ReclusterInProgress);
-            }
-
-            let span = tracing::Span::current();
-
-            tokio::task::spawn(
-                async move {
-                    let _guard = self.collection_recluster_lock.lock().await;
-                    match services::library::recluster(
-                        &self.db,
-                        self.settings.reclustering,
-                        self.interrupt.resubscribe(),
-                    )
-                    .await
-                    {
-                        Ok(()) => info!("Collection reclustering complete"),
-                        Err(e) => error!("Error in library_recluster: {e}"),
-                    }
-
-                    let result = self.publish(Event::LibraryReclusterFinished).await;
-                    if let Err(e) = result {
-                        error!("Error notifying clients that library_recluster_finished: {e}");
-                    }
+        tokio::task::spawn(
+            async move {
+                let _guard = self.collection_recluster_lock.lock().await;
+                match services::library::recluster(
+                    &self.db,
+                    self.settings.reclustering,
+                    self.interrupt.resubscribe(),
+                )
+                .await
+                {
+                    Ok(()) => info!("Collection reclustering complete"),
+                    Err(e) => error!("Error in library_recluster: {e}"),
                 }
-                .instrument(span),
-            );
 
-            Ok(())
-        }
+                let result = self.publish(Event::LibraryReclusterFinished).await;
+                if let Err(e) = result {
+                    error!("Error notifying clients that library_recluster_finished: {e}");
+                }
+            }
+            .instrument(span),
+        );
+
+        Ok(())
     }
     /// Check if a recluster is in progress.
     #[instrument]
@@ -1272,20 +1250,11 @@ impl MusicPlayer for MusicPlayerServer {
         things: Vec<schemas::RecordId>,
         n: u32,
     ) -> Result<Box<[Song]>, SerializableLibraryError> {
-        #[cfg(not(feature = "analysis"))]
-        {
-            warn!("Analysis is not enabled");
-            return Err(SerializableLibraryError::AnalysisNotEnabled);
-        }
-
-        #[cfg(feature = "analysis")]
-        {
-            info!("Getting the {n} most similar songs to: {things:?}");
-            Ok(services::radio::get_similar(&self.db, things, n)
-                .await
-                .map(Vec::into_boxed_slice)
-                .tap_err(|e| warn!("Error in radio_get_similar: {e}"))?)
-        }
+        info!("Getting the {n} most similar songs to: {things:?}");
+        Ok(services::radio::get_similar(&self.db, things, n)
+            .await
+            .map(Vec::into_boxed_slice)
+            .tap_err(|e| warn!("Error in radio_get_similar: {e}"))?)
     }
     /// Radio: get the ids of the `n` most similar songs to the given things.
     #[instrument]
@@ -1295,20 +1264,11 @@ impl MusicPlayer for MusicPlayerServer {
         things: Vec<schemas::RecordId>,
         n: u32,
     ) -> Result<Box<[SongId]>, SerializableLibraryError> {
-        #[cfg(not(feature = "analysis"))]
-        {
-            warn!("Analysis is not enabled");
-            return Err(SerializableLibraryError::AnalysisNotEnabled);
-        }
-
-        #[cfg(feature = "analysis")]
-        {
-            info!("Getting the {n} most similar songs to: {things:?}");
-            Ok(services::radio::get_similar(&self.db, things, n)
-                .await
-                .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
-                .tap_err(|e| warn!("Error in radio_get_similar_songs: {e}"))?)
-        }
+        info!("Getting the {n} most similar songs to: {things:?}");
+        Ok(services::radio::get_similar(&self.db, things, n)
+            .await
+            .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
+            .tap_err(|e| warn!("Error in radio_get_similar_songs: {e}"))?)
     }
 
     // Dynamic playlist commands
