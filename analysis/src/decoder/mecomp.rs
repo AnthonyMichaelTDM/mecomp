@@ -461,7 +461,10 @@ mod tests {
             .analyze_path(Path::new(path))
             .unwrap();
         for (x, y) in analysis.as_vec().iter().zip(expected_analysis) {
-            assert!(0.01 > (x - y).abs());
+            assert!(
+                0.01 > (x - y).abs(),
+                "Expected {x} to be within 0.01 of {y}, but it was not"
+            );
         }
     }
 }

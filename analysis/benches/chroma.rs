@@ -97,17 +97,20 @@ fn bench_chroma_stft(c: &mut Criterion) {
     let stft = stft(&signal, 8192, 2205);
 
     c.bench_function("mecomp-analysis: chroma.rs: chroma_stft", |b| {
-        b.iter(|| {
-            let mut stft = stft.clone();
-            chroma_stft(
-                black_box(22050),
-                black_box(&mut stft),
-                black_box(8192),
-                black_box(12),
-                black_box(-0.049_999_999_999_999_99),
-            )
-            .unwrap();
-        });
+        b.iter_batched(
+            || stft.clone(),
+            |mut stft| {
+                chroma_stft(
+                    black_box(22050),
+                    black_box(&mut stft),
+                    black_box(8192),
+                    black_box(12),
+                    black_box(-0.049_999_999_999_999_99),
+                )
+                .unwrap();
+            },
+            criterion::BatchSize::LargeInput,
+        );
     });
 }
 
