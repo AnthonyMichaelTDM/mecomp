@@ -93,8 +93,11 @@ impl Song {
     pub async fn read_rand<C: Connection>(
         db: &Surreal<C>,
         limit: usize,
-    ) -> StorageResult<Vec<Self>> {
-        Ok(db.query(read_rand(TABLE_NAME, limit)).await?.take(0)?)
+    ) -> StorageResult<Vec<SongBrief>> {
+        Ok(db
+            .query(read_rand(Self::BRIEF_FIELDS, TABLE_NAME, limit))
+            .await?
+            .take(0)?)
     }
 
     #[instrument]
@@ -469,10 +472,12 @@ mod test {
     #[tokio::test]
     async fn test_read_rand() -> Result<()> {
         let db = init_test_database().await?;
-        let song1 =
-            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
-        let song2 =
-            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let song1 = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+            .await?
+            .into();
+        let song2 = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+            .await?
+            .into();
 
         // n = # records
         let read = Song::read_rand(&db, 2).await?;

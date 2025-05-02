@@ -322,8 +322,8 @@ pub const fn read_many() -> impl IntoQuery {
 
 /// Query to read `n` items from the given `table` at random
 #[must_use]
-pub fn read_rand(table: &'static str, n: usize) -> impl IntoQuery {
-    format!("SELECT * FROM (SELECT VALUE id FROM {table} ORDER BY RAND() LIMIT {n})")
+pub fn read_rand(selection: &'static str, table: &'static str, n: usize) -> impl IntoQuery {
+    format!("SELECT {selection} FROM {table} ORDER BY RAND() LIMIT {n}")
 }
 
 #[cfg(test)]
@@ -364,8 +364,8 @@ mod query_validation_tests {
     )]
     #[case::read_many(read_many(), "SELECT * FROM $ids")]
     #[case::read_rand(
-        read_rand("song", 5),
-        "SELECT * FROM (SELECT VALUE id FROM song ORDER BY RAND() LIMIT 5)"
+        read_rand("*", "song", 5),
+        "SELECT * FROM song ORDER BY RAND() LIMIT 5"
     )]
     fn test_queries(#[case] statement: impl IntoQuery, #[case] expected: &str) {
         validate_query(statement, expected);

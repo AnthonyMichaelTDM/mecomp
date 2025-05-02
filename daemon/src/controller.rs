@@ -638,7 +638,7 @@ impl MusicPlayer for MusicPlayerServer {
 
     /// returns a random artist.
     #[instrument]
-    async fn rand_artist(self, context: Context) -> Option<Artist> {
+    async fn rand_artist(self, context: Context) -> Option<ArtistBrief> {
         info!("Getting random artist");
         Artist::read_rand(&self.db, 1)
             .await
@@ -648,7 +648,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns a random album.
     #[instrument]
-    async fn rand_album(self, context: Context) -> Option<Album> {
+    async fn rand_album(self, context: Context) -> Option<AlbumBrief> {
         info!("Getting random album");
         Album::read_rand(&self.db, 1)
             .await
@@ -658,7 +658,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns a random song.
     #[instrument]
-    async fn rand_song(self, context: Context) -> Option<Song> {
+    async fn rand_song(self, context: Context) -> Option<SongBrief> {
         info!("Getting random song");
         Song::read_rand(&self.db, 1)
             .await

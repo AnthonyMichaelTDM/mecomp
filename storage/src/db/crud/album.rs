@@ -75,8 +75,11 @@ impl Album {
     pub async fn read_rand<C: Connection>(
         db: &Surreal<C>,
         limit: usize,
-    ) -> StorageResult<Vec<Self>> {
-        Ok(db.query(read_rand(TABLE_NAME, limit)).await?.take(0)?)
+    ) -> StorageResult<Vec<AlbumBrief>> {
+        Ok(db
+            .query(read_rand(Self::BRIEF_FIELDS, TABLE_NAME, limit))
+            .await?
+            .take(0)?)
     }
 
     #[instrument()]
@@ -339,12 +342,14 @@ mod tests {
         let mut album2 = create_album();
         album2.title = "Another Test Album".into();
 
-        let _ = Album::create(&db, album1.clone())
+        let album1 = Album::create(&db, album1.clone())
             .await?
-            .ok_or_else(|| anyhow!("Failed to create album"))?;
-        let _ = Album::create(&db, album2.clone())
+            .ok_or_else(|| anyhow!("Failed to create album"))?
+            .into();
+        let album2 = Album::create(&db, album2.clone())
             .await?
-            .ok_or_else(|| anyhow!("Failed to create album"))?;
+            .ok_or_else(|| anyhow!("Failed to create album"))?
+            .into();
 
         // n = # records
         let read = Album::read_rand(&db, 2).await?;

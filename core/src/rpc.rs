@@ -153,11 +153,11 @@ pub trait MusicPlayer {
 
     // Rand (audio state)
     /// returns a random artist.
-    async fn rand_artist() -> Option<Artist>;
+    async fn rand_artist() -> Option<ArtistBrief>;
     /// returns a random album.
-    async fn rand_album() -> Option<Album>;
+    async fn rand_album() -> Option<AlbumBrief>;
     /// returns a random song.
-    async fn rand_song() -> Option<Song>;
+    async fn rand_song() -> Option<SongBrief>;
 
     // Search (fuzzy keys)
     /// returns a list of artists, albums, and songs matching the given search query.

@@ -135,8 +135,11 @@ impl Artist {
     pub async fn read_rand<C: Connection>(
         db: &Surreal<C>,
         limit: usize,
-    ) -> StorageResult<Vec<Self>> {
-        Ok(db.query(read_rand(TABLE_NAME, limit)).await?.take(0)?)
+    ) -> StorageResult<Vec<ArtistBrief>> {
+        Ok(db
+            .query(read_rand(Self::BRIEF_FIELDS, TABLE_NAME, limit))
+            .await?
+            .take(0)?)
     }
 
     #[instrument]
@@ -370,12 +373,14 @@ mod tests {
         let mut artist2 = create_artist();
         artist2.name = "Another Test Artist".to_string();
 
-        let _ = Artist::create(&db, artist1.clone())
+        let artist1 = Artist::create(&db, artist1.clone())
             .await?
-            .ok_or_else(|| anyhow!("Failed to create artist"))?;
-        let _ = Artist::create(&db, artist2.clone())
+            .ok_or_else(|| anyhow!("Failed to create artist"))?
+            .into();
+        let artist2 = Artist::create(&db, artist2.clone())
             .await?
-            .ok_or_else(|| anyhow!("Failed to create artist"))?;
+            .ok_or_else(|| anyhow!("Failed to create artist"))?
+            .into();
 
         // n = # records
         let read = Artist::read_rand(&db, 2).await?;

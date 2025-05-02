@@ -85,15 +85,15 @@ impl CommandHandler for Command {
             Self::Rand { target } => {
                 match target {
                     RandTarget::Artist => {
-                        let resp: Option<Artist> = client.rand_artist(ctx).await?;
+                        let resp: Option<ArtistBrief> = client.rand_artist(ctx).await?;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
                     RandTarget::Album => {
-                        let resp: Option<Album> = client.rand_album(ctx).await?;
+                        let resp: Option<AlbumBrief> = client.rand_album(ctx).await?;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
                     RandTarget::Song => {
-                        let resp: Option<Song> = client.rand_song(ctx).await?;
+                        let resp: Option<SongBrief> = client.rand_song(ctx).await?;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
                 }
