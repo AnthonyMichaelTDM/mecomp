@@ -503,10 +503,7 @@ pub async fn health<C: Connection>(db: &Surreal<C>) -> Result<LibraryHealth, Err
         artists: count_artists(db).await?,
         albums: count_albums(db).await?,
         songs: count_songs(db).await?,
-        #[cfg(feature = "analysis")]
         unanalyzed_songs: Some(count_unanalyzed_songs(db).await?),
-        #[cfg(not(feature = "analysis"))]
-        unanalyzed_songs: None,
         playlists: count_playlists(db).await?,
         collections: count_collections(db).await?,
         dynamic_playlists: count_dynamic_playlists(db).await?,
@@ -940,10 +937,7 @@ mod tests {
         assert_eq!(health.artists, 0);
         assert_eq!(health.albums, 0);
         assert_eq!(health.songs, 0);
-        #[cfg(feature = "analysis")]
         assert_eq!(health.unanalyzed_songs, Some(0));
-        #[cfg(not(feature = "analysis"))]
-        assert_eq!(health.unanalyzed_songs, None);
         assert_eq!(health.playlists, 0);
         assert_eq!(health.collections, 0);
         assert_eq!(health.orphaned_artists, 0);

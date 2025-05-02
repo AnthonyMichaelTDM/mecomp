@@ -16,7 +16,6 @@ use surrealdb::{Connection, Surreal};
 
 pub mod backup;
 pub mod library;
-#[cfg(feature = "analysis")]
 pub mod radio;
 
 /// Get the songs associated with every thing in the list.
