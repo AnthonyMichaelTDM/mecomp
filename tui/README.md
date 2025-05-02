@@ -4,6 +4,12 @@ This is the TUI client for MECOMP. It is a terminal-based user interface that al
 
 ![screenshot](../assets/tui-screenshot.jpg)
 
+## Feature Flags
+
+- `autostart-daemon`: when enabled, if the TUI is unable to connect to the daemon on startup it will spawn a daemon in a separate process that it will kill on shutdown
+
+by default, the `autostart-daemon` feature flag is enabled
+
 ## Layout
 
 The TUI is divided into 2 main sections: the main view and the control panel.
@@ -26,6 +32,8 @@ So all in all, there are 4 main components of the TUI:
 - Control panel
 
 ## State Stores
+
+> TODO: update
 
 The TUI uses a few state stores to manage the state of the application, some are updated at regular intervals, some are updated in response to user input, and some are updated by both.
 
