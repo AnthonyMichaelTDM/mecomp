@@ -156,8 +156,8 @@ mod minimal_reproduction {
     struct User {
         id: RecordId,
         name: String,
-        age: i32,
-        favorite_numbers: [i32; 7],
+        age: usize,
+        favorite_numbers: [usize; 7],
     }
 
     static SCHEMA_SQL: &str = r"
@@ -175,6 +175,7 @@ mod minimal_reproduction {
     DEFINE INDEX users_age_normal_index ON users FIELDS age;
     DEFINE INDEX users_favorite_numbers_vector_index ON users FIELDS favorite_numbers MTREE DIMENSION 7;
     ";
+    const NUMBER_OF_USERS: usize = 100;
 
     #[tokio::test]
     async fn minimal_reproduction() {
@@ -229,15 +230,14 @@ mod minimal_reproduction {
 
         assert_eq!(result, Some(john.clone()));
 
-        const NUMBER_OF_USERS: usize = 100;
         // create like 100 more users
         for i in 2..NUMBER_OF_USERS {
             let user_id = RecordId::from(("users", i.to_string()));
             let user = User {
                 id: user_id.clone(),
-                name: format!("User {}", i),
-                age: i as i32,
-                favorite_numbers: [i as i32; 7],
+                name: format!("User {i}"),
+                age: i,
+                favorite_numbers: [i; 7],
             };
             let _: Option<User> = db.create(user_id.clone()).content(user).await.unwrap();
         }

@@ -31,7 +31,7 @@ fn bench_decoder_steps_symphonia_source(c: &mut Criterion) {
             |b, path| {
                 b.iter_with_setup(
                     || {
-                        let file = Box::new(File::open(&path).unwrap());
+                        let file = Box::new(File::open(path).unwrap());
                         MediaSourceStream::new(file, MediaSourceStreamOptions::default())
                     },
                     |mss| {
@@ -160,7 +160,7 @@ fn bench_decoder_end2end(c: &mut Criterion) {
                 b.iter_with_setup(
                     || Decoder::new().unwrap(),
                     |decoder| {
-                        decoder.decode(black_box(&path)).unwrap();
+                        decoder.decode(black_box(path)).unwrap();
                     },
                 );
             },

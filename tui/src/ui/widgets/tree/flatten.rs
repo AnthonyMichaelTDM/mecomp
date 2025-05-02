@@ -102,7 +102,7 @@ mod tests {
         let result = flatten(open, &items, &[]);
         let actual = result
             .into_iter()
-            .map(|flattened| flattened.identifier.into_iter().last().unwrap())
+            .map(|flattened| flattened.identifier.into_iter().next_back().unwrap())
             .collect::<Vec<_>>();
         assert_eq!(actual, expected);
     }

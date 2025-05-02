@@ -649,7 +649,7 @@ mod tests {
             // the artists are linked to the song
             if let Ok(song_artists) = Song::read_artist(&db, song.id.clone()).await {
                 for artist in artists {
-                    assert!(song_artists.contains(&artist.into()));
+                    assert!(song_artists.contains(&artist));
                 }
             } else {
                 panic!("Error reading song artists");
@@ -668,7 +668,7 @@ mod tests {
             // the song is linked to the album
             assert_eq!(
                 Song::read_album(&db, song.id.clone()).await.unwrap(),
-                Some(album.clone().into())
+                Some(album.clone())
             );
             // the album is linked to the song
             assert!(

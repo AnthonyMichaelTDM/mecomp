@@ -1126,7 +1126,7 @@ mod tests {
             .unwrap()
             .to_vec();
         assert_eq!(songs.len(), 4);
-        let first_song: SongBrief = songs[0].clone().into();
+        let first_song: SongBrief = songs[0].clone();
 
         // Returns the playback status. //
         // playback is stopped
@@ -1213,7 +1213,7 @@ mod tests {
             mpris.state.write().await.repeat_mode = RepeatMode::One;
         } else {
             panic!("Expected a RepeatModeChanged event, but got something else");
-        };
+        }
         assert_eq!(mpris.loop_status().await.unwrap(), LoopStatus::Track);
 
         // set loop status to playlist
@@ -1222,7 +1222,7 @@ mod tests {
             mpris.state.write().await.repeat_mode = RepeatMode::All;
         } else {
             panic!("Expected a RepeatModeChanged event, but got something else");
-        };
+        }
         assert_eq!(mpris.loop_status().await.unwrap(), LoopStatus::Playlist);
 
         // set loop status to none
@@ -1231,7 +1231,7 @@ mod tests {
             mpris.state.write().await.repeat_mode = RepeatMode::None;
         } else {
             panic!("Expected a RepeatModeChanged event, but got something else");
-        };
+        }
         assert_eq!(mpris.loop_status().await.unwrap(), LoopStatus::None);
     }
 

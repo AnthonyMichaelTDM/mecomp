@@ -52,18 +52,16 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
         b.iter_with_setup(
             || samples.clone(),
             |source| {
-                black_box({
-                    let mut mono_sample_array = Vec::with_capacity(
-                        (total_duration.as_secs() as usize + 1) * sample_rate as usize,
-                    );
-                    let mut iter = source.into_iter();
-                    while let Some(left) = iter.next() {
-                        let right = iter.next().unwrap_or_default();
-                        let sum = left + right;
-                        let avg = sum * SQRT_2 / 2.0;
-                        mono_sample_array.push(avg);
-                    }
-                })
+                let mut mono_sample_array = Vec::with_capacity(
+                    (total_duration.as_secs() as usize + 1) * sample_rate as usize,
+                );
+                let mut iter = source.into_iter();
+                while let Some(left) = iter.next() {
+                    let right = iter.next().unwrap_or_default();
+                    let sum = left + right;
+                    let avg = sum * SQRT_2 / 2.0;
+                    mono_sample_array.push(avg);
+                }
             },
         );
     });
@@ -92,7 +90,7 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
                     .map(|chunk| (chunk[0] + chunk[1]) * SQRT_2 / 2.)
                     .collect(),
             );
-        })
+        });
     });
 
     group.bench_function("side-by-side", |b| {
@@ -104,7 +102,7 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
                 );
                 let mut iter = source.into_iter();
                 while let (Some(left), right) = (iter.next(), iter.next().unwrap_or_default()) {
-                    mono_sample_array.push(black_box((left + right) * SQRT_2 / 2.))
+                    mono_sample_array.push(black_box((left + right) * SQRT_2 / 2.));
                 }
             },
         );
@@ -114,7 +112,7 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
         b.iter_with_setup(
             || samples.clone(),
             |source| {
-                black_box({
+                {
                     let mut mono_sample_array = Vec::with_capacity(
                         (total_duration.as_secs() as usize + 1) * sample_rate as usize,
                     );
@@ -123,7 +121,8 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
                         let sum = iter.by_ref().take(num_channels).sum::<f32>();
                         mono_sample_array.push(sum / (num_channels as f32));
                     }
-                })
+                };
+                black_box(());
             },
         );
     });

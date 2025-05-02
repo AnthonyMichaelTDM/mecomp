@@ -282,8 +282,7 @@ mod tests {
         assert!(f64::EPSILON > (-1. - value).abs(), "{value} !~= -1");
 
         let one_chunk = [-1., 1.];
-        let chunks = std::iter::repeat(one_chunk.iter())
-            .take(512)
+        let chunks = std::iter::repeat_n(one_chunk.iter(), 512)
             .flatten()
             .copied()
             .collect::<Vec<f32>>();

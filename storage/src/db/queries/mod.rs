@@ -52,7 +52,7 @@ pub fn validate_query(query: impl IntoQuery, expected: &str) {
 
     let compiled_expected = surrealdb::syn::parse(expected).unwrap();
     assert!(
-        compiled_expected.0.len() > 0,
+        !compiled_expected.0.is_empty(),
         "Expected query compiled to an empty list of statements: \"{expected}\""
     );
     assert_eq!(compiled_query, compiled_expected);

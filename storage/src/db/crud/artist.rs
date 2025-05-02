@@ -434,7 +434,6 @@ mod tests {
 
         let changes = ArtistChangeSet {
             name: Some("New Name".to_string()),
-            ..Default::default()
         };
 
         let updated = Artist::update(&db, artist.id.clone(), changes).await?;
@@ -586,7 +585,7 @@ mod tests {
         for i in 0..album.song_count {
             let song = Song {
                 id: Song::generate_id(),
-                title: format!("Test Song {}", i),
+                title: format!("Test Song {i}"),
                 artist: OneOrMany::One(artist.name.clone()),
                 album: album.title.clone(),
                 runtime: Duration::from_secs(2),
@@ -596,7 +595,7 @@ mod tests {
                 album_artist: OneOrMany::One(artist.name.clone()),
                 release_year: None,
                 extension: "mp3".into(),
-                path: PathBuf::from(format!("song{}.mp3", i)),
+                path: PathBuf::from(format!("song{i}.mp3")),
             };
             let _ = Song::create(&db, song.clone())
                 .await?

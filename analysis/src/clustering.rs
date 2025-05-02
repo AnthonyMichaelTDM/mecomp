@@ -648,7 +648,7 @@ mod tests {
         let result = calc_within_dispersion(labels.view(), 2, pairwise_distances.view());
 
         // `W_k = \sum_{r=1}^{k} \frac{D_r}{2*n_r}` = 1/4 * 1.0 + 1/4 * 2.0 = 0.25 + 0.5 = 0.75
-        assert!(f64::EPSILON > (result - 0.75).abs(), "{} != 0.75", result);
+        assert!(f64::EPSILON > (result - 0.75).abs(), "{result} != 0.75");
     }
 
     #[rstest]

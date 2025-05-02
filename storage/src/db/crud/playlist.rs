@@ -264,7 +264,6 @@ mod tests {
         Playlist::create(&db, playlist.clone()).await?;
         let changes = PlaylistChangeSet {
             name: Some("Updated Name".into()),
-            ..Default::default()
         };
 
         let updated = Playlist::update(&db, playlist.id.clone(), changes).await?;

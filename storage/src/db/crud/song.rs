@@ -429,7 +429,7 @@ mod test {
         let songs = Song::read_all(&db).await?;
         assert!(!songs.is_empty());
         for song in &expected {
-            assert!(songs.contains(&song), "missing {song:?}");
+            assert!(songs.contains(song), "missing {song:?}");
         }
         assert_eq!(songs.len(), expected.len());
 

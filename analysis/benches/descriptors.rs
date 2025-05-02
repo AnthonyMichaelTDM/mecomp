@@ -42,13 +42,10 @@ fn bench_descriptors(c: &mut Criterion) {
     });
 
     group.bench_with_input("timbral.rs: ZeroCrossingRateDesc", &signal, |b, signal| {
-        b.iter_with_setup(
-            || ZeroCrossingRateDesc::default(),
-            |mut zcr_desc| {
-                zcr_desc.do_(black_box(signal));
-                black_box(zcr_desc.get_value());
-            },
-        );
+        b.iter_with_setup(ZeroCrossingRateDesc::default, |mut zcr_desc| {
+            zcr_desc.do_(black_box(signal));
+            black_box(zcr_desc.get_value());
+        });
     });
 
     group.bench_with_input("timbral.rs: SpectralDesc", &signal, |b, signal| {
@@ -71,18 +68,15 @@ fn bench_descriptors(c: &mut Criterion) {
     });
 
     group.bench_with_input("misc.rs: LoudnessDesc", &signal, |b, signal| {
-        b.iter_with_setup(
-            || LoudnessDesc::default(),
-            |mut loudness_desc| {
-                loudness_desc.do_(black_box(signal));
-                let windows = signal.chunks(LoudnessDesc::WINDOW_SIZE);
-                for window in windows {
-                    loudness_desc.do_(black_box(window));
-                }
+        b.iter_with_setup(LoudnessDesc::default, |mut loudness_desc| {
+            loudness_desc.do_(black_box(signal));
+            let windows = signal.chunks(LoudnessDesc::WINDOW_SIZE);
+            for window in windows {
+                loudness_desc.do_(black_box(window));
+            }
 
-                black_box(loudness_desc.get_value());
-            },
-        );
+            black_box(loudness_desc.get_value());
+        });
     });
 
     group.bench_with_input("chroma.rs: ChromaDesc", &signal, |b, signal| {
