@@ -3289,7 +3289,6 @@ dependencies = [
  "notify-debouncer-full",
  "one-or-many",
  "pretty_assertions",
- "rand 0.8.5",
  "rstest",
  "surrealdb",
  "tap",

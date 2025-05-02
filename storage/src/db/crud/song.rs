@@ -10,9 +10,12 @@ use tracing::instrument;
 use crate::db::schemas::analysis::Analysis;
 use crate::{
     db::{
-        queries::song::{
-            read_album, read_album_artist, read_artist, read_collections, read_playlists,
-            read_song_by_path,
+        queries::{
+            generic::read_rand,
+            song::{
+                read_album, read_album_artist, read_artist, read_collections, read_playlists,
+                read_song_by_path,
+            },
         },
         schemas::{
             album::Album,
@@ -76,6 +79,14 @@ impl Song {
             .bind(("path", path))
             .await?
             .take(0)?)
+    }
+
+    #[instrument]
+    pub async fn read_rand<C: Connection>(
+        db: &Surreal<C>,
+        limit: usize,
+    ) -> StorageResult<Vec<Self>> {
+        Ok(db.query(read_rand(TABLE_NAME, limit)).await?.take(0)?)
     }
 
     #[instrument]
@@ -431,6 +442,33 @@ mod test {
             .await?
             .ok_or_else(|| anyhow!("Song not found"))?;
         assert_eq!(read, song);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_read_rand() -> Result<()> {
+        let db = init_test_database().await?;
+        let song1 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let song2 =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+
+        // n = # records
+        let read = Song::read_rand(&db, 2).await?;
+        assert_eq!(read.len(), 2);
+        assert!(read.contains(&song1) && read.contains(&song2));
+        // n > # records
+        let read = Song::read_rand(&db, 3).await?;
+        assert_eq!(read.len(), 2);
+        assert!(read.contains(&song1) && read.contains(&song2));
+        // n < # records
+        let read = Song::read_rand(&db, 1).await?;
+        assert_eq!(read.len(), 1);
+        assert!(read.contains(&song1) || read.contains(&song2));
+        // n == 0
+        let read = Song::read_rand(&db, 0).await?;
+        assert_eq!(read.len(), 0);
+
         Ok(())
     }
 

@@ -3,7 +3,6 @@ use std::{fs::File, ops::Range, path::PathBuf, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use ::tarpc::context::Context;
 use log::{debug, error, info, warn};
-use rand::seq::SliceRandom;
 use surrealdb::{Surreal, engine::local::Db};
 use tap::TapFallible;
 use tokio::sync::{Mutex, RwLock};
@@ -605,31 +604,31 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn rand_artist(self, context: Context) -> Option<Artist> {
         info!("Getting random artist");
-        Artist::read_all(&self.db)
+        Artist::read_rand(&self.db, 1)
             .await
             .tap_err(|e| warn!("Error in rand_artist: {e}"))
             .ok()
-            .and_then(|artists| artists.choose(&mut rand::thread_rng()).cloned())
+            .and_then(|results| results.first().cloned())
     }
     /// returns a random album.
     #[instrument]
     async fn rand_album(self, context: Context) -> Option<Album> {
         info!("Getting random album");
-        Album::read_all(&self.db)
+        Album::read_rand(&self.db, 1)
             .await
             .tap_err(|e| warn!("Error in rand_album: {e}"))
             .ok()
-            .and_then(|albums| albums.choose(&mut rand::thread_rng()).cloned())
+            .and_then(|results| results.first().cloned())
     }
     /// returns a random song.
     #[instrument]
     async fn rand_song(self, context: Context) -> Option<Song> {
         info!("Getting random song");
-        Song::read_all(&self.db)
+        Song::read_rand(&self.db, 1)
             .await
             .tap_err(|e| warn!("Error in rand_song: {e}"))
             .ok()
-            .and_then(|songs| songs.choose(&mut rand::thread_rng()).cloned())
+            .and_then(|results| results.first().cloned())
     }
 
     /// returns a list of artists, albums, and songs matching the given search query.
