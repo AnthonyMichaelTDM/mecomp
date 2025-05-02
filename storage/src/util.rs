@@ -145,11 +145,11 @@ mod tests {
         #[case] exceptions: &[&str],
         #[case] expected: Vec<&str>,
     ) {
-        let separators = separators.iter().map(|s| s.to_string()).collect();
-        let exceptions = exceptions.iter().map(|s| s.to_string()).collect();
+        let separators = separators.iter().map(|s| (*s).to_string()).collect();
+        let exceptions = exceptions.iter().map(|s| (*s).to_string()).collect();
         let expected = expected
             .into_iter()
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
             .collect::<OneOrMany<String>>();
         let artists = split_artist_name(artist, &OneOrMany::Many(separators), &exceptions);
         assert_eq!(artists, expected);

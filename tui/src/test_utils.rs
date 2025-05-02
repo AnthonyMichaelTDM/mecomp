@@ -138,23 +138,23 @@ pub fn state_with_everything() -> AppState {
             }),
             album: Some(AlbumViewProps {
                 id: album_id,
-                album: album.clone(),
+                album,
                 artists: OneOrMany::One(artist_brief.clone()),
                 songs: vec![song_brief.clone()].into_boxed_slice(),
             }),
             artist: Some(ArtistViewProps {
                 id: artist_id,
-                artist: artist.clone(),
+                artist,
                 albums: vec![album_brief.clone()].into_boxed_slice(),
                 songs: vec![song_brief.clone()].into_boxed_slice(),
             }),
             song: Some(SongViewProps {
                 id: song_id,
-                song: song.clone(),
+                song,
                 artists: OneOrMany::One(artist_brief.clone()),
                 album: album_brief.clone(),
-                playlists: vec![playlist_brief.clone()].into_boxed_slice(),
-                collections: vec![collection_brief.clone()].into_boxed_slice(),
+                playlists: vec![playlist_brief].into_boxed_slice(),
+                collections: vec![collection_brief].into_boxed_slice(),
             }),
             collection: Some(CollectionViewProps {
                 id: collection_id,

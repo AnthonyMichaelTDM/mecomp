@@ -634,7 +634,7 @@ mod tests {
 
         let read = Album::read_artist(&db, album.id.clone()).await?;
         assert_eq!(read.len(), 1);
-        assert_eq!(read.get(0), Some(&artist.into()));
+        assert_eq!(read.get(0), Some(&artist));
         Ok(())
     }
 }

@@ -221,7 +221,6 @@ mod tests {
         Collection::create(&db, collection.clone()).await?;
         let changes = CollectionChangeSet {
             name: Some("Updated Name".into()),
-            ..Default::default()
         };
 
         let updated = Collection::update(&db, collection.id.clone(), changes).await?;

@@ -131,8 +131,7 @@ mod tests {
         // This gives one beat every second, so 60 BPM
         let mut one_chunk = vec![0.; 22000];
         one_chunk.append(&mut vec![1.; 100]);
-        let chunks = std::iter::repeat(one_chunk.iter())
-            .take(100)
+        let chunks = std::iter::repeat_n(one_chunk.iter(), 100)
             .flatten()
             .copied()
             .collect::<Vec<f32>>();
@@ -161,8 +160,7 @@ mod tests {
         // apparently the higher bound is 206 BPM, but here I found ~189 BPM.
         let mut one_chunk = vec![0.; 6989];
         one_chunk.append(&mut vec![1.; 20]);
-        let chunks = std::iter::repeat(one_chunk.iter())
-            .take(500)
+        let chunks = std::iter::repeat_n(one_chunk.iter(), 500)
             .flatten()
             .copied()
             .collect::<Vec<f32>>();

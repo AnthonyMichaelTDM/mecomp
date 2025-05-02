@@ -383,7 +383,7 @@ mod tests {
     #[ignore = "fails when asked to resample to 22050 Hz, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
     #[case::resample_stereo(Path::new("data/s32_stereo_44_1_kHz.flac"), 0xbbcb_a1cf)]
     #[ignore = "fails when asked to resample to 22050 Hz, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
-    #[case::resample_mono(Path::new("data/s32_mono_44_1_kHz.flac"), 0xa0f8b8af)]
+    #[case::resample_mono(Path::new("data/s32_mono_44_1_kHz.flac"), 0xa0f8_b8af)]
     #[case::decode_stereo(Path::new("data/s16_stereo_22_5kHz.flac"), 0x1d7b_2d6d)]
     #[case::decode_mono(Path::new("data/s16_mono_22_5kHz.flac"), 0x5e01_930b)]
     #[ignore = "fails when asked to resample to 22050 Hz, ig ffmpeg does it differently, but I'm not sure what the difference actually is"]
@@ -430,26 +430,26 @@ mod tests {
     const PATH_AND_EXPECTED_ANALYSIS: (&str, [f64; NUMBER_FEATURES]) = (
         "data/s16_mono_22_5kHz.flac",
         [
-            0.3846389,
-            -0.849141,
-            -0.75481045,
-            -0.8790748,
-            -0.63258266,
-            -0.7258959,
-            -0.775738,
-            -0.8146726,
-            0.2716726,
-            0.25779057,
-            -0.35661936,
-            -0.63578653,
-            -0.29593682,
-            0.06421304,
-            0.21852458,
-            -0.581239,
-            -0.9466835,
-            -0.9481153,
-            -0.9820945,
-            -0.95968974,
+            0.384_638_9,
+            -0.849_141_,
+            -0.754_810_45,
+            -0.879_074_8,
+            -0.632_582_66,
+            -0.725_895_9,
+            -0.775_738_,
+            -0.814_672_6,
+            0.271_672_6,
+            0.257_790_57,
+            -0.356_619_36,
+            -0.635_786_53,
+            -0.295_936_82,
+            0.064_213_04,
+            0.218_524_58,
+            -0.581_239,
+            -0.946_683_5,
+            -0.948_115_3,
+            -0.982_094_5,
+            -0.959_689_74,
         ],
     );
 

@@ -154,7 +154,7 @@ mod test {
         assert_eq!(
             data_dir
                 .components()
-                .last()
+                .next_back()
                 .unwrap()
                 .as_os_str()
                 .to_string_lossy(),
@@ -168,7 +168,7 @@ mod test {
         assert_eq!(
             config_dir
                 .components()
-                .last()
+                .next_back()
                 .unwrap()
                 .as_os_str()
                 .to_string_lossy(),

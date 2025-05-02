@@ -378,8 +378,7 @@ mod tests {
             other => vec![line_top, line_text]
                 .into_iter()
                 .chain(
-                    std::iter::repeat(line_empty)
-                        .take((other - 3).into())
+                    std::iter::repeat_n(line_empty, (other - 3).into())
                         .chain(std::iter::once(line_bottom)),
                 )
                 .collect::<Vec<_>>()
