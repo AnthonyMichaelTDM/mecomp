@@ -60,7 +60,7 @@ pub fn read_song_by_path() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_album() -> impl IntoQuery {
-    read_related_in("id", ALBUM_TO_SONG)
+    read_related_in("*", "id", ALBUM_TO_SONG)
 }
 
 /// Query to read the artist of a song
@@ -86,7 +86,7 @@ pub fn read_album() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_artist() -> impl IntoQuery {
-    read_related_in("id", ARTIST_TO_SONG)
+    read_related_in("*", "id", ARTIST_TO_SONG)
 }
 
 /// Query to read the album artist of a song
@@ -139,7 +139,7 @@ pub const fn read_album_artist() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_playlists() -> impl IntoQuery {
-    read_related_in("id", PLAYLIST_TO_SONG)
+    read_related_in("*", "id", PLAYLIST_TO_SONG)
 }
 
 /// Query to read the collections a song is in
@@ -166,7 +166,7 @@ pub fn read_playlists() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_collections() -> impl IntoQuery {
-    read_related_in("id", COLLECTION_TO_SONG)
+    read_related_in("*", "id", COLLECTION_TO_SONG)
 }
 
 #[cfg(test)]

@@ -385,12 +385,15 @@ mod tests {
     use std::sync::{Arc, mpsc::Receiver};
 
     use mecomp_core::{
-        audio::{AudioKernelSender, commands::AudioCommand},
+        audio::{
+            AudioKernelSender,
+            commands::{AudioCommand, QueueCommand},
+        },
         test_utils::init,
         udp::StateChange,
     };
 
-    use mecomp_storage::db::schemas::song::Song;
+    use mecomp_storage::db::schemas::song::SongBrief;
     use pretty_assertions::{assert_eq, assert_ne};
     use rstest::rstest;
     use tempfile::TempDir;
@@ -426,22 +429,20 @@ mod tests {
 
         // setup
         let context = Context::current();
-        let songs: Vec<Song> = mpris
+        let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
             .await
             .as_ref()
             .unwrap()
-            .library_songs_full(context)
+            .library_songs_brief(context)
             .await
             .unwrap()
             .unwrap()
             .to_vec();
         assert_eq!(songs.len(), 4);
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(
-            mecomp_core::audio::commands::QueueCommand::AddToQueue(Box::new(songs.into())),
-        ));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
 
         let Ok(StateChange::TrackChanged(Some(first_song))) = event_rx.recv() else {
             panic!("Expected a TrackChanged event, but got something else");
@@ -482,22 +483,20 @@ mod tests {
 
         // setup
         let context = Context::current();
-        let songs: Vec<Song> = mpris
+        let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
             .await
             .as_ref()
             .unwrap()
-            .library_songs_full(context)
+            .library_songs_brief(context)
             .await
             .unwrap()
             .unwrap()
             .to_vec();
         assert_eq!(songs.len(), 4);
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(
-            mecomp_core::audio::commands::QueueCommand::AddToQueue(Box::new(songs.into())),
-        ));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
         let Ok(StateChange::TrackChanged(Some(first_song))) = event_rx.recv() else {
             panic!("Expected a TrackChanged event, but got something else");
         };
@@ -569,24 +568,22 @@ mod tests {
 
         // setup
         let context = Context::current();
-        let songs: Vec<Song> = mpris
+        let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
             .await
             .as_ref()
             .unwrap()
-            .library_songs_full(context)
+            .library_songs_brief(context)
             .await
             .unwrap()
             .unwrap()
             .to_vec();
         assert_eq!(songs.len(), 4);
         // send one song to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(
-            mecomp_core::audio::commands::QueueCommand::AddToQueue(Box::new(
-                songs[0].clone().into(),
-            )),
-        ));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            songs[0].clone().into(),
+        )));
         let _ = event_rx.recv();
         let _ = event_rx.recv();
 
@@ -629,13 +626,13 @@ mod tests {
 
         // setup
         let context = Context::current();
-        let songs: Vec<Song> = mpris
+        let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
             .await
             .as_ref()
             .unwrap()
-            .library_songs_full(context)
+            .library_songs_brief(context)
             .await
             .unwrap()
             .unwrap()
@@ -645,16 +642,12 @@ mod tests {
         let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(
-            mecomp_core::audio::commands::QueueCommand::AddToQueue(Box::new(songs.into())),
-        ));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
         let _ = event_rx.recv();
         let _ = event_rx.recv();
 
         // skip to the last song in the queue
-        audio_kernel.send(AudioCommand::Queue(
-            mecomp_core::audio::commands::QueueCommand::SetPosition(3),
-        ));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::SetPosition(3)));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::TrackChanged(Some(fourth_song.clone())))
@@ -688,13 +681,13 @@ mod tests {
 
         // setup
         let context = Context::current();
-        let songs: Vec<Song> = mpris
+        let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
             .await
             .as_ref()
             .unwrap()
-            .library_songs_full(context)
+            .library_songs_brief(context)
             .await
             .unwrap()
             .unwrap()
@@ -705,16 +698,12 @@ mod tests {
         let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(
-            mecomp_core::audio::commands::QueueCommand::AddToQueue(Box::new(songs.into())),
-        ));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
         let _ = event_rx.recv();
         let _ = event_rx.recv();
 
         // skip to the last song in the queue
-        audio_kernel.send(AudioCommand::Queue(
-            mecomp_core::audio::commands::QueueCommand::SetPosition(3),
-        ));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::SetPosition(3)));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::TrackChanged(Some(fourth_song.clone())))
@@ -780,13 +769,13 @@ mod tests {
 
         // setup
         let context = Context::current();
-        let songs: Vec<Song> = mpris
+        let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
             .await
             .as_ref()
             .unwrap()
-            .library_songs_full(context)
+            .library_songs_brief(context)
             .await
             .unwrap()
             .unwrap()
@@ -794,11 +783,9 @@ mod tests {
         assert_eq!(songs.len(), 4);
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(
-            mecomp_core::audio::commands::QueueCommand::AddToQueue(Box::new(
-                songs[0].clone().into(),
-            )),
-        ));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            songs[0].clone().into(),
+        )));
         let _ = event_rx.recv();
         let _ = event_rx.recv();
 
@@ -878,13 +865,13 @@ mod tests {
 
         // setup
         let context = Context::current();
-        let songs: Vec<Song> = mpris
+        let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
             .await
             .as_ref()
             .unwrap()
-            .library_songs_full(context)
+            .library_songs_brief(context)
             .await
             .unwrap()
             .unwrap()
@@ -901,11 +888,9 @@ mod tests {
         );
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(
-            mecomp_core::audio::commands::QueueCommand::AddToQueue(Box::new(
-                first_song.clone().into(),
-            )),
-        ));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            first_song.clone().into(),
+        )));
 
         assert_eq!(
             event_rx.recv(),
@@ -1043,13 +1028,13 @@ mod tests {
 
         // setup
         let context = Context::current();
-        let songs: Vec<Song> = mpris
+        let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
             .await
             .as_ref()
             .unwrap()
-            .library_songs_full(context)
+            .library_songs_brief(context)
             .await
             .unwrap()
             .unwrap()
@@ -1129,19 +1114,19 @@ mod tests {
 
         // setup
         let context = Context::current();
-        let songs: Vec<Song> = mpris
+        let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
             .await
             .as_ref()
             .unwrap()
-            .library_songs_full(context)
+            .library_songs_brief(context)
             .await
             .unwrap()
             .unwrap()
             .to_vec();
         assert_eq!(songs.len(), 4);
-        let first_song = songs[0].clone();
+        let first_song: SongBrief = songs[0].clone().into();
 
         // Returns the playback status. //
         // playback is stopped
@@ -1151,11 +1136,9 @@ mod tests {
         );
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(
-            mecomp_core::audio::commands::QueueCommand::AddToQueue(Box::new(
-                first_song.clone().into(),
-            )),
-        ));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            first_song.clone().into(),
+        )));
 
         // pause playback
         mpris.pause().await.unwrap();
@@ -1367,13 +1350,13 @@ mod tests {
 
         // setup
         let context = Context::current();
-        let songs: Vec<Song> = mpris
+        let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
             .await
             .as_ref()
             .unwrap()
-            .library_songs_full(context)
+            .library_songs_brief(context)
             .await
             .unwrap()
             .unwrap()
@@ -1389,11 +1372,9 @@ mod tests {
         );
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(
-            mecomp_core::audio::commands::QueueCommand::AddToQueue(Box::new(
-                first_song.clone().into(),
-            )),
-        ));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            first_song.clone().into(),
+        )));
 
         assert_eq!(
             event_rx.recv(),
@@ -1500,13 +1481,13 @@ mod tests {
 
         // setup
         let context = Context::current();
-        let songs: Vec<Song> = mpris
+        let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
             .await
             .as_ref()
             .unwrap()
-            .library_songs_full(context)
+            .library_songs_brief(context)
             .await
             .unwrap()
             .unwrap()
@@ -1519,11 +1500,9 @@ mod tests {
         assert_eq!(mpris.position().await.unwrap(), Time::from_micros(0));
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(
-            mecomp_core::audio::commands::QueueCommand::AddToQueue(Box::new(
-                first_song.clone().into(),
-            )),
-        ));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            first_song.clone().into(),
+        )));
         audio_kernel.send(AudioCommand::Pause);
         let _ = event_rx.recv().unwrap();
         let _ = event_rx.recv().unwrap();

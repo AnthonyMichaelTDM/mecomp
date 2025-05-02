@@ -54,7 +54,7 @@ pub fn add_songs() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_songs() -> impl IntoQuery {
-    read_related_out("id", COLLECTION_TO_SONG)
+    read_related_out("*", "id", COLLECTION_TO_SONG)
 }
 
 /// Query to remove songs from a collection

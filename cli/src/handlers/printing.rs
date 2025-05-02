@@ -5,12 +5,12 @@ use std::fmt::Write;
 use mecomp_core::state::StateAudio;
 use mecomp_storage::db::schemas::{
     RecordId,
-    album::Album,
-    artist::Artist,
-    collection::CollectionBrief,
+    album::AlbumBrief,
+    artist::ArtistBrief,
+    collection::Collection,
     dynamic::{DynamicPlaylist, query::Compile},
-    playlist::PlaylistBrief,
-    song::Song,
+    playlist::Playlist,
+    song::SongBrief,
 };
 
 pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
@@ -69,7 +69,7 @@ pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
     Ok(output)
 }
 
-pub fn indexed_song_list(prefix: &str, songs: &[Song]) -> Result<String, std::fmt::Error> {
+pub fn indexed_song_list(prefix: &str, songs: &[SongBrief]) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
@@ -81,7 +81,11 @@ pub fn indexed_song_list(prefix: &str, songs: &[Song]) -> Result<String, std::fm
     Ok(output)
 }
 
-pub fn song_list(prefix: &str, songs: &[Song], quiet: bool) -> Result<String, std::fmt::Error> {
+pub fn song_list(
+    prefix: &str,
+    songs: &[SongBrief],
+    quiet: bool,
+) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
@@ -103,7 +107,11 @@ pub fn song_list(prefix: &str, songs: &[Song], quiet: bool) -> Result<String, st
     Ok(output)
 }
 
-pub fn album_list(prefix: &str, albums: &[Album], quiet: bool) -> Result<String, std::fmt::Error> {
+pub fn album_list(
+    prefix: &str,
+    albums: &[AlbumBrief],
+    quiet: bool,
+) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
@@ -116,8 +124,8 @@ pub fn album_list(prefix: &str, albums: &[Album], quiet: bool) -> Result<String,
         for album in albums {
             writeln!(
                 output,
-                "\t{}: \"{}\" (by: {:?}, {} songs)",
-                album.id, album.title, album.artist, album.song_count
+                "\t{}: \"{}\" (by: {:?})",
+                album.id, album.title, album.artist
             )?;
         }
     }
@@ -127,7 +135,7 @@ pub fn album_list(prefix: &str, albums: &[Album], quiet: bool) -> Result<String,
 
 pub fn artist_list(
     prefix: &str,
-    artists: &[Artist],
+    artists: &[ArtistBrief],
     quiet: bool,
 ) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
@@ -140,21 +148,14 @@ pub fn artist_list(
         }
     } else {
         for artist in artists {
-            writeln!(
-                output,
-                "\t{}: \"{}\" ({} albums, {} songs)",
-                artist.id, artist.name, artist.album_count, artist.song_count
-            )?;
+            writeln!(output, "\t{}: \"{}\"", artist.id, artist.name)?;
         }
     }
 
     Ok(output)
 }
 
-pub fn playlist_brief_list(
-    prefix: &str,
-    playlists: &[PlaylistBrief],
-) -> Result<String, std::fmt::Error> {
+pub fn playlist_list(prefix: &str, playlists: &[Playlist]) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
@@ -163,7 +164,7 @@ pub fn playlist_brief_list(
         writeln!(
             output,
             "\t{}: \"{}\" ({} songs, {:?})",
-            playlist.id, playlist.name, playlist.songs, playlist.runtime
+            playlist.id, playlist.name, playlist.song_count, playlist.runtime
         )?;
     }
 
@@ -193,7 +194,7 @@ pub fn dynamic_playlist_list(
 
 pub fn collection_list(
     prefix: &str,
-    collections: &[CollectionBrief],
+    collections: &[Collection],
 ) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
@@ -203,7 +204,7 @@ pub fn collection_list(
         writeln!(
             output,
             "\t{}: \"{}\" ({} songs, {:?})",
-            collection.id, collection.name, collection.songs, collection.runtime
+            collection.id, collection.name, collection.song_count, collection.runtime
         )?;
     }
 

@@ -1,7 +1,12 @@
-use mecomp_core::{rpc::SearchResult, state::library::LibraryFull};
+use mecomp_core::{rpc::SearchResult, state::library::LibraryBrief};
 use mecomp_storage::db::schemas::{
-    Id, RecordId, album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
-    playlist::Playlist, song::Song,
+    Id, RecordId,
+    album::{Album, AlbumBrief},
+    artist::{Artist, ArtistBrief},
+    collection::{Collection, CollectionBrief},
+    dynamic::DynamicPlaylist,
+    playlist::{Playlist, PlaylistBrief},
+    song::{Song, SongBrief},
 };
 use one_or_many::OneOrMany;
 use ratatui::{Terminal, backend::TestBackend, layout::Rect};
@@ -75,6 +80,7 @@ pub fn state_with_everything() -> AppState {
         extension: "mp3".into(),
         path: "test.mp3".into(),
     };
+    let song_brief: SongBrief = song.clone().into();
     let artist = Artist {
         id: artist_id.clone().into(),
         name: song.artist[0].clone(),
@@ -82,6 +88,7 @@ pub fn state_with_everything() -> AppState {
         album_count: 1,
         song_count: 1,
     };
+    let artist_brief: ArtistBrief = artist.clone().into();
     let album = Album {
         id: album_id.clone().into(),
         title: song.album.clone(),
@@ -92,18 +99,21 @@ pub fn state_with_everything() -> AppState {
         discs: 1,
         genre: song.genre.clone(),
     };
+    let album_brief: AlbumBrief = album.clone().into();
     let collection = Collection {
         id: collection_id.clone().into(),
         name: "Collection 0".into(),
         runtime: song.runtime,
         song_count: 1,
     };
+    let collection_brief: CollectionBrief = collection.clone().into();
     let playlist = Playlist {
         id: playlist_id.clone().into(),
         name: "Test Playlist".into(),
         runtime: song.runtime,
         song_count: 1,
     };
+    let playlist_brief: PlaylistBrief = playlist.clone().into();
     let dynamic = DynamicPlaylist {
         id: dynamic_id.clone().into(),
         name: "Test Dynamic".into(),
@@ -112,12 +122,12 @@ pub fn state_with_everything() -> AppState {
 
     AppState {
         active_component: ActiveComponent::ContentView,
-        library: LibraryFull {
-            artists: vec![artist.clone()].into_boxed_slice(),
-            albums: vec![album.clone()].into_boxed_slice(),
-            songs: vec![song.clone()].into_boxed_slice(),
-            playlists: vec![playlist.clone()].into_boxed_slice(),
-            collections: vec![collection.clone()].into_boxed_slice(),
+        library: LibraryBrief {
+            artists: vec![artist_brief.clone()].into_boxed_slice(),
+            albums: vec![album_brief.clone()].into_boxed_slice(),
+            songs: vec![song_brief.clone()].into_boxed_slice(),
+            playlists: vec![playlist_brief.clone()].into_boxed_slice(),
+            collections: vec![collection_brief.clone()].into_boxed_slice(),
             dynamic_playlists: vec![dynamic.clone()].into_boxed_slice(),
         },
         additional_view_data: ViewData {
@@ -129,47 +139,47 @@ pub fn state_with_everything() -> AppState {
             album: Some(AlbumViewProps {
                 id: album_id,
                 album: album.clone(),
-                artists: OneOrMany::One(artist.clone()),
-                songs: vec![song.clone()].into_boxed_slice(),
+                artists: OneOrMany::One(artist_brief.clone()),
+                songs: vec![song_brief.clone()].into_boxed_slice(),
             }),
             artist: Some(ArtistViewProps {
                 id: artist_id,
                 artist: artist.clone(),
-                albums: vec![album.clone()].into_boxed_slice(),
-                songs: vec![song.clone()].into_boxed_slice(),
+                albums: vec![album_brief.clone()].into_boxed_slice(),
+                songs: vec![song_brief.clone()].into_boxed_slice(),
             }),
             song: Some(SongViewProps {
                 id: song_id,
                 song: song.clone(),
-                artists: OneOrMany::One(artist.clone()),
-                album: album.clone(),
-                playlists: vec![playlist.clone()].into_boxed_slice(),
-                collections: vec![collection.clone()].into_boxed_slice(),
+                artists: OneOrMany::One(artist_brief.clone()),
+                album: album_brief.clone(),
+                playlists: vec![playlist_brief.clone()].into_boxed_slice(),
+                collections: vec![collection_brief.clone()].into_boxed_slice(),
             }),
             collection: Some(CollectionViewProps {
                 id: collection_id,
                 collection,
-                songs: vec![song.clone()].into_boxed_slice(),
+                songs: vec![song_brief.clone()].into_boxed_slice(),
             }),
             playlist: Some(PlaylistViewProps {
                 id: playlist_id,
                 playlist,
-                songs: vec![song.clone()].into_boxed_slice(),
+                songs: vec![song_brief.clone()].into_boxed_slice(),
             }),
             dynamic_playlist: Some(DynamicPlaylistViewProps {
                 id: dynamic_id,
                 dynamic_playlist: dynamic,
-                songs: vec![song.clone()].into_boxed_slice(),
+                songs: vec![song_brief.clone()].into_boxed_slice(),
             }),
             radio: Some(RadioViewProps {
                 count: 1,
-                songs: vec![song.clone()].into_boxed_slice(),
+                songs: vec![song_brief.clone()].into_boxed_slice(),
             }),
         },
         search: SearchResult {
-            songs: vec![song].into_boxed_slice(),
-            albums: vec![album].into_boxed_slice(),
-            artists: vec![artist].into_boxed_slice(),
+            songs: vec![song_brief].into_boxed_slice(),
+            albums: vec![album_brief].into_boxed_slice(),
+            artists: vec![artist_brief].into_boxed_slice(),
         },
         ..Default::default()
     }

@@ -1,8 +1,13 @@
 pub mod dynamic;
 use mecomp_core::format_duration;
 use mecomp_storage::db::schemas::{
-    RecordId, album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
-    playlist::Playlist, song::Song,
+    RecordId,
+    album::{Album, AlbumBrief},
+    artist::{Artist, ArtistBrief},
+    collection::{Collection, CollectionBrief},
+    dynamic::DynamicPlaylist,
+    playlist::{Playlist, PlaylistBrief},
+    song::{Song, SongBrief},
 };
 use one_or_many::OneOrMany;
 use ratatui::{
@@ -46,8 +51,8 @@ pub struct ViewData {
 pub struct AlbumViewProps {
     pub id: RecordId,
     pub album: Album,
-    pub artists: OneOrMany<Artist>,
-    pub songs: Box<[Song]>,
+    pub artists: OneOrMany<ArtistBrief>,
+    pub songs: Box<[SongBrief]>,
 }
 
 impl ItemViewProps for AlbumViewProps {
@@ -123,8 +128,8 @@ impl ItemViewProps for AlbumViewProps {
 pub struct ArtistViewProps {
     pub id: RecordId,
     pub artist: Artist,
-    pub albums: Box<[Album]>,
-    pub songs: Box<[Song]>,
+    pub albums: Box<[AlbumBrief]>,
+    pub songs: Box<[SongBrief]>,
 }
 
 impl ItemViewProps for ArtistViewProps {
@@ -192,31 +197,31 @@ impl ItemViewProps for ArtistViewProps {
 pub struct CollectionViewProps {
     pub id: RecordId,
     pub collection: Collection,
-    pub songs: Box<[Song]>,
+    pub songs: Box<[SongBrief]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DynamicPlaylistViewProps {
     pub id: RecordId,
     pub dynamic_playlist: DynamicPlaylist,
-    pub songs: Box<[Song]>,
+    pub songs: Box<[SongBrief]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlaylistViewProps {
     pub id: RecordId,
     pub playlist: Playlist,
-    pub songs: Box<[Song]>,
+    pub songs: Box<[SongBrief]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SongViewProps {
     pub id: RecordId,
     pub song: Song,
-    pub artists: OneOrMany<Artist>,
-    pub album: Album,
-    pub playlists: Box<[Playlist]>,
-    pub collections: Box<[Collection]>,
+    pub artists: OneOrMany<ArtistBrief>,
+    pub album: AlbumBrief,
+    pub playlists: Box<[PlaylistBrief]>,
+    pub collections: Box<[CollectionBrief]>,
 }
 
 impl ItemViewProps for SongViewProps {
@@ -315,7 +320,7 @@ pub struct RadioViewProps {
     /// The number of similar songs to get
     pub count: u32,
     /// The songs that are similar to the things
-    pub songs: Box<[Song]>,
+    pub songs: Box<[SongBrief]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -331,8 +336,8 @@ pub struct RandomViewProps {
 pub mod checktree_utils {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     use mecomp_storage::db::schemas::{
-        RecordId, album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
-        playlist::Playlist, song::Song,
+        RecordId, album::AlbumBrief, artist::ArtistBrief, collection::CollectionBrief,
+        dynamic::DynamicPlaylist, playlist::PlaylistBrief, song::SongBrief,
     };
     use ratatui::{
         layout::Position,
@@ -516,7 +521,7 @@ pub mod checktree_utils {
     ///
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_album_tree_item(
-        albums: &[Album],
+        albums: &[AlbumBrief],
     ) -> Result<CheckTreeItem<String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             albums,
@@ -527,7 +532,7 @@ pub mod checktree_utils {
     }
 
     pub fn create_album_tree_leaf<'a>(
-        album: &Album,
+        album: &AlbumBrief,
         prefix: Option<Span<'a>>,
     ) -> CheckTreeItem<'a, String> {
         CheckTreeItem::new_leaf(
@@ -553,7 +558,7 @@ pub mod checktree_utils {
     ///
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_artist_tree_item(
-        artists: &[Artist],
+        artists: &[ArtistBrief],
     ) -> Result<CheckTreeItem<String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             artists,
@@ -564,7 +569,7 @@ pub mod checktree_utils {
     }
 
     #[must_use]
-    pub fn create_artist_tree_leaf<'a>(artist: &Artist) -> CheckTreeItem<'a, String> {
+    pub fn create_artist_tree_leaf<'a>(artist: &ArtistBrief) -> CheckTreeItem<'a, String> {
         CheckTreeItem::new_leaf(
             artist.id.to_string(),
             Line::from(vec![Span::styled(
@@ -578,7 +583,7 @@ pub mod checktree_utils {
     ///
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_collection_tree_item(
-        collections: &[Collection],
+        collections: &[CollectionBrief],
     ) -> Result<CheckTreeItem<String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             collections,
@@ -589,7 +594,9 @@ pub mod checktree_utils {
     }
 
     #[must_use]
-    pub fn create_collection_tree_leaf<'a>(collection: &Collection) -> CheckTreeItem<'a, String> {
+    pub fn create_collection_tree_leaf<'a>(
+        collection: &CollectionBrief,
+    ) -> CheckTreeItem<'a, String> {
         CheckTreeItem::new_leaf(
             collection.id.to_string(),
             Line::from(vec![Span::styled(
@@ -603,7 +610,7 @@ pub mod checktree_utils {
     ///
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_playlist_tree_item(
-        playlists: &[Playlist],
+        playlists: &[PlaylistBrief],
     ) -> Result<CheckTreeItem<String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             playlists,
@@ -614,7 +621,7 @@ pub mod checktree_utils {
     }
 
     #[must_use]
-    pub fn create_playlist_tree_leaf<'a>(playlist: &Playlist) -> CheckTreeItem<'a, String> {
+    pub fn create_playlist_tree_leaf<'a>(playlist: &PlaylistBrief) -> CheckTreeItem<'a, String> {
         CheckTreeItem::new_leaf(
             playlist.id.to_string(),
             Line::from(vec![Span::styled(
@@ -654,7 +661,9 @@ pub mod checktree_utils {
     /// # Errors
     ///
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
-    pub fn create_song_tree_item(songs: &[Song]) -> Result<CheckTreeItem<String>, std::io::Error> {
+    pub fn create_song_tree_item(
+        songs: &[SongBrief],
+    ) -> Result<CheckTreeItem<String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             songs,
             "Songs",
@@ -663,7 +672,7 @@ pub mod checktree_utils {
         )
     }
 
-    pub fn create_song_tree_leaf<'a>(song: &Song) -> CheckTreeItem<'a, String> {
+    pub fn create_song_tree_leaf<'a>(song: &SongBrief) -> CheckTreeItem<'a, String> {
         CheckTreeItem::new_leaf(
             song.id.to_string(),
             Line::from(vec![

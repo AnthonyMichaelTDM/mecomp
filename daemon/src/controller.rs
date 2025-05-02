@@ -286,12 +286,10 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
     ) -> Result<Box<[ArtistBrief]>, SerializableLibraryError> {
         info!("Creating library artists brief");
-        Ok(Artist::read_all(&self.db)
+        Ok(Artist::read_all_brief(&self.db)
             .await
             .tap_err(|e| warn!("Error in library_artists_brief: {e}"))?
-            .iter()
-            .map(std::convert::Into::into)
-            .collect())
+            .into_boxed_slice())
     }
     /// Returns full information about the music library's artists.
     #[instrument]
@@ -312,12 +310,10 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
     ) -> Result<Box<[AlbumBrief]>, SerializableLibraryError> {
         info!("Creating library albums brief");
-        Ok(Album::read_all(&self.db)
+        Ok(Album::read_all_brief(&self.db)
             .await
             .tap_err(|e| warn!("Error in library_albums_brief: {e}"))?
-            .iter()
-            .map(std::convert::Into::into)
-            .collect())
+            .into_boxed_slice())
     }
     /// Returns full information about the music library's albums.
     #[instrument]
@@ -338,12 +334,10 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
     ) -> Result<Box<[SongBrief]>, SerializableLibraryError> {
         info!("Creating library songs brief");
-        Ok(Song::read_all(&self.db)
+        Ok(Song::read_all_brief(&self.db)
             .await
             .tap_err(|e| warn!("Error in library_songs_brief: {e}"))?
-            .iter()
-            .map(std::convert::Into::into)
-            .collect())
+            .into_boxed_slice())
     }
     /// Returns full information about the music library's songs.
     #[instrument]
@@ -354,8 +348,56 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library songs full");
         Ok(Song::read_all(&self.db)
             .await
-            .map(std::vec::Vec::into_boxed_slice)
-            .tap_err(|e| warn!("Error in library_songs_full: {e}"))?)
+            .tap_err(|e| warn!("Error in library_songs_full: {e}"))?
+            .into_boxed_slice())
+    }
+    /// Returns brief information about the users playlists.
+    #[instrument]
+    async fn library_playlists_brief(
+        self,
+        context: Context,
+    ) -> Result<Box<[PlaylistBrief]>, SerializableLibraryError> {
+        info!("Creating library playlists brief");
+        Ok(Playlist::read_all_brief(&self.db)
+            .await
+            .tap_err(|e| warn!("Error in library_playlists_brief: {e}"))?
+            .into_boxed_slice())
+    }
+    /// Returns full information about the users playlists.
+    #[instrument]
+    async fn library_playlists_full(
+        self,
+        context: Context,
+    ) -> Result<Box<[Playlist]>, SerializableLibraryError> {
+        info!("Creating library playlists full");
+        Ok(Playlist::read_all(&self.db)
+            .await
+            .tap_err(|e| warn!("Error in library_playlists_full: {e}"))?
+            .into_boxed_slice())
+    }
+    /// Return brief information about the users collections.
+    #[instrument]
+    async fn library_collections_brief(
+        self,
+        context: Context,
+    ) -> Result<Box<[CollectionBrief]>, SerializableLibraryError> {
+        info!("Creating library collections brief");
+        Ok(Collection::read_all_brief(&self.db)
+            .await
+            .tap_err(|e| warn!("Error in library_collections_brief: {e}"))?
+            .into_boxed_slice())
+    }
+    /// Return full information about the users collections.
+    #[instrument]
+    async fn library_collections_full(
+        self,
+        context: Context,
+    ) -> Result<Box<[Collection]>, SerializableLibraryError> {
+        info!("Creating library collections full");
+        Ok(Collection::read_all(&self.db)
+            .await
+            .tap_err(|e| warn!("Error in library_collections_full: {e}"))?
+            .into_boxed_slice())
     }
     /// Returns information about the health of the music library (are there any missing files, etc.)
     #[instrument]
@@ -376,8 +418,7 @@ impl MusicPlayer for MusicPlayerServer {
         Song::read(&self.db, id)
             .await
             .tap_err(|e| warn!("Error in library_song_get: {e}"))
-            .ok()
-            .flatten()
+            .unwrap_or_default()
     }
     /// Get a song by its file path.
     #[instrument]
@@ -386,8 +427,7 @@ impl MusicPlayer for MusicPlayerServer {
         Song::read_by_path(&self.db, path)
             .await
             .tap_err(|e| warn!("Error in library_song_get_by_path: {e}"))
-            .ok()
-            .flatten()
+            .unwrap_or_default()
     }
     /// Get the artists of a song.
     #[instrument]
@@ -397,8 +437,7 @@ impl MusicPlayer for MusicPlayerServer {
         Song::read_artist(&self.db, id)
             .await
             .tap_err(|e| warn!("Error in library_song_get_artist: {e}"))
-            .ok()
-            .into()
+            .unwrap_or_default()
     }
     /// Get the album of a song.
     #[instrument]
@@ -408,8 +447,7 @@ impl MusicPlayer for MusicPlayerServer {
         Song::read_album(&self.db, id)
             .await
             .tap_err(|e| warn!("Error in library_song_get_album: {e}"))
-            .ok()
-            .flatten()
+            .unwrap_or_default()
     }
     /// Get the Playlists a song is in.
     #[instrument]
@@ -467,7 +505,7 @@ impl MusicPlayer for MusicPlayerServer {
             .await
             .tap_err(|e| warn!("Error in library_album_get_songs: {e}"))
             .ok()
-            .map(Into::into)
+            .map(Vec::into_boxed_slice)
     }
     /// Get an artist by its ID.
     #[instrument]
@@ -489,7 +527,7 @@ impl MusicPlayer for MusicPlayerServer {
             .await
             .tap_err(|e| warn!("Error in library_artist_get_songs: {e}"))
             .ok()
-            .map(Into::into)
+            .map(Vec::into_boxed_slice)
     }
     /// Get the albums of an artist
     #[instrument]
@@ -504,7 +542,7 @@ impl MusicPlayer for MusicPlayerServer {
             .await
             .tap_err(|e| warn!("Error in library_artist_get_albums: {e}"))
             .ok()
-            .map(Into::into)
+            .map(Vec::into_boxed_slice)
     }
 
     /// tells the daemon to shutdown.
@@ -557,8 +595,7 @@ impl MusicPlayer for MusicPlayerServer {
             Song::read_artist(&self.db, song.id)
                 .await
                 .tap_err(|e| warn!("Error in current_album: {e}"))
-                .ok()
-                .into()
+                .unwrap_or_default()
         } else {
             OneOrMany::None
         }
@@ -580,15 +617,14 @@ impl MusicPlayer for MusicPlayerServer {
             Song::read_album(&self.db, song.id)
                 .await
                 .tap_err(|e| warn!("Error in current_album: {e}"))
-                .ok()
-                .flatten()
+                .unwrap_or_default()
         } else {
             None
         }
     }
     /// returns the current song.
     #[instrument]
-    async fn current_song(self, context: Context) -> Option<Song> {
+    async fn current_song(self, context: Context) -> Option<SongBrief> {
         info!("Getting current song");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -665,7 +701,12 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns a list of artists matching the given search query.
     #[instrument]
-    async fn search_artist(self, context: Context, query: String, limit: usize) -> Box<[Artist]> {
+    async fn search_artist(
+        self,
+        context: Context,
+        query: String,
+        limit: usize,
+    ) -> Box<[ArtistBrief]> {
         info!("Searching for artist: {query}");
         Artist::search(&self.db, &query, limit)
             .await
@@ -677,7 +718,12 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns a list of albums matching the given search query.
     #[instrument]
-    async fn search_album(self, context: Context, query: String, limit: usize) -> Box<[Album]> {
+    async fn search_album(
+        self,
+        context: Context,
+        query: String,
+        limit: usize,
+    ) -> Box<[AlbumBrief]> {
         info!("Searching for album: {query}");
         Album::search(&self.db, &query, limit)
             .await
@@ -689,7 +735,7 @@ impl MusicPlayer for MusicPlayerServer {
     }
     /// returns a list of songs matching the given search query.
     #[instrument]
-    async fn search_song(self, context: Context, query: String, limit: usize) -> Box<[Song]> {
+    async fn search_song(self, context: Context, query: String, limit: usize) -> Box<[SongBrief]> {
         info!("Searching for song: {query}");
         Song::search(&self.db, &query, limit)
             .await
@@ -839,9 +885,9 @@ impl MusicPlayer for MusicPlayerServer {
         }
 
         self.audio_kernel
-            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-                songs,
-            ))));
+            .send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                songs.into_iter().map(Into::into).collect(),
+            )));
 
         Ok(())
     }
@@ -865,9 +911,9 @@ impl MusicPlayer for MusicPlayerServer {
         let songs: OneOrMany<Song> = services::get_songs_from_things(&self.db, &list).await?;
 
         self.audio_kernel
-            .send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-                songs,
-            ))));
+            .send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                songs.into_iter().map(Into::into).collect(),
+            )));
 
         Ok(())
     }
@@ -890,17 +936,6 @@ impl MusicPlayer for MusicPlayerServer {
             .send(AudioCommand::Queue(QueueCommand::RemoveRange(range)));
     }
 
-    /// Returns brief information about the users playlists.
-    #[instrument]
-    async fn playlist_list(self, context: Context) -> Box<[PlaylistBrief]> {
-        info!("Listing playlists");
-        Playlist::read_all(&self.db)
-            .await
-            .tap_err(|e| warn!("Error in playlist_list: {e}"))
-            .ok()
-            .map(|playlists| playlists.iter().map(std::convert::Into::into).collect())
-            .unwrap_or_default()
-    }
     /// create a new playlist.
     /// if a playlist with the same name already exists, this will return that playlist's id in the error variant
     #[instrument]
@@ -1194,17 +1229,6 @@ impl MusicPlayer for MusicPlayerServer {
         Ok(playlist.id.into())
     }
 
-    /// Collections: Return brief information about the users auto curration collections.
-    #[instrument]
-    async fn collection_list(self, context: Context) -> Box<[CollectionBrief]> {
-        info!("Listing collections");
-        Collection::read_all(&self.db)
-            .await
-            .tap_err(|e| warn!("Error in collection_list: {e}"))
-            .ok()
-            .map(|collections| collections.iter().map(std::convert::Into::into).collect())
-            .unwrap_or_default()
-    }
     /// Collections: get a collection by its ID.
     #[instrument]
     async fn collection_get(self, context: Context, id: CollectionId) -> Option<Collection> {

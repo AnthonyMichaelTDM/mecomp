@@ -11,11 +11,11 @@ use crate::{
                 add_album, add_album_to_artists, add_songs, read_albums, read_by_name,
                 read_by_names, read_songs, remove_songs,
             },
-            generic::{full_text_search, read_many, read_rand},
+            generic::{read_many, read_rand},
         },
         schemas::{
             album::{Album, AlbumId},
-            artist::{Artist, ArtistChangeSet, ArtistId, TABLE_NAME},
+            artist::{Artist, ArtistBrief, ArtistChangeSet, ArtistId, TABLE_NAME},
             song::{Song, SongId},
         },
     },
@@ -99,6 +99,14 @@ impl Artist {
     }
 
     #[instrument]
+    pub async fn read_all_brief<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<ArtistBrief>> {
+        Ok(db
+            .query(format!("SELECT {} FROM artist;", Self::BRIEF_FIELDS))
+            .await?
+            .take(0)?)
+    }
+
+    #[instrument]
     pub async fn read<C: Connection>(db: &Surreal<C>, id: ArtistId) -> StorageResult<Option<Self>> {
         Ok(db.select(id).await?)
     }
@@ -136,10 +144,11 @@ impl Artist {
         db: &Surreal<C>,
         query: &str,
         limit: usize,
-    ) -> StorageResult<Vec<Self>> {
+    ) -> StorageResult<Vec<ArtistBrief>> {
         Ok(db
-            .query(full_text_search(TABLE_NAME, "name", limit))
-            .bind(("name", query.to_string()))
+            .query(format!("SELECT {},relevance FROM {TABLE_NAME} WHERE name @@ $query ORDER BY relevance DESC LIMIT $limit",Self::BRIEF_FIELDS))
+            .bind(("query", query.to_string()))
+            .bind(("limit", limit))
             .await?
             .take(0)?)
     }
@@ -400,12 +409,12 @@ mod tests {
 
         let found = Artist::search(&db, "foo", 2).await?;
         assert_eq!(found.len(), 2);
-        assert!(found.contains(&artist1));
-        assert!(found.contains(&artist2));
+        assert!(found.contains(&artist1.clone().into()));
+        assert!(found.contains(&artist2.into()));
 
         let found = Artist::search(&db, "bar", 1).await?;
         assert_eq!(found.len(), 1);
-        assert_eq!(found, vec![artist1]);
+        assert_eq!(found, vec![artist1.into()]);
         Ok(())
     }
 
@@ -531,14 +540,19 @@ mod tests {
     #[tokio::test]
     async fn test_read_all() -> Result<()> {
         let db = init_test_database().await?;
-        let album = create_artist();
+        let artist = create_artist();
 
-        let _ = Artist::create(&db, album.clone())
+        let artist = Artist::create(&db, artist)
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
         let read = Artist::read_all(&db).await?;
         assert!(!read.is_empty());
+        assert_eq!(read, vec![artist.clone()]);
+
+        let read = Artist::read_all_brief(&db).await?;
+        assert!(!read.is_empty());
+        assert_eq!(read, vec![artist.into()]);
         Ok(())
     }
 

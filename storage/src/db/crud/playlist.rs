@@ -7,7 +7,7 @@ use crate::{
     db::{
         queries::playlist::{add_songs, read_by_name, read_songs, remove_songs},
         schemas::{
-            playlist::{Playlist, PlaylistChangeSet, PlaylistId, TABLE_NAME},
+            playlist::{Playlist, PlaylistBrief, PlaylistChangeSet, PlaylistId, TABLE_NAME},
             song::{Song, SongId},
         },
     },
@@ -65,6 +65,13 @@ impl Playlist {
     #[instrument]
     pub async fn read_all<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
         Ok(db.select(TABLE_NAME).await?)
+    }
+
+    #[instrument]
+    pub async fn read_all_brief<C: Connection>(
+        db: &Surreal<C>,
+    ) -> StorageResult<Vec<PlaylistBrief>> {
+        Ok(db.query("SELECT id,name FROM playlist;").await?.take(0)?)
     }
 
     #[instrument]
@@ -222,6 +229,11 @@ mod tests {
         Playlist::create(&db, playlist.clone()).await?;
         let result = Playlist::read_all(&db).await?;
         assert!(!result.is_empty());
+        assert_eq!(result, vec![playlist.clone()]);
+
+        let result = Playlist::read_all_brief(&db).await?;
+        assert!(!result.is_empty());
+        assert_eq!(result, vec![playlist.into()]);
         Ok(())
     }
 

@@ -3,11 +3,11 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 use crate::state::RepeatMode;
-use mecomp_storage::db::schemas::song::Song;
+use mecomp_storage::db::schemas::song::SongBrief;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Queue {
-    songs: Vec<Song>,
+    songs: Vec<SongBrief>,
     current_index: Option<usize>,
     repeat_mode: RepeatMode,
 }
@@ -31,12 +31,12 @@ impl Queue {
     }
 
     #[instrument]
-    pub fn add_song(&mut self, song: Song) {
+    pub fn add_song(&mut self, song: SongBrief) {
         self.songs.push(song);
     }
 
     #[instrument]
-    pub fn add_songs(&mut self, songs: Vec<Song>) {
+    pub fn add_songs(&mut self, songs: Vec<SongBrief>) {
         self.songs.extend(songs);
     }
 
@@ -69,12 +69,12 @@ impl Queue {
 
     #[must_use]
     #[instrument]
-    pub fn current_song(&self) -> Option<&Song> {
+    pub fn current_song(&self) -> Option<&SongBrief> {
         self.current_index.and_then(|index| self.songs.get(index))
     }
 
     #[instrument]
-    pub fn next_song(&mut self) -> Option<&Song> {
+    pub fn next_song(&mut self) -> Option<&SongBrief> {
         if self.repeat_mode == RepeatMode::One && self.current_index.is_some() {
             self.current_song()
         } else {
@@ -86,7 +86,7 @@ impl Queue {
     ///
     /// progresses the current index by n, following the repeat mode rules.
     #[instrument]
-    pub fn skip_forward(&mut self, n: usize) -> Option<&Song> {
+    pub fn skip_forward(&mut self, n: usize) -> Option<&SongBrief> {
         match self.current_index {
             Some(current_index) if current_index + n < self.songs.len() => {
                 self.current_index = Some(current_index + n);
@@ -121,12 +121,12 @@ impl Queue {
     }
 
     #[instrument]
-    pub fn previous_song(&mut self) -> Option<&Song> {
+    pub fn previous_song(&mut self) -> Option<&SongBrief> {
         self.skip_backward(1)
     }
 
     #[instrument]
-    pub fn skip_backward(&mut self, n: usize) -> Option<&Song> {
+    pub fn skip_backward(&mut self, n: usize) -> Option<&SongBrief> {
         match self.current_index {
             Some(current_index) if current_index >= n => {
                 self.current_index = Some(current_index - n);
@@ -169,7 +169,7 @@ impl Queue {
 
     #[must_use]
     #[instrument]
-    pub fn get(&self, index: usize) -> Option<&Song> {
+    pub fn get(&self, index: usize) -> Option<&SongBrief> {
         self.songs.get(index)
     }
 
@@ -193,7 +193,7 @@ impl Queue {
 
     #[must_use]
     #[instrument]
-    pub fn queued_songs(&self) -> Box<[Song]> {
+    pub fn queued_songs(&self) -> Box<[SongBrief]> {
         self.songs.clone().into_boxed_slice()
     }
 
@@ -280,6 +280,7 @@ mod tests {
 
         let mut queue = Queue::new();
         let song = create_song_with_overrides(&db, song, SongChangeSet::default()).await?;
+        let song: SongBrief = song.into();
         queue.add_song(song.clone());
         assert_eq!(queue.len(), 1);
         assert_eq!(queue.songs[0], song);
@@ -296,13 +297,16 @@ mod tests {
         let songs = vec![
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
                 .await
-                .unwrap(),
+                .unwrap()
+                .into(),
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
                 .await
-                .unwrap(),
+                .unwrap()
+                .into(),
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
                 .await
-                .unwrap(),
+                .unwrap()
+                .into(),
         ];
         let mut queue = Queue::new();
         queue.add_songs(songs.clone());
@@ -334,7 +338,8 @@ mod tests {
             queue.add_song(
                 create_song_with_overrides(&db, sc, SongChangeSet::default())
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
             );
         }
         queue.set_current_index(current_index_before);
@@ -362,7 +367,8 @@ mod tests {
             queue.add_song(
                 create_song_with_overrides(&db, sc, SongChangeSet::default())
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
             );
         }
         queue.set_current_index(index);
@@ -383,10 +389,14 @@ mod tests {
         let db = init_test_database().await.unwrap();
 
         let mut queue = Queue::new();
-        let song1 =
-            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
-        let song2 =
-            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let song1: SongBrief =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+                .await?
+                .into();
+        let song2: SongBrief =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+                .await?
+                .into();
         queue.add_song(song1.clone());
         queue.add_song(song2.clone());
         assert_eq!(queue.next_song(), Some(&song1));
@@ -408,12 +418,16 @@ mod tests {
 
         let mut queue = Queue::new();
         queue.set_repeat_mode(RepeatMode::One);
-        let song1 = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
-            .await
-            .unwrap();
-        let song2 = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
-            .await
-            .unwrap();
+        let song1: SongBrief =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+                .await
+                .unwrap()
+                .into();
+        let song2: SongBrief =
+            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+                .await
+                .unwrap()
+                .into();
         queue.add_song(song1.clone());
         queue.add_song(song2.clone());
 
@@ -449,7 +463,11 @@ mod tests {
         let mut queue = Queue::new();
         let len = songs.len();
         for sc in songs {
-            queue.add_song(create_song_with_overrides(&db, sc, SongChangeSet::default()).await?);
+            queue.add_song(
+                create_song_with_overrides(&db, sc, SongChangeSet::default())
+                    .await?
+                    .into(),
+            );
         }
         queue.set_repeat_mode(RepeatMode::None);
 
@@ -483,7 +501,11 @@ mod tests {
         let mut queue = Queue::new();
         let len = songs.len();
         for sc in songs {
-            queue.add_song(create_song_with_overrides(&db, sc, SongChangeSet::default()).await?);
+            queue.add_song(
+                create_song_with_overrides(&db, sc, SongChangeSet::default())
+                    .await?
+                    .into(),
+            );
         }
         queue.set_repeat_mode(RepeatMode::One);
 
@@ -519,7 +541,11 @@ mod tests {
         let mut queue = Queue::new();
         let len = songs.len();
         for sc in songs {
-            queue.add_song(create_song_with_overrides(&db, sc, SongChangeSet::default()).await?);
+            queue.add_song(
+                create_song_with_overrides(&db, sc, SongChangeSet::default())
+                    .await?
+                    .into(),
+            );
         }
         queue.set_repeat_mode(RepeatMode::All);
 
@@ -563,7 +589,11 @@ mod tests {
         let mut queue = Queue::new();
         let len = songs.len();
         for sc in songs {
-            queue.add_song(create_song_with_overrides(&db, sc, SongChangeSet::default()).await?);
+            queue.add_song(
+                create_song_with_overrides(&db, sc, SongChangeSet::default())
+                    .await?
+                    .into(),
+            );
         }
 
         queue.set_current_index(index);
@@ -602,7 +632,11 @@ mod tests {
 
         let mut queue = Queue::new();
         for sc in songs {
-            queue.add_song(create_song_with_overrides(&db, sc, SongChangeSet::default()).await?);
+            queue.add_song(
+                create_song_with_overrides(&db, sc, SongChangeSet::default())
+                    .await?
+                    .into(),
+            );
         }
 
         if let Some(index) = index {

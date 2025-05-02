@@ -26,7 +26,7 @@ use crate::{
     state::{Percent, SeekType, StateAudio, StateRuntime, Status},
     udp::StateChange,
 };
-use mecomp_storage::db::schemas::song::Song;
+use mecomp_storage::db::schemas::song::SongBrief;
 use one_or_many::OneOrMany;
 
 pub mod commands;
@@ -384,7 +384,7 @@ impl AudioKernel {
             QueueCommand::SkipBackward(n) => self.skip_backward(n),
             QueueCommand::SetPosition(n) => self.set_position(n),
             QueueCommand::Shuffle => self.queue.shuffle(),
-            QueueCommand::AddToQueue(song_box) => match *song_box {
+            QueueCommand::AddToQueue(song_box) => match song_box {
                 OneOrMany::None => {}
                 OneOrMany::One(song) => self.add_song_to_queue(song),
                 OneOrMany::Many(songs) => self.add_songs_to_queue(songs),
@@ -540,7 +540,7 @@ impl AudioKernel {
     }
 
     #[instrument(skip(self))]
-    fn add_song_to_queue(&mut self, song: Song) {
+    fn add_song_to_queue(&mut self, song: SongBrief) {
         self.queue.add_song(song);
 
         // if the player is empty, start playback
@@ -557,7 +557,7 @@ impl AudioKernel {
     }
 
     #[instrument(skip(self))]
-    fn add_songs_to_queue(&mut self, songs: Vec<Song>) {
+    fn add_songs_to_queue(&mut self, songs: Vec<SongBrief>) {
         self.queue.add_songs(songs);
 
         // if the player is empty, start playback
@@ -595,12 +595,12 @@ impl AudioKernel {
     }
 
     #[instrument(skip(self))]
-    fn get_current_song(&self) -> Option<Song> {
+    fn get_current_song(&self) -> Option<SongBrief> {
         self.queue.current_song().cloned()
     }
 
     #[instrument(skip(self))]
-    fn get_next_song(&mut self) -> Option<Song> {
+    fn get_next_song(&mut self) -> Option<SongBrief> {
         self.queue.next_song().cloned()
     }
 
@@ -632,7 +632,7 @@ impl AudioKernel {
     }
 
     #[instrument(skip(self))]
-    fn append_song_to_player(&self, song: &Song) -> Result<(), LibraryError> {
+    fn append_song_to_player(&self, song: &SongBrief) -> Result<(), LibraryError> {
         let source = Decoder::new(BufReader::new(File::open(&song.path)?))?.convert_samples();
         self.append_to_player(source);
 
@@ -825,7 +825,10 @@ mod tests {
         //! As such, they cannot be run on CI.
         //! Therefore, they are in a separate module so that they can be skipped when running tests on CI.
 
-        use mecomp_storage::test_utils::{arb_song_case, create_song_metadata, init_test_database};
+        use mecomp_storage::{
+            db::schemas::song::Song,
+            test_utils::{arb_song_case, create_song_metadata, init_test_database},
+        };
         use pretty_assertions::assert_eq;
         use rstest::rstest;
 
@@ -878,9 +881,9 @@ mod tests {
             .await
             .unwrap();
 
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-                OneOrMany::One(song.clone()),
-            ))));
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::One(song.into()),
+            )));
 
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
@@ -934,26 +937,29 @@ mod tests {
             assert!(state.paused());
             assert_eq!(state.status, Status::Stopped);
 
-            audio_kernel.queue_control(QueueCommand::AddToQueue(Box::new(OneOrMany::Many(vec![
+            audio_kernel.queue_control(QueueCommand::AddToQueue(OneOrMany::Many(vec![
                 Song::try_load_into_db(
                     &db,
                     create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                 )
                 .await
-                .unwrap(),
+                .unwrap()
+                .into(),
                 Song::try_load_into_db(
                     &db,
                     create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                 )
                 .await
-                .unwrap(),
+                .unwrap()
+                .into(),
                 Song::try_load_into_db(
                     &db,
                     create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                 )
                 .await
-                .unwrap(),
-            ]))));
+                .unwrap()
+                .into(),
+            ])));
 
             // songs were added to an empty queue, so the first song should start playing
             let state = audio_kernel.state();
@@ -1004,28 +1010,31 @@ mod tests {
             assert!(state.paused());
             assert_eq!(state.status, Status::Stopped);
 
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
                 OneOrMany::Many(vec![
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                 ]),
-            ))));
+            )));
             // songs were added to an empty queue, so the first song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
@@ -1079,9 +1088,9 @@ mod tests {
             .unwrap();
 
             // add songs to the queue, starts playback
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-                OneOrMany::Many(vec![song1.clone(), song2.clone()]),
-            ))));
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::Many(vec![song1.clone().into(), song2.clone().into()]),
+            )));
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused());
@@ -1097,22 +1106,22 @@ mod tests {
             assert!(state.paused());
             assert_eq!(state.status, Status::Stopped);
             assert_eq!(state.queue.len(), 1);
-            assert_eq!(state.queue[0], song2);
+            assert_eq!(state.queue[0], song2.clone().into());
 
             // unpause the player
             sender.send(AudioCommand::Play);
 
             // add the song back to the queue, should be playing
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-                OneOrMany::One(song1.clone()),
-            ))));
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::One(song1.clone().into()),
+            )));
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused());
             assert_eq!(state.status, Status::Playing);
             assert_eq!(state.queue.len(), 2);
-            assert_eq!(state.queue[0], song2);
-            assert_eq!(state.queue[1], song1);
+            assert_eq!(state.queue[0], song2.clone().into());
+            assert_eq!(state.queue[1], song1.into());
 
             // remove the next song from the queue, player should still be playing
             sender.send(AudioCommand::Queue(QueueCommand::RemoveRange(1..2)));
@@ -1121,7 +1130,7 @@ mod tests {
             assert!(!state.paused());
             assert_eq!(state.status, Status::Playing);
             assert_eq!(state.queue.len(), 1);
-            assert_eq!(state.queue[0], song2);
+            assert_eq!(state.queue[0], song2.into());
 
             sender.send(AudioCommand::Exit);
         }
@@ -1141,28 +1150,31 @@ mod tests {
             assert!(state.paused());
             assert_eq!(state.status, Status::Stopped);
 
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
                 OneOrMany::Many(vec![
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                 ]),
-            ))));
+            )));
 
             // songs were added to an empty queue, so the first song should start playing
             let state = get_state(sender.clone()).await;
@@ -1219,28 +1231,31 @@ mod tests {
             assert!(state.paused());
             assert_eq!(state.status, Status::Stopped);
 
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
                 OneOrMany::Many(vec![
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                 ]),
-            ))));
+            )));
             // songs were added to an empty queue, so the first song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
@@ -1293,28 +1308,31 @@ mod tests {
             assert!(state.paused());
             assert_eq!(state.status, Status::Stopped);
 
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
                 OneOrMany::Many(vec![
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                 ]),
-            ))));
+            )));
             // songs were added to an empty queue, so the first song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
@@ -1356,28 +1374,31 @@ mod tests {
             assert!(state.paused());
             assert_eq!(state.status, Status::Stopped);
 
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
                 OneOrMany::Many(vec![
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                     Song::try_load_into_db(
                         &db,
                         create_song_metadata(&tempdir, arb_song_case()()).unwrap(),
                     )
                     .await
-                    .unwrap(),
+                    .unwrap()
+                    .into(),
                 ]),
-            ))));
+            )));
             // songs were added to an empty queue, so the first song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
@@ -1555,9 +1576,9 @@ mod tests {
 
             // add a song to the queue
             // NOTE: this song has a duration of 10 seconds
-            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(
-                OneOrMany::One(song.clone()),
-            ))));
+            sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+                OneOrMany::One(song.clone().into()),
+            )));
             sender.send(AudioCommand::Stop);
             sender.send(AudioCommand::Seek(
                 SeekType::Absolute,
@@ -1579,7 +1600,7 @@ mod tests {
             ));
             let state = get_state(sender.clone()).await;
             assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(2));
-            assert_eq!(state.current_song, Some(song.clone()));
+            assert_eq!(state.current_song, Some(song.clone().into()));
             assert_eq!(state.status, Status::Paused);
 
             // skip back a bit
@@ -1589,7 +1610,7 @@ mod tests {
             ));
             let state = get_state(sender.clone()).await;
             assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(1));
-            assert_eq!(state.current_song, Some(song.clone()));
+            assert_eq!(state.current_song, Some(song.clone().into()));
             assert_eq!(state.status, Status::Paused);
 
             // skip to 10 seconds
@@ -1602,7 +1623,7 @@ mod tests {
                 state.runtime.unwrap().seek_position,
                 Duration::from_secs(10)
             );
-            assert_eq!(state.current_song, Some(song.clone()));
+            assert_eq!(state.current_song, Some(song.clone().into()));
             assert_eq!(state.status, Status::Paused);
 
             // now we unpause, wait a bit, and check that the song has ended

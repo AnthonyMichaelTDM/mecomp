@@ -464,12 +464,12 @@ pub async fn recluster<C: Connection>(
 #[instrument]
 pub async fn brief<C: Connection>(db: &Surreal<C>) -> Result<LibraryBrief, Error> {
     Ok(LibraryBrief {
-        artists: count_artists(db).await?,
-        albums: count_albums(db).await?,
-        songs: count_songs(db).await?,
-        playlists: count_playlists(db).await?,
-        collections: count_collections(db).await?,
-        dynamic_playlists: count_dynamic_playlists(db).await?,
+        artists: Artist::read_all_brief(db).await?.into_boxed_slice(),
+        albums: Album::read_all_brief(db).await?.into_boxed_slice(),
+        songs: Song::read_all_brief(db).await?.into_boxed_slice(),
+        playlists: Playlist::read_all_brief(db).await?.into_boxed_slice(),
+        collections: Collection::read_all_brief(db).await?.into_boxed_slice(),
+        dynamic_playlists: DynamicPlaylist::read_all(db).await?.into_boxed_slice(),
     })
 }
 
@@ -648,8 +648,8 @@ mod tests {
             }
             // the artists are linked to the song
             if let Ok(song_artists) = Song::read_artist(&db, song.id.clone()).await {
-                for artist in &artists {
-                    assert!(song_artists.contains(artist));
+                for artist in artists {
+                    assert!(song_artists.contains(&artist.into()));
                 }
             } else {
                 panic!("Error reading song artists");
@@ -668,7 +668,7 @@ mod tests {
             // the song is linked to the album
             assert_eq!(
                 Song::read_album(&db, song.id.clone()).await.unwrap(),
-                Some(album.clone())
+                Some(album.clone().into())
             );
             // the album is linked to the song
             assert!(
@@ -913,11 +913,11 @@ mod tests {
         init();
         let db = init_test_database().await.unwrap();
         let brief = brief(&db).await.unwrap();
-        assert_eq!(brief.artists, 0);
-        assert_eq!(brief.albums, 0);
-        assert_eq!(brief.songs, 0);
-        assert_eq!(brief.playlists, 0);
-        assert_eq!(brief.collections, 0);
+        assert_eq!(brief.artists, Box::default());
+        assert_eq!(brief.albums, Box::default());
+        assert_eq!(brief.songs, Box::default());
+        assert_eq!(brief.playlists, Box::default());
+        assert_eq!(brief.collections, Box::default());
     }
 
     #[tokio::test]

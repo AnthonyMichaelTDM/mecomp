@@ -114,7 +114,7 @@ pub fn add_songs() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_songs() -> impl IntoQuery {
-    read_related_out("album", ALBUM_TO_SONG)
+    read_related_out("*", "album", ALBUM_TO_SONG)
 }
 
 /// Query to remove songs from an album
@@ -166,7 +166,7 @@ pub fn remove_songs() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_artist() -> impl IntoQuery {
-    read_related_in("id", ARTIST_TO_ALBUM)
+    read_related_in("*", "id", ARTIST_TO_ALBUM)
 }
 
 #[cfg(test)]

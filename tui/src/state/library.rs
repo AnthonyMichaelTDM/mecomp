@@ -9,7 +9,7 @@ use tokio::sync::{
     mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
 
-use mecomp_core::{rpc::MusicPlayerClient, state::library::LibraryFull};
+use mecomp_core::{rpc::MusicPlayerClient, state::library::LibraryBrief};
 
 use crate::termination::Interrupted;
 
@@ -19,14 +19,14 @@ use super::action::LibraryAction;
 #[derive(Debug, Clone)]
 #[allow(clippy::module_name_repetitions)]
 pub struct LibraryState {
-    state_tx: UnboundedSender<LibraryFull>,
+    state_tx: UnboundedSender<LibraryBrief>,
 }
 
 impl LibraryState {
     /// create a new library state store, and return the receiver for listening to state updates.
     #[must_use]
-    pub fn new() -> (Self, UnboundedReceiver<LibraryFull>) {
-        let (state_tx, state_rx) = unbounded_channel::<LibraryFull>();
+    pub fn new() -> (Self, UnboundedReceiver<LibraryBrief>) {
+        let (state_tx, state_rx) = unbounded_channel::<LibraryBrief>();
 
         (Self { state_tx }, state_rx)
     }
@@ -148,9 +148,9 @@ impl LibraryState {
     }
 }
 
-async fn get_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<LibraryFull> {
+async fn get_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<LibraryBrief> {
     let ctx = tarpc::context::current();
-    Ok(daemon.library_full(ctx).await??)
+    Ok(daemon.library_brief(ctx).await??)
 }
 
 /// initiate a rescan and wait until it's done

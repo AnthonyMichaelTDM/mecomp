@@ -39,9 +39,9 @@ pub type DynamicPlaylistId = RecordId;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct SearchResult {
-    pub songs: Box<[Song]>,
-    pub albums: Box<[Album]>,
-    pub artists: Box<[Artist]>,
+    pub songs: Box<[SongBrief]>,
+    pub albums: Box<[AlbumBrief]>,
+    pub artists: Box<[ArtistBrief]>,
 }
 
 impl SearchResult {
@@ -98,6 +98,14 @@ pub trait MusicPlayer {
     async fn library_songs_brief() -> Result<Box<[SongBrief]>, SerializableLibraryError>;
     /// Returns full information about the music library's songs.
     async fn library_songs_full() -> Result<Box<[Song]>, SerializableLibraryError>;
+    /// Returns brief information about the users playlists.
+    async fn library_playlists_brief() -> Result<Box<[PlaylistBrief]>, SerializableLibraryError>;
+    /// Returns full information about the users playlists.
+    async fn library_playlists_full() -> Result<Box<[Playlist]>, SerializableLibraryError>;
+    /// Return brief information about the users collections.
+    async fn library_collections_brief() -> Result<Box<[CollectionBrief]>, SerializableLibraryError>;
+    /// Return full information about the users collections.
+    async fn library_collections_full() -> Result<Box<[Collection]>, SerializableLibraryError>;
     /// Returns information about the health of the music library (are there any missing files, etc.)
     async fn library_health() -> Result<LibraryHealth, SerializableLibraryError>;
 
@@ -141,7 +149,7 @@ pub trait MusicPlayer {
     /// returns the current album.
     async fn current_album() -> Option<Album>;
     /// returns the current song.
-    async fn current_song() -> Option<Song>;
+    async fn current_song() -> Option<SongBrief>;
 
     // Rand (audio state)
     /// returns a random artist.
@@ -155,11 +163,11 @@ pub trait MusicPlayer {
     /// returns a list of artists, albums, and songs matching the given search query.
     async fn search(query: String, limit: usize) -> SearchResult;
     /// returns a list of artists matching the given search query.
-    async fn search_artist(query: String, limit: usize) -> Box<[Artist]>;
+    async fn search_artist(query: String, limit: usize) -> Box<[ArtistBrief]>;
     /// returns a list of albums matching the given search query.
-    async fn search_album(query: String, limit: usize) -> Box<[Album]>;
+    async fn search_album(query: String, limit: usize) -> Box<[AlbumBrief]>;
     /// returns a list of songs matching the given search query.
-    async fn search_song(query: String, limit: usize) -> Box<[Song]>;
+    async fn search_song(query: String, limit: usize) -> Box<[SongBrief]>;
 
     // Playback control.
     /// toggles playback (play/pause).
@@ -215,8 +223,6 @@ pub trait MusicPlayer {
     async fn queue_remove_range(range: Range<usize>) -> ();
 
     // Playlists.
-    /// Returns brief information about the users playlists.
-    async fn playlist_list() -> Box<[PlaylistBrief]>;
     /// create a new playlist with the given name (if it does not already exist).
     async fn playlist_get_or_create(name: String) -> Result<PlaylistId, SerializableLibraryError>;
     /// remove a playlist.
@@ -266,8 +272,6 @@ pub trait MusicPlayer {
 
     // Auto Curration commands.
     // (collections, radios, smart playlists, etc.)
-    /// Collections: Return brief information about the users auto curration collections.
-    async fn collection_list() -> Box<[CollectionBrief]>;
     /// Collections: get a collection by its ID.
     async fn collection_get(id: CollectionId) -> Option<Collection>;
     /// Collections: freeze a collection (convert it to a playlist).

@@ -102,10 +102,7 @@ fn get_album_candidates(
         .map(|album| {
             (
                 album.id.key().to_string(),
-                StyledStr::from(format!(
-                    "\"{}\" (by: {:?}, {} songs)",
-                    album.title, album.artist, album.song_count
-                )),
+                StyledStr::from(format!("\"{}\" (by: {:?})", album.title, album.artist)),
             )
         })
         .collect()
@@ -128,10 +125,7 @@ fn get_artist_candidates(
         .map(|artist| {
             (
                 artist.id.key().to_string(),
-                StyledStr::from(format!(
-                    "\"{}\" ({} albums, {} songs)",
-                    artist.name, artist.albums, artist.songs
-                )),
+                StyledStr::from(format!("\"{}\"", artist.name)),
             )
         })
         .collect()
@@ -142,22 +136,19 @@ fn get_playlist_candidates(
     client: &MusicPlayerClient,
     ctx: tarpc::context::Context,
 ) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.playlist_list(ctx));
+    let response = rt.block_on(client.library_playlists_brief(ctx));
     if let Err(e) = response {
         eprintln!("Failed to fetch playlists: {e}");
         return vec![];
     }
-    let playlists = response.unwrap();
+    let playlists = response.unwrap().unwrap_or_default();
 
     playlists
         .into_iter()
         .map(|playlist| {
             (
                 playlist.id.key().to_string(),
-                StyledStr::from(format!(
-                    "\"{}\" ({} songs, {:?})",
-                    playlist.name, playlist.songs, playlist.runtime
-                )),
+                StyledStr::from(format!("\"{}\"", playlist.name)),
             )
         })
         .collect()
@@ -195,22 +186,19 @@ fn get_collection_candidates(
     client: &MusicPlayerClient,
     ctx: tarpc::context::Context,
 ) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.collection_list(ctx));
+    let response = rt.block_on(client.library_collections_brief(ctx));
     if let Err(e) = response {
         eprintln!("Failed to fetch collections: {e}");
         return vec![];
     }
-    let collections = response.unwrap();
+    let collections = response.unwrap().unwrap_or_default();
 
     collections
         .into_iter()
         .map(|collection| {
             (
                 collection.id.key().to_string(),
-                StyledStr::from(format!(
-                    "\"{}\" ({} songs, {:?})",
-                    collection.name, collection.songs, collection.runtime
-                )),
+                StyledStr::from(format!("\"{}\"", collection.name)),
             )
         })
         .collect()

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use action::Action;
 use mecomp_core::{
     rpc::{MusicPlayerClient, SearchResult},
-    state::{StateAudio, library::LibraryFull},
+    state::{StateAudio, library::LibraryBrief},
 };
 use tokio::sync::{
     broadcast,
@@ -47,7 +47,7 @@ struct Senders {
 pub struct Receivers {
     pub audio: UnboundedReceiver<StateAudio>,
     pub search: UnboundedReceiver<SearchResult>,
-    pub library: UnboundedReceiver<LibraryFull>,
+    pub library: UnboundedReceiver<LibraryBrief>,
     pub view: UnboundedReceiver<ActiveView>,
     pub popup: UnboundedReceiver<Option<PopupType>>,
     pub component: UnboundedReceiver<component::ActiveComponent>,

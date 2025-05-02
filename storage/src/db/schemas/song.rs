@@ -70,7 +70,7 @@ pub struct Song {
     /// the year the song was released
     #[cfg_attr(feature = "db", field(dt = "option<int>"))]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub release_year: Option<i32>,
+    pub release_year: Option<u32>,
 
     // /// The `MIME` type of this [`Song`].
     // pub mime: String,
@@ -85,6 +85,9 @@ pub struct Song {
 }
 
 impl Song {
+    pub const BRIEF_FIELDS: &'static str =
+        "id,title,artist,album_artist,album,genre,runtime,track,disc,release_year,extension,path";
+
     #[must_use]
     #[inline]
     pub fn generate_id() -> SongId {
@@ -116,7 +119,7 @@ pub struct SongChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub disc: Option<Option<u16>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub release_year: Option<Option<i32>>,
+    pub release_year: Option<Option<u32>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub extension: Option<String>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -129,10 +132,18 @@ pub struct SongBrief {
     pub id: SongId,
     pub title: String,
     pub artist: OneOrMany<String>,
-    pub album: String,
     pub album_artist: OneOrMany<String>,
-    pub release_year: Option<i32>,
+    pub album: String,
+    pub genre: OneOrMany<String>,
+    #[serde(
+        serialize_with = "super::serialize_duration_as_sql_duration",
+        deserialize_with = "super::deserialize_duration_from_sql_duration"
+    )]
     pub runtime: std::time::Duration,
+    pub track: Option<u16>,
+    pub disc: Option<u16>,
+    pub release_year: Option<u32>,
+    pub extension: String,
     pub path: PathBuf,
 }
 
@@ -143,10 +154,14 @@ impl From<Song> for SongBrief {
             id: song.id,
             title: song.title,
             artist: song.artist,
-            album: song.album,
             album_artist: song.album_artist,
+            album: song.album,
+            genre: song.genre,
             release_year: song.release_year,
             runtime: song.runtime,
+            track: song.track,
+            disc: song.disc,
+            extension: song.extension,
             path: song.path,
         }
     }
@@ -169,7 +184,7 @@ pub struct SongMetadata {
     pub album_artist: OneOrMany<String>,
     pub genre: OneOrMany<String>,
     pub runtime: Duration,
-    pub release_year: Option<i32>,
+    pub release_year: Option<u32>,
     pub track: Option<u16>,
     pub disc: Option<u16>,
     pub extension: String,
@@ -395,10 +410,14 @@ mod tests {
             id: RecordId::from((TABLE_NAME, "id")),
             title: "song".into(),
             artist: OneOrMany::One("artist".into()),
-            album: "album".into(),
             album_artist: OneOrMany::One("artist".into()),
-            release_year: Some(2021),
+            album: "album".into(),
+            genre: OneOrMany::One("genre".into()),
             runtime: Duration::from_secs(3600),
+            track: Some(1),
+            disc: Some(1),
+            release_year: Some(2021),
+            extension: "mp3".into(),
             path: PathBuf::from("path"),
         }
     }

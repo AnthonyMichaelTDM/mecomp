@@ -2,7 +2,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::state::RepeatMode;
-use mecomp_storage::db::schemas::song::Song;
+use mecomp_storage::db::schemas::song::SongBrief;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Position, Rect},
     style::{Modifier, Style},
@@ -32,7 +32,7 @@ pub struct QueueBar {
 }
 
 pub struct Props {
-    pub(crate) queue: Box<[Song]>,
+    pub(crate) queue: Box<[SongBrief]>,
     pub(crate) current_position: Option<usize>,
     pub(crate) repeat_mode: RepeatMode,
 }

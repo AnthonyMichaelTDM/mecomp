@@ -29,7 +29,7 @@ pub mod radio;
 ///
 /// This function will return an error if there is an issue reading the songs from the database.
 #[inline]
-pub async fn get_songs_from_things<C: Connection>(
+pub(crate) async fn get_songs_from_things<C: Connection>(
     db: &Surreal<C>,
     things: &[RecordId],
 ) -> StorageResult<OneOrMany<Song>> {

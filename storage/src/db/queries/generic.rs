@@ -32,16 +32,8 @@ use crate::{db::queries::parse_query, errors::Error};
 /// );
 /// ```
 #[must_use]
-pub fn relate<Source: AsRef<str>, Target: AsRef<str>, Rel: AsRef<str>>(
-    source: Source,
-    target: Target,
-    rel: Rel,
-) -> impl IntoQuery {
-    fn relate_statement(source: &str, target: &str, rel: &str) -> impl IntoQuery + use<> {
-        parse_query(format!("RELATE ${source}->{rel}->${target}"))
-    }
-
-    relate_statement(source.as_ref(), target.as_ref(), rel.as_ref())
+pub fn relate(source: &'static str, target: &'static str, rel: &'static str) -> impl IntoQuery {
+    parse_query(format!("RELATE ${source}->{rel}->${target}"))
 }
 
 /// Query to unrelate two tables.
@@ -66,16 +58,8 @@ pub fn relate<Source: AsRef<str>, Target: AsRef<str>, Rel: AsRef<str>>(
 /// );
 /// ```
 #[must_use]
-pub fn unrelate<Source: AsRef<str>, Target: AsRef<str>, Rel: AsRef<str>>(
-    source: Source,
-    target: Target,
-    rel: Rel,
-) -> impl IntoQuery {
-    fn unrelate_statement(source: &str, target: &str, rel: &str) -> impl IntoQuery + use<> {
-        parse_query(format!("DELETE ${source}->{rel} WHERE out IN ${target}"))
-    }
-
-    unrelate_statement(source.as_ref(), target.as_ref(), rel.as_ref())
+pub fn unrelate(source: &'static str, target: &'static str, rel: &'static str) -> impl IntoQuery {
+    parse_query(format!("DELETE ${source}->{rel} WHERE out IN ${target}"))
 }
 /// Query to read items related to a source.
 ///
@@ -92,22 +76,19 @@ pub fn unrelate<Source: AsRef<str>, Target: AsRef<str>, Rel: AsRef<str>>(
 /// use surrealdb::opt::IntoQuery;
 ///
 /// // Example: read all the songs of an album
-/// let statement = read_related_out("album", "album_to_song");
+/// let statement = read_related_out("*", "album", "album_to_song");
 /// assert_eq!(
 ///     statement.into_query().unwrap(),
 ///     "SELECT * FROM $album->album_to_song.out".into_query().unwrap()
 /// );
 /// ```
 #[must_use]
-pub fn read_related_out<Source: AsRef<str>, Rel: AsRef<str>>(
-    source: Source,
-    rel: Rel,
+pub fn read_related_out(
+    selection: &'static str,
+    source: &'static str,
+    rel: &'static str,
 ) -> impl IntoQuery {
-    fn read_related_statement(source: &str, rel: &str) -> impl IntoQuery + use<> {
-        parse_query(format!("SELECT * FROM ${source}->{rel}.out"))
-    }
-
-    read_related_statement(source.as_ref(), rel.as_ref())
+    parse_query(format!("SELECT {selection} FROM ${source}->{rel}.out"))
 }
 
 /// Query to read items related to a target
@@ -126,22 +107,19 @@ pub fn read_related_out<Source: AsRef<str>, Rel: AsRef<str>>(
 /// use surrealdb::opt::IntoQuery;
 ///
 /// // Example: read the artist of an album
-/// let statement = read_related_in("album", "artist_to_album");
+/// let statement = read_related_in("*", "album", "artist_to_album");
 /// assert_eq!(
 ///    statement.as_str().unwrap(),
 ///   "SELECT * FROM $album<-artist_to_album.in"
 /// );
 /// ```
 #[must_use]
-pub fn read_related_in<Target: AsRef<str>, Rel: AsRef<str>>(
-    target: Target,
-    rel: Rel,
+pub fn read_related_in(
+    selection: &'static str,
+    target: &'static str,
+    rel: &'static str,
 ) -> impl IntoQuery {
-    fn read_related_statement(target: &str, rel: &str) -> impl IntoQuery + use<> {
-        parse_query(format!("SELECT * FROM ${target}<-{rel}.in"))
-    }
-
-    read_related_statement(target.as_ref(), rel.as_ref())
+    parse_query(format!("SELECT {selection} FROM ${target}<-{rel}.in"))
 }
 
 /// Struct to assist deserializing the results of the count queries
@@ -316,46 +294,6 @@ pub fn count_orphaned_both<Table: AsRef<str>, Rel1: AsRef<str>, Rel2: AsRef<str>
     count_orphaned_both_statement(table.as_ref(), rel1.as_ref(), rel2.as_ref())
 }
 
-/// Query to run a full text search on a given field of a given table.
-///
-/// Compiles to:
-/// ```sql, ignore
-/// SELECT * FROM table WHERE field @@ $field ORDER BY relevance DESC LIMIT limit
-/// ```
-///
-/// # Example
-///
-/// ```ignore
-/// # use pretty_assertions::assert_eq;
-/// use mecomp_storage::db::crud::queries::generic::full_text_search;
-/// use surrealdb::opt::IntoQuery;
-///
-/// // Example: search for songs with the word "hello" in the title
-/// let statement = full_text_search("song", "title", 10);
-/// assert_eq!(
-///    statement.into_query().unwrap(),
-///   "SELECT * FROM song WHERE title @@ $title ORDER BY relevance DESC LIMIT 10".into_query().unwrap()
-/// );
-/// ```
-#[must_use]
-pub fn full_text_search<Table: AsRef<str>, Field: AsRef<str>>(
-    table: Table,
-    field: Field,
-    limit: usize,
-) -> impl IntoQuery {
-    fn full_text_search_statement(
-        table: &str,
-        field: &str,
-        limit: usize,
-    ) -> impl IntoQuery + use<> {
-        parse_query(format!(
-            "SELECT * FROM {table} WHERE {field} @@ ${field} ORDER BY relevance DESC LIMIT {limit}"
-        ))
-    }
-
-    full_text_search_statement(table.as_ref(), field.as_ref(), limit)
-}
-
 /// Query to read many items from a table.
 ///
 /// Compiles to:
@@ -408,11 +346,11 @@ mod query_validation_tests {
         "DELETE $artist->artist_to_album WHERE out IN $album"
     )]
     #[case::read_related_out(
-        read_related_out("album", "album_to_song"),
+        read_related_out("*", "album", "album_to_song"),
         "SELECT * FROM $album->album_to_song.out"
     )]
     #[case::read_related_in(
-        read_related_in("album", "artist_to_album"),
+        read_related_in("*", "album", "artist_to_album"),
         "SELECT * FROM $album<-artist_to_album.in"
     )]
     #[case::count(count("song"), "SELECT count() FROM song GROUP ALL")]
@@ -423,10 +361,6 @@ mod query_validation_tests {
     #[case::count_orphaned_both(
         count_orphaned_both("artist", "artist_to_album", "artist_to_song"),
         "SELECT count() FROM artist WHERE count(->artist_to_album) = 0 AND count(->artist_to_song) = 0 GROUP ALL"
-    )]
-    #[case::full_text_search(
-        full_text_search("song", "title", 10),
-        "SELECT * FROM song WHERE title @@ $title ORDER BY relevance DESC LIMIT 10"
     )]
     #[case::read_many(read_many(), "SELECT * FROM $ids")]
     #[case::read_rand(

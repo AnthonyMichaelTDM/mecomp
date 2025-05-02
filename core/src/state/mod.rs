@@ -2,7 +2,7 @@
 pub mod library;
 use std::{fmt::Display, time::Duration};
 
-use mecomp_storage::db::schemas::song::Song;
+use mecomp_storage::db::schemas::song::SongBrief;
 use serde::{Deserialize, Serialize};
 
 use crate::format_duration;
@@ -139,9 +139,9 @@ impl Display for Status {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct StateAudio {
-    pub queue: Box<[Song]>,
+    pub queue: Box<[SongBrief]>,
     pub queue_position: Option<usize>,
-    pub current_song: Option<Song>,
+    pub current_song: Option<SongBrief>,
     pub repeat_mode: RepeatMode,
     pub runtime: Option<StateRuntime>,
     pub status: Status,
@@ -205,6 +205,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
+    use mecomp_storage::db::schemas::song::Song;
     use one_or_many::OneOrMany;
     use pretty_assertions::{assert_eq, assert_str_eq};
     use rstest::rstest;
@@ -281,7 +282,7 @@ mod tests {
     #[case::state_audio(
         StateAudio {
             queue: Box::new([
-                Song {
+                SongBrief {
                     id: Song::generate_id(),
                     title: "Song 1".into(),
                     artist: OneOrMany::None,
@@ -298,7 +299,7 @@ mod tests {
             ]),
             queue_position: Some(1),
             current_song: Some(
-                Song {
+                SongBrief {
                     id: Song::generate_id(),
                     title: "Song 1".into(),
                     artist: OneOrMany::None,

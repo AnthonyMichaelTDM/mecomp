@@ -3,7 +3,7 @@
 use std::{ops::Not as _, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
-use mecomp_storage::db::schemas::artist::Artist;
+use mecomp_storage::db::schemas::artist::ArtistBrief;
 use ratatui::{
     layout::{Margin, Rect},
     style::{Style, Stylize},
@@ -43,8 +43,8 @@ pub struct LibraryArtistsView {
 }
 
 struct Props {
-    artists: Box<[Artist]>,
-    sort_mode: NameSort<Artist>,
+    artists: Box<[ArtistBrief]>,
+    sort_mode: NameSort<ArtistBrief>,
 }
 impl Component for LibraryArtistsView {
     fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self
@@ -250,15 +250,15 @@ impl ComponentRender<RenderProps> for LibraryArtistsView {
 #[cfg(test)]
 mod sort_mode_tests {
     use super::*;
+    use mecomp_storage::db::schemas::artist::Artist;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use std::time::Duration;
 
     #[rstest]
     #[case(NameSort::default(), NameSort::default())]
     fn test_sort_mode_next_prev(
-        #[case] mode: NameSort<Artist>,
-        #[case] expected: NameSort<Artist>,
+        #[case] mode: NameSort<ArtistBrief>,
+        #[case] expected: NameSort<ArtistBrief>,
     ) {
         assert_eq!(mode.next(), expected);
         assert_eq!(mode.next().prev(), mode);
@@ -266,33 +266,24 @@ mod sort_mode_tests {
 
     #[rstest]
     #[case(NameSort::default(), "Name")]
-    fn test_sort_mode_display(#[case] mode: NameSort<Artist>, #[case] expected: &str) {
+    fn test_sort_mode_display(#[case] mode: NameSort<ArtistBrief>, #[case] expected: &str) {
         assert_eq!(mode.to_string(), expected);
     }
 
     #[rstest]
     fn test_sort_items() {
         let mut artists = vec![
-            Artist {
+            ArtistBrief {
                 id: Artist::generate_id(),
                 name: "C".into(),
-                song_count: 1,
-                album_count: 1,
-                runtime: Duration::from_secs(180),
             },
-            Artist {
+            ArtistBrief {
                 id: Artist::generate_id(),
                 name: "B".into(),
-                song_count: 1,
-                album_count: 1,
-                runtime: Duration::from_secs(180),
             },
-            Artist {
+            ArtistBrief {
                 id: Artist::generate_id(),
                 name: "A".into(),
-                song_count: 1,
-                album_count: 1,
-                runtime: Duration::from_secs(180),
             },
         ];
 

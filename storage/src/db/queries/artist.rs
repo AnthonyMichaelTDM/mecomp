@@ -86,7 +86,7 @@ pub fn read_by_names() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_albums() -> impl IntoQuery {
-    read_related_out("id", ARTIST_TO_ALBUM)
+    read_related_out("*", "id", ARTIST_TO_ALBUM)
 }
 
 /// Query to relate an artist to an album.

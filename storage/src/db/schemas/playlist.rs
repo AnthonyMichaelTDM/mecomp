@@ -58,6 +58,8 @@ RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]
 }
 
 impl Playlist {
+    pub const BRIEF_FIELDS: &'static str = "id,name";
+
     #[must_use]
     #[inline]
     pub fn generate_id() -> PlaylistId {
@@ -92,8 +94,6 @@ impl PlaylistChangeSet {
 pub struct PlaylistBrief {
     pub id: PlaylistId,
     pub name: String,
-    pub runtime: std::time::Duration,
-    pub songs: usize,
 }
 
 impl From<Playlist> for PlaylistBrief {
@@ -102,8 +102,6 @@ impl From<Playlist> for PlaylistBrief {
         Self {
             id: playlist.id,
             name: playlist.name,
-            runtime: playlist.runtime,
-            songs: playlist.song_count,
         }
     }
 }
@@ -114,8 +112,6 @@ impl From<&Playlist> for PlaylistBrief {
         Self {
             id: playlist.id.clone(),
             name: playlist.name.clone(),
-            runtime: playlist.runtime,
-            songs: playlist.song_count,
         }
     }
 }
@@ -142,8 +138,6 @@ mod tests {
         PlaylistBrief {
             id: RecordId::from((TABLE_NAME, "id")),
             name: "playlist".into(),
-            runtime: Duration::from_secs(3600),
-            songs: 100,
         }
     }
 

@@ -81,6 +81,8 @@ RETURN $count;
 }
 
 impl Artist {
+    pub const BRIEF_FIELDS: &'static str = "id,name";
+
     #[must_use]
     #[inline]
     pub fn generate_id() -> ArtistId {
@@ -102,9 +104,6 @@ pub struct ArtistChangeSet {
 pub struct ArtistBrief {
     pub id: ArtistId,
     pub name: String,
-    pub runtime: std::time::Duration,
-    pub albums: usize,
-    pub songs: usize,
 }
 
 impl From<Artist> for ArtistBrief {
@@ -113,9 +112,6 @@ impl From<Artist> for ArtistBrief {
         Self {
             id: artist.id,
             name: artist.name,
-            runtime: artist.runtime,
-            albums: artist.album_count,
-            songs: artist.song_count,
         }
     }
 }
@@ -126,9 +122,6 @@ impl From<&Artist> for ArtistBrief {
         Self {
             id: artist.id.clone(),
             name: artist.name.clone(),
-            runtime: artist.runtime,
-            albums: artist.album_count,
-            songs: artist.song_count,
         }
     }
 }
@@ -156,9 +149,6 @@ mod tests {
         ArtistBrief {
             id: RecordId::from((TABLE_NAME, "id")),
             name: "artist".into(),
-            runtime: Duration::from_secs(3600),
-            albums: 10,
-            songs: 100,
         }
     }
 
