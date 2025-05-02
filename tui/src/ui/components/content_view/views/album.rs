@@ -3,7 +3,7 @@
 use std::{ops::Not, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
-use mecomp_storage::db::schemas::album::Album;
+use mecomp_storage::db::schemas::album::AlbumBrief;
 use ratatui::{
     layout::{Margin, Rect},
     style::{Style, Stylize},
@@ -43,7 +43,7 @@ pub struct LibraryAlbumsView {
 }
 
 struct Props {
-    albums: Box<[Album]>,
+    albums: Box<[AlbumBrief]>,
     sort_mode: AlbumSort,
 }
 
@@ -251,10 +251,10 @@ impl ComponentRender<RenderProps> for LibraryAlbumsView {
 #[cfg(test)]
 mod sort_mode_tests {
     use super::*;
+    use mecomp_storage::db::schemas::album::Album;
     use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use std::time::Duration;
 
     #[rstest]
     #[case(AlbumSort::Title, AlbumSort::Artist)]
@@ -276,33 +276,27 @@ mod sort_mode_tests {
     #[rstest]
     fn test_sort_items() {
         let mut albums = vec![
-            Album {
+            AlbumBrief {
                 id: Album::generate_id(),
                 title: "C".into(),
                 artist: OneOrMany::One("B".into()),
                 release: Some(2021),
-                song_count: 1,
-                runtime: Duration::from_secs(180),
                 discs: 1,
                 genre: OneOrMany::One("A".into()),
             },
-            Album {
+            AlbumBrief {
                 id: Album::generate_id(),
                 title: "B".into(),
                 artist: OneOrMany::One("A".into()),
                 release: Some(2022),
-                song_count: 1,
-                runtime: Duration::from_secs(180),
                 discs: 1,
                 genre: OneOrMany::One("C".into()),
             },
-            Album {
+            AlbumBrief {
                 id: Album::generate_id(),
                 title: "A".into(),
                 artist: OneOrMany::One("C".into()),
                 release: Some(2023),
-                song_count: 1,
-                runtime: Duration::from_secs(180),
                 discs: 1,
                 genre: OneOrMany::One("B".into()),
             },

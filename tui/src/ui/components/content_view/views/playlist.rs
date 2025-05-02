@@ -4,7 +4,7 @@ use std::{ops::Not, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::format_duration;
-use mecomp_storage::db::schemas::playlist::Playlist;
+use mecomp_storage::db::schemas::playlist::PlaylistBrief;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
@@ -197,7 +197,7 @@ impl Component for PlaylistView {
                 if let Some(props) = &self.props {
                     self.action_tx
                         .send(Action::Popup(PopupAction::Open(PopupType::PlaylistEditor(
-                            props.playlist.clone(),
+                            props.playlist.clone().into(),
                         ))))
                         .unwrap();
                 }
@@ -369,8 +369,8 @@ pub struct LibraryPlaylistsView {
 
 #[derive(Debug)]
 pub struct Props {
-    pub playlists: Box<[Playlist]>,
-    sort_mode: NameSort<Playlist>,
+    pub playlists: Box<[PlaylistBrief]>,
+    sort_mode: NameSort<PlaylistBrief>,
 }
 
 impl From<&AppState> for Props {
@@ -651,15 +651,15 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
 #[cfg(test)]
 mod sort_mode_tests {
     use super::*;
+    use mecomp_storage::db::schemas::playlist::Playlist;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use std::time::Duration;
 
     #[rstest]
     #[case(NameSort::default(), NameSort::default())]
     fn test_sort_mode_next_prev(
-        #[case] mode: NameSort<Playlist>,
-        #[case] expected: NameSort<Playlist>,
+        #[case] mode: NameSort<PlaylistBrief>,
+        #[case] expected: NameSort<PlaylistBrief>,
     ) {
         assert_eq!(mode.next(), expected);
         assert_eq!(mode.next().prev(), mode);
@@ -667,30 +667,24 @@ mod sort_mode_tests {
 
     #[rstest]
     #[case(NameSort::default(), "Name")]
-    fn test_sort_mode_display(#[case] mode: NameSort<Playlist>, #[case] expected: &str) {
+    fn test_sort_mode_display(#[case] mode: NameSort<PlaylistBrief>, #[case] expected: &str) {
         assert_eq!(mode.to_string(), expected);
     }
 
     #[rstest]
     fn test_sort_items() {
         let mut songs = vec![
-            Playlist {
+            PlaylistBrief {
                 id: Playlist::generate_id(),
                 name: "C".into(),
-                song_count: 0,
-                runtime: Duration::from_secs(0),
             },
-            Playlist {
+            PlaylistBrief {
                 id: Playlist::generate_id(),
                 name: "A".into(),
-                song_count: 0,
-                runtime: Duration::from_secs(0),
             },
-            Playlist {
+            PlaylistBrief {
                 id: Playlist::generate_id(),
                 name: "B".into(),
-                song_count: 0,
-                runtime: Duration::from_secs(0),
             },
         ];
 

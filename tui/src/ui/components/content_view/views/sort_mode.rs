@@ -1,8 +1,8 @@
 use std::{fmt::Display, marker::PhantomData};
 
 use mecomp_storage::db::schemas::{
-    album::Album, artist::Artist, collection::Collection, dynamic::DynamicPlaylist,
-    playlist::Playlist, song::Song,
+    album::AlbumBrief, artist::ArtistBrief, collection::CollectionBrief, dynamic::DynamicPlaylist,
+    playlist::PlaylistBrief, song::SongBrief,
 };
 
 use super::traits::SortMode;
@@ -29,7 +29,7 @@ impl Display for SongSort {
     }
 }
 
-impl SortMode<Song> for SongSort {
+impl SortMode<SongBrief> for SongSort {
     fn next(&self) -> Self {
         match self {
             Self::Title => Self::Artist,
@@ -50,7 +50,7 @@ impl SortMode<Song> for SongSort {
         }
     }
 
-    fn sort_items(&self, songs: &mut [Song]) {
+    fn sort_items(&self, songs: &mut [SongBrief]) {
         fn key<T: AsRef<str>>(input: T) -> String {
             input
                 .as_ref()
@@ -96,7 +96,7 @@ impl Display for AlbumSort {
     }
 }
 
-impl SortMode<Album> for AlbumSort {
+impl SortMode<AlbumBrief> for AlbumSort {
     fn next(&self) -> Self {
         match self {
             Self::Title => Self::Artist,
@@ -113,7 +113,7 @@ impl SortMode<Album> for AlbumSort {
         }
     }
 
-    fn sort_items(&self, albums: &mut [Album]) {
+    fn sort_items(&self, albums: &mut [AlbumBrief]) {
         fn key<T: AsRef<str>>(input: T) -> String {
             input
                 .as_ref()
@@ -174,7 +174,7 @@ macro_rules! impl_name_sortable {
     };
 }
 
-impl_name_sortable!(Artist, Collection, Playlist, DynamicPlaylist);
+impl_name_sortable!(ArtistBrief, CollectionBrief, PlaylistBrief, DynamicPlaylist);
 
 impl<T> SortMode<T> for NameSort<T>
 where

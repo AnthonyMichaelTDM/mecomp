@@ -370,17 +370,17 @@ mod tests {
     use crossterm::event::KeyModifiers;
     use mecomp_core::{
         rpc::SearchResult,
-        state::{Percent, RepeatMode, StateAudio, StateRuntime, Status, library::LibraryFull},
+        state::{Percent, RepeatMode, StateAudio, StateRuntime, Status, library::LibraryBrief},
     };
-    use mecomp_storage::db::schemas::song::Song;
+    use mecomp_storage::db::schemas::song::{Song, SongBrief};
     use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
     use tokio::sync::mpsc::unbounded_channel;
 
     #[fixture]
-    fn song() -> Song {
-        Song {
+    fn song() -> SongBrief {
+        SongBrief {
             id: Song::generate_id(),
             title: "Test Song".into(),
             artist: OneOrMany::One("Test Artist".into()),
@@ -511,7 +511,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_move_with_search(song: Song) {
+    fn test_move_with_search(song: SongBrief) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let state = AppState::default();
         let mut app = App::new(&state, tx);
@@ -532,7 +532,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_move_with_audio(song: Song) {
+    fn test_move_with_audio(song: SongBrief) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let state = AppState::default();
         let mut app = App::new(&state, tx);
@@ -604,7 +604,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_move_with_library(song: Song) {
+    fn test_move_with_library(song: SongBrief) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let state = AppState {
             active_component: ActiveComponent::ContentView,
@@ -614,7 +614,7 @@ mod tests {
         let mut app = App::new(&state, tx);
 
         let state = AppState {
-            library: LibraryFull {
+            library: LibraryBrief {
                 songs: vec![song].into_boxed_slice(),
                 ..Default::default()
             },
@@ -626,7 +626,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_move_with_view(song: Song) {
+    fn test_move_with_view(song: SongBrief) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let state = AppState {
             active_component: ActiveComponent::ContentView,

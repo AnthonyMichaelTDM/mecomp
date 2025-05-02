@@ -15,7 +15,7 @@ use crate::{
             generic::read_rand,
         },
         schemas::{
-            album::{Album, AlbumChangeSet, AlbumId, TABLE_NAME},
+            album::{Album, AlbumBrief, AlbumChangeSet, AlbumId, TABLE_NAME},
             artist::Artist,
             song::{Song, SongId},
         },
@@ -36,6 +36,14 @@ impl Album {
     #[instrument()]
     pub async fn read_all<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
         Ok(db.select(TABLE_NAME).await?)
+    }
+
+    #[instrument]
+    pub async fn read_all_brief<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<AlbumBrief>> {
+        Ok(db
+            .query(format!("SELECT {} FROM album;", Self::BRIEF_FIELDS))
+            .await?
+            .take(0)?)
     }
 
     #[instrument()]
@@ -67,8 +75,11 @@ impl Album {
     pub async fn read_rand<C: Connection>(
         db: &Surreal<C>,
         limit: usize,
-    ) -> StorageResult<Vec<Self>> {
-        Ok(db.query(read_rand(TABLE_NAME, limit)).await?.take(0)?)
+    ) -> StorageResult<Vec<AlbumBrief>> {
+        Ok(db
+            .query(read_rand(Self::BRIEF_FIELDS, TABLE_NAME, limit))
+            .await?
+            .take(0)?)
     }
 
     #[instrument()]
@@ -76,9 +87,9 @@ impl Album {
         db: &Surreal<C>,
         query: &str,
         limit: usize,
-    ) -> StorageResult<Vec<Self>> {
+    ) -> StorageResult<Vec<AlbumBrief>> {
         Ok(db
-            .query("SELECT *, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM album WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit")
+            .query(format!("SELECT {}, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM {TABLE_NAME} WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit", Self::BRIEF_FIELDS))
             .bind(("query", query.to_string()))
             .bind(("limit", limit))
             .await?
@@ -331,12 +342,14 @@ mod tests {
         let mut album2 = create_album();
         album2.title = "Another Test Album".into();
 
-        let _ = Album::create(&db, album1.clone())
+        let album1 = Album::create(&db, album1.clone())
             .await?
-            .ok_or_else(|| anyhow!("Failed to create album"))?;
-        let _ = Album::create(&db, album2.clone())
+            .ok_or_else(|| anyhow!("Failed to create album"))?
+            .into();
+        let album2 = Album::create(&db, album2.clone())
             .await?
-            .ok_or_else(|| anyhow!("Failed to create album"))?;
+            .ok_or_else(|| anyhow!("Failed to create album"))?
+            .into();
 
         // n = # records
         let read = Album::read_rand(&db, 2).await?;
@@ -362,12 +375,17 @@ mod tests {
         let db = init_test_database().await?;
         let album = create_album();
 
-        let _ = Album::create(&db, album.clone())
+        let album = Album::create(&db, album.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create album"))?;
 
         let read = Album::read_all(&db).await?;
         assert!(!read.is_empty());
+        assert_eq!(read, vec![album.clone()]);
+
+        let read = Album::read_all_brief(&db).await?;
+        assert!(!read.is_empty());
+        assert_eq!(read, vec![album.into()]);
         Ok(())
     }
 
@@ -467,12 +485,12 @@ mod tests {
 
         let found = Album::search(&db, "foo", 2).await?;
         assert_eq!(found.len(), 2);
-        assert!(found.contains(&album1));
-        assert!(found.contains(&album2));
+        assert!(found.contains(&album1.clone().into()));
+        assert!(found.contains(&album2.into()));
 
         let found = Album::search(&db, "bar", 10).await?;
         assert_eq!(found.len(), 1);
-        assert_eq!(found, vec![album1]);
+        assert_eq!(found, vec![album1.into()]);
         Ok(())
     }
 
@@ -616,7 +634,7 @@ mod tests {
 
         let read = Album::read_artist(&db, album.id.clone()).await?;
         assert_eq!(read.len(), 1);
-        assert_eq!(read.get(0), Some(&artist));
+        assert_eq!(read.get(0), Some(&artist.into()));
         Ok(())
     }
 }

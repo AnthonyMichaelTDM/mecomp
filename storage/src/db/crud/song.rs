@@ -22,7 +22,7 @@ use crate::{
             artist::Artist,
             collection::Collection,
             playlist::Playlist,
-            song::{Song, SongChangeSet, SongId, SongMetadata, TABLE_NAME},
+            song::{Song, SongBrief, SongChangeSet, SongId, SongMetadata, TABLE_NAME},
         },
     },
     errors::{Error, SongIOError, StorageResult},
@@ -65,6 +65,14 @@ impl Song {
     }
 
     #[instrument]
+    pub async fn read_all_brief<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<SongBrief>> {
+        Ok(db
+            .query(format!("SELECT {} FROM song;", Self::BRIEF_FIELDS))
+            .await?
+            .take(0)?)
+    }
+
+    #[instrument]
     pub async fn read<C: Connection>(db: &Surreal<C>, id: SongId) -> StorageResult<Option<Self>> {
         Ok(db.select(id).await?)
     }
@@ -85,8 +93,11 @@ impl Song {
     pub async fn read_rand<C: Connection>(
         db: &Surreal<C>,
         limit: usize,
-    ) -> StorageResult<Vec<Self>> {
-        Ok(db.query(read_rand(TABLE_NAME, limit)).await?.take(0)?)
+    ) -> StorageResult<Vec<SongBrief>> {
+        Ok(db
+            .query(read_rand(Self::BRIEF_FIELDS, TABLE_NAME, limit))
+            .await?
+            .take(0)?)
     }
 
     #[instrument]
@@ -142,9 +153,9 @@ impl Song {
         db: &Surreal<C>,
         query: &str,
         limit: usize,
-    ) -> StorageResult<Vec<Self>> {
+    ) -> StorageResult<Vec<SongBrief>> {
         Ok(db
-            .query("SELECT *, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM song WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit")
+            .query(format!("SELECT {}, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM {TABLE_NAME} WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit",Self::BRIEF_FIELDS))
             .bind(("query", query.to_owned()))
             .bind(("limit", limit))
             .await?
@@ -407,15 +418,28 @@ mod test {
     #[tokio::test]
     async fn test_read_all() -> Result<()> {
         let db = init_test_database().await?;
-        let _ =
+        let song1 =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
-        let _ =
+        let song2 =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
-        let _ =
+        let song3 =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let expected = vec![song1, song2, song3];
 
         let songs = Song::read_all(&db).await?;
         assert!(!songs.is_empty());
+        for song in &expected {
+            assert!(songs.contains(&song), "missing {song:?}");
+        }
+        assert_eq!(songs.len(), expected.len());
+
+        let songs = Song::read_all_brief(&db).await?;
+        assert!(!songs.is_empty());
+        for song in &expected {
+            assert!(songs.contains(&song.into()), "missing {song:?}");
+        }
+        assert_eq!(songs.len(), expected.len());
+
         Ok(())
     }
 
@@ -448,10 +472,12 @@ mod test {
     #[tokio::test]
     async fn test_read_rand() -> Result<()> {
         let db = init_test_database().await?;
-        let song1 =
-            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
-        let song2 =
-            create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
+        let song1 = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+            .await?
+            .into();
+        let song2 = create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default())
+            .await?
+            .into();
 
         // n = # records
         let read = Song::read_rand(&db, 2).await?;
@@ -669,12 +695,12 @@ mod test {
 
         let found = Song::search(&db, "Foo", 2).await?;
         assert_eq!(found.len(), 2);
-        assert!(found.contains(&song1));
-        assert!(found.contains(&song2));
+        assert!(found.contains(&song1.clone().into()));
+        assert!(found.contains(&song2.into()));
 
         let found = Song::search(&db, "Bar", 10).await?;
         assert_eq!(found.len(), 1);
-        assert_eq!(found, vec![song1]);
+        assert_eq!(found, vec![song1.into()]);
 
         Ok(())
     }
@@ -714,11 +740,11 @@ mod test {
         // assert that all 3 songs were found, and that the first one is the one with "green" in the title (since title is weighted higher than artist in the search query)
         assert_eq!(found.len(), 3);
         // assert_eq!(found, vec![]);
-        assert!(found.contains(&song1));
-        assert!(found.contains(&song2));
-        assert!(found.contains(&song3));
+        assert!(found.contains(&song1.into()));
+        assert!(found.contains(&song2.into()));
+        assert!(found.contains(&song3.clone().into()));
 
-        assert_eq!(found.first(), Some(&song3));
+        assert_eq!(found.first(), Some(&song3.into()));
 
         Ok(())
     }

@@ -11,7 +11,7 @@ use mecomp_core::{
     state::{Percent, RepeatMode, StateAudio, Status},
     udp::{Event, Listener, Message, StateChange},
 };
-use mecomp_storage::db::schemas::song::Song;
+use mecomp_storage::db::schemas::song::SongBrief;
 use mpris_server::{
     LoopStatus, Metadata, PlaybackStatus, Property, Server, Signal, Time, TrackId,
     zbus::{Error as ZbusError, zvariant::ObjectPath},
@@ -306,7 +306,7 @@ impl Subscriber {
 }
 
 #[must_use]
-pub fn metadata_from_opt_song(song: Option<&Song>) -> Metadata {
+pub fn metadata_from_opt_song(song: Option<&SongBrief>) -> Metadata {
     song.map_or_else(
         || Metadata::builder().trackid(TrackId::NO_TRACK).build(),
         |song| {

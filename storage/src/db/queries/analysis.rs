@@ -55,7 +55,7 @@ pub fn add_to_song() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_for_song() -> impl IntoQuery {
-    read_related_in("song", ANALYSIS_TO_SONG)
+    read_related_in("*", "song", ANALYSIS_TO_SONG)
 }
 
 /// Query to read the analyses for a list of songs
@@ -101,7 +101,7 @@ pub fn read_for_songs() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub fn read_song() -> impl IntoQuery {
-    read_related_out("id", ANALYSIS_TO_SONG)
+    read_related_out("*", "id", ANALYSIS_TO_SONG)
 }
 
 /// Query to read the songs for a list of analyses

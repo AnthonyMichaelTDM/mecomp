@@ -8,7 +8,9 @@ use crate::{
     db::{
         queries::collection::{add_songs, read_songs, remove_songs},
         schemas::{
-            collection::{Collection, CollectionChangeSet, CollectionId, TABLE_NAME},
+            collection::{
+                Collection, CollectionBrief, CollectionChangeSet, CollectionId, TABLE_NAME,
+            },
             playlist::Playlist,
             song::{Song, SongId},
         },
@@ -28,6 +30,13 @@ impl Collection {
     #[instrument]
     pub async fn read_all<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
         Ok(db.select(TABLE_NAME).await?)
+    }
+
+    #[instrument]
+    pub async fn read_all_brief<C: Connection>(
+        db: &Surreal<C>,
+    ) -> StorageResult<Vec<CollectionBrief>> {
+        Ok(db.query("SELECT id,name FROM collection;").await?.take(0)?)
     }
 
     #[instrument]
@@ -187,6 +196,11 @@ mod tests {
         Collection::create(&db, collection.clone()).await?;
         let result = Collection::read_all(&db).await?;
         assert!(!result.is_empty());
+        assert_eq!(result, vec![collection.clone()]);
+
+        let result = Collection::read_all_brief(&db).await?;
+        assert!(!result.is_empty());
+        assert_eq!(result, vec![collection.into()]);
         Ok(())
     }
 

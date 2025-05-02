@@ -6,7 +6,7 @@ use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_core::format_duration;
-use mecomp_storage::db::schemas::collection::Collection;
+use mecomp_storage::db::schemas::collection::CollectionBrief;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Style, Stylize},
@@ -326,8 +326,8 @@ pub struct LibraryCollectionsView {
 }
 
 struct Props {
-    collections: Box<[Collection]>,
-    sort_mode: NameSort<Collection>,
+    collections: Box<[CollectionBrief]>,
+    sort_mode: NameSort<CollectionBrief>,
 }
 
 impl Component for LibraryCollectionsView {
@@ -499,15 +499,15 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
 #[cfg(test)]
 mod sort_mode_tests {
     use super::*;
+    use mecomp_storage::db::schemas::collection::Collection;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use std::time::Duration;
 
     #[rstest]
     #[case(NameSort::default(), NameSort::default())]
     fn test_sort_mode_next_prev(
-        #[case] mode: NameSort<Collection>,
-        #[case] expected: NameSort<Collection>,
+        #[case] mode: NameSort<CollectionBrief>,
+        #[case] expected: NameSort<CollectionBrief>,
     ) {
         assert_eq!(mode.next(), expected);
         assert_eq!(mode.next().prev(), mode);
@@ -515,37 +515,31 @@ mod sort_mode_tests {
 
     #[rstest]
     #[case(NameSort::default(), "Name")]
-    fn test_sort_mode_display(#[case] mode: NameSort<Collection>, #[case] expected: &str) {
+    fn test_sort_mode_display(#[case] mode: NameSort<CollectionBrief>, #[case] expected: &str) {
         assert_eq!(mode.to_string(), expected);
     }
 
     #[rstest]
     fn test_sort_collectionss() {
-        let mut songs = vec![
-            Collection {
+        let mut collections = vec![
+            CollectionBrief {
                 id: Collection::generate_id(),
                 name: "C".into(),
-                song_count: 0,
-                runtime: Duration::from_secs(0),
             },
-            Collection {
+            CollectionBrief {
                 id: Collection::generate_id(),
                 name: "A".into(),
-                song_count: 0,
-                runtime: Duration::from_secs(0),
             },
-            Collection {
+            CollectionBrief {
                 id: Collection::generate_id(),
                 name: "B".into(),
-                song_count: 0,
-                runtime: Duration::from_secs(0),
             },
         ];
 
-        NameSort::default().sort_items(&mut songs);
-        assert_eq!(songs[0].name, "A");
-        assert_eq!(songs[1].name, "B");
-        assert_eq!(songs[2].name, "C");
+        NameSort::default().sort_items(&mut collections);
+        assert_eq!(collections[0].name, "A");
+        assert_eq!(collections[1].name, "B");
+        assert_eq!(collections[2].name, "C");
     }
 }
 

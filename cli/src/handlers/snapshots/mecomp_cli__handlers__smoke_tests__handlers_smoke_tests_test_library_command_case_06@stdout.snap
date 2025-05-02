@@ -5,11 +5,116 @@ expression: "String::from_utf8(stdout.0.clone()).unwrap()"
 Daemon response:
 Ok(
     LibraryBrief {
-        artists: 1,
-        albums: 1,
-        songs: 1,
-        playlists: 1,
-        collections: 1,
-        dynamic_playlists: 1,
+        artists: [
+            ArtistBrief {
+                id: Thing {
+                    tb: "artist",
+                    id: String(
+                        "01J1K5B6RJ84WJXCWYJ5WNE12E",
+                    ),
+                },
+                name: "Test Artist",
+            },
+        ],
+        albums: [
+            AlbumBrief {
+                id: Thing {
+                    tb: "album",
+                    id: String(
+                        "01J1K5B6RJ84WJXCWYJ5WNE12E",
+                    ),
+                },
+                title: "Test Album",
+                artist: One(
+                    "Test Artist",
+                ),
+                release: Some(
+                    2021,
+                ),
+                discs: 1,
+                genre: One(
+                    "Test Genre",
+                ),
+            },
+        ],
+        songs: [
+            SongBrief {
+                id: Thing {
+                    tb: "song",
+                    id: String(
+                        "01J1K5B6RJ84WJXCWYJ5WNE12E",
+                    ),
+                },
+                title: "Test Song",
+                artist: One(
+                    "Test Artist",
+                ),
+                album_artist: One(
+                    "Test Artist",
+                ),
+                album: "Test Album",
+                genre: One(
+                    "Test Genre",
+                ),
+                runtime: 180s,
+                track: Some(
+                    0,
+                ),
+                disc: Some(
+                    0,
+                ),
+                release_year: Some(
+                    2021,
+                ),
+                extension: "mp3",
+                path: "test.mp3",
+            },
+        ],
+        playlists: [
+            PlaylistBrief {
+                id: Thing {
+                    tb: "playlist",
+                    id: String(
+                        "01J1K5B6RJ84WJXCWYJ5WNE12E",
+                    ),
+                },
+                name: "Test Playlist",
+            },
+        ],
+        collections: [
+            CollectionBrief {
+                id: Thing {
+                    tb: "collection",
+                    id: String(
+                        "01J1K5B6RJ84WJXCWYJ5WNE12E",
+                    ),
+                },
+                name: "Collection 0",
+            },
+        ],
+        dynamic_playlists: [
+            DynamicPlaylist {
+                id: Thing {
+                    tb: "dynamic",
+                    id: String(
+                        "01J1K5B6RJ84WJXCWYJ5WNE12E",
+                    ),
+                },
+                name: "Test Dynamic",
+                query: Query {
+                    root: Leaf(
+                        LeafClause {
+                            left: Field(
+                                Title,
+                            ),
+                            operator: Equal,
+                            right: String(
+                                "Test Song",
+                            ),
+                        },
+                    ),
+                },
+            },
+        ],
     },
 )

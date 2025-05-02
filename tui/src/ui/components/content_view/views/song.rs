@@ -3,7 +3,7 @@
 use std::{ops::Not, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
-use mecomp_storage::db::schemas::song::Song;
+use mecomp_storage::db::schemas::song::SongBrief;
 use ratatui::{
     layout::{Margin, Rect},
     style::{Style, Stylize},
@@ -43,7 +43,7 @@ pub struct LibrarySongsView {
 }
 
 pub(crate) struct Props {
-    pub(crate) songs: Box<[Song]>,
+    pub(crate) songs: Box<[SongBrief]>,
     pub(crate) sort_mode: SongSort,
 }
 
@@ -252,6 +252,7 @@ impl ComponentRender<RenderProps> for LibrarySongsView {
 #[cfg(test)]
 mod sort_mode_tests {
     use super::*;
+    use mecomp_storage::db::schemas::song::Song;
     use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
@@ -281,7 +282,7 @@ mod sort_mode_tests {
     #[rstest]
     fn test_sort_songs() {
         let mut songs = vec![
-            Song {
+            SongBrief {
                 id: Song::generate_id(),
                 title: "C".into(),
                 artist: OneOrMany::One("B".into()),
@@ -295,7 +296,7 @@ mod sort_mode_tests {
                 extension: "mp3".into(),
                 path: "test.mp3".into(),
             },
-            Song {
+            SongBrief {
                 id: Song::generate_id(),
                 title: "B".into(),
                 artist: OneOrMany::One("A".into()),
@@ -309,7 +310,7 @@ mod sort_mode_tests {
                 extension: "mp3".into(),
                 path: "test.mp3".into(),
             },
-            Song {
+            SongBrief {
                 id: Song::generate_id(),
                 title: "A".into(),
                 artist: OneOrMany::One("C".into()),

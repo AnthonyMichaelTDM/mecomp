@@ -58,6 +58,8 @@ RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]
 }
 
 impl Collection {
+    pub const BRIEF_FIELDS: &'static str = "id,name";
+
     #[must_use]
     #[inline]
     pub fn generate_id() -> CollectionId {
@@ -77,8 +79,6 @@ pub struct CollectionChangeSet {
 pub struct CollectionBrief {
     pub id: CollectionId,
     pub name: String,
-    pub runtime: std::time::Duration,
-    pub songs: usize,
 }
 
 impl From<Collection> for CollectionBrief {
@@ -87,8 +87,6 @@ impl From<Collection> for CollectionBrief {
         Self {
             id: collection.id,
             name: collection.name,
-            runtime: collection.runtime,
-            songs: collection.song_count,
         }
     }
 }
@@ -99,8 +97,6 @@ impl From<&Collection> for CollectionBrief {
         Self {
             id: collection.id.clone(),
             name: collection.name.clone(),
-            runtime: collection.runtime,
-            songs: collection.song_count,
         }
     }
 }
@@ -127,8 +123,6 @@ mod tests {
         CollectionBrief {
             id: RecordId::from((TABLE_NAME, "id")),
             name: "collection".into(),
-            runtime: Duration::from_secs(3600),
-            songs: 100,
         }
     }
 

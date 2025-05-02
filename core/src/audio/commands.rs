@@ -3,7 +3,7 @@
 
 use std::{fmt::Display, ops::Range, time::Duration};
 
-use mecomp_storage::db::schemas::song::Song;
+use mecomp_storage::db::schemas::song::SongBrief;
 use one_or_many::OneOrMany;
 
 use crate::{
@@ -94,7 +94,7 @@ pub enum QueueCommand {
     /// Shuffle the queue
     Shuffle,
     /// Add a song to the queue
-    AddToQueue(Box<OneOrMany<Song>>),
+    AddToQueue(OneOrMany<SongBrief>),
     /// Remove a range of items from the queue
     RemoveRange(Range<usize>),
     /// Clear the queue
@@ -111,22 +111,20 @@ impl Display for QueueCommand {
             Self::SkipBackward(n) => write!(f, "Skip Backward by {n}"),
             Self::SetPosition(n) => write!(f, "Set Position to {n}"),
             Self::Shuffle => write!(f, "Shuffle"),
-            Self::AddToQueue(song_box) => match &**song_box {
-                OneOrMany::None => write!(f, "Add nothing"),
-                OneOrMany::One(song) => {
-                    write!(f, "Add \"{}\"", song.title)
-                }
-                OneOrMany::Many(songs) => {
-                    write!(
-                        f,
-                        "Add {:?}",
-                        songs
-                            .iter()
-                            .map(|song| song.title.to_string())
-                            .collect::<Vec<_>>()
-                    )
-                }
-            },
+            Self::AddToQueue(OneOrMany::None) => write!(f, "Add nothing"),
+            Self::AddToQueue(OneOrMany::One(song)) => {
+                write!(f, "Add \"{}\"", song.title)
+            }
+            Self::AddToQueue(OneOrMany::Many(songs)) => {
+                write!(
+                    f,
+                    "Add {:?}",
+                    songs
+                        .iter()
+                        .map(|song| song.title.to_string())
+                        .collect::<Vec<_>>()
+                )
+            }
             Self::RemoveRange(range) => {
                 write!(f, "Remove items {}..{}", range.start, range.end)
             }
@@ -166,6 +164,7 @@ impl Display for VolumeCommand {
 
 #[cfg(test)]
 mod tests {
+    use mecomp_storage::db::schemas::song::Song;
     use pretty_assertions::assert_str_eq;
     use rstest::rstest;
     use std::time::Duration;
@@ -340,8 +339,8 @@ mod tests {
     }
 
     // dummy song used for display tests, makes the tests more readable
-    fn dummy_song() -> Song {
-        Song {
+    fn dummy_song() -> SongBrief {
+        SongBrief {
             id: Song::generate_id(),
             title: "Song 1".into(),
             artist: OneOrMany::None,
@@ -366,15 +365,15 @@ mod tests {
     #[case(AudioCommand::Queue(QueueCommand::Clear), "Queue: Clear")]
     #[case(AudioCommand::Queue(QueueCommand::Shuffle), "Queue: Shuffle")]
     #[case(
-        AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(OneOrMany::None))),
+        AudioCommand::Queue(QueueCommand::AddToQueue(OneOrMany::None)),
         "Queue: Add nothing"
     )]
     #[case(
-        AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(OneOrMany::One(dummy_song())))),
+        AudioCommand::Queue(QueueCommand::AddToQueue(OneOrMany::One(dummy_song()))),
         "Queue: Add \"Song 1\""
     )]
     #[case(
-        AudioCommand::Queue(QueueCommand::AddToQueue(Box::new(OneOrMany::Many(vec![dummy_song()])))),
+        AudioCommand::Queue(QueueCommand::AddToQueue(OneOrMany::Many(vec![dummy_song()]))),
         "Queue: Add [\"Song 1\"]"
     )]
     #[case(

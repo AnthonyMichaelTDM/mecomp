@@ -35,7 +35,7 @@ pub struct Album {
     /// Release year of this [`Album`].
     #[cfg_attr(feature = "db", field(dt = "option<int>"))]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub release: Option<i32>,
+    pub release: Option<u32>,
     /// Total runtime of this [`Album`].
     #[cfg_attr(
         feature = "db",
@@ -76,6 +76,7 @@ RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]
 }
 
 impl Album {
+    pub const BRIEF_FIELDS: &'static str = "id,title,artist,release,discs,genre";
     #[must_use]
     #[inline]
     pub fn generate_id() -> AlbumId {
@@ -104,9 +105,7 @@ pub struct AlbumBrief {
     pub id: AlbumId,
     pub title: String,
     pub artist: OneOrMany<String>,
-    pub release: Option<i32>,
-    pub runtime: Duration,
-    pub song_count: usize,
+    pub release: Option<u32>,
     pub discs: u32,
     pub genre: OneOrMany<String>,
 }
@@ -119,8 +118,6 @@ impl From<Album> for AlbumBrief {
             title: album.title,
             artist: album.artist,
             release: album.release,
-            runtime: album.runtime,
-            song_count: album.song_count,
             discs: album.discs,
             genre: album.genre,
         }
@@ -135,8 +132,6 @@ impl From<&Album> for AlbumBrief {
             title: album.title.clone(),
             artist: album.artist.clone(),
             release: album.release,
-            runtime: album.runtime,
-            song_count: album.song_count,
             discs: album.discs,
             genre: album.genre.clone(),
         }
@@ -171,8 +166,6 @@ mod tests {
             title: "test".into(),
             artist: OneOrMany::One("test".into()),
             release: Some(2021),
-            runtime: Duration::from_secs(0),
-            song_count: 0,
             discs: 1,
             genre: OneOrMany::One("test".into()),
         }

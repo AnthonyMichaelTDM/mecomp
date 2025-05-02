@@ -37,7 +37,7 @@ use crossterm::{
 use mecomp_core::{
     config::Settings,
     rpc::{MusicPlayerClient, SearchResult},
-    state::{StateAudio, library::LibraryFull},
+    state::{StateAudio, library::LibraryBrief},
 };
 use mecomp_storage::db::schemas::{RecordId, album, artist, collection, dynamic, playlist, song};
 use one_or_many::OneOrMany;
@@ -56,7 +56,7 @@ pub struct AppState {
     pub active_component: ActiveComponent,
     pub audio: StateAudio,
     pub search: SearchResult,
-    pub library: LibraryFull,
+    pub library: LibraryBrief,
     pub active_view: ActiveView,
     pub additional_view_data: ViewData,
     pub settings: Settings,
@@ -253,6 +253,10 @@ async fn handle_additional_view_data(
                 daemon.library_song_get_playlists(Context::current(), song_id.clone()),
                 daemon.library_song_get_collections(Context::current(), song_id.clone()),
             ) {
+                let artists = artists.into_iter().map(Into::into).collect();
+                let album = album.into();
+                let playlists = playlists.into_iter().map(Into::into).collect();
+                let collections = collections.into_iter().map(Into::into).collect();
                 let song_view_props = SongViewProps {
                     id: song_id,
                     song,
@@ -283,6 +287,8 @@ async fn handle_additional_view_data(
                 daemon.library_album_get_artist(Context::current(), album_id.clone()),
                 daemon.library_album_get_songs(Context::current(), album_id.clone()),
             ) {
+                let artists = artists.into_iter().map(Into::into).collect();
+                let songs = songs.into_iter().map(Into::into).collect();
                 let album_view_props = AlbumViewProps {
                     id: album_id,
                     album,
@@ -311,6 +317,8 @@ async fn handle_additional_view_data(
                 daemon.library_artist_get_albums(Context::current(), artist_id.clone()),
                 daemon.library_artist_get_songs(Context::current(), artist_id.clone()),
             ) {
+                let albums = albums.into_iter().map(Into::into).collect();
+                let songs = songs.into_iter().map(Into::into).collect();
                 let artist_view_props = ArtistViewProps {
                     id: artist_id,
                     artist,
@@ -338,6 +346,7 @@ async fn handle_additional_view_data(
                 daemon.playlist_get(Context::current(), playlist_id.clone()),
                 daemon.playlist_get_songs(Context::current(), playlist_id.clone()),
             ) {
+                let songs = songs.into_iter().map(Into::into).collect();
                 let playlist_view_props = PlaylistViewProps {
                     id: playlist_id,
                     playlist,
@@ -364,10 +373,11 @@ async fn handle_additional_view_data(
                 daemon.dynamic_playlist_get(Context::current(), dynamic_playlist_id.clone()),
                 daemon.dynamic_playlist_get_songs(Context::current(), dynamic_playlist_id.clone()),
             ) {
+                let songs = songs.into_iter().map(Into::into).collect();
                 let dynamic_playlist_view_props = DynamicPlaylistViewProps {
                     id: dynamic_playlist_id,
-                    songs,
                     dynamic_playlist,
+                    songs,
                 };
                 Some(ViewData {
                     dynamic_playlist: Some(dynamic_playlist_view_props),
@@ -390,6 +400,7 @@ async fn handle_additional_view_data(
                 daemon.collection_get(Context::current(), collection_id.clone()),
                 daemon.collection_get_songs(Context::current(), collection_id.clone()),
             ) {
+                let songs = songs.into_iter().map(Into::into).collect();
                 let collection_view_props = CollectionViewProps {
                     id: collection_id,
                     collection,
@@ -412,6 +423,7 @@ async fn handle_additional_view_data(
                 .radio_get_similar(Context::current(), ids.clone(), count)
                 .await
             {
+                let songs = songs.into_iter().map(Into::into).collect();
                 Some(RadioViewProps { count, songs })
             } else {
                 None

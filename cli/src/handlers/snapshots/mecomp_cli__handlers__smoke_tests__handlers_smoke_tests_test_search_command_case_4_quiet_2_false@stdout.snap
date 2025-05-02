@@ -7,7 +7,7 @@ Songs:
 	song:01J1K5B6RJ84WJXCWYJ5WNE12E: "Test Song" (by: One("Test Artist"), album: Test Album)
 
 Albums:
-	album:01J1K5B6RJ84WJXCWYJ5WNE12E: "Test Album" (by: One("Test Artist"), 1 songs)
+	album:01J1K5B6RJ84WJXCWYJ5WNE12E: "Test Album" (by: One("Test Artist"))
 
 Artists:
-	artist:01J1K5B6RJ84WJXCWYJ5WNE12E: "Test Artist" (1 albums, 1 songs)
+	artist:01J1K5B6RJ84WJXCWYJ5WNE12E: "Test Artist"
