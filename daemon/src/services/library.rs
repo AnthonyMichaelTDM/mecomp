@@ -305,7 +305,7 @@ pub async fn analyze<C: Connection>(
         result = handle => match result {
             Ok(Ok(())) => {
                 info!("Analysis complete");
-                info!("Library brief: {:?}", brief(db).await?);
+                info!("Library health: {:?}", health(db).await?);
             }
             Ok(Err(e)) => {
                 error!("Error analyzing songs: {e}");
@@ -450,7 +450,7 @@ pub async fn recluster<C: Connection>(
     .await?;
 
     info!("Library recluster complete");
-    info!("Library brief: {:?}", brief(db).await?);
+    info!("Library health: {:?}", health(db).await?);
 
     Ok(())
 }
