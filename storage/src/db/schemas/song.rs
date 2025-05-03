@@ -135,9 +135,12 @@ pub struct SongBrief {
     pub album_artist: OneOrMany<String>,
     pub album: String,
     pub genre: OneOrMany<String>,
-    #[serde(
-        serialize_with = "super::serialize_duration_as_sql_duration",
-        deserialize_with = "super::deserialize_duration_from_sql_duration"
+    #[cfg_attr(
+        feature = "db",
+        serde(
+            serialize_with = "super::serialize_duration_as_sql_duration",
+            deserialize_with = "super::deserialize_duration_from_sql_duration"
+        )
     )]
     pub runtime: std::time::Duration,
     pub track: Option<u16>,
