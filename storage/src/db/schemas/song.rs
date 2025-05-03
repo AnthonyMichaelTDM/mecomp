@@ -250,6 +250,9 @@ impl SongMetadata {
         if self.artist != song.artist {
             changeset.artist = Some(self.artist.clone());
         }
+        if self.album != song.album {
+            changeset.album = Some(self.album.clone());
+        }
         if self.album_artist != song.album_artist {
             changeset.album_artist = Some(self.album_artist.clone());
         }
@@ -464,16 +467,16 @@ mod tests {
     SongChangeSet::default())]
     #[case::different(SongMetadata {
         title: "song 2".into(),
-        artist: OneOrMany::One("artist".into()),
-        album_artist: OneOrMany::One("artist".into()),
-        album: "album".into(),
+        artist: OneOrMany::One("artist 2".into()),
+        album_artist: OneOrMany::One("artist 2".into()),
+        album: "album 2".into(),
         genre: OneOrMany::One("rock".into()),
         runtime: Duration::from_secs(3000),
-        track: Some(1),
+        track: Some(2),
         disc: Some(3),
-        release_year: Some(2021),
-        extension: "mp3".into(),
-        path: PathBuf::from("path"),
+        release_year: Some(2022),
+        extension: "m3a".into(),
+        path: PathBuf::from("other_path"),
     },
     Song {
         id: RecordId::from((TABLE_NAME, "id")),
@@ -491,10 +494,16 @@ mod tests {
     },
     SongChangeSet{
         title: Some("song 2".into()),
+        artist: Some(OneOrMany::One("artist 2".into())),
+        album_artist: Some(OneOrMany::One("artist 2".into())),
+        album: Some("album 2".into()),
         genre: Some(OneOrMany::One("rock".into())),
         runtime: Some(Duration::from_secs(3000)),
+        track: Some(Some(2)),
         disc: Some(Some(3)),
-        ..Default::default()
+        release_year: Some(Some(2022)),
+        extension: Some("m3a".into()),
+        path: Some(PathBuf::from("other_path")),
     })]
     fn test_merge_with_song(
         #[case] base: SongMetadata,

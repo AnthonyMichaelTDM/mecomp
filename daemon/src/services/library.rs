@@ -95,9 +95,7 @@ pub async fn rescan<C: Connection>(
                             Song::update(db, song.id.clone(), metadata.merge_with_song(&song)).await?;
                         }
                         // ... we are in "skip" mode, do nothing
-                        MetadataConflictResolution::Skip => {
-                            continue;
-                        }
+                        MetadataConflictResolution::Skip => {}
                     }
                 }
                 // if we have an error, delete the song from the library
@@ -195,7 +193,7 @@ pub async fn rescan<C: Connection>(
     }
 
     info!("Library rescan complete");
-    info!("Library brief: {:?}", brief(db).await?);
+    info!("Library health: {:?}", health(db).await?);
 
     Ok(())
 }
@@ -261,8 +259,10 @@ pub async fn analyze<C: Connection>(
                 break;
             }
 
+            let displayable_path = song_path.display();
+
             let Some(song_id) = paths.get(&song_path) else {
-                error!("No song id found for path: {}", song_path.to_string_lossy());
+                error!("No song id found for path: {displayable_path}");
                 continue;
             };
 
@@ -279,14 +279,13 @@ pub async fn analyze<C: Connection>(
                 .map_or_else(
                     || {
                         warn!(
-                        "Error analyzing {}: song either wasn't found or already has an analysis",
-                        song_path.to_string_lossy()
+                        "Error analyzing {displayable_path}: song either wasn't found or already has an analysis"
                     );
                     },
-                    |_| debug!("Analyzed {}", song_path.to_string_lossy()),
+                    |_| debug!("Analyzed {displayable_path}"),
                 ),
                 Err(e) => {
-                    error!("Error analyzing {}: {}", song_path.to_string_lossy(), e);
+                    error!("Error analyzing {displayable_path}: {e}");
                 }
             }
         }
@@ -306,7 +305,7 @@ pub async fn analyze<C: Connection>(
         result = handle => match result {
             Ok(Ok(())) => {
                 info!("Analysis complete");
-                info!("Library brief: {:?}", brief(db).await?);
+                info!("Library health: {:?}", health(db).await?);
             }
             Ok(Err(e)) => {
                 error!("Error analyzing songs: {e}");
@@ -451,7 +450,7 @@ pub async fn recluster<C: Connection>(
     .await?;
 
     info!("Library recluster complete");
-    info!("Library brief: {:?}", brief(db).await?);
+    info!("Library health: {:?}", health(db).await?);
 
     Ok(())
 }
