@@ -9,7 +9,7 @@ use crate::Feature;
 
 use super::errors::{AnalysisError, AnalysisResult};
 use super::utils::{Normalize, hz_to_octs_inplace, stft};
-use ndarray::{Array, Array1, Array2, Axis, Zip, arr1, arr2, concatenate, s};
+use ndarray::{Array, Array1, Array2, Axis, Order, Zip, arr1, arr2, concatenate, s};
 use ndarray_stats::QuantileExt;
 use ndarray_stats::interpolate::Midpoint;
 use noisy_float::prelude::*;
@@ -146,11 +146,10 @@ pub fn extract_interval_features(chroma: &Array2<f64>, templates: &Array2<i32>) 
 pub fn normalize_feature_sequence(feature: &Array2<f64>) -> Array2<f64> {
     let mut normalized_sequence = feature.to_owned();
     for mut column in normalized_sequence.columns_mut() {
-        let mut sum = column.mapv(f64::abs).sum();
-        if sum < 0.0001 {
-            sum = 1.;
+        let sum: f64 = column.iter().copied().map(f64::abs).sum();
+        if sum >= 0.0001 {
+            column /= sum;
         }
-        column /= sum;
     }
 
     normalized_sequence
@@ -370,7 +369,7 @@ pub fn estimate_tuning(
 #[inline]
 pub fn chroma_stft(
     sample_rate: u32,
-    spectrum: &mut Array2<f64>,
+    spectrum: &mut Array2<f64>, // shape: (window_length / 2 + 1, signal.len().div_ceil(hop_length))
     n_fft: usize,
     n_chroma: u32,
     tuning: f64,
@@ -379,13 +378,23 @@ pub fn chroma_stft(
     let mut raw_chroma = chroma_filter(sample_rate, n_fft, n_chroma, tuning)?;
 
     raw_chroma = raw_chroma.dot(spectrum);
+
+    // We want to maximize cache locality, and are iterating over columns,
+    // so let's make sure our array is in column-major order.
+    raw_chroma = raw_chroma
+        .to_shape((raw_chroma.dim(), Order::ColumnMajor))
+        .map_err(|_| {
+            AnalysisError::AnalysisError(String::from("in chroma: failed to reorder array"))
+        })?
+        .to_owned();
+
     for mut row in raw_chroma.columns_mut() {
-        let mut sum = row.mapv(f64::abs).sum();
-        if sum < f64::MIN_POSITIVE {
-            sum = 1.;
+        let sum = row.sum(); // we know that our values are positive, so no need to use abs
+        if sum >= f64::MIN_POSITIVE {
+            row /= sum;
         }
-        row /= sum;
     }
+
     Ok(raw_chroma)
 }
 
@@ -619,6 +628,8 @@ mod test {
         let expected_filter = Array2::<f64>::read_npy(file).unwrap();
 
         let filter = chroma_filter(22050, 2048, 12, -0.1).unwrap();
+
+        assert!(filter.iter().all(|&x| x > 0.));
 
         for (expected, actual) in expected_filter.iter().zip(filter.iter()) {
             assert!(
