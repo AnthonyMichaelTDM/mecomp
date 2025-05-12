@@ -1,0 +1,47 @@
+# An example file for themeing the TUI with pywal.
+
+
+# General Daemon Settings
+[daemon]
+rpc_port = 6600
+library_paths = ["~/Music"]
+artist_separator = ["; ", ", ", " & ", " feat. ", " ft. "]
+protected_artist_names = []
+genre_separator = ", "
+conflict_resolution = "overwrite"
+log_level = "info"
+
+# Parameters for the reclustering algorithm.
+[reclustering]
+gap_statistic_reference_datasets = 50
+max_clusters = 24
+algorithm = "gmm"
+projection_method = "tsne"
+
+# Settings for the TUI
+[tui]
+radio_count = 20
+##  The color scheme to use for the TUI.
+## Each color is either:
+## - a hex string in the format "#RRGGBB".
+##   example: "#FFFFFF" for white.
+## - a material design color name in format "<COLOR>_<SHADE>".
+##   so "pink", "red-900",  "light-blue_500", "red900", etc. are all invalid.
+##   but "PINK_900", "RED_900", "LIGHT_BLUE_500" are valid.
+##   - Exceptions are "WHITE" and "BLACK", which are always valid.
+[tui.colors]
+### app border colors
+app_border = "{color1}"
+app_border_text = "{color3}"
+### border colors
+border_unfocused = "{color2}"
+border_focused = "{color4}"
+### popup border color
+popup_border = "{color5}"
+### text colors
+text_normal = "{color7}"
+text_highlight = "{color6}"
+text_highlight_alt = "{color4}"
+### gauge colors, such as song progress bar
+gauge_filled = "{color7}"
+gauge_unfilled = "{color0}"
