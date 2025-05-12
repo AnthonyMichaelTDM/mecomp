@@ -3,11 +3,13 @@
 //----------------------------------------------------------------------------------------- std lib
 use std::{
     net::{IpAddr, Ipv4Addr},
+    path::PathBuf,
     sync::Arc,
 };
 //--------------------------------------------------------------------------------- other libraries
 use futures::{future, prelude::*};
 use log::{error, info};
+use persistence::QueueState;
 use surrealdb::{Surreal, engine::local::Db};
 use tarpc::{
     self,
@@ -118,6 +120,7 @@ impl Drop for EventPublisher {
 /// * `db_dir` - The directory where the database is stored.
 ///   If the directory does not exist, it will be created.
 /// * `log_file_path` - The path to the file where logs will be written.
+/// * `state_file_path` - The path to the file where the queue state restored from / saved to.
 ///
 /// # Errors
 ///
@@ -130,8 +133,9 @@ impl Drop for EventPublisher {
 #[allow(clippy::redundant_pub_crate)]
 pub async fn start_daemon(
     settings: Settings,
-    db_dir: std::path::PathBuf,
-    log_file_path: Option<std::path::PathBuf>,
+    db_dir: PathBuf,
+    log_file_path: Option<PathBuf>,
+    state_file_path: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     // Throw the given settings into an Arc so we can share settings across threads.
     let settings = Arc::new(settings);
@@ -169,6 +173,16 @@ pub async fn start_daemon(
 
     // Start the audio kernel.
     let audio_kernel = AudioKernelSender::start(event_publisher_guard.event_tx.clone());
+
+    // optionally restore the queue state
+    if let Some(state_path) = &state_file_path {
+        info!("Restoring queue state from {}", state_path.display());
+        if let Err(e) =
+            QueueState::load_from_file(state_path).map(|state| state.restore_to(&audio_kernel))
+        {
+            error!("Failed to restore queue state: {e}");
+        }
+    }
 
     // Initialize the server.
     let server = MusicPlayerServer::new(
@@ -243,6 +257,16 @@ pub async fn start_daemon(
         .await
         .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
         .await;
+
+    if let Some(state_path) = &state_file_path {
+        info!("Persisting queue state to {}", state_path.display());
+        if let Err(e) = QueueState::retrieve(&audio_kernel)
+            .await
+            .and_then(|state| state.save_to_file(state_path))
+        {
+            error!("Failed to persist queue state: {e}");
+        }
+    }
 
     log::info!("Cleanup complete, exiting...");
 
