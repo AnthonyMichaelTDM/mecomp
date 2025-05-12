@@ -308,6 +308,16 @@ pub struct TuiSettings {
     /// Default is 20.
     #[serde(default = "default_radio_count")]
     pub radio_count: u32,
+    /// The color scheme to use for the TUI.
+    /// Each color is either:
+    /// - a hex string in the format `#RRGGBB`.
+    ///   example: `#FFFFFF` for white.
+    /// - a material design color name in format "<COLOR>_<SHADE>".
+    ///   so "pink", `red-900`,  `light-blue_500`, `red900`, etc. are all invalid.
+    ///   but `PINK_900`, `RED_900`, `LIGHT_BLUE_500` are valid.
+    ///   - Exceptions are `WHITE` and `BLACK`, which are always valid.
+    #[serde(default)]
+    pub colors: TuiColorScheme,
 }
 
 const fn default_radio_count() -> u32 {
@@ -319,8 +329,28 @@ impl Default for TuiSettings {
     fn default() -> Self {
         Self {
             radio_count: default_radio_count(),
+            colors: TuiColorScheme::default(),
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Default)]
+pub struct TuiColorScheme {
+    /// app border colors
+    pub app_border: Option<String>,
+    pub app_border_text: Option<String>,
+    /// border colors
+    pub border_unfocused: Option<String>,
+    pub border_focused: Option<String>,
+    /// popup border color
+    pub popup_border: Option<String>,
+    /// text colors
+    pub text_normal: Option<String>,
+    pub text_highlight: Option<String>,
+    pub text_highlight_alt: Option<String>,
+    /// gauge colors, such as song progress bar
+    pub gauge_filled: Option<String>,
+    pub gauge_unfilled: Option<String>,
 }
 
 #[cfg(test)]
@@ -387,6 +417,17 @@ algorithm = "gmm"
 
 [tui]
 radio_count = 21
+[tui.colors]
+app_border = "PINK_900"
+app_border_text = "PINK_300"
+border_unfocused = "RED_900"
+border_focused = "RED_200"
+popup_border = "LIGHT_BLUE_500"
+text_normal = "WHITE"
+text_highlight = "RED_600"
+text_highlight_alt = "RED_200"
+gauge_filled = "WHITE"
+gauge_unfilled = "BLACK"
             "#,
         )
         .unwrap();
@@ -407,7 +448,75 @@ radio_count = 21
                 algorithm: ClusterAlgorithm::GMM,
                 projection_method: ProjectionMethod::None,
             },
-            tui: TuiSettings { radio_count: 21 },
+            tui: TuiSettings {
+                radio_count: 21,
+                colors: TuiColorScheme {
+                    app_border: Some("PINK_900".into()),
+                    app_border_text: Some("PINK_300".into()),
+                    border_unfocused: Some("RED_900".into()),
+                    border_focused: Some("RED_200".into()),
+                    popup_border: Some("LIGHT_BLUE_500".into()),
+                    text_normal: Some("WHITE".into()),
+                    text_highlight: Some("RED_600".into()),
+                    text_highlight_alt: Some("RED_200".into()),
+                    gauge_filled: Some("WHITE".into()),
+                    gauge_unfilled: Some("BLACK".into()),
+                },
+            },
+        };
+
+        let settings = Settings::init(config_path, None, None).unwrap();
+
+        assert_eq!(settings, expected);
+    }
+
+    #[test]
+    fn test_tui_colors_unset() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(
+            &config_path,
+            r#"            
+[daemon]
+rpc_port = 6600
+library_paths = ["/Music"]
+artist_separator = ["; "]
+protected_artist_names = ["Foo & Bar"]
+genre_separator = ", "
+conflict_resolution = "overwrite"
+log_level = "debug"
+
+[reclustering]
+gap_statistic_reference_datasets = 50
+max_clusters = 24
+algorithm = "gmm"
+
+[tui]
+radio_count = 21
+            "#,
+        )
+        .unwrap();
+
+        let expected = Settings {
+            daemon: DaemonSettings {
+                rpc_port: 6600,
+                library_paths: ["/Music".into()].into(),
+                artist_separator: vec!["; ".into()].into(),
+                protected_artist_names: OneOrMany::One("Foo & Bar".into()),
+                genre_separator: Some(", ".into()),
+                conflict_resolution: MetadataConflictResolution::Overwrite,
+                log_level: log::LevelFilter::Debug,
+            },
+            reclustering: ReclusterSettings {
+                gap_statistic_reference_datasets: 50,
+                max_clusters: 24,
+                algorithm: ClusterAlgorithm::GMM,
+                projection_method: ProjectionMethod::None,
+            },
+            tui: TuiSettings {
+                radio_count: 21,
+                colors: TuiColorScheme::default(),
+            },
         };
 
         let settings = Settings::init(config_path, None, None).unwrap();
@@ -458,7 +567,10 @@ radio_count = 21
                 algorithm: ClusterAlgorithm::GMM,
                 projection_method: ProjectionMethod::None,
             },
-            tui: TuiSettings { radio_count: 21 },
+            tui: TuiSettings {
+                radio_count: 21,
+                colors: TuiColorScheme::default(),
+            },
         };
 
         let settings = Settings::init(config_path, None, None).unwrap();

@@ -78,3 +78,27 @@ projection_method = "tsne"
 ## How many songs should be queried for when starting a radio.
 ## Default is 20.
 radio_count = 20
+##  The color scheme to use for the TUI.
+## Each color is either:
+## - a hex string in the format "#RRGGBB".
+##   example: "#FFFFFF" for white.
+## - a material design color name in format "<COLOR>_<SHADE>".
+##   so "pink", "red-900",  "light-blue_500", "red900", etc. are all invalid.
+##   but "PINK_900", "RED_900", "LIGHT_BLUE_500" are valid.
+##   - Exceptions are "WHITE" and "BLACK", which are always valid.
+[tui.colors]
+### app border colors
+app_border = "PINK_900"
+app_border_text = "PINK_300"
+### border colors
+border_unfocused = "RED_900"
+border_focused = "RED_200"
+### popup border color
+popup_border = "LIGHT_BLUE_500"
+### text colors
+text_normal = "WHITE"
+text_highlight = "RED_600"
+text_highlight_alt = "RED_200"
+### gauge colors, such as song progress bar
+gauge_filled = "WHITE"
+gauge_unfilled = "BLACK"
