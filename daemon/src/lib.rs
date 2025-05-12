@@ -45,6 +45,7 @@ where
 pub mod controller;
 #[cfg(feature = "dynamic_updates")]
 pub mod dynamic_updates;
+pub mod persistence;
 pub mod services;
 pub mod termination;
 #[cfg(test)]
