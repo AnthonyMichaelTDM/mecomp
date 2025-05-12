@@ -323,7 +323,7 @@ impl ComponentRender<RenderProps> for DynamicView {
                             "checked items"
                         },
                     )
-                    .fg(TEXT_HIGHLIGHT),
+                    .fg(*TEXT_HIGHLIGHT),
                 ]))
                 .italic()
                 .border_style(border_style);
@@ -353,7 +353,7 @@ impl ComponentRender<RenderProps> for DynamicView {
             frame.render_stateful_widget(
                 CheckTree::new(&items)
                     .unwrap()
-                    .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
+                    .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
                     .experimental_scrollbar(Some(Scrollbar::new(
                         ScrollbarOrientation::VerticalRight,
                     ))),
@@ -365,7 +365,7 @@ impl ComponentRender<RenderProps> for DynamicView {
 
             frame.render_widget(
                 Line::from(text)
-                    .style(Style::default().fg(TEXT_NORMAL.into()))
+                    .style(Style::default().fg((*TEXT_NORMAL).into()))
                     .alignment(Alignment::Center),
                 props.area,
             );
@@ -651,15 +651,15 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
             let [input_box_area, query_builder_area, content_area] = lib_split_area(content_area);
 
             let (name_text_color, query_text_color) = match self.focus {
-                Focus::NameInput => (TEXT_HIGHLIGHT_ALT.into(), TEXT_HIGHLIGHT.into()),
-                Focus::QueryInput => (TEXT_HIGHLIGHT.into(), TEXT_HIGHLIGHT_ALT.into()),
-                Focus::Tree => (TEXT_NORMAL.into(), TEXT_NORMAL.into()),
+                Focus::NameInput => ((*TEXT_HIGHLIGHT_ALT).into(), (*TEXT_HIGHLIGHT).into()),
+                Focus::QueryInput => ((*TEXT_HIGHLIGHT).into(), (*TEXT_HIGHLIGHT_ALT).into()),
+                Focus::Tree => ((*TEXT_NORMAL).into(), (*TEXT_NORMAL).into()),
             };
 
             let (name_border_color, query_border_color) = match self.focus {
-                Focus::NameInput => (BORDER_FOCUSED.into(), BORDER_UNFOCUSED.into()),
-                Focus::QueryInput => (BORDER_UNFOCUSED.into(), BORDER_FOCUSED.into()),
-                Focus::Tree => (BORDER_UNFOCUSED.into(), BORDER_UNFOCUSED.into()),
+                Focus::NameInput => ((*BORDER_FOCUSED).into(), (*BORDER_UNFOCUSED).into()),
+                Focus::QueryInput => ((*BORDER_UNFOCUSED).into(), (*BORDER_FOCUSED).into()),
+                Focus::Tree => ((*BORDER_UNFOCUSED).into(), (*BORDER_UNFOCUSED).into()),
             };
 
             let (name_show_cursor, query_show_cursor) = match self.focus {
@@ -694,7 +694,7 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
             } else {
                 input_box::RenderProps {
                     area: query_builder_area,
-                    text_color: TEXT_HIGHLIGHT.into(),
+                    text_color: (*TEXT_HIGHLIGHT).into(),
                     border: Block::bordered()
                         .title("Invalid Query:")
                         .border_style(Style::default().fg(query_border_color)),
@@ -734,7 +734,7 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
         frame.render_stateful_widget(
             CheckTree::new(&items)
                 .unwrap()
-                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
+                .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
                 // we want this to be rendered like a normal tree, not a check tree, so we don't show the checkboxes
                 .node_unchecked_symbol("▪ ")
                 .node_checked_symbol("▪ ")

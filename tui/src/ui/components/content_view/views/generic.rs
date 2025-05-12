@@ -206,7 +206,7 @@ where
                             "checked items"
                         },
                     )
-                    .fg(TEXT_HIGHLIGHT),
+                    .fg(*TEXT_HIGHLIGHT),
                 ]))
                 .italic()
                 .border_style(border_style);
@@ -229,7 +229,7 @@ where
 
             frame.render_widget(
                 Line::from(text)
-                    .style(Style::default().fg(TEXT_NORMAL.into()))
+                    .style(Style::default().fg((*TEXT_NORMAL).into()))
                     .alignment(Alignment::Center),
                 props.area,
             );
@@ -243,7 +243,7 @@ where
         frame.render_stateful_widget(
             CheckTree::new(&items)
                 .unwrap()
-                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold()),
+                .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold()),
             props.area,
             &mut self.tree_state.lock().unwrap(),
         );

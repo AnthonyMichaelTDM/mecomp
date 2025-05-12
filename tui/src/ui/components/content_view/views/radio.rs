@@ -211,7 +211,7 @@ impl ComponentRender<RenderProps> for RadioView {
                             "checked items"
                         },
                     )
-                    .fg(TEXT_HIGHLIGHT),
+                    .fg(*TEXT_HIGHLIGHT),
                 ]))
                 .italic()
                 .border_style(border_style);
@@ -241,7 +241,7 @@ impl ComponentRender<RenderProps> for RadioView {
             frame.render_stateful_widget(
                 CheckTree::new(&items)
                     .unwrap()
-                    .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
+                    .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
                     .experimental_scrollbar(Some(Scrollbar::new(
                         ScrollbarOrientation::VerticalRight,
                     ))),
@@ -253,7 +253,7 @@ impl ComponentRender<RenderProps> for RadioView {
 
             frame.render_widget(
                 Line::from(text)
-                    .style(Style::default().fg(TEXT_NORMAL.into()))
+                    .style(Style::default().fg((*TEXT_NORMAL).into()))
                     .alignment(Alignment::Center),
                 props.area,
             );

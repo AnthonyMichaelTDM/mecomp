@@ -154,6 +154,14 @@ impl<T> OnceLockDefault<T> {
     pub fn get(&self) -> &T {
         self.value.get().unwrap_or(&self.default)
     }
+
+    /// Checks if the cell has been initialized.
+    ///
+    /// This method never blocks.
+    #[inline]
+    pub fn is_initialized(&self) -> bool {
+        self.value.get().is_some()
+    }
 }
 
 impl<T> std::ops::Deref for OnceLockDefault<T> {

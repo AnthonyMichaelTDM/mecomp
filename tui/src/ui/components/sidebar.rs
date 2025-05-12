@@ -246,7 +246,7 @@ impl ComponentRender<RenderProps> for Sidebar {
             .map(|item| {
                 ListItem::new(Span::styled(
                     item.to_string(),
-                    Style::default().fg(TEXT_NORMAL.into()),
+                    Style::default().fg((*TEXT_NORMAL).into()),
                 ))
             })
             .collect::<Vec<_>>();
@@ -255,7 +255,7 @@ impl ComponentRender<RenderProps> for Sidebar {
             List::new(items)
                 .highlight_style(
                     Style::default()
-                        .fg(TEXT_HIGHLIGHT.into())
+                        .fg((*TEXT_HIGHLIGHT).into())
                         .add_modifier(Modifier::BOLD),
                 )
                 .direction(ratatui::widgets::ListDirection::TopToBottom),

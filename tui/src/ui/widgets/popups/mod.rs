@@ -26,7 +26,7 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
 
     /// override this method to change the border color of the popup
     fn border_color(&self) -> Color {
-        POPUP_BORDER.into()
+        (*POPUP_BORDER).into()
     }
 
     fn update_with_state(&mut self, state: &AppState);

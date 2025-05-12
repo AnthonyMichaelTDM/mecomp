@@ -279,14 +279,14 @@ impl ComponentRender<Rect> for App {
         let block = Block::bordered()
             .title_top(Span::styled(
                 "MECOMP",
-                Style::default().bold().fg(APP_BORDER_TEXT.into()),
+                Style::default().bold().fg((*APP_BORDER_TEXT).into()),
             ))
             .title_bottom(Span::styled(
                 "Tab/Shift+Tab to switch focus | Esc to quit",
-                Style::default().fg(APP_BORDER_TEXT.into()),
+                Style::default().fg((*APP_BORDER_TEXT).into()),
             ))
-            .border_style(Style::default().fg(APP_BORDER.into()))
-            .style(Style::default().fg(TEXT_NORMAL.into()));
+            .border_style(Style::default().fg((*APP_BORDER).into()))
+            .style(Style::default().fg((*TEXT_NORMAL).into()));
         let app_area = block.inner(area);
         debug_assert_eq!(area.inner(Margin::new(1, 1)), app_area);
 

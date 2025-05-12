@@ -240,7 +240,7 @@ impl ComponentRender<RenderProps> for LibraryAlbumsView {
         frame.render_stateful_widget(
             CheckTree::new(&items)
                 .unwrap()
-                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
+                .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             props.area,
             &mut self.tree_state.lock().unwrap(),

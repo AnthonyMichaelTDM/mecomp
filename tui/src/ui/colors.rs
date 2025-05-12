@@ -1,29 +1,137 @@
+use std::sync::Once;
+
+use mecomp_core::OnceLockDefault;
+
 // app border colors
-pub const APP_BORDER: material::HexColor = material::PINK_900;
-pub const APP_BORDER_TEXT: material::HexColor = material::PINK_300;
+pub static APP_BORDER: OnceLockDefault<material::HexColor> =
+    OnceLockDefault::new(material::PINK_900);
+pub static APP_BORDER_TEXT: OnceLockDefault<material::HexColor> =
+    OnceLockDefault::new(material::PINK_300);
 
 // border colors
-pub const BORDER_UNFOCUSED: material::HexColor = material::RED_900;
-pub const BORDER_FOCUSED: material::HexColor = material::RED_200;
+pub static BORDER_UNFOCUSED: OnceLockDefault<material::HexColor> =
+    OnceLockDefault::new(material::RED_900);
+pub static BORDER_FOCUSED: OnceLockDefault<material::HexColor> =
+    OnceLockDefault::new(material::RED_200);
 
 // Popup border colors
-pub const POPUP_BORDER: material::HexColor = material::LIGHT_BLUE_500;
+pub static POPUP_BORDER: OnceLockDefault<material::HexColor> =
+    OnceLockDefault::new(material::LIGHT_BLUE_500);
 
 // text colors
-pub const TEXT_NORMAL: material::HexColor = material::WHITE;
-pub const TEXT_HIGHLIGHT: material::HexColor = material::RED_600;
-pub const TEXT_HIGHLIGHT_ALT: material::HexColor = material::RED_200;
+pub static TEXT_NORMAL: OnceLockDefault<material::HexColor> = OnceLockDefault::new(material::WHITE);
+pub static TEXT_HIGHLIGHT: OnceLockDefault<material::HexColor> =
+    OnceLockDefault::new(material::RED_600);
+pub static TEXT_HIGHLIGHT_ALT: OnceLockDefault<material::HexColor> =
+    OnceLockDefault::new(material::RED_200);
 
 // gauge colors, such as song progress bar
-pub const GAUGE_FILLED: material::HexColor = material::WHITE;
-pub const GAUGE_UNFILLED: material::HexColor = material::BLACK;
+pub static GAUGE_FILLED: OnceLockDefault<material::HexColor> =
+    OnceLockDefault::new(material::WHITE);
+pub static GAUGE_UNFILLED: OnceLockDefault<material::HexColor> =
+    OnceLockDefault::new(material::BLACK);
+
+pub static COLORS_INITIALIZED: Once = Once::new();
+
+/// Initialize the colors for the app at once.
+///
+/// # Memory
+///
+/// This function uses `Box::leak` to leak the memory of the string slices.
+///
+/// This shouldn't be a problem though, since this function is only called once as part of the app initialization.
+pub fn initialize_colors(theme: mecomp_core::config::TuiColorScheme) {
+    macro_rules! set_color {
+        ($color:ident, $value:expr) => {
+            if let Some(color) =
+                $value.and_then(|c| material::HexColor::parse(Box::leak(c.into_boxed_str())))
+            {
+                $color.set(color).ok();
+            }
+        };
+    }
+
+    // Initialize the colors only once
+    COLORS_INITIALIZED.call_once(|| {
+        // Set the colors
+        set_color!(APP_BORDER, theme.app_border);
+        set_color!(APP_BORDER_TEXT, theme.app_border_text);
+        set_color!(BORDER_UNFOCUSED, theme.border_unfocused);
+        set_color!(BORDER_FOCUSED, theme.border_focused);
+        set_color!(POPUP_BORDER, theme.popup_border);
+        set_color!(TEXT_NORMAL, theme.text_normal);
+        set_color!(TEXT_HIGHLIGHT, theme.text_highlight);
+        set_color!(TEXT_HIGHLIGHT_ALT, theme.text_highlight_alt);
+        set_color!(GAUGE_FILLED, theme.gauge_filled);
+        set_color!(GAUGE_UNFILLED, theme.gauge_unfilled);
+    });
+}
 
 #[must_use]
-pub const fn border_color(is_focused: bool) -> material::HexColor {
+pub fn border_color(is_focused: bool) -> material::HexColor {
     if is_focused {
-        BORDER_FOCUSED
+        *BORDER_FOCUSED
     } else {
-        BORDER_UNFOCUSED
+        *BORDER_UNFOCUSED
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mecomp_core::config::TuiColorScheme;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_border_color() {
+        let focused = border_color(true);
+        let unfocused = border_color(false);
+        assert_eq!(focused, *BORDER_FOCUSED);
+        assert_eq!(unfocused, *BORDER_UNFOCUSED);
+    }
+
+    #[test]
+    fn test_colors() {
+        // Test that the default colors are set correctly
+        assert_eq!(*APP_BORDER, material::PINK_900);
+        assert_eq!(*APP_BORDER_TEXT, material::PINK_300);
+        assert_eq!(*BORDER_UNFOCUSED, material::RED_900);
+        assert_eq!(*BORDER_FOCUSED, material::RED_200);
+        assert_eq!(*POPUP_BORDER, material::LIGHT_BLUE_500);
+        assert_eq!(*TEXT_NORMAL, material::WHITE);
+        assert_eq!(*TEXT_HIGHLIGHT, material::RED_600);
+        assert_eq!(*TEXT_HIGHLIGHT_ALT, material::RED_200);
+        assert_eq!(*GAUGE_FILLED, material::WHITE);
+        assert_eq!(*GAUGE_UNFILLED, material::BLACK);
+
+        // Test that the colors are initialized only once
+        let theme = TuiColorScheme {
+            app_border: Some(material::PINK_900.to_string()),
+            app_border_text: Some(material::PINK_300.to_string()),
+            border_unfocused: Some(material::RED_900.to_string()),
+            border_focused: Some(material::RED_200.to_string()),
+            popup_border: Some(material::LIGHT_BLUE_500.to_string()),
+            text_normal: Some(material::WHITE.to_string()),
+            text_highlight: Some(material::RED_600.to_string()),
+            text_highlight_alt: Some(material::RED_200.to_string()),
+            gauge_filled: Some(material::WHITE.to_string()),
+            gauge_unfilled: Some(material::BLACK.to_string()),
+        };
+
+        // Initialize the colors
+        initialize_colors(theme);
+
+        // Test that the colors are set
+        assert!(APP_BORDER.is_initialized());
+        assert!(APP_BORDER_TEXT.is_initialized());
+        assert!(BORDER_UNFOCUSED.is_initialized());
+        assert!(BORDER_FOCUSED.is_initialized());
+        assert!(POPUP_BORDER.is_initialized());
+        assert!(TEXT_NORMAL.is_initialized());
+        assert!(TEXT_HIGHLIGHT.is_initialized());
+        assert!(TEXT_HIGHLIGHT_ALT.is_initialized());
+        assert!(GAUGE_FILLED.is_initialized());
+        assert!(GAUGE_UNFILLED.is_initialized());
     }
 }
 
@@ -40,6 +148,36 @@ pub mod material {
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct HexColor(&'static str);
+
+    impl HexColor {
+        /// Parse a hex color string.
+        /// Can be a hex string like `#ff0000` or a material color name like `red_500` or `LIGHT_BLUE_100`.
+        /// Returns a `HexColor` if the string is valid, otherwise returns None.
+        #[must_use]
+        pub fn parse(s: &'static str) -> Option<Self> {
+            // First parse the string into a hex color
+            let candidate = if s.len() == 7 && s.starts_with('#') {
+                Self(s)
+            } else if let Some((_, hex)) = MATERIAL_COLORS
+                .iter()
+                .find(|(name, _)| *name == s.to_ascii_lowercase())
+            {
+                *hex
+            } else {
+                return None;
+            };
+
+            // double check that the hex color is valid
+            if candidate.0.len() == 7
+                && candidate.0.starts_with('#')
+                && candidate.0[1..].chars().all(|c| c.is_ascii_hexdigit())
+            {
+                Some(candidate)
+            } else {
+                None
+            }
+        }
+    }
 
     impl From<HexColor> for ratatui::style::Color {
         /// Converts to a Ratatui Color from the `HexColor`.
@@ -60,6 +198,308 @@ pub mod material {
             write!(f, "{}", self.0)
         }
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use pretty_assertions::assert_eq;
+        use rstest::rstest;
+
+        #[rstest]
+        #[case::valid_hex(Some(HexColor("#ff0000")), "#ff0000")]
+        #[case::valid_name(Some(RED_500), "red_500")]
+        #[case::invalid_name(None, "red_5")]
+        #[case::invalid_hex(None, "#ff00g0")]
+        #[case::invalid_hex_no_hash(None, "ff0000")]
+        #[case::invalid_hex_too_short(None, "#ff00")]
+        #[case::invalid_hex_too_long(None, "#ff00000")]
+        #[case::invalid_hex_no_hash_too_short(None, "ff00")]
+        #[case::invalid_hex_no_hash_too_long(None, "ff00000")]
+        fn test_parse(#[case] expected: Option<HexColor>, #[case] input: &'static str) {
+            let actual = HexColor::parse(input);
+            assert_eq!(actual, expected);
+        }
+    }
+
+    /// a lookup table for the colors
+    static MATERIAL_COLORS: &[(&str, HexColor)] = &[
+        // reds
+        ("red_50", RED_50),
+        ("red_100", RED_100),
+        ("red_200", RED_200),
+        ("red_300", RED_300),
+        ("red_400", RED_400),
+        ("red_500", RED_500),
+        ("red_600", RED_600),
+        ("red_700", RED_700),
+        ("red_800", RED_800),
+        ("red_900", RED_900),
+        ("red_a100", RED_A100),
+        ("red_a200", RED_A200),
+        ("red_a400", RED_A400),
+        ("red_a700", RED_A700),
+        // pinks
+        ("pink_50", PINK_50),
+        ("pink_100", PINK_100),
+        ("pink_200", PINK_200),
+        ("pink_300", PINK_300),
+        ("pink_400", PINK_400),
+        ("pink_500", PINK_500),
+        ("pink_600", PINK_600),
+        ("pink_700", PINK_700),
+        ("pink_800", PINK_800),
+        ("pink_900", PINK_900),
+        ("pink_a100", PINK_A100),
+        ("pink_a200", PINK_A200),
+        ("pink_a400", PINK_A400),
+        ("pink_a700", PINK_A700),
+        // purples
+        ("purple_50", PURPLE_50),
+        ("purple_100", PURPLE_100),
+        ("purple_200", PURPLE_200),
+        ("purple_300", PURPLE_300),
+        ("purple_400", PURPLE_400),
+        ("purple_500", PURPLE_500),
+        ("purple_600", PURPLE_600),
+        ("purple_700", PURPLE_700),
+        ("purple_800", PURPLE_800),
+        ("purple_900", PURPLE_900),
+        ("purple_a100", PURPLE_A100),
+        ("purple_a200", PURPLE_A200),
+        ("purple_a400", PURPLE_A400),
+        ("purple_a700", PURPLE_A700),
+        // deep purples
+        ("deep_purple_50", DEEP_PURPLE_50),
+        ("deep_purple_100", DEEP_PURPLE_100),
+        ("deep_purple_200", DEEP_PURPLE_200),
+        ("deep_purple_300", DEEP_PURPLE_300),
+        ("deep_purple_400", DEEP_PURPLE_400),
+        ("deep_purple_500", DEEP_PURPLE_500),
+        ("deep_purple_600", DEEP_PURPLE_600),
+        ("deep_purple_700", DEEP_PURPLE_700),
+        ("deep_purple_800", DEEP_PURPLE_800),
+        ("deep_purple_900", DEEP_PURPLE_900),
+        ("deep_purple_a100", DEEP_PURPLE_A100),
+        ("deep_purple_a200", DEEP_PURPLE_A200),
+        ("deep_purple_a400", DEEP_PURPLE_A400),
+        ("deep_purple_a700", DEEP_PURPLE_A700),
+        // indigos
+        ("indigo_50", INDIGO_50),
+        ("indigo_100", INDIGO_100),
+        ("indigo_200", INDIGO_200),
+        ("indigo_300", INDIGO_300),
+        ("indigo_400", INDIGO_400),
+        ("indigo_500", INDIGO_500),
+        ("indigo_600", INDIGO_600),
+        ("indigo_700", INDIGO_700),
+        ("indigo_800", INDIGO_800),
+        ("indigo_900", INDIGO_900),
+        ("indigo_a100", INDIGO_A100),
+        ("indigo_a200", INDIGO_A200),
+        ("indigo_a400", INDIGO_A400),
+        ("indigo_a700", INDIGO_A700),
+        // blues
+        ("blue_50", BLUE_50),
+        ("blue_100", BLUE_100),
+        ("blue_200", BLUE_200),
+        ("blue_300", BLUE_300),
+        ("blue_400", BLUE_400),
+        ("blue_500", BLUE_500),
+        ("blue_600", BLUE_600),
+        ("blue_700", BLUE_700),
+        ("blue_800", BLUE_800),
+        ("blue_900", BLUE_900),
+        ("blue_a100", BLUE_A100),
+        ("blue_a200", BLUE_A200),
+        ("blue_a400", BLUE_A400),
+        ("blue_a700", BLUE_A700),
+        // light blues
+        ("light_blue_50", LIGHT_BLUE_50),
+        ("light_blue_100", LIGHT_BLUE_100),
+        ("light_blue_200", LIGHT_BLUE_200),
+        ("light_blue_300", LIGHT_BLUE_300),
+        ("light_blue_400", LIGHT_BLUE_400),
+        ("light_blue_500", LIGHT_BLUE_500),
+        ("light_blue_600", LIGHT_BLUE_600),
+        ("light_blue_700", LIGHT_BLUE_700),
+        ("light_blue_800", LIGHT_BLUE_800),
+        ("light_blue_900", LIGHT_BLUE_900),
+        ("light_blue_a100", LIGHT_BLUE_A100),
+        ("light_blue_a200", LIGHT_BLUE_A200),
+        ("light_blue_a400", LIGHT_BLUE_A400),
+        ("light_blue_a700", LIGHT_BLUE_A700),
+        // cyans
+        ("cyan_50", CYAN_50),
+        ("cyan_100", CYAN_100),
+        ("cyan_200", CYAN_200),
+        ("cyan_300", CYAN_300),
+        ("cyan_400", CYAN_400),
+        ("cyan_500", CYAN_500),
+        ("cyan_600", CYAN_600),
+        ("cyan_700", CYAN_700),
+        ("cyan_800", CYAN_800),
+        ("cyan_900", CYAN_900),
+        ("cyan_a100", CYAN_A100),
+        ("cyan_a200", CYAN_A200),
+        ("cyan_a400", CYAN_A400),
+        ("cyan_a700", CYAN_A700),
+        // teals
+        ("teal_50", TEAL_50),
+        ("teal_100", TEAL_100),
+        ("teal_200", TEAL_200),
+        ("teal_300", TEAL_300),
+        ("teal_400", TEAL_400),
+        ("teal_500", TEAL_500),
+        ("teal_600", TEAL_600),
+        ("teal_700", TEAL_700),
+        ("teal_800", TEAL_800),
+        ("teal_900", TEAL_900),
+        ("teal_a100", TEAL_A100),
+        ("teal_a200", TEAL_A200),
+        ("teal_a400", TEAL_A400),
+        ("teal_a700", TEAL_A700),
+        // greens
+        ("green_50", GREEN_50),
+        ("green_100", GREEN_100),
+        ("green_200", GREEN_200),
+        ("green_300", GREEN_300),
+        ("green_400", GREEN_400),
+        ("green_500", GREEN_500),
+        ("green_600", GREEN_600),
+        ("green_700", GREEN_700),
+        ("green_800", GREEN_800),
+        ("green_900", GREEN_900),
+        ("green_a100", GREEN_A100),
+        ("green_a200", GREEN_A200),
+        ("green_a400", GREEN_A400),
+        ("green_a700", GREEN_A700),
+        // light greens
+        ("light_green_50", LIGHT_GREEN_50),
+        ("light_green_100", LIGHT_GREEN_100),
+        ("light_green_200", LIGHT_GREEN_200),
+        ("light_green_300", LIGHT_GREEN_300),
+        ("light_green_400", LIGHT_GREEN_400),
+        ("light_green_500", LIGHT_GREEN_500),
+        ("light_green_600", LIGHT_GREEN_600),
+        ("light_green_700", LIGHT_GREEN_700),
+        ("light_green_800", LIGHT_GREEN_800),
+        ("light_green_900", LIGHT_GREEN_900),
+        ("light_green_a100", LIGHT_GREEN_A100),
+        ("light_green_a200", LIGHT_GREEN_A200),
+        ("light_green_a400", LIGHT_GREEN_A400),
+        ("light_green_a700", LIGHT_GREEN_A700),
+        // limes
+        ("lime_50", LIME_50),
+        ("lime_100", LIME_100),
+        ("lime_200", LIME_200),
+        ("lime_300", LIME_300),
+        ("lime_400", LIME_400),
+        ("lime_500", LIME_500),
+        ("lime_600", LIME_600),
+        ("lime_700", LIME_700),
+        ("lime_800", LIME_800),
+        ("lime_900", LIME_900),
+        ("lime_a100", LIME_A100),
+        ("lime_a200", LIME_A200),
+        ("lime_a400", LIME_A400),
+        ("lime_a700", LIME_A700),
+        // yellows
+        ("yellow_50", YELLOW_50),
+        ("yellow_100", YELLOW_100),
+        ("yellow_200", YELLOW_200),
+        ("yellow_300", YELLOW_300),
+        ("yellow_400", YELLOW_400),
+        ("yellow_500", YELLOW_500),
+        ("yellow_600", YELLOW_600),
+        ("yellow_700", YELLOW_700),
+        ("yellow_800", YELLOW_800),
+        ("yellow_900", YELLOW_900),
+        ("yellow_a100", YELLOW_A100),
+        ("yellow_a200", YELLOW_A200),
+        ("yellow_a400", YELLOW_A400),
+        ("yellow_a700", YELLOW_A700),
+        // amber
+        ("amber_50", AMBER_50),
+        ("amber_100", AMBER_100),
+        ("amber_200", AMBER_200),
+        ("amber_300", AMBER_300),
+        ("amber_400", AMBER_400),
+        ("amber_500", AMBER_500),
+        ("amber_600", AMBER_600),
+        ("amber_700", AMBER_700),
+        ("amber_800", AMBER_800),
+        ("amber_900", AMBER_900),
+        ("amber_a100", AMBER_A100),
+        ("amber_a200", AMBER_A200),
+        ("amber_a400", AMBER_A400),
+        ("amber_a700", AMBER_A700),
+        // oranges
+        ("orange_50", ORANGE_50),
+        ("orange_100", ORANGE_100),
+        ("orange_200", ORANGE_200),
+        ("orange_300", ORANGE_300),
+        ("orange_400", ORANGE_400),
+        ("orange_500", ORANGE_500),
+        ("orange_600", ORANGE_600),
+        ("orange_700", ORANGE_700),
+        ("orange_800", ORANGE_800),
+        ("orange_900", ORANGE_900),
+        ("orange_a100", ORANGE_A100),
+        ("orange_a200", ORANGE_A200),
+        ("orange_a400", ORANGE_A400),
+        ("orange_a700", ORANGE_A700),
+        // deep oranges
+        ("deep_orange_50", DEEP_ORANGE_50),
+        ("deep_orange_100", DEEP_ORANGE_100),
+        ("deep_orange_200", DEEP_ORANGE_200),
+        ("deep_orange_300", DEEP_ORANGE_300),
+        ("deep_orange_400", DEEP_ORANGE_400),
+        ("deep_orange_500", DEEP_ORANGE_500),
+        ("deep_orange_600", DEEP_ORANGE_600),
+        ("deep_orange_700", DEEP_ORANGE_700),
+        ("deep_orange_800", DEEP_ORANGE_800),
+        ("deep_orange_900", DEEP_ORANGE_900),
+        ("deep_orange_a100", DEEP_ORANGE_A100),
+        ("deep_orange_a200", DEEP_ORANGE_A200),
+        ("deep_orange_a400", DEEP_ORANGE_A400),
+        ("deep_orange_a700", DEEP_ORANGE_A700),
+        // browns
+        ("brown_50", BROWN_50),
+        ("brown_100", BROWN_100),
+        ("brown_200", BROWN_200),
+        ("brown_300", BROWN_300),
+        ("brown_400", BROWN_400),
+        ("brown_500", BROWN_500),
+        ("brown_600", BROWN_600),
+        ("brown_700", BROWN_700),
+        ("brown_800", BROWN_800),
+        ("brown_900", BROWN_900),
+        // grey
+        ("grey_50", GREY_50),
+        ("grey_100", GREY_100),
+        ("grey_200", GREY_200),
+        ("grey_300", GREY_300),
+        ("grey_400", GREY_400),
+        ("grey_500", GREY_500),
+        ("grey_600", GREY_600),
+        ("grey_700", GREY_700),
+        ("grey_800", GREY_800),
+        ("grey_900", GREY_900),
+        // blue greys
+        ("blue_grey_50", BLUE_GREY_50),
+        ("blue_grey_100", BLUE_GREY_100),
+        ("blue_grey_200", BLUE_GREY_200),
+        ("blue_grey_300", BLUE_GREY_300),
+        ("blue_grey_400", BLUE_GREY_400),
+        ("blue_grey_500", BLUE_GREY_500),
+        ("blue_grey_600", BLUE_GREY_600),
+        ("blue_grey_700", BLUE_GREY_700),
+        ("blue_grey_800", BLUE_GREY_800),
+        ("blue_grey_900", BLUE_GREY_900),
+        // white and black
+        ("white", WHITE),
+        ("black", BLACK),
+    ];
 
     /// <span style="color:#ffebee">&#9632;</span> (#ffebee)
     pub const RED_50: HexColor = HexColor("#ffebee");
