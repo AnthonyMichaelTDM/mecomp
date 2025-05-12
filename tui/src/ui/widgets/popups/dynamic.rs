@@ -203,12 +203,12 @@ impl ComponentRender<Rect> for DynamicPlaylistEditor {
         let [name_area, query_area] = split_area(area, 3, 3);
 
         let (name_color, query_color) = match self.focus {
-            Focus::Name => (TEXT_HIGHLIGHT_ALT.into(), TEXT_NORMAL.into()),
-            Focus::Query => (TEXT_NORMAL.into(), TEXT_HIGHLIGHT_ALT.into()),
+            Focus::Name => ((*TEXT_HIGHLIGHT_ALT).into(), (*TEXT_NORMAL).into()),
+            Focus::Query => ((*TEXT_NORMAL).into(), (*TEXT_HIGHLIGHT_ALT).into()),
         };
         let (name_border, query_border) = match self.focus {
-            Focus::Name => (BORDER_FOCUSED.into(), BORDER_UNFOCUSED.into()),
-            Focus::Query => (BORDER_UNFOCUSED.into(), BORDER_FOCUSED.into()),
+            Focus::Name => ((*BORDER_FOCUSED).into(), (*BORDER_UNFOCUSED).into()),
+            Focus::Query => ((*BORDER_UNFOCUSED).into(), (*BORDER_FOCUSED).into()),
         };
 
         self.name_input.render(
@@ -243,7 +243,7 @@ impl ComponentRender<Rect> for DynamicPlaylistEditor {
                         .title("Invalid Query:")
                         .border_style(Style::default().fg(query_border)),
                     area: query_area,
-                    text_color: TEXT_HIGHLIGHT.into(),
+                    text_color: (*TEXT_HIGHLIGHT).into(),
                     show_cursor: self.focus == Focus::Query,
                 },
             );

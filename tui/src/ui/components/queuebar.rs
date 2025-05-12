@@ -238,7 +238,7 @@ impl ComponentRender<RenderProps> for QueueBar {
         );
         frame.render_widget(
             Paragraph::new(queue_info)
-                .style(Style::default().fg(TEXT_NORMAL.into()))
+                .style(Style::default().fg((*TEXT_NORMAL).into()))
                 .alignment(ratatui::layout::Alignment::Center),
             info_area,
         );
@@ -250,7 +250,7 @@ impl ComponentRender<RenderProps> for QueueBar {
                 Line::from("\u{23CE} : Select | d: Delete"),
                 Line::from("s: Shuffle | r: Repeat"),
             ]))
-            .style(Style::default().fg(TEXT_NORMAL.into()))
+            .style(Style::default().fg((*TEXT_NORMAL).into()))
             .alignment(ratatui::layout::Alignment::Center),
             instructions_area,
         );
@@ -270,9 +270,9 @@ impl ComponentRender<RenderProps> for QueueBar {
             .enumerate()
             .map(|(index, song)| {
                 let style = if Some(index) == self.props.current_position {
-                    Style::default().fg(TEXT_HIGHLIGHT_ALT.into())
+                    Style::default().fg((*TEXT_HIGHLIGHT_ALT).into())
                 } else {
-                    Style::default().fg(TEXT_NORMAL.into())
+                    Style::default().fg((*TEXT_NORMAL).into())
                 };
 
                 ListItem::new(song.title.as_str()).style(style)
@@ -283,7 +283,7 @@ impl ComponentRender<RenderProps> for QueueBar {
             List::new(items)
                 .highlight_style(
                     Style::default()
-                        .fg(TEXT_HIGHLIGHT.into())
+                        .fg((*TEXT_HIGHLIGHT).into())
                         .add_modifier(Modifier::BOLD),
                 )
                 .scroll_padding(1)

@@ -34,6 +34,9 @@ async fn main() -> anyhow::Result<()> {
     let config_file = Settings::get_config_path()?;
     let settings = Settings::init(config_file, flags.port, None)?;
 
+    // initialize colors
+    mecomp_tui::ui::colors::initialize_colors(settings.tui.colors.clone());
+
     // check if the server is running, and if it's not, try to start it
     #[cfg(feature = "autostart-daemon")]
     let server_process = MaybeDaemonHandler::start(settings.daemon.rpc_port).await?;

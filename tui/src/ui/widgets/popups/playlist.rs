@@ -276,10 +276,10 @@ impl ComponentRender<Rect> for PlaylistSelector {
                 frame,
                 RenderProps {
                     area: input_box_area,
-                    text_color: TEXT_HIGHLIGHT_ALT.into(),
+                    text_color: (*TEXT_HIGHLIGHT_ALT).into(),
                     border: Block::bordered()
                         .title("Enter Name:")
-                        .border_style(Style::default().fg(BORDER_FOCUSED.into())),
+                        .border_style(Style::default().fg((*BORDER_FOCUSED).into())),
                     show_cursor: self.input_box_visible,
                 },
             );
@@ -315,7 +315,7 @@ impl ComponentRender<Rect> for PlaylistSelector {
         frame.render_stateful_widget(
             CheckTree::new(&playlists)
                 .unwrap()
-                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
+                .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
                 // we want this to be rendered like a normal tree, not a check tree, so we don't show the checkboxes
                 .node_unchecked_symbol("▪ ")
                 .node_checked_symbol("▪ ")
@@ -430,10 +430,10 @@ impl ComponentRender<Rect> for PlaylistEditor {
             frame,
             RenderProps {
                 area,
-                text_color: TEXT_HIGHLIGHT_ALT.into(),
+                text_color: (*TEXT_HIGHLIGHT_ALT).into(),
                 border: Block::bordered()
                     .title("Enter Name:")
-                    .border_style(Style::default().fg(BORDER_FOCUSED.into())),
+                    .border_style(Style::default().fg((*BORDER_FOCUSED).into())),
                 show_cursor: true,
             },
         );

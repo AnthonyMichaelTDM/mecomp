@@ -117,6 +117,62 @@ pub fn is_server_running(port: u16) -> bool {
     std::net::TcpStream::connect(format!("localhost:{port}")).is_ok()
 }
 
+/// A `OnceLock` that returns a default value if it has not been set yet.
+#[derive(Debug, Clone)]
+pub struct OnceLockDefault<T> {
+    value: std::sync::OnceLock<T>,
+    default: T,
+}
+
+impl<T> OnceLockDefault<T> {
+    /// Creates a new `OnceLockDefault` with the given default value.
+    #[inline]
+    pub const fn new(default: T) -> Self {
+        Self {
+            value: std::sync::OnceLock::new(),
+            default,
+        }
+    }
+
+    /// Initializes the contents of the cell to value.
+    ///
+    /// May block if another thread is currently attempting to initialize the cell.
+    /// The cell is guaranteed to contain a value when set returns, though not necessarily the one provided.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Ok(())` if the cell was uninitialized and `Err(value)` if the cell was already initialized.
+    #[inline]
+    pub fn set(&self, value: T) -> Result<(), T> {
+        self.value.set(value)
+    }
+
+    /// Gets the reference to the underlying value, if set. Otherwise returns a reference to the default value.
+    ///
+    /// This method never blocks.
+    #[inline]
+    pub fn get(&self) -> &T {
+        self.value.get().unwrap_or(&self.default)
+    }
+
+    /// Checks if the cell has been initialized.
+    ///
+    /// This method never blocks.
+    #[inline]
+    pub fn is_initialized(&self) -> bool {
+        self.value.get().is_some()
+    }
+}
+
+impl<T> std::ops::Deref for OnceLockDefault<T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.get()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::format_duration;

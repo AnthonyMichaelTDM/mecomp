@@ -342,19 +342,19 @@ impl ComponentRender<RenderProps> for ControlPanel {
         let song_info_widget = self.props.song_title.clone().map_or_else(
             || {
                 Line::from("No Song Playing")
-                    .style(Style::default().bold().fg(TEXT_NORMAL.into()))
+                    .style(Style::default().bold().fg((*TEXT_NORMAL).into()))
                     .centered()
             },
             |song_title| {
                 Line::from(vec![
                     Span::styled(
                         song_title,
-                        Style::default().bold().fg(TEXT_HIGHLIGHT_ALT.into()),
+                        Style::default().bold().fg((*TEXT_HIGHLIGHT_ALT).into()),
                     ),
                     Span::raw("   "),
                     Span::styled(
                         self.props.song_artist.clone().unwrap_or_default(),
-                        Style::default().italic().fg(TEXT_NORMAL.into()),
+                        Style::default().italic().fg((*TEXT_NORMAL).into()),
                     ),
                 ])
                 .centered()
@@ -381,8 +381,8 @@ impl ComponentRender<RenderProps> for ControlPanel {
         frame.render_widget(
             LineGauge::default()
                 .label(Line::from(runtime_string(self.props.song_runtime)))
-                .filled_style(Style::default().fg(GAUGE_FILLED.into()).bold())
-                .unfilled_style(Style::default().fg(GAUGE_UNFILLED.into()).bold())
+                .filled_style(Style::default().fg((*GAUGE_FILLED).into()).bold())
+                .unfilled_style(Style::default().fg((*GAUGE_UNFILLED).into()).bold())
                 .ratio(self.props.song_runtime.map_or(0.0, |runtime| {
                     (runtime.seek_position.as_secs_f64() / runtime.duration.as_secs_f64())
                         .clamp(0.0, 1.0)
@@ -394,7 +394,7 @@ impl ComponentRender<RenderProps> for ControlPanel {
         frame.render_widget(
             // muted icon if muted, otherwise a volume icon.
             Line::from(volume_string(self.props.muted, self.props.volume))
-                .style(Style::default().bold().fg(TEXT_NORMAL.into()))
+                .style(Style::default().bold().fg((*TEXT_NORMAL).into()))
                 .alignment(Alignment::Left),
             volume,
         );

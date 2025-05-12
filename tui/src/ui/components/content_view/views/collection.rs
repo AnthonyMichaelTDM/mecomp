@@ -266,7 +266,7 @@ impl ComponentRender<RenderProps> for CollectionView {
                             "checked items"
                         },
                     )
-                    .fg(TEXT_HIGHLIGHT),
+                    .fg(*TEXT_HIGHLIGHT),
                 ]))
                 .italic()
                 .border_style(border_style);
@@ -296,7 +296,7 @@ impl ComponentRender<RenderProps> for CollectionView {
             frame.render_stateful_widget(
                 CheckTree::new(&items)
                     .unwrap()
-                    .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
+                    .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
                     .experimental_scrollbar(Some(Scrollbar::new(
                         ScrollbarOrientation::VerticalRight,
                     ))),
@@ -308,7 +308,7 @@ impl ComponentRender<RenderProps> for CollectionView {
 
             frame.render_widget(
                 Line::from(text)
-                    .style(Style::default().fg(TEXT_NORMAL.into()))
+                    .style(Style::default().fg((*TEXT_NORMAL).into()))
                     .alignment(Alignment::Center),
                 props.area,
             );
@@ -485,7 +485,7 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
         frame.render_stateful_widget(
             CheckTree::new(&items)
                 .unwrap()
-                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
+                .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
                 // we want this to be rendered like a normal tree, not a check tree, so we don't show the checkboxes
                 .node_unchecked_symbol("▪ ")
                 .node_checked_symbol("▪ ")

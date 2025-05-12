@@ -305,7 +305,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
                             "checked items"
                         },
                     )
-                    .fg(TEXT_HIGHLIGHT),
+                    .fg(*TEXT_HIGHLIGHT),
                 ]))
                 .italic()
                 .border_style(border_style);
@@ -328,7 +328,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
 
             frame.render_widget(
                 Line::from(text)
-                    .style(Style::default().fg(TEXT_NORMAL.into()))
+                    .style(Style::default().fg((*TEXT_NORMAL).into()))
                     .alignment(Alignment::Center),
                 props.area,
             );
@@ -346,7 +346,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
         frame.render_stateful_widget(
             CheckTree::new(&items)
                 .unwrap()
-                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
+                .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             props.area,
             &mut self.tree_state.lock().unwrap(),
@@ -596,10 +596,10 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
                 frame,
                 input_box::RenderProps {
                     area: input_box_area,
-                    text_color: TEXT_HIGHLIGHT_ALT.into(),
+                    text_color: (*TEXT_HIGHLIGHT_ALT).into(),
                     border: Block::bordered()
                         .title("Enter Name:")
-                        .border_style(Style::default().fg(BORDER_FOCUSED.into())),
+                        .border_style(Style::default().fg((*BORDER_FOCUSED).into())),
                     show_cursor: self.input_box_visible,
                 },
             );
@@ -637,7 +637,7 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
         frame.render_stateful_widget(
             CheckTree::new(&items)
                 .unwrap()
-                .highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold())
+                .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
                 // we want this to be rendered like a normal tree, not a check tree, so we don't show the checkboxes
                 .node_unchecked_symbol("▪ ")
                 .node_checked_symbol("▪ ")

@@ -184,7 +184,7 @@ impl ComponentRender<RenderProps> for RandomView {
         if self.props.is_none() {
             frame.render_widget(
                 Line::from("Random items unavailable")
-                    .style(Style::default().fg(TEXT_NORMAL.into()))
+                    .style(Style::default().fg((*TEXT_NORMAL).into()))
                     .alignment(Alignment::Center),
                 props.area,
             );
@@ -195,14 +195,14 @@ impl ComponentRender<RenderProps> for RandomView {
             .iter()
             .map(|item| {
                 ListItem::new(
-                    Span::styled(item.to_string(), Style::default().fg(TEXT_NORMAL.into()))
+                    Span::styled(item.to_string(), Style::default().fg((*TEXT_NORMAL).into()))
                         .into_centered_line(),
                 )
             })
             .collect::<Vec<_>>();
 
         frame.render_stateful_widget(
-            List::new(items).highlight_style(Style::default().fg(TEXT_HIGHLIGHT.into()).bold()),
+            List::new(items).highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold()),
             props.area,
             &mut self.random_type_list.clone(),
         );

@@ -58,7 +58,7 @@ impl ComponentRender<RenderProps> for NoneView {
 
         frame.render_widget(
             Line::from(text)
-                .style(Style::default().fg(TEXT_NORMAL.into()))
+                .style(Style::default().fg((*TEXT_NORMAL).into()))
                 .alignment(Alignment::Center),
             props.area,
         );
