@@ -3327,6 +3327,8 @@ dependencies = [
  "one-or-many",
  "pretty_assertions",
  "rstest",
+ "serde",
+ "serde_json",
  "surrealdb",
  "tap",
  "tarpc",

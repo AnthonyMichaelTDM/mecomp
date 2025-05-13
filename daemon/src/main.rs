@@ -42,6 +42,9 @@ struct Flags {
             .map(|s| s.parse::<LevelFilter>().unwrap())
     )]
     log_level: Option<LevelFilter>,
+    /// Optionally disable the queue persistence mechanism
+    #[clap(long, help = "Disable the queue persistence mechanism", action = clap::ArgAction::SetTrue)]
+    no_persistence: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -57,19 +60,27 @@ fn main() -> anyhow::Result<()> {
 
     assert!(config_file.exists(), "Config file does not exist");
 
-    let (db_dir, log_file) = match get_data_dir() {
+    let (db_dir, log_file, state_file) = match get_data_dir() {
         Ok(data_dir) => {
             // if the data directory does not exist, create it
             if !data_dir.exists() {
                 std::fs::create_dir_all(&data_dir)?;
             }
-            (data_dir.join("db"), data_dir.join("mecomp.log"))
+            (
+                data_dir.join("db"),
+                Some(data_dir.join("mecomp.log")),
+                if flags.no_persistence {
+                    None
+                } else {
+                    Some(data_dir.join("mecomp.state.json"))
+                },
+            )
         }
         Err(e) => {
             eprintln!("Error: {e}");
             eprintln!("Using a temporary directory for the database");
             let data_dir = std::env::temp_dir();
-            (data_dir.join("mecomp_db"), data_dir.join("mecomp.log"))
+            (data_dir.join("mecomp_db"), None, None)
         }
     };
 
@@ -82,7 +93,7 @@ fn main() -> anyhow::Result<()> {
         // (we're not processing millions of records)
         // .thread_stack_size(10 * 1024 * 1024) // 10MB
         .build()?
-        .block_on(start_daemon(settings, db_dir, Some(log_file)))?;
+        .block_on(start_daemon(settings, db_dir, log_file, state_file))?;
 
     println!("exiting");
     Ok(())
