@@ -219,7 +219,7 @@ async fn terminate_by_signal(terminator: Terminator) {
 #[must_use]
 #[inline]
 pub fn create_termination() -> (Terminator, InterruptReceiver) {
-    let (tx, rx) = broadcast::channel(1);
+    let (tx, rx) = broadcast::channel(2);
     let terminator = Terminator::new(tx);
     let interrupt = InterruptReceiver::new(rx);
 
