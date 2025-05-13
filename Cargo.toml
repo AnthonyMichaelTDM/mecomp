@@ -116,7 +116,7 @@ notify = { version = "8.0", default-features = false, features = [
 ] }
 object-pool = "0.6.0"
 once_cell = "1.21"
-rand = { version = "0.8.5", features = ["small_rng"] }
+rand = { version = "0.9.1", features = ["small_rng"] }
 rodio = { version = "0.20.1", features = ["symphonia-all"] }
 symphonia = { version = "0.5.4", default-features = false, features = [
     # features for .wav
