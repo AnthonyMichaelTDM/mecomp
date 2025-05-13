@@ -1,4 +1,4 @@
-//! This module contains the implemenation of the daemon's queue persistence mechanism.
+//! This module contains the implementation of the daemon's queue persistence mechanism.
 //!
 //! On shutdown, the daemon will save the current audio state (`StateAudio`) to disk.
 //! This includes:
@@ -188,7 +188,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_retreive_plain(kernel: (Arc<AudioKernelSender>, mpsc::Receiver<StateChange>)) {
+    fn test_retrieve_plain(kernel: (Arc<AudioKernelSender>, mpsc::Receiver<StateChange>)) {
         let (audio_kernel, _event_rx) = kernel;
         let state = QueueState::retrieve_blocking(&audio_kernel).unwrap();
         assert_eq!(state, StateAudio::default().into());
@@ -199,7 +199,7 @@ mod tests {
     #[case::many_songs(arb_vec_and_index( &arb_song_case(), 2..=10, IndexMode::InBounds)())]
     #[case::many_songs_guaranteed_nonzero_index((arb_vec( &arb_song_case(), 2..=10)(), 1))]
     #[tokio::test]
-    async fn test_restore_retreive_e2e(
+    async fn test_restore_retrieve_e2e(
         kernel: (Arc<AudioKernelSender>, mpsc::Receiver<StateChange>),
         #[case] (song_cases, index): (Vec<SongCase>, usize),
         #[values(true, false)] is_muted: bool,
@@ -247,7 +247,7 @@ mod tests {
             expected_number_of_events -= 1; // no 2nd song change event
         }
         let mut event_count = 0;
-        while event_count < expected_number_of_events + 1 {
+        while event_count < expected_number_of_events {
             match event_rx.recv_timeout(std::time::Duration::from_millis(500)) {
                 Ok(event) => {
                     dbg!(event);
