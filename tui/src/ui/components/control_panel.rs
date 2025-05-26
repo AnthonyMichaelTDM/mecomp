@@ -366,9 +366,9 @@ impl ComponentRender<RenderProps> for ControlPanel {
         // middle (song progress, volume, and paused/playing indicator)
         // play/pause indicator
         let play_pause_indicator = if self.props.is_playing {
-            "❚❚ "
+            "\u{23f8} " // pause symbol
         } else {
-            "▶  "
+            "\u{23f5} " // play symbol
         };
         frame.render_widget(
             Line::from(play_pause_indicator)
