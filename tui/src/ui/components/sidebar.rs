@@ -187,19 +187,20 @@ impl Component for Sidebar {
         } = mouse;
         let mouse_position = Position::new(column, row);
 
+        if kind == MouseEventKind::Down(MouseButton::Left) && area.contains(mouse_position) {
+            self.action_tx
+                .send(Action::ActiveComponent(ComponentAction::Set(
+                    ActiveComponent::Sidebar,
+                )))
+                .unwrap();
+        }
+
         // adjust area to exclude the border
         let area = area.inner(Margin::new(1, 1));
 
         match kind {
             // TODO: refactor Sidebar to use a CheckTree for better mouse handling
             MouseEventKind::Down(MouseButton::Left) if area.contains(mouse_position) => {
-                // make this the active component
-                self.action_tx
-                    .send(Action::ActiveComponent(ComponentAction::Set(
-                        ActiveComponent::Sidebar,
-                    )))
-                    .unwrap();
-
                 // adjust the mouse position so that it is relative to the area of the list
                 let adjusted_mouse_y = mouse_position.y - area.y;
 
