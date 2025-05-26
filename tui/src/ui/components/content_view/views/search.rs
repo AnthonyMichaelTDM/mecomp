@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use crossterm::event::{KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::rpc::SearchResult;
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
     style::{Style, Stylize},
     text::Line,
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
@@ -193,36 +193,46 @@ impl Component for SearchView {
         } = mouse;
         let mouse_position = Position::new(column, row);
 
-        // adjust the area to account for the border
+        // split the area into search bar and content area
         let [search_bar_area, content_area] = split_area(area);
-        let content_area = content_area.inner(Margin::new(1, 1));
 
-        if self.search_bar_focused {
-            if search_bar_area.contains(mouse_position) {
+        match (self.search_bar_focused, kind) {
+            // defer to the search bar if mouse event belongs to it
+            (true, _) if search_bar_area.contains(mouse_position) => {
                 self.search_bar.handle_mouse_event(mouse, search_bar_area);
-            } else if content_area.contains(mouse_position)
-                && kind == MouseEventKind::Down(MouseButton::Left)
+            }
+            // if the search bar is focused and mouse is clicked outside of it, unfocus the search bar
+            (true, MouseEventKind::Down(MouseButton::Left))
+                if content_area.contains(mouse_position) =>
             {
                 self.search_bar_focused = false;
             }
-        } else if kind == MouseEventKind::Down(MouseButton::Left)
-            && search_bar_area.contains(mouse_position)
-        {
-            self.search_bar_focused = true;
-        } else {
-            let content_area = Rect {
-                height: content_area.height.saturating_sub(1),
-                ..content_area
-            };
-
-            let result = self
-                .tree_state
-                .lock()
-                .unwrap()
-                .handle_mouse_event(mouse, content_area);
-            if let Some(action) = result {
-                self.action_tx.send(action).unwrap();
+            // if the search bar is not focused and mouse is clicked inside it, focus the search bar
+            (false, MouseEventKind::Down(MouseButton::Left))
+                if search_bar_area.contains(mouse_position) =>
+            {
+                self.search_bar_focused = true;
             }
+            // defer to the tree state for mouse events in the content area when the search bar is not focused
+            (false, _) if content_area.contains(mouse_position) => {
+                // adjust the content area to exclude the border
+                let content_area = Rect {
+                    x: content_area.x.saturating_add(1),
+                    y: content_area.y.saturating_add(1),
+                    width: content_area.width.saturating_sub(1),
+                    height: content_area.height.saturating_sub(2),
+                };
+
+                let result = self
+                    .tree_state
+                    .lock()
+                    .unwrap()
+                    .handle_mouse_event(mouse, content_area);
+                if let Some(action) = result {
+                    self.action_tx.send(action).unwrap();
+                }
+            }
+            _ => {}
         }
     }
 }

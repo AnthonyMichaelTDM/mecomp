@@ -158,6 +158,14 @@ impl Component for ControlPanel {
         } = mouse;
         let mouse_position = Position::new(column, row);
 
+        if kind == MouseEventKind::Down(MouseButton::Left) && area.contains(mouse_position) {
+            self.action_tx
+                .send(Action::ActiveComponent(ComponentAction::Set(
+                    ActiveComponent::ControlPanel,
+                )))
+                .unwrap();
+        }
+
         // adjust area to exclude the border
         let area = Rect {
             y: area.y + 1,
@@ -193,14 +201,6 @@ impl Component for ControlPanel {
                 .unwrap_or(u16::MAX),
             ..volume
         };
-
-        if kind == MouseEventKind::Down(MouseButton::Left) && area.contains(mouse_position) {
-            self.action_tx
-                .send(Action::ActiveComponent(ComponentAction::Set(
-                    ActiveComponent::ControlPanel,
-                )))
-                .unwrap();
-        }
 
         match kind {
             MouseEventKind::Down(MouseButton::Left) if play_pause.contains(mouse_position) => {
