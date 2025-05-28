@@ -334,7 +334,7 @@ pub struct RandomViewProps {
 }
 
 pub mod checktree_utils {
-    use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
     use mecomp_storage::db::schemas::{
         RecordId, album::AlbumBrief, artist::ArtistBrief, collection::CollectionBrief,
         dynamic::DynamicPlaylist, playlist::PlaylistBrief, song::SongBrief,
@@ -387,7 +387,10 @@ pub mod checktree_utils {
             area: ratatui::layout::Rect,
         ) -> Option<Action> {
             let MouseEvent {
-                kind, column, row, ..
+                kind,
+                column,
+                row,
+                modifiers,
             } = event;
             let mouse_position = Position::new(column, row);
 
@@ -396,6 +399,12 @@ pub mod checktree_utils {
             }
 
             match kind {
+                MouseEventKind::Down(MouseButton::Left)
+                    if modifiers.contains(KeyModifiers::CONTROL) =>
+                {
+                    self.mouse_click(mouse_position);
+                    None
+                }
                 MouseEventKind::Down(MouseButton::Left) => {
                     let selected_things = self.get_selected_thing();
 
