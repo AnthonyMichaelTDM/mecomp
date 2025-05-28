@@ -177,7 +177,7 @@ impl Component for CollectionView {
             .tree_state
             .lock()
             .unwrap()
-            .handle_mouse_event(mouse, content_area);
+            .handle_mouse_event(mouse, content_area, false);
         if let Some(action) = result {
             self.action_tx.send(action).unwrap();
         }
@@ -435,7 +435,7 @@ impl Component for LibraryCollectionsView {
             .tree_state
             .lock()
             .unwrap()
-            .handle_mouse_event(mouse, area);
+            .handle_mouse_event(mouse, area, true);
         if let Some(action) = result {
             self.action_tx.send(action).unwrap();
         }
@@ -823,7 +823,7 @@ mod item_view_tests {
         ]);
         assert_buffer_eq(&buffer, &expected);
 
-        // click down the song (opening it)
+        // click down the song again
         view.handle_mouse_event(
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
@@ -832,10 +832,6 @@ mod item_view_tests {
                 modifiers: KeyModifiers::empty(),
             },
             area,
-        );
-        assert_eq!(
-            rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
         );
         let expected = Buffer::with_lines([
             "┌Collection View sorted by: Artist─────────────────────────┐",
@@ -854,6 +850,22 @@ mod item_view_tests {
             .buffer
             .clone();
         assert_buffer_eq(&buffer, &expected);
+        // ctrl click on it (opening it)
+        for _ in 0..2 {
+            view.handle_mouse_event(
+                MouseEvent {
+                    kind: MouseEventKind::Down(MouseButton::Left),
+                    column: 2,
+                    row: 6,
+                    modifiers: KeyModifiers::CONTROL,
+                },
+                area,
+            );
+            assert_eq!(
+                rx.blocking_recv().unwrap(),
+                Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
+            );
+        }
 
         // scroll down
         view.handle_mouse_event(
@@ -1024,6 +1036,27 @@ mod library_view_tests {
             "│                                                          │",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | s/S: change sort──────────┘",
         ]);
+        assert_buffer_eq(&buffer, &expected);
+
+        // click on the collection when it's not selected
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 2,
+                modifiers: KeyModifiers::empty(),
+            },
+            area,
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::ActiveView(ViewAction::Set(ActiveView::Collection(item_id())))
+        );
+        let buffer = terminal
+            .draw(|frame| view.render(frame, props))
+            .unwrap()
+            .buffer
+            .clone();
         assert_buffer_eq(&buffer, &expected);
 
         // scroll down (selecting the collection)

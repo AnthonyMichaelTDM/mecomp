@@ -181,7 +181,7 @@ impl Component for LibrarySongsView {
             .tree_state
             .lock()
             .unwrap()
-            .handle_mouse_event(mouse, area);
+            .handle_mouse_event(mouse, area, false);
         if let Some(action) = result {
             self.action_tx.send(action).unwrap();
         }
@@ -797,10 +797,6 @@ mod item_view_tests {
             },
             area,
         );
-        assert_eq!(
-            rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Artist(item_id())))
-        );
         let buffer = terminal
             .draw(|frame| view.render(frame, props))
             .unwrap()
@@ -818,6 +814,22 @@ mod item_view_tests {
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
         assert_buffer_eq(&buffer, &expected);
+        // ctrl click on it
+        for _ in 0..2 {
+            view.handle_mouse_event(
+                MouseEvent {
+                    kind: MouseEventKind::Down(MouseButton::Left),
+                    column: 2,
+                    row: 7,
+                    modifiers: KeyModifiers::CONTROL,
+                },
+                area,
+            );
+            assert_eq!(
+                rx.blocking_recv().unwrap(),
+                Action::ActiveView(ViewAction::Set(ActiveView::Artist(item_id())))
+            );
+        }
 
         // scroll up
         view.handle_mouse_event(
@@ -1130,13 +1142,13 @@ mod library_view_tests {
             .clone();
         assert_buffer_eq(&buffer, &expected);
 
-        // click down on selected item
+        // ctrl-click down on selected item
         view.handle_mouse_event(
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
                 column: 2,
                 row: 2,
-                modifiers: KeyModifiers::empty(),
+                modifiers: KeyModifiers::CONTROL,
             },
             area,
         );

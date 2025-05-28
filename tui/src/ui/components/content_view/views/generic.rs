@@ -151,7 +151,7 @@ where
             .tree_state
             .lock()
             .unwrap()
-            .handle_mouse_event(mouse, content_area);
+            .handle_mouse_event(mouse, content_area, false);
         if let Some(action) = result {
             self.action_tx.send(action).unwrap();
         }
