@@ -74,7 +74,7 @@ jobs:
       - name: install cargo-nextest
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-nextest
+          tool: nextest
 
       - name: Run tests
         run: cargo nextest run --profile ci --features mock_playback
