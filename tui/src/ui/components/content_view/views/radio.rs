@@ -162,7 +162,7 @@ impl Component for RadioView {
             .tree_state
             .lock()
             .unwrap()
-            .handle_mouse_event(mouse, area);
+            .handle_mouse_event(mouse, area, false);
         if let Some(action) = result {
             self.action_tx.send(action).unwrap();
         }
@@ -505,6 +505,23 @@ mod tests {
             area,
         );
 
+        // ctrl+click on the first item (should open it both times)
+        for _ in 0..2 {
+            view.handle_mouse_event(
+                MouseEvent {
+                    kind: MouseEventKind::Down(MouseButton::Left),
+                    column: 2,
+                    row: 3,
+                    modifiers: KeyModifiers::CONTROL,
+                },
+                area,
+            );
+            assert_eq!(
+                rx.blocking_recv().unwrap(),
+                Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
+            );
+        }
+
         // click on the first item
         view.handle_mouse_event(
             MouseEvent {
@@ -514,10 +531,6 @@ mod tests {
                 modifiers: KeyModifiers::empty(),
             },
             area,
-        );
-        assert_eq!(
-            rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
         );
         let buffer = terminal
             .draw(|frame| view.render(frame, props))
@@ -533,6 +546,20 @@ mod tests {
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check─────────┘",
         ]);
         assert_buffer_eq(&buffer, &expected);
+        // ctrl click on it
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 3,
+                modifiers: KeyModifiers::CONTROL,
+            },
+            area,
+        );
+        assert_eq!(
+            rx.blocking_recv().unwrap(),
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
+        );
 
         // scroll up
         view.handle_mouse_event(

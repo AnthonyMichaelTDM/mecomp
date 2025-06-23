@@ -199,28 +199,6 @@ pub mod material {
         }
     }
 
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-        use pretty_assertions::assert_eq;
-        use rstest::rstest;
-
-        #[rstest]
-        #[case::valid_hex(Some(HexColor("#ff0000")), "#ff0000")]
-        #[case::valid_name(Some(RED_500), "red_500")]
-        #[case::invalid_name(None, "red_5")]
-        #[case::invalid_hex(None, "#ff00g0")]
-        #[case::invalid_hex_no_hash(None, "ff0000")]
-        #[case::invalid_hex_too_short(None, "#ff00")]
-        #[case::invalid_hex_too_long(None, "#ff00000")]
-        #[case::invalid_hex_no_hash_too_short(None, "ff00")]
-        #[case::invalid_hex_no_hash_too_long(None, "ff00000")]
-        fn test_parse(#[case] expected: Option<HexColor>, #[case] input: &'static str) {
-            let actual = HexColor::parse(input);
-            assert_eq!(actual, expected);
-        }
-    }
-
     /// a lookup table for the colors
     static MATERIAL_COLORS: &[(&str, HexColor)] = &[
         // reds
@@ -1032,4 +1010,26 @@ pub mod material {
     pub const BLACK: HexColor = HexColor("#000000");
     /// <span style="color:#ffffff">&#9632;</span> (#ffffff)
     pub const WHITE: HexColor = HexColor("#ffffff");
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use pretty_assertions::assert_eq;
+        use rstest::rstest;
+
+        #[rstest]
+        #[case::valid_hex(Some(HexColor("#ff0000")), "#ff0000")]
+        #[case::valid_name(Some(RED_500), "red_500")]
+        #[case::invalid_name(None, "red_5")]
+        #[case::invalid_hex(None, "#ff00g0")]
+        #[case::invalid_hex_no_hash(None, "ff0000")]
+        #[case::invalid_hex_too_short(None, "#ff00")]
+        #[case::invalid_hex_too_long(None, "#ff00000")]
+        #[case::invalid_hex_no_hash_too_short(None, "ff00")]
+        #[case::invalid_hex_no_hash_too_long(None, "ff00000")]
+        fn test_parse(#[case] expected: Option<HexColor>, #[case] input: &'static str) {
+            let actual = HexColor::parse(input);
+            assert_eq!(actual, expected);
+        }
+    }
 }

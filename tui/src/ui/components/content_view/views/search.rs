@@ -223,11 +223,11 @@ impl Component for SearchView {
                     height: content_area.height.saturating_sub(2),
                 };
 
-                let result = self
-                    .tree_state
-                    .lock()
-                    .unwrap()
-                    .handle_mouse_event(mouse, content_area);
+                let result =
+                    self.tree_state
+                        .lock()
+                        .unwrap()
+                        .handle_mouse_event(mouse, content_area, false);
                 if let Some(action) = result {
                     self.action_tx.send(action).unwrap();
                 }
@@ -816,13 +816,13 @@ mod tests {
             area,
         );
 
-        // click on the selected item
+        // ctrl-click
         view.handle_mouse_event(
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
                 column: 2,
                 row: 5,
-                modifiers: KeyModifiers::empty(),
+                modifiers: KeyModifiers::CONTROL,
             },
             area,
         );

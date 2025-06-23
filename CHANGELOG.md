@@ -62,7 +62,7 @@ v0.5.0 had a bug that caused some packages to fail to be deployed to crates.io, 
 * fix(daemon): bug where daemon would hang if it failed to start the tc… by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/297>
 * refactor(core): overhaul duration tracking by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/298>
 * refactor(storage/analysis): streamline song analysis queries by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/303>
-* feat(daemon): improve gracefull shutdown by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/304>
+* feat(daemon): improve graceful shutdown by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/304>
 * fix(storage/tui): tui could crash if a playlist has duplicate songs by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/306>
 * feat(daemon): optimize future spawning and improve event handling by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/307>
 * Tokio console by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/309>
@@ -116,7 +116,7 @@ v0.5.0 had a bug that caused some packages to fail to be deployed to crates.io, 
 ### v0.3.0: What's Changed
 
 * refactor(logging): improve file path processing for logging by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/269>
-* feat(daemon): implement gracefull handling of shutdown signals by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/270>
+* feat(daemon): implement graceful handling of shutdown signals by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/270>
 * feat(binaries): shell completions by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/277>
 * feat(cli): improve output formatting, completion hints, input validation, and implement support for a --quiet flag (for some commands) to print only the IDs (good for piping to a new playlist, radio, etc.) by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/279>
 * fix(tests): fix flaky test by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/281>
@@ -150,7 +150,7 @@ v0.5.0 had a bug that caused some packages to fail to be deployed to crates.io, 
 
 ### v0.2.1: What's Changed
 
-This release is mostly bug fixes, there was an issue with my implementation of the gap statistic which has been fixed, and a regression with surrealDB that was adressed.
+This release is mostly bug fixes, there was an issue with my implementation of the gap statistic which has been fixed, and a regression with surrealDB that was addressed.
 I also moved configuration management into mecomp-core, so that frontends like the tui can have access configs for their own uses
 
 * feat(core,tui): Centralize settings management in mecomp_core and make radio size configurable for TUI by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/245>
@@ -185,8 +185,8 @@ This is a minor version bump because there have been breaking changes to both th
 * fix(tui): bug where checked items weren't always cleared acros view transitions by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/238>
 * feat(daemon): implement playback stop endpoint by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/239>
 * feat(udp): publish state changes over UDP and use those in clients to maintain internal state by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/240>
-* feat(mpris): Implement MPRIS compatability layer with Root and Player interfaces supported  by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/241>
-* feat(db): improve full text search anaylzer with additional filters by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/242>
+* feat(mpris): Implement MPRIS compatibility layer with Root and Player interfaces supported  by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/241>
+* feat(db): improve full text search analyzer with additional filters by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/242>
 * feat: preparation for v0.2.0 release by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/243>
 
 ### **Full Changelog**: <https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.1.3...v0.2.0>

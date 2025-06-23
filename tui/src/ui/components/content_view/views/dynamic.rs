@@ -233,7 +233,7 @@ impl Component for DynamicView {
             .tree_state
             .lock()
             .unwrap()
-            .handle_mouse_event(mouse, content_area);
+            .handle_mouse_event(mouse, content_area, false);
         if let Some(action) = result {
             self.action_tx.send(action).unwrap();
         }
@@ -572,7 +572,7 @@ impl Component for LibraryDynamicView {
                 .tree_state
                 .lock()
                 .unwrap()
-                .handle_mouse_event(mouse, area);
+                .handle_mouse_event(mouse, area, true);
             if let Some(action) = result {
                 self.action_tx.send(action).unwrap();
             }
@@ -952,13 +952,13 @@ mod item_view_tests {
             Some(("song", item_id()).into())
         );
 
-        // click on the selected song (opening it)
+        // ctrl-click on the selected song (opening it)
         view.handle_mouse_event(
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
                 column: 2,
                 row: 7,
-                modifiers: KeyModifiers::empty(),
+                modifiers: KeyModifiers::CONTROL,
             },
             area,
         );
@@ -1253,7 +1253,7 @@ mod library_view_tests {
         let _frame = terminal.draw(|f| view.render(f, props)).unwrap();
 
         // without the input boxes visible:
-        // - clicking on the tree should select/open the clicked item
+        // - clicking on the tree should open the clicked item
         // - clicking on an empty area should do nothing
         let mouse_event = MouseEvent {
             kind: MouseEventKind::Down(MouseButton::Left),
@@ -1261,7 +1261,6 @@ mod library_view_tests {
             row: 2,
             modifiers: KeyModifiers::empty(),
         };
-        view.handle_mouse_event(mouse_event, area); // select
         view.handle_mouse_event(mouse_event, area); // open
         assert_eq!(
             rx.blocking_recv().unwrap(),
@@ -1277,6 +1276,24 @@ mod library_view_tests {
         view.handle_mouse_event(mouse_event, area);
         assert_eq!(view.tree_state.lock().unwrap().get_selected_thing(), None);
         view.handle_mouse_event(mouse_event, area);
+        assert_eq!(
+            rx.try_recv(),
+            Err(tokio::sync::mpsc::error::TryRecvError::Empty)
+        );
+        // ctrl-clicking on the tree should just change the selection
+        view.handle_mouse_event(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 2,
+                row: 2,
+                modifiers: KeyModifiers::CONTROL,
+            },
+            area,
+        );
+        assert_eq!(
+            view.tree_state.lock().unwrap().get_selected_thing(),
+            Some(("dynamic", item_id()).into())
+        );
         assert_eq!(
             rx.try_recv(),
             Err(tokio::sync::mpsc::error::TryRecvError::Empty)

@@ -334,7 +334,7 @@ pub struct RandomViewProps {
 }
 
 pub mod checktree_utils {
-    use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
     use mecomp_storage::db::schemas::{
         RecordId, album::AlbumBrief, artist::ArtistBrief, collection::CollectionBrief,
         dynamic::DynamicPlaylist, playlist::PlaylistBrief, song::SongBrief,
@@ -378,6 +378,14 @@ pub mod checktree_utils {
         ///
         /// Assumes that the given area only includes the `CheckTree`
         ///
+        /// # Arguments
+        ///
+        /// `event` - the mouse event to handle
+        /// `area` - the area of the tree in the terminal
+        /// `swap_ctrl_click_behavior` - whether to swap the behavior of ctrl+click and click:
+        ///  - if `true`, ctrl+click will toggle the check state of the item, and click will open the item
+        ///  - if `false` (default), ctrl+click will open the item, and click will toggle the check state of the item
+        ///
         /// # Returns
         ///
         /// an action if the mouse event requires it
@@ -385,9 +393,13 @@ pub mod checktree_utils {
             &mut self,
             event: MouseEvent,
             area: ratatui::layout::Rect,
+            swap_ctrl_click_behavior: bool,
         ) -> Option<Action> {
             let MouseEvent {
-                kind, column, row, ..
+                kind,
+                column,
+                row,
+                modifiers,
             } = event;
             let mouse_position = Position::new(column, row);
 
@@ -397,14 +409,25 @@ pub mod checktree_utils {
 
             match kind {
                 MouseEventKind::Down(MouseButton::Left) => {
-                    let selected_things = self.get_selected_thing();
+                    // do a click (toggle check state or open item)
+                    let click_result = self.mouse_click(mouse_position);
 
-                    // if the selection didn't change, open the selected view
-                    (self.mouse_click(mouse_position)
-                        && selected_things == self.get_selected_thing())
-                    .then_some(selected_things)
-                    .flatten()
-                    .map(|thing| Action::ActiveView(ViewAction::Set(thing.into())))
+                    // if it was a control-click,
+                    let condition = modifiers.contains(KeyModifiers::CONTROL) && click_result;
+                    // and we aren't swapping the behavior,
+                    let condition = if swap_ctrl_click_behavior {
+                        !condition
+                    } else {
+                        condition
+                    };
+
+                    // then attempt to open the selected thing
+                    if condition {
+                        self.get_selected_thing()
+                            .map(|thing| Action::ActiveView(ViewAction::Set(thing.into())))
+                    } else {
+                        None
+                    }
                 }
                 MouseEventKind::ScrollDown => {
                     self.key_down();
