@@ -10,6 +10,7 @@ use tokio::sync::{
 };
 
 use mecomp_core::{rpc::MusicPlayerClient, state::library::LibraryBrief};
+use mecomp_storage::db::schemas;
 
 use crate::termination::Interrupted;
 
@@ -49,103 +50,102 @@ impl LibraryState {
         // the initial state once
         self.state_tx.send(state.clone())?;
 
-        let result = loop {
+        loop {
             tokio::select! {
                 // Handle the actions coming from the UI
                 // and process them to do async operations
                 Some(action) = action_rx.recv() => {
-                    match action {
-                        LibraryAction::Rescan => {
-                            rescan_library(daemon.clone()).await?;
-                        }
-                        LibraryAction::Update => {
-                            state = get_library(daemon.clone()).await?;
-                            self.state_tx.send(state.clone())?;
-                        }
-                        LibraryAction::Analyze => {
-                            analyze_library(daemon.clone()).await?;
-                        }
-                        LibraryAction::Recluster => {
-                            recluster_library(daemon.clone()).await?;
-                        }
-                        LibraryAction::CreatePlaylist(name) => {
-                            daemon.playlist_get_or_create(tarpc::context::current(), name).await??;
-                            state = get_library(daemon.clone()).await?;
-                            self.state_tx.send(state.clone())?;
-                        }
-                        LibraryAction::RemovePlaylist(id) => {
-                            debug_assert_eq!(
-                                id.tb,
-                                mecomp_storage::db::schemas::playlist::TABLE_NAME
-                            );
-                            daemon.playlist_remove(tarpc::context::current(), id).await??;
-                            state = get_library(daemon.clone()).await?;
-                            self.state_tx.send(state.clone())?;
-                        }
-                        LibraryAction::RenamePlaylist(id, name) => {
-                            debug_assert_eq!(
-                                id.tb,
-                                mecomp_storage::db::schemas::playlist::TABLE_NAME
-                            );
-                            daemon.playlist_rename(tarpc::context::current(), id, name).await??;
-                            state = get_library(daemon.clone()).await?;
-                            self.state_tx.send(state.clone())?;
-                        }
-                        LibraryAction::RemoveSongsFromPlaylist(playlist, songs) => {
-                            debug_assert_eq!(
-                                playlist.tb,
-                                mecomp_storage::db::schemas::playlist::TABLE_NAME
-                            );
-                            debug_assert!(songs.iter().all(|s| s.tb == mecomp_storage::db::schemas::song::TABLE_NAME));
-                            daemon.playlist_remove_songs(tarpc::context::current(), playlist, songs).await??;
-                        }
-                        LibraryAction::AddThingsToPlaylist(playlist, things) => {
-                            debug_assert_eq!(
-                                playlist.tb,
-                                mecomp_storage::db::schemas::playlist::TABLE_NAME
-                            );
-                            daemon.playlist_add_list(tarpc::context::current(), playlist, things).await??;
-                        }
-                        LibraryAction::CreatePlaylistAndAddThings(name, things) => {
-                            let playlist = daemon.playlist_get_or_create(tarpc::context::current(), name).await??;
-                            daemon.playlist_add_list(tarpc::context::current(), playlist, things).await??;
-                            state = get_library(daemon.clone()).await?;
-                            self.state_tx.send(state.clone())?;
-                        }
-                        LibraryAction::CreateDynamicPlaylist(name, query) => {
-                            daemon.dynamic_playlist_create(tarpc::context::current(), name, query).await??;
-                            state = get_library(daemon.clone()).await?;
-                            self.state_tx.send(state.clone())?;
-                        }
-                        LibraryAction::RemoveDynamicPlaylist(id) => {
-                            debug_assert_eq!(
-                                id.tb,
-                                mecomp_storage::db::schemas::dynamic::TABLE_NAME
-                            );
-                            daemon.dynamic_playlist_remove(tarpc::context::current(), id).await??;
-                            state = get_library(daemon.clone()).await?;
-                            self.state_tx.send(state.clone())?;
-                        }
-                        LibraryAction::UpdateDynamicPlaylist(id, changes) => {
-                            debug_assert_eq!(
-                                id.tb,
-                                mecomp_storage::db::schemas::dynamic::TABLE_NAME
-                            );
-                            daemon.dynamic_playlist_update(tarpc::context::current(), id, changes).await??;
-                            state = get_library(daemon.clone()).await?;
-                            self.state_tx.send(state.clone())?;
-                        }
-                    }
+                    handle_action(&mut state, &self.state_tx, daemon.clone(),action).await?;
                 },
                 // Catch and handle interrupt signal to gracefully shutdown
                 Ok(interrupted) = interrupt_rx.recv() => {
-                    break interrupted;
+                    break Ok(interrupted);
                 }
             }
-        };
-
-        Ok(result)
+        }
     }
+}
+async fn handle_action(
+    state: &mut LibraryBrief,
+    state_tx: &UnboundedSender<LibraryBrief>,
+    daemon: Arc<MusicPlayerClient>,
+    action: LibraryAction,
+) -> anyhow::Result<()> {
+    let mut update = false;
+    let mut flag_update = || update = true;
+    let current_context = tarpc::context::current;
+
+    match action {
+        LibraryAction::Rescan => rescan_library(daemon.clone()).await?,
+        LibraryAction::Update => flag_update(),
+        LibraryAction::Analyze => analyze_library(daemon.clone()).await?,
+        LibraryAction::Recluster => recluster_library(daemon.clone()).await?,
+        LibraryAction::CreatePlaylist(name) => daemon
+            .playlist_get_or_create(current_context(), name)
+            .await?
+            .map(|_| flag_update())?,
+        LibraryAction::RemovePlaylist(id) => {
+            assert_eq!(id.tb, schemas::playlist::TABLE_NAME);
+            daemon
+                .playlist_remove(current_context(), id)
+                .await?
+                .map(|()| flag_update())?;
+        }
+        LibraryAction::RenamePlaylist(id, name) => {
+            assert_eq!(id.tb, schemas::playlist::TABLE_NAME);
+            daemon
+                .playlist_rename(current_context(), id, name)
+                .await?
+                .map(|_| flag_update())?;
+        }
+        LibraryAction::RemoveSongsFromPlaylist(playlist, songs) => {
+            assert_eq!(playlist.tb, schemas::playlist::TABLE_NAME);
+            assert!(songs.iter().all(|s| s.tb == schemas::song::TABLE_NAME));
+            daemon
+                .playlist_remove_songs(current_context(), playlist, songs)
+                .await??;
+        }
+        LibraryAction::AddThingsToPlaylist(playlist, things) => {
+            assert_eq!(playlist.tb, schemas::playlist::TABLE_NAME);
+            daemon
+                .playlist_add_list(current_context(), playlist, things)
+                .await??;
+        }
+        LibraryAction::CreatePlaylistAndAddThings(name, things) => {
+            let playlist = daemon
+                .playlist_get_or_create(current_context(), name)
+                .await??;
+            daemon
+                .playlist_add_list(current_context(), playlist, things)
+                .await?
+                .map(|()| flag_update())?;
+        }
+        LibraryAction::CreateDynamicPlaylist(name, query) => daemon
+            .dynamic_playlist_create(current_context(), name, query)
+            .await?
+            .map(|_| flag_update())?,
+        LibraryAction::RemoveDynamicPlaylist(id) => {
+            assert_eq!(id.tb, schemas::dynamic::TABLE_NAME);
+            daemon
+                .dynamic_playlist_remove(current_context(), id)
+                .await?
+                .map(|()| flag_update())?;
+        }
+        LibraryAction::UpdateDynamicPlaylist(id, changes) => {
+            assert_eq!(id.tb, schemas::dynamic::TABLE_NAME);
+            daemon
+                .dynamic_playlist_update(current_context(), id, changes)
+                .await?
+                .map(|_| flag_update())?;
+        }
+    }
+
+    if update {
+        *state = get_library(daemon).await?;
+        state_tx.send(state.clone())?;
+    }
+
+    Ok(())
 }
 
 async fn get_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<LibraryBrief> {
