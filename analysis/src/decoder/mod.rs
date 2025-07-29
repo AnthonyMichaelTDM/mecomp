@@ -195,7 +195,7 @@ pub trait Decoder {
 
         pool.install(|| {
             paths.into_par_iter().try_for_each(|path| {
-                info!("Analyzing file '{path:?}'");
+                info!("Analyzing file '{}'", path.display());
                 self.analyze_path_with_callback(path, callback.clone())
             })
         })

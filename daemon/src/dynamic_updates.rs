@@ -121,7 +121,7 @@ pub fn init_music_library_watcher(
 
     // Add all library paths to the debouncer.
     for path in library_paths {
-        log::debug!("watching path: {path:?}");
+        log::debug!("watching path: {}", path.display());
         // Add a path to be watched. All files and directories at that path and
         // below will be monitored for changes.
         debouncer.watch(path, RecursiveMode::Recursive)?;

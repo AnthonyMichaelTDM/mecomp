@@ -1,6 +1,6 @@
 //! Views for both a single album, and the library of albums.
 
-use std::{ops::Not, sync::Mutex};
+use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_storage::db::schemas::album::AlbumBrief;
@@ -68,9 +68,11 @@ impl Component for LibraryAlbumsView {
     {
         let mut albums = state.library.albums.clone();
         self.props.sort_mode.sort_items(&mut albums);
-        let tree_state = (state.active_view == ActiveView::Albums)
-            .then_some(self.tree_state)
-            .unwrap_or_default();
+        let tree_state = if state.active_view == ActiveView::Albums {
+            self.tree_state
+        } else {
+            Mutex::default()
+        };
 
         Self {
             props: Props {
@@ -207,18 +209,20 @@ impl ComponentRender<RenderProps> for LibraryAlbumsView {
         frame.render_widget(border, props.area);
 
         // draw an additional border around the content area to display additional instructions
+        let tree_checked_things_empty = self
+            .tree_state
+            .lock()
+            .unwrap()
+            .get_checked_things()
+            .is_empty();
+        let border_title_top = if tree_checked_things_empty {
+            ""
+        } else {
+            "q: add to queue | r: start radio | p: add to playlist "
+        };
         let border = Block::default()
             .borders(Borders::TOP | Borders::BOTTOM)
-            .title_top(
-                self.tree_state
-                    .lock()
-                    .unwrap()
-                    .get_checked_things()
-                    .is_empty()
-                    .not()
-                    .then_some("q: add to queue | r: start radio | p: add to playlist ")
-                    .unwrap_or_default(),
-            )
+            .title_top(border_title_top)
             .title_bottom("s/S: change sort")
             .border_style(border_style);
         let area = border.inner(content_area);
@@ -307,9 +311,9 @@ mod sort_mode_tests {
         assert_eq!(albums[2].title, "C");
 
         AlbumSort::Artist.sort_items(&mut albums);
-        assert_eq!(albums[0].artist, OneOrMany::One("A".into()));
-        assert_eq!(albums[1].artist, OneOrMany::One("B".into()));
-        assert_eq!(albums[2].artist, OneOrMany::One("C".into()));
+        assert_eq!(albums[0].artist, "A".to_string().into());
+        assert_eq!(albums[1].artist, "B".to_string().into());
+        assert_eq!(albums[2].artist, "C".to_string().into());
 
         AlbumSort::ReleaseYear.sort_items(&mut albums);
         assert_eq!(albums[0].release, Some(2023));

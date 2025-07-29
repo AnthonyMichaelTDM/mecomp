@@ -6,7 +6,7 @@ use thiserror::Error;
 pub enum Error {
     #[cfg(feature = "db")]
     #[error("SurrealDB error: {0}")]
-    DbError(#[from] surrealdb::Error),
+    DbError(#[from] Box<surrealdb::Error>),
     #[error("Failed to set database path to {0}")]
     DbPathSetError(PathBuf),
     #[error("Item is missing an Id.")]
@@ -17,6 +17,13 @@ pub enum Error {
     SongIOError(#[from] SongIOError),
     #[error("Item not created.")]
     NotCreated,
+}
+
+impl From<surrealdb::Error> for Error {
+    #[inline]
+    fn from(err: surrealdb::Error) -> Self {
+        Self::DbError(Box::new(err))
+    }
 }
 
 #[derive(Error, Debug)]

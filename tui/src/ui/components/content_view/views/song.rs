@@ -1,6 +1,6 @@
 //! Views for both a single song, and the library of songs.
 
-use std::{ops::Not, sync::Mutex};
+use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_storage::db::schemas::song::SongBrief;
@@ -68,9 +68,11 @@ impl Component for LibrarySongsView {
     {
         let mut songs = state.library.songs.clone();
         self.props.sort_mode.sort_items(&mut songs);
-        let tree_state = (state.active_view == ActiveView::Songs)
-            .then_some(self.tree_state)
-            .unwrap_or_default();
+        let tree_state = if state.active_view == ActiveView::Songs {
+            self.tree_state
+        } else {
+            Mutex::default()
+        };
 
         Self {
             props: Props {
@@ -205,18 +207,20 @@ impl ComponentRender<RenderProps> for LibrarySongsView {
         frame.render_widget(border, props.area);
 
         // draw an additional border around the content area to display additional instructions
+        let tree_checked_things_empty = self
+            .tree_state
+            .lock()
+            .unwrap()
+            .get_checked_things()
+            .is_empty();
+        let border_title_top = if tree_checked_things_empty {
+            ""
+        } else {
+            "q: add to queue | r: start radio | p: add to playlist "
+        };
         let border = Block::new()
             .borders(Borders::TOP | Borders::BOTTOM)
-            .title_top(
-                self.tree_state
-                    .lock()
-                    .unwrap()
-                    .get_checked_things()
-                    .is_empty()
-                    .not()
-                    .then_some("q: add to queue | r: start radio | p: add to playlist ")
-                    .unwrap_or_default(),
-            )
+            .title_top(border_title_top)
             .title_bottom("s/S: change sort")
             .border_style(border_style);
         frame.render_widget(&border, content_area);

@@ -57,13 +57,11 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
             path
         };
 
-        let log_file = std::fs::OpenOptions::new()
+        std::fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(path)
-            .expect("Failed to create log file");
-
-        log_file
+            .expect("Failed to create log file")
     });
 
     // If `RUST_LOG` isn't set, override it and disables

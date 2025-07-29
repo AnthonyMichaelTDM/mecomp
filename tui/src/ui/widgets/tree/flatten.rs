@@ -42,7 +42,7 @@ pub struct Flattened<'text, Identifier> {
 impl<Identifier> Flattened<'_, Identifier> {
     /// Zero based depth. Depth 0 means top level with 0 indentation.
     #[must_use]
-    pub fn depth(&self) -> usize {
+    pub const fn depth(&self) -> usize {
         self.identifier.len() - 1
     }
 }

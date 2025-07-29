@@ -354,9 +354,11 @@ impl Component for LibraryCollectionsView {
     {
         let mut collections = state.library.collections.clone();
         self.props.sort_mode.sort_items(&mut collections);
-        let tree_state = (state.active_view == ActiveView::Collections)
-            .then_some(self.tree_state)
-            .unwrap_or_default();
+        let tree_state = if state.active_view == ActiveView::Collections {
+            self.tree_state
+        } else {
+            Mutex::default()
+        };
 
         Self {
             props: Props {
