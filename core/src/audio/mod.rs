@@ -88,6 +88,7 @@ impl AudioKernelSender {
     /// * If the audio kernel is not running, or the command channel is otherwise closed, this function will panic.
     ///   If that is not acceptable, consider using the `try_send` method instead.
     #[instrument(skip(self))]
+    #[inline]
     pub fn send(&self, command: AudioCommand) {
         let ctx =
             tracing::info_span!("Sending Audio Command to Kernel", command = ?command).or_current();
@@ -105,7 +106,12 @@ impl AudioKernelSender {
     /// # Arguments
     ///
     /// * `command` - The command to send to the audio kernel
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the audio kernel is not running, or the command channel is otherwise closed.
     #[instrument(skip(self))]
+    #[inline]
     pub fn try_send(
         &self,
         command: AudioCommand,
@@ -386,7 +392,7 @@ impl AudioKernel {
             QueueCommand::Shuffle => self.queue.shuffle(),
             QueueCommand::AddToQueue(song_box) => match song_box {
                 OneOrMany::None => {}
-                OneOrMany::One(song) => self.add_song_to_queue(song),
+                OneOrMany::One(song) => self.add_song_to_queue(*song),
                 OneOrMany::Many(songs) => self.add_songs_to_queue(songs),
             },
             QueueCommand::RemoveRange(range) => self.remove_range_from_queue(range),
@@ -882,7 +888,7 @@ mod tests {
             .unwrap();
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-                OneOrMany::One(song.into()),
+                song.brief().into(),
             )));
 
             let state = get_state(sender.clone()).await;
@@ -1113,7 +1119,7 @@ mod tests {
 
             // add the song back to the queue, should be playing
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-                OneOrMany::One(song1.clone().into()),
+                song1.clone().brief().into(),
             )));
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
@@ -1577,7 +1583,7 @@ mod tests {
             // add a song to the queue
             // NOTE: this song has a duration of 10 seconds
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-                OneOrMany::One(song.clone().into()),
+                song.clone().brief().into(),
             )));
             sender.send(AudioCommand::Stop);
             sender.send(AudioCommand::Seek(

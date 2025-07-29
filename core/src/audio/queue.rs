@@ -31,16 +31,19 @@ impl Queue {
     }
 
     #[instrument]
+    #[inline]
     pub fn add_song(&mut self, song: SongBrief) {
         self.songs.push(song);
     }
 
     #[instrument]
+    #[inline]
     pub fn add_songs(&mut self, songs: Vec<SongBrief>) {
         self.songs.extend(songs);
     }
 
     #[instrument]
+    #[inline]
     pub fn remove_song(&mut self, index: usize) {
         if index >= self.len() {
             return;
@@ -62,6 +65,7 @@ impl Queue {
     }
 
     #[instrument]
+    #[inline]
     pub fn clear(&mut self) {
         self.songs.clear();
         self.current_index = None;
@@ -69,11 +73,13 @@ impl Queue {
 
     #[must_use]
     #[instrument]
+    #[inline]
     pub fn current_song(&self) -> Option<&SongBrief> {
         self.current_index.and_then(|index| self.songs.get(index))
     }
 
     #[instrument]
+    #[inline]
     pub fn next_song(&mut self) -> Option<&SongBrief> {
         if self.repeat_mode == RepeatMode::One && self.current_index.is_some() {
             self.current_song()
@@ -86,6 +92,7 @@ impl Queue {
     ///
     /// progresses the current index by n, following the repeat mode rules.
     #[instrument]
+    #[inline]
     pub fn skip_forward(&mut self, n: usize) -> Option<&SongBrief> {
         match self.current_index {
             Some(current_index) if current_index + n < self.songs.len() => {
@@ -121,11 +128,13 @@ impl Queue {
     }
 
     #[instrument]
+    #[inline]
     pub fn previous_song(&mut self) -> Option<&SongBrief> {
         self.skip_backward(1)
     }
 
     #[instrument]
+    #[inline]
     pub fn skip_backward(&mut self, n: usize) -> Option<&SongBrief> {
         match self.current_index {
             Some(current_index) if current_index >= n => {
@@ -140,6 +149,7 @@ impl Queue {
     }
 
     #[instrument]
+    #[inline]
     pub fn set_repeat_mode(&mut self, repeat_mode: RepeatMode) {
         self.repeat_mode = repeat_mode;
     }
@@ -151,6 +161,7 @@ impl Queue {
     }
 
     #[instrument]
+    #[inline]
     pub fn shuffle(&mut self) {
         // swap current song to first
         match self.current_index {
@@ -169,18 +180,21 @@ impl Queue {
 
     #[must_use]
     #[instrument]
+    #[inline]
     pub fn get(&self, index: usize) -> Option<&SongBrief> {
         self.songs.get(index)
     }
 
     #[must_use]
     #[instrument]
+    #[inline]
     pub fn len(&self) -> usize {
         self.songs.len()
     }
 
     #[must_use]
     #[instrument]
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.songs.is_empty()
     }
@@ -193,12 +207,14 @@ impl Queue {
 
     #[must_use]
     #[instrument]
+    #[inline]
     pub fn queued_songs(&self) -> Box<[SongBrief]> {
         self.songs.clone().into_boxed_slice()
     }
 
     /// Sets the current index, clamped to the nearest valid index.
     #[instrument]
+    #[inline]
     pub fn set_current_index(&mut self, index: usize) {
         if self.songs.is_empty() {
             self.current_index = None;
@@ -211,6 +227,7 @@ impl Queue {
     /// If the current index is within the range, it will be set to the next valid index (or the
     /// previous valid index if the range included the end of the queue).
     #[instrument]
+    #[inline]
     pub fn remove_range(&mut self, range: std::ops::Range<usize>) {
         if range.is_empty() || self.is_empty() {
             return;

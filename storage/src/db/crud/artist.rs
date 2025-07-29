@@ -117,7 +117,7 @@ impl Artist {
         ids: OneOrMany<ArtistId>,
     ) -> StorageResult<OneOrMany<Self>> {
         match ids {
-            OneOrMany::One(id) => Ok(Self::read(db, id).await?.into()),
+            OneOrMany::One(id) => Ok(Self::read(db, *id).await?.into()),
             OneOrMany::Many(ids) => Self::read_many(db, ids).await.map(std::convert::Into::into),
             OneOrMany::None => Ok(OneOrMany::None),
         }
@@ -330,8 +330,8 @@ mod tests {
         let created = Artist::create(&db, artist.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
-        let read = Artist::read_one_or_many(&db, OneOrMany::One(artist.id.clone())).await?;
-        assert_eq!(read, OneOrMany::One(created.clone()));
+        let read = Artist::read_one_or_many(&db, artist.id.clone().into()).await?;
+        assert_eq!(read, created.clone().into());
 
         // test Many
         let created2 = Artist::create(&db, artist2.clone())
@@ -567,7 +567,7 @@ mod tests {
         let album = Album {
             id: Album::generate_id(),
             title: "Test Album".into(),
-            artist: OneOrMany::One(artist.name.clone()),
+            artist: artist.name.clone().into(),
             song_count: 4,
             runtime: Duration::from_secs(8),
             release: None,
@@ -586,13 +586,13 @@ mod tests {
             let song = Song {
                 id: Song::generate_id(),
                 title: format!("Test Song {i}"),
-                artist: OneOrMany::One(artist.name.clone()),
+                artist: artist.name.clone().into(),
                 album: album.title.clone(),
                 runtime: Duration::from_secs(2),
                 track: Some(i as u16 + 1),
                 disc: Some(1),
                 genre: OneOrMany::None,
-                album_artist: OneOrMany::One(artist.name.clone()),
+                album_artist: artist.name.clone().into(),
                 release_year: None,
                 extension: "mp3".into(),
                 path: PathBuf::from(format!("song{i}.mp3")),
@@ -618,7 +618,7 @@ mod tests {
         let album = Album {
             id: Album::generate_id(),
             title: "Test Album".into(),
-            artist: OneOrMany::One(artist.name.clone()),
+            artist: artist.name.clone().into(),
             song_count: 0,
             runtime: Duration::from_secs(0),
             release: None,
@@ -628,13 +628,13 @@ mod tests {
         let song = Song {
             id: Song::generate_id(),
             title: "Test Song".into(),
-            artist: OneOrMany::One(artist.name.clone()),
+            artist: artist.name.clone().into(),
             album: "Test Album".into(),
             runtime: Duration::from_secs(5),
             track: Some(1),
             disc: Some(1),
             genre: OneOrMany::None,
-            album_artist: OneOrMany::One(artist.name.clone()),
+            album_artist: artist.name.clone().into(),
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
@@ -683,13 +683,13 @@ mod tests {
         let song = Song {
             id: Song::generate_id(),
             title: "Test Song".to_string(),
-            artist: OneOrMany::One(artist.name.clone()),
+            artist: artist.name.clone().into(),
             album: "Test Album ".to_string(),
             runtime: Duration::from_secs(5),
             track: Some(1),
             disc: Some(1),
             genre: OneOrMany::None,
-            album_artist: OneOrMany::One(artist.name.clone()),
+            album_artist: artist.name.clone().into(),
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
@@ -735,13 +735,13 @@ mod tests {
         let song = Song {
             id: Song::generate_id(),
             title: "Test Song".into(),
-            artist: OneOrMany::One(artist.name.clone()),
+            artist: artist.name.clone().into(),
             album: "Test Album".into(),
             runtime: Duration::from_secs(5),
             track: Some(1),
             disc: Some(1),
             genre: OneOrMany::None,
-            album_artist: OneOrMany::One(artist.name.clone()),
+            album_artist: artist.name.clone().into(),
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
@@ -773,13 +773,13 @@ mod tests {
         let song = Song {
             id: Song::generate_id(),
             title: "Test Song".into(),
-            artist: OneOrMany::One(artist.name.clone()),
+            artist: artist.name.clone().into(),
             album: "Test Album".into(),
             runtime: Duration::from_secs(5),
             track: Some(1),
             disc: Some(1),
             genre: OneOrMany::None,
-            album_artist: OneOrMany::One(artist.name.clone()),
+            album_artist: artist.name.clone().into(),
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
@@ -816,7 +816,7 @@ mod tests {
         let album = Album {
             id: Album::generate_id(),
             title: "Test Album".into(),
-            artist: OneOrMany::One(artist.name.clone()),
+            artist: artist.name.clone().into(),
             song_count: 4,
             runtime: Duration::from_secs(5),
             release: None,
@@ -827,13 +827,13 @@ mod tests {
         let song1 = Song {
             id: Song::generate_id(),
             title: "Test Song 1".into(),
-            artist: OneOrMany::One(artist.name.clone()),
+            artist: artist.name.clone().into(),
             album: "Test Album".into(),
             runtime: Duration::from_secs(5),
             track: Some(1),
             disc: Some(1),
             genre: OneOrMany::None,
-            album_artist: OneOrMany::One(artist.name.clone()),
+            album_artist: artist.name.clone().into(),
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
@@ -842,13 +842,13 @@ mod tests {
         let song2 = Song {
             id: Song::generate_id(),
             title: "Test Song 2".into(),
-            artist: OneOrMany::One(artist.name.clone()),
+            artist: artist.name.clone().into(),
             album: "Test Album".into(),
             runtime: Duration::from_secs(5),
             track: Some(2),
             disc: Some(1),
             genre: OneOrMany::None,
-            album_artist: OneOrMany::One(artist.name.clone()),
+            album_artist: artist.name.clone().into(),
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song_2.mp3"),
@@ -857,13 +857,13 @@ mod tests {
         let song3 = Song {
             id: Song::generate_id(),
             title: "Test Song 3".into(),
-            artist: OneOrMany::One(artist.name.clone()),
+            artist: artist.name.clone().into(),
             album: "Test Album".into(),
             runtime: Duration::from_secs(5),
             track: Some(3),
             disc: Some(1),
             genre: OneOrMany::None,
-            album_artist: OneOrMany::One(artist.name.clone()),
+            album_artist: artist.name.clone().into(),
             release_year: None,
             extension: "mp3".into(),
             path: PathBuf::from("song_3.mp3"),

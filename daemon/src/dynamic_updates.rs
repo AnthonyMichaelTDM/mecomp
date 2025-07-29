@@ -415,7 +415,7 @@ mod tests {
         let handler = init_music_library_watcher(
             db.clone(),
             &[music_lib.path().to_owned()],
-            OneOrMany::One(ARTIST_NAME_SEPARATOR.into()),
+            ARTIST_NAME_SEPARATOR.to_string().into(),
             OneOrMany::None,
             Some(ARTIST_NAME_SEPARATOR.into()),
             interrupt,

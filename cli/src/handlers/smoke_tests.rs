@@ -10,7 +10,6 @@ use mecomp_storage::{
     },
     test_utils::{arb_analysis_features, init_test_database},
 };
-use one_or_many::OneOrMany;
 use rstest::{fixture, rstest};
 use surrealdb::{RecordId, Surreal, engine::local::Db};
 use tempfile::tempdir;
@@ -83,10 +82,10 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
     let song = Song {
         id: song_id.clone(),
         title: "Test Song".into(),
-        artist: OneOrMany::One("Test Artist".into()),
-        album_artist: OneOrMany::One("Test Artist".into()),
+        artist: "Test Artist".to_string().into(),
+        album_artist: "Test Artist".to_string().into(),
         album: "Test Album".into(),
-        genre: OneOrMany::One("Test Genre".into()),
+        genre: "Test Genre".to_string().into(),
         runtime: std::time::Duration::from_secs(180),
         track: Some(0),
         disc: Some(0),

@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum OneOrMany<T> {
-    One(T),
+    One(Box<T>),
     Many(Vec<T>),
     #[default]
     None,
@@ -42,7 +42,7 @@ where
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum Inner<T> {
-            One(T),
+            One(Box<T>),
             Many(Vec<T>),
             None,
         }
@@ -51,7 +51,7 @@ where
         Ok(match inner {
             Inner::One(t) => Self::One(t),
             Inner::Many(t) if t.is_empty() => Self::None,
-            Inner::Many(t) if t.len() == 1 => Self::One(t[0].clone()),
+            Inner::Many(t) if t.len() == 1 => Self::One(Box::new(t[0].clone())),
             Inner::Many(t) => Self::Many(t),
             Inner::None => Self::None,
         })
@@ -61,7 +61,8 @@ where
 impl<T> OneOrMany<T> {
     /// Returns the number of elements in the `OneOrMany`.
     #[inline]
-    pub fn len(&self) -> usize {
+    #[must_use]
+    pub const fn len(&self) -> usize {
         match self {
             Self::One(_) => 1,
             Self::Many(t) => t.len(),
@@ -71,12 +72,14 @@ impl<T> OneOrMany<T> {
 
     /// Returns `true` if the `OneOrMany` is empty.
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Returns the value at the given index, or `None` if the index is out of bounds.
     #[inline]
+    #[must_use]
     pub fn get(&self, index: usize) -> Option<&T> {
         match self {
             Self::One(t) if index == 0 => Some(t),
@@ -87,11 +90,11 @@ impl<T> OneOrMany<T> {
 
     /// Returns the first value, or `None` if the `OneOrMany` is empty.
     #[inline]
-    #[allow(clippy::missing_const_for_fn)] // TODO: make this const when possible
-    pub fn first(&self) -> Option<&T> {
+    #[must_use]
+    pub const fn first(&self) -> Option<&T> {
         match self {
             Self::One(t) => Some(t),
-            Self::Many(v) => v.first(),
+            Self::Many(v) => v.as_slice().first(),
             Self::None => None,
         }
     }
@@ -103,7 +106,7 @@ impl<T> OneOrMany<T> {
         T: PartialEq,
     {
         match self {
-            Self::One(t) => t == genre,
+            Self::One(t) => t.as_ref() == genre,
             Self::Many(t) => t.contains(genre),
             Self::None => false,
         }
@@ -120,7 +123,7 @@ impl<T> OneOrMany<T> {
                 *self = Self::Many(vec![t.to_owned(), new]);
             }
             Self::Many(t) => t.push(new),
-            Self::None => *self = Self::One(new),
+            Self::None => *self = Self::One(Box::new(new)),
         }
     }
 
@@ -139,7 +142,7 @@ impl<T> OneOrMany<T> {
             Self::Many(t) => {
                 let old = t.pop();
                 if t.len() == 1 {
-                    *self = Self::One(t[0].to_owned());
+                    *self = Self::One(Box::new(t[0].to_owned()));
                 }
                 old
             }
@@ -149,59 +152,50 @@ impl<T> OneOrMany<T> {
 
     /// Checks if the `OneOrMany` is `None`.
     #[inline]
+    #[must_use]
     pub const fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
 
     /// Checks if the `OneOrMany` is `One`.
     #[inline]
+    #[must_use]
     pub const fn is_one(&self) -> bool {
         matches!(self, Self::One(_))
     }
 
     /// Checks if the `OneOrMany` is `Many`.
     #[inline]
+    #[must_use]
     pub const fn is_many(&self) -> bool {
         matches!(self, Self::Many(_))
     }
 
     /// Checks if the `OneOrMany` is `One` or `Many`.
     #[inline]
+    #[must_use]
     pub const fn is_some(&self) -> bool {
         self.is_one() || self.is_many()
     }
 
     /// Gets a slice of the `OneOrMany`.
     #[inline]
-    #[allow(clippy::missing_const_for_fn)] // TODO: make this const when possible
-    pub fn as_slice(&self) -> &[T] {
+    #[must_use]
+    pub const fn as_slice(&self) -> &[T] {
         match self {
             Self::One(t) => std::slice::from_ref(t),
-            Self::Many(t) => t,
+            Self::Many(t) => t.as_slice(),
             Self::None => &[],
         }
     }
 
     /// Gets a mutable slice of the `OneOrMany`.
     #[inline]
-    #[allow(clippy::missing_const_for_fn)] // TODO: make this const when possible
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         match self {
             Self::One(t) => std::slice::from_mut(t),
-            Self::Many(t) => t,
+            Self::Many(t) => t.as_mut_slice(),
             Self::None => &mut [],
-        }
-    }
-
-    /// Convert a `&OneOrMany<T>` to an `OneOrMany<&T>`
-    ///
-    /// Note, this will unfortunately cause an allocation if the `OneOrMany` is `Many`
-    #[inline]
-    pub fn as_ref(&self) -> OneOrMany<&T> {
-        match *self {
-            Self::One(ref x) => OneOrMany::One(x),
-            Self::Many(ref v) => OneOrMany::Many(v.iter().collect()),
-            Self::None => OneOrMany::None,
         }
     }
 
@@ -259,6 +253,13 @@ impl<T: Clone> Clone for OneOrMany<T> {
 impl<T> From<T> for OneOrMany<T> {
     #[inline]
     fn from(t: T) -> Self {
+        Self::One(Box::new(t))
+    }
+}
+
+impl<T> From<Box<T>> for OneOrMany<T> {
+    #[inline]
+    fn from(t: Box<T>) -> Self {
         Self::One(t)
     }
 }
@@ -266,7 +267,13 @@ impl<T> From<T> for OneOrMany<T> {
 impl<T> From<Option<T>> for OneOrMany<T> {
     #[inline]
     fn from(t: Option<T>) -> Self {
-        t.map_or_else(|| Self::None, |t| Self::One(t))
+        t.map(Box::new).map_or(Self::None, Self::One)
+    }
+}
+impl<T> From<Option<Box<T>>> for OneOrMany<T> {
+    #[inline]
+    fn from(t: Option<Box<T>>) -> Self {
+        t.map_or(Self::None, Self::One)
     }
 }
 
@@ -290,7 +297,7 @@ impl<T: Clone> From<&[T]> for OneOrMany<T> {
         if t.is_empty() {
             Self::None
         } else if t.len() == 1 {
-            Self::One(t[0].clone())
+            Self::One(Box::new(t[0].clone()))
         } else {
             Self::Many(t.into())
         }
@@ -301,7 +308,10 @@ impl<T> From<Vec<T>> for OneOrMany<T> {
     #[inline]
     fn from(t: Vec<T>) -> Self {
         if t.len() <= 1 {
-            t.into_iter().next().map_or(Self::None, Self::One)
+            t.into_iter()
+                .next()
+                .map(Box::new)
+                .map_or(Self::None, Self::One)
         } else {
             Self::Many(t)
         }
@@ -312,7 +322,7 @@ impl<T> From<OneOrMany<T>> for Vec<T> {
     #[inline]
     fn from(value: OneOrMany<T>) -> Self {
         match value {
-            OneOrMany::One(one) => vec![one],
+            OneOrMany::One(one) => vec![*one],
             OneOrMany::Many(many) => many,
             OneOrMany::None => vec![],
         }
@@ -397,8 +407,8 @@ mod tests {
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, "null")]
     #[case::none(OneOrMany::<usize>::None, "[]")]
-    #[case::one(OneOrMany::One(1), "1")]
-    #[case::one(OneOrMany::One(1), "[1]")]
+    #[case::one(OneOrMany::from(1), "1")]
+    #[case::one(OneOrMany::from(1), "[1]")]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), "[1, 2, 3]")]
     fn test_deserialize(#[case] expected: OneOrMany<usize>, #[case] input: &str)
     where
@@ -410,7 +420,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, 0)]
-    #[case::one(OneOrMany::One(1), 1)]
+    #[case::one(OneOrMany::from(1), 1)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 3)]
     fn test_len<T>(#[case] input: OneOrMany<T>, #[case] expected: usize) {
         let actual = input.len();
@@ -419,7 +429,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, true)]
-    #[case::one(OneOrMany::One(1), false)]
+    #[case::one(OneOrMany::from(1), false)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), false)]
     fn test_is_empty<T>(#[case] input: OneOrMany<T>, #[case] expected: bool) {
         let actual = input.is_empty();
@@ -429,8 +439,8 @@ mod tests {
     #[rstest]
     #[case::none(OneOrMany::<usize>::None,0, None)]
     #[case::none(OneOrMany::<usize>::None,1, None)]
-    #[case::one(OneOrMany::One(1), 0, Some(&1))]
-    #[case::one(OneOrMany::One(1), 1, None)]
+    #[case::one(OneOrMany::from(1), 0, Some(&1))]
+    #[case::one(OneOrMany::from(1), 1, None)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0, Some(&1))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 1, Some(&2))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 2, Some(&3))]
@@ -445,7 +455,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, None)]
-    #[case::one(OneOrMany::One(1), Some(&1))]
+    #[case::one(OneOrMany::from(1), Some(&1))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), Some(&1))]
     fn test_first<T>(#[case] input: OneOrMany<T>, #[case] expected: Option<&T>)
     where
@@ -457,8 +467,8 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, 2, false)]
-    #[case::one(OneOrMany::One(1), 1, true)]
-    #[case::one(OneOrMany::One(1), 0, false)]
+    #[case::one(OneOrMany::from(1), 1, true)]
+    #[case::one(OneOrMany::from(1), 0, false)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]),2, true)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]),4, false)]
     fn test_contains<T>(#[case] input: OneOrMany<T>, #[case] value: T, #[case] expected: bool)
@@ -470,8 +480,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case::none(OneOrMany::<usize>::None, 1, OneOrMany::One(1))]
-    #[case::one(OneOrMany::One(1), 2, OneOrMany::Many(vec![1, 2]))]
+    #[case::none(OneOrMany::<usize>::None, 1, OneOrMany::from(1))]
+    #[case::one(OneOrMany::from(1), 2, OneOrMany::Many(vec![1, 2]))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 4, OneOrMany::Many(vec![1, 2, 3, 4]))]
     fn test_push<T>(#[case] mut input: OneOrMany<T>, #[case] new: T, #[case] expected: OneOrMany<T>)
     where
@@ -483,8 +493,8 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, None, OneOrMany::<usize>::None)]
-    #[case::one(OneOrMany::One(1), Some(1), OneOrMany::<usize>::None)]
-    #[case::many(OneOrMany::Many(vec![1, 2]), Some(2), OneOrMany::One(1))]
+    #[case::one(OneOrMany::from(1), Some(1), OneOrMany::<usize>::None)]
+    #[case::many(OneOrMany::Many(vec![1, 2]), Some(2), OneOrMany::from(1))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), Some(3), OneOrMany::Many(vec![1, 2]))]
     fn test_pop<T>(
         #[case] mut input: OneOrMany<T>,
@@ -500,7 +510,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, true)]
-    #[case::one(OneOrMany::One(1), false)]
+    #[case::one(OneOrMany::from(1), false)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), false)]
     fn test_is_none<T>(#[case] input: OneOrMany<T>, #[case] expected: bool)
     where
@@ -512,7 +522,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, false)]
-    #[case::one(OneOrMany::One(1), true)]
+    #[case::one(OneOrMany::from(1), true)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), false)]
     fn test_is_one<T>(#[case] input: OneOrMany<T>, #[case] expected: bool)
     where
@@ -524,7 +534,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, false)]
-    #[case::one(OneOrMany::One(1), false)]
+    #[case::one(OneOrMany::from(1), false)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), true)]
     fn test_is_many<T>(#[case] input: OneOrMany<T>, #[case] expected: bool)
     where
@@ -536,7 +546,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, false)]
-    #[case::one(OneOrMany::One(1), true)]
+    #[case::one(OneOrMany::from(1), true)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), true)]
     fn test_is_some<T>(#[case] input: OneOrMany<T>, #[case] expected: bool)
     where
@@ -548,7 +558,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, vec![])]
-    #[case::one(OneOrMany::One(1), vec![1])]
+    #[case::one(OneOrMany::from(1), vec![1])]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), vec![1, 2, 3])]
     fn test_as_slice<T>(#[case] input: OneOrMany<T>, #[case] expected: Vec<T>)
     where
@@ -559,7 +569,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, vec![])]
-    #[case::one(OneOrMany::One(1), vec![1])]
+    #[case::one(OneOrMany::from(1), vec![1])]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), vec![1, 2, 3])]
     fn test_as_mut_slice<T>(#[case] mut input: OneOrMany<T>, #[case] mut expected: Vec<T>)
     where
@@ -569,19 +579,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case::none(OneOrMany::<usize>::None, OneOrMany::<&usize>::None)]
-    #[case::one(OneOrMany::One(1), OneOrMany::One(&1))]
-    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![&1, &2, &3]))]
-    fn test_as_ref<T>(#[case] input: OneOrMany<T>, #[case] expected: OneOrMany<&T>)
-    where
-        T: PartialEq + std::fmt::Debug,
-    {
-        let actual = input.as_ref();
-        assert_eq!(actual, expected);
-    }
-
-    #[rstest]
-    #[case::one(1, OneOrMany::One(1))]
+    #[case::one(1, OneOrMany::from(1))]
     fn test_from<T>(#[case] input: T, #[case] expected: OneOrMany<T>)
     where
         T: Clone + PartialEq + std::fmt::Debug,
@@ -592,7 +590,7 @@ mod tests {
 
     #[rstest]
     #[case::none(vec![], OneOrMany::<usize>::None)]
-    #[case::one(vec![1], OneOrMany::One(1))]
+    #[case::one(vec![1], OneOrMany::from(1))]
     #[case::many(vec![1, 2, 3], OneOrMany::Many(vec![1, 2, 3]))]
     fn test_from_vec<T>(#[case] input: Vec<T>, #[case] expected: OneOrMany<T>)
     where
@@ -604,7 +602,7 @@ mod tests {
 
     #[rstest]
     #[case::none(&[], OneOrMany::<usize>::None)]
-    #[case::one(&[1], OneOrMany::One(1))]
+    #[case::one(&[1], OneOrMany::from(1))]
     #[case::many(&[1, 2, 3], OneOrMany::Many(vec![1, 2, 3]))]
     fn test_from_slice<T>(#[case] input: &[T], #[case] expected: OneOrMany<T>)
     where
@@ -616,7 +614,7 @@ mod tests {
 
     #[rstest]
     #[case::none(None, OneOrMany::<usize>::None)]
-    #[case::one(Some(1), OneOrMany::One(1))]
+    #[case::one(Some(1), OneOrMany::from(1))]
     fn test_from_option(#[case] input: Option<usize>, #[case] expected: OneOrMany<usize>) {
         let actual = OneOrMany::from(input);
         assert_eq!(actual, expected);
@@ -624,7 +622,7 @@ mod tests {
 
     #[rstest]
     #[case::none(None, OneOrMany::<usize>::None)]
-    #[case::one(Some(OneOrMany::One(1)), OneOrMany::One(1))]
+    #[case::one(Some(OneOrMany::from(1)), OneOrMany::from(1))]
     #[case::many(Some(OneOrMany::Many(vec![1, 2, 3])), OneOrMany::Many(vec![1, 2, 3]))]
     fn test_from_option_self(
         #[case] input: Option<OneOrMany<usize>>,
@@ -636,7 +634,7 @@ mod tests {
 
     #[rstest]
     #[case::none(Option::<Vec<usize>>::None, OneOrMany::None)]
-    #[case::one(Some(vec![1]), OneOrMany::One(1))]
+    #[case::one(Some(vec![1]), OneOrMany::from(1))]
     #[case::many(Some(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]))]
     fn test_from_option_vec(#[case] input: Option<Vec<usize>>, #[case] expected: OneOrMany<usize>) {
         let actual = OneOrMany::from(input);
@@ -645,7 +643,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, vec![])]
-    #[case::one(OneOrMany::One(1), vec![1])]
+    #[case::one(OneOrMany::from(1), vec![1])]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), vec![1, 2, 3])]
     fn test_into_vec(#[case] input: OneOrMany<usize>, #[case] expected: Vec<usize>) {
         let actual = Vec::from(input);
@@ -655,9 +653,9 @@ mod tests {
     #[rstest]
     #[should_panic = "index out of bounds: the len is 0 but the index is 0"]
     #[case::none(OneOrMany::<usize>::None, 0, 0)]
-    #[case::one(OneOrMany::One(1), 0, 1)]
+    #[case::one(OneOrMany::from(1), 0, 1)]
     #[should_panic = "index out of bounds: the len is 1 but the index is 1"]
-    #[case::one(OneOrMany::One(1), 1, 0)]
+    #[case::one(OneOrMany::from(1), 1, 0)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0, 1)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 1, 2)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 2, 3)]
@@ -675,10 +673,10 @@ mod tests {
     #[case::none(OneOrMany::<usize>::None, 0..0, &[])]
     #[should_panic = "range end index 1 out of range for slice of length 0"]
     #[case::none(OneOrMany::<usize>::None, 0..1, &[])]
-    #[case::one(OneOrMany::One(1), 0..0, &[])]
-    #[case::one(OneOrMany::One(1), 0..1, &[1])]
+    #[case::one(OneOrMany::from(1), 0..0, &[])]
+    #[case::one(OneOrMany::from(1), 0..1, &[1])]
     #[should_panic = "range end index 2 out of range for slice of length 1"]
-    #[case::one(OneOrMany::One(1), 1..2, &[])]
+    #[case::one(OneOrMany::from(1), 1..2, &[])]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0..0, &[])]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0..1, &[1])]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 1..2, &[2])]
@@ -704,10 +702,10 @@ mod tests {
     #[case::none(OneOrMany::<usize>::None, 0..0, &[])]
     #[should_panic = "range end index 1 out of range for slice of length 0"]
     #[case::none(OneOrMany::<usize>::None, 0..1, &[])]
-    #[case::one(OneOrMany::One(1), 0..0, &[])]
-    #[case::one(OneOrMany::One(1), 0..1, &[1])]
+    #[case::one(OneOrMany::from(1), 0..0, &[])]
+    #[case::one(OneOrMany::from(1), 0..1, &[1])]
     #[should_panic = "range end index 2 out of range for slice of length 1"]
-    #[case::one(OneOrMany::One(1), 1..2, &[])]
+    #[case::one(OneOrMany::from(1), 1..2, &[])]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0..0, &[])]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 0..1, &[1])]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), 1..2, &[2])]
@@ -731,19 +729,23 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, OneOrMany::<usize>::None, Some(std::cmp::Ordering::Equal))]
-    #[case::none(OneOrMany::<usize>::None, OneOrMany::One(1), Some(std::cmp::Ordering::Less))]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::from(1), Some(std::cmp::Ordering::Less))]
     #[case::none(OneOrMany::<usize>::None, OneOrMany::Many(vec![1, 2, 3]), Some(std::cmp::Ordering::Less))]
-    #[case::one(OneOrMany::One(1), OneOrMany::<usize>::None, Some(std::cmp::Ordering::Greater))]
-    #[case::one(OneOrMany::One(1), OneOrMany::One(1), Some(std::cmp::Ordering::Equal))]
-    #[case::one(OneOrMany::One(1), OneOrMany::One(2), Some(std::cmp::Ordering::Less))]
+    #[case::one(OneOrMany::from(1), OneOrMany::<usize>::None, Some(std::cmp::Ordering::Greater))]
     #[case::one(
-        OneOrMany::One(1),
-        OneOrMany::One(0),
+        OneOrMany::from(1),
+        OneOrMany::from(1),
+        Some(std::cmp::Ordering::Equal)
+    )]
+    #[case::one(OneOrMany::from(1), OneOrMany::from(2), Some(std::cmp::Ordering::Less))]
+    #[case::one(
+        OneOrMany::from(1),
+        OneOrMany::from(0),
         Some(std::cmp::Ordering::Greater)
     )]
-    #[case::one(OneOrMany::One(1), OneOrMany::Many(vec![1, 2, 3]), Some(std::cmp::Ordering::Less))]
+    #[case::one(OneOrMany::from(1), OneOrMany::Many(vec![1, 2, 3]), Some(std::cmp::Ordering::Less))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::<usize>::None, Some(std::cmp::Ordering::Greater))]
-    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::One(1), Some(std::cmp::Ordering::Greater))]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::from(1), Some(std::cmp::Ordering::Greater))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]), Some(std::cmp::Ordering::Equal))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![2, 3]), Some(std::cmp::Ordering::Less))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3, 4]), Some(std::cmp::Ordering::Less))]
@@ -760,15 +762,15 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, OneOrMany::<usize>::None, std::cmp::Ordering::Equal)]
-    #[case::none(OneOrMany::<usize>::None, OneOrMany::One(1), std::cmp::Ordering::Less)]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::from(1), std::cmp::Ordering::Less)]
     #[case::none(OneOrMany::<usize>::None, OneOrMany::Many(vec![1, 2, 3]), std::cmp::Ordering::Less)]
-    #[case::one(OneOrMany::One(1), OneOrMany::<usize>::None, std::cmp::Ordering::Greater)]
-    #[case::one(OneOrMany::One(1), OneOrMany::One(1), std::cmp::Ordering::Equal)]
-    #[case::one(OneOrMany::One(1), OneOrMany::One(2), std::cmp::Ordering::Less)]
-    #[case::one(OneOrMany::One(1), OneOrMany::One(0), std::cmp::Ordering::Greater)]
-    #[case::one(OneOrMany::One(1), OneOrMany::Many(vec![1, 2, 3]), std::cmp::Ordering::Less)]
+    #[case::one(OneOrMany::from(1), OneOrMany::<usize>::None, std::cmp::Ordering::Greater)]
+    #[case::one(OneOrMany::from(1), OneOrMany::from(1), std::cmp::Ordering::Equal)]
+    #[case::one(OneOrMany::from(1), OneOrMany::from(2), std::cmp::Ordering::Less)]
+    #[case::one(OneOrMany::from(1), OneOrMany::from(0), std::cmp::Ordering::Greater)]
+    #[case::one(OneOrMany::from(1), OneOrMany::Many(vec![1, 2, 3]), std::cmp::Ordering::Less)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::<usize>::None, std::cmp::Ordering::Greater)]
-    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::One(1), std::cmp::Ordering::Greater)]
+    #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::from(1), std::cmp::Ordering::Greater)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]), std::cmp::Ordering::Equal)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![2, 3]), std::cmp::Ordering::Less)]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3, 4]), std::cmp::Ordering::Less)]
@@ -785,7 +787,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, OneOrMany::<usize>::None)]
-    #[case::one(OneOrMany::One(1), OneOrMany::One(1))]
+    #[case::one(OneOrMany::from(1), OneOrMany::from(1))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]))]
     fn test_eq<T>(#[case] input: OneOrMany<T>, #[case] other: OneOrMany<T>)
     where
@@ -795,8 +797,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case::none(OneOrMany::<usize>::None, OneOrMany::One(1))]
-    #[case::one(OneOrMany::One(1), OneOrMany::Many(vec![1, 2, 3]))]
+    #[case::none(OneOrMany::<usize>::None, OneOrMany::from(1))]
+    #[case::one(OneOrMany::from(1), OneOrMany::Many(vec![1, 2, 3]))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::<usize>::None)]
     fn test_ne<T>(#[case] input: OneOrMany<T>, #[case] other: OneOrMany<T>)
     where
@@ -807,10 +809,10 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, OneOrMany::<usize>::None)]
-    #[case::one(OneOrMany::One(1), OneOrMany::One(1))]
+    #[case::one(OneOrMany::from(1), OneOrMany::from(1))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]))]
     #[case::many(OneOrMany::Many(vec![1, 1, 2, 3, 2]), OneOrMany::Many(vec![1, 2, 3]))]
-    #[case::many(OneOrMany::Many(vec![1, 1, 1]), OneOrMany::One(1))]
+    #[case::many(OneOrMany::Many(vec![1, 1, 1]), OneOrMany::from(1))]
     fn test_dedup<T>(#[case] mut input: OneOrMany<T>, #[case] expected: OneOrMany<T>)
     where
         T: Clone + Eq + std::hash::Hash + std::fmt::Debug,
@@ -821,10 +823,10 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, OneOrMany::<usize>::None)]
-    #[case::one(OneOrMany::One(1), OneOrMany::One(1))]
+    #[case::one(OneOrMany::from(1), OneOrMany::from(1))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), OneOrMany::Many(vec![1, 2, 3]))]
     #[case::many(OneOrMany::Many(vec![1, 1, 2, 3, 2]), OneOrMany::Many(vec![1, 2, 3]))]
-    #[case::many(OneOrMany::Many(vec![1, 1, 1]), OneOrMany::One(1))]
+    #[case::many(OneOrMany::Many(vec![1, 1, 1]), OneOrMany::from(1))]
     fn test_dedup_by_key<T>(#[case] mut input: OneOrMany<T>, #[case] expected: OneOrMany<T>)
     where
         T: Clone + Eq + std::hash::Hash + std::fmt::Debug,
@@ -835,14 +837,14 @@ mod tests {
 
     #[rstest]
     #[case::none_with_none(OneOrMany::<usize>::None, vec![], OneOrMany::<usize>::None)]
-    #[case::none_with_one(OneOrMany::<usize>::None, vec![1], OneOrMany::One(1))]
+    #[case::none_with_one(OneOrMany::<usize>::None, vec![1], OneOrMany::from(1))]
     #[case::none_with_many(OneOrMany::<usize>::None, vec![1, 2, 3], OneOrMany::Many(vec![1, 2, 3]))]
     #[case::none_with_many(OneOrMany::<usize>::None, vec![1, 1, 2, 3], OneOrMany::Many(vec![1, 1, 2, 3]))]
-    #[case::one_with_none(OneOrMany::One(1), vec![], OneOrMany::One(1))]
-    #[case::one_with_one(OneOrMany::One(1), vec![2], OneOrMany::Many(vec![1, 2]))]
-    #[case::one_with_one(OneOrMany::One(1), vec![1], OneOrMany::Many(vec![1, 1]))]
-    #[case::one_with_many(OneOrMany::One(1), vec![2, 3, 4], OneOrMany::Many(vec![1, 2, 3, 4]))]
-    #[case::one_with_many(OneOrMany::One(1), vec![1, 2, 3], OneOrMany::Many(vec![1, 1, 2, 3]))]
+    #[case::one_with_none(OneOrMany::from(1), vec![], OneOrMany::from(1))]
+    #[case::one_with_one(OneOrMany::from(1), vec![2], OneOrMany::Many(vec![1, 2]))]
+    #[case::one_with_one(OneOrMany::from(1), vec![1], OneOrMany::Many(vec![1, 1]))]
+    #[case::one_with_many(OneOrMany::from(1), vec![2, 3, 4], OneOrMany::Many(vec![1, 2, 3, 4]))]
+    #[case::one_with_many(OneOrMany::from(1), vec![1, 2, 3], OneOrMany::Many(vec![1, 1, 2, 3]))]
     #[case::many_with_none(OneOrMany::Many(vec![1, 2, 3]), vec![], OneOrMany::Many(vec![1, 2, 3]))]
     #[case::many_with_one(OneOrMany::Many(vec![1, 2, 3]), vec![4], OneOrMany::Many(vec![1, 2, 3, 4]))]
     #[case::many_with_one(OneOrMany::Many(vec![1, 2, 3]), vec![1], OneOrMany::Many(vec![1, 2, 3, 1]))]

@@ -138,7 +138,7 @@ rubato = { version = "0.16.2" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 shellexpand = "3.1"
-strum = { version = "0.27.1", features = ["derive"] }
+strum = { version = "0.27.2", features = ["derive"] }
 surrealdb = { version = "=2.2.2", features = [
     # "allocator",
     "kv-mem",
@@ -174,11 +174,11 @@ mecomp-storage = { path = "storage", default-features = false, version = "=0.5.3
 surrealqlx = { path = "surrealqlx/lib", version = "=0.1.4" }
 surrealqlx-macros = { path = "surrealqlx/macros", version = "=0.1.4" }
 surrealqlx-macros-impl = { path = "surrealqlx/macros-impl", version = "=0.1.4" }
-one-or-many = { path = "one-or-many", version = "=0.3.1", default-features = false }
+one-or-many = { path = "one-or-many", version = "=0.4.0", default-features = false }
 
 # shared dev dependencies
 pretty_assertions = "1.4"
-rstest = "0.25.0"
+rstest = "0.26.1"
 rstest_reuse = { version = "0.7.0" }
 tempfile = { version = "3.20" }
 criterion = { version = "0.7.0", features = ["html_reports"] }

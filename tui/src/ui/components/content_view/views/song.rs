@@ -253,7 +253,6 @@ impl ComponentRender<RenderProps> for LibrarySongsView {
 mod sort_mode_tests {
     use super::*;
     use mecomp_storage::db::schemas::song::Song;
-    use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
     use std::time::Duration;
@@ -285,10 +284,10 @@ mod sort_mode_tests {
             SongBrief {
                 id: Song::generate_id(),
                 title: "C".into(),
-                artist: OneOrMany::One("B".into()),
+                artist: "B".to_string().into(),
                 album: "A".into(),
-                album_artist: OneOrMany::One("C".into()),
-                genre: OneOrMany::One("B".into()),
+                album_artist: "C".to_string().into(),
+                genre: "B".to_string().into(),
                 runtime: Duration::from_secs(180),
                 track: Some(1),
                 disc: Some(1),
@@ -299,10 +298,10 @@ mod sort_mode_tests {
             SongBrief {
                 id: Song::generate_id(),
                 title: "B".into(),
-                artist: OneOrMany::One("A".into()),
+                artist: "A".to_string().into(),
                 album: "C".into(),
-                album_artist: OneOrMany::One("B".into()),
-                genre: OneOrMany::One("A".into()),
+                album_artist: "B".to_string().into(),
+                genre: "A".to_string().into(),
                 runtime: Duration::from_secs(180),
                 track: Some(1),
                 disc: Some(1),
@@ -313,10 +312,10 @@ mod sort_mode_tests {
             SongBrief {
                 id: Song::generate_id(),
                 title: "A".into(),
-                artist: OneOrMany::One("C".into()),
+                artist: "C".to_string().into(),
                 album: "B".into(),
-                album_artist: OneOrMany::One("A".into()),
-                genre: OneOrMany::One("C".into()),
+                album_artist: "A".to_string().into(),
+                genre: "C".to_string().into(),
                 runtime: Duration::from_secs(180),
                 track: Some(1),
                 disc: Some(1),
@@ -332,9 +331,9 @@ mod sort_mode_tests {
         assert_eq!(songs[2].title, "C");
 
         SongSort::Artist.sort_items(&mut songs);
-        assert_eq!(songs[0].artist, OneOrMany::One("A".into()));
-        assert_eq!(songs[1].artist, OneOrMany::One("B".into()));
-        assert_eq!(songs[2].artist, OneOrMany::One("C".into()));
+        assert_eq!(songs[0].artist, "A".to_string().into());
+        assert_eq!(songs[1].artist, "B".to_string().into());
+        assert_eq!(songs[2].artist, "C".to_string().into());
 
         SongSort::Album.sort_items(&mut songs);
         assert_eq!(songs[0].album, "A");
@@ -342,14 +341,14 @@ mod sort_mode_tests {
         assert_eq!(songs[2].album, "C");
 
         SongSort::AlbumArtist.sort_items(&mut songs);
-        assert_eq!(songs[0].album_artist, OneOrMany::One("A".into()));
-        assert_eq!(songs[1].album_artist, OneOrMany::One("B".into()));
-        assert_eq!(songs[2].album_artist, OneOrMany::One("C".into()));
+        assert_eq!(songs[0].album_artist, "A".to_string().into());
+        assert_eq!(songs[1].album_artist, "B".to_string().into());
+        assert_eq!(songs[2].album_artist, "C".to_string().into());
 
         SongSort::Genre.sort_items(&mut songs);
-        assert_eq!(songs[0].genre, OneOrMany::One("A".into()));
-        assert_eq!(songs[1].genre, OneOrMany::One("B".into()));
-        assert_eq!(songs[2].genre, OneOrMany::One("C".into()));
+        assert_eq!(songs[0].genre, "A".to_string().into());
+        assert_eq!(songs[1].genre, "B".to_string().into());
+        assert_eq!(songs[2].genre, "C".to_string().into());
     }
 }
 

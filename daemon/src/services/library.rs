@@ -50,6 +50,7 @@ use crate::termination::InterruptReceiver;
 /// or if there is an error reading from the file system.
 /// or if there is an error writing to the database.
 #[instrument]
+#[inline]
 pub async fn rescan<C: Connection>(
     db: &Surreal<C>,
     paths: &[PathBuf],
@@ -66,8 +67,7 @@ pub async fn rescan<C: Connection>(
     async {
         for song in songs {
             let path = song.path.clone();
-            if !path.exists() {
-                // remove the song from the library
+            if !path.exists() { // remove the song from the library
                 warn!("Song {} no longer exists, deleting", path.to_string_lossy());
                 Song::delete(db, song.id).await?;
                 continue;
@@ -134,11 +134,9 @@ pub async fn rescan<C: Connection>(
             .filter_map(|x| x.tap_err(|e| warn!("Error reading path: {e}")).ok())
             .filter_map(|x| x.file_type().is_file().then_some(x))
         {
-            if visited_paths.contains(path.path()) {
+            if !visited_paths.insert(path.path().to_owned()) {
                 continue;
             }
-
-            visited_paths.insert(path.path().to_owned());
 
             let displayable_path = path.path().display();
 
@@ -163,34 +161,24 @@ pub async fn rescan<C: Connection>(
     .await?;
 
     // find and delete any remaining orphaned albums and artists
-
-    let orphans = Album::delete_orphaned(db)
-        .instrument(tracing::info_span!("Deleting orphaned albums"))
-        .await?;
-    if !orphans.is_empty() {
-        info!("Deleted orphaned albums: {orphans:?}");
+    macro_rules! delete_orphans {
+        ($model:ident, $db:expr) => {
+            let orphans = $model::delete_orphaned($db)
+                .instrument(tracing::info_span!(concat!(
+                    "Deleting orphaned ",
+                    stringify!($model)
+                )))
+                .await?;
+            if !orphans.is_empty() {
+                info!("Deleted orphaned {}: {orphans:?}", stringify!($model));
+            }
+        };
     }
 
-    let orphans = Artist::delete_orphaned(db)
-        .instrument(tracing::info_span!("Repairing artists"))
-        .await?;
-    if !orphans.is_empty() {
-        info!("Deleted orphaned artists: {orphans:?}");
-    }
-
-    let orphans = Collection::delete_orphaned(db)
-        .instrument(tracing::info_span!("Repairing collections"))
-        .await?;
-    if !orphans.is_empty() {
-        info!("Deleted orphaned collections: {orphans:?}");
-    }
-
-    let orphans = Playlist::delete_orphaned(db)
-        .instrument(tracing::info_span!("Repairing playlists"))
-        .await?;
-    if !orphans.is_empty() {
-        info!("Deleted orphaned playlists: {orphans:?}");
-    }
+    delete_orphans!(Album, db);
+    delete_orphans!(Artist, db);
+    delete_orphans!(Collection, db);
+    delete_orphans!(Playlist, db);
 
     info!("Library rescan complete");
     info!("Library health: {:?}", health(db).await?);
@@ -214,6 +202,7 @@ pub async fn rescan<C: Connection>(
 ///
 /// This function will panic if the thread(s) that analyzes the songs panics.
 #[instrument]
+#[inline]
 pub async fn analyze<C: Connection>(
     db: &Surreal<C>,
     mut interrupt: InterruptReceiver,
@@ -327,6 +316,7 @@ pub async fn analyze<C: Connection>(
 ///
 /// This function will return an error if there is an error reading from the database.
 #[instrument]
+#[inline]
 pub async fn recluster<C: Connection>(
     db: &Surreal<C>,
     settings: ReclusterSettings,
@@ -461,6 +451,7 @@ pub async fn recluster<C: Connection>(
 ///
 /// This function will return an error if there is an error reading from the database.
 #[instrument]
+#[inline]
 pub async fn brief<C: Connection>(db: &Surreal<C>) -> Result<LibraryBrief, Error> {
     Ok(LibraryBrief {
         artists: Artist::read_all_brief(db).await?.into_boxed_slice(),
@@ -478,6 +469,7 @@ pub async fn brief<C: Connection>(db: &Surreal<C>) -> Result<LibraryBrief, Error
 ///
 /// This function will return an error if there is an error reading from the database.
 #[instrument]
+#[inline]
 pub async fn full<C: Connection>(db: &Surreal<C>) -> Result<LibraryFull, Error> {
     Ok(LibraryFull {
         artists: Artist::read_all(db).await?.into(),
@@ -497,6 +489,7 @@ pub async fn full<C: Connection>(db: &Surreal<C>) -> Result<LibraryFull, Error> 
 ///
 /// This function will return an error if there is an error reading from the database.
 #[instrument]
+#[inline]
 pub async fn health<C: Connection>(db: &Surreal<C>) -> Result<LibraryHealth, Error> {
     Ok(LibraryHealth {
         artists: count_artists(db).await?,
@@ -582,7 +575,7 @@ mod tests {
         rescan(
             &db,
             &[tempdir.path().to_owned()],
-            &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
+            &ARTIST_NAME_SEPARATOR.to_string().into(),
             &OneOrMany::None,
             Some(ARTIST_NAME_SEPARATOR),
             MetadataConflictResolution::Overwrite,
@@ -711,7 +704,7 @@ mod tests {
         rescan(
             &db,
             &[tempdir.path().to_owned()],
-            &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
+            &ARTIST_NAME_SEPARATOR.to_string().into(),
             &OneOrMany::None,
             Some(ARTIST_NAME_SEPARATOR),
             MetadataConflictResolution::Overwrite,
@@ -760,7 +753,7 @@ mod tests {
         rescan(
             &db,
             &[tempdir.path().to_owned()],
-            &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
+            &ARTIST_NAME_SEPARATOR.to_string().into(),
             &OneOrMany::None,
             Some(ARTIST_NAME_SEPARATOR),
             MetadataConflictResolution::Overwrite,

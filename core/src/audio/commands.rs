@@ -369,7 +369,7 @@ mod tests {
         "Queue: Add nothing"
     )]
     #[case(
-        AudioCommand::Queue(QueueCommand::AddToQueue(OneOrMany::One(dummy_song()))),
+        AudioCommand::Queue(QueueCommand::AddToQueue(dummy_song().into())),
         "Queue: Add \"Song 1\""
     )]
     #[case(

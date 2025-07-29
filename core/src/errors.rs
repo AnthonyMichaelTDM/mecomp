@@ -157,10 +157,7 @@ mod tests {
         LibraryError::from(Error::NoId),
         "Database error: Item is missing an Id."
     )]
-    #[case(
-        LibraryError::from(std::io::Error::new(std::io::ErrorKind::Other, "test")),
-        "IO error: test"
-    )]
+    #[case(LibraryError::from(std::io::Error::other("test")), "IO error: test")]
     #[case(
         LibraryError::from(rodio::decoder::DecoderError::DecodeError("test")),
         "Decoder error: test"
@@ -172,7 +169,7 @@ mod tests {
 
     #[rstest]
     #[case(Error::NoId, LibraryError::Database(Error::NoId).into())]
-    #[case(std::io::Error::new(std::io::ErrorKind::Other, "test"), LibraryError::IO(std::io::Error::new(std::io::ErrorKind::Other, "test")).into())]
+    #[case(std::io::Error::other("test"), LibraryError::IO(std::io::Error::other("test")).into())]
     #[case(rodio::decoder::DecoderError::DecodeError("test"), LibraryError::Decoder(rodio::decoder::DecoderError::DecodeError("test")).into())]
     fn test_serializable_library_error_from<T: Into<SerializableLibraryError>>(
         #[case] from: T,

@@ -74,7 +74,7 @@ mod tests {
 
     #[rstest]
     #[case::none(TestStruct::new(OneOrMany::None))]
-    #[case::one(TestStruct::new(OneOrMany::One(3)))]
+    #[case::one(TestStruct::new(OneOrMany::from(3)))]
     #[case::many(TestStruct::new(OneOrMany::Many(vec![1, 2, 3])))]
     #[tokio::test]
     async fn test_read_write(#[case] to_write: TestStruct) -> anyhow::Result<()> {
@@ -110,7 +110,7 @@ mod tests {
         assert_eq!(all_items(&db).await?, OneOrMany::None);
 
         // next, we add an item to the database so our next query will return One
-        let struct1: TestStruct = TestStruct::new(OneOrMany::One(3));
+        let struct1: TestStruct = TestStruct::new(OneOrMany::from(3));
         let struct1: TestStruct = db
             .create(struct1.id.clone())
             .content(struct1.clone())
@@ -122,7 +122,7 @@ mod tests {
             .query(format!("SELECT * FROM {TABLE_NAME} LIMIT 1"))
             .await?
             .take(0)?;
-        assert_eq!(result, OneOrMany::One(struct1.clone()));
+        assert_eq!(result, OneOrMany::from(struct1.clone()));
 
         // next, we add another item to the database so our next query will return Many
         let struct2: TestStruct = TestStruct::new(OneOrMany::Many(vec![1, 2, 3]));

@@ -150,23 +150,31 @@ pub struct SongBrief {
     pub path: PathBuf,
 }
 
+impl Song {
+    #[inline]
+    #[must_use]
+    pub fn brief(self) -> SongBrief {
+        SongBrief {
+            id: self.id,
+            title: self.title,
+            artist: self.artist,
+            album_artist: self.album_artist,
+            album: self.album,
+            genre: self.genre,
+            release_year: self.release_year,
+            runtime: self.runtime,
+            track: self.track,
+            disc: self.disc,
+            extension: self.extension,
+            path: self.path,
+        }
+    }
+}
+
 impl From<Song> for SongBrief {
     #[inline]
     fn from(song: Song) -> Self {
-        Self {
-            id: song.id,
-            title: song.title,
-            artist: song.artist,
-            album_artist: song.album_artist,
-            album: song.album,
-            genre: song.genre,
-            release_year: song.release_year,
-            runtime: song.runtime,
-            track: song.track,
-            disc: song.disc,
-            extension: song.extension,
-            path: song.path,
-        }
+        song.brief()
     }
 }
 
@@ -290,6 +298,9 @@ impl SongMetadata {
     /// * `protected_artist_names` - The artists that should not be split by the separator.
     /// * `genre_separator` - The separator used to separate multiple genres in the metadata.
     ///
+    /// # Errors
+    ///
+    /// Returns an error if the file does not exist, is not a file, has no extension, or if there is an issue reading the metadata.
     #[instrument()]
     pub fn load_from_path(
         path: PathBuf,
@@ -298,7 +309,7 @@ impl SongMetadata {
         genre_separator: Option<&str>,
     ) -> Result<Self, SongIOError> {
         // check if the file exists
-        if !path.exists() || !path.is_file() {
+        if !path.exists() || !path.is_file() || path.extension().is_none() {
             return Err(SongIOError::FileNotFound(path));
         }
         // attempt to canonicalize the path
@@ -324,13 +335,13 @@ impl SongMetadata {
             .as_deref()
             // split the artist string into multiple artists using user provided separators
             .map_or_else(
-                || OneOrMany::One("Unknown Artist".into()),
+                || "Unknown Artist".to_string().into(),
                 |a| split_artist_name(a, artist_name_separator, protected_artist_names),
             );
         artist.dedup();
 
         let mut album_artist = tag.get_string(&ItemKey::AlbumArtist).map_or_else(
-            || OneOrMany::One(artist.get(0).unwrap().clone()),
+            || artist.get(0).cloned().into(),
             |a| split_artist_name(a, artist_name_separator, protected_artist_names),
         );
         album_artist.dedup();
@@ -346,7 +357,7 @@ impl SongMetadata {
                         .map(Into::into)
                         .collect(),
                 ),
-                (_, genre) => OneOrMany::One(genre.trim().into()),
+                (_, genre) => genre.trim().to_string().into(),
             })
             .into();
         genre.dedup();
@@ -355,7 +366,7 @@ impl SongMetadata {
             title: tag
                 .title()
                 .map_or_else(
-                    || path.file_stem().unwrap().to_string_lossy(),
+                    || path.file_stem().unwrap_or_default().to_string_lossy(),
                     |x| x.replace('\0', "").into(),
                 )
                 .into(),
@@ -377,7 +388,7 @@ impl SongMetadata {
             release_year: tag.get_string(&ItemKey::Year).and_then(|x| x.parse().ok()),
             extension: path
                 .extension()
-                .expect("File without extension")
+                .unwrap_or_default()
                 .to_string_lossy()
                 .into(),
             path,
@@ -397,10 +408,10 @@ mod tests {
         Song {
             id: RecordId::from((TABLE_NAME, "id")),
             title: "song".into(),
-            artist: OneOrMany::One("artist".into()),
-            album_artist: OneOrMany::One("artist".into()),
+            artist: "artist".to_string().into(),
+            album_artist: "artist".to_string().into(),
             album: "album".into(),
-            genre: OneOrMany::One("genre".into()),
+            genre: "genre".to_string().into(),
             runtime: Duration::from_secs(3600),
             track: Some(1),
             disc: Some(1),
@@ -415,10 +426,10 @@ mod tests {
         SongBrief {
             id: RecordId::from((TABLE_NAME, "id")),
             title: "song".into(),
-            artist: OneOrMany::One("artist".into()),
-            album_artist: OneOrMany::One("artist".into()),
+            artist: "artist".to_string().into(),
+            album_artist: "artist".to_string().into(),
             album: "album".into(),
-            genre: OneOrMany::One("genre".into()),
+            genre: "genre".to_string().into(),
             runtime: Duration::from_secs(3600),
             track: Some(1),
             disc: Some(1),
@@ -439,10 +450,10 @@ mod tests {
     #[rstest]
     #[case::same(SongMetadata {
         title: "song".into(),
-        artist: OneOrMany::One("artist".into()),
-        album_artist: OneOrMany::One("artist".into()),
+        artist: "artist".to_string().into(),
+        album_artist: "artist".to_string().into(),
         album: "album".into(),
-        genre: OneOrMany::One("genre".into()),
+        genre: "genre".to_string().into(),
         runtime: Duration::from_secs(3600),
         track: Some(1),
         disc: Some(1),
@@ -453,10 +464,10 @@ mod tests {
     Song {
         id: RecordId::from((TABLE_NAME, "id")),
         title: "song".into(),
-        artist: OneOrMany::One("artist".into()),
-        album_artist: OneOrMany::One("artist".into()),
+        artist: "artist".to_string().into(),
+        album_artist: "artist".to_string().into(),
         album: "album".into(),
-        genre: OneOrMany::One("genre".into()),
+        genre: "genre".to_string().into(),
         runtime: Duration::from_secs(3600),
         track: Some(1),
         disc: Some(1),
@@ -467,10 +478,10 @@ mod tests {
     SongChangeSet::default())]
     #[case::different(SongMetadata {
         title: "song 2".into(),
-        artist: OneOrMany::One("artist 2".into()),
-        album_artist: OneOrMany::One("artist 2".into()),
+        artist: "artist 2".to_string().into(),
+        album_artist: "artist 2".to_string().into(),
         album: "album 2".into(),
-        genre: OneOrMany::One("rock".into()),
+        genre: "rock".to_string().into(),
         runtime: Duration::from_secs(3000),
         track: Some(2),
         disc: Some(3),
@@ -481,10 +492,10 @@ mod tests {
     Song {
         id: RecordId::from((TABLE_NAME, "id")),
         title: "song".into(),
-        artist: OneOrMany::One("artist".into()),
-        album_artist: OneOrMany::One("artist".into()),
+        artist: "artist".to_string().into(),
+        album_artist: "artist".to_string().into(),
         album: "album".into(),
-        genre: OneOrMany::One("genre".into()),
+        genre: "genre".to_string().into(),
         runtime: Duration::from_secs(3600),
         track: Some(1),
         disc: Some(1),
@@ -494,10 +505,10 @@ mod tests {
     },
     SongChangeSet{
         title: Some("song 2".into()),
-        artist: Some(OneOrMany::One("artist 2".into())),
-        album_artist: Some(OneOrMany::One("artist 2".into())),
+        artist: Some("artist 2".to_string().into()),
+        album_artist: Some("artist 2".to_string().into()),
         album: Some("album 2".into()),
-        genre: Some(OneOrMany::One("rock".into())),
+        genre: Some("rock".to_string().into()),
         runtime: Some(Duration::from_secs(3000)),
         track: Some(Some(2)),
         disc: Some(Some(3)),
