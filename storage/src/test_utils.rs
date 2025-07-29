@@ -209,7 +209,7 @@ pub async fn create_song_with_overrides<C: Connection>(
             .collect::<Vec<_>>()
             .into(),
         album: format!("Album {album}"),
-        genre: OneOrMany::One(format!("Genre {genre}")),
+        genre: format!("Genre {genre}").into(),
         runtime: Duration::from_secs(120),
         track: None,
         disc: None,
@@ -297,7 +297,7 @@ pub fn create_song_metadata(
     // now, we need to load a SongMetadata from the new file
     Ok(SongMetadata::load_from_path(
         new_path,
-        &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
+        &ARTIST_NAME_SEPARATOR.to_string().into(),
         &OneOrMany::None,
         None,
     )?)

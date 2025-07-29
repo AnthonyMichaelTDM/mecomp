@@ -69,10 +69,10 @@ pub fn state_with_everything() -> AppState {
     let song = Song {
         id: song_id.clone().into(),
         title: "Test Song".into(),
-        artist: OneOrMany::One("Test Artist".into()),
-        album_artist: OneOrMany::One("Test Artist".into()),
+        artist: "Test Artist".to_string().into(),
+        album_artist: "Test Artist".to_string().into(),
         album: "Test Album".into(),
-        genre: OneOrMany::One("Test Genre".into()),
+        genre: "Test Genre".to_string().into(),
         runtime: std::time::Duration::from_secs(180),
         track: Some(0),
         disc: Some(0),
@@ -139,7 +139,7 @@ pub fn state_with_everything() -> AppState {
             album: Some(AlbumViewProps {
                 id: album_id,
                 album,
-                artists: OneOrMany::One(artist_brief.clone()),
+                artists: OneOrMany::One(Box::new(artist_brief.clone())),
                 songs: vec![song_brief.clone()].into_boxed_slice(),
             }),
             artist: Some(ArtistViewProps {
@@ -151,7 +151,7 @@ pub fn state_with_everything() -> AppState {
             song: Some(SongViewProps {
                 id: song_id,
                 song,
-                artists: OneOrMany::One(artist_brief.clone()),
+                artists: OneOrMany::One(Box::new(artist_brief.clone())),
                 album: album_brief.clone(),
                 playlists: vec![playlist_brief].into_boxed_slice(),
                 collections: vec![collection_brief].into_boxed_slice(),

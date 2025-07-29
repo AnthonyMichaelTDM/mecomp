@@ -252,7 +252,6 @@ impl ComponentRender<RenderProps> for LibraryAlbumsView {
 mod sort_mode_tests {
     use super::*;
     use mecomp_storage::db::schemas::album::Album;
-    use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
@@ -279,26 +278,26 @@ mod sort_mode_tests {
             AlbumBrief {
                 id: Album::generate_id(),
                 title: "C".into(),
-                artist: OneOrMany::One("B".into()),
+                artist: "B".to_string().into(),
                 release: Some(2021),
                 discs: 1,
-                genre: OneOrMany::One("A".into()),
+                genre: "A".to_string().into(),
             },
             AlbumBrief {
                 id: Album::generate_id(),
                 title: "B".into(),
-                artist: OneOrMany::One("A".into()),
+                artist: "A".to_string().into(),
                 release: Some(2022),
                 discs: 1,
-                genre: OneOrMany::One("C".into()),
+                genre: "C".to_string().into(),
             },
             AlbumBrief {
                 id: Album::generate_id(),
                 title: "A".into(),
-                artist: OneOrMany::One("C".into()),
+                artist: "C".to_string().into(),
                 release: Some(2023),
                 discs: 1,
-                genre: OneOrMany::One("B".into()),
+                genre: "B".to_string().into(),
             },
         ];
 

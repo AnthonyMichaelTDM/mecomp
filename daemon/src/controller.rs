@@ -93,6 +93,7 @@ impl MusicPlayerServer {
     ///
     /// Returns an error if the message could not be sent or encoded.
     #[instrument]
+    #[inline]
     pub async fn publish(
         &self,
         message: impl Into<Message> + Send + Sync + std::fmt::Debug,

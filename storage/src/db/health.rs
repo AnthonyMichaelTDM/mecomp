@@ -17,42 +17,70 @@ use crate::{
 };
 
 /// Count the number of albums in the database
+///
+/// # Errors
+///
+/// see [`Count::count`]
 #[instrument]
 pub async fn count_albums<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
     Count::count(db, Album::TABLE_NAME).await
 }
 
 /// Count the number of artists in the database
+///
+/// # Errors
+///
+/// see [`Count::count`]
 #[instrument]
 pub async fn count_artists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
     Count::count(db, Artist::TABLE_NAME).await
 }
 
 /// Count the number of playlists in the database
+///
+/// # Errors
+///
+/// see [`Count::count`]
 #[instrument]
 pub async fn count_playlists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
     Count::count(db, Playlist::TABLE_NAME).await
 }
 
 /// Count the number of collections in the database
+///
+/// # Errors
+///
+/// see [`Count::count`]
 #[instrument]
 pub async fn count_collections<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
     Count::count(db, Collection::TABLE_NAME).await
 }
 
 /// Count the number of dynamic playlists in the database
+///
+/// # Errors
+///
+/// see [`Count::count`]
 #[instrument]
 pub async fn count_dynamic_playlists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
     Count::count(db, DynamicPlaylist::TABLE_NAME).await
 }
 
 /// Count the number of songs in the database
+///
+/// # Errors
+///
+/// see [`Count::count`]
 #[instrument]
 pub async fn count_songs<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
     Count::count(db, Song::TABLE_NAME).await
 }
 
 /// Count the number of songs without analysis in the database
+///
+/// # Errors
+///
+/// see [`super::schemas::analysis::Analysis::read_songs_without_analysis`]
 #[cfg(feature = "analysis")]
 #[instrument]
 pub async fn count_unanalyzed_songs<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
@@ -64,6 +92,10 @@ pub async fn count_unanalyzed_songs<C: Connection>(db: &Surreal<C>) -> Result<us
 
 /// Count the number of orphaned albums in the database
 /// This is the number of albums that have no songs
+///
+/// # Errors
+///
+/// see [`Count::count_orphaned`]
 #[instrument]
 pub async fn count_orphaned_albums<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
     Count::count_orphaned(db, Album::TABLE_NAME, "album_to_song").await
@@ -71,6 +103,10 @@ pub async fn count_orphaned_albums<C: Connection>(db: &Surreal<C>) -> Result<usi
 
 /// Count the number of orphaned artists in the database
 /// This is the number of artists that have no songs, and no albums
+///
+/// # Errors
+///
+/// see [`Count::count_orphaned`]
 #[instrument]
 pub async fn count_orphaned_artists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
     Count::count_orphaned_both(db, Artist::TABLE_NAME, "artist_to_album", "artist_to_song").await
@@ -78,6 +114,10 @@ pub async fn count_orphaned_artists<C: Connection>(db: &Surreal<C>) -> Result<us
 
 /// Count the number of orphaned collections in the database
 /// This is the number of collections that have no songs
+///
+/// # Errors
+///
+/// see [`Count::count_orphaned`]
 #[instrument]
 pub async fn count_orphaned_collections<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
     Count::count_orphaned(db, Collection::TABLE_NAME, "collection_to_song").await
@@ -85,6 +125,10 @@ pub async fn count_orphaned_collections<C: Connection>(db: &Surreal<C>) -> Resul
 
 /// Count the number of orphaned playlists in the database
 /// This is the number of playlists that have no songs
+///
+/// # Errors
+///
+/// see [`Count::count_orphaned`]
 #[instrument]
 pub async fn count_orphaned_playlists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
     Count::count_orphaned(db, Playlist::TABLE_NAME, "playlist_to_song").await
@@ -213,7 +257,7 @@ mod tests {
             &db,
             arb_song_case()(),
             SongChangeSet {
-                artist: Some(OneOrMany::One(artist.name)),
+                artist: Some(artist.name.into()),
                 ..Default::default()
             },
         )

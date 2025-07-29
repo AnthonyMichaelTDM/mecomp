@@ -92,7 +92,7 @@ fn benchmark_rescan(c: &mut Criterion) {
                 rescan(
                     &db,
                     &[tempdir.path().to_path_buf()],
-                    &OneOrMany::One(ARTIST_NAME_SEPARATOR.to_string()),
+                    &ARTIST_NAME_SEPARATOR.to_string().into(),
                     &OneOrMany::None,
                     Some(ARTIST_NAME_SEPARATOR),
                     MetadataConflictResolution::default(),

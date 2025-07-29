@@ -18,6 +18,7 @@ pub struct Iter<'a, T> {
 impl<T> OneOrMany<T> {
     /// Returns an iterator over the values in the `OneOrMany`.
     #[inline]
+    #[must_use]
     pub const fn iter(&self) -> Iter<T> {
         Iter {
             inner: self,
@@ -70,7 +71,7 @@ impl<T> IntoIterator for OneOrMany<T> {
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
         let inner_iter = match self {
-            Self::One(t) => InnerIntoIter::One(Some(t)),
+            Self::One(t) => InnerIntoIter::One(Some(*t)),
             Self::Many(v) => InnerIntoIter::Many(v.into_iter()),
             Self::None => InnerIntoIter::None,
         };
@@ -100,7 +101,7 @@ mod tests {
 
     #[rstest]
     #[case::none(Vec::<usize>::new().into_iter(), OneOrMany::<usize>::None)]
-    #[case::one(vec![1].into_iter(), OneOrMany::One(1))]
+    #[case::one(vec![1].into_iter(), OneOrMany::from(1))]
     #[case::many(vec![1,2,3].into_iter(), OneOrMany::Many(vec![1,2,3]))]
     fn test_from_iter<T, I>(#[case] input: I, #[case] expected: OneOrMany<T>)
     where
@@ -113,7 +114,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, vec![None])]
-    #[case::one(OneOrMany::One(1), vec![Some(1), None])]
+    #[case::one(OneOrMany::from(1), vec![Some(1), None])]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), vec![Some(1), Some(2), Some(3), None])]
     fn test_iter<T>(#[case] input: OneOrMany<T>, #[case] expected: Vec<Option<T>>)
     where
@@ -129,7 +130,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None, vec![None])]
-    #[case::one(OneOrMany::One(1), vec![Some(1), None])]
+    #[case::one(OneOrMany::from(1), vec![Some(1), None])]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]), vec![Some(1), Some(2), Some(3), None])]
     fn test_into_iter_byval<T>(#[case] input: OneOrMany<T>, #[case] expected: Vec<Option<T>>)
     where
@@ -145,7 +146,7 @@ mod tests {
 
     #[rstest]
     #[case::none(OneOrMany::<usize>::None)]
-    #[case::one(OneOrMany::One(1))]
+    #[case::one(OneOrMany::from(1))]
     #[case::many(OneOrMany::Many(vec![1, 2, 3]))]
     fn test_for_loop<T>(#[case] input: OneOrMany<T>)
     where

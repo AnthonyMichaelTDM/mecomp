@@ -373,7 +373,6 @@ mod tests {
         state::{Percent, RepeatMode, StateAudio, StateRuntime, Status, library::LibraryBrief},
     };
     use mecomp_storage::db::schemas::song::{Song, SongBrief};
-    use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
     use tokio::sync::mpsc::unbounded_channel;
@@ -383,10 +382,10 @@ mod tests {
         SongBrief {
             id: Song::generate_id(),
             title: "Test Song".into(),
-            artist: OneOrMany::One("Test Artist".into()),
-            album_artist: OneOrMany::One("Test Album Artist".into()),
+            artist: "Test Artist".to_string().into(),
+            album_artist: "Test Album Artist".to_string().into(),
             album: "Test Album".into(),
-            genre: OneOrMany::One("Test Genre".into()),
+            genre: "Test Genre".to_string().into(),
             runtime: Duration::from_secs(180),
             track: Some(0),
             disc: Some(0),

@@ -36,7 +36,6 @@ tokio = { workspace = true }
 # MECOMP dependencies
 mecomp-core = { workspace = true, features = ["rpc"] }
 mecomp-storage = { workspace = true, features = ["serde", "analysis"] }
-one-or-many = { workspace = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]

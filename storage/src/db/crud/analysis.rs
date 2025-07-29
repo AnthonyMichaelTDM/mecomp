@@ -119,6 +119,10 @@ impl Analysis {
     }
 
     /// Get all the songs that don't have an analysis
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails or if the result cannot be deserialized.
     #[instrument]
     pub async fn read_songs_without_analysis<C: Connection>(
         db: &Surreal<C>,

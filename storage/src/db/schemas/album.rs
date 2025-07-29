@@ -150,12 +150,12 @@ mod tests {
         Album {
             id: AlbumId::from((TABLE_NAME, "id")),
             title: "test".into(),
-            artist: OneOrMany::One("test".into()),
+            artist: "test".to_string().into(),
             release: Some(2021),
             runtime: Duration::from_secs(0),
             song_count: 0,
             discs: 1,
-            genre: OneOrMany::One("test".into()),
+            genre: "test".to_string().into(),
         }
     }
 
@@ -164,10 +164,10 @@ mod tests {
         AlbumBrief {
             id: AlbumId::from((TABLE_NAME, "id")),
             title: "test".into(),
-            artist: OneOrMany::One("test".into()),
+            artist: "test".to_string().into(),
             release: Some(2021),
             discs: 1,
-            genre: OneOrMany::One("test".into()),
+            genre: "test".to_string().into(),
         }
     }
 

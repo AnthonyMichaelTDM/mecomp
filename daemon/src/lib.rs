@@ -364,8 +364,8 @@ mod test_client_tests {
             song_case,
             SongChangeSet {
                 // need to specify overrides so that items are created in the db
-                artist: Some(one_or_many::OneOrMany::One("Artist 0".into())),
-                album_artist: Some(one_or_many::OneOrMany::One("Artist 0".into())),
+                artist: Some("Artist 0".to_string().into()),
+                album_artist: Some("Artist 0".to_string().into()),
                 album: Some("Album 0".into()),
                 path: Some("/path/to/song.mp3".into()),
                 ..Default::default()

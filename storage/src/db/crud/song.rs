@@ -30,7 +30,7 @@ use crate::{
 use one_or_many::OneOrMany;
 
 #[derive(Debug)]
-struct DeleteArgs {
+pub struct DeleteArgs {
     pub id: SongId,
     pub delete_orphans: bool,
 }
@@ -185,10 +185,7 @@ impl Song {
             } else if let Some(song) = Self::read(db, id.clone()).await? {
                 (song.album.clone(), song.album_artist)
             } else {
-                (
-                    "Unknown Album".into(),
-                    OneOrMany::One("Unknown Artist".into()),
-                )
+                ("Unknown Album".into(), "Unknown Artist".to_string().into())
             };
 
             // find/create the new album
@@ -378,7 +375,10 @@ impl Song {
             path: metadata.path,
         };
         // add that song to the database
-        let song_id = Self::create(db, song.clone()).await?.unwrap().id;
+        let song_id = Self::create(db, song.clone())
+            .await?
+            .ok_or(Error::NotCreated)?
+            .id;
 
         // add the song to the artists, if it's not already there (which it won't be)
         for artist in &artists {
@@ -416,7 +416,7 @@ mod test {
             artist: vec!["Test Artist".to_string()].into(),
             album_artist: vec!["Test Artist".to_string()].into(),
             album: "Test Album".to_string(),
-            genre: OneOrMany::One("Test Genre".to_string()),
+            genre: "Test Genre".to_string().into(),
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
@@ -545,8 +545,8 @@ mod test {
             .await?
             .ok_or_else(|| anyhow!("Artist not found"))?;
         assert_eq!(
-            OneOrMany::One(artist),
-            Song::read_artist(&db, song.id.clone()).await?
+            Song::read_artist(&db, song.id.clone()).await?,
+            artist.into(),
         );
         Ok(())
     }
@@ -727,7 +727,7 @@ mod test {
             &db,
             arb_song_case()(),
             SongChangeSet {
-                artist: Some(OneOrMany::One("Green Day".into())),
+                artist: Some("Green Day".to_string().into()),
                 ..Default::default()
             },
         )
@@ -736,7 +736,7 @@ mod test {
             &db,
             arb_song_case()(),
             SongChangeSet {
-                artist: Some(OneOrMany::One("Green Day".into())),
+                artist: Some("Green Day".to_string().into()),
                 ..Default::default()
             },
         )
@@ -774,7 +774,7 @@ mod test {
             runtime: Some(Duration::from_secs(10)),
             track: Some(Some(2)),
             disc: Some(Some(2)),
-            genre: Some(OneOrMany::One("Updated Genre".into())),
+            genre: Some("Updated Genre".to_string().into()),
             release_year: Some(Some(2021)),
             extension: Some("flac".into()),
             ..Default::default()
@@ -798,14 +798,14 @@ mod test {
     async fn test_update_artist() -> Result<()> {
         let db = init_test_database().await?;
         let changes = SongChangeSet {
-            artist: Some(OneOrMany::One("Artist".to_string())),
+            artist: Some("Artist".to_string().into()),
             ..Default::default()
         };
         let song_case = arb_song_case()();
         let song = create_song_with_overrides(&db, song_case.clone(), changes.clone()).await?;
         // test updating the artist
         let changes = SongChangeSet {
-            artist: Some(OneOrMany::One("Updated Artist".to_string())),
+            artist: Some("Updated Artist".to_string().into()),
             ..Default::default()
         };
         let updated = Song::update(&db, song.id.clone(), changes.clone())
@@ -833,16 +833,16 @@ mod test {
     async fn test_update_album_artist() -> Result<()> {
         let db = init_test_database().await?;
         let changes = SongChangeSet {
-            artist: Some(OneOrMany::One("Album Artist".to_string())),
-            album_artist: Some(OneOrMany::One("Album Artist".to_string())),
+            artist: Some("Album Artist".to_string().into()),
+            album_artist: Some("Album Artist".to_string().into()),
             ..Default::default()
         };
         let song_case = arb_song_case()();
         let song = create_song_with_overrides(&db, song_case.clone(), changes.clone()).await?;
         // test updating the album artist
         let changes = SongChangeSet {
-            artist: Some(OneOrMany::One("Updated Album Artist".to_string())),
-            album_artist: Some(OneOrMany::One("Updated Album Artist".to_string())),
+            artist: Some("Updated Album Artist".to_string().into()),
+            album_artist: Some("Updated Album Artist".to_string().into()),
             ..Default::default()
         };
         let updated = Song::update(&db, song.id.clone(), changes.clone())

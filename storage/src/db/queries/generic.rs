@@ -134,6 +134,11 @@ impl Count {
         Self { count }
     }
 
+    /// Count the number of items in a table.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails or if the result cannot be deserialized.
     pub async fn count<C: surrealdb::Connection>(
         db: &surrealdb::Surreal<C>,
         table: &str,
@@ -148,6 +153,11 @@ impl Count {
         ))
     }
 
+    /// Count the number of items in a table that are not included in a relation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails or if the result cannot be deserialized.
     pub async fn count_orphaned<C: surrealdb::Connection>(
         db: &surrealdb::Surreal<C>,
         table: &str,
