@@ -1,10 +1,10 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use mecomp_analysis::{
     SAMPLE_RATE,
     decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder, SymphoniaSource},
 };
 use rubato::{FastFixedIn, FftFixedIn, PolynomialDegree, Resampler};
-use std::{f32::consts::SQRT_2, fs::File, num::NonZeroUsize, path::Path};
+use std::{f32::consts::SQRT_2, fs::File, hint::black_box, num::NonZeroUsize, path::Path};
 use symphonia::core::io::{MediaSourceStream, MediaSourceStreamOptions};
 
 fn bench_different_downmixing_techniques(c: &mut Criterion) {

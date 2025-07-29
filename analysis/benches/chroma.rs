@@ -1,11 +1,11 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use mecomp_analysis::{
     decoder::{Decoder as DecoderTrait, MecompDecoder as Decoder},
     utils::stft,
 };
 use ndarray::{Array1, Array2, arr2};
 use ndarray_npy::ReadNpyExt;
-use std::{fs::File, path::Path};
+use std::{fs::File, hint::black_box, path::Path};
 
 use mecomp_analysis::chroma::{
     chroma_filter, chroma_stft, estimate_tuning, normalize_feature_sequence, pip_track,

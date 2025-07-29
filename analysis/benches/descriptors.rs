@@ -1,8 +1,8 @@
 //! Benchmarks for the descriptors
 
-use std::path::Path;
+use std::{hint::black_box, path::Path};
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use mecomp_analysis::{
     SAMPLE_RATE,
     chroma::ChromaDesc,

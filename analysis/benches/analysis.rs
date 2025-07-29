@@ -1,7 +1,7 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use decoder::{Decoder as _, MecompDecoder as Decoder};
 use mecomp_analysis::{Analysis, decoder};
-use std::path::Path;
+use std::{hint::black_box, path::Path};
 
 fn bench_analysis_from_samples(c: &mut Criterion) {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
