@@ -218,7 +218,7 @@ impl AudioKernel {
     ) -> Self {
         // most of the tests are playing the `assets/music.mp3` file, which is sampled at 44.1kHz
         // thus, we should poll the queue every 22 microseconds
-        const QUEUE_POLLING_INTERVAL: Duration = Duration::from_micros(22 - 1);
+        const QUEUE_POLLING_INTERVAL: Duration = Duration::from_micros(22);
 
         let (sink, mut queue_rx) = rodio::Sink::new();
 
