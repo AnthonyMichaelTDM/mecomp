@@ -1129,7 +1129,7 @@ impl MusicPlayer for MusicPlayerServer {
         // write the playlist to the file
         export_playlist(&playlist.name, &songs, file)
             .tap_err(|e| warn!("Error in playlist_export: {e}"))?;
-        info!("Exported playlist to: {path:?}");
+        info!("Exported playlist to: {}", path.display());
         Ok(())
     }
     /// Import a playlist from a .m3u file
@@ -1366,7 +1366,7 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         path: PathBuf,
     ) -> Result<(), SerializableLibraryError> {
-        info!("Exporting dynamic playlists to: {path:?}");
+        info!("Exporting dynamic playlists to: {}", path.display());
 
         // validate the path
         validate_file_path(&path, "csv", false)?;
@@ -1383,7 +1383,7 @@ impl MusicPlayer for MusicPlayerServer {
         // write the playlists to the file
         export_dynamic_playlists(&playlists, writer)
             .tap_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
-        info!("Exported dynamic playlists to: {path:?}");
+        info!("Exported dynamic playlists to: {}", path.display());
         Ok(())
     }
     /// Dynamic Playlists: import dynamic playlists from a csv file
@@ -1393,7 +1393,7 @@ impl MusicPlayer for MusicPlayerServer {
         context: Context,
         path: PathBuf,
     ) -> Result<Vec<DynamicPlaylist>, SerializableLibraryError> {
-        info!("Importing dynamic playlists from: {path:?}");
+        info!("Importing dynamic playlists from: {}", path.display());
 
         // validate the path
         validate_file_path(&path, "csv", true)?;

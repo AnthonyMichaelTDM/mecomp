@@ -2,7 +2,10 @@
 //! - importing/exporting specific playlists from/to .m3u files
 //! - importing/exporting all your dynamic playlists from/to .csv files
 
-use std::{path::PathBuf, str::FromStr};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use mecomp_core::errors::BackupError;
 use mecomp_storage::db::schemas::{
@@ -25,22 +28,25 @@ use csv::{Reader, Writer};
 ///   * if true, the file must exist
 ///   * if false, the file may not exist but will be overwritten if it does
 pub(crate) fn validate_file_path(
-    path: &PathBuf,
+    path: &Path,
     extension: &str,
     exists: bool,
 ) -> Result<(), BackupError> {
     if path.is_dir() {
-        log::warn!("Path is a directory: {path:?}");
-        Err(BackupError::PathIsDirectory(path.clone()))
+        log::warn!("Path is a directory: {}", path.display());
+        Err(BackupError::PathIsDirectory(path.to_path_buf()))
     } else if path.extension().is_none() || path.extension().unwrap() != extension {
-        log::warn!("Path has the wrong extension (wanted {extension}): {path:?}");
+        log::warn!(
+            "Path has the wrong extension (wanted {extension}): {}",
+            path.display()
+        );
         Err(BackupError::WrongExtension(
-            path.clone(),
+            path.to_path_buf(),
             extension.to_string(),
         ))
     } else if exists && !path.exists() {
-        log::warn!("Path does not exist: {path:?}");
-        Err(BackupError::FileNotFound(path.clone()))
+        log::warn!("Path does not exist: {}", path.display());
+        Err(BackupError::FileNotFound(path.to_path_buf()))
     } else {
         Ok(())
     }

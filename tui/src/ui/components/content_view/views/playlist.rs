@@ -1,6 +1,6 @@
 //! Views for both a single playlist, and the library of playlists.
 
-use std::{ops::Not, sync::Mutex};
+use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::format_duration;
@@ -570,18 +570,18 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // render primary border
+        let border_title_bottom = if self.input_box_visible {
+            ""
+        } else {
+            " \u{23CE} : Open | ←/↑/↓/→: Navigate | s/S: change sort"
+        };
         let border = Block::bordered()
             .title_top(Line::from(vec![
                 Span::styled("Library Playlists".to_string(), Style::default().bold()),
                 Span::raw(" sorted by: "),
                 Span::styled(self.props.sort_mode.to_string(), Style::default().italic()),
             ]))
-            .title_bottom(
-                self.input_box_visible
-                    .not()
-                    .then_some(" \u{23CE} : Open | ←/↑/↓/→: Navigate | s/S: change sort")
-                    .unwrap_or_default(),
-            )
+            .title_bottom(border_title_bottom)
             .border_style(border_style);
         let content_area = border.inner(props.area);
         frame.render_widget(border, props.area);

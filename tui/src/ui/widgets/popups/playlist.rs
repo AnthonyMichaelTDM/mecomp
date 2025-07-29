@@ -8,7 +8,7 @@
 //!
 //! The user can cancel the popup by pressing the escape key.
 
-use std::{ops::Not, sync::Mutex};
+use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_storage::db::schemas::{RecordId, playlist::PlaylistBrief};
@@ -81,12 +81,11 @@ impl Popup for PlaylistSelector {
     }
 
     fn instructions(&self) -> ratatui::prelude::Line {
-        Line::from(
-            self.input_box_visible
-                .not()
-                .then_some("  \u{23CE} : Select | ↑/↓: Up/Down")
-                .unwrap_or_default(),
-        )
+        if self.input_box_visible {
+            Line::default()
+        } else {
+            Line::from("  \u{23CE} : Select | ↑/↓: Up/Down")
+        }
     }
 
     fn update_with_state(&mut self, state: &AppState) {

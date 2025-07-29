@@ -180,12 +180,10 @@ impl<T> SortMode<T> for NameSort<T>
 where
     T: NameSortable,
 {
-    #[must_use]
     fn next(&self) -> Self {
         Self::new()
     }
 
-    #[must_use]
     fn prev(&self) -> Self {
         Self::new()
     }

@@ -625,6 +625,11 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // render primary border
+        let border_title_bottom = if self.focus == Focus::Tree {
+            " \u{23CE} : Open | ←/↑/↓/→: Navigate | s/S: change sort"
+        } else {
+            ""
+        };
         let border = Block::bordered()
             .title_top(Line::from(vec![
                 Span::styled(
@@ -634,11 +639,7 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
                 Span::raw(" sorted by: "),
                 Span::styled(self.props.sort_mode.to_string(), Style::default().italic()),
             ]))
-            .title_bottom(
-                (self.focus == Focus::Tree)
-                    .then_some(" \u{23CE} : Open | ←/↑/↓/→: Navigate | s/S: change sort")
-                    .unwrap_or_default(),
-            )
+            .title_bottom(border_title_bottom)
             .border_style(border_style);
         let content_area = border.inner(props.area);
         frame.render_widget(border, props.area);
