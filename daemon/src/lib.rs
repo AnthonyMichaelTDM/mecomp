@@ -53,7 +53,7 @@ pub mod termination;
 #[cfg(test)]
 pub use mecomp_core::test_utils;
 
-use crate::controller::MusicPlayerServer;
+use crate::{controller::MusicPlayerServer, termination::InterruptReceiver};
 
 /// The number of connections per IP address.
 const CHANNELS_PER_IP: u32 = 10;
@@ -155,7 +155,7 @@ pub async fn start_daemon(
     tracing::subscriber::set_global_default(init_tracing())?;
 
     // initialize the termination handler
-    let (terminator, mut interrupt_rx) = termination::create_termination();
+    let (terminator, interrupt_rx) = termination::create_termination();
 
     // Start the music library watcher.
     #[cfg(feature = "dynamic_updates")]
@@ -194,6 +194,44 @@ pub async fn start_daemon(
         interrupt_rx.resubscribe(),
     );
 
+    // Start the daemon server.
+    if let Err(e) = run_daemon(server, settings, interrupt_rx.resubscribe()).await {
+        error!("Error running daemon: {e}");
+    }
+
+    #[cfg(feature = "dynamic_updates")]
+    guard.stop();
+
+    // send a shutdown event to all clients (ignore errors)
+    let _ = event_publisher_guard
+        .dispatcher
+        .read()
+        .await
+        .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
+        .await;
+
+    if let Some(state_path) = &state_file_path {
+        info!("Persisting queue state to {}", state_path.display());
+        if let Err(e) = QueueState::retrieve(&audio_kernel)
+            .await
+            .and_then(|state| state.save_to_file(state_path))
+        {
+            error!("Failed to persist queue state: {e}");
+        }
+    }
+
+    log::info!("Cleanup complete, exiting...");
+
+    Ok(())
+}
+
+/// Run the daemon with the given settings, database, and state file path.
+/// Does not handle setup or teardown, just runs the server.
+async fn run_daemon(
+    server: MusicPlayerServer,
+    settings: Arc<Settings>,
+    mut interrupt_rx: InterruptReceiver,
+) -> anyhow::Result<()> {
     // Start the RPC server.
     let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), settings.daemon.rpc_port);
 
@@ -201,10 +239,6 @@ pub async fn start_daemon(
         Ok(listener) => listener,
         Err(e) => {
             error!("Failed to start server: {e}");
-
-            #[cfg(feature = "dynamic_updates")]
-            guard.stop();
-
             return Err(anyhow::anyhow!("Failed to start server: {e}"));
         }
     };
@@ -246,29 +280,6 @@ pub async fn start_daemon(
             }
         }
     }
-
-    #[cfg(feature = "dynamic_updates")]
-    guard.stop();
-
-    // send a shutdown event to all clients (ignore errors)
-    let _ = event_publisher_guard
-        .dispatcher
-        .read()
-        .await
-        .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
-        .await;
-
-    if let Some(state_path) = &state_file_path {
-        info!("Persisting queue state to {}", state_path.display());
-        if let Err(e) = QueueState::retrieve(&audio_kernel)
-            .await
-            .and_then(|state| state.save_to_file(state_path))
-        {
-            error!("Failed to persist queue state: {e}");
-        }
-    }
-
-    log::info!("Cleanup complete, exiting...");
 
     Ok(())
 }

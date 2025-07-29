@@ -28,7 +28,6 @@ use mecomp_storage::db::schemas::{
     playlist::{self, Playlist},
     song::{self, Song, SongBrief},
 };
-use one_or_many::OneOrMany;
 
 impl CommandHandler for Command {
     type Output = anyhow::Result<()>;
@@ -59,97 +58,122 @@ impl CommandHandler for Command {
             Self::Status { command } => command.handle(ctx, client, stdout, stderr).await,
             Self::State => {
                 if let Some(state) = client.state_audio(ctx).await? {
-                    writeln!(stdout, "{}", printing::audio_state(&state)?)?;
+                    Ok(writeln!(stdout, "{}", printing::audio_state(&state)?)?)
                 } else {
-                    writeln!(stdout, "Daemon response:\nNo audio state available")?;
+                    Ok(writeln!(
+                        stdout,
+                        "Daemon response:\nNo audio state available"
+                    )?)
                 }
-                Ok(())
             }
-            Self::Current { target } => {
-                match target {
-                    CurrentTarget::Artist => {
-                        let resp: OneOrMany<Artist> = client.current_artist(ctx).await?;
-                        writeln!(stdout, "Daemon response:\n{resp:#?}")?;
-                    }
-                    CurrentTarget::Album => {
-                        let resp: Option<Album> = client.current_album(ctx).await?;
-                        writeln!(stdout, "Daemon response:\n{resp:#?}")?;
-                    }
-                    CurrentTarget::Song => {
-                        let resp: Option<SongBrief> = client.current_song(ctx).await?;
-                        writeln!(stdout, "Daemon response:\n{resp:#?}")?;
-                    }
-                }
-                Ok(())
-            }
-            Self::Rand { target } => {
-                match target {
-                    RandTarget::Artist => {
-                        let resp: Option<ArtistBrief> = client.rand_artist(ctx).await?;
-                        writeln!(stdout, "Daemon response:\n{resp:#?}")?;
-                    }
-                    RandTarget::Album => {
-                        let resp: Option<AlbumBrief> = client.rand_album(ctx).await?;
-                        writeln!(stdout, "Daemon response:\n{resp:#?}")?;
-                    }
-                    RandTarget::Song => {
-                        let resp: Option<SongBrief> = client.rand_song(ctx).await?;
-                        writeln!(stdout, "Daemon response:\n{resp:#?}")?;
-                    }
-                }
+
+            Self::Current {
+                target: CurrentTarget::Artist,
+            } => Ok(writeln!(
+                stdout,
+                "Daemon response:\n{:#?}",
+                client.current_artist(ctx).await?
+            )?),
+            Self::Current {
+                target: CurrentTarget::Album,
+            } => Ok(writeln!(
+                stdout,
+                "Daemon response:\n{:#?}",
+                client.current_album(ctx).await?
+            )?),
+            Self::Current {
+                target: CurrentTarget::Song,
+            } => Ok(writeln!(
+                stdout,
+                "Daemon response:\n{:#?}",
+                client.current_song(ctx).await?
+            )?),
+
+            Self::Rand {
+                target: RandTarget::Artist,
+            } => Ok(writeln!(
+                stdout,
+                "Daemon response:\n{:#?}",
+                client.rand_artist(ctx).await?
+            )?),
+            Self::Rand {
+                target: RandTarget::Album,
+            } => Ok(writeln!(
+                stdout,
+                "Daemon response:\n{:#?}",
+                client.rand_album(ctx).await?
+            )?),
+            Self::Rand {
+                target: RandTarget::Song,
+            } => Ok(writeln!(
+                stdout,
+                "Daemon response:\n{:#?}",
+                client.rand_song(ctx).await?
+            )?),
+
+            Self::Search {
+                quiet,
+                target: SearchTarget::All,
+                query,
+                limit,
+            } => {
+                let SearchResult {
+                    songs,
+                    albums,
+                    artists,
+                } = client.search(ctx, query.clone(), *limit).await?;
+                writeln!(
+                    stdout,
+                    "Daemon response:\n{}\n{}\n{}",
+                    printing::song_list("Songs", &songs, *quiet)?,
+                    printing::album_list("Albums", &albums, *quiet)?,
+                    printing::artist_list("Artists", &artists, *quiet)?
+                )?;
                 Ok(())
             }
             Self::Search {
                 quiet,
-                target,
+                target: SearchTarget::Artist,
                 query,
                 limit,
-            } => {
-                match target {
-                    SearchTarget::All => {
-                        let SearchResult {
-                            songs,
-                            albums,
-                            artists,
-                        } = client.search(ctx, query.clone(), *limit).await?;
-                        writeln!(
-                            stdout,
-                            "Daemon response:\n{}\n{}\n{}",
-                            printing::song_list("Songs", &songs, *quiet)?,
-                            printing::album_list("Albums", &albums, *quiet)?,
-                            printing::artist_list("Artists", &artists, *quiet)?
-                        )?;
-                    }
-                    SearchTarget::Artist => {
-                        let resp: Box<[ArtistBrief]> =
-                            client.search_artist(ctx, query.clone(), *limit).await?;
-                        writeln!(
-                            stdout,
-                            "Daemon response:\n{}",
-                            printing::artist_list("Artists", &resp, *quiet)?
-                        )?;
-                    }
-                    SearchTarget::Album => {
-                        let resp: Box<[AlbumBrief]> =
-                            client.search_album(ctx, query.clone(), *limit).await?;
-                        writeln!(
-                            stdout,
-                            "Daemon response:\n{}",
-                            printing::album_list("Albums", &resp, *quiet)?
-                        )?;
-                    }
-                    SearchTarget::Song => {
-                        let resp: Box<[SongBrief]> =
-                            client.search_song(ctx, query.clone(), *limit).await?;
-                        writeln!(
-                            stdout,
-                            "Daemon response:\n{}",
-                            printing::song_list("Songs", &resp, *quiet)?
-                        )?;
-                    }
-                }
-                Ok(())
-            }
+            } => Ok(writeln!(
+                stdout,
+                "Daemon response:\n{}",
+                printing::artist_list(
+                    "Artists",
+                    &client.search_artist(ctx, query.clone(), *limit).await?,
+                    *quiet
+                )?
+            )?),
+            Self::Search {
+                quiet,
+                target: SearchTarget::Album,
+                query,
+                limit,
+            } => Ok(writeln!(
+                stdout,
+                "Daemon response:\n{}",
+                printing::album_list(
+                    "Albums",
+                    &client.search_album(ctx, query.clone(), *limit).await?,
+                    *quiet
+                )?
+            )?),
+            Self::Search {
+                quiet,
+                target: SearchTarget::Song,
+                query,
+                limit,
+            } => Ok(writeln!(
+                stdout,
+                "Daemon response:\n{}",
+                printing::song_list(
+                    "Songs",
+                    &client.search_song(ctx, query.clone(), *limit).await?,
+                    *quiet
+                )?
+            )?),
+
             Self::Playback { command } => command.handle(ctx, client, stdout, stderr).await,
             Self::Queue { command } => command.handle(ctx, client, stdout, stderr).await,
             Self::Playlist { command } => command.handle(ctx, client, stdout, stderr).await,
