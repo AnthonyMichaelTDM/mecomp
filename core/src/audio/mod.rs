@@ -15,7 +15,8 @@ use std::{
 
 use log::{debug, error};
 use rodio::{
-    Decoder, Source,
+    Source,
+    decoder::DecoderBuilder,
     source::{EmptyCallback, SeekError},
 };
 use tracing::instrument;
@@ -142,7 +143,7 @@ impl Drop for AudioKernelSender {
 pub(crate) struct AudioKernel {
     /// this is not used, but is needed to keep the stream alive
     #[cfg(not(feature = "mock_playback"))]
-    _music_output: (rodio::OutputStream, rodio::OutputStreamHandle),
+    _music_output: rodio::OutputStream,
     #[cfg(feature = "mock_playback")]
     queue_rx_stop: Arc<AtomicBool>,
     // /// Transmitter used to send commands to the audio kernel
@@ -185,13 +186,13 @@ impl AudioKernel {
         command_tx: Sender<(AudioCommand, tracing::Span)>,
         event_tx: Sender<StateChange>,
     ) -> Self {
-        let (stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
+        let stream = rodio::OutputStreamBuilder::open_default_stream().unwrap();
 
-        let sink = rodio::Sink::try_new(&stream_handle).unwrap();
+        let sink = rodio::Sink::connect_new(stream.mixer());
         sink.pause();
 
         Self {
-            _music_output: (stream, stream_handle),
+            _music_output: stream,
             player: sink.into(),
             queue: Queue::new(),
             volume: 1.0,
@@ -217,9 +218,9 @@ impl AudioKernel {
     ) -> Self {
         // most of the tests are playing the `assets/music.mp3` file, which is sampled at 44.1kHz
         // thus, we should poll the queue every 22 microseconds
-        const QUEUE_POLLING_INTERVAL: Duration = Duration::from_micros(22);
+        const QUEUE_POLLING_INTERVAL: Duration = Duration::from_micros(22 - 1);
 
-        let (sink, mut queue_rx) = rodio::Sink::new_idle();
+        let (sink, mut queue_rx) = rodio::Sink::new();
 
         let queue_stop = Arc::new(AtomicBool::new(false));
         let queue_stop_clone = queue_stop.clone();
@@ -623,24 +624,31 @@ impl AudioKernel {
 
         // establish a callback for starting the next song once the current one finishes
         let command_tx = self.command_tx.clone();
-        self.player
-            .append(EmptyCallback::<f32>::new(Box::new(move || {
-                log::debug!("Song finished");
-                if let Err(e) = command_tx.send((
-                    AudioCommand::Queue(QueueCommand::PlayNextSong),
-                    tracing::Span::current(),
-                )) {
-                    error!("Failed to send command to audio kernel: {e}");
-                } else {
-                    log::debug!("Sent PlayNextSong command to audio kernel");
-                }
-            })));
+        self.player.append(EmptyCallback::new(Box::new(move || {
+            debug!("Song finished");
+            if let Err(e) = command_tx.send((
+                AudioCommand::Queue(QueueCommand::PlayNextSong),
+                tracing::Span::current(),
+            )) {
+                error!("Failed to send command to audio kernel: {e}");
+            } else {
+                debug!("Sent PlayNextSong command to audio kernel");
+            }
+        })));
     }
 
     #[instrument(skip(self))]
     fn append_song_to_player(&self, song: &SongBrief) -> Result<(), LibraryError> {
-        let source = Decoder::new(BufReader::new(File::open(&song.path)?))?.convert_samples();
-        self.append_to_player(source);
+        let file = File::open(&song.path)?;
+        let byte_len = file.metadata()?.len();
+        let decoder = DecoderBuilder::new()
+            .with_data(BufReader::new(file))
+            .with_byte_len(byte_len)
+            .with_seekable(true)
+            .with_coarse_seek(true)
+            .with_gapless(true)
+            .build()?;
+        self.append_to_player(decoder);
 
         Ok(())
     }
@@ -1634,6 +1642,10 @@ mod tests {
 
             // now we unpause, wait a bit, and check that the song has ended
             sender.send(AudioCommand::Play);
+            sender.send(AudioCommand::Seek(
+                SeekType::RelativeForwards,
+                Duration::from_secs(1),
+            ));
             tokio::time::sleep(Duration::from_millis(500)).await;
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
