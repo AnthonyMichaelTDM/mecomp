@@ -209,10 +209,12 @@ mod query_tests {
             name: "test".into(),
             query,
         };
-
+        #[expect(deprecated)]
         let compiled = dynamic_playlist.get_query().into_query();
+        #[expect(deprecated)]
+        let expected = expected.into_query();
 
         assert!(compiled.is_ok());
-        assert_eq!(compiled.unwrap(), expected.into_query().unwrap());
+        assert_eq!(compiled.unwrap(), expected.unwrap());
     }
 }

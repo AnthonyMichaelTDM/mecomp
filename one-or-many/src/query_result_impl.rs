@@ -15,6 +15,7 @@ where
     /// implement this trait for `OneOrMany<T>`.
     #[inline]
     fn query_result(self, response: &mut surrealdb::Response) -> surrealdb::Result<OneOrMany<T>> {
+        #[expect(deprecated)]
         let vec: Vec<T> = self.query_result(response)?;
 
         Ok(vec.into())
