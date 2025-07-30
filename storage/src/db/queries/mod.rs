@@ -45,6 +45,7 @@ pub fn parse_query(query: impl AsRef<str>) -> surrealdb::sql::Query {
 pub fn validate_query(query: impl IntoQuery, expected: &str) {
     use pretty_assertions::assert_eq;
     // first check if we can use IntoQuery to parse the query
+    #[expect(deprecated)]
     let compiled_query: surrealdb::sql::Query = query
         .as_str()
         .map(surrealdb::syn::parse)
