@@ -1,5 +1,19 @@
 # Mecomp Changelog
 
+## v0.5.4
+
+### v0.5.4 What's Changed
+
+This release is mostly refactoring and updates to dependencies, but it also includes some new features and bug fixes.
+
+* feat(tui): overhaul click handling for checktree's by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/338>
+* migrate to criterion 0.7.0 by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/339>
+* refactor: box OneOrMany::One variant, and other refactoring by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/340>
+* feat: migrate to rodio v0.21.1 by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/341>
+* feat: migrate to surrealdb v2.3.7 by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/344>
+
+### **Full Changelog**: <https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.5.3...v0.5.4>
+
 ## v0.5.3
 
 ### v0.5.3: What's Changed
