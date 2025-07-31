@@ -20,7 +20,7 @@ exclude = ["external", "target", "assets", "scripts"]
 resolver = "2"
 
 [workspace.package]
-version = "0.5.3"
+version = "0.5.4"
 edition = "2024"
 authors = [
     "Anthony Rubick <68485672+AnthonyMichaelTDM@users.noreply.github.com>",
@@ -110,12 +110,14 @@ env_logger = { version = "0.11.8", features = [
 futures = { version = "0.3.31", features = ["alloc"], default-features = false }
 # image = { version = "0.25.0" }
 log = { version = "0.4.27", features = ["serde"] }
+mpris-server = "0.9.0"
 notify-debouncer-full = { version = "0.5.0", default-features = false }
 notify = { version = "8.0", default-features = false, features = [
     "macos_fsevent",
 ] }
 object-pool = "0.6.0"
 once_cell = "1.21"
+percent-encoding = { version = "2.3.1", default-features = false }
 rand = { version = "0.8.5", features = ["small_rng"] }
 rodio = { version = "0.21.1", features = ["symphonia-all"] }
 symphonia = { version = "0.5.4", default-features = false, features = [
@@ -133,7 +135,6 @@ symphonia = { version = "0.5.4", default-features = false, features = [
     # enable simd 
     "opt-simd",
 ] }
-
 rubato = { version = "0.16.2" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
@@ -167,13 +168,13 @@ opentelemetry-otlp = { version = "0.28.0", features = ["grpc-tonic"] }
 tracing-flame = "0.2.0"
 
 # MECOMP packages
-mecomp-analysis = { path = "analysis", version = "=0.5.3" }
-mecomp-core = { path = "core", default-features = false, version = "=0.5.3" }
-mecomp-daemon = { path = "daemon", version = "=0.5.3" }
-mecomp-storage = { path = "storage", default-features = false, version = "=0.5.3" }
-surrealqlx = { path = "surrealqlx/lib", version = "=0.1.4" }
-surrealqlx-macros = { path = "surrealqlx/macros", version = "=0.1.4" }
-surrealqlx-macros-impl = { path = "surrealqlx/macros-impl", version = "=0.1.4" }
+mecomp-analysis = { path = "analysis", version = "=0.5.4" }
+mecomp-core = { path = "core", default-features = false, version = "=0.5.4" }
+mecomp-daemon = { path = "daemon", version = "=0.5.4" }
+mecomp-storage = { path = "storage", default-features = false, version = "=0.5.4" }
+surrealqlx = { path = "surrealqlx/lib", version = "=0.1.5" }
+surrealqlx-macros = { path = "surrealqlx/macros", version = "=0.1.5" }
+surrealqlx-macros-impl = { path = "surrealqlx/macros-impl", version = "=0.1.5" }
 one-or-many = { path = "one-or-many", version = "=0.4.0", default-features = false }
 
 # shared dev dependencies
