@@ -143,7 +143,7 @@ syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "vis
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
-toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
+toml_datetime = { version = "0.7", default-features = false, features = ["serde"] }
 toml_edit = { version = "0.22", default-features = false, features = ["parse", "serde"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
@@ -208,7 +208,7 @@ syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "vis
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
-toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
+toml_datetime = { version = "0.7", default-features = false, features = ["serde"] }
 toml_edit = { version = "0.22", default-features = false, features = ["parse", "serde"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
