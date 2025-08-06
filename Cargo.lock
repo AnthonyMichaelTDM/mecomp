@@ -3165,7 +3165,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-analysis"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "adler32",
  "bliss-audio-aubio-rs",
@@ -3198,7 +3198,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-cli"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "clap",
@@ -3218,7 +3218,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-core"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "ciborium",
@@ -3258,7 +3258,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-daemon"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "clap",
@@ -3290,7 +3290,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-mpris"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "clap",
@@ -3314,7 +3314,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-storage"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "criterion 0.7.0",
@@ -3342,7 +3342,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-tui"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "clap",

@@ -1,5 +1,15 @@
 # Mecomp Changelog
 
+## v0.5.5
+
+### v0.5.5 What's Changed
+
+this release fixes an issue with the `mecomp-storage` crate not compiling when the `db` feature wasn't enabled.
+
+* fix(storage): compilation error when db feature not enabled by @AnthonyMichaelTDM in <https://github.com/AnthonyMichaelTDM/mecomp/pull/346>
+
+### **Full Changelog**: <https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.5.4...v0.5.5>
+
 ## v0.5.4
 
 ### v0.5.4 What's Changed
