@@ -19,6 +19,7 @@ pub enum Error {
     NotCreated,
 }
 
+#[cfg(feature = "db")]
 impl From<surrealdb::Error> for Error {
     #[inline]
     fn from(err: surrealdb::Error) -> Self {
