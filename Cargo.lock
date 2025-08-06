@@ -3425,7 +3425,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
- "toml_datetime 0.6.11",
+ "toml_datetime 0.7.0",
  "toml_edit",
  "tracing",
  "tracing-core",
