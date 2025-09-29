@@ -10,7 +10,7 @@ use std::{
 use mecomp_storage::db::schemas::RecordId;
 use object_pool::Pool;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use tokio::net::UdpSocket;
+use tokio::{net::UdpSocket, sync::RwLock};
 
 use crate::{
     errors::UdpError,
@@ -126,7 +126,7 @@ pub struct Sender<T> {
     socket: UdpSocket,
     buffer_pool: Pool<Vec<u8>>,
     /// List of subscribers to send messages to
-    subscribers: Vec<SocketAddr>,
+    subscribers: RwLock<Vec<SocketAddr>>,
     message_type: PhantomData<T>,
 }
 
@@ -155,28 +155,37 @@ impl<T: Serialize + Send + Sync> Sender<T> {
         Ok(Self {
             socket,
             buffer_pool: Pool::new(1, || Vec::with_capacity(MAX_MESSAGE_SIZE)),
-            subscribers: Vec::new(),
+            subscribers: RwLock::new(Vec::new()),
             message_type: PhantomData,
         })
     }
 
     /// Add a subscriber to the list of subscribers.
+    ///
+    /// # Concurrency
+    ///
+    /// Acquires a write lock on the subscribers list to do this.
     #[inline]
-    pub fn add_subscriber(&mut self, subscriber: SocketAddr) {
-        self.subscribers.push(subscriber);
+    pub async fn add_subscriber(&self, subscriber: SocketAddr) {
+        self.subscribers.write().await.push(subscriber);
     }
 
     /// Send a message to the UDP socket.
     /// Cancel safe.
+    ///
+    /// # Concurrency
+    ///
+    /// Acquires a read lock on the subscribers list
     ///
     /// # Errors
     ///
     /// Returns an error if the message cannot be serialized or sent.
     #[inline]
     pub async fn send(&self, message: impl Into<T> + Send + Sync + Debug) -> Result<()> {
+        let subscribers = self.subscribers.read().await;
         log::info!(
             "Forwarding state change: {message:?} to {} subscribers",
-            self.subscribers.len()
+            subscribers.len()
         );
 
         let (pool, mut buffer) = self.buffer_pool.pull(Vec::new).detach();
@@ -184,9 +193,10 @@ impl<T: Serialize + Send + Sync> Sender<T> {
 
         ciborium::into_writer(&message.into(), &mut buffer)?;
 
-        for subscriber in &self.subscribers {
+        for subscriber in subscribers.iter() {
             self.socket.send_to(&buffer, subscriber).await?;
         }
+        drop(subscribers);
 
         pool.attach(buffer);
 
@@ -205,13 +215,13 @@ mod test {
     #[tokio::test]
     #[timeout(std::time::Duration::from_secs(1))]
     async fn test_udp(#[case] message: Message, #[values(1, 2, 3)] num_listeners: usize) {
-        let mut sender = Sender::<Message>::new().await.unwrap();
+        let sender = Sender::<Message>::new().await.unwrap();
 
         let mut listeners = Vec::new();
 
         for _ in 0..num_listeners {
             let listener = Listener::new().await.unwrap();
-            sender.add_subscriber(listener.local_addr().unwrap());
+            sender.add_subscriber(listener.local_addr().unwrap()).await;
             listeners.push(listener);
         }
 

@@ -17,7 +17,7 @@ use tarpc::{
     server::{BaseChannel, Channel as _, incoming::Incoming as _},
     tokio_serde::formats::Json,
 };
-use tokio::{runtime::Handle, sync::RwLock};
+use tokio::runtime::Handle;
 use tracing::Instrument;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
@@ -64,7 +64,7 @@ pub const MAX_CONCURRENT_REQUESTS: usize = 4;
 ///
 /// This is a newtype for the event publisher that ensures it is stopped when the guard is dropped.
 struct EventPublisher {
-    dispatcher: Arc<RwLock<Sender<Message>>>,
+    dispatcher: Arc<Sender<Message>>,
     event_tx: std::sync::mpsc::Sender<StateChange>,
     handle: tokio::task::JoinHandle<()>,
 }
@@ -73,7 +73,7 @@ impl EventPublisher {
     /// Start the event publisher
     pub async fn new() -> Self {
         let (event_tx, event_rx) = std::sync::mpsc::channel();
-        let event_publisher = Arc::new(RwLock::const_new(Sender::new().await.unwrap()));
+        let event_publisher = Arc::new(Sender::new().await.unwrap());
         let event_publisher_clone = event_publisher.clone();
 
         let handle = tokio::task::spawn_blocking(move || {
@@ -81,8 +81,6 @@ impl EventPublisher {
                 // re-enter the async context to send the event over UDP
                 Handle::current().block_on(async {
                     if let Err(e) = event_publisher_clone
-                        .read()
-                        .await
                         .send(Message::StateChange(event))
                         .await
                     {
@@ -205,8 +203,6 @@ pub async fn start_daemon(
     // send a shutdown event to all clients (ignore errors)
     let _ = event_publisher_guard
         .dispatcher
-        .read()
-        .await
         .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
         .await;
 
@@ -298,7 +294,7 @@ pub async fn init_test_client_server(
 ) -> anyhow::Result<MusicPlayerClient> {
     let (client_transport, server_transport) = tarpc::transport::channel::unbounded();
 
-    let event_publisher = Arc::new(RwLock::new(Sender::new().await?));
+    let event_publisher = Arc::new(Sender::new().await?);
     // initialize the termination handler
     let (terminator, mut interrupt_rx) = termination::create_termination();
     #[allow(clippy::redundant_pub_crate)]
@@ -323,7 +319,7 @@ pub async fn init_test_client_server(
                 // Stop the server.
                 info!("Stopping server...");
                 audio_kernel.send(AudioCommand::Exit);
-                let _ = event_publisher.read().await.send(Message::Event(mecomp_core::udp::Event::DaemonShutdown)).await;
+                let _ = event_publisher.send(Message::Event(mecomp_core::udp::Event::DaemonShutdown)).await;
                 info!("Server stopped");
             }
         }
