@@ -19,7 +19,7 @@ impl<T> OneOrMany<T> {
     /// Returns an iterator over the values in the `OneOrMany`.
     #[inline]
     #[must_use]
-    pub const fn iter(&self) -> Iter<T> {
+    pub const fn iter(&self) -> Iter<'_, T> {
         Iter {
             inner: self,
             index: 0,

@@ -27,7 +27,10 @@ pub fn reflect_pad(array: &[f32], pad: usize) -> Vec<f32> {
 #[must_use]
 #[allow(clippy::missing_inline_in_public_items)]
 pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f64> {
-    debug_assert!(window_length % 2 == 0, "Window length must be even");
+    debug_assert!(
+        window_length.is_multiple_of(2),
+        "Window length must be even"
+    );
     debug_assert!(window_length < signal.len(), "Signal is too short");
     debug_assert!(hop_length < window_length, "Hop length is too large");
     let half_window_length = window_length / 2;

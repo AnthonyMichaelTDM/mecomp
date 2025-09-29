@@ -68,14 +68,14 @@ impl DynamicPlaylist {
     }
 
     #[instrument]
-    /// Gets the songs matching the DynamicPlaylist's query.
+    /// Gets the songs matching the `DynamicPlaylist`'s query.
     pub async fn run_query<C: Connection>(&self, db: &Surreal<C>) -> StorageResult<Vec<Song>> {
         Ok(db.query(self.get_query()).await?.take(0)?)
     }
 
     #[instrument]
-    /// Gets the songs matching a DynamicPlaylist's query by its ID.
-    /// First retrieves the DynamicPlaylist from the database, then runs its query.
+    /// Gets the songs matching a `DynamicPlaylist`'s query by its ID.
+    /// First retrieves the `DynamicPlaylist` from the database, then runs its query.
     pub async fn run_query_by_id<C: Connection>(
         db: &Surreal<C>,
         id: DynamicPlaylistId,

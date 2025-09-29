@@ -372,7 +372,7 @@ impl SongMetadata {
                 .into(),
             album: tag
                 .album()
-                .map_or("Unknown Album".into(), |x| x.replace('\0', ""))
+                .map_or_else(|| "Unknown Album".into(), |x| x.replace('\0', ""))
                 .trim()
                 .into(),
             album_artist,

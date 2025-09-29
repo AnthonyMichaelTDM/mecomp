@@ -124,9 +124,10 @@ impl Component for RandomView {
             // Select the current item
             KeyCode::Enter => {
                 if let Some(selected) = self.random_type_list.selected() {
-                    if let Some(action) = RANDOM_TYPE_ITEMS.get(selected).and_then(|item| {
+                    let action = RANDOM_TYPE_ITEMS.get(selected).and_then(|item| {
                         self.props.as_ref().and_then(|props| item.to_action(props))
-                    }) {
+                    });
+                    if let Some(action) = action {
                         self.action_tx.send(action).unwrap();
                     }
                 }

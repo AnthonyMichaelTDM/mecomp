@@ -37,7 +37,7 @@ impl Mpris {
     }
 
     /// Give access to the inner Daemon client (checks if the daemon is connected first).
-    pub async fn daemon(&self) -> RwLockReadGuard<Option<MusicPlayerClient>> {
+    pub async fn daemon(&self) -> RwLockReadGuard<'_, Option<MusicPlayerClient>> {
         let mut maybedaemon = self.daemon.write().await;
         if let Some(daemon) = maybedaemon.as_ref() {
             let context = Context::current();
@@ -323,7 +323,7 @@ pub fn metadata_from_opt_song(song: Option<&SongBrief>) -> Metadata {
     )
 }
 
-fn object_path_from_thing(thing: &mecomp_storage::db::schemas::RecordId) -> ObjectPath {
+fn object_path_from_thing(thing: &mecomp_storage::db::schemas::RecordId) -> ObjectPath<'_> {
     ObjectPath::try_from(format!("/mecomp/{}/{}", thing.tb, thing.id))
         .unwrap_or_else(|e| panic!("Failed to convert {thing} to ObjectPath: {e}"))
 }

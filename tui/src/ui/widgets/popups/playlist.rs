@@ -76,11 +76,11 @@ impl PlaylistSelector {
 }
 
 impl Popup for PlaylistSelector {
-    fn title(&self) -> ratatui::prelude::Line {
+    fn title(&self) -> Line<'static> {
         Line::from("Select a Playlist")
     }
 
-    fn instructions(&self) -> ratatui::prelude::Line {
+    fn instructions(&self) -> Line<'static> {
         if self.input_box_visible {
             Line::default()
         } else {
@@ -351,11 +351,11 @@ impl PlaylistEditor {
 }
 
 impl Popup for PlaylistEditor {
-    fn title(&self) -> Line {
+    fn title(&self) -> Line<'static> {
         Line::from("Rename Playlist")
     }
 
-    fn instructions(&self) -> Line {
+    fn instructions(&self) -> Line<'static> {
         Line::from(" \u{23CE} : Rename")
     }
 

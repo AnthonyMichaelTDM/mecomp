@@ -105,7 +105,7 @@ impl Analysis {
 
     /// Read the songs of a list of analyses
     ///
-    /// needed to convert a list of analyses (such as what we get from nearest_neighbors) into a list of songs
+    /// needed to convert a list of analyses (such as what we get from `nearest_neighbors`) into a list of songs
     #[instrument]
     pub async fn read_songs<C: Connection>(
         db: &Surreal<C>,

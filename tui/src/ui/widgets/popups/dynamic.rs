@@ -79,11 +79,11 @@ impl Focus {
 }
 
 impl Popup for DynamicPlaylistEditor {
-    fn title(&self) -> Line {
+    fn title(&self) -> Line<'static> {
         Line::from("Edit Dynamic Playlist")
     }
 
-    fn instructions(&self) -> Line {
+    fn instructions(&self) -> Line<'static> {
         Line::from(" \u{23CE} : Save | Esc : Cancel ")
     }
 

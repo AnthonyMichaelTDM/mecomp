@@ -19,8 +19,8 @@ use crate::{
 };
 
 pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
-    fn title(&self) -> Line;
-    fn instructions(&self) -> Line;
+    fn title(&self) -> Line<'_>;
+    fn instructions(&self) -> Line<'_>;
     /// The area needed for the popup to render.
     fn area(&self, terminal_area: Rect) -> Rect;
 

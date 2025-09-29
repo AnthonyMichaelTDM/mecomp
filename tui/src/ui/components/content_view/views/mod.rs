@@ -117,7 +117,7 @@ impl ItemViewProps for AlbumViewProps {
         .alignment(Alignment::Center)
     }
 
-    fn tree_items(&self) -> Result<Vec<CheckTreeItem<String>>, std::io::Error> {
+    fn tree_items(&self) -> Result<Vec<CheckTreeItem<'_, String>>, std::io::Error> {
         let artist_tree = checktree_utils::create_artist_tree_item(self.artists.as_slice())?;
         let song_tree = checktree_utils::create_song_tree_item(self.songs.as_ref())?;
         Ok(vec![artist_tree, song_tree])
@@ -186,7 +186,7 @@ impl ItemViewProps for ArtistViewProps {
         .alignment(Alignment::Center)
     }
 
-    fn tree_items(&self) -> Result<Vec<CheckTreeItem<String>>, std::io::Error> {
+    fn tree_items(&self) -> Result<Vec<CheckTreeItem<'_, String>>, std::io::Error> {
         let album_tree = checktree_utils::create_album_tree_item(self.albums.as_ref())?;
         let song_tree = checktree_utils::create_song_tree_item(self.songs.as_ref())?;
         Ok(vec![album_tree, song_tree])
@@ -300,7 +300,7 @@ impl ItemViewProps for SongViewProps {
         .alignment(Alignment::Center)
     }
 
-    fn tree_items(&self) -> Result<Vec<CheckTreeItem<String>>, std::io::Error> {
+    fn tree_items(&self) -> Result<Vec<CheckTreeItem<'_, String>>, std::io::Error> {
         let artist_tree = checktree_utils::create_artist_tree_item(self.artists.as_slice())?;
         let album_tree =
             checktree_utils::create_album_tree_leaf(&self.album, Some(Span::raw("Album: ")));
@@ -545,7 +545,7 @@ pub mod checktree_utils {
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_album_tree_item(
         albums: &[AlbumBrief],
-    ) -> Result<CheckTreeItem<String>, std::io::Error> {
+    ) -> Result<CheckTreeItem<'_, String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             albums,
             "Albums",
@@ -582,7 +582,7 @@ pub mod checktree_utils {
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_artist_tree_item(
         artists: &[ArtistBrief],
-    ) -> Result<CheckTreeItem<String>, std::io::Error> {
+    ) -> Result<CheckTreeItem<'_, String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             artists,
             "Artists",
@@ -607,7 +607,7 @@ pub mod checktree_utils {
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_collection_tree_item(
         collections: &[CollectionBrief],
-    ) -> Result<CheckTreeItem<String>, std::io::Error> {
+    ) -> Result<CheckTreeItem<'_, String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             collections,
             "Collections",
@@ -634,7 +634,7 @@ pub mod checktree_utils {
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_playlist_tree_item(
         playlists: &[PlaylistBrief],
-    ) -> Result<CheckTreeItem<String>, std::io::Error> {
+    ) -> Result<CheckTreeItem<'_, String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             playlists,
             "Playlists",
@@ -659,7 +659,7 @@ pub mod checktree_utils {
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_dynamic_playlist_tree_item(
         dynamic_playlists: &[DynamicPlaylist],
-    ) -> Result<CheckTreeItem<String>, std::io::Error> {
+    ) -> Result<CheckTreeItem<'_, String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             dynamic_playlists,
             "Dynamic Playlists",
@@ -686,7 +686,7 @@ pub mod checktree_utils {
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
     pub fn create_song_tree_item(
         songs: &[SongBrief],
-    ) -> Result<CheckTreeItem<String>, std::io::Error> {
+    ) -> Result<CheckTreeItem<'_, String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             songs,
             "Songs",
