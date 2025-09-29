@@ -5,7 +5,7 @@ use ::tarpc::context::Context;
 use log::{debug, error, info, warn};
 use surrealdb::{Surreal, engine::local::Db};
 use tap::TapFallible;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
 use tracing::{Instrument, instrument};
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
@@ -58,7 +58,7 @@ pub struct MusicPlayerServer {
     library_rescan_lock: Arc<Mutex<()>>,
     library_analyze_lock: Arc<Mutex<()>>,
     collection_recluster_lock: Arc<Mutex<()>>,
-    publisher: Arc<RwLock<Sender<Message>>>,
+    publisher: Arc<Sender<Message>>,
     terminator: Arc<Mutex<Terminator>>,
     interrupt: Arc<termination::InterruptReceiver>,
 }
@@ -70,7 +70,7 @@ impl MusicPlayerServer {
         db: Arc<Surreal<Db>>,
         settings: Arc<Settings>,
         audio_kernel: Arc<AudioKernelSender>,
-        event_publisher: Arc<RwLock<Sender<Message>>>,
+        event_publisher: Arc<Sender<Message>>,
         terminator: Terminator,
         interrupt: termination::InterruptReceiver,
     ) -> Self {
@@ -98,7 +98,7 @@ impl MusicPlayerServer {
         &self,
         message: impl Into<Message> + Send + Sync + std::fmt::Debug,
     ) -> Result<(), mecomp_core::errors::UdpError> {
-        self.publisher.read().await.send(message).await
+        self.publisher.send(message).await
     }
 }
 
@@ -107,7 +107,7 @@ impl MusicPlayer for MusicPlayerServer {
     #[instrument]
     async fn register_listener(self, context: Context, listener_addr: std::net::SocketAddr) {
         info!("Registering listener: {listener_addr}");
-        self.publisher.write().await.add_subscriber(listener_addr);
+        self.publisher.add_subscriber(listener_addr).await;
     }
 
     async fn ping(self, _: Context) -> String {
