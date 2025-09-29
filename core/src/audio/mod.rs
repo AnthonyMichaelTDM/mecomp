@@ -591,13 +591,14 @@ impl AudioKernel {
         self.queue.remove_range(range);
 
         // if the current song was removed, clear the player and restart playback
-        if current_to_be_removed {
-            self.clear_player();
-            if let Some(song) = self.get_current_song() {
-                if let Err(e) = self.append_song_to_player(&song) {
-                    error!("Failed to append song to player: {e}");
-                }
-            }
+        if !current_to_be_removed {
+            return;
+        }
+        self.clear_player();
+        if let Some(song) = self.get_current_song()
+            && let Err(e) = self.append_song_to_player(&song)
+        {
+            error!("Failed to append song to player: {e}");
         }
     }
 

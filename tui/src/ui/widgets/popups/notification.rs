@@ -36,11 +36,11 @@ impl ComponentRender<Rect> for Notification<'_> {
 }
 
 impl Popup for Notification<'_> {
-    fn title(&self) -> Line {
+    fn title(&self) -> Line<'static> {
         Line::raw("Notification")
     }
 
-    fn instructions(&self) -> Line {
+    fn instructions(&self) -> Line<'static> {
         Line::raw("Press ESC to close")
     }
 

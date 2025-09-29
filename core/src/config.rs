@@ -361,6 +361,7 @@ mod tests {
     use rstest::rstest;
 
     #[derive(Debug, PartialEq, Eq, Deserialize)]
+    #[allow(dead_code)]
     #[serde(transparent)]
     struct ArtistSeparatorTest {
         #[serde(deserialize_with = "de_artist_separator")]

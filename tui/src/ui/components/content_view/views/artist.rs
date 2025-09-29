@@ -92,9 +92,8 @@ impl Component for LibraryArtistsView {
             // arrow keys
             KeyCode::PageUp => {
                 self.tree_state.lock().unwrap().select_relative(|current| {
-                    current.map_or(self.props.artists.len().saturating_sub(1), |c| {
-                        c.saturating_sub(10)
-                    })
+                    let first = self.props.artists.len().saturating_sub(1);
+                    current.map_or(first, |c| c.saturating_sub(10))
                 });
             }
             KeyCode::Up => {

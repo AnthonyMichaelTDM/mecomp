@@ -338,6 +338,7 @@ mod duration {
     use super::serialize_duration_as_sql_duration;
 
     #[derive(serde::Serialize, serde::Deserialize)]
+    #[allow(dead_code)]
     struct TestStruct {
         #[serde(
             serialize_with = "serialize_duration_as_sql_duration",

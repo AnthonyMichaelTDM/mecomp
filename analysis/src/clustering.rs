@@ -341,13 +341,14 @@ impl ClusteringHelper<NotInitialized> {
         for (k, gap_k, s_k) in results {
             info!("k: {k}, gap_k: {gap_k}, s_k: {s_k}");
 
-            if let Some(gap_k_minus_one) = gap_k_minus_one {
-                if gap_k_minus_one >= gap_k - s_k {
-                    info!("Optimal k found: {}", k - 1);
-                    optimal_k = Some(k - 1);
-                    break;
-                }
+            if let Some(gap_k_minus_one) = gap_k_minus_one
+                && gap_k_minus_one >= gap_k - s_k
+            {
+                info!("Optimal k found: {}", k - 1);
+                optimal_k = Some(k - 1);
+                break;
             }
+
             gap_k_minus_one = Some(gap_k);
         }
 

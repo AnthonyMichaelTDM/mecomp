@@ -55,7 +55,7 @@ pub trait ItemViewProps {
     /// # Errors
     ///
     /// Returns an error if the tree items cannot be created, e.g. duplicate ids
-    fn tree_items(&self) -> Result<Vec<CheckTreeItem<String>>, std::io::Error>;
+    fn tree_items(&self) -> Result<Vec<CheckTreeItem<'_, String>>, std::io::Error>;
 }
 
 pub trait SortableView {
