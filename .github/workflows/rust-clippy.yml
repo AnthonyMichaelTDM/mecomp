@@ -32,7 +32,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5.0.0
 
       - name: Install dependencies
         run: |
@@ -52,9 +52,9 @@ jobs:
           rustup component add clippy
 
       - name: Setup cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }} 
+          shared-key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install required cargo
         run: cargo install clippy-sarif sarif-fmt
@@ -63,13 +63,14 @@ jobs:
         run: cargo clippy
           --all
           --all-features
+          --locked
           --message-format=json
           -- -D clippy::pedantic -D clippy::nursery -D clippy::perf
           -D clippy::all | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
         continue-on-error: true
 
       - name: Upload analysis results to GitHub
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v3.30.5
         with:
           sarif_file: rust-clippy-results.sarif
           wait-for-processing: true

@@ -69,7 +69,7 @@ jobs:
       attestations: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5.0.0
 
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -87,7 +87,7 @@ jobs:
         if: contains(matrix.platform.os, 'ubuntu')
 
       - name: Setup cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.8.1
         with:
           shared-key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
 
@@ -125,12 +125,12 @@ jobs:
           cd -
 
       - name: attest
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3.0.0
         with:
           subject-path: target/${{ matrix.platform.target }}/release/${{ matrix.binary }}.exe
         if: contains(matrix.platform.os, 'windows')
       - name: attest
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3.0.0
         with:
           subject-path: target/${{ matrix.platform.target }}/release/${{ matrix.binary }}
         if: ${{ contains(matrix.platform.os, 'ubuntu') || contains(matrix.platform.os, 'macOS') }}
@@ -149,7 +149,7 @@ jobs:
     permissions: write-all
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5.0.0
 
       - name: Download artifacts
         id: download_artifacts
@@ -194,7 +194,7 @@ jobs:
 
       - name: Create or Update GitHub Release
         id: create_release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.3.3
         with:
           tag_name: ${{ steps.get_release_tag.outputs.RELEASE_TAG }}
           draft: false
