@@ -40,7 +40,7 @@ surrealqlx = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tempfile = { workspace = true, optional = true }
-ulid = "1.1"
+ulid = "1.2.1"
 
 # dependencies for the analysis feature
 mecomp-analysis = { workspace = true, optional = true }

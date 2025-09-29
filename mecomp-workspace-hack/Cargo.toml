@@ -27,12 +27,10 @@ ignored = [
     "concurrent-queue",
     "criterion",
     "crossbeam-utils",
-    "digest",
     "either",
     "event-listener",
     "event-listener-strategy",
     "fastrand",
-    "futures",
     "futures-channel",
     "futures-core",
     "futures-executor",
@@ -47,6 +45,7 @@ ignored = [
     "log",
     "memchr",
     "ndarray",
+    "num-bigint",
     "num-complex",
     "num-integer",
     "num-traits",
@@ -61,15 +60,15 @@ ignored = [
     "rustfft",
     "semver",
     "serde",
+    "serde_core",
     "serde_json",
     "smallvec",
     "string_cache",
-    "subtle",
     "symphonia",
+    "symphonia-bundle-mp3",
     "symphonia-core",
+    "symphonia-format-riff",
     "syn",
-    "toml_datetime",
-    "toml_edit",
     "tokio",
     "tokio-stream",
     "tokio-util",
@@ -94,17 +93,31 @@ approx-d8f496e17d97b5cb = { package = "approx", version = "0.5" }
 bitflags = { version = "2", default-features = false, features = ["std"] }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
-clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
-clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
+clap = { version = "4", default-features = false, features = [
+    "color",
+    "derive",
+    "error-context",
+    "help",
+    "std",
+    "suggestions",
+    "unstable-ext",
+    "usage",
+] }
+clap_builder = { version = "4", default-features = false, features = [
+    "color",
+    "help",
+    "std",
+    "suggestions",
+    "unstable-ext",
+    "usage",
+] }
 concurrent-queue = { version = "2" }
-criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
+criterion = { version = "0.7", features = ["async_tokio", "html_reports"] }
 crossbeam-utils = { version = "0.8" }
-digest = { version = "0.10", features = ["mac", "std"] }
 either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
 event-listener-strategy = { version = "0.5" }
 fastrand = { version = "2" }
-futures = { version = "0.3" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
@@ -119,6 +132,7 @@ lalrpop-util = { version = "0.20", features = ["lexer"] }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 memchr = { version = "2" }
 ndarray = { version = "0.15", features = ["approx", "rayon"] }
+num-bigint = { version = "0.4", default-features = false, features = ["std"] }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
@@ -128,23 +142,62 @@ quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
 rand_core = { version = "0.6", default-features = false, features = ["std"] }
 regex = { version = "1" }
-regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "dfa-search", "hybrid", "meta", "nfa-backtrack", "perf", "unicode"] }
+regex-automata = { version = "0.4", default-features = false, features = [
+    "dfa-build",
+    "dfa-onepass",
+    "hybrid",
+    "meta",
+    "nfa-backtrack",
+    "perf",
+    "unicode",
+] }
 regex-syntax = { version = "0.8" }
 rustfft = { version = "6" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
+serde_core = { version = "1", features = ["alloc", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
-subtle = { version = "2" }
-symphonia = { version = "0.5", default-features = false, features = ["aac", "adpcm", "flac", "isomp4", "mp3", "ogg", "opt-simd", "pcm", "vorbis", "wav"] }
-symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
-syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
+symphonia = { version = "0.5", default-features = false, features = [
+    "all-codecs",
+    "all-formats",
+    "opt-simd",
+] }
+symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = [
+    "mp1",
+    "mp2",
+    "mp3",
+] }
+symphonia-core = { version = "0.5", features = [
+    "opt-simd-avx",
+    "opt-simd-neon",
+    "opt-simd-sse",
+] }
+symphonia-format-riff = { version = "0.5", default-features = false, features = [
+    "aiff",
+    "wav",
+] }
+syn = { version = "2", features = [
+    "extra-traits",
+    "fold",
+    "full",
+    "visit",
+    "visit-mut",
+] }
+tokio = { version = "1", features = [
+    "io-std",
+    "io-util",
+    "macros",
+    "net",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "time",
+    "tracing",
+] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
-toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
-toml_edit = { version = "0.22", default-features = false, features = ["parse", "serde"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }
@@ -159,17 +212,31 @@ bitflags = { version = "2", default-features = false, features = ["std"] }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
 cc = { version = "1", default-features = false, features = ["parallel"] }
-clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
-clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
+clap = { version = "4", default-features = false, features = [
+    "color",
+    "derive",
+    "error-context",
+    "help",
+    "std",
+    "suggestions",
+    "unstable-ext",
+    "usage",
+] }
+clap_builder = { version = "4", default-features = false, features = [
+    "color",
+    "help",
+    "std",
+    "suggestions",
+    "unstable-ext",
+    "usage",
+] }
 concurrent-queue = { version = "2" }
-criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
+criterion = { version = "0.7", features = ["async_tokio", "html_reports"] }
 crossbeam-utils = { version = "0.8" }
-digest = { version = "0.10", features = ["mac", "std"] }
 either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
 event-listener-strategy = { version = "0.5" }
 fastrand = { version = "2" }
-futures = { version = "0.3" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
@@ -184,6 +251,7 @@ lalrpop-util = { version = "0.20", features = ["lexer"] }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 memchr = { version = "2" }
 ndarray = { version = "0.15", features = ["approx", "rayon"] }
+num-bigint = { version = "0.4", default-features = false, features = ["std"] }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
@@ -193,23 +261,62 @@ quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
 rand_core = { version = "0.6", default-features = false, features = ["std"] }
 regex = { version = "1" }
-regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "dfa-search", "hybrid", "meta", "nfa-backtrack", "perf", "unicode"] }
+regex-automata = { version = "0.4", default-features = false, features = [
+    "dfa-build",
+    "dfa-onepass",
+    "hybrid",
+    "meta",
+    "nfa-backtrack",
+    "perf",
+    "unicode",
+] }
 regex-syntax = { version = "0.8" }
 rustfft = { version = "6" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
+serde_core = { version = "1", features = ["alloc", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
-subtle = { version = "2" }
-symphonia = { version = "0.5", default-features = false, features = ["aac", "adpcm", "flac", "isomp4", "mp3", "ogg", "opt-simd", "pcm", "vorbis", "wav"] }
-symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
-syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
+symphonia = { version = "0.5", default-features = false, features = [
+    "all-codecs",
+    "all-formats",
+    "opt-simd",
+] }
+symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = [
+    "mp1",
+    "mp2",
+    "mp3",
+] }
+symphonia-core = { version = "0.5", features = [
+    "opt-simd-avx",
+    "opt-simd-neon",
+    "opt-simd-sse",
+] }
+symphonia-format-riff = { version = "0.5", default-features = false, features = [
+    "aiff",
+    "wav",
+] }
+syn = { version = "2", features = [
+    "extra-traits",
+    "fold",
+    "full",
+    "visit",
+    "visit-mut",
+] }
+tokio = { version = "1", features = [
+    "io-std",
+    "io-util",
+    "macros",
+    "net",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "time",
+    "tracing",
+] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
-toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
-toml_edit = { version = "0.22", default-features = false, features = ["parse", "serde"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }

@@ -39,7 +39,7 @@ mecomp-storage = { workspace = true, features = ["serde", "analysis"] }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
-insta = { version = "1.42", default-features = false }
+insta = { version = "1.43.2", default-features = false }
 pretty_assertions = { workspace = true }
 mecomp-core = { workspace = true, features = ["rpc", "mock_playback"] }
 mecomp-storage = { workspace = true, features = [

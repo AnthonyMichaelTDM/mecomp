@@ -32,12 +32,12 @@ autostart-daemon = []
 anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
-crossterm = { version = "0.29", features = [
+crossterm = { version = "0.29.0", features = [
     "bracketed-paste",
     "derive-more",
     "event-stream",
 ], default-features = false }
-ratatui = { version = "0.29" }
+ratatui = { version = "0.29.0" }
 # log.workspace = true
 tarpc.workspace = true
 tokio = { workspace = true, features = ["signal"] }
@@ -52,7 +52,7 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 # on windows, we need to use the `windows` crate of `crossterm`
 [target.'cfg(target_os = "windows")'.dependencies]
-crossterm = { version = "0.29", features = [
+crossterm = { version = "0.29.0", features = [
     "bracketed-paste",
     "derive-more",
     "windows",

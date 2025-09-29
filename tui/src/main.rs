@@ -121,7 +121,7 @@ impl MaybeDaemonHandler {
                         .stdout(std::process::Stdio::null())
                         .spawn()
                 })
-                .map_err(|e| anyhow::anyhow!("failed to start mecomp-daemon: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("failed to start mecomp-daemon: {e}"))?;
 
             println!("waiting for the server to start");
 
