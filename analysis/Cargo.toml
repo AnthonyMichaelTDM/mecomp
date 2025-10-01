@@ -19,7 +19,7 @@ bliss-audio-aubio-rs = { version = "0.2.2", features = ["static"] }
 linfa = "0.7.1"
 linfa-clustering = "0.7.1"
 linfa-reduction = "0.7.1"
-linfa-tsne = "0.7.1"
+linfa-tsne = "0.8.0"
 linfa-nn = "0.7.1"
 log = { workspace = true }
 ndarray = { version = "0.15.6", default-features = false }
