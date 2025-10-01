@@ -72,7 +72,7 @@ jobs:
           shared-key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
 
       - name: install cargo-nextest
-        uses: taiki-e/install-action@v2.62.13
+        uses: taiki-e/install-action@v2.62.15
         with:
           tool: nextest
 

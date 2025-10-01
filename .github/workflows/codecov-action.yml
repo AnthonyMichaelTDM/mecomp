@@ -40,7 +40,7 @@ jobs:
           shared-key: ${{ runner.os }}-cargo-tarpaulin-${{ hashFiles('**/Cargo.lock') }}
 
       - name: install cargo-tarpaulin
-        uses: taiki-e/install-action@v2.62.13
+        uses: taiki-e/install-action@v2.62.15
         with:
           tool: cargo-tarpaulin
 
