@@ -146,6 +146,20 @@ impl From<LibraryError> for SerializableLibraryError {
     }
 }
 
+/// An error that occurs connecting a client to the daemon
+#[derive(Error, Debug)]
+#[error("failed to connect to daemon on port {port} after {retries} retries")]
+pub struct ConnectionError {
+    pub port: u16,
+    pub retries: u64,
+}
+
+impl ConnectionError {
+    pub const fn new(port: u16, retries: u64) -> Self {
+        Self { port, retries }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
