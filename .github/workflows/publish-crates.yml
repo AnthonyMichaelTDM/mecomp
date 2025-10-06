@@ -14,6 +14,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  dry-run:
+    name: Dry run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5.0.0
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2.8.1
+        with:
+          shared-key: ${{ runner.os }}-cd-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-hakari
+        uses: taiki-e/install-action@v2.62.21
+        with:
+          tool: cargo-hakari
+
+      - name: Remove workspace-hack from Cargo.toml's
+        run: cargo hakari remove-deps
+
+      - name: Dry run publish to crates.io
+        run: cargo publish --workspace --dry-run --allow-dirty --locked
+
   crates-io-publish:
     name: Publish to crates.io
     strategy:
@@ -35,6 +66,7 @@ jobs:
       max-parallel: 1
       fail-fast: false # Continue with other crates even if one fails, this is necessary because not all crates need to be published for any given release
     runs-on: ubuntu-latest
+    needs: dry-run
     env:
       CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
     steps:
@@ -52,7 +84,7 @@ jobs:
       - name: Setup cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          shared-key: ${{ runner.os }}-cd-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install cargo-hakari
         uses: taiki-e/install-action@v2.62.21
