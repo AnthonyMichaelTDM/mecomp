@@ -40,7 +40,7 @@ jobs:
           tool: cargo-hakari
 
       - name: Remove workspace-hack from Cargo.toml's
-        run: cargo hakari remove-deps
+        run: cargo hakari remove-deps -y
 
       - name: Dry run publish to crates.io
         run: cargo publish --workspace --dry-run --allow-dirty --locked
