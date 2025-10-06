@@ -261,7 +261,7 @@ pub struct ReclusterSettings {
     /// 500 will give a very good estimate but be very slow.
     /// We default to 250 in release mode.
     #[serde(default = "default_gap_statistic_reference_datasets")]
-    pub gap_statistic_reference_datasets: usize,
+    pub gap_statistic_reference_datasets: u32,
     /// The maximum number of clusters to create.
     /// This is the upper bound on the number of clusters that can be created.
     /// Increase if you're getting a "could not find optimal k" error.
@@ -279,7 +279,7 @@ pub struct ReclusterSettings {
     pub projection_method: ProjectionMethod,
 }
 
-const fn default_gap_statistic_reference_datasets() -> usize {
+const fn default_gap_statistic_reference_datasets() -> u32 {
     50
 }
 
