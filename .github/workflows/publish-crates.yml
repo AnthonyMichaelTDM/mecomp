@@ -55,7 +55,7 @@ jobs:
           shared-key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install cargo-hakari
-        uses: taiki-e/install-action@v2.62.16
+        uses: taiki-e/install-action@v2.62.21
         with:
           tool: cargo-hakari
 
