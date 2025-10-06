@@ -330,16 +330,16 @@ pub async fn recluster<C: Connection>(
         return Ok(());
     }
 
-    let samples_ref = samples.clone();
+    let analysis_array = samples
+        .iter()
+        .map(|a| a.features)
+        .collect::<Vec<_>>()
+        .into();
 
     // use clustering algorithm to cluster the analyses
     let clustering = move || {
         let model: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
-            samples_ref
-                .iter()
-                .map(Into::into)
-                .collect::<Vec<mecomp_analysis::Analysis>>()
-                .into(),
+            analysis_array,
             settings.max_clusters,
             KOptimal::GapStatistic {
                 b: settings.gap_statistic_reference_datasets,

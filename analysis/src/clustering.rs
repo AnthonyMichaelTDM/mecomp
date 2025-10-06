@@ -89,7 +89,7 @@ impl ClusteringMethod {
 pub enum KOptimal {
     GapStatistic {
         /// The number of reference datasets to generate
-        b: usize,
+        b: u32,
     },
     DaviesBouldin,
 }
@@ -279,9 +279,12 @@ impl ClusteringHelper<NotInitialized> {
     ///    Compute also the standard deviation of the statistics.
     /// 4. Choose the number of clusters as the smallest value of k such that the gap statistic is within one standard deviation of the gap at k+1:
     ///    `Gap(k)≥Gap(k + 1)−s_{k + 1}`.
-    fn get_optimal_k_gap_statistic(&self, b: usize) -> Result<usize, ClusteringError> {
+    fn get_optimal_k_gap_statistic(&self, b: u32) -> Result<usize, ClusteringError> {
         // our reference data sets
-        let reference_data_sets = generate_reference_data_set(self.state.embeddings.view(), b);
+        let reference_data_sets =
+            generate_reference_data_set(self.state.embeddings.view(), b as usize);
+
+        let b = f64::from(b);
 
         let results = (1..=self.state.k_max)
             // for each k, cluster the data into k clusters
@@ -292,41 +295,44 @@ impl ClusteringHelper<NotInitialized> {
             })
             // for each k, calculate the gap statistic, and the standard deviation of the statistics
             .map(|(k, labels)| {
-                // first, we calculate the within intra-cluster variation for the observed data
+                // calculate the within intra-cluster variation for the reference data sets
+                debug!(
+                    "Calculating within intra-cluster variation for reference data sets with k={k}"
+                );
+                let w_kb_log: Vec<_> = reference_data_sets
+                    .par_iter()
+                    .map(|ref_data| {
+                        // cluster the reference data into k clusters
+                        let ref_labels = self.state.clustering_method.fit(k, ref_data);
+                        // calculate the within intra-cluster variation for the reference data
+                        let ref_pairwise_distances =
+                            calc_pairwise_distances(ref_data.view(), k, ref_labels.view());
+                        calc_within_dispersion(ref_labels.view(), k, ref_pairwise_distances.view())
+                            .log2()
+                    })
+                    .collect();
+
+                // calculate the within intra-cluster variation for the observed data
                 let pairwise_distances =
                     calc_pairwise_distances(self.state.embeddings.view(), k, labels.view());
                 let w_k = calc_within_dispersion(labels.view(), k, pairwise_distances.view());
 
-                // then, we calculate the within intra-cluster variation for the reference data sets
-                debug!(
-                    "Calculating within intra-cluster variation for reference data sets with k={k}"
-                );
-                let w_kb = reference_data_sets.par_iter().map(|ref_data| {
-                    // cluster the reference data into k clusters
-                    let ref_labels = self.state.clustering_method.fit(k, ref_data);
-                    // calculate the within intra-cluster variation for the reference data
-                    let ref_pairwise_distances =
-                        calc_pairwise_distances(ref_data.view(), k, ref_labels.view());
-                    calc_within_dispersion(ref_labels.view(), k, ref_pairwise_distances.view())
-                });
-
-                // finally, we calculate the gap statistic
-                let w_kb_log_sum = w_kb.clone().map(f64::log2).sum::<f64>();
+                // finally, calculate the gap statistic
+                let w_kb_log_sum: f64 = w_kb_log.iter().sum();
                 // original formula: l = (1 / B) * sum_b(log(W_kb))
-                #[allow(clippy::cast_precision_loss)]
-                let l = (1.0 / b as f64) * w_kb_log_sum;
+                let l = b.recip() * w_kb_log_sum;
                 // original formula: gap_k = (1 / B) * sum_b(log(W_kb)) - log(W_k)
-                #[allow(clippy::cast_precision_loss)]
                 let gap_k = l - w_k.log2();
                 // original formula: sd_k = [(1 / B) * sum_b((log(W_kb) - l)^2)]^0.5
-                #[allow(clippy::cast_precision_loss)]
-                let standard_deviation = ((1.0 / b as f64)
-                    * w_kb.map(|w_kb| (w_kb.log2() - l).powi(2)).sum::<f64>())
+                let standard_deviation = (b.recip()
+                    * w_kb_log
+                        .iter()
+                        .map(|w_kb_log| (w_kb_log - l).powi(2))
+                        .sum::<f64>())
                 .sqrt();
                 // original formula: s_k = sd_k * (1 + 1 / B)^0.5
                 // calculate differently to minimize rounding errors
-                #[allow(clippy::cast_precision_loss)]
-                let s_k = standard_deviation * (1.0 + 1.0 / b as f64).sqrt();
+                let s_k = standard_deviation * (1.0 + b.recip()).sqrt();
 
                 (k, gap_k, s_k)
             });
@@ -335,9 +341,8 @@ impl ClusteringHelper<NotInitialized> {
         // #[cfg(feature = "plot_gap")]
         // plot_gap_statistic(results.clone().collect::<Vec<_>>());
 
-        // finally, we go over the iterator to find the optimal k
+        // finally, consume the results iterator until we find the optimal k
         let (mut optimal_k, mut gap_k_minus_one) = (None, None);
-
         for (k, gap_k, s_k) in results {
             info!("k: {k}, gap_k: {gap_k}, s_k: {s_k}");
 
@@ -370,7 +375,7 @@ impl ClusteringHelper<NotInitialized> {
 pub fn convert_to_array(data: Vec<Analysis>) -> AnalysisArray {
     // Convert vector to Array
     let shape = (data.len(), NUMBER_FEATURES);
-    debug_assert_eq!(shape, (data.len(), data[0].inner().len()));
+    debug_assert_eq!(NUMBER_FEATURES, data[0].inner().len());
 
     AnalysisArray(
         Array2::from_shape_vec(shape, data.into_iter().flat_map(|a| *a.inner()).collect())
@@ -443,7 +448,7 @@ fn calc_within_dispersion(
     counts
         .iter()
         .zip(pairwise_distances.iter())
-        .map(|(&count, distance)| (1. / (2.0 * f64::from(count))) * distance)
+        .map(|(&count, distance)| (2.0 * f64::from(count)).recip() * distance)
         .sum()
 }
 
