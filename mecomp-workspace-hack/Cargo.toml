@@ -72,10 +72,13 @@ ignored = [
     "tokio",
     "tokio-stream",
     "tokio-util",
+    "toml_datetime",
+    "toml_parser",
     "tracing",
     "tracing-core",
     "ulid",
     "unicode-xid",
+    "winnow",
 ]
 
 [lib]
@@ -198,10 +201,13 @@ tokio = { version = "1", features = [
 ] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
+toml_datetime = { version = "0.7", features = ["serde"] }
+toml_parser = { version = "1" }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
+winnow = { version = "0.7" }
 
 [build-dependencies]
 anstream = { version = "0.6" }
@@ -317,9 +323,12 @@ tokio = { version = "1", features = [
 ] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
+toml_datetime = { version = "0.7", features = ["serde"] }
+toml_parser = { version = "1" }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
+winnow = { version = "0.7" }
 
 ### END HAKARI SECTION
