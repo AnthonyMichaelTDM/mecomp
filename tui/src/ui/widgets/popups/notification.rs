@@ -134,7 +134,7 @@ mod tests {
     }
 
     #[test]
-    fn test_nofitication_render_multiline() -> Result<()> {
+    fn test_notification_render_multiline() -> Result<()> {
         let (mut terminal, _) = setup_test_terminal(20, 5);
         let notification = Notification::new(Text::from("Hello,\nWorld!"), unbounded_channel().0);
         let buffer = terminal

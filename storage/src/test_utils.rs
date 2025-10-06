@@ -245,7 +245,7 @@ pub fn create_song_metadata(
         genre,
     }: SongCase,
 ) -> Result<SongMetadata> {
-    // we have an example mp3 in `assets/`, we want to take that and create a new audio file with psuedorandom id3 tags
+    // we have an example mp3 in `assets/`, we want to take that and create a new audio file with pseudorandom id3 tags
     let base_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../assets/music.mp3")
         .canonicalize()?;
