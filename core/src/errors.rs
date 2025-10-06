@@ -155,6 +155,8 @@ pub struct ConnectionError {
 }
 
 impl ConnectionError {
+    #[inline]
+    #[must_use]
     pub const fn new(port: u16, retries: u64) -> Self {
         Self { port, retries }
     }

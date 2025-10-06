@@ -346,6 +346,7 @@ pub async fn init_client(rpc_port: u16) -> Result<MusicPlayerClient, std::io::Er
 /// # Errors
 ///
 /// Fails if the maximum number of retries was exceeded
+#[allow(clippy::missing_inline_in_public_items)]
 pub async fn init_client_with_retry<const MAX_RETRIES: u64, const DELAY: u64>(
     rpc_port: u16,
 ) -> Result<MusicPlayerClient, ConnectionError> {
