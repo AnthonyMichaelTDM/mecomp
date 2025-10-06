@@ -45,7 +45,7 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 bliss-audio-aubio-rs = { version = "0.2.2", features = ["static", "bindgen"] }
 
 [dev-dependencies]
-ndarray-npy = { version = "0.8.1", default-features = false }
+ndarray-npy = { version = "0.9.1", default-features = false }
 adler32 = { version = "1.2.0", default-features = false }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
