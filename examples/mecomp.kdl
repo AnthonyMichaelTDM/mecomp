@@ -4,7 +4,7 @@ layout {
             plugin location="zellij:tab-bar"
         }
         pane command="mecomp-tui" {
-            start_suspended true
+            start_suspended false
         }
         pane size=1 borderless=true {
             plugin location="zellij:status-bar"
