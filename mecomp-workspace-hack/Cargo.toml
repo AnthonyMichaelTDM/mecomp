@@ -115,7 +115,7 @@ hashbrown = { version = "0.15" }
 indexmap = { version = "2", features = ["serde"] }
 itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
-lalrpop-util = { version = "0.20", features = ["lexer"] }
+lalrpop-util = { version = "0.22", features = ["lexer"] }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 memchr = { version = "2" }
 ndarray = { version = "0.15", features = ["approx", "rayon"] }
@@ -182,7 +182,7 @@ hashbrown = { version = "0.15" }
 indexmap = { version = "2", features = ["serde"] }
 itertools-93f6ce9d446188ac = { package = "itertools", version = "0.10" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
-lalrpop-util = { version = "0.20", features = ["lexer"] }
+lalrpop-util = { version = "0.22", features = ["lexer"] }
 log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 memchr = { version = "2" }
 ndarray = { version = "0.15", features = ["approx", "rayon"] }
