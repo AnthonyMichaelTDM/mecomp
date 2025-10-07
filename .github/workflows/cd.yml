@@ -194,7 +194,7 @@ jobs:
 
       - name: Create or Update GitHub Release
         id: create_release
-        uses: softprops/action-gh-release@v2.3.4
+        uses: softprops/action-gh-release@v2.4.0
         with:
           tag_name: ${{ steps.get_release_tag.outputs.RELEASE_TAG }}
           draft: false
