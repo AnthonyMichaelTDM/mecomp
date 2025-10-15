@@ -46,6 +46,13 @@ struct Props {
     albums: Box<[AlbumBrief]>,
     sort_mode: AlbumSort,
 }
+impl Props {
+    fn new(state: &AppState, sort_mode: AlbumSort) -> Self {
+        let mut albums = state.library.albums.clone();
+        sort_mode.sort_items(&mut albums);
+        Self { albums, sort_mode }
+    }
+}
 
 impl Component for LibraryAlbumsView {
     fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self
@@ -53,11 +60,9 @@ impl Component for LibraryAlbumsView {
         Self: Sized,
     {
         let sort_mode = AlbumSort::default();
-        let mut albums = state.library.albums.clone();
-        sort_mode.sort_items(&mut albums);
         Self {
             action_tx,
-            props: Props { albums, sort_mode },
+            props: Props::new(state, sort_mode),
             tree_state: Mutex::new(CheckTreeState::default()),
         }
     }
@@ -66,8 +71,6 @@ impl Component for LibraryAlbumsView {
     where
         Self: Sized,
     {
-        let mut albums = state.library.albums.clone();
-        self.props.sort_mode.sort_items(&mut albums);
         let tree_state = if state.active_view == ActiveView::Albums {
             self.tree_state
         } else {
@@ -75,10 +78,7 @@ impl Component for LibraryAlbumsView {
         };
 
         Self {
-            props: Props {
-                albums,
-                ..self.props
-            },
+            props: Props::new(state, self.props.sort_mode),
             tree_state,
             ..self
         }

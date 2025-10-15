@@ -47,17 +47,16 @@ impl LibraryState {
         mut action_rx: UnboundedReceiver<LibraryAction>,
         mut interrupt_rx: broadcast::Receiver<Interrupted>,
     ) -> anyhow::Result<Interrupted> {
-        let mut state = get_library(daemon.clone()).await?;
-
         // the initial state once
-        self.state_tx.send(state.clone())?;
+        let state = get_library(daemon.clone()).await?;
+        self.state_tx.send(state)?;
 
         loop {
             tokio::select! {
                 // Handle the actions coming from the UI
                 // and process them to do async operations
                 Some(action) = action_rx.recv() => {
-                    handle_action(&mut state, &self.state_tx, daemon.clone(),action).await?;
+                    handle_action(&self.state_tx, daemon.clone(),action).await?;
                 },
                 // Catch and handle interrupt signal to gracefully shutdown
                 Ok(interrupted) = interrupt_rx.recv() => {
@@ -68,7 +67,6 @@ impl LibraryState {
     }
 }
 async fn handle_action(
-    state: &mut LibraryBrief,
     state_tx: &UnboundedSender<LibraryBrief>,
     daemon: Arc<MusicPlayerClient>,
     action: LibraryAction,
@@ -143,8 +141,8 @@ async fn handle_action(
     }
 
     if update {
-        *state = get_library(daemon).await?;
-        state_tx.send(state.clone())?;
+        let state = get_library(daemon).await?;
+        state_tx.send(state)?;
     }
 
     Ok(())

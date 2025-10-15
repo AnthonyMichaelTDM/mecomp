@@ -47,17 +47,23 @@ pub(crate) struct Props {
     pub(crate) sort_mode: SongSort,
 }
 
+impl Props {
+    fn new(state: &AppState, sort_mode: SongSort) -> Self {
+        let mut songs = state.library.songs.clone();
+        sort_mode.sort_items(&mut songs);
+        Self { songs, sort_mode }
+    }
+}
+
 impl Component for LibrarySongsView {
     fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self
     where
         Self: Sized,
     {
         let sort_mode = SongSort::default();
-        let mut songs = state.library.songs.clone();
-        sort_mode.sort_items(&mut songs);
         Self {
             action_tx,
-            props: Props { songs, sort_mode },
+            props: Props::new(state, sort_mode),
             tree_state: Mutex::new(CheckTreeState::default()),
         }
     }
@@ -66,8 +72,6 @@ impl Component for LibrarySongsView {
     where
         Self: Sized,
     {
-        let mut songs = state.library.songs.clone();
-        self.props.sort_mode.sort_items(&mut songs);
         let tree_state = if state.active_view == ActiveView::Songs {
             self.tree_state
         } else {
@@ -75,10 +79,7 @@ impl Component for LibrarySongsView {
         };
 
         Self {
-            props: Props {
-                songs,
-                ..self.props
-            },
+            props: Props::new(state, self.props.sort_mode),
             tree_state,
             ..self
         }
