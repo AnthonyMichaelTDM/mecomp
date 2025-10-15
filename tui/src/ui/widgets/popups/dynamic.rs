@@ -339,6 +339,13 @@ mod tests {
         editor.inner_handle_key_event(KeyEvent::from(KeyCode::Char('f')));
         editor.inner_handle_key_event(KeyEvent::from(KeyCode::Char('g')));
         assert_eq!(editor.name_input.text(), "Testefg");
+        // the backspace and delete keys work as intended
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Left));
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Left));
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Delete));
+        assert_eq!(editor.name_input.text(), "Testeg");
+        editor.inner_handle_key_event(KeyEvent::from(KeyCode::Backspace));
+        assert_eq!(editor.name_input.text(), "Testg");
 
         // Test invalid query does not send action
         editor.inner_handle_key_event(KeyEvent::from(KeyCode::Enter));
