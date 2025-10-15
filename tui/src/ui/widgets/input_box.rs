@@ -72,6 +72,7 @@ impl InputBox {
         self.move_cursor_right();
     }
 
+    // Delete the characture before the cursor (backspace)
     fn delete_char(&mut self) {
         if self.cursor_position == 0 {
             return;
@@ -93,6 +94,15 @@ impl InputBox {
         // By leaving the selected one out, it is forgotten and therefore deleted.
         self.text = before_char_to_delete.chain(after_char_to_delete).collect();
         self.move_cursor_left();
+    }
+
+    // delete the character under the cursor (delete)
+    fn delete_next_char(&mut self) {
+        // same procedure as with `self.delete_char()`, but we don't need to
+        // descrement the cursor position
+        let before_cursor = self.text.chars().take(self.cursor_position);
+        let after_cursor = self.text.chars().skip(self.cursor_position + 1);
+        self.text = before_cursor.chain(after_cursor).collect();
     }
 
     fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
@@ -131,6 +141,9 @@ impl Component for InputBox {
             }
             KeyCode::Backspace => {
                 self.delete_char();
+            }
+            KeyCode::Delete => {
+                self.delete_next_char();
             }
             KeyCode::Left => {
                 self.move_cursor_left();
