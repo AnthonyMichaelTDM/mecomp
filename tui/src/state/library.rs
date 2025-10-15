@@ -9,7 +9,9 @@ use tokio::sync::{
     mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
 
-use mecomp_core::{rpc::MusicPlayerClient, state::library::LibraryBrief};
+use mecomp_core::{
+    errors::SerializableLibraryError, rpc::MusicPlayerClient, state::library::LibraryBrief,
+};
 use mecomp_storage::db::schemas;
 
 use crate::termination::Interrupted;
@@ -157,25 +159,30 @@ async fn get_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<LibraryBr
 async fn rescan_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<()> {
     let ctx = tarpc::context::current();
 
-    daemon.library_rescan(ctx).await??;
-
-    Ok(())
+    // don't error out is a rescan is in progress
+    match daemon.library_rescan(ctx).await? {
+        Ok(()) | Err(SerializableLibraryError::RescanInProgress) => Ok(()),
+        Err(e) => Err(e.into()),
+    }
 }
 
 /// initiate an analysis and wait until it's done
 async fn analyze_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<()> {
     let ctx = tarpc::context::current();
 
-    daemon.library_analyze(ctx, false).await??;
-
-    Ok(())
+    // don't error out if an analysis is in progress
+    match daemon.library_analyze(ctx, false).await? {
+        Ok(()) | Err(SerializableLibraryError::AnalysisInProgress) => Ok(()),
+        Err(e) => Err(e.into()),
+    }
 }
 
 /// initiate a recluster and wait until it's done
 async fn recluster_library(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<()> {
     let ctx = tarpc::context::current();
 
-    daemon.library_recluster(ctx).await??;
-
-    Ok(())
+    match daemon.library_recluster(ctx).await? {
+        Ok(()) | Err(SerializableLibraryError::ReclusterInProgress) => Ok(()),
+        Err(e) => Err(e.into()),
+    }
 }
