@@ -193,7 +193,7 @@ impl AudioKernel {
 
         Self {
             _music_output: stream,
-            player: sink.into(),
+            player: sink,
             queue: Queue::new(),
             volume: 1.0,
             muted: false,

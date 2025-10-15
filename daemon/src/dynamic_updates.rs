@@ -22,6 +22,7 @@ use notify_debouncer_full::RecommendedCache;
 use notify_debouncer_full::{DebouncedEvent, Debouncer, new_debouncer};
 use one_or_many::OneOrMany;
 use surrealdb::{Surreal, engine::local::Db};
+use tokio::sync::Mutex;
 
 use crate::termination::InterruptReceiver;
 
@@ -80,6 +81,8 @@ pub fn init_music_library_watcher(
 
             let mut stop = Box::pin(stop_rx);
 
+            let lock = Arc::new(Mutex::new(()));
+
             loop {
                 tokio::select! {
                     _ = &mut stop => {
@@ -94,7 +97,7 @@ pub fn init_music_library_watcher(
                         match result {
                             Ok(events) => {
                                 for event in events {
-                                    if let Err(e) = handler.handle_event(event).await {
+                                    if let Err(e) = handler.handle_event(event, lock.clone()).await {
                                         error!("failed to handle event: {e:?}");
                                     }
                                 }
@@ -170,21 +173,25 @@ impl MusicLibEventHandler {
     }
 
     /// Handles incoming file Events.
-    async fn handle_event(&self, event: DebouncedEvent) -> anyhow::Result<()> {
+    async fn handle_event(
+        &self,
+        event: DebouncedEvent,
+        lock: Arc<Mutex<()>>,
+    ) -> anyhow::Result<()> {
         trace!("file event detected: {event:?}");
 
         match event.kind {
             // remove events
             EventKind::Remove(kind) => {
-                self.remove_event_handler(event, kind).await?;
+                self.remove_event_handler(event, kind, lock).await?;
             }
             // create events
             EventKind::Create(kind) => {
-                self.create_event_handler(event, kind).await?;
+                self.create_event_handler(event, kind, lock).await?;
             }
             // modify events
             EventKind::Modify(kind) => {
-                self.modify_event_handler(event, kind).await?;
+                self.modify_event_handler(event, kind, lock).await?;
             }
             // other events
             EventKind::Any => {
@@ -204,10 +211,12 @@ impl MusicLibEventHandler {
         &self,
         event: DebouncedEvent,
         kind: RemoveKind,
+        lock: Arc<Mutex<()>>,
     ) -> anyhow::Result<()> {
         match kind {
             RemoveKind::File => {
                 if let Some(path) = event.paths.first() {
+                    let guard = lock.lock().await;
                     match path.extension().map(|ext| ext.to_str()) {
                         Some(Some(ext)) if VALID_AUDIO_EXTENSIONS.contains(&ext) => {
                             info!("file removed: {:?}. removing from db", event.paths);
@@ -223,6 +232,7 @@ impl MusicLibEventHandler {
                             );
                         }
                     }
+                    drop(guard);
                 }
             }
             RemoveKind::Folder => {} // if an empty folder is removed, no action needed
@@ -242,10 +252,12 @@ impl MusicLibEventHandler {
         &self,
         event: DebouncedEvent,
         kind: CreateKind,
+        lock: Arc<Mutex<()>>,
     ) -> anyhow::Result<()> {
         match kind {
             CreateKind::File => {
                 if let Some(path) = event.paths.first() {
+                    let guard = lock.lock().await;
                     match path.extension().map(|ext| ext.to_str()) {
                         Some(Some(ext)) if VALID_AUDIO_EXTENSIONS.contains(&ext) => {
                             info!("file created: {:?}. adding to db", event.paths);
@@ -266,6 +278,7 @@ impl MusicLibEventHandler {
                             );
                         }
                     }
+                    drop(guard);
                 }
             }
             CreateKind::Folder => {
@@ -286,10 +299,12 @@ impl MusicLibEventHandler {
         &self,
         event: DebouncedEvent,
         kind: ModifyKind,
+        lock: Arc<Mutex<()>>,
     ) -> anyhow::Result<()> {
         match kind {
             // file data modified
             ModifyKind::Data(kind) => if let Some(path) = event.paths.first() {
+                let guard = lock.lock().await;
                 match path.extension().map(|ext| ext.to_str()) {
                     Some(Some(ext)) if VALID_AUDIO_EXTENSIONS.contains(&ext) => {
                         info!("file data modified ({kind:?}): {:?}. updating in db", event.paths);
@@ -312,9 +327,11 @@ impl MusicLibEventHandler {
                         debug!("file data modified ({kind:?}): {:?}.  not a song, no action needed", event.paths);
                     }
                 }
+                drop(guard);
             },
             // file name (path) modified
             ModifyKind::Name(RenameMode::Both) => {
+                let guard = lock.lock().await;
                 if let (Some(from_path),Some(to_path)) = (event.paths.first(), event.paths.get(1)) {
                      match (from_path.extension().map(|ext| ext.to_string_lossy()),to_path.extension().map(|ext| ext.to_string_lossy())) {
                         (Some(from_ext), Some(to_ext)) if VALID_AUDIO_EXTENSIONS.iter().any(|ext| *ext == from_ext) && VALID_AUDIO_EXTENSIONS.iter().any(|ext| *ext == to_ext) => {
@@ -338,7 +355,7 @@ impl MusicLibEventHandler {
                         }
                     }
                 }
-
+                drop(guard);
             }
             ModifyKind::Name(
                 kind @ (
