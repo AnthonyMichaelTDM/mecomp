@@ -72,7 +72,7 @@ impl InputBox {
         self.move_cursor_right();
     }
 
-    // Delete the characture before the cursor (backspace)
+    // Delete the character before the cursor (backspace)
     fn delete_char(&mut self) {
         if self.cursor_position == 0 {
             return;
