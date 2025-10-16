@@ -14,7 +14,7 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::state::{
-    action::{Action, ComponentAction, GeneralAction},
+    action::{Action, ComponentAction, GeneralAction, LibraryAction},
     component::ActiveComponent,
 };
 
@@ -198,6 +198,11 @@ impl Component for App {
                 .action_tx
                 .send(Action::ActiveComponent(ComponentAction::Previous))
                 .unwrap(),
+            // Refresh the active component
+            KeyCode::F(5) => self
+                .action_tx
+                .send(Action::Library(LibraryAction::Update))
+                .unwrap(),
             // defer to the active component
             _ => self.get_active_view_component_mut().handle_key_event(key),
         }
@@ -282,7 +287,7 @@ impl ComponentRender<Rect> for App {
                 Style::default().bold().fg((*APP_BORDER_TEXT).into()),
             ))
             .title_bottom(Span::styled(
-                "Tab/Shift+Tab to switch focus | Esc to quit",
+                "Tab/Shift+Tab to switch focus | Esc to quit | F5 to refresh",
                 Style::default().fg((*APP_BORDER_TEXT).into()),
             ))
             .border_style(Style::default().fg((*APP_BORDER).into()))
