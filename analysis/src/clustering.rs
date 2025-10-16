@@ -62,26 +62,30 @@ pub enum ClusteringMethod {
 }
 
 impl ClusteringMethod {
-    /// Fit the clustering method to the samples and get the labels
+    /// Fit the clustering method to the samples and get the Labels
+    ///
+    /// Gives the samples back to reduce need for cloning
     #[must_use]
-    fn fit(self, k: usize, samples: &Array2<Feature>) -> Array1<usize> {
-        match self {
+    fn fit(self, k: usize, samples: Array2<Feature>) -> (Array2<Feature>, Array1<usize>) {
+        let data = Dataset::from(samples);
+        let predictions = match self {
             Self::KMeans => {
                 let model = KMeans::params(k)
                     // .max_n_iterations(MAX_ITERATIONS)
-                    .fit(&Dataset::from(samples.clone()))
+                    .fit(&data)
                     .unwrap();
-                model.predict(samples)
+                model.predict(data.records())
             }
             Self::GaussianMixtureModel => {
                 let model = GaussianMixtureModel::params(k)
                     .init_method(linfa_clustering::GmmInitMethod::KMeans)
                     .n_runs(10)
-                    .fit(&Dataset::from(samples.clone()))
+                    .fit(&data)
                     .unwrap();
-                model.predict(samples)
+                model.predict(data.records())
             }
-        }
+        };
+        (data.records, predictions)
     }
 }
 
@@ -290,7 +294,10 @@ impl ClusteringHelper<NotInitialized> {
             // for each k, cluster the data into k clusters
             .map(|k| {
                 debug!("Fitting k-means to embeddings with k={k}");
-                let labels = self.state.clustering_method.fit(k, &self.state.embeddings);
+                let (_, labels) = self
+                    .state
+                    .clustering_method
+                    .fit(k, self.state.embeddings.clone());
                 (k, labels)
             })
             // for each k, calculate the gap statistic, and the standard deviation of the statistics
@@ -301,9 +308,10 @@ impl ClusteringHelper<NotInitialized> {
                 );
                 let w_kb_log: Vec<_> = reference_data_sets
                     .par_iter()
+                    .cloned()
                     .map(|ref_data| {
                         // cluster the reference data into k clusters
-                        let ref_labels = self.state.clustering_method.fit(k, ref_data);
+                        let (ref_data, ref_labels) = self.state.clustering_method.fit(k, ref_data);
                         // calculate the within intra-cluster variation for the reference data
                         let ref_pairwise_distances =
                             calc_pairwise_distances(ref_data.view(), k, ref_labels.view());
@@ -507,16 +515,16 @@ impl ClusteringHelper<Initialized> {
     #[must_use]
     #[inline]
     pub fn cluster(self) -> ClusteringHelper<Finished> {
-        let labels = self
-            .state
-            .clustering_method
-            .fit(self.state.k, &self.state.embeddings);
+        let Initialized {
+            clustering_method,
+            embeddings,
+            k,
+        } = self.state;
+
+        let (_, labels) = clustering_method.fit(k, embeddings);
 
         ClusteringHelper {
-            state: Finished {
-                labels,
-                k: self.state.k,
-            },
+            state: Finished { labels, k },
         }
     }
 }
