@@ -106,22 +106,12 @@ impl From<Playlist> for PlaylistBrief {
     }
 }
 
-impl From<&Playlist> for PlaylistBrief {
-    #[inline]
-    fn from(playlist: &Playlist) -> Self {
-        Self {
-            id: playlist.id.clone(),
-            name: playlist.name.clone(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use pretty_assertions::assert_eq;
-    use rstest::{fixture, rstest};
+    use rstest::fixture;
 
     #[fixture]
     fn playlist() -> Playlist {
@@ -141,14 +131,9 @@ mod tests {
         }
     }
 
-    #[rstest]
-    #[case(playlist(), playlist_brief())]
-    #[case(&playlist(), playlist_brief())]
-    fn test_playlist_brief_from_playlist<T: Into<PlaylistBrief>>(
-        #[case] playlist: T,
-        #[case] brief: PlaylistBrief,
-    ) {
-        let actual: PlaylistBrief = playlist.into();
-        assert_eq!(actual, brief);
+    #[test]
+    fn test_playlist_brief_from_playlist() {
+        let actual: PlaylistBrief = playlist().into();
+        assert_eq!(actual, playlist_brief());
     }
 }

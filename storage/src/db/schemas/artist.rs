@@ -116,22 +116,12 @@ impl From<Artist> for ArtistBrief {
     }
 }
 
-impl From<&Artist> for ArtistBrief {
-    #[inline]
-    fn from(artist: &Artist) -> Self {
-        Self {
-            id: artist.id.clone(),
-            name: artist.name.clone(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use pretty_assertions::assert_eq;
-    use rstest::{fixture, rstest};
+    use rstest::fixture;
 
     #[fixture]
     fn artist() -> Artist {
@@ -152,14 +142,9 @@ mod tests {
         }
     }
 
-    #[rstest]
-    #[case(artist(), artist_brief())]
-    #[case(&artist(), artist_brief())]
-    fn test_artist_brief_from_artist<T: Into<ArtistBrief>>(
-        #[case] artist: T,
-        #[case] brief: ArtistBrief,
-    ) {
-        let actual: ArtistBrief = artist.into();
-        assert_eq!(actual, brief);
+    #[test]
+    fn test_artist_brief_from_artist() {
+        let actual: ArtistBrief = artist().into();
+        assert_eq!(actual, artist_brief());
     }
 }

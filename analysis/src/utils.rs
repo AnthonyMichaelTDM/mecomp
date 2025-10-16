@@ -73,11 +73,11 @@ pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f
 }
 
 #[allow(clippy::cast_precision_loss)]
-pub(crate) fn mean<T: Clone + Into<f32>>(input: &[T]) -> f32 {
+pub(crate) fn mean(input: &[f32]) -> f32 {
     if input.is_empty() {
         return 0.;
     }
-    input.iter().map(|x| x.clone().into()).sum::<f32>() / input.len() as f32
+    input.iter().sum::<f32>() / input.len() as f32
 }
 
 pub(crate) trait Normalize {
