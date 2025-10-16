@@ -18,7 +18,7 @@ use log::{debug, info};
 use ndarray::{Array, Array1, Array2, ArrayView1, ArrayView2, Axis, Dim};
 use ndarray_rand::RandomExt;
 use rand::distributions::Uniform;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use statrs::statistics::Statistics;
 
 use crate::{
@@ -414,12 +414,10 @@ pub fn convert_to_array(data: Vec<Analysis>) -> AnalysisArray {
 /// the ordering of features is important, meaning that we can't
 /// rotate the data anyway.
 fn generate_reference_datasets(samples: ArrayView2<Feature>, b: usize) -> Vec<FitDataset> {
-    let mut reference_datasets = Vec::with_capacity(b);
-    for _ in 0..b {
-        reference_datasets.push(Dataset::from(generate_ref_single(samples)));
-    }
-
-    reference_datasets
+    (0..b)
+        .into_par_iter()
+        .map(|_| Dataset::from(generate_ref_single(samples.view())))
+        .collect()
 }
 fn generate_ref_single(samples: ArrayView2<Feature>) -> Array2<Feature> {
     let feature_distributions = samples
