@@ -91,22 +91,12 @@ impl From<Collection> for CollectionBrief {
     }
 }
 
-impl From<&Collection> for CollectionBrief {
-    #[inline]
-    fn from(collection: &Collection) -> Self {
-        Self {
-            id: collection.id.clone(),
-            name: collection.name.clone(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use pretty_assertions::assert_eq;
-    use rstest::{fixture, rstest};
+    use rstest::fixture;
 
     #[fixture]
     fn collection() -> Collection {
@@ -126,14 +116,9 @@ mod tests {
         }
     }
 
-    #[rstest]
-    #[case(collection(), collection_brief())]
-    #[case(&collection(), collection_brief())]
-    fn test_collection_brief_from_collection<T: Into<CollectionBrief>>(
-        #[case] collection: T,
-        #[case] brief: CollectionBrief,
-    ) {
-        let actual: CollectionBrief = collection.into();
-        assert_eq!(actual, brief);
+    #[test]
+    fn test_collection_brief_from_collection() {
+        let actual: CollectionBrief = collection().into();
+        assert_eq!(actual, collection_brief());
     }
 }

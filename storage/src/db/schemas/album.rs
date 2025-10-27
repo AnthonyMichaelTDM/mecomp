@@ -124,28 +124,12 @@ impl From<Album> for AlbumBrief {
     }
 }
 
-impl From<&Album> for AlbumBrief {
-    #[inline]
-    fn from(album: &Album) -> Self {
-        Self {
-            id: album.id.clone(),
-            title: album.title.clone(),
-            artist: album.artist.clone(),
-            release: album.release,
-            discs: album.discs,
-            genre: album.genre.clone(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use pretty_assertions::assert_eq;
-    use rstest::{fixture, rstest};
 
-    #[fixture]
     fn album() -> Album {
         Album {
             id: AlbumId::from((TABLE_NAME, "id")),
@@ -159,7 +143,6 @@ mod tests {
         }
     }
 
-    #[fixture]
     fn album_brief() -> AlbumBrief {
         AlbumBrief {
             id: AlbumId::from((TABLE_NAME, "id")),
@@ -171,14 +154,9 @@ mod tests {
         }
     }
 
-    #[rstest]
-    #[case(album(), album_brief())]
-    #[case(&album(), album_brief())]
-    fn test_album_brief_from_album<T: Into<AlbumBrief>>(
-        #[case] album: T,
-        #[case] brief: AlbumBrief,
-    ) {
-        let actual: AlbumBrief = album.into();
-        assert_eq!(actual, brief);
+    #[test]
+    fn test_album_brief_from_album() {
+        let actual: AlbumBrief = album().into();
+        assert_eq!(actual, album_brief());
     }
 }

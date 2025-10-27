@@ -15,7 +15,7 @@ use linfa_nn::distance::{Distance, L2Dist};
 use linfa_reduction::Pca;
 use linfa_tsne::TSneParams;
 use log::{debug, info};
-use ndarray::{Array, Array1, Array2, ArrayView1, ArrayView2, Axis};
+use ndarray::{Array, Array1, Array2, ArrayView1, ArrayView2, Axis, Dim};
 use ndarray_rand::RandomExt;
 use rand::distributions::Uniform;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -54,6 +54,8 @@ impl From<Vec<[Feature; NUMBER_FEATURES]>> for AnalysisArray {
     }
 }
 
+pub type FitDataset = Dataset<Feature, (), Dim<[usize; 1]>>;
+
 #[derive(Clone, Copy, Debug)]
 #[allow(clippy::module_name_repetitions)]
 pub enum ClusteringMethod {
@@ -62,24 +64,24 @@ pub enum ClusteringMethod {
 }
 
 impl ClusteringMethod {
-    /// Fit the clustering method to the samples and get the labels
+    /// Fit the clustering method to the dataset and get the Labels
     #[must_use]
-    fn fit(self, k: usize, samples: &Array2<Feature>) -> Array1<usize> {
+    fn fit(self, k: usize, data: &FitDataset) -> Array1<usize> {
         match self {
             Self::KMeans => {
                 let model = KMeans::params(k)
                     // .max_n_iterations(MAX_ITERATIONS)
-                    .fit(&Dataset::from(samples.clone()))
+                    .fit(data)
                     .unwrap();
-                model.predict(samples)
+                model.predict(data.records())
             }
             Self::GaussianMixtureModel => {
                 let model = GaussianMixtureModel::params(k)
                     .init_method(linfa_clustering::GmmInitMethod::KMeans)
                     .n_runs(10)
-                    .fit(&Dataset::from(samples.clone()))
+                    .fit(data)
                     .unwrap();
-                model.predict(samples)
+                model.predict(data.records())
             }
         }
     }
@@ -280,9 +282,11 @@ impl ClusteringHelper<NotInitialized> {
     /// 4. Choose the number of clusters as the smallest value of k such that the gap statistic is within one standard deviation of the gap at k+1:
     ///    `Gap(k)≥Gap(k + 1)−s_{k + 1}`.
     fn get_optimal_k_gap_statistic(&self, b: u32) -> Result<usize, ClusteringError> {
+        let embedding_dataset = Dataset::from(self.state.embeddings.clone());
+
         // our reference data sets
-        let reference_data_sets =
-            generate_reference_data_set(self.state.embeddings.view(), b as usize);
+        let reference_datasets =
+            generate_reference_datasets(embedding_dataset.records().view(), b as usize);
 
         let b = f64::from(b);
 
@@ -290,7 +294,7 @@ impl ClusteringHelper<NotInitialized> {
             // for each k, cluster the data into k clusters
             .map(|k| {
                 debug!("Fitting k-means to embeddings with k={k}");
-                let labels = self.state.clustering_method.fit(k, &self.state.embeddings);
+                let labels = self.state.clustering_method.fit(k, &embedding_dataset);
                 (k, labels)
             })
             // for each k, calculate the gap statistic, and the standard deviation of the statistics
@@ -299,14 +303,17 @@ impl ClusteringHelper<NotInitialized> {
                 debug!(
                     "Calculating within intra-cluster variation for reference data sets with k={k}"
                 );
-                let w_kb_log: Vec<_> = reference_data_sets
+                let w_kb_log: Vec<_> = reference_datasets
                     .par_iter()
                     .map(|ref_data| {
                         // cluster the reference data into k clusters
                         let ref_labels = self.state.clustering_method.fit(k, ref_data);
                         // calculate the within intra-cluster variation for the reference data
-                        let ref_pairwise_distances =
-                            calc_pairwise_distances(ref_data.view(), k, ref_labels.view());
+                        let ref_pairwise_distances = calc_pairwise_distances(
+                            ref_data.records().view(),
+                            k,
+                            ref_labels.view(),
+                        );
                         calc_within_dispersion(ref_labels.view(), k, ref_pairwise_distances.view())
                             .log2()
                     })
@@ -406,15 +413,15 @@ pub fn convert_to_array(data: Vec<Analysis>) -> AnalysisArray {
 /// and we know that our data is already normalized and that
 /// the ordering of features is important, meaning that we can't
 /// rotate the data anyway.
-fn generate_reference_data_set(samples: ArrayView2<Feature>, b: usize) -> Vec<Array2<f64>> {
-    let mut reference_data_sets = Vec::with_capacity(b);
+fn generate_reference_datasets(samples: ArrayView2<Feature>, b: usize) -> Vec<FitDataset> {
+    let mut reference_datasets = Vec::with_capacity(b);
     for _ in 0..b {
-        reference_data_sets.push(generate_ref_single(samples));
+        reference_datasets.push(Dataset::from(generate_ref_single(samples)));
     }
 
-    reference_data_sets
+    reference_datasets
 }
-fn generate_ref_single(samples: ArrayView2<Feature>) -> Array2<f64> {
+fn generate_ref_single(samples: ArrayView2<Feature>) -> Array2<Feature> {
     let feature_distributions = samples
         .axis_iter(Axis(1))
         .map(|feature| Array::random(feature.dim(), Uniform::new(feature.min(), feature.max())))
@@ -507,16 +514,17 @@ impl ClusteringHelper<Initialized> {
     #[must_use]
     #[inline]
     pub fn cluster(self) -> ClusteringHelper<Finished> {
-        let labels = self
-            .state
-            .clustering_method
-            .fit(self.state.k, &self.state.embeddings);
+        let Initialized {
+            clustering_method,
+            embeddings,
+            k,
+        } = self.state;
+
+        let embedding_dataset = Dataset::from(embeddings);
+        let labels = clustering_method.fit(k, &embedding_dataset);
 
         ClusteringHelper {
-            state: Finished {
-                labels,
-                k: self.state.k,
-            },
+            state: Finished { labels, k },
         }
     }
 }

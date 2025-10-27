@@ -24,7 +24,7 @@ struct Flags {
     port: Option<u16>,
 }
 
-#[tokio::main(flavor = "multi_thread")]
+#[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() -> anyhow::Result<()> {
     clap_complete::CompleteEnv::with_factory(Flags::command).complete();
     init_panic_hook();
@@ -65,10 +65,8 @@ async fn main() -> anyhow::Result<()> {
         ),
         Subscriber.main_loop(daemon, action_tx, interrupt_rx.resubscribe())
     ) {
-        panic!("unexpected error: {e:?}")
-    }
-
-    if let Ok(reason) = interrupt_rx.recv().await {
+        eprintln!("unexpected error: {e:?}");
+    } else if let Ok(reason) = interrupt_rx.recv().await {
         match reason {
             Interrupted::UserInt => println!("exited per user request"),
             Interrupted::OsSigInt => println!("exited because of an os sig int"),
