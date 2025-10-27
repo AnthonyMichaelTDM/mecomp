@@ -21,7 +21,7 @@ pub enum CompletableTable {
 /// from that table.
 pub fn complete_things(table: CompletableTable) -> impl Fn() -> Vec<CompletionCandidate> {
     move || {
-        let rt = tokio::runtime::Builder::new_multi_thread()
+        let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("Failed to create Tokio runtime");

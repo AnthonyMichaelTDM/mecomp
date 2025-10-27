@@ -28,7 +28,7 @@ struct Flags {
     log_level: LevelFilter,
 }
 
-#[tokio::main(flavor = "multi_thread")]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     clap_complete::CompleteEnv::with_factory(Flags::command).complete();
 
