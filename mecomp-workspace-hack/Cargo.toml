@@ -36,6 +36,7 @@ ignored = [
     "futures-io",
     "futures-lite",
     "futures-util",
+    "hashbrown",
     "indexmap",
     "itertools-594e8ee84c453af0",
     "itertools-a6292c17cd707f01",
@@ -79,8 +80,10 @@ ignored = [
     "tracing-subscriber",
     "tracing-core",
     "ulid",
+    "uuid",
     "unicode-xid",
     "winnow",
+    "zerocopy",
 ]
 
 [lib]
@@ -97,24 +100,8 @@ approx = { version = "0.5" }
 bitflags = { version = "2", default-features = false, features = ["std"] }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
-clap = { version = "4", default-features = false, features = [
-    "color",
-    "derive",
-    "error-context",
-    "help",
-    "std",
-    "suggestions",
-    "unstable-ext",
-    "usage",
-] }
-clap_builder = { version = "4", default-features = false, features = [
-    "color",
-    "help",
-    "std",
-    "suggestions",
-    "unstable-ext",
-    "usage",
-] }
+clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
+clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
 concurrent-queue = { version = "2" }
 criterion = { version = "0.7", features = ["async_tokio", "html_reports"] }
 crossbeam-utils = { version = "0.8" }
@@ -128,6 +115,7 @@ futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-lite = { version = "2" }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
+hashbrown = { version = "0.16", default-features = false, features = ["inline-more"] }
 indexmap = { version = "2", features = ["serde"] }
 itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
@@ -145,16 +133,7 @@ quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
 rand_core = { version = "0.6", default-features = false, features = ["std"] }
 regex = { version = "1" }
-regex-automata = { version = "0.4", default-features = false, features = [
-    "dfa-build",
-    "dfa-onepass",
-    "hybrid",
-    "meta",
-    "nfa-backtrack",
-    "perf",
-    "std",
-    "unicode",
-] }
+regex-automata = { version = "0.4", default-features = false, features = ["dfa-build", "dfa-onepass", "hybrid", "meta", "nfa-backtrack", "perf", "std", "unicode"] }
 regex-syntax = { version = "0.8" }
 rustfft = { version = "6" }
 semver = { version = "1", features = ["serde"] }
@@ -163,59 +142,27 @@ serde_core = { version = "1", features = ["alloc", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
-symphonia = { version = "0.5", default-features = false, features = [
-    "all-codecs",
-    "all-formats",
-    "opt-simd",
-] }
-symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = [
-    "mp1",
-    "mp2",
-    "mp3",
-] }
-symphonia-core = { version = "0.5", features = [
-    "opt-simd-avx",
-    "opt-simd-neon",
-    "opt-simd-sse",
-] }
-symphonia-format-riff = { version = "0.5", default-features = false, features = [
-    "aiff",
-    "wav",
-] }
-syn = { version = "2", features = [
-    "extra-traits",
-    "fold",
-    "full",
-    "visit",
-    "visit-mut",
-] }
+symphonia = { version = "0.5", default-features = false, features = ["all-codecs", "all-formats", "opt-simd"] }
+symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = ["mp1", "mp2", "mp3"] }
+symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
+symphonia-format-riff = { version = "0.5", default-features = false, features = ["aiff", "wav"] }
+syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 thiserror = { version = "2" }
-tokio = { version = "1", features = [
-    "io-std",
-    "io-util",
-    "macros",
-    "net",
-    "rt-multi-thread",
-    "signal",
-    "sync",
-    "time",
-    "tracing",
-] }
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
 toml_datetime = { version = "0.7", features = ["serde"] }
 toml_parser = { version = "1" }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
-tracing-log = { version = "0.2", default-features = false, features = [
-    "log-tracer",
-    "std",
-] }
+tracing-log = { version = "0.2", default-features = false, features = ["log-tracer", "std"] }
 tracing-opentelemetry = { version = "0.31" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
+uuid = { version = "1", features = ["serde"] }
 winnow = { version = "0.7" }
+zerocopy = { version = "0.8", default-features = false, features = ["derive", "simd"] }
 
 [build-dependencies]
 anstream = { version = "0.6" }
@@ -225,24 +172,8 @@ bitflags = { version = "2", default-features = false, features = ["std"] }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
 cc = { version = "1", default-features = false, features = ["parallel"] }
-clap = { version = "4", default-features = false, features = [
-    "color",
-    "derive",
-    "error-context",
-    "help",
-    "std",
-    "suggestions",
-    "unstable-ext",
-    "usage",
-] }
-clap_builder = { version = "4", default-features = false, features = [
-    "color",
-    "help",
-    "std",
-    "suggestions",
-    "unstable-ext",
-    "usage",
-] }
+clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
+clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
 concurrent-queue = { version = "2" }
 criterion = { version = "0.7", features = ["async_tokio", "html_reports"] }
 crossbeam-utils = { version = "0.8" }
@@ -256,6 +187,7 @@ futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-lite = { version = "2" }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
+hashbrown = { version = "0.16", default-features = false, features = ["inline-more"] }
 indexmap = { version = "2", features = ["serde"] }
 itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
@@ -273,16 +205,7 @@ quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
 rand_core = { version = "0.6", default-features = false, features = ["std"] }
 regex = { version = "1" }
-regex-automata = { version = "0.4", default-features = false, features = [
-    "dfa-build",
-    "dfa-onepass",
-    "hybrid",
-    "meta",
-    "nfa-backtrack",
-    "perf",
-    "std",
-    "unicode",
-] }
+regex-automata = { version = "0.4", default-features = false, features = ["dfa-build", "dfa-onepass", "hybrid", "meta", "nfa-backtrack", "perf", "std", "unicode"] }
 regex-syntax = { version = "0.8" }
 rustfft = { version = "6" }
 semver = { version = "1", features = ["serde"] }
@@ -291,58 +214,26 @@ serde_core = { version = "1", features = ["alloc", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
-symphonia = { version = "0.5", default-features = false, features = [
-    "all-codecs",
-    "all-formats",
-    "opt-simd",
-] }
-symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = [
-    "mp1",
-    "mp2",
-    "mp3",
-] }
-symphonia-core = { version = "0.5", features = [
-    "opt-simd-avx",
-    "opt-simd-neon",
-    "opt-simd-sse",
-] }
-symphonia-format-riff = { version = "0.5", default-features = false, features = [
-    "aiff",
-    "wav",
-] }
-syn = { version = "2", features = [
-    "extra-traits",
-    "fold",
-    "full",
-    "visit",
-    "visit-mut",
-] }
+symphonia = { version = "0.5", default-features = false, features = ["all-codecs", "all-formats", "opt-simd"] }
+symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = ["mp1", "mp2", "mp3"] }
+symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
+symphonia-format-riff = { version = "0.5", default-features = false, features = ["aiff", "wav"] }
+syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 thiserror = { version = "2" }
-tokio = { version = "1", features = [
-    "io-std",
-    "io-util",
-    "macros",
-    "net",
-    "rt-multi-thread",
-    "signal",
-    "sync",
-    "time",
-    "tracing",
-] }
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
 toml_datetime = { version = "0.7", features = ["serde"] }
 toml_parser = { version = "1" }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
-tracing-log = { version = "0.2", default-features = false, features = [
-    "log-tracer",
-    "std",
-] }
+tracing-log = { version = "0.2", default-features = false, features = ["log-tracer", "std"] }
 tracing-opentelemetry = { version = "0.31" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
+uuid = { version = "1", features = ["serde"] }
 winnow = { version = "0.7" }
+zerocopy = { version = "0.8", default-features = false, features = ["derive", "simd"] }
 
 ### END HAKARI SECTION
