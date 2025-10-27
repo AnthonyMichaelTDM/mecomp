@@ -1,5 +1,40 @@
 # Mecomp Changelog
 
+## v0.5.7
+
+### v0.5.7 What's Changed
+
+* chore(deps): bump taiki-e/install-action from 2.62.21 to 2.62.29 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/380
+* chore(deps): bump github/codeql-action from 3.30.6 to 4.30.8 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/374
+* chore(deps): bump crate-ci/typos from 1.37.2 to 1.38.1 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/372
+* chore(deps): bump softprops/action-gh-release from 2.3.4 to 2.4.1 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/377
+* fix(tui): handle "_ in progress" errors for certain actions by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/382
+* fix(tui): properly handle delete key for input-box by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/383
+* feat(dynamic updates): use locks for the dynamic updates to hopefully… by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/386
+* feat(tui): add a refresh key  by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/387
+* Some cleanup + optimization by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/393
+* Less state synchro by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/394
+
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.5.6...v0.5.7
+
+## v0.5.6
+
+### v0.5.6 What's Changed
+
+* Udp improvements, and clippy by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/352
+* pin dependencies by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/353
+* chore(deps): bump codecov/codecov-action from 5.4.0 to 5.4.2 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/276
+* feat(tui): default to "connecting with retry" behavior when initializing client by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/362
+* feat: update to surrealdb v2.3.10 by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/363
+* chore(deps): bump taiki-e/install-action from 2.62.13 to 2.62.16 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/357
+* chore(deps): bump github/codeql-action from 3.30.5 to 3.30.6 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/358
+* chore(deps): bump crate-ci/typos from 1.36.3 to 1.37.2 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/361
+* feat(analysis): migrate to linfa 0.8.0, and improve clustering performance by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/365
+* chore(deps): bump softprops/action-gh-release from 2.3.3 to 2.3.4 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/360
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.5.5...v0.5.6
+
 ## v0.5.5
 
 ### v0.5.5 What's Changed
