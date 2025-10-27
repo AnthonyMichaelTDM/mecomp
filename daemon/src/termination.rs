@@ -223,19 +223,11 @@ pub fn create_termination() -> (Terminator, InterruptReceiver) {
     let terminator = Terminator::new(tx);
     let interrupt = InterruptReceiver::new(rx);
 
-    // runtime for the terminator
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .thread_name("mecomp-terminator")
-        .build()
-        .unwrap();
     let terminator_clone = terminator.clone();
-
-    std::thread::spawn(move || {
-        rt.block_on(async {
-            terminate_by_signal(terminator_clone).await;
-        });
-    });
+    std::thread::Builder::new()
+        .name(String::from("mecomp-terminator"))
+        .spawn(move || futures::executor::block_on(terminate_by_signal(terminator_clone)))
+        .unwrap();
 
     (terminator, interrupt)
 }

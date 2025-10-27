@@ -64,6 +64,8 @@ insta.opt-level = 3
 similar.opt-level = 3
 # Set math libraries to optimize for speed in tests
 linfa.opt-level = 3
+linfa-linalg.opt-level = 3
+linfa-reduction.opt-level = 3
 linfa-clustering.opt-level = 3
 linfa-tsne.opt-level = 3
 linfa-nn.opt-level = 3
