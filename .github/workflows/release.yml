@@ -129,6 +129,13 @@ jobs:
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           fi
+      - name: "install cargo-hakari"
+        uses: "taiki-e/install-action@v2.62.29"
+        with:
+          "tool": "cargo-hakari"
+      - name: "remove workspace-hack from crates"
+        run: |
+          "cargo hakari remove-deps -y"
       - name: Install dist
         run: ${{ matrix.install_dist.run }}
       # Get the dist-manifest
