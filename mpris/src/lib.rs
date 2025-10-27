@@ -182,13 +182,12 @@ impl Subscriber {
 
         #[allow(clippy::redundant_pub_crate)]
         loop {
-            let daemon = server.imp().daemon().await;
             let mut state = server.imp().state.write().await;
 
             tokio::select! {
                 Ok(message) = listener.recv() => {
                     match self
-                        .handle_message(message, &mut state, daemon.as_ref())
+                        .handle_message(message, &mut state, || async { server.imp().daemon().await.clone() })
                         .await?
                     {
                         MessageOutcomes::Nothing => continue,
@@ -198,6 +197,9 @@ impl Subscriber {
                     }
                 }
                 _ = ticker.tick() => {
+                    if state.paused() {
+                        continue;
+                    }
                     if let Some(runtime) = &mut state.runtime {
                         runtime.seek_position += TICK_RATE;
                         runtime.seek_percent = Percent::new(runtime.seek_position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0);
@@ -211,6 +213,8 @@ impl Subscriber {
 
     /// Handle a message received from the UDP socket.
     ///
+    /// Takes a closure that it can use to get a reference to the daemon client when needed.
+    ///
     /// # Returns
     ///
     /// Either nothing, a signal, a list of changed properties, or a notification to quit.
@@ -218,12 +222,15 @@ impl Subscriber {
     /// # Errors
     ///
     /// Returns an error if the message cannot be handled.
-    pub async fn handle_message(
+    pub async fn handle_message<D>(
         &self,
         message: Message,
         state: &mut StateAudio,
-        daemon: Option<&MusicPlayerClient>,
-    ) -> anyhow::Result<MessageOutcomes> {
+        get_daemon: D,
+    ) -> anyhow::Result<MessageOutcomes>
+    where
+        D: AsyncFnOnce() -> Option<MusicPlayerClient>,
+    {
         log::info!("Received event: {message:?}");
         match message {
             Message::Event(
@@ -252,7 +259,7 @@ impl Subscriber {
             Message::StateChange(StateChange::TrackChanged(_)) => {
                 let context = Context::current();
                 // we'll need to update the internal state with the new song (and it's duration info and such)
-                if let Some(daemon) = daemon {
+                if let Some(daemon) = get_daemon().await.as_ref() {
                     *state = daemon
                         .state_audio(context)
                         .await
@@ -390,7 +397,7 @@ mod subscriber_tests {
         let state = &mut StateAudio::default();
 
         let actual = Subscriber
-            .handle_message(message, state, Some(&daemon))
+            .handle_message(message, state, || async { Some(daemon) })
             .await
             .unwrap();
 
