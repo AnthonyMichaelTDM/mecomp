@@ -328,6 +328,16 @@ struct Props {
     collections: Box<[CollectionBrief]>,
     sort_mode: NameSort<CollectionBrief>,
 }
+impl Props {
+    fn new(state: &AppState, sort_mode: NameSort<CollectionBrief>) -> Self {
+        let mut collections = state.library.collections.clone();
+        sort_mode.sort_items(&mut collections);
+        Self {
+            collections,
+            sort_mode,
+        }
+    }
+}
 
 impl Component for LibraryCollectionsView {
     fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self
@@ -335,14 +345,9 @@ impl Component for LibraryCollectionsView {
         Self: Sized,
     {
         let sort_mode = NameSort::default();
-        let mut collections = state.library.collections.clone();
-        sort_mode.sort_items(&mut collections);
         Self {
             action_tx,
-            props: Props {
-                collections,
-                sort_mode,
-            },
+            props: Props::new(state, sort_mode),
             tree_state: Mutex::new(CheckTreeState::default()),
         }
     }
@@ -351,8 +356,6 @@ impl Component for LibraryCollectionsView {
     where
         Self: Sized,
     {
-        let mut collections = state.library.collections.clone();
-        self.props.sort_mode.sort_items(&mut collections);
         let tree_state = if state.active_view == ActiveView::Collections {
             self.tree_state
         } else {
@@ -360,10 +363,7 @@ impl Component for LibraryCollectionsView {
         };
 
         Self {
-            props: Props {
-                collections,
-                ..self.props
-            },
+            props: Props::new(state, self.props.sort_mode),
             tree_state,
             ..self
         }
