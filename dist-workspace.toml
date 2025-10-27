@@ -17,6 +17,8 @@ install-path = "CARGO_HOME"
 install-updater = true
 # Whether to enable GitHub Attestations
 github-attestations = true
+# Additional steps to run when building release binaries
+github-build-setup = "../dist/remove-workspace-hack.yml"
 
 [dist.github-custom-runners]
 x86_64-pc-windows-msvc = "windows-2022"

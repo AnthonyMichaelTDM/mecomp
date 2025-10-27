@@ -1,0 +1,7 @@
+- name: install cargo-hakari
+  uses: taiki-e/install-action@v2.62.29
+  with:
+    tool: cargo-hakari
+- name: remove workspace-hack from crates
+  run: |
+    cargo hakari remove-deps -y
