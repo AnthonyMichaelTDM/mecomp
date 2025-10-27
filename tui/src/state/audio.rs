@@ -56,8 +56,7 @@ impl AudioState {
         let mut ticker = tokio::time::interval(TICK_RATE);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
-        let mut update_ticker = tokio::time::interval(Duration::from_secs(1));
-        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut time_last = tokio::time::Instant::now();
 
         let result = loop {
             tokio::select! {
@@ -93,14 +92,11 @@ impl AudioState {
                         continue;
                     }
                     if let Some(runtime) = &mut state.runtime {
-                        runtime.seek_position+= TICK_RATE;
+                        // push the seek position forward by how much time has passed since the last tick
+                        runtime.seek_position+= time_last.elapsed();
                         runtime.seek_percent =
                             Percent::new(runtime.seek_position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0);
                     }
-                },
-                // force a state update every second
-                _ = update_ticker.tick() => {
-                    update_needed = true;
                 },
                 // Catch and handle interrupt signal to gracefully shutdown
                 Ok(interrupted) = interrupt_rx.recv() => {
@@ -112,6 +108,7 @@ impl AudioState {
                 update_needed = false;
             }
             self.state_tx.send(state.clone())?;
+            time_last = tokio::time::Instant::now();
         };
 
         Ok(result)
