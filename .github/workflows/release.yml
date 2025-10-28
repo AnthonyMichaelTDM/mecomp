@@ -133,8 +133,10 @@ jobs:
         uses: "taiki-e/install-action@v2.62.29"
         with:
           "tool": "cargo-hakari"
-      - name: "remove workspace-hack from crates"
-        run: "cargo-hakari remove-deps -y"
+      - name: "remove workspace-hack from crates, then generate lockfile if needed"
+        run: |
+          cargo-hakari remove-deps -y || cargo generate-lockfile --offline
+          git status
       - name: Install dist
         run: ${{ matrix.install_dist.run }}
       # Get the dist-manifest
