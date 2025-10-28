@@ -3,5 +3,4 @@
   with:
     tool: cargo-hakari
 - name: remove workspace-hack from crates
-  run: |
-    cargo hakari remove-deps -y
+  run: cargo-hakari remove-deps -y

@@ -134,8 +134,7 @@ jobs:
         with:
           "tool": "cargo-hakari"
       - name: "remove workspace-hack from crates"
-        run: |
-          "cargo hakari remove-deps -y"
+        run: "cargo-hakari remove-deps -y"
       - name: Install dist
         run: ${{ matrix.install_dist.run }}
       # Get the dist-manifest
