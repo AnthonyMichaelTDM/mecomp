@@ -1,5 +1,15 @@
 # Mecomp Changelog
 
+## v0.5.8
+
+### v0.5.8 What's Changed
+
+* fix(daemon): panic in terminator thread by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/395
+* feat: add cargo-hakari cleanup step to release workflow by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/396
+
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.5.7...v0.5.8
+
 ## v0.5.7
 
 ### v0.5.7 What's Changed

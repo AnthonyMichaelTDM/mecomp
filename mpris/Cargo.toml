@@ -32,12 +32,12 @@ clap_complete.workspace = true
 log.workspace = true
 mecomp-core = { workspace = true, features = ["rpc"] }
 mecomp-storage = { workspace = true }
-mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 mpris-server.workspace = true
 percent-encoding.workspace = true
 shellexpand.workspace = true
 tarpc.workspace = true
 tokio.workspace = true
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
 one-or-many = { workspace = true }
