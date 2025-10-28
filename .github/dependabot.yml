@@ -5,24 +5,23 @@
 
 version: 2
 updates:
-
   # Maintain dependencies for Cargo
   - package-ecosystem: "cargo" # See documentation for possible values
     directory: "./" # Location of package manifests
     # milestone: 5
     schedule:
-      interval: "daily"
-      
+      interval: "weekly"
+
   # Maintain dependencies for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "./"
     # milestone: 5
     schedule:
-      interval: "daily"
+      interval: "weekly"
 
   # Keep submodules updated
   - package-ecosystem: "gitsubmodule"
     directory: "./"
     # milestone: 5
     schedule:
-      interval: "daily"
+      interval: "weekly"
