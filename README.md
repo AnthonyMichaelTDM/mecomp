@@ -52,64 +52,22 @@ cd mecomp
 
 this will compile the project and place the binaries in the `target/release` directory.
 
-### Using CD Builds
-
-As part of the CI/CD pipeline, we provide pre-compiled binaries for the latest commits on the `main` branch.
-You can find these by navigating to the [actions tab](https://github.com/AnthonyMichaelTDM/mecomp/actions/workflows/cd.yml) and downloading the artifacts for the latest successful build.
-
-The artifacts you'll want to download are dependent on your platform:
-
-<details>
-<summary>x86_64 Windows</summary>
-
-- `mecomp-cli-Windows-x86_64`
-- `mecomp-daemon-Windows-x86_64`
-- `mecomp-tui-Windows-x86_64`
-
-</details>
-
-<details>
-<summary>arm Windows</summary>
-
-- `mecomp-cli-Windows-aarch64`
-- `mecomp-daemon-Windows-aarch64`
-- `mecomp-tui-Windows-aarch64`
-
-</details>
-
-<details>
-<summary>arm (Apple Silicon) Mac</summary>
-
-- `mecomp-cli-macOs-aarch64`
-- `mecomp-daemon-macOs-aarch64`
-- `mecomp-tui-macOs-aarch64`
-
-</details>
-
-<details>
-<summary>x86_64 (intel) Mac</summary>
-
-- `mecomp-cli-macOs-x86_64`
-- `mecomp-daemon-macOs-x86_64`
-- `mecomp-tui-macOs-x86_64`
-
-</details>
-
-<details>
-<summary>x86_64 Linux</summary>
-
-- `mecomp-cli-Linux-x86_64`
-- `mecomp-daemon-Linux-x86_64`
-- `mecomp-tui-Linux-x86_64`
-
-</details>
-
-Other platforms are not currently supported, but you can try compiling the binaries from source.
-
 ### Releases
 
 Precompiled binaries for the latest releases can be found on the [releases page](https://github.com/AnthonyMichaelTDM/mecomp/releases).
 Checksums for the binaries are attached to the release notes.
+
+The following platforms are supported:
+- macOS (aarch64)
+- Linux (x86_64)
+- Windows (x86_64)
+
+You can download the appropriate binary for your platform and extract it to a directory of your choice, use the provided installers, or use `cargo binstall` as described below:
+
+```sh
+cargo install cargo-binstall
+cargo binstall mecomp-daemon mecomp-cli mecomp-tui
+```
 
 ### Crates.io
 
