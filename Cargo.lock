@@ -3248,7 +3248,6 @@ dependencies = [
  "serde",
  "serde_json",
  "surrealdb",
- "tap",
  "tarpc",
  "tempfile",
  "tokio",

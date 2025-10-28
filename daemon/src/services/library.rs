@@ -15,7 +15,6 @@ use mecomp_core::{
 };
 use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
-use tap::TapFallible;
 use tracing::{Instrument, instrument};
 use walkdir::WalkDir;
 
@@ -127,11 +126,11 @@ pub async fn rescan<C: Connection>(
             .iter()
             .filter_map(|p| {
                 p.canonicalize()
-                    .tap_err(|e| warn!("Error canonicalizing path: {e}"))
+                    .inspect_err(|e| warn!("Error canonicalizing path: {e}"))
                     .ok()
             })
             .flat_map(|x| WalkDir::new(x).into_iter())
-            .filter_map(|x| x.tap_err(|e| warn!("Error reading path: {e}")).ok())
+            .filter_map(|x| x.inspect_err(|e| warn!("Error reading path: {e}")).ok())
             .filter_map(|x| x.file_type().is_file().then_some(x))
         {
             if !visited_paths.insert(path.path().to_owned()) {
