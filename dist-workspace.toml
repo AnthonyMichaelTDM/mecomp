@@ -17,6 +17,8 @@ install-path = "CARGO_HOME"
 install-updater = true
 # Whether to enable GitHub Attestations
 github-attestations = true
+# What to do for PR runs
+pr-run-mode = "upload" # "plan"
 # Additional steps to run when building release binaries
 github-build-setup = "../dist/remove-workspace-hack.yml"
 
