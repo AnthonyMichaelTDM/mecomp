@@ -7,5 +7,7 @@
     ls -la .
     pwd
     cargo generate-lockfile
-- name: remove workspace-hack from crates
-  run: RUST_BACKTRACE=full cargo-hakari remove-deps -y
+- name: remove workspace-hack from crates, then generate lockfile if needed
+  run: |
+    cargo-hakari remove-deps -y || cargo generate-lockfile --offline
+    git status
