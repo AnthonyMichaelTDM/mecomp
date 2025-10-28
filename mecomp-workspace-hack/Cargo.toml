@@ -156,7 +156,7 @@ toml_parser = { version = "1" }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
 tracing-log = { version = "0.2", default-features = false, features = ["log-tracer", "std"] }
-tracing-opentelemetry = { version = "0.31" }
+tracing-opentelemetry = { version = "0.32" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
@@ -228,7 +228,7 @@ toml_parser = { version = "1" }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
 tracing-log = { version = "0.2", default-features = false, features = ["log-tracer", "std"] }
-tracing-opentelemetry = { version = "0.31" }
+tracing-opentelemetry = { version = "0.32" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
