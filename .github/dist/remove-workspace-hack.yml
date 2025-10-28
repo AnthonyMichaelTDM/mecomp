@@ -2,11 +2,6 @@
   uses: taiki-e/install-action@v2.62.29
   with:
     tool: cargo-hakari
-- name: "Generate Cargo.lock if missing"
-  run: |
-    ls -la .
-    pwd
-    cargo generate-lockfile
 - name: remove workspace-hack from crates, then generate lockfile if needed
   run: |
     cargo-hakari remove-deps -y || cargo generate-lockfile --offline

@@ -133,19 +133,10 @@ jobs:
         uses: "taiki-e/install-action@v2.62.29"
         with:
           "tool": "cargo-hakari"
-      - name: "Generate Cargo.lock if missing"
-        run: |
-          ls -la .
-          pwd
-          cargo generate-lockfile
       - name: "remove workspace-hack from crates, then generate lockfile if needed"
         run: |
           cargo-hakari remove-deps -y || cargo generate-lockfile --offline
           git status
-      - uses: swatinem/rust-cache@v2
-        with:
-          key: ${{ join(matrix.targets, '-') }}
-          cache-provider: ${{ matrix.cache_provider }}
       - name: Install dist
         run: ${{ matrix.install_dist.run }}
       # Get the dist-manifest
