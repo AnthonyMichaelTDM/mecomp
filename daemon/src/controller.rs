@@ -4,7 +4,6 @@ use std::{fs::File, ops::Range, path::PathBuf, sync::Arc, time::Duration};
 use ::tarpc::context::Context;
 use log::{debug, error, info, warn};
 use surrealdb::{Surreal, engine::local::Db};
-use tap::TapFallible;
 use tokio::sync::Mutex;
 use tracing::{Instrument, instrument};
 //-------------------------------------------------------------------------------- MECOMP libraries
@@ -248,7 +247,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library brief");
         Ok(services::library::brief(&self.db)
             .await
-            .tap_err(|e| warn!("Error in library_brief: {e}"))?)
+            .inspect_err(|e| warn!("Error in library_brief: {e}"))?)
     }
     /// Returns full information about the music library. (all songs, artists, albums, etc.)
     #[instrument]
@@ -256,7 +255,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library full");
         Ok(services::library::full(&self.db)
             .await
-            .tap_err(|e| warn!("Error in library_full: {e}"))?)
+            .inspect_err(|e| warn!("Error in library_full: {e}"))?)
     }
     /// Returns brief information about the music library's artists.
     #[instrument]
@@ -267,7 +266,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library artists brief");
         Ok(Artist::read_all_brief(&self.db)
             .await
-            .tap_err(|e| warn!("Error in library_artists_brief: {e}"))?
+            .inspect_err(|e| warn!("Error in library_artists_brief: {e}"))?
             .into_boxed_slice())
     }
     /// Returns full information about the music library's artists.
@@ -279,7 +278,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library artists full");
         Ok(Artist::read_all(&self.db)
             .await
-            .tap_err(|e| warn!("Error in library_artists_brief: {e}"))?
+            .inspect_err(|e| warn!("Error in library_artists_brief: {e}"))?
             .into_boxed_slice())
     }
     /// Returns brief information about the music library's albums.
@@ -291,7 +290,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library albums brief");
         Ok(Album::read_all_brief(&self.db)
             .await
-            .tap_err(|e| warn!("Error in library_albums_brief: {e}"))?
+            .inspect_err(|e| warn!("Error in library_albums_brief: {e}"))?
             .into_boxed_slice())
     }
     /// Returns full information about the music library's albums.
@@ -304,7 +303,7 @@ impl MusicPlayer for MusicPlayerServer {
         Ok(Album::read_all(&self.db)
             .await
             .map(std::vec::Vec::into_boxed_slice)
-            .tap_err(|e| warn!("Error in library_albums_full: {e}"))?)
+            .inspect_err(|e| warn!("Error in library_albums_full: {e}"))?)
     }
     /// Returns brief information about the music library's songs.
     #[instrument]
@@ -315,7 +314,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library songs brief");
         Ok(Song::read_all_brief(&self.db)
             .await
-            .tap_err(|e| warn!("Error in library_songs_brief: {e}"))?
+            .inspect_err(|e| warn!("Error in library_songs_brief: {e}"))?
             .into_boxed_slice())
     }
     /// Returns full information about the music library's songs.
@@ -327,7 +326,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library songs full");
         Ok(Song::read_all(&self.db)
             .await
-            .tap_err(|e| warn!("Error in library_songs_full: {e}"))?
+            .inspect_err(|e| warn!("Error in library_songs_full: {e}"))?
             .into_boxed_slice())
     }
     /// Returns brief information about the users playlists.
@@ -339,7 +338,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library playlists brief");
         Ok(Playlist::read_all_brief(&self.db)
             .await
-            .tap_err(|e| warn!("Error in library_playlists_brief: {e}"))?
+            .inspect_err(|e| warn!("Error in library_playlists_brief: {e}"))?
             .into_boxed_slice())
     }
     /// Returns full information about the users playlists.
@@ -351,7 +350,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library playlists full");
         Ok(Playlist::read_all(&self.db)
             .await
-            .tap_err(|e| warn!("Error in library_playlists_full: {e}"))?
+            .inspect_err(|e| warn!("Error in library_playlists_full: {e}"))?
             .into_boxed_slice())
     }
     /// Return brief information about the users collections.
@@ -363,7 +362,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library collections brief");
         Ok(Collection::read_all_brief(&self.db)
             .await
-            .tap_err(|e| warn!("Error in library_collections_brief: {e}"))?
+            .inspect_err(|e| warn!("Error in library_collections_brief: {e}"))?
             .into_boxed_slice())
     }
     /// Return full information about the users collections.
@@ -375,7 +374,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library collections full");
         Ok(Collection::read_all(&self.db)
             .await
-            .tap_err(|e| warn!("Error in library_collections_full: {e}"))?
+            .inspect_err(|e| warn!("Error in library_collections_full: {e}"))?
             .into_boxed_slice())
     }
     /// Returns information about the health of the music library (are there any missing files, etc.)
@@ -387,7 +386,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Creating library health");
         Ok(services::library::health(&self.db)
             .await
-            .tap_err(|e| warn!("Error in library_health: {e}"))?)
+            .inspect_err(|e| warn!("Error in library_health: {e}"))?)
     }
     /// Get a song by its ID.
     #[instrument]
@@ -396,7 +395,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting song by ID: {id}");
         Song::read(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_song_get: {e}"))
+            .inspect_err(|e| warn!("Error in library_song_get: {e}"))
             .unwrap_or_default()
     }
     /// Get a song by its file path.
@@ -405,7 +404,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting song by path: {}", path.display());
         Song::read_by_path(&self.db, path)
             .await
-            .tap_err(|e| warn!("Error in library_song_get_by_path: {e}"))
+            .inspect_err(|e| warn!("Error in library_song_get_by_path: {e}"))
             .unwrap_or_default()
     }
     /// Get the artists of a song.
@@ -415,7 +414,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting artist of: {id}");
         Song::read_artist(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_song_get_artist: {e}"))
+            .inspect_err(|e| warn!("Error in library_song_get_artist: {e}"))
             .unwrap_or_default()
     }
     /// Get the album of a song.
@@ -425,7 +424,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting album of: {id}");
         Song::read_album(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_song_get_album: {e}"))
+            .inspect_err(|e| warn!("Error in library_song_get_album: {e}"))
             .unwrap_or_default()
     }
     /// Get the Playlists a song is in.
@@ -435,7 +434,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting playlists of: {id}");
         Song::read_playlists(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_song_get_playlists: {e}"))
+            .inspect_err(|e| warn!("Error in library_song_get_playlists: {e}"))
             .ok()
             .unwrap_or_default()
             .into()
@@ -447,7 +446,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting collections of: {id}");
         Song::read_collections(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_song_get_collections: {e}"))
+            .inspect_err(|e| warn!("Error in library_song_get_collections: {e}"))
             .ok()
             .unwrap_or_default()
             .into()
@@ -460,7 +459,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting album by ID: {id}");
         Album::read(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_album_get: {e}"))
+            .inspect_err(|e| warn!("Error in library_album_get: {e}"))
             .ok()
             .flatten()
     }
@@ -471,7 +470,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting artists of: {id}");
         Album::read_artist(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_album_get_artist: {e}"))
+            .inspect_err(|e| warn!("Error in library_album_get_artist: {e}"))
             .ok()
             .into()
     }
@@ -482,7 +481,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting songs of: {id}");
         Album::read_songs(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_album_get_songs: {e}"))
+            .inspect_err(|e| warn!("Error in library_album_get_songs: {e}"))
             .ok()
             .map(Vec::into_boxed_slice)
     }
@@ -493,7 +492,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting artist by ID: {id}");
         Artist::read(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_artist_get: {e}"))
+            .inspect_err(|e| warn!("Error in library_artist_get: {e}"))
             .ok()
             .flatten()
     }
@@ -504,7 +503,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting songs of: {id}");
         Artist::read_songs(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_artist_get_songs: {e}"))
+            .inspect_err(|e| warn!("Error in library_artist_get_songs: {e}"))
             .ok()
             .map(Vec::into_boxed_slice)
     }
@@ -519,7 +518,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting albums of: {id}");
         Artist::read_albums(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in library_artist_get_albums: {e}"))
+            .inspect_err(|e| warn!("Error in library_artist_get_albums: {e}"))
             .ok()
             .map(Vec::into_boxed_slice)
     }
@@ -553,7 +552,7 @@ impl MusicPlayer for MusicPlayerServer {
         self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         rx.await
-            .tap_err(|e| warn!("Error in state_audio: {e}"))
+            .inspect_err(|e| warn!("Error in state_audio: {e}"))
             .ok()
     }
 
@@ -567,13 +566,13 @@ impl MusicPlayer for MusicPlayerServer {
 
         if let Some(song) = rx
             .await
-            .tap_err(|e| warn!("Error in current_artist: {e}"))
+            .inspect_err(|e| warn!("Error in current_artist: {e}"))
             .ok()
             .and_then(|state| state.current_song)
         {
             Song::read_artist(&self.db, song.id)
                 .await
-                .tap_err(|e| warn!("Error in current_album: {e}"))
+                .inspect_err(|e| warn!("Error in current_album: {e}"))
                 .unwrap_or_default()
         } else {
             OneOrMany::None
@@ -589,13 +588,13 @@ impl MusicPlayer for MusicPlayerServer {
 
         if let Some(song) = rx
             .await
-            .tap_err(|e| warn!("Error in current_album: {e}"))
+            .inspect_err(|e| warn!("Error in current_album: {e}"))
             .ok()
             .and_then(|state| state.current_song)
         {
             Song::read_album(&self.db, song.id)
                 .await
-                .tap_err(|e| warn!("Error in current_album: {e}"))
+                .inspect_err(|e| warn!("Error in current_album: {e}"))
                 .unwrap_or_default()
         } else {
             None
@@ -610,7 +609,7 @@ impl MusicPlayer for MusicPlayerServer {
         self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         rx.await
-            .tap_err(|e| warn!("Error in current_song: {e}"))
+            .inspect_err(|e| warn!("Error in current_song: {e}"))
             .ok()
             .and_then(|state| state.current_song)
     }
@@ -621,7 +620,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting random artist");
         Artist::read_rand(&self.db, 1)
             .await
-            .tap_err(|e| warn!("Error in rand_artist: {e}"))
+            .inspect_err(|e| warn!("Error in rand_artist: {e}"))
             .ok()
             .and_then(|results| results.first().cloned())
     }
@@ -631,7 +630,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting random album");
         Album::read_rand(&self.db, 1)
             .await
-            .tap_err(|e| warn!("Error in rand_album: {e}"))
+            .inspect_err(|e| warn!("Error in rand_album: {e}"))
             .ok()
             .and_then(|results| results.first().cloned())
     }
@@ -641,7 +640,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting random song");
         Song::read_rand(&self.db, 1)
             .await
-            .tap_err(|e| warn!("Error in rand_song: {e}"))
+            .inspect_err(|e| warn!("Error in rand_song: {e}"))
             .ok()
             .and_then(|results| results.first().cloned())
     }
@@ -657,19 +656,19 @@ impl MusicPlayer for MusicPlayerServer {
         // 4. return the results
         let songs = Song::search(&self.db, &query, limit)
             .await
-            .tap_err(|e| warn!("Error in search: {e}"))
+            .inspect_err(|e| warn!("Error in search: {e}"))
             .unwrap_or_default()
             .into();
 
         let albums = Album::search(&self.db, &query, limit)
             .await
-            .tap_err(|e| warn!("Error in search: {e}"))
+            .inspect_err(|e| warn!("Error in search: {e}"))
             .unwrap_or_default()
             .into();
 
         let artists = Artist::search(&self.db, &query, limit)
             .await
-            .tap_err(|e| warn!("Error in search: {e}"))
+            .inspect_err(|e| warn!("Error in search: {e}"))
             .unwrap_or_default()
             .into();
         SearchResult {
@@ -689,7 +688,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Searching for artist: {query}");
         Artist::search(&self.db, &query, limit)
             .await
-            .tap_err(|e| {
+            .inspect_err(|e| {
                 warn!("Error in search_artist: {e}");
             })
             .unwrap_or_default()
@@ -706,7 +705,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Searching for album: {query}");
         Album::search(&self.db, &query, limit)
             .await
-            .tap_err(|e| {
+            .inspect_err(|e| {
                 warn!("Error in search_album: {e}");
             })
             .unwrap_or_default()
@@ -718,7 +717,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Searching for song: {query}");
         Song::search(&self.db, &query, limit)
             .await
-            .tap_err(|e| {
+            .inspect_err(|e| {
                 warn!("Error in search_song: {e}");
             })
             .unwrap_or_default()
@@ -942,7 +941,7 @@ impl MusicPlayer for MusicPlayerServer {
             },
         )
         .await
-        .tap_err(|e| warn!("Error in playlist_new (creating new playlist): {e}"))?
+        .inspect_err(|e| warn!("Error in playlist_new (creating new playlist): {e}"))?
         {
             Some(playlist) => Ok(playlist.id.into()),
             None => Err(Error::NotCreated.into()),
@@ -990,7 +989,7 @@ impl MusicPlayer for MusicPlayerServer {
 
         Playlist::read_by_name(&self.db, name)
             .await
-            .tap_err(|e| warn!("Error in playlist_get_id: {e}"))
+            .inspect_err(|e| warn!("Error in playlist_get_id: {e}"))
             .ok()
             .flatten()
             .map(|playlist| playlist.id.into())
@@ -1068,7 +1067,7 @@ impl MusicPlayer for MusicPlayerServer {
 
         Playlist::read(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in playlist_get: {e}"))
+            .inspect_err(|e| warn!("Error in playlist_get: {e}"))
             .ok()
             .flatten()
     }
@@ -1079,7 +1078,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting songs in: {id}");
         Playlist::read_songs(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in playlist_get_songs: {e}"))
+            .inspect_err(|e| warn!("Error in playlist_get_songs: {e}"))
             .ok()
             .map(Into::into)
     }
@@ -1113,22 +1112,22 @@ impl MusicPlayer for MusicPlayerServer {
         // read the playlist
         let playlist = Playlist::read(&self.db, id.into())
             .await
-            .tap_err(|e| warn!("Error in playlist_export: {e}"))
+            .inspect_err(|e| warn!("Error in playlist_export: {e}"))
             .ok()
             .flatten()
             .ok_or(Error::NotFound)?;
         // get the songs in the playlist
         let songs = Playlist::read_songs(&self.db, playlist.id)
             .await
-            .tap_err(|e| warn!("Error in playlist_export: {e}"))
+            .inspect_err(|e| warn!("Error in playlist_export: {e}"))
             .ok()
             .unwrap_or_default();
 
         // create the file
-        let file = File::create(&path).tap_err(|e| warn!("Error in playlist_export: {e}"))?;
+        let file = File::create(&path).inspect_err(|e| warn!("Error in playlist_export: {e}"))?;
         // write the playlist to the file
         export_playlist(&playlist.name, &songs, file)
-            .tap_err(|e| warn!("Error in playlist_export: {e}"))?;
+            .inspect_err(|e| warn!("Error in playlist_export: {e}"))?;
         info!("Exported playlist to: {}", path.display());
         Ok(())
     }
@@ -1146,9 +1145,9 @@ impl MusicPlayer for MusicPlayerServer {
         validate_file_path(&path, "m3u", true)?;
 
         // read file
-        let file = File::open(&path).tap_err(|e| warn!("Error in playlist_import: {e}"))?;
+        let file = File::open(&path).inspect_err(|e| warn!("Error in playlist_import: {e}"))?;
         let (parsed_name, song_paths) =
-            import_playlist(file).tap_err(|e| warn!("Error in playlist_import: {e}"))?;
+            import_playlist(file).inspect_err(|e| warn!("Error in playlist_import: {e}"))?;
 
         log::debug!("Parsed playlist name: {parsed_name:?}");
         log::debug!("Parsed song paths: {song_paths:?}");
@@ -1176,7 +1175,7 @@ impl MusicPlayer for MusicPlayerServer {
             },
         )
         .await
-        .tap_err(|e| warn!("Error in playlist_import: {e}"))?
+        .inspect_err(|e| warn!("Error in playlist_import: {e}"))?
         .ok_or(Error::NotCreated)?;
 
         // lookup all the songs
@@ -1184,7 +1183,7 @@ impl MusicPlayer for MusicPlayerServer {
         for path in &song_paths {
             let Some(song) = Song::read_by_path(&self.db, path.clone())
                 .await
-                .tap_err(|e| warn!("Error in playlist_import: {e}"))?
+                .inspect_err(|e| warn!("Error in playlist_import: {e}"))?
             else {
                 warn!("Song at {} not found in the library", path.display());
                 continue;
@@ -1200,7 +1199,7 @@ impl MusicPlayer for MusicPlayerServer {
         // add the songs to the playlist
         Playlist::add_songs(&self.db, playlist.id.clone(), songs)
             .await
-            .tap_err(|e| {
+            .inspect_err(|e| {
                 warn!("Error in playlist_import: {e}");
             })?;
 
@@ -1214,7 +1213,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting collection by ID: {id:?}");
         Collection::read(&self.db, id.into())
             .await
-            .tap_err(|e| warn!("Error in collection_get: {e}"))
+            .inspect_err(|e| warn!("Error in collection_get: {e}"))
             .ok()
             .flatten()
     }
@@ -1238,7 +1237,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting songs in: {id}");
         Collection::read_songs(&self.db, id)
             .await
-            .tap_err(|e| warn!("Error in collection_get_songs: {e}"))
+            .inspect_err(|e| warn!("Error in collection_get_songs: {e}"))
             .ok()
             .map(Into::into)
     }
@@ -1255,7 +1254,7 @@ impl MusicPlayer for MusicPlayerServer {
         Ok(services::radio::get_similar(&self.db, things, n)
             .await
             .map(Vec::into_boxed_slice)
-            .tap_err(|e| warn!("Error in radio_get_similar: {e}"))?)
+            .inspect_err(|e| warn!("Error in radio_get_similar: {e}"))?)
     }
     /// Radio: get the ids of the `n` most similar songs to the given things.
     #[instrument]
@@ -1269,7 +1268,7 @@ impl MusicPlayer for MusicPlayerServer {
         Ok(services::radio::get_similar(&self.db, things, n)
             .await
             .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
-            .tap_err(|e| warn!("Error in radio_get_similar_songs: {e}"))?)
+            .inspect_err(|e| warn!("Error in radio_get_similar_songs: {e}"))?)
     }
 
     // Dynamic playlist commands
@@ -1286,7 +1285,7 @@ impl MusicPlayer for MusicPlayerServer {
 
         match DynamicPlaylist::create(&self.db, DynamicPlaylist { id, name, query })
             .await
-            .tap_err(|e| warn!("Error in dynamic_playlist_create: {e}"))?
+            .inspect_err(|e| warn!("Error in dynamic_playlist_create: {e}"))?
         {
             Some(dp) => Ok(dp.id.into()),
             None => Err(Error::NotCreated.into()),
@@ -1298,7 +1297,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Listing DPs");
         DynamicPlaylist::read_all(&self.db)
             .await
-            .tap_err(|e| warn!("Error in dynamic_playlist_list: {e}"))
+            .inspect_err(|e| warn!("Error in dynamic_playlist_list: {e}"))
             .ok()
             .map(Into::into)
             .unwrap_or_default()
@@ -1314,7 +1313,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Updating DP: {id:?}, {changes:?}");
         DynamicPlaylist::update(&self.db, id.into(), changes)
             .await
-            .tap_err(|e| warn!("Error in dynamic_playlist_update: {e}"))?
+            .inspect_err(|e| warn!("Error in dynamic_playlist_update: {e}"))?
             .ok_or(Error::NotFound.into())
     }
     /// Dynamic Playlists: remove a DP
@@ -1340,7 +1339,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting DP by ID: {id:?}");
         DynamicPlaylist::read(&self.db, id.into())
             .await
-            .tap_err(|e| warn!("Error in dynamic_playlist_get: {e}"))
+            .inspect_err(|e| warn!("Error in dynamic_playlist_get: {e}"))
             .ok()
             .flatten()
     }
@@ -1354,7 +1353,7 @@ impl MusicPlayer for MusicPlayerServer {
         info!("Getting songs in DP: {id:?}");
         DynamicPlaylist::run_query_by_id(&self.db, id.into())
             .await
-            .tap_err(|e| warn!("Error in dynamic_playlist_get_songs: {e}"))
+            .inspect_err(|e| warn!("Error in dynamic_playlist_get_songs: {e}"))
             .ok()
             .flatten()
             .map(Into::into)
@@ -1374,15 +1373,15 @@ impl MusicPlayer for MusicPlayerServer {
         // read the playlists
         let playlists = DynamicPlaylist::read_all(&self.db)
             .await
-            .tap_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
+            .inspect_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
 
         // create the file
         let file =
-            File::create(&path).tap_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
+            File::create(&path).inspect_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
         let writer = csv::Writer::from_writer(std::io::BufWriter::new(file));
         // write the playlists to the file
         export_dynamic_playlists(&playlists, writer)
-            .tap_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
+            .inspect_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
         info!("Exported dynamic playlists to: {}", path.display());
         Ok(())
     }
@@ -1399,14 +1398,15 @@ impl MusicPlayer for MusicPlayerServer {
         validate_file_path(&path, "csv", true)?;
 
         // read file
-        let file = File::open(&path).tap_err(|e| warn!("Error in dynamic_playlist_import: {e}"))?;
+        let file =
+            File::open(&path).inspect_err(|e| warn!("Error in dynamic_playlist_import: {e}"))?;
         let reader = csv::ReaderBuilder::new()
             .has_headers(true)
             .from_reader(std::io::BufReader::new(file));
 
         // read the playlists from the file
         let playlists = import_dynamic_playlists(reader)
-            .tap_err(|e| warn!("Error in dynamic_playlist_import: {e}"))?;
+            .inspect_err(|e| warn!("Error in dynamic_playlist_import: {e}"))?;
 
         if playlists.is_empty() {
             return Err(BackupError::NoValidPlaylists.into());
@@ -1429,7 +1429,7 @@ impl MusicPlayer for MusicPlayerServer {
             ids.push(
                 DynamicPlaylist::create(&self.db, playlist)
                     .await
-                    .tap_err(|e| warn!("Error in dynamic_playlist_import: {e}"))?
+                    .inspect_err(|e| warn!("Error in dynamic_playlist_import: {e}"))?
                     .ok_or(Error::NotCreated)?,
             );
         }
