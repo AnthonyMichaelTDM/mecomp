@@ -6,6 +6,10 @@
 
 * fix(daemon): panic in terminator thread by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/395
 * feat: add cargo-hakari cleanup step to release workflow by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/396
+* reduce size of release binaries by removing workspace-hack before building by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/397
+    * this ended up not doing much, which sucks because I spent quite a while on it :(
+* perf(analysis): parallelize reference set generation by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/398
+* feat: remove support for x86_64-apple-darwin by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/399
 
 
 **Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.5.7...v0.5.8
