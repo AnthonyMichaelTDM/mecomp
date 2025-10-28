@@ -127,7 +127,7 @@ num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
 opentelemetry_sdk = { version = "0.30", features = ["rt-tokio"] }
-phf_shared = { version = "0.11", features = ["unicase"] }
+phf_shared = { version = "0.13", features = ["unicase"] }
 proc-macro2 = { version = "1" }
 quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
@@ -199,7 +199,7 @@ num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
 opentelemetry_sdk = { version = "0.30", features = ["rt-tokio"] }
-phf_shared = { version = "0.11", features = ["unicase"] }
+phf_shared = { version = "0.13", features = ["unicase"] }
 proc-macro2 = { version = "1" }
 quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
