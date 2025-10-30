@@ -1,5 +1,16 @@
 # Mecomp Changelog
 
+## v0.5.9
+
+### v0.5.9 What's Changed
+
+* chore: change Dependabot update schedule from daily to weekly by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/400
+* feat: replace tap dependency with inspect_err for error logging by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/402
+* feat: add QueueChanged state to audio events and update handling by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/403
+
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.5.8...v0.5.9
+
 ## v0.5.8
 
 ### v0.5.8 What's Changed
