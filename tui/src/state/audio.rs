@@ -71,7 +71,7 @@ impl AudioState {
                                 StateChange::Muted => state.muted = true,
                                 StateChange::Unmuted => state.muted = false,
                                 StateChange::VolumeChanged(volume) => state.volume = volume,
-                                StateChange::TrackChanged(_) => {
+                                StateChange::TrackChanged(_) | StateChange::QueueChanged => {
                                     // force an update when the track changes, "just in case"
                                     update_needed = true;
                                 },

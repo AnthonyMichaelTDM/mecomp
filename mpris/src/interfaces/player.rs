@@ -443,7 +443,7 @@ mod tests {
         assert_eq!(songs.len(), 4);
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
-
+        assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         let Ok(StateChange::TrackChanged(Some(first_song))) = event_rx.recv() else {
             panic!("Expected a TrackChanged event, but got something else");
         };
@@ -497,6 +497,7 @@ mod tests {
         assert_eq!(songs.len(), 4);
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+        assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         let Ok(StateChange::TrackChanged(Some(first_song))) = event_rx.recv() else {
             panic!("Expected a TrackChanged event, but got something else");
         };
@@ -586,10 +587,16 @@ mod tests {
         )));
         let _ = event_rx.recv();
         let _ = event_rx.recv();
+        let _ = event_rx.recv();
 
         // if there is no next track (and endless playback and track repeat are both off), stop playback. //
         // skip to the next track (which should be nothing)
         mpris.next().await.unwrap();
+        assert_eq!(
+            event_rx.recv(),
+            Ok(StateChange::QueueChanged),
+            "since it was the last song, the queue clears"
+        );
         assert_eq!(event_rx.recv(), Ok(StateChange::TrackChanged(None)));
         assert_eq!(
             event_rx.recv(),
@@ -638,13 +645,21 @@ mod tests {
             .unwrap()
             .to_vec();
         assert_eq!(songs.len(), 4);
+        let first_song: mecomp_storage::db::schemas::RecordId = songs[0].id.clone().into();
         let third_song: mecomp_storage::db::schemas::RecordId = songs[2].id.clone().into();
         let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
-        let _ = event_rx.recv();
-        let _ = event_rx.recv();
+        assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
+        assert_eq!(
+            event_rx.recv(),
+            Ok(StateChange::TrackChanged(Some(first_song)))
+        );
+        assert_eq!(
+            event_rx.recv(),
+            Ok(StateChange::StatusChanged(Status::Playing))
+        );
 
         // skip to the last song in the queue
         audio_kernel.send(AudioCommand::Queue(QueueCommand::SetPosition(3)));
@@ -693,14 +708,22 @@ mod tests {
             .unwrap()
             .to_vec();
         assert_eq!(songs.len(), 4);
+        let first_song: mecomp_storage::db::schemas::RecordId = songs[0].id.clone().into();
         let second_song: mecomp_storage::db::schemas::RecordId = songs[1].id.clone().into();
         let third_song: mecomp_storage::db::schemas::RecordId = songs[2].id.clone().into();
         let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
-        let _ = event_rx.recv();
-        let _ = event_rx.recv();
+        assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
+        assert_eq!(
+            event_rx.recv(),
+            Ok(StateChange::TrackChanged(Some(first_song)))
+        );
+        assert_eq!(
+            event_rx.recv(),
+            Ok(StateChange::StatusChanged(Status::Playing))
+        );
 
         // skip to the last song in the queue
         audio_kernel.send(AudioCommand::Queue(QueueCommand::SetPosition(3)));
@@ -786,6 +809,7 @@ mod tests {
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
             songs[0].clone().into(),
         )));
+        assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         let _ = event_rx.recv();
         let _ = event_rx.recv();
 
@@ -891,7 +915,7 @@ mod tests {
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
             first_song.clone().into(),
         )));
-
+        assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::TrackChanged(Some(
@@ -1047,6 +1071,7 @@ mod tests {
         // open a valid file uri
         let file_uri = format!("file://{}", first_song.path.display());
         mpris.open_uri(file_uri).await.unwrap();
+        assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::TrackChanged(Some(
@@ -1143,15 +1168,18 @@ mod tests {
         // pause playback
         mpris.pause().await.unwrap();
 
-        // we expect there to be 3 events
-        let mut events = [false; 3];
-        for _ in 0..3 {
+        // we expect there to be 4 events
+        let mut events = [false; 4];
+        for _ in 0..4 {
             let event = event_rx.recv().unwrap();
 
             match event {
+                StateChange::QueueChanged => {
+                    events[0] = true;
+                }
                 StateChange::TrackChanged(Some(_)) => {
                     mpris.state.write().await.current_song = Some(first_song.clone());
-                    events[0] = true;
+                    events[1] = true;
                 }
                 StateChange::StatusChanged(Status::Playing) => {
                     mpris.state.write().await.status = Status::Playing;
@@ -1159,7 +1187,7 @@ mod tests {
                         mpris.playback_status().await.unwrap(),
                         PlaybackStatus::Playing
                     );
-                    events[1] = true;
+                    events[2] = true;
                 }
                 StateChange::StatusChanged(Status::Paused) => {
                     mpris.state.write().await.status = Status::Paused;
@@ -1167,7 +1195,7 @@ mod tests {
                         mpris.playback_status().await.unwrap(),
                         PlaybackStatus::Paused
                     );
-                    events[2] = true;
+                    events[3] = true;
                 }
                 _ => panic!("Unexpected event: {event:?}"),
             }
@@ -1376,6 +1404,7 @@ mod tests {
             first_song.clone().into(),
         )));
 
+        assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::TrackChanged(Some(
@@ -1504,6 +1533,7 @@ mod tests {
             first_song.clone().into(),
         )));
         audio_kernel.send(AudioCommand::Pause);
+        let _ = event_rx.recv().unwrap();
         let _ = event_rx.recv().unwrap();
         let _ = event_rx.recv().unwrap();
         let _ = event_rx.recv().unwrap();

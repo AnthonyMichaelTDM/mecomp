@@ -36,6 +36,7 @@ pub enum StateChange {
     /// The player volume has changed
     VolumeChanged(f32),
     /// The current track has changed
+    /// If something causes both the queue and current track to change, then this event is sent after `QueueChanged`
     TrackChanged(Option<RecordId>),
     /// The repeat mode has changed
     RepeatModeChanged(RepeatMode),
@@ -43,6 +44,8 @@ pub enum StateChange {
     Seeked(Duration),
     /// Playback Status has changes
     StatusChanged(Status),
+    /// The queue has changed, e.g. songs added/removed/reordered
+    QueueChanged,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

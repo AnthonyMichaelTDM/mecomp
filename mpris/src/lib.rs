@@ -256,7 +256,7 @@ impl Subscriber {
                 )]))
             }
             // generally speaking, a lot can change when a track is changed, therefore we update the entire internal state (even if we only emit the new metadata)
-            Message::StateChange(StateChange::TrackChanged(_)) => {
+            Message::StateChange(StateChange::TrackChanged(_) | StateChange::QueueChanged) => {
                 let context = Context::current();
                 // we'll need to update the internal state with the new song (and it's duration info and such)
                 if let Some(daemon) = get_daemon().await.as_ref() {

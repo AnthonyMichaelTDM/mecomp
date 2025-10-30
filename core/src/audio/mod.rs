@@ -384,13 +384,19 @@ impl AudioKernel {
     #[instrument(skip(self))]
     fn queue_control(&mut self, command: QueueCommand) {
         let prev_song = self.queue.current_song().cloned();
+        let prev_len = self.queue.len();
         match command {
             QueueCommand::Clear => self.clear(),
             QueueCommand::PlayNextSong => self.start_next_song(),
             QueueCommand::SkipForward(n) => self.skip_forward(n),
             QueueCommand::SkipBackward(n) => self.skip_backward(n),
             QueueCommand::SetPosition(n) => self.set_position(n),
-            QueueCommand::Shuffle => self.queue.shuffle(),
+            QueueCommand::Shuffle => {
+                self.queue.shuffle();
+                // shuffle is a special case since it changes the queue w/o changing the current song,
+                // nor the length of the queue
+                let _ = self.event_tx.send(StateChange::QueueChanged);
+            }
             QueueCommand::AddToQueue(song_box) => match song_box {
                 OneOrMany::None => {}
                 OneOrMany::One(song) => self.add_song_to_queue(*song),
@@ -404,7 +410,13 @@ impl AudioKernel {
         }
 
         let new_song = self.queue.current_song().cloned();
+        let new_len = self.queue.len();
 
+        // if songs were added or removed, send QueueChanged
+        if prev_len != new_len {
+            let _ = self.event_tx.send(StateChange::QueueChanged);
+        }
+        // if the song has changed, send TrackChanged
         if prev_song != new_song {
             let _ = self
                 .event_tx
