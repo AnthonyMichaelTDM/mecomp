@@ -1347,12 +1347,12 @@ mod tests {
         // set shuffle to true
         mpris.set_shuffle(true).await.unwrap();
         assert_eq!(mpris.shuffle().await.unwrap(), true);
-        assert!(event_rx.try_recv().is_err());
+        assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
 
         // set shuffle to false
         mpris.set_shuffle(false).await.unwrap();
         assert_eq!(mpris.shuffle().await.unwrap(), true);
-        assert!(event_rx.try_recv().is_err());
+        assert!(event_rx.recv_timeout(Duration::from_millis(100)).is_err());
     }
 
     /// """
