@@ -18,20 +18,20 @@ pub struct Notification<'a> {
     pub action_tx: UnboundedSender<Action>,
 }
 
-impl Notification<'_> {
+impl<'a> Notification<'a> {
     #[must_use]
-    pub const fn new(line: Text, action_tx: UnboundedSender<Action>) -> Notification {
-        Notification { line, action_tx }
+    pub const fn new(line: Text<'a>, action_tx: UnboundedSender<Action>) -> Self {
+        Self { line, action_tx }
     }
 }
 
 impl ComponentRender<Rect> for Notification<'_> {
-    fn render_border(&self, frame: &mut ratatui::Frame, area: Rect) -> Rect {
+    fn render_border(&self, frame: &mut ratatui::Frame<'_>, area: Rect) -> Rect {
         self.render_popup_border(frame, area)
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame, area: Rect) {
-        frame.render_widget::<Text>(self.line.clone(), area);
+    fn render_content(&self, frame: &mut ratatui::Frame<'_>, area: Rect) {
+        frame.render_widget::<Text<'_>>(self.line.clone(), area);
     }
 }
 

@@ -25,7 +25,7 @@ where
         self.0.write_all(s.as_bytes()).map_err(|_| fmt::Error)
     }
 
-    fn write_fmt(&mut self, args: fmt::Arguments) -> Result<(), fmt::Error> {
+    fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> Result<(), fmt::Error> {
         self.0.write_fmt(args).map_err(|_| fmt::Error)
     }
 }

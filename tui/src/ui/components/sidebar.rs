@@ -220,7 +220,7 @@ impl Component for Sidebar {
 }
 
 impl ComponentRender<RenderProps> for Sidebar {
-    fn render_border(&self, frame: &mut Frame, props: RenderProps) -> RenderProps {
+    fn render_border(&self, frame: &mut Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let border = Block::bordered()
@@ -241,7 +241,7 @@ impl ComponentRender<RenderProps> for Sidebar {
         }
     }
 
-    fn render_content(&self, frame: &mut Frame, props: RenderProps) {
+    fn render_content(&self, frame: &mut Frame<'_>, props: RenderProps) {
         let items = SIDEBAR_ITEMS
             .iter()
             .map(|item| {

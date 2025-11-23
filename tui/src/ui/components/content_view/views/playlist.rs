@@ -235,7 +235,7 @@ fn split_area(area: Rect) -> [Rect; 2] {
 }
 
 impl ComponentRender<RenderProps> for PlaylistView {
-    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
+    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let area = if let Some(state) = &self.props {
@@ -318,7 +318,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         let Some(state) = &self.props else {
             let text = "No active playlist";
 
@@ -562,7 +562,7 @@ fn lib_split_area(area: Rect) -> [Rect; 2] {
 }
 
 impl ComponentRender<RenderProps> for LibraryPlaylistsView {
-    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
+    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // render primary border
@@ -620,7 +620,7 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         // create a tree for the playlists
         let items = self
             .props

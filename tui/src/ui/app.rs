@@ -280,7 +280,7 @@ fn split_area(area: Rect) -> Areas {
 }
 
 impl ComponentRender<Rect> for App {
-    fn render_border(&self, frame: &mut Frame, area: Rect) -> Rect {
+    fn render_border(&self, frame: &mut Frame<'_>, area: Rect) -> Rect {
         let block = Block::bordered()
             .title_top(Span::styled(
                 "MECOMP",
@@ -299,7 +299,7 @@ impl ComponentRender<Rect> for App {
         app_area
     }
 
-    fn render_content(&self, frame: &mut Frame, area: Rect) {
+    fn render_content(&self, frame: &mut Frame<'_>, area: Rect) {
         let Areas {
             control_panel,
             sidebar,

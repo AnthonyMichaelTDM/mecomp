@@ -35,13 +35,13 @@ pub trait Component {
 
 pub trait ComponentRender<Props> {
     /// Render the border of the view, and return the props updated with the remaining area for the view.
-    fn render_border(&self, frame: &mut Frame, props: Props) -> Props;
+    fn render_border(&self, frame: &mut Frame<'_>, props: Props) -> Props;
 
     /// Render the view's content.
-    fn render_content(&self, frame: &mut Frame, props: Props);
+    fn render_content(&self, frame: &mut Frame<'_>, props: Props);
 
     /// Render the view (border and content).
-    fn render(&self, frame: &mut Frame, props: Props) {
+    fn render(&self, frame: &mut Frame<'_>, props: Props) {
         let props = self.render_border(frame, props);
         self.render_content(frame, props);
     }

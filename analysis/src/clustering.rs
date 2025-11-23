@@ -413,13 +413,13 @@ pub fn convert_to_array(data: Vec<Analysis>) -> AnalysisArray {
 /// and we know that our data is already normalized and that
 /// the ordering of features is important, meaning that we can't
 /// rotate the data anyway.
-fn generate_reference_datasets(samples: ArrayView2<Feature>, b: usize) -> Vec<FitDataset> {
+fn generate_reference_datasets(samples: ArrayView2<'_, Feature>, b: usize) -> Vec<FitDataset> {
     (0..b)
         .into_par_iter()
         .map(|_| Dataset::from(generate_ref_single(samples.view())))
         .collect()
 }
-fn generate_ref_single(samples: ArrayView2<Feature>) -> Array2<Feature> {
+fn generate_ref_single(samples: ArrayView2<'_, Feature>) -> Array2<Feature> {
     let feature_distributions = samples
         .axis_iter(Axis(1))
         .map(|feature| Array::random(feature.dim(), Uniform::new(feature.min(), feature.max())))
@@ -438,9 +438,9 @@ fn generate_ref_single(samples: ArrayView2<Feature>) -> Array2<Feature> {
 ///
 /// `W_k = \sum_{r=1}^{k} \frac{D_r}{2*n_r}`
 fn calc_within_dispersion(
-    labels: ArrayView1<usize>,
+    labels: ArrayView1<'_, usize>,
     k: usize,
-    pairwise_distances: ArrayView1<Feature>,
+    pairwise_distances: ArrayView1<'_, Feature>,
 ) -> Feature {
     debug_assert_eq!(k, labels.iter().max().unwrap() + 1);
 
@@ -465,9 +465,9 @@ fn calc_within_dispersion(
 /// - `k`: The number of clusters
 /// - `labels`: The cluster labels for each sample
 fn calc_pairwise_distances(
-    samples: ArrayView2<Feature>,
+    samples: ArrayView2<'_, Feature>,
     k: usize,
-    labels: ArrayView1<usize>,
+    labels: ArrayView1<'_, usize>,
 ) -> Array1<Feature> {
     debug_assert_eq!(
         samples.nrows(),

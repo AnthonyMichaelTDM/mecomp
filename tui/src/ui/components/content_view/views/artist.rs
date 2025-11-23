@@ -191,7 +191,7 @@ impl Component for LibraryArtistsView {
 }
 
 impl ComponentRender<RenderProps> for LibraryArtistsView {
-    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
+    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // draw primary border
@@ -229,7 +229,7 @@ impl ComponentRender<RenderProps> for LibraryArtistsView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         // create a tree for the artists
         let items = self
             .props

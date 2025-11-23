@@ -308,7 +308,7 @@ fn split_area(area: Rect) -> Areas {
 }
 
 impl ComponentRender<RenderProps> for ControlPanel {
-    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
+    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let block = Block::new()
@@ -323,7 +323,7 @@ impl ComponentRender<RenderProps> for ControlPanel {
         }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         let Areas {
             song_info,
             play_pause,

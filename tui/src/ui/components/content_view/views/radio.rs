@@ -169,7 +169,7 @@ impl Component for RadioView {
 }
 
 impl ComponentRender<RenderProps> for RadioView {
-    fn render_border(&self, frame: &mut Frame, props: RenderProps) -> RenderProps {
+    fn render_border(&self, frame: &mut Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let area = if let Some(state) = &self.props {
@@ -227,7 +227,7 @@ impl ComponentRender<RenderProps> for RadioView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut Frame, props: RenderProps) {
+    fn render_content(&self, frame: &mut Frame<'_>, props: RenderProps) {
         if let Some(state) = &self.props {
             // create a tree to hold the radio results
             let items = state
