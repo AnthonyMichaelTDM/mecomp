@@ -1,6 +1,6 @@
 [package]
 name = "surrealqlx-macros-impl"
-version = "0.1.6"
+version = "0.1.7"
 edition.workspace = true
 authors.workspace = true
 description = "SurrealQLX macros implementation"
@@ -15,8 +15,8 @@ bench = false
 
 [dependencies]
 proc-macro2 = { version = "1.0.101", default-features = false }
-quote = { version = "1.0.41", default-features = false }
-syn = { version = "2.0.106", features = ["parsing", "derive", "full"] }
+quote = { version = "1.0.42", default-features = false }
+syn = { version = "2.0.111", features = ["parsing", "derive", "full"] }
 mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
 
 [dev-dependencies]

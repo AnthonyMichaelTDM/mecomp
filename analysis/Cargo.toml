@@ -15,7 +15,7 @@ default = []
 # plot_gap = ["dep:plotters"]
 
 [dependencies]
-bliss-audio-aubio-rs = { version = "0.2.2", features = ["static"] }
+bliss-audio-aubio-rs = { version = "0.2.4", features = ["static"] }
 linfa = "0.8.0"
 linfa-clustering = "0.8.0"
 linfa-reduction = "0.8.0"
@@ -42,7 +42,7 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 # if we're building on macos, we need to link against the system's fftw3
 # library, which is not available on linux
 [target.'cfg(target_os = "macos")'.dependencies]
-bliss-audio-aubio-rs = { version = "0.2.2", features = ["static", "bindgen"] }
+bliss-audio-aubio-rs = { version = "0.2.4", features = ["static", "bindgen"] }
 
 [dev-dependencies]
 ndarray-npy = { version = "0.9.1", default-features = false }

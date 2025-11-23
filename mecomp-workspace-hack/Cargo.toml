@@ -47,7 +47,6 @@ ignored = [
     "num-complex",
     "num-integer",
     "num-traits",
-    "opentelemetry_sdk",
     "phf_shared",
     "proc-macro2",
     "quote",
@@ -68,16 +67,12 @@ ignored = [
     "symphonia-core",
     "symphonia-format-riff",
     "syn",
-    "thiserror",
     "tokio",
     "tokio-stream",
     "tokio-util",
     "toml_datetime",
     "toml_parser",
     "tracing",
-    "tracing-log",
-    "tracing-opentelemetry",
-    "tracing-subscriber",
     "tracing-core",
     "ulid",
     "uuid",
@@ -126,7 +121,6 @@ num-bigint = { version = "0.4", default-features = false, features = ["std"] }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
-opentelemetry_sdk = { version = "0.30", features = ["rt-tokio"] }
 phf_shared = { version = "0.11", features = ["unicase"] }
 proc-macro2 = { version = "1" }
 quote = { version = "1" }
@@ -147,7 +141,6 @@ symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = [
 symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
 symphonia-format-riff = { version = "0.5", default-features = false, features = ["aiff", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-thiserror = { version = "2" }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
@@ -155,9 +148,6 @@ toml_datetime = { version = "0.7", features = ["serde"] }
 toml_parser = { version = "1" }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
-tracing-log = { version = "0.2", default-features = false, features = ["log-tracer", "std"] }
-tracing-opentelemetry = { version = "0.31" }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
 uuid = { version = "1", features = ["serde"] }
@@ -198,7 +188,6 @@ num-bigint = { version = "0.4", default-features = false, features = ["std"] }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
-opentelemetry_sdk = { version = "0.30", features = ["rt-tokio"] }
 phf_shared = { version = "0.11", features = ["unicase"] }
 proc-macro2 = { version = "1" }
 quote = { version = "1" }
@@ -219,7 +208,6 @@ symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = [
 symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
 symphonia-format-riff = { version = "0.5", default-features = false, features = ["aiff", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-thiserror = { version = "2" }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
@@ -227,9 +215,6 @@ toml_datetime = { version = "0.7", features = ["serde"] }
 toml_parser = { version = "1" }
 tracing = { version = "0.1", features = ["log"] }
 tracing-core = { version = "0.1" }
-tracing-log = { version = "0.2", default-features = false, features = ["log-tracer", "std"] }
-tracing-opentelemetry = { version = "0.31" }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
 uuid = { version = "1", features = ["serde"] }
