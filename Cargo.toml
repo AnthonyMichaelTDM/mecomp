@@ -90,8 +90,8 @@ lto = "thin"
 [workspace.dependencies]
 # shared dependencies
 anyhow = { version = "1.0.100", default-features = false }
-lofty = { version = "0.22.3" }
-clap = { version = "4.5.50", default-features = false, features = [
+lofty = { version = "0.22.4" }
+clap = { version = "4.5.53", default-features = false, features = [
     "color",
     "error-context",
     "help",
@@ -100,10 +100,10 @@ clap = { version = "4.5.50", default-features = false, features = [
     "suggestions",
     "derive",
 ] }
-clap_complete = { version = "4.5.59", features = ["unstable-dynamic"] }
+clap_complete = { version = "4.5.61", features = ["unstable-dynamic"] }
 ciborium = { version = "0.2.2" }
-config = { version = "0.15.17", default-features = false, features = ["toml"] }
-console-subscriber = { version = "0.4.1" }
+config = { version = "0.15.19", default-features = false, features = ["toml"] }
+console-subscriber = { version = "0.5.0" }
 csv = "1.4.0"
 directories = "6.0.0"
 env_logger = { version = "0.11.8", features = [
@@ -122,6 +122,7 @@ once_cell = "1.21.3"
 percent-encoding = { version = "2.3.2", default-features = false }
 rand = { version = "0.8.5", features = ["small_rng"] }
 rodio = { version = "0.21.1", features = ["symphonia-all"] }
+rubato = { version = "0.16.2" }
 symphonia = { version = "0.5.5", default-features = false, features = [
     # features for .wav
     "wav",
@@ -137,7 +138,6 @@ symphonia = { version = "0.5.5", default-features = false, features = [
     # enable simd 
     "opt-simd",
 ] }
-rubato = { version = "0.16.2" }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.145" }
 shellexpand = "3.1.1"
@@ -147,6 +147,11 @@ surrealdb = { version = "=2.3.10", features = [
     "kv-mem",
     "kv-surrealkv",
 ], default-features = false }
+tarpc = { version = "0.37.0", features = [
+    "serde-transport",
+    "serde-transport-json",
+    "tcp",
+] }
 thiserror = { version = "2.0.17" }
 tokio = { version = "1.48.0", features = [
     "macros",
@@ -155,11 +160,8 @@ tokio = { version = "1.48.0", features = [
     "time",
 ] }
 walkdir = { version = "2.5.0" }
-tarpc = { version = "0.37.0", features = [
-    "serde-transport",
-    "serde-transport-json",
-    "tcp",
-] }
+
+# tracing libraries
 tracing = { version = "0.1.41" }
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 tracing-opentelemetry = "0.31.0"
@@ -173,10 +175,10 @@ mecomp-analysis = { path = "analysis", version = "=0.5.9" }
 mecomp-core = { path = "core", default-features = false, version = "=0.5.9" }
 mecomp-daemon = { path = "daemon", version = "=0.5.9" }
 mecomp-storage = { path = "storage", default-features = false, version = "=0.5.9" }
-surrealqlx = { path = "surrealqlx/lib", version = "=0.1.6" }
-surrealqlx-macros = { path = "surrealqlx/macros", version = "=0.1.6" }
-surrealqlx-macros-impl = { path = "surrealqlx/macros-impl", version = "=0.1.6" }
-one-or-many = { path = "one-or-many", version = "=0.4.1", default-features = false }
+surrealqlx = { path = "surrealqlx/lib", version = "=0.1.7" }
+surrealqlx-macros = { path = "surrealqlx/macros", version = "=0.1.7" }
+surrealqlx-macros-impl = { path = "surrealqlx/macros-impl", version = "=0.1.7" }
+one-or-many = { path = "one-or-many", version = "=0.4.2", default-features = false }
 
 # shared dev dependencies
 pretty_assertions = "1.4.1"
