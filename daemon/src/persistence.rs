@@ -234,12 +234,12 @@ mod tests {
         // event breakdown:
         // 1. repeat mode change (1 event)
         // 2. volume state (2 events) (mute/unmute + set volume)
-        // 3. loading songs into queue (2 event) (song change + unpause)
+        // 3. loading songs into queue (2 event) (queue change + song change + unpause)
         // 4. pause playback (1 event) (pause)
         // 5. skip to correct song (1 event) (song change)
         // 6. seek to correct position (1 event) (seek)
 
-        let mut expected_number_of_events = 8;
+        let mut expected_number_of_events = 9;
         if volume == 1.0 {
             expected_number_of_events -= 1; // no volume change event
         }
