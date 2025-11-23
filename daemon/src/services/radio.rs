@@ -35,7 +35,7 @@ pub async fn get_similar<C: Connection>(
     let analyses = Analysis::read_for_songs(db, songs).await?;
     let neighbors = Analysis::nearest_neighbors_to_many(db, analyses, n).await?;
     Ok(
-        Analysis::read_songs(db, neighbors.iter().map(|a| a.id.clone()).collect())
+        Analysis::read_songs(db, neighbors.into_iter().map(|a| a.id).collect())
             .await?
             .into(),
     )

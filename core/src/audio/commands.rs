@@ -119,10 +119,7 @@ impl Display for QueueCommand {
                 write!(
                     f,
                     "Add {:?}",
-                    songs
-                        .iter()
-                        .map(|song| song.title.to_string())
-                        .collect::<Vec<_>>()
+                    songs.iter().map(|song| &song.title).collect::<Vec<_>>()
                 )
             }
             Self::RemoveRange(range) => {

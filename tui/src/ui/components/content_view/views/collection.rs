@@ -218,7 +218,7 @@ impl ComponentRender<RenderProps> for CollectionView {
             frame.render_widget(
                 Paragraph::new(vec![
                     Line::from(Span::styled(
-                        state.collection.name.to_string(),
+                        &state.collection.name,
                         Style::default().bold(),
                     )),
                     Line::from(vec![

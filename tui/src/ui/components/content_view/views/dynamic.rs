@@ -258,7 +258,7 @@ impl ComponentRender<RenderProps> for DynamicView {
         let area = if let Some(state) = &self.props {
             let border = Block::bordered()
                 .title_top(Line::from(vec![
-                    Span::styled("Dynamic Playlist View".to_string(), Style::default().bold()),
+                    Span::styled("Dynamic Playlist View", Style::default().bold()),
                     Span::raw(" sorted by: "),
                     Span::styled(self.sort_mode.to_string(), Style::default().italic()),
                 ]))
@@ -274,7 +274,7 @@ impl ComponentRender<RenderProps> for DynamicView {
             frame.render_widget(
                 Paragraph::new(vec![
                     Line::from(Span::styled(
-                        state.dynamic_playlist.name.to_string(),
+                        &state.dynamic_playlist.name,
                         Style::default().bold(),
                     )),
                     Line::from(vec![

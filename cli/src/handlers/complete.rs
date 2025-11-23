@@ -54,8 +54,7 @@ pub fn complete_things(table: CompletableTable) -> impl Fn() -> Vec<CompletionCa
         drop(g); // Exit the Tokio runtime context
 
         candidates
-            .iter()
-            .cloned()
+            .into_iter()
             .map(|(id, help)| CompletionCandidate::new(id).help(Some(help)))
             .collect::<Vec<_>>()
     }

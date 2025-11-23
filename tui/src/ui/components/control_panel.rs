@@ -50,17 +50,11 @@ impl From<&AppState> for Props {
             muted: value.muted,
             volume: value.volume,
             song_runtime: value.runtime,
-            song_title: value
+            song_title: value.current_song.as_ref().map(|song| song.title.clone()),
+            song_artist: value
                 .current_song
                 .as_ref()
-                .map(|song| song.title.to_string()),
-            song_artist: value.current_song.as_ref().map(|song| {
-                song.artist
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            }),
+                .map(|song| song.artist.as_slice().join(", ")),
         }
     }
 }

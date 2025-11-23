@@ -157,7 +157,7 @@ impl Display for StateAudio {
             "StateAudio {{ queue: {:?}, queue_position: {}, current_song: {}, repeat_mode: {}, runtime: {}, status: {}, muted: {}, volume: {:.0}% }}",
             self.queue
                 .iter()
-                .map(|song| song.title.to_string())
+                .map(|song| &song.title)
                 .collect::<Vec<_>>(),
             self.queue_position
                 .map_or_else(|| "None".to_string(), |pos| pos.to_string()),
@@ -167,7 +167,7 @@ impl Display for StateAudio {
             self.repeat_mode,
             self.runtime
                 .as_ref()
-                .map_or_else(|| "None".to_string(), std::string::ToString::to_string),
+                .map_or_else(|| "None".to_string(), ToString::to_string),
             self.status,
             self.muted,
             self.volume * 100.0,

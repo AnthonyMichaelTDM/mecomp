@@ -597,13 +597,11 @@ mod tests {
         );
         assert_eq!(
             song_artist,
-            state.audio.current_song.as_ref().map(|song| {
-                song.artist
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            })
+            state
+                .audio
+                .current_song
+                .as_ref()
+                .map(|song| { song.artist.as_slice().join(", ") })
         );
     }
 

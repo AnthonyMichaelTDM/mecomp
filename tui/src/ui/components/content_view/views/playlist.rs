@@ -256,10 +256,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
             // render the playlist info
             frame.render_widget(
                 Paragraph::new(vec![
-                    Line::from(Span::styled(
-                        state.playlist.name.to_string(),
-                        Style::default().bold(),
-                    )),
+                    Line::from(Span::styled(&state.playlist.name, Style::default().bold())),
                     Line::from(vec![
                         Span::raw("Songs: "),
                         Span::styled(

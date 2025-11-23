@@ -85,15 +85,10 @@ impl ItemViewProps for AlbumViewProps {
     fn info_widget(&self) -> impl Widget {
         Paragraph::new(vec![
             Line::from(vec![
-                Span::styled(self.album.title.to_string(), Style::default().bold()),
+                Span::styled(&self.album.title, Style::default().bold()),
                 Span::raw(" "),
                 Span::styled(
-                    self.album
-                        .artist
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<Vec<String>>()
-                        .join(", "),
+                    self.album.artist.as_slice().join(", "),
                     Style::default().italic(),
                 ),
             ]),
@@ -161,10 +156,7 @@ impl ItemViewProps for ArtistViewProps {
 
     fn info_widget(&self) -> impl Widget {
         Paragraph::new(vec![
-            Line::from(Span::styled(
-                self.artist.name.to_string(),
-                Style::default().bold(),
-            )),
+            Line::from(Span::styled(&self.artist.name, Style::default().bold())),
             Line::from(vec![
                 Span::raw("Albums: "),
                 Span::styled(
@@ -254,15 +246,10 @@ impl ItemViewProps for SongViewProps {
     fn info_widget(&self) -> impl Widget {
         Paragraph::new(vec![
             Line::from(vec![
-                Span::styled(self.song.title.to_string(), Style::default().bold()),
+                Span::styled(&self.song.title, Style::default().bold()),
                 Span::raw(" "),
                 Span::styled(
-                    self.song
-                        .artist
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<Vec<String>>()
-                        .join(", "),
+                    self.song.artist.as_slice().join(", "),
                     Style::default().italic(),
                 ),
             ]),
@@ -287,12 +274,7 @@ impl ItemViewProps for SongViewProps {
                 ),
                 Span::raw("  Genre(s): "),
                 Span::styled(
-                    self.song
-                        .genre
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<Vec<String>>()
-                        .join(", "),
+                    self.song.genre.as_slice().join(", "),
                     Style::default().italic(),
                 ),
             ]),
@@ -458,7 +440,7 @@ pub mod checktree_utils {
             'a: 'text,
             'a: 'items,
             'text: 'items,
-            LeafFn: FnMut(&Item) -> CheckTreeItem<'a, String>,
+            LeafFn: FnMut(&'items Item) -> CheckTreeItem<'a, String>,
         {
             let identifier = identifier.as_ref().to_string();
             let mut tree =
@@ -554,23 +536,19 @@ pub mod checktree_utils {
         )
     }
 
+    #[must_use]
     pub fn create_album_tree_leaf<'a>(
-        album: &AlbumBrief,
+        album: &'a AlbumBrief,
         prefix: Option<Span<'a>>,
     ) -> CheckTreeItem<'a, String> {
         CheckTreeItem::new_leaf(
             album.id.to_string(),
             Line::from(vec![
                 prefix.unwrap_or_default(),
-                Span::styled(album.title.to_string(), Style::default().bold()),
+                Span::styled(&album.title, Style::default().bold()),
                 Span::raw(" "),
                 Span::styled(
-                    album
-                        .artist
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<Vec<String>>()
-                        .join(", "),
+                    album.artist.as_slice().join(", "),
                     Style::default().italic(),
                 ),
             ]),
@@ -592,13 +570,10 @@ pub mod checktree_utils {
     }
 
     #[must_use]
-    pub fn create_artist_tree_leaf<'a>(artist: &ArtistBrief) -> CheckTreeItem<'a, String> {
+    pub fn create_artist_tree_leaf(artist: &ArtistBrief) -> CheckTreeItem<'_, String> {
         CheckTreeItem::new_leaf(
             artist.id.to_string(),
-            Line::from(vec![Span::styled(
-                artist.name.to_string(),
-                Style::default().bold(),
-            )]),
+            Line::from(vec![Span::styled(&artist.name, Style::default().bold())]),
         )
     }
 
@@ -617,13 +592,11 @@ pub mod checktree_utils {
     }
 
     #[must_use]
-    pub fn create_collection_tree_leaf<'a>(
-        collection: &CollectionBrief,
-    ) -> CheckTreeItem<'a, String> {
+    pub fn create_collection_tree_leaf(collection: &CollectionBrief) -> CheckTreeItem<'_, String> {
         CheckTreeItem::new_leaf(
             collection.id.to_string(),
             Line::from(vec![Span::styled(
-                collection.name.to_string(),
+                &collection.name,
                 Style::default().bold(),
             )]),
         )
@@ -644,13 +617,10 @@ pub mod checktree_utils {
     }
 
     #[must_use]
-    pub fn create_playlist_tree_leaf<'a>(playlist: &PlaylistBrief) -> CheckTreeItem<'a, String> {
+    pub fn create_playlist_tree_leaf(playlist: &PlaylistBrief) -> CheckTreeItem<'_, String> {
         CheckTreeItem::new_leaf(
             playlist.id.to_string(),
-            Line::from(vec![Span::styled(
-                playlist.name.to_string(),
-                Style::default().bold(),
-            )]),
+            Line::from(vec![Span::styled(&playlist.name, Style::default().bold())]),
         )
     }
 
@@ -669,13 +639,13 @@ pub mod checktree_utils {
     }
 
     #[must_use]
-    pub fn create_dynamic_playlist_tree_leaf<'a>(
+    pub fn create_dynamic_playlist_tree_leaf(
         dynamic_playlist: &DynamicPlaylist,
-    ) -> CheckTreeItem<'a, String> {
+    ) -> CheckTreeItem<'_, String> {
         CheckTreeItem::new_leaf(
             dynamic_playlist.id.to_string(),
             Line::from(vec![Span::styled(
-                dynamic_playlist.name.to_string(),
+                &dynamic_playlist.name,
                 Style::default().bold(),
             )]),
         )
@@ -695,20 +665,14 @@ pub mod checktree_utils {
         )
     }
 
-    pub fn create_song_tree_leaf<'a>(song: &SongBrief) -> CheckTreeItem<'a, String> {
+    #[must_use]
+    pub fn create_song_tree_leaf(song: &SongBrief) -> CheckTreeItem<'_, String> {
         CheckTreeItem::new_leaf(
             song.id.to_string(),
             Line::from(vec![
-                Span::styled(song.title.to_string(), Style::default().bold()),
+                Span::styled(&song.title, Style::default().bold()),
                 Span::raw(" "),
-                Span::styled(
-                    song.artist
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<Vec<String>>()
-                        .join(", "),
-                    Style::default().italic(),
-                ),
+                Span::styled(song.artist.as_slice().join(", "), Style::default().italic()),
             ]),
         )
     }
