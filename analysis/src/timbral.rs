@@ -203,7 +203,7 @@ impl SpectralDesc {
         let freq = bin_to_freq(bin, self.sample_rate as f32, Self::WINDOW_SIZE as f32);
         self.values_rolloff.push(freq);
 
-        let cvec: CVec = fftgrain.as_slice().into();
+        let cvec: CVec<'_> = fftgrain.as_slice().into();
         let geo_mean = geometric_mean(cvec.norm());
         if geo_mean == 0.0 {
             self.values_flatness.push(0.0);

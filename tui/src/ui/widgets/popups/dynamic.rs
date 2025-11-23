@@ -195,11 +195,11 @@ fn split_area(area: Rect, name_height: u16, query_height: u16) -> [Rect; 2] {
 }
 
 impl ComponentRender<Rect> for DynamicPlaylistEditor {
-    fn render_border(&self, frame: &mut Frame, area: Rect) -> Rect {
+    fn render_border(&self, frame: &mut Frame<'_>, area: Rect) -> Rect {
         self.render_popup_border(frame, area)
     }
 
-    fn render_content(&self, frame: &mut Frame, area: Rect) {
+    fn render_content(&self, frame: &mut Frame<'_>, area: Rect) {
         let [name_area, query_area] = split_area(area, 3, 3);
 
         let (name_color, query_color) = match self.focus {

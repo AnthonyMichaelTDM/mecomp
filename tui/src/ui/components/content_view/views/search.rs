@@ -248,7 +248,7 @@ fn split_area(area: Rect) -> [Rect; 2] {
 }
 
 impl ComponentRender<RenderProps> for SearchView {
-    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
+    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style =
             Style::default().fg(border_color(props.is_focused && !self.search_bar_focused).into());
 
@@ -318,7 +318,7 @@ impl ComponentRender<RenderProps> for SearchView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         // if there are no search results, render a message
         if self.props.search_results.is_empty() {
             frame.render_widget(

@@ -196,7 +196,7 @@ fn split_area(area: Rect) -> [Rect; 2] {
 }
 
 impl ComponentRender<RenderProps> for CollectionView {
-    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
+    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let area = if let Some(state) = &self.props {
@@ -218,7 +218,7 @@ impl ComponentRender<RenderProps> for CollectionView {
             frame.render_widget(
                 Paragraph::new(vec![
                     Line::from(Span::styled(
-                        state.collection.name.to_string(),
+                        &state.collection.name,
                         Style::default().bold(),
                     )),
                     Line::from(vec![
@@ -282,7 +282,7 @@ impl ComponentRender<RenderProps> for CollectionView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         if let Some(state) = &self.props {
             // create list to hold collection songs
             let items = state
@@ -443,7 +443,7 @@ impl Component for LibraryCollectionsView {
 }
 
 impl ComponentRender<RenderProps> for LibraryCollectionsView {
-    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
+    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // render primary border
@@ -472,7 +472,7 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
         }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         // create a tree to hold the collections
         let items = self
             .props

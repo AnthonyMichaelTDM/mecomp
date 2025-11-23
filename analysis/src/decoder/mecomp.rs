@@ -107,7 +107,7 @@ impl SymphoniaSource {
     }
 
     #[inline]
-    fn get_buffer(decoded: AudioBufferRef, spec: SignalSpec) -> SampleBuffer<f32> {
+    fn get_buffer(decoded: AudioBufferRef<'_>, spec: SignalSpec) -> SampleBuffer<f32> {
         let duration = units::Duration::from(decoded.capacity() as u64);
         let mut buffer = SampleBuffer::<f32>::new(duration, spec);
         buffer.copy_interleaved_ref(decoded);

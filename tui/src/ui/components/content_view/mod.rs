@@ -280,11 +280,11 @@ impl Component for ContentView {
 
 impl ComponentRender<RenderProps> for ContentView {
     /// we defer all border rendering to the active view
-    fn render_border(&self, _: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
+    fn render_border(&self, _: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         props
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         match &self.props.active_view {
             ActiveView::None => self.none_view.render(frame, props),
             ActiveView::Search => self.search_view.render(frame, props),

@@ -144,7 +144,7 @@ impl Collection {
 
         // get the songs in the collection
         let songs = Self::read_songs(db, id.clone()).await?;
-        let song_ids = songs.iter().map(|song| song.id.clone()).collect::<Vec<_>>();
+        let song_ids = songs.into_iter().map(|song| song.id).collect::<Vec<_>>();
 
         // add the songs to the playlist
         Playlist::add_songs(db, playlist.id.clone(), song_ids).await?;

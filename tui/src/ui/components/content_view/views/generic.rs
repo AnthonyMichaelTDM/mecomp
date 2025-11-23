@@ -162,7 +162,7 @@ impl<Props> ComponentRender<RenderProps> for ItemView<Props>
 where
     Props: ItemViewProps,
 {
-    fn render_border(&self, frame: &mut ratatui::Frame, props: RenderProps) -> RenderProps {
+    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // draw borders and get area for content
@@ -223,7 +223,7 @@ where
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame, props: RenderProps) {
+    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         let Some(state) = &self.props else {
             let text = format!("No active {}", Props::name());
 

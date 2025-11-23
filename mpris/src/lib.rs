@@ -322,9 +322,9 @@ pub fn metadata_from_opt_song(song: Option<&SongBrief>) -> Metadata {
                 .length(Time::from_micros(
                     i64::try_from(song.runtime.as_micros()).unwrap_or(i64::MAX),
                 ))
-                .artist(song.artist.iter().map(ToString::to_string))
-                .album(song.album.to_string())
-                .title(song.title.to_string())
+                .artist(song.artist.as_slice())
+                .album(&song.album)
+                .title(&song.title)
                 .build()
         },
     )

@@ -263,7 +263,7 @@ fn split_area(area: Rect) -> [Rect; 2] {
 }
 
 impl ComponentRender<Rect> for PlaylistSelector {
-    fn render_border(&self, frame: &mut ratatui::Frame, area: Rect) -> Rect {
+    fn render_border(&self, frame: &mut ratatui::Frame<'_>, area: Rect) -> Rect {
         let area = self.render_popup_border(frame, area);
 
         let content_area = if self.input_box_visible {
@@ -301,7 +301,7 @@ impl ComponentRender<Rect> for PlaylistSelector {
         border.inner(content_area)
     }
 
-    fn render_content(&self, frame: &mut Frame, area: Rect) {
+    fn render_content(&self, frame: &mut Frame<'_>, area: Rect) {
         // create a tree for the playlists
         let playlists = self
             .props
@@ -420,11 +420,11 @@ impl Popup for PlaylistEditor {
 }
 
 impl ComponentRender<Rect> for PlaylistEditor {
-    fn render_border(&self, frame: &mut Frame, area: Rect) -> Rect {
+    fn render_border(&self, frame: &mut Frame<'_>, area: Rect) -> Rect {
         self.render_popup_border(frame, area)
     }
 
-    fn render_content(&self, frame: &mut Frame, area: Rect) {
+    fn render_content(&self, frame: &mut Frame<'_>, area: Rect) {
         self.input_box.render(
             frame,
             RenderProps {

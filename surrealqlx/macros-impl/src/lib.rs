@@ -193,7 +193,7 @@ enum FieldAnnotation {
 /// - `skip`: if set, the field will be skipped
 /// - `type`: the type of the field
 impl Parse for FieldAnnotation {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+    fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
         let args: Punctuated<syn::Expr, syn::token::Comma> =
             input.parse_terminated(syn::Expr::parse, syn::token::Comma)?;
 
@@ -279,7 +279,7 @@ impl Parse for IndexAnnotation {
     /// #[index(compound(unique, "field1", "field2"))]
     /// #[index(compound("field1", "field2"))]
     /// ```
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+    fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
         // TODO: error if more than one of the same type of index is specified on the same field
         let args: Punctuated<syn::Expr, syn::token::Comma> =
             input.parse_terminated(syn::Expr::parse, syn::token::Comma)?;

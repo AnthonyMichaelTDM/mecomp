@@ -192,7 +192,7 @@ pub struct RenderProps<'a> {
 }
 
 impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
-    fn render_border(&self, frame: &mut Frame, props: RenderProps<'a>) -> RenderProps<'a> {
+    fn render_border(&self, frame: &mut Frame<'_>, props: RenderProps<'a>) -> RenderProps<'a> {
         let view_area = props.border.inner(props.area);
         frame.render_widget(&props.border, props.area);
         RenderProps {
@@ -201,7 +201,7 @@ impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
         }
     }
 
-    fn render_content(&self, frame: &mut Frame, props: RenderProps<'a>) {
+    fn render_content(&self, frame: &mut Frame<'_>, props: RenderProps<'a>) {
         let input = Paragraph::new(self.text.as_str()).style(Style::default().fg(props.text_color));
         frame.render_widget(input, props.area);
 

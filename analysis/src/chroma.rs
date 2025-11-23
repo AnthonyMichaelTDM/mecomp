@@ -3,8 +3,6 @@
 //! Contains functions to compute the chromagram of a song, and
 //! then from this chromagram extract the song's tone and mode
 //! (minor / major).
-extern crate noisy_float;
-
 use crate::Feature;
 
 use super::errors::{AnalysisError, AnalysisResult};
