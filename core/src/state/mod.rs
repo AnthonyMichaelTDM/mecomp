@@ -292,8 +292,7 @@ mod tests {
                     runtime: Duration::from_secs(100),
                     track: None,
                     disc: None,
-                    release_year: None,
-                    extension: "mp3".into(),
+                    release: None,
                     path: "foo/bar.mp3".into(),
                 }
             ]),
@@ -309,8 +308,7 @@ mod tests {
                     runtime: Duration::from_secs(100),
                     track: None,
                     disc: None,
-                    release_year: None,
-                    extension: "mp3".into(),
+                    release: None,
                     path: "foo/bar.mp3".into(),
                 }
             ),

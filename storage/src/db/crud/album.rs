@@ -509,7 +509,7 @@ mod tests {
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
-            release_year: None,
+            release: None,
             extension: "mp3".into(),
             path: "song.mp3".into(),
         };
@@ -546,7 +546,7 @@ mod tests {
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
-            release_year: None,
+            release: None,
             extension: "mp3".into(),
             path: "song.mp3".into(),
         };
@@ -581,7 +581,7 @@ mod tests {
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
-            release_year: None,
+            release: None,
             extension: "mp3".into(),
             path: "song.mp3".into(),
         };

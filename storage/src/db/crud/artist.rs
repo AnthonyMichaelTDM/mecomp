@@ -593,7 +593,7 @@ mod tests {
                 disc: Some(1),
                 genre: OneOrMany::None,
                 album_artist: artist.name.clone().into(),
-                release_year: None,
+                release: None,
                 extension: "mp3".into(),
                 path: PathBuf::from(format!("song{i}.mp3")),
             };
@@ -635,7 +635,7 @@ mod tests {
             disc: Some(1),
             genre: OneOrMany::None,
             album_artist: artist.name.clone().into(),
-            release_year: None,
+            release: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
         };
@@ -690,7 +690,7 @@ mod tests {
             disc: Some(1),
             genre: OneOrMany::None,
             album_artist: artist.name.clone().into(),
-            release_year: None,
+            release: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
         };
@@ -742,7 +742,7 @@ mod tests {
             disc: Some(1),
             genre: OneOrMany::None,
             album_artist: artist.name.clone().into(),
-            release_year: None,
+            release: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
         };
@@ -780,7 +780,7 @@ mod tests {
             disc: Some(1),
             genre: OneOrMany::None,
             album_artist: artist.name.clone().into(),
-            release_year: None,
+            release: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
         };
@@ -834,7 +834,7 @@ mod tests {
             disc: Some(1),
             genre: OneOrMany::None,
             album_artist: artist.name.clone().into(),
-            release_year: None,
+            release: None,
             extension: "mp3".into(),
             path: PathBuf::from("song.mp3"),
         };
@@ -849,7 +849,7 @@ mod tests {
             disc: Some(1),
             genre: OneOrMany::None,
             album_artist: artist.name.clone().into(),
-            release_year: None,
+            release: None,
             extension: "mp3".into(),
             path: PathBuf::from("song_2.mp3"),
         };
@@ -864,7 +864,7 @@ mod tests {
             disc: Some(1),
             genre: OneOrMany::None,
             album_artist: artist.name.clone().into(),
-            release_year: None,
+            release: None,
             extension: "mp3".into(),
             path: PathBuf::from("song_3.mp3"),
         };

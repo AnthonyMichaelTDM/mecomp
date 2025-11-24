@@ -70,7 +70,7 @@ pub struct Song {
     /// the year the song was released
     #[cfg_attr(feature = "db", field(dt = "option<int>"))]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub release_year: Option<u32>,
+    pub release: Option<u32>,
 
     // /// The `MIME` type of this [`Song`].
     // pub mime: String,
@@ -143,6 +143,9 @@ pub struct SongBrief {
         )
     )]
     pub runtime: std::time::Duration,
+    pub track: Option<u32>,
+    pub disc: Option<u32>,
+    pub release: Option<u32>,
     pub path: PathBuf,
 }
 
@@ -158,6 +161,9 @@ impl Song {
             album: self.album,
             genre: self.genre,
             runtime: self.runtime,
+            track: self.track,
+            disc: self.disc,
+            release: self.release,
             path: self.path,
         }
     }
@@ -206,7 +212,7 @@ impl From<&Song> for SongMetadata {
             runtime: song.runtime,
             track: song.track,
             disc: song.disc,
-            release_year: song.release_year,
+            release_year: song.release,
             extension: song.extension.clone(),
             path: song.path.clone(),
         }
@@ -225,7 +231,7 @@ impl From<Song> for SongMetadata {
             runtime: song.runtime,
             track: song.track,
             disc: song.disc,
-            release_year: song.release_year,
+            release_year: song.release,
             extension: song.extension,
             path: song.path,
         }
@@ -268,7 +274,7 @@ impl SongMetadata {
         if self.disc != song.disc {
             changeset.disc = Some(self.disc);
         }
-        if self.release_year != song.release_year {
+        if self.release_year != song.release {
             changeset.release_year = Some(self.release_year);
         }
         if self.extension != song.extension {
@@ -407,7 +413,7 @@ mod tests {
             runtime: Duration::from_secs(3600),
             track: Some(1),
             disc: Some(1),
-            release_year: Some(2021),
+            release: Some(2021),
             extension: "mp3".into(),
             path: PathBuf::from("path"),
         }
@@ -423,6 +429,9 @@ mod tests {
             album: "album".into(),
             genre: "genre".to_string().into(),
             runtime: Duration::from_secs(3600),
+            track: Some(1),
+            disc: Some(1),
+            release: Some(2021),
             path: PathBuf::from("path"),
         }
     }
@@ -459,7 +468,7 @@ mod tests {
         runtime: Duration::from_secs(3600),
         track: Some(1),
         disc: Some(1),
-        release_year: Some(2021),
+        release: Some(2021),
         extension: "mp3".into(),
         path: PathBuf::from("path"),
     },
@@ -487,7 +496,7 @@ mod tests {
         runtime: Duration::from_secs(3600),
         track: Some(1),
         disc: Some(1),
-        release_year: Some(2021),
+        release: Some(2021),
         extension: "mp3".into(),
         path: PathBuf::from("path"),
     },

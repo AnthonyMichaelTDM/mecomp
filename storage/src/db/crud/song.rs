@@ -367,7 +367,7 @@ impl Song {
             album_artist: metadata.album_artist,
             album: metadata.album,
             genre: metadata.genre,
-            release_year: metadata.release_year,
+            release: metadata.release_year,
             runtime: metadata.runtime,
             extension: metadata.extension,
             track: metadata.track,
@@ -420,7 +420,7 @@ mod test {
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
-            release_year: None,
+            release: None,
             extension: "mp3".into(),
             path: "song.mp3".to_string().into(),
         };
@@ -789,7 +789,7 @@ mod test {
         assert_eq!(updated.track, changes.track.unwrap());
         assert_eq!(updated.disc, changes.disc.unwrap());
         assert_eq!(updated.genre, changes.genre.unwrap());
-        assert_eq!(updated.release_year, changes.release_year.unwrap());
+        assert_eq!(updated.release, changes.release_year.unwrap());
         assert_eq!(updated.extension, changes.extension.unwrap());
         Ok(())
     }
@@ -1057,7 +1057,7 @@ mod test {
         assert_eq!(song.runtime, metadata.runtime);
         assert_eq!(song.track, metadata.track);
         assert_eq!(song.disc, metadata.disc);
-        assert_eq!(song.release_year, metadata.release_year);
+        assert_eq!(song.release, metadata.release_year);
         assert_eq!(song.extension, metadata.extension);
         assert_eq!(song.path, metadata.path);
 
