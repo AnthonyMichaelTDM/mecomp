@@ -5,91 +5,62 @@
 use std::{path::PathBuf, str::FromStr, time::Duration};
 
 use mecomp_core::state::{RepeatMode, SeekType, Status};
+use mecomp_prost::{PlaybackSeekRequest, PlaybackSkipRequest, PlaybackVolumeSetRequest};
 use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Time, TrackId, Volume,
     zbus::{Error as ZbusError, fdo},
 };
-use tarpc::context::Context;
+use tokio::runtime::Handle;
 
 use crate::{Mpris, interfaces::root::SUPPORTED_MIME_TYPES, metadata_from_opt_song};
 
 impl PlayerInterface for Mpris {
     async fn next(&self) -> fdo::Result<()> {
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .playback_skip_forward(context, 1)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        let mut daemon = self.daemon.lock().await;
+        Handle::current()
+            .block_on(daemon.playback_skip_forward(PlaybackSkipRequest::new(1)))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     async fn previous(&self) -> fdo::Result<()> {
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .playback_skip_backward(context, 1)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        let mut daemon = self.daemon.lock().await;
+        Handle::current()
+            .block_on(daemon.playback_skip_backward(PlaybackSkipRequest::new(1)))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     async fn pause(&self) -> fdo::Result<()> {
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .playback_pause(context)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        let mut daemon = self.daemon.lock().await;
+        Handle::current()
+            .block_on(daemon.playback_pause(()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+
         Ok(())
     }
 
     async fn play_pause(&self) -> fdo::Result<()> {
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .playback_toggle(context)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        let mut daemon = self.daemon.lock().await;
+        Handle::current()
+            .block_on(daemon.playback_toggle(()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     async fn stop(&self) -> fdo::Result<()> {
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            let context = Context::current();
-            daemon
-                .playback_stop(context)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
-
+        let mut daemon = self.daemon.lock().await;
+        Handle::current()
+            .block_on(daemon.playback_stop(()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     async fn play(&self) -> fdo::Result<()> {
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .playback_play(context)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        let mut daemon = self.daemon.lock().await;
+        Handle::current()
+            .block_on(daemon.playback_play(()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
@@ -152,27 +123,21 @@ impl PlayerInterface for Mpris {
         path = path.canonicalize().unwrap_or(path);
 
         // add the song to the queue
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            let context = Context::current();
-            if let Some(song) = daemon
-                .library_song_get_by_path(context, path)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?
-            {
-                let context = Context::current();
-                daemon
-                    .queue_add(context, song.id.clone().into())
-                    .await
-                    .map_err(|e| fdo::Error::Failed(e.to_string()))?
-                    .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-            } else {
-                return Err(fdo::Error::Failed(
-                    "Failed to find song in database".to_string(),
-                ));
-            }
+        let mut daemon = self.daemon.lock().await;
+        if let Some(song) = Handle::current()
+            .block_on(daemon.library_song_get_by_path(mecomp_prost::Path::new(path)))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?
+            .into_inner()
+            .song
+        {
+            Handle::current()
+                .block_on(daemon.queue_add(song.id.clone()))
+                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        } else {
+            return Err(fdo::Error::Failed(
+                "Failed to find song in database".to_string(),
+            ));
         }
-        drop(daemon_read_lock);
 
         Ok(())
     }
@@ -202,16 +167,10 @@ impl PlayerInterface for Mpris {
             LoopStatus::Playlist => RepeatMode::All,
         };
 
-        let context = Context::current();
-
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .playback_repeat(context, repeat_mode)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        let mut daemon = self.daemon.lock().await;
+        Handle::current()
+            .block_on(daemon.playback_repeat(mecomp_prost::PlaybackRepeatRequest::new(repeat_mode)))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
 
         Ok(())
     }
@@ -234,15 +193,11 @@ impl PlayerInterface for Mpris {
     async fn set_shuffle(&self, shuffle: bool) -> Result<(), ZbusError> {
         // if called with false, does nothing, if called with true, shuffles the queue
         if shuffle {
-            let context = Context::current();
-            let daemon_read_lock = self.daemon().await;
-            if let Some(daemon) = daemon_read_lock.as_ref() {
-                daemon
-                    .playback_shuffle(context)
-                    .await
-                    .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-            }
-            drop(daemon_read_lock);
+            let mut daemon = self.daemon.lock().await;
+
+            Handle::current()
+                .block_on(daemon.playback_shuffle(()))
+                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         }
 
         Ok(())
@@ -264,16 +219,12 @@ impl PlayerInterface for Mpris {
     }
 
     async fn set_volume(&self, volume: Volume) -> Result<(), ZbusError> {
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-            daemon
-                .playback_volume(context, volume as f32)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        let mut daemon = self.daemon.lock().await;
+        #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+        Handle::current()
+            .block_on(daemon.playback_volume(PlaybackVolumeSetRequest::new(volume as f32)))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+
         Ok(())
     }
 
@@ -290,23 +241,19 @@ impl PlayerInterface for Mpris {
 
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
         //TODO: if the value passed in would mean seeking beyond the end of the track, act like a call to Next
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            let seek_type = if offset.as_micros() > 0 {
-                SeekType::RelativeForwards
-            } else {
-                SeekType::RelativeBackwards
-            };
+        let seek_type = if offset.as_micros() > 0 {
+            SeekType::RelativeForwards
+        } else {
+            SeekType::RelativeBackwards
+        };
 
-            let offset = Duration::from_micros(offset.as_micros().unsigned_abs());
+        let offset = Duration::from_micros(offset.as_micros().unsigned_abs());
 
-            daemon
-                .playback_seek(context, seek_type, offset)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        let mut daemon = self.daemon.lock().await;
+
+        Handle::current()
+            .block_on(daemon.playback_seek(PlaybackSeekRequest::new(seek_type, offset)))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
@@ -316,30 +263,23 @@ impl PlayerInterface for Mpris {
             return Ok(());
         }
 
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            let maybe_state = self.state.read().await;
-            if let Some(song) = maybe_state.current_song.as_ref() {
-                // if the position not in the range of the song, ignore the call
-                let position = position.as_micros();
-                if position < 0 || u128::from(position.unsigned_abs()) > song.runtime.as_micros() {
-                    return Ok(());
-                }
-
-                let context = Context::current();
-
-                daemon
-                    .playback_seek(
-                        context,
-                        SeekType::Absolute,
-                        Duration::from_micros(u64::try_from(position).unwrap_or_default()),
-                    )
-                    .await
-                    .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        let maybe_state = self.state.read().await;
+        if let Some(song) = maybe_state.current_song.as_ref() {
+            // if the position not in the range of the song, ignore the call
+            let position = position.as_micros();
+            if position < 0 || u128::from(position.unsigned_abs()) > song.runtime.as_micros() {
+                return Ok(());
             }
-            drop(maybe_state);
+
+            let mut daemon = self.daemon.lock().await;
+
+            Handle::current()
+                .block_on(daemon.playback_seek(PlaybackSeekRequest::new(
+                    SeekType::Absolute,
+                    Duration::from_micros(u64::try_from(position).unwrap_or_default()),
+                )))
+                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         }
-        drop(daemon_read_lock);
 
         Ok(())
     }
@@ -428,7 +368,6 @@ mod tests {
         assert_eq!(mpris.can_go_next().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
         let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
@@ -482,7 +421,6 @@ mod tests {
         assert_eq!(mpris.can_go_next().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
         let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
@@ -568,7 +506,6 @@ mod tests {
         assert_eq!(mpris.can_go_next().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
         let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
@@ -632,7 +569,6 @@ mod tests {
         assert_eq!(mpris.can_go_previous().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
         let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
@@ -695,7 +631,6 @@ mod tests {
         assert_eq!(mpris.can_go_previous().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
         let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
@@ -791,7 +726,6 @@ mod tests {
         assert_eq!(mpris.can_go_previous().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
         let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
@@ -888,7 +822,6 @@ mod tests {
         assert_eq!(mpris.can_control().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
         let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
@@ -1051,7 +984,6 @@ mod tests {
         let (mpris, event_rx, tempdir, _) = fixtures.await;
 
         // setup
-        let context = Context::current();
         let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
@@ -1138,7 +1070,6 @@ mod tests {
         let (mpris, event_rx, tempdir, audio_kernel) = fixtures.await;
 
         // setup
-        let context = Context::current();
         let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
@@ -1377,7 +1308,6 @@ mod tests {
         let (mpris, event_rx, tempdir, audio_kernel) = fixtures.await;
 
         // setup
-        let context = Context::current();
         let songs: Vec<SongBrief> = mpris
             .daemon
             .read()
@@ -1509,7 +1439,6 @@ mod tests {
         assert!(mpris.can_seek().await.unwrap());
 
         // setup
-        let context = Context::current();
         let songs: Vec<SongBrief> = mpris
             .daemon
             .read()

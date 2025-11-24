@@ -6,7 +6,7 @@ use mpris_server::{
     RootInterface,
     zbus::{Error as ZbusError, fdo},
 };
-use tarpc::context::Context;
+use tokio::runtime::Handle;
 
 use crate::Mpris;
 
@@ -18,16 +18,10 @@ impl RootInterface for Mpris {
     }
 
     async fn quit(&self) -> fdo::Result<()> {
-        let ctx = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .daemon_shutdown(ctx)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
-
+        let mut daemon = self.daemon.lock().await;
+        Handle::current()
+            .block_on(daemon.daemon_shutdown(()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 

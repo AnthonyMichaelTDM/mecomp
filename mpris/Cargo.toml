@@ -35,9 +35,9 @@ mecomp-storage = { workspace = true }
 mpris-server.workspace = true
 percent-encoding.workspace = true
 shellexpand.workspace = true
-tarpc.workspace = true
 tokio.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+mecomp-prost.workspace = true
 
 [dev-dependencies]
 one-or-many = { workspace = true }
