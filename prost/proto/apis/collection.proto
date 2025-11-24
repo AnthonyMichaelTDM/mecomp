@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package mecomp;
+
+import "apis/entities.proto";
+
+message CollectionIdRequest {
+  string collection_id = 1;
+}
+
+message CollectionResponse {
+  optional Collection collection = 1;
+}
+
+message CollectionSongsResponse {
+  bool found = 1;
+  repeated Song songs = 2;
+}
+
+message CollectionFreezeRequest {
+  string collection_id = 1;
+  string name = 2;
+}

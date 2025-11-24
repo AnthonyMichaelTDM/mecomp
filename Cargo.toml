@@ -10,6 +10,7 @@ members = [
     "mecomp-workspace-hack",
     "mpris",
     "one-or-many",
+    "prost",
     "storage",
     "surrealqlx/lib",
     "surrealqlx/macros",
@@ -174,6 +175,7 @@ tracing-flame = "0.2.0"
 mecomp-analysis = { path = "analysis", version = "=0.5.9" }
 mecomp-core = { path = "core", default-features = false, version = "=0.5.9" }
 mecomp-daemon = { path = "daemon", version = "=0.5.9" }
+mecomp-prost = { path = "prost", version = "=0.5.9" }
 mecomp-storage = { path = "storage", default-features = false, version = "=0.5.9" }
 surrealqlx = { path = "surrealqlx/lib", version = "=0.1.7" }
 surrealqlx-macros = { path = "surrealqlx/macros", version = "=0.1.7" }

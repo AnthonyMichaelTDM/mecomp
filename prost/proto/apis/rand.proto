@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package mecomp;
+
+import "apis/entities.proto";
+
+message RandomArtistResponse {
+  optional ArtistBrief artist = 1;
+}
+
+message RandomAlbumResponse {
+  optional AlbumBrief album = 1;
+}
+
+message RandomSongResponse {
+  optional SongBrief song = 1;
+}

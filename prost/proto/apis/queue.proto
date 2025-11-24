@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package mecomp;
+
+message QueueAddRequest {
+	string record_id = 1;
+}
+
+message QueueAddListRequest {
+	repeated string record_ids = 1;
+}
+
+message QueueSetIndexRequest {
+	uint64 index = 1;
+}
+
+message QueueRemoveRangeRequest {
+	uint64 start = 1;
+	uint64 end = 2;
+}

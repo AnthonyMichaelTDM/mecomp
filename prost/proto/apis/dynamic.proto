@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package mecomp;
+
+import "apis/entities.proto";
+
+message DynamicPlaylistCreateRequest {
+  string name = 1;
+  string query = 2;
+}
+
+message DynamicPlaylistIdRequest {
+  string dynamic_playlist_id = 1;
+}
+
+message DynamicPlaylistIdResponse {
+  string dynamic_playlist_id = 1;
+}
+
+message DynamicPlaylistUpdateRequest {
+  string dynamic_playlist_id = 1;
+  DynamicPlaylistChangeSet changes = 2;
+}
+
+message DynamicPlaylistListResponse {
+  repeated DynamicPlaylist playlists = 1;
+}
+
+message DynamicPlaylistResponse {
+  optional DynamicPlaylist playlist = 1;
+}
+
+message DynamicPlaylistExportRequest {
+  string path = 1;
+}
+
+message DynamicPlaylistImportRequest {
+  string path = 1;
+}
+
+message DynamicPlaylistImportResponse {
+  repeated DynamicPlaylist playlists = 1;
+}
+
+message DynamicPlaylistSongsResponse {
+  bool found = 1;
+  repeated Song songs = 2;
+}

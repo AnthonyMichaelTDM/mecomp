@@ -1,0 +1,21 @@
+[package]
+name = "mecomp-prost"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Protobuf definitions and utilities for the MECOMP daemon and clients."
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[dependencies]
+prost = "0.14.1"
+prost-types = "0.14.1"
+tonic = { version = "0.14.2", default-features = false, features = ["codegen"] }
+
+tonic-prost = "0.14.2"
+
+[build-dependencies]
+tonic-prost-build = { version = "0.14.2", default-features = false }

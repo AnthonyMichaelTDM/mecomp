@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package mecomp;
+
+import "apis/entities.proto";
+
+message RadioSimilarRequest {
+  repeated string record_ids = 1;
+  uint32 limit = 2;
+}
+
+message RadioSimilarSongsResponse {
+  repeated Song songs = 1;
+}
+
+message RadioSimilarIdsResponse {
+  repeated string song_ids = 1;
+}

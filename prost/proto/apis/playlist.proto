@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package mecomp;
+
+import "apis/entities.proto";
+
+message PlaylistGetOrCreateRequest {
+  string name = 1;
+}
+
+message PlaylistIdResponse {
+  string playlist_id = 1;
+}
+
+message PlaylistIdRequest {
+  string playlist_id = 1;
+}
+
+message OptionalPlaylistIdResponse {
+  optional string playlist_id = 1;
+}
+
+message PlaylistRemoveSongsRequest {
+  string playlist_id = 1;
+  repeated string song_ids = 2;
+}
+
+message PlaylistAddRequest {
+  string playlist_id = 1;
+  string record_id = 2;
+}
+
+message PlaylistAddListRequest {
+  string playlist_id = 1;
+  repeated string record_ids = 2;
+}
+
+message PlaylistResponse {
+  optional Playlist playlist = 1;
+}
+
+message PlaylistSongsResponse {
+  bool found = 1;
+  repeated Song songs = 2;
+}
+
+message PlaylistRenameRequest {
+  string playlist_id = 1;
+  string name = 2;
+}
+
+message PlaylistExportRequest {
+  string playlist_id = 1;
+  string path = 2;
+}
+
+message PlaylistImportRequest {
+  string path = 1;
+  optional string name = 2;
+}

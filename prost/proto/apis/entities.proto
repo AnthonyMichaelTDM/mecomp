@@ -1,0 +1,142 @@
+syntax = "proto3";
+
+package mecomp;
+
+import "google/protobuf/duration.proto";
+
+// Core data structures shared across MECOMP services.
+message Song {
+  string id = 1;
+  string title = 2;
+  repeated string artists = 3;
+  repeated string album_artists = 4;
+  string album = 5;
+  repeated string genres = 6;
+  google.protobuf.Duration runtime = 7;
+  optional uint32 track = 8;
+  optional uint32 disc = 9;
+  optional uint32 release_year = 10;
+  string extension = 11;
+  string path = 12;
+}
+
+message SongBrief {
+  string id = 1;
+  string title = 2;
+  repeated string artists = 3;
+  repeated string album_artists = 4;
+  string album = 5;
+  repeated string genres = 6;
+  google.protobuf.Duration runtime = 7;
+  optional uint32 track = 8;
+  optional uint32 disc = 9;
+  optional uint32 release_year = 10;
+  string extension = 11;
+  string path = 12;
+}
+
+message Artist {
+  string id = 1;
+  string name = 2;
+  google.protobuf.Duration runtime = 3;
+  uint64 album_count = 4;
+  uint64 song_count = 5;
+}
+
+message ArtistBrief {
+  string id = 1;
+  string name = 2;
+}
+
+message Album {
+  string id = 1;
+  string title = 2;
+  repeated string artists = 3;
+  optional uint32 release_year = 4;
+  google.protobuf.Duration runtime = 5;
+  uint64 song_count = 6;
+  uint32 discs = 7;
+  repeated string genres = 8;
+}
+
+message AlbumBrief {
+  string id = 1;
+  string title = 2;
+  repeated string artists = 3;
+  optional uint32 release_year = 4;
+  uint32 discs = 5;
+  repeated string genres = 6;
+}
+
+message Playlist {
+  string id = 1;
+  string name = 2;
+  google.protobuf.Duration runtime = 3;
+  uint64 song_count = 4;
+}
+
+message PlaylistBrief {
+  string id = 1;
+  string name = 2;
+}
+
+message Collection {
+  string id = 1;
+  string name = 2;
+  google.protobuf.Duration runtime = 3;
+  uint64 song_count = 4;
+}
+
+message CollectionBrief {
+  string id = 1;
+  string name = 2;
+}
+
+message DynamicPlaylist {
+  string id = 1;
+  string name = 2;
+  string query = 3;
+}
+
+message DynamicPlaylistChangeSet {
+  optional string name = 1;
+  optional string query = 2;
+}
+
+message LibraryBrief {
+  repeated ArtistBrief artists = 1;
+  repeated AlbumBrief albums = 2;
+  repeated SongBrief songs = 3;
+  repeated PlaylistBrief playlists = 4;
+  repeated CollectionBrief collections = 5;
+  repeated DynamicPlaylist dynamic_playlists = 6;
+}
+
+message LibraryFull {
+  repeated Artist artists = 1;
+  repeated Album albums = 2;
+  repeated Song songs = 3;
+  repeated Playlist playlists = 4;
+  repeated Collection collections = 5;
+  repeated DynamicPlaylist dynamic_playlists = 6;
+}
+
+message LibraryHealth {
+  uint64 artists = 1;
+  uint64 albums = 2;
+  uint64 songs = 3;
+  optional uint64 unanalyzed_songs = 4;
+  uint64 playlists = 5;
+  uint64 collections = 6;
+  uint64 dynamic_playlists = 7;
+  uint64 orphaned_artists = 8;
+  uint64 orphaned_albums = 9;
+  uint64 orphaned_playlists = 10;
+  uint64 orphaned_collections = 11;
+}
+
+message SearchResult {
+  repeated SongBrief songs = 1;
+  repeated AlbumBrief albums = 2;
+  repeated ArtistBrief artists = 3;
+}

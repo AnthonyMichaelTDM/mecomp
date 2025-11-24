@@ -1,0 +1,139 @@
+// wraps up all the interfaces for the daemon (in ./apis/)
+// into a single file for easier inclusion elsewhere.
+
+syntax = "proto3";
+
+package mecomp;
+
+import "google/protobuf/empty.proto";
+import "apis/collection.proto";
+import "apis/dynamic.proto";
+import "apis/library.proto";
+import "apis/misc.proto";
+import "apis/playback.proto";
+import "apis/playlist.proto";
+import "apis/queue.proto";
+import "apis/radio.proto";
+import "apis/rand.proto";
+import "apis/search.proto";
+import "apis/state.proto";
+
+service MusicPlayer {
+	// Miscellaneous
+	rpc RegisterListener(RegisterListenerRequest) returns (google.protobuf.Empty);
+	rpc Ping(google.protobuf.Empty) returns (PingResponse);
+	rpc DaemonShutdown(google.protobuf.Empty) returns (google.protobuf.Empty);
+
+	// Library maintenance
+	rpc LibraryRescan(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc LibraryRescanInProgress(google.protobuf.Empty) returns (InProgressResponse);
+	rpc LibraryAnalyze(LibraryAnalyzeRequest) returns (google.protobuf.Empty);
+	rpc LibraryAnalyzeInProgress(google.protobuf.Empty) returns (InProgressResponse);
+	rpc LibraryRecluster(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc LibraryReclusterInProgress(google.protobuf.Empty) returns (InProgressResponse);
+
+	// Library inspection
+	rpc LibraryBrief(google.protobuf.Empty) returns (LibraryBriefResponse);
+	rpc LibraryFull(google.protobuf.Empty) returns (LibraryFullResponse);
+	rpc LibraryArtistsBrief(google.protobuf.Empty) returns (ArtistBriefList);
+	rpc LibraryArtistsFull(google.protobuf.Empty) returns (ArtistList);
+	rpc LibraryAlbumsBrief(google.protobuf.Empty) returns (AlbumBriefList);
+	rpc LibraryAlbumsFull(google.protobuf.Empty) returns (AlbumList);
+	rpc LibrarySongsBrief(google.protobuf.Empty) returns (SongBriefList);
+	rpc LibrarySongsFull(google.protobuf.Empty) returns (SongList);
+	rpc LibraryPlaylistsBrief(google.protobuf.Empty) returns (PlaylistBriefList);
+	rpc LibraryPlaylistsFull(google.protobuf.Empty) returns (PlaylistList);
+	rpc LibraryCollectionsBrief(google.protobuf.Empty) returns (CollectionBriefList);
+	rpc LibraryCollectionsFull(google.protobuf.Empty) returns (CollectionList);
+	rpc LibraryHealth(google.protobuf.Empty) returns (LibraryHealthResponse);
+
+	// Library lookup helpers
+	rpc LibrarySongGet(RecordIdRequest) returns (SongResponse);
+	rpc LibrarySongGetByPath(PathRequest) returns (SongResponse);
+	rpc LibrarySongGetArtist(RecordIdRequest) returns (ArtistCollectionResponse);
+	rpc LibrarySongGetAlbum(RecordIdRequest) returns (AlbumResponse);
+	rpc LibrarySongGetPlaylists(RecordIdRequest) returns (PlaylistList);
+	rpc LibrarySongGetCollections(RecordIdRequest) returns (CollectionListResponse);
+	rpc LibraryAlbumGet(RecordIdRequest) returns (AlbumResponse);
+	rpc LibraryAlbumGetArtist(RecordIdRequest) returns (ArtistCollectionResponse);
+	rpc LibraryAlbumGetSongs(RecordIdRequest) returns (SongListOptionResponse);
+	rpc LibraryArtistGet(RecordIdRequest) returns (ArtistResponse);
+	rpc LibraryArtistGetSongs(RecordIdRequest) returns (SongListOptionResponse);
+	rpc LibraryArtistGetAlbums(RecordIdRequest) returns (AlbumListOptionResponse);
+
+	// State inspection
+	rpc StateAudio(google.protobuf.Empty) returns (StateAudioResponse);
+	rpc CurrentArtist(google.protobuf.Empty) returns (CurrentArtistResponse);
+	rpc CurrentAlbum(google.protobuf.Empty) returns (CurrentAlbumResponse);
+	rpc CurrentSong(google.protobuf.Empty) returns (CurrentSongResponse);
+
+	// Random sampling
+	rpc RandArtist(google.protobuf.Empty) returns (RandomArtistResponse);
+	rpc RandAlbum(google.protobuf.Empty) returns (RandomAlbumResponse);
+	rpc RandSong(google.protobuf.Empty) returns (RandomSongResponse);
+
+	// Search
+	rpc Search(SearchRequest) returns (SearchResponse);
+	rpc SearchArtist(SearchRequest) returns (SearchArtistResponse);
+	rpc SearchAlbum(SearchRequest) returns (SearchAlbumResponse);
+	rpc SearchSong(SearchRequest) returns (SearchSongResponse);
+
+	// Playback control
+	rpc PlaybackToggle(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc PlaybackPlay(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc PlaybackPause(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc PlaybackStop(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc PlaybackRestart(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc PlaybackSkipForward(PlaybackSkipRequest) returns (google.protobuf.Empty);
+	rpc PlaybackSkipBackward(PlaybackSkipRequest) returns (google.protobuf.Empty);
+	rpc PlaybackClearPlayer(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc PlaybackClear(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc PlaybackSeek(PlaybackSeekRequest) returns (google.protobuf.Empty);
+	rpc PlaybackRepeat(PlaybackRepeatRequest) returns (google.protobuf.Empty);
+	rpc PlaybackShuffle(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc PlaybackVolume(PlaybackVolumeSetRequest) returns (google.protobuf.Empty);
+	rpc PlaybackVolumeUp(PlaybackVolumeAdjustRequest) returns (google.protobuf.Empty);
+	rpc PlaybackVolumeDown(PlaybackVolumeAdjustRequest) returns (google.protobuf.Empty);
+	rpc PlaybackVolumeToggleMute(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc PlaybackMute(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc PlaybackUnmute(google.protobuf.Empty) returns (google.protobuf.Empty);
+
+	// Queue management
+	rpc QueueAdd(QueueAddRequest) returns (google.protobuf.Empty);
+	rpc QueueAddList(QueueAddListRequest) returns (google.protobuf.Empty);
+	rpc QueueSetIndex(QueueSetIndexRequest) returns (google.protobuf.Empty);
+	rpc QueueRemoveRange(QueueRemoveRangeRequest) returns (google.protobuf.Empty);
+
+	// Playlist management
+	rpc PlaylistGetOrCreate(PlaylistGetOrCreateRequest) returns (PlaylistIdResponse);
+	rpc PlaylistRemove(PlaylistIdRequest) returns (google.protobuf.Empty);
+	rpc PlaylistClone(PlaylistIdRequest) returns (PlaylistIdResponse);
+	rpc PlaylistGetId(PlaylistGetOrCreateRequest) returns (OptionalPlaylistIdResponse);
+	rpc PlaylistRemoveSongs(PlaylistRemoveSongsRequest) returns (google.protobuf.Empty);
+	rpc PlaylistAdd(PlaylistAddRequest) returns (google.protobuf.Empty);
+	rpc PlaylistAddList(PlaylistAddListRequest) returns (google.protobuf.Empty);
+	rpc PlaylistGet(PlaylistIdRequest) returns (PlaylistResponse);
+	rpc PlaylistGetSongs(PlaylistIdRequest) returns (PlaylistSongsResponse);
+	rpc PlaylistRename(PlaylistRenameRequest) returns (PlaylistResponse);
+	rpc PlaylistExport(PlaylistExportRequest) returns (google.protobuf.Empty);
+	rpc PlaylistImport(PlaylistImportRequest) returns (PlaylistIdResponse);
+
+	// Collections
+	rpc CollectionGet(CollectionIdRequest) returns (CollectionResponse);
+	rpc CollectionFreeze(CollectionFreezeRequest) returns (PlaylistIdResponse);
+	rpc CollectionGetSongs(CollectionIdRequest) returns (CollectionSongsResponse);
+
+	// Radio
+	rpc RadioGetSimilar(RadioSimilarRequest) returns (RadioSimilarSongsResponse);
+	rpc RadioGetSimilarIds(RadioSimilarRequest) returns (RadioSimilarIdsResponse);
+
+	// Dynamic playlists
+	rpc DynamicPlaylistCreate(DynamicPlaylistCreateRequest) returns (DynamicPlaylistIdResponse);
+	rpc DynamicPlaylistList(google.protobuf.Empty) returns (DynamicPlaylistListResponse);
+	rpc DynamicPlaylistUpdate(DynamicPlaylistUpdateRequest) returns (DynamicPlaylistResponse);
+	rpc DynamicPlaylistRemove(DynamicPlaylistIdRequest) returns (google.protobuf.Empty);
+	rpc DynamicPlaylistGet(DynamicPlaylistIdRequest) returns (DynamicPlaylistResponse);
+	rpc DynamicPlaylistGetSongs(DynamicPlaylistIdRequest) returns (DynamicPlaylistSongsResponse);
+	rpc DynamicPlaylistExport(DynamicPlaylistExportRequest) returns (google.protobuf.Empty);
+	rpc DynamicPlaylistImport(DynamicPlaylistImportRequest) returns (DynamicPlaylistImportResponse);
+}
