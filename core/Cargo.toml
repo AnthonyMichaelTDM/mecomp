@@ -20,9 +20,9 @@ name = "udp"
 harness = false
 
 [features]
-default = ["audio", "rpc"]
+default = ["audio"]
 analysis = ["dep:mecomp-analysis"] # needed so configs can configure clustering
-rpc = ["dep:tarpc", "dep:ciborium", "dep:tokio", "dep:object-pool"]
+notifications = ["dep:ciborium", "dep:tokio", "dep:object-pool"]
 otel_tracing = [
     "dep:tracing-opentelemetry",
     "dep:opentelemetry",
@@ -53,7 +53,6 @@ serde = { workspace = true }
 shellexpand = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, optional = true }
-tarpc = { workspace = true, optional = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-opentelemetry = { workspace = true, optional = true }

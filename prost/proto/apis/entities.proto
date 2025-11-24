@@ -1,142 +1,249 @@
-syntax = "proto3";
+syntax = "proto2";
 
 package mecomp;
 
 import "google/protobuf/duration.proto";
 
+
+message RecordId {
+  required string tb = 1;
+	required Ulid id = 2;
+}
+
+message Ulid {
+  required string ulid = 1;
+}
+
+message RecordIdList {
+  repeated RecordId ids = 1;
+}
+
 // Core data structures shared across MECOMP services.
 message Song {
-  string id = 1;
-  string title = 2;
+  required RecordId id = 1;
+  required string title = 2;
   repeated string artists = 3;
   repeated string album_artists = 4;
-  string album = 5;
+  required string album = 5;
   repeated string genres = 6;
-  google.protobuf.Duration runtime = 7;
+  required google.protobuf.Duration runtime = 7;
   optional uint32 track = 8;
   optional uint32 disc = 9;
-  optional uint32 release_year = 10;
-  string extension = 11;
-  string path = 12;
+  optional uint32 release = 10;
+  required string extension = 11;
+  required string path = 12;
+}
+
+message SongOption {
+  optional Song song = 1;
+}
+
+message SongList {
+  repeated Song songs = 1;
+}
+
+message SongListOption {
+  optional SongList songs = 1;
 }
 
 message SongBrief {
-  string id = 1;
-  string title = 2;
+  required RecordId id = 1;
+  required string title = 2;
   repeated string artists = 3;
   repeated string album_artists = 4;
-  string album = 5;
+  required string album = 5;
   repeated string genres = 6;
-  google.protobuf.Duration runtime = 7;
+  required google.protobuf.Duration runtime = 7;
   optional uint32 track = 8;
   optional uint32 disc = 9;
-  optional uint32 release_year = 10;
-  string extension = 11;
-  string path = 12;
+  optional uint32 release = 10;
+  required string path = 12;
+}
+
+message SongBriefOption {
+  optional SongBrief song = 1;
+}
+
+message SongBriefList {
+  repeated SongBrief songs = 1;
+}
+
+message SongBriefListOption {
+  optional SongBriefList songs = 1;
 }
 
 message Artist {
-  string id = 1;
-  string name = 2;
-  google.protobuf.Duration runtime = 3;
-  uint64 album_count = 4;
-  uint64 song_count = 5;
+  required RecordId id = 1;
+  required string name = 2;
+  required google.protobuf.Duration runtime = 3;
+  required uint64 album_count = 4;
+  required uint64 song_count = 5;
+}
+
+message ArtistOption {
+  optional Artist artist = 1;
+}
+
+message ArtistList {
+  repeated Artist artists = 1;
+}
+
+message ArtistListOption {
+  optional ArtistList artists = 1;
 }
 
 message ArtistBrief {
-  string id = 1;
-  string name = 2;
+  required RecordId id = 1;
+  required string name = 2;
+}
+
+message ArtistBriefOption {
+  optional ArtistBrief artist = 1;
+}
+
+message ArtistBriefList {
+  repeated ArtistBrief artists = 1;
+}
+
+message ArtistBriefListOption {
+  optional ArtistBriefList artists = 1;
 }
 
 message Album {
-  string id = 1;
-  string title = 2;
+  required RecordId id = 1;
+  required string title = 2;
   repeated string artists = 3;
-  optional uint32 release_year = 4;
-  google.protobuf.Duration runtime = 5;
-  uint64 song_count = 6;
-  uint32 discs = 7;
+  optional uint32 release = 4;
+  required google.protobuf.Duration runtime = 5;
+  required uint64 song_count = 6;
+  required uint32 discs = 7;
   repeated string genres = 8;
 }
 
+message AlbumOption {
+  optional Album album = 1;
+}
+
+message AlbumList {
+  repeated Album albums = 1;
+}
+
+message AlbumListOption {
+  optional AlbumList albums = 1;
+}
+
 message AlbumBrief {
-  string id = 1;
-  string title = 2;
+  required RecordId id = 1;
+  required string title = 2;
   repeated string artists = 3;
-  optional uint32 release_year = 4;
-  uint32 discs = 5;
+  optional uint32 release = 4;
+  required uint32 discs = 5;
   repeated string genres = 6;
 }
 
+message AlbumBriefOption {
+  optional AlbumBrief album = 1;
+}
+
+message AlbumBriefList {
+  repeated AlbumBrief albums = 1;
+}
+
+message AlbumBriefListOption {
+  optional AlbumBriefList albums = 1;
+}
+
 message Playlist {
-  string id = 1;
-  string name = 2;
-  google.protobuf.Duration runtime = 3;
-  uint64 song_count = 4;
+  required RecordId id = 1;
+  required string name = 2;
+  required google.protobuf.Duration runtime = 3;
+  required uint64 song_count = 4;
+}
+
+message PlaylistOption {
+  optional Playlist playlist = 1;
+}
+
+message PlaylistList {
+  repeated Playlist playlists = 1;
+}
+
+message PlaylistListOption {
+  optional PlaylistList playlists = 1;
 }
 
 message PlaylistBrief {
-  string id = 1;
-  string name = 2;
+  required RecordId id = 1;
+  required string name = 2;
+}
+
+message PlaylistBriefOption {
+  optional PlaylistBrief playlist = 1;
+}
+
+message PlaylistBriefList {
+  repeated PlaylistBrief playlists = 1;
+}
+
+message PlaylistBriefListOption {
+  optional PlaylistBriefList playlists = 1;
 }
 
 message Collection {
-  string id = 1;
-  string name = 2;
-  google.protobuf.Duration runtime = 3;
-  uint64 song_count = 4;
+  required RecordId id = 1;
+  required string name = 2;
+  required google.protobuf.Duration runtime = 3;
+  required uint64 song_count = 4;
+}
+
+message CollectionOption {
+  optional Collection collection = 1;
+}
+
+message CollectionList {
+  repeated Collection collections = 1;
+}
+
+message CollectionListOption {
+  optional CollectionList collections = 1;
 }
 
 message CollectionBrief {
-  string id = 1;
-  string name = 2;
+  required RecordId id = 1;
+  required string name = 2;
+}
+
+message CollectionBriefOption {
+  optional CollectionBrief collection = 1;
+}
+
+message CollectionBriefList {
+  repeated CollectionBrief collections = 1;
+}
+
+message CollectionBriefListOption {
+  optional CollectionBriefList collections = 1;
 }
 
 message DynamicPlaylist {
-  string id = 1;
-  string name = 2;
-  string query = 3;
+  required RecordId id = 1;
+  required string name = 2;
+  required string query = 3;
+}
+
+message DynamicPlaylistOption {
+  optional DynamicPlaylist playlist = 1;
+}
+
+message DynamicPlaylistList {
+  repeated DynamicPlaylist playlists = 1;
+}
+
+message DynamicPlaylistListOption {
+  optional DynamicPlaylistList playlists = 1;
 }
 
 message DynamicPlaylistChangeSet {
-  optional string name = 1;
-  optional string query = 2;
-}
-
-message LibraryBrief {
-  repeated ArtistBrief artists = 1;
-  repeated AlbumBrief albums = 2;
-  repeated SongBrief songs = 3;
-  repeated PlaylistBrief playlists = 4;
-  repeated CollectionBrief collections = 5;
-  repeated DynamicPlaylist dynamic_playlists = 6;
-}
-
-message LibraryFull {
-  repeated Artist artists = 1;
-  repeated Album albums = 2;
-  repeated Song songs = 3;
-  repeated Playlist playlists = 4;
-  repeated Collection collections = 5;
-  repeated DynamicPlaylist dynamic_playlists = 6;
-}
-
-message LibraryHealth {
-  uint64 artists = 1;
-  uint64 albums = 2;
-  uint64 songs = 3;
-  optional uint64 unanalyzed_songs = 4;
-  uint64 playlists = 5;
-  uint64 collections = 6;
-  uint64 dynamic_playlists = 7;
-  uint64 orphaned_artists = 8;
-  uint64 orphaned_albums = 9;
-  uint64 orphaned_playlists = 10;
-  uint64 orphaned_collections = 11;
-}
-
-message SearchResult {
-  repeated SongBrief songs = 1;
-  repeated AlbumBrief albums = 2;
-  repeated ArtistBrief artists = 3;
+  optional string new_name = 1;
+  optional string new_query = 2;
 }

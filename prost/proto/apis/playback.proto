@@ -1,4 +1,4 @@
-syntax = "proto3";
+syntax = "proto2";
 
 package mecomp;
 
@@ -6,22 +6,22 @@ import "google/protobuf/duration.proto";
 import "apis/state.proto";
 
 message PlaybackSkipRequest {
-	uint64 amount = 1;
+	required uint64 amount = 1;
 }
 
 message PlaybackSeekRequest {
-	SeekType seek = 1;
-	google.protobuf.Duration duration = 2;
+	required SeekType seek = 1;
+	required google.protobuf.Duration duration = 2;
 }
 
 message PlaybackRepeatRequest {
-	RepeatMode mode = 1;
+	required RepeatMode mode = 1;
 }
 
 message PlaybackVolumeSetRequest {
-	float volume = 1;
+	required float volume = 1;
 }
 
 message PlaybackVolumeAdjustRequest {
-	float amount = 1;
+	required float amount = 1;
 }

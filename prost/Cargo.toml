@@ -19,13 +19,13 @@ prost = "0.14.1"
 prost-types = "0.14.1"
 thiserror.workspace = true
 tokio = { workspace = true, features = ["time"] }
-tonic = { version = "0.14.2", default-features = false, features = [
-    "codegen",
-    "transport",
-] }
+tonic = { version = "0.14.2", default-features = false, features = ["codegen"] }
 tonic-prost = "0.14.2"
+tracing.workspace = true
 
+mecomp-core = { workspace = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+mecomp-storage.workspace = true
 
 
 [build-dependencies]

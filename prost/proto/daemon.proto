@@ -8,15 +8,19 @@ package mecomp;
 import "google/protobuf/empty.proto";
 import "apis/collection.proto";
 import "apis/dynamic.proto";
+import "apis/entities.proto";
 import "apis/library.proto";
 import "apis/misc.proto";
 import "apis/playback.proto";
 import "apis/playlist.proto";
 import "apis/queue.proto";
 import "apis/radio.proto";
-import "apis/rand.proto";
 import "apis/search.proto";
 import "apis/state.proto";
+
+message Path {
+	string path = 1;
+}
 
 service MusicPlayer {
 	// Miscellaneous
@@ -45,38 +49,46 @@ service MusicPlayer {
 	rpc LibraryPlaylistsFull(google.protobuf.Empty) returns (PlaylistList);
 	rpc LibraryCollectionsBrief(google.protobuf.Empty) returns (CollectionBriefList);
 	rpc LibraryCollectionsFull(google.protobuf.Empty) returns (CollectionList);
+    rpc LibraryDynamicPlaylistsFull(google.protobuf.Empty) returns (DynamicPlaylistList);
 	rpc LibraryHealth(google.protobuf.Empty) returns (LibraryHealthResponse);
 
 	// Library lookup helpers
-	rpc LibrarySongGet(RecordIdRequest) returns (SongResponse);
-	rpc LibrarySongGetByPath(PathRequest) returns (SongResponse);
-	rpc LibrarySongGetArtist(RecordIdRequest) returns (ArtistCollectionResponse);
-	rpc LibrarySongGetAlbum(RecordIdRequest) returns (AlbumResponse);
-	rpc LibrarySongGetPlaylists(RecordIdRequest) returns (PlaylistList);
-	rpc LibrarySongGetCollections(RecordIdRequest) returns (CollectionListResponse);
-	rpc LibraryAlbumGet(RecordIdRequest) returns (AlbumResponse);
-	rpc LibraryAlbumGetArtist(RecordIdRequest) returns (ArtistCollectionResponse);
-	rpc LibraryAlbumGetSongs(RecordIdRequest) returns (SongListOptionResponse);
-	rpc LibraryArtistGet(RecordIdRequest) returns (ArtistResponse);
-	rpc LibraryArtistGetSongs(RecordIdRequest) returns (SongListOptionResponse);
-	rpc LibraryArtistGetAlbums(RecordIdRequest) returns (AlbumListOptionResponse);
+	rpc LibrarySongGet(Ulid) returns (SongOption);
+	rpc LibrarySongGetByPath(Path) returns (SongOption);
+	rpc LibrarySongGetArtists(Ulid) returns (ArtistBriefListOption);
+	rpc LibrarySongGetAlbum(Ulid) returns (AlbumBriefOption);
+	rpc LibrarySongGetPlaylists(Ulid) returns (PlaylistBriefListOption);
+	rpc LibrarySongGetCollections(Ulid) returns (CollectionBriefListOption);
+	rpc LibraryAlbumGet(Ulid) returns (AlbumOption);
+	rpc LibraryAlbumGetArtists(Ulid) returns (ArtistBriefListOption);
+	rpc LibraryAlbumGetSongs(Ulid) returns (SongBriefListOption);
+	rpc LibraryArtistGet(Ulid) returns (ArtistOption);
+	rpc LibraryArtistGetSongs(Ulid) returns (SongBriefListOption);
+	rpc LibraryArtistGetAlbums(Ulid) returns (AlbumBriefListOption);
+    rpc LibraryPlaylistGet(Ulid) returns (PlaylistOption);
+    rpc LibraryPlaylistGetByName(PlaylistName) returns (PlaylistOption);
+    rpc LibraryPlaylistGetSongs(Ulid) returns (SongBriefListOption);
+    rpc LibraryCollectionGet(Ulid) returns (CollectionOption);
+    rpc LibraryCollectionGetSongs(Ulid) returns (SongBriefListOption);
+    rpc LibraryDynamicPlaylistGet(Ulid) returns (DynamicPlaylistOption);
+    rpc LibraryDynamicPlaylistGetSongs(Ulid) returns (SongBriefListOption);
 
 	// State inspection
 	rpc StateAudio(google.protobuf.Empty) returns (StateAudioResponse);
-	rpc CurrentArtist(google.protobuf.Empty) returns (CurrentArtistResponse);
-	rpc CurrentAlbum(google.protobuf.Empty) returns (CurrentAlbumResponse);
-	rpc CurrentSong(google.protobuf.Empty) returns (CurrentSongResponse);
+	rpc CurrentArtists(google.protobuf.Empty) returns (ArtistBriefListOption);
+	rpc CurrentAlbum(google.protobuf.Empty) returns (AlbumBriefOption);
+	rpc CurrentSong(google.protobuf.Empty) returns (SongBriefOption);
 
 	// Random sampling
-	rpc RandArtist(google.protobuf.Empty) returns (RandomArtistResponse);
-	rpc RandAlbum(google.protobuf.Empty) returns (RandomAlbumResponse);
-	rpc RandSong(google.protobuf.Empty) returns (RandomSongResponse);
+	rpc RandArtist(google.protobuf.Empty) returns (ArtistBriefOption);
+	rpc RandAlbum(google.protobuf.Empty) returns (AlbumBriefOption);
+	rpc RandSong(google.protobuf.Empty) returns (SongBriefOption);
 
 	// Search
-	rpc Search(SearchRequest) returns (SearchResponse);
-	rpc SearchArtist(SearchRequest) returns (SearchArtistResponse);
-	rpc SearchAlbum(SearchRequest) returns (SearchAlbumResponse);
-	rpc SearchSong(SearchRequest) returns (SearchSongResponse);
+	rpc Search(SearchRequest) returns (SearchResult);
+	rpc SearchArtist(SearchRequest) returns (ArtistBriefList);
+	rpc SearchAlbum(SearchRequest) returns (AlbumBriefList);
+	rpc SearchSong(SearchRequest) returns (SongBriefList);
 
 	// Playback control
 	rpc PlaybackToggle(google.protobuf.Empty) returns (google.protobuf.Empty);
@@ -99,41 +111,33 @@ service MusicPlayer {
 	rpc PlaybackUnmute(google.protobuf.Empty) returns (google.protobuf.Empty);
 
 	// Queue management
-	rpc QueueAdd(QueueAddRequest) returns (google.protobuf.Empty);
-	rpc QueueAddList(QueueAddListRequest) returns (google.protobuf.Empty);
+	rpc QueueAdd(RecordId) returns (google.protobuf.Empty);
+	rpc QueueAddList(RecordIdList) returns (google.protobuf.Empty);
 	rpc QueueSetIndex(QueueSetIndexRequest) returns (google.protobuf.Empty);
 	rpc QueueRemoveRange(QueueRemoveRangeRequest) returns (google.protobuf.Empty);
 
 	// Playlist management
-	rpc PlaylistGetOrCreate(PlaylistGetOrCreateRequest) returns (PlaylistIdResponse);
-	rpc PlaylistRemove(PlaylistIdRequest) returns (google.protobuf.Empty);
-	rpc PlaylistClone(PlaylistIdRequest) returns (PlaylistIdResponse);
-	rpc PlaylistGetId(PlaylistGetOrCreateRequest) returns (OptionalPlaylistIdResponse);
+	rpc PlaylistGetOrCreate(PlaylistName) returns (RecordId);
+	rpc PlaylistRemove(Ulid) returns (google.protobuf.Empty);
+	rpc PlaylistClone(Ulid) returns (RecordId);
 	rpc PlaylistRemoveSongs(PlaylistRemoveSongsRequest) returns (google.protobuf.Empty);
 	rpc PlaylistAdd(PlaylistAddRequest) returns (google.protobuf.Empty);
 	rpc PlaylistAddList(PlaylistAddListRequest) returns (google.protobuf.Empty);
-	rpc PlaylistGet(PlaylistIdRequest) returns (PlaylistResponse);
-	rpc PlaylistGetSongs(PlaylistIdRequest) returns (PlaylistSongsResponse);
-	rpc PlaylistRename(PlaylistRenameRequest) returns (PlaylistResponse);
+	rpc PlaylistRename(PlaylistRenameRequest) returns (PlaylistOption);
 	rpc PlaylistExport(PlaylistExportRequest) returns (google.protobuf.Empty);
-	rpc PlaylistImport(PlaylistImportRequest) returns (PlaylistIdResponse);
+	rpc PlaylistImport(PlaylistImportRequest) returns (RecordId);
 
 	// Collections
-	rpc CollectionGet(CollectionIdRequest) returns (CollectionResponse);
-	rpc CollectionFreeze(CollectionFreezeRequest) returns (PlaylistIdResponse);
-	rpc CollectionGetSongs(CollectionIdRequest) returns (CollectionSongsResponse);
+	rpc CollectionFreeze(CollectionFreezeRequest) returns (RecordId);
 
 	// Radio
-	rpc RadioGetSimilar(RadioSimilarRequest) returns (RadioSimilarSongsResponse);
-	rpc RadioGetSimilarIds(RadioSimilarRequest) returns (RadioSimilarIdsResponse);
+	rpc RadioGetSimilar(RadioSimilarRequest) returns (SongBriefList);
+	rpc RadioGetSimilarIds(RadioSimilarRequest) returns (RecordIdList);
 
 	// Dynamic playlists
-	rpc DynamicPlaylistCreate(DynamicPlaylistCreateRequest) returns (DynamicPlaylistIdResponse);
-	rpc DynamicPlaylistList(google.protobuf.Empty) returns (DynamicPlaylistListResponse);
-	rpc DynamicPlaylistUpdate(DynamicPlaylistUpdateRequest) returns (DynamicPlaylistResponse);
-	rpc DynamicPlaylistRemove(DynamicPlaylistIdRequest) returns (google.protobuf.Empty);
-	rpc DynamicPlaylistGet(DynamicPlaylistIdRequest) returns (DynamicPlaylistResponse);
-	rpc DynamicPlaylistGetSongs(DynamicPlaylistIdRequest) returns (DynamicPlaylistSongsResponse);
-	rpc DynamicPlaylistExport(DynamicPlaylistExportRequest) returns (google.protobuf.Empty);
-	rpc DynamicPlaylistImport(DynamicPlaylistImportRequest) returns (DynamicPlaylistImportResponse);
+	rpc DynamicPlaylistCreate(DynamicPlaylistCreateRequest) returns (RecordId);
+	rpc DynamicPlaylistUpdate(DynamicPlaylistUpdateRequest) returns (DynamicPlaylistOption);
+	rpc DynamicPlaylistRemove(Ulid) returns (google.protobuf.Empty);
+	rpc DynamicPlaylistExport(Path) returns (google.protobuf.Empty);
+	rpc DynamicPlaylistImport(Path) returns (DynamicPlaylistList);
 }

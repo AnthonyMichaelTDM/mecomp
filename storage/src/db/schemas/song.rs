@@ -62,11 +62,11 @@ pub struct Song {
     /// The track number of this [`Song`].
     #[cfg_attr(feature = "db", field(dt = "option<int>"))]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub track: Option<u16>,
+    pub track: Option<u32>,
     /// The disc number of this [`Song`].
     #[cfg_attr(feature = "db", field(dt = "option<int>"))]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub disc: Option<u16>,
+    pub disc: Option<u32>,
     /// the year the song was released
     #[cfg_attr(feature = "db", field(dt = "option<int>"))]
     #[cfg_attr(feature = "serde", serde(default))]
@@ -115,9 +115,9 @@ pub struct SongChangeSet {
     )]
     pub runtime: Option<Duration>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub track: Option<Option<u16>>,
+    pub track: Option<Option<u32>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub disc: Option<Option<u16>>,
+    pub disc: Option<Option<u32>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub release_year: Option<Option<u32>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -143,10 +143,6 @@ pub struct SongBrief {
         )
     )]
     pub runtime: std::time::Duration,
-    pub track: Option<u16>,
-    pub disc: Option<u16>,
-    pub release_year: Option<u32>,
-    pub extension: String,
     pub path: PathBuf,
 }
 
@@ -161,11 +157,7 @@ impl Song {
             album_artist: self.album_artist,
             album: self.album,
             genre: self.genre,
-            release_year: self.release_year,
             runtime: self.runtime,
-            track: self.track,
-            disc: self.disc,
-            extension: self.extension,
             path: self.path,
         }
     }
@@ -196,8 +188,8 @@ pub struct SongMetadata {
     pub genre: OneOrMany<String>,
     pub runtime: Duration,
     pub release_year: Option<u32>,
-    pub track: Option<u16>,
-    pub disc: Option<u16>,
+    pub track: Option<u32>,
+    pub disc: Option<u32>,
     pub extension: String,
     pub path: PathBuf,
 }
@@ -431,10 +423,6 @@ mod tests {
             album: "album".into(),
             genre: "genre".to_string().into(),
             runtime: Duration::from_secs(3600),
-            track: Some(1),
-            disc: Some(1),
-            release_year: Some(2021),
-            extension: "mp3".into(),
             path: PathBuf::from("path"),
         }
     }

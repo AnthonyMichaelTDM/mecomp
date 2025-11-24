@@ -46,7 +46,7 @@ unicode-width = "0.2.0"
 
 # MECOMP dependencies
 one-or-many.workspace = true
-mecomp-core = { workspace = true, features = ["rpc"] }
+mecomp-core = { workspace = true, features = ["notifications"] }
 mecomp-storage = { workspace = true, features = ["serde"] }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 

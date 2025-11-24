@@ -9,7 +9,6 @@ const PROTO_FILES: &[&str] = &[
     "proto/apis/playlist.proto",
     "proto/apis/queue.proto",
     "proto/apis/radio.proto",
-    "proto/apis/rand.proto",
     "proto/apis/search.proto",
     "proto/apis/state.proto",
 ];
@@ -17,9 +16,13 @@ const PROTO_FILES: &[&str] = &[
 fn main() {
     tonic_prost_build::configure()
         .compile_well_known_types(false)
-        .emit_rerun_if_changed(true)
         .build_transport(true)
+        .build_client(true)
+        .build_server(true)
         .out_dir("out")
+        .emit_package(true)
+        // need to make sure the client is Sync
+        .trait_attribute("mecomp", "#[trait_variant::make(Send + Sync)]")
         .compile_protos(PROTO_FILES, &["proto"])
         .unwrap_or_else(|e| panic!("Failed to compile protos {e:?}"));
 }

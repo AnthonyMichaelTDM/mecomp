@@ -12,21 +12,20 @@ use super::{
 };
 
 use anyhow::bail;
-use mecomp_core::{
-    rpc::SearchResult,
-    state::{
-        SeekType,
-        library::{LibraryBrief, LibraryFull, LibraryHealth},
-    },
+use mecomp_core::state::SeekType;
+use mecomp_prost::{
+    CollectionFreezeRequest, DynamicPlaylist, DynamicPlaylistChangeSet,
+    DynamicPlaylistCreateRequest, DynamicPlaylistUpdateRequest, LibraryAnalyzeRequest,
+    PlaybackRepeatRequest, PlaybackSeekRequest, PlaybackSkipRequest, PlaybackVolumeAdjustRequest,
+    PlaybackVolumeSetRequest, PlaylistAddListRequest, PlaylistAddRequest, PlaylistExportRequest,
+    PlaylistImportRequest, PlaylistName, PlaylistRemoveSongsRequest, PlaylistRenameRequest,
+    QueueRemoveRangeRequest, QueueSetIndexRequest, RadioSimilarRequest, RecordId, RecordIdList,
+    SearchRequest, SearchResult, Ulid,
 };
 use mecomp_storage::db::schemas::{
-    Id, RecordId,
-    album::{self, Album, AlbumBrief},
-    artist::{self, Artist, ArtistBrief},
-    collection::{self, Collection},
-    dynamic::{self, DynamicPlaylist, DynamicPlaylistChangeSet},
-    playlist::{self, Playlist},
-    song::{self, Song, SongBrief},
+    album, artist, collection,
+    dynamic::{self, query::Compile},
+    playlist, song,
 };
 
 impl CommandHandler for Command {
@@ -35,30 +34,33 @@ impl CommandHandler for Command {
     #[allow(clippy::too_many_lines)]
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
         match self {
             Self::Ping => {
-                let resp: String = client.ping(ctx).await?;
+                let resp: String = client.ping(()).await?.into_inner().message;
                 writeln!(stdout, "Daemon response:\n{resp}")?;
                 Ok(())
             }
             Self::Stop => {
-                client.daemon_shutdown(ctx).await?;
+                client.daemon_shutdown(()).await?;
                 writeln!(
                     stdout,
                     "Daemon stopping, check the daemon logs for more information"
                 )?;
                 Ok(())
             }
-            Self::Library { command } => command.handle(ctx, client, stdout, stderr).await,
-            Self::Status { command } => command.handle(ctx, client, stdout, stderr).await,
+            Self::Library { command } => command.handle(client, stdout, stderr).await,
+            Self::Status { command } => command.handle(client, stdout, stderr).await,
             Self::State => {
-                if let Some(state) = client.state_audio(ctx).await? {
-                    Ok(writeln!(stdout, "{}", printing::audio_state(&state)?)?)
+                if let Some(state) = client.state_audio(()).await?.into_inner().state {
+                    Ok(writeln!(
+                        stdout,
+                        "{}",
+                        printing::audio_state(&state.into())?
+                    )?)
                 } else {
                     Ok(writeln!(
                         stdout,
@@ -72,21 +74,21 @@ impl CommandHandler for Command {
             } => Ok(writeln!(
                 stdout,
                 "Daemon response:\n{:#?}",
-                client.current_artist(ctx).await?
+                client.current_artists(()).await?.into_inner().artists
             )?),
             Self::Current {
                 target: CurrentTarget::Album,
             } => Ok(writeln!(
                 stdout,
                 "Daemon response:\n{:#?}",
-                client.current_album(ctx).await?
+                client.current_album(()).await?.into_inner().album
             )?),
             Self::Current {
                 target: CurrentTarget::Song,
             } => Ok(writeln!(
                 stdout,
                 "Daemon response:\n{:#?}",
-                client.current_song(ctx).await?
+                client.current_song(()).await?.into_inner().song
             )?),
 
             Self::Rand {
@@ -94,21 +96,21 @@ impl CommandHandler for Command {
             } => Ok(writeln!(
                 stdout,
                 "Daemon response:\n{:#?}",
-                client.rand_artist(ctx).await?
+                client.rand_artist(()).await?
             )?),
             Self::Rand {
                 target: RandTarget::Album,
             } => Ok(writeln!(
                 stdout,
                 "Daemon response:\n{:#?}",
-                client.rand_album(ctx).await?
+                client.rand_album(()).await?
             )?),
             Self::Rand {
                 target: RandTarget::Song,
             } => Ok(writeln!(
                 stdout,
                 "Daemon response:\n{:#?}",
-                client.rand_song(ctx).await?
+                client.rand_song(()).await?
             )?),
 
             Self::Search {
@@ -121,7 +123,10 @@ impl CommandHandler for Command {
                     songs,
                     albums,
                     artists,
-                } = client.search(ctx, query.clone(), *limit).await?;
+                } = client
+                    .search(SearchRequest::new(query, *limit))
+                    .await?
+                    .into_inner();
                 writeln!(
                     stdout,
                     "Daemon response:\n{}\n{}\n{}",
@@ -141,7 +146,11 @@ impl CommandHandler for Command {
                 "Daemon response:\n{}",
                 printing::artist_list(
                     "Artists",
-                    &client.search_artist(ctx, query.clone(), *limit).await?,
+                    &client
+                        .search_artist(SearchRequest::new(query, *limit))
+                        .await?
+                        .into_inner()
+                        .artists,
                     *quiet
                 )?
             )?),
@@ -155,7 +164,11 @@ impl CommandHandler for Command {
                 "Daemon response:\n{}",
                 printing::album_list(
                     "Albums",
-                    &client.search_album(ctx, query.clone(), *limit).await?,
+                    &client
+                        .search_album(SearchRequest::new(query, *limit))
+                        .await?
+                        .into_inner()
+                        .albums,
                     *quiet
                 )?
             )?),
@@ -169,17 +182,21 @@ impl CommandHandler for Command {
                 "Daemon response:\n{}",
                 printing::song_list(
                     "Songs",
-                    &client.search_song(ctx, query.clone(), *limit).await?,
+                    &client
+                        .search_song(SearchRequest::new(query, *limit))
+                        .await?
+                        .into_inner()
+                        .songs,
                     *quiet
                 )?
             )?),
 
-            Self::Playback { command } => command.handle(ctx, client, stdout, stderr).await,
-            Self::Queue { command } => command.handle(ctx, client, stdout, stderr).await,
-            Self::Playlist { command } => command.handle(ctx, client, stdout, stderr).await,
-            Self::Dynamic { command } => command.handle(ctx, client, stdout, stderr).await,
-            Self::Collection { command } => command.handle(ctx, client, stdout, stderr).await,
-            Self::Radio { command } => command.handle(ctx, client, stdout, stderr).await,
+            Self::Playback { command } => command.handle(client, stdout, stderr).await,
+            Self::Queue { command } => command.handle(client, stdout, stderr).await,
+            Self::Playlist { command } => command.handle(client, stdout, stderr).await,
+            Self::Dynamic { command } => command.handle(client, stdout, stderr).await,
+            Self::Collection { command } => command.handle(client, stdout, stderr).await,
+            Self::Radio { command } => command.handle(client, stdout, stderr).await,
         }
     }
 }
@@ -190,14 +207,13 @@ impl CommandHandler for LibraryCommand {
     #[allow(clippy::too_many_lines)]
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         _: &mut W2,
     ) -> Self::Output {
         match self {
             Self::Rescan => {
-                let resp: Result<(), _> = client.library_rescan(ctx).await?;
+                let resp = client.library_rescan(()).await;
                 if let Err(e) = resp {
                     writeln!(stdout, "Daemon response:\n{e}")?;
                 } else {
@@ -206,7 +222,9 @@ impl CommandHandler for LibraryCommand {
                 Ok(())
             }
             Self::Analyze { overwrite } => {
-                let resp: Result<(), _> = client.library_analyze(ctx, *overwrite).await?;
+                let resp = client
+                    .library_analyze(LibraryAnalyzeRequest::new(*overwrite))
+                    .await;
                 if let Err(e) = resp {
                     writeln!(stdout, "Daemon response:\n{e}")?;
                 } else {
@@ -215,7 +233,7 @@ impl CommandHandler for LibraryCommand {
                 Ok(())
             }
             Self::Recluster => {
-                let resp: Result<(), _> = client.library_recluster(ctx).await?;
+                let resp = client.library_recluster(()).await;
                 if let Err(e) = resp {
                     writeln!(stdout, "Daemon response:\n{e}")?;
                 } else {
@@ -224,24 +242,24 @@ impl CommandHandler for LibraryCommand {
                 Ok(())
             }
             Self::Brief => {
-                let resp: Result<LibraryBrief, _> = client.library_brief(ctx).await?;
+                let resp = client.library_brief(()).await?.into_inner();
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                 Ok(())
             }
             Self::Full => {
-                let resp: Result<LibraryFull, _> = client.library_full(ctx).await?;
+                let resp = client.library_full(()).await?.into_inner();
                 writeln!(stdout, "Daemon response:\n{resp:?}")?;
                 Ok(())
             }
             Self::Health => {
-                let resp: Result<LibraryHealth, _> = client.library_health(ctx).await?;
+                let resp = client.library_health(()).await?.into_inner();
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                 Ok(())
             }
             Self::List { quiet, target } => {
                 match target {
                     LibraryListTarget::Artists => {
-                        let resp: Box<[ArtistBrief]> = client.library_artists_brief(ctx).await??;
+                        let resp = client.library_artists_brief(()).await?.into_inner().artists;
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -249,7 +267,7 @@ impl CommandHandler for LibraryCommand {
                         )?;
                     }
                     LibraryListTarget::Albums => {
-                        let resp: Box<[AlbumBrief]> = client.library_albums_brief(ctx).await??;
+                        let resp = client.library_albums_brief(()).await?.into_inner().albums;
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -257,7 +275,7 @@ impl CommandHandler for LibraryCommand {
                         )?;
                     }
                     LibraryListTarget::Songs => {
-                        let resp: Box<[SongBrief]> = client.library_songs_brief(ctx).await??;
+                        let resp = client.library_songs_brief(()).await?.into_inner().songs;
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -265,7 +283,11 @@ impl CommandHandler for LibraryCommand {
                         )?;
                     }
                     LibraryListTarget::Playlists => {
-                        let resp: Box<[Playlist]> = client.library_playlists_full(ctx).await??;
+                        let resp = client
+                            .library_playlists_full(())
+                            .await?
+                            .into_inner()
+                            .playlists;
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -273,8 +295,11 @@ impl CommandHandler for LibraryCommand {
                         )?;
                     }
                     LibraryListTarget::DynamicPlaylists => {
-                        let resp: Box<[DynamicPlaylist]> =
-                            client.dynamic_playlist_list(ctx).await?;
+                        let resp = client
+                            .library_dynamic_playlists_full(())
+                            .await?
+                            .into_inner()
+                            .playlists;
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -282,8 +307,11 @@ impl CommandHandler for LibraryCommand {
                         )?;
                     }
                     LibraryListTarget::Collections => {
-                        let resp: Box<[Collection]> =
-                            client.library_collections_full(ctx).await??;
+                        let resp = client
+                            .library_collections_full(())
+                            .await?
+                            .into_inner()
+                            .collections;
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -296,75 +324,51 @@ impl CommandHandler for LibraryCommand {
             Self::Get { command } => {
                 match command {
                     LibraryGetCommand::Artist { id } => {
-                        let resp: Option<Artist> = client
-                            .library_artist_get(
-                                ctx,
-                                RecordId {
-                                    tb: artist::TABLE_NAME.to_owned(),
-                                    id: Id::String(id.to_owned()),
-                                },
-                            )
-                            .await?;
+                        let resp = client
+                            .library_artist_get(Ulid::new(id))
+                            .await?
+                            .into_inner()
+                            .artist;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
                     LibraryGetCommand::Album { id } => {
-                        let resp: Option<Album> = client
-                            .library_album_get(
-                                ctx,
-                                RecordId {
-                                    tb: album::TABLE_NAME.to_owned(),
-                                    id: Id::String(id.to_owned()),
-                                },
-                            )
-                            .await?;
+                        let resp = client
+                            .library_album_get(Ulid::new(id))
+                            .await?
+                            .into_inner()
+                            .album;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
                     LibraryGetCommand::Song { id } => {
-                        let resp: Option<Song> = client
-                            .library_song_get(
-                                ctx,
-                                RecordId {
-                                    tb: song::TABLE_NAME.to_owned(),
-                                    id: Id::String(id.to_owned()),
-                                },
-                            )
-                            .await?;
+                        let resp = client
+                            .library_song_get(Ulid::new(id))
+                            .await?
+                            .into_inner()
+                            .song;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
                     LibraryGetCommand::Playlist { id } => {
-                        let resp: Option<Playlist> = client
-                            .playlist_get(
-                                ctx,
-                                RecordId {
-                                    tb: playlist::TABLE_NAME.to_owned(),
-                                    id: Id::String(id.to_owned()),
-                                },
-                            )
-                            .await?;
+                        let resp = client
+                            .library_playlist_get(Ulid::new(id))
+                            .await?
+                            .into_inner()
+                            .playlist;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
                     LibraryGetCommand::Dynamic { id } => {
-                        let resp: Option<DynamicPlaylist> = client
-                            .dynamic_playlist_get(
-                                ctx,
-                                RecordId {
-                                    tb: dynamic::TABLE_NAME.to_owned(),
-                                    id: Id::String(id.to_owned()),
-                                },
-                            )
-                            .await?;
+                        let resp = client
+                            .library_dynamic_playlist_get(Ulid::new(id))
+                            .await?
+                            .into_inner()
+                            .playlist;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
                     LibraryGetCommand::Collection { id } => {
-                        let resp: Option<Collection> = client
-                            .collection_get(
-                                ctx,
-                                RecordId {
-                                    tb: collection::TABLE_NAME.to_owned(),
-                                    id: Id::String(id.to_owned()),
-                                },
-                            )
-                            .await?;
+                        let resp = client
+                            .library_collection_get(Ulid::new(id))
+                            .await?
+                            .into_inner()
+                            .collection;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
                 }
@@ -379,14 +383,18 @@ impl CommandHandler for super::StatusCommand {
 
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         _: &mut W2,
     ) -> Self::Output {
         match self {
             Self::Rescan => {
-                if client.library_rescan_in_progress(ctx).await? {
+                if client
+                    .library_rescan_in_progress(())
+                    .await?
+                    .into_inner()
+                    .in_progress
+                {
                     writeln!(stdout, "Daemon response:\nthere is a rescan in progress")?;
                 } else {
                     writeln!(
@@ -396,7 +404,12 @@ impl CommandHandler for super::StatusCommand {
                 }
             }
             Self::Analyze => {
-                if client.library_analyze_in_progress(ctx).await? {
+                if client
+                    .library_analyze_in_progress(())
+                    .await?
+                    .into_inner()
+                    .in_progress
+                {
                     writeln!(stdout, "Daemon response:\nthere is an analysis in progress")?;
                 } else {
                     writeln!(
@@ -406,7 +419,12 @@ impl CommandHandler for super::StatusCommand {
                 }
             }
             Self::Recluster => {
-                if client.library_recluster_in_progress(ctx).await? {
+                if client
+                    .library_recluster_in_progress(())
+                    .await?
+                    .into_inner()
+                    .in_progress
+                {
                     writeln!(
                         stdout,
                         "Daemon response:\nthere is a reclustering in progress"
@@ -428,57 +446,62 @@ impl CommandHandler for super::PlaybackCommand {
 
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
         match self {
             Self::Toggle => {
-                client.playback_toggle(ctx).await?;
+                client.playback_toggle(()).await?;
                 writeln!(stdout, "Daemon response:\nplayback toggled")?;
                 Ok(())
             }
             Self::Play => {
-                client.playback_play(ctx).await?;
+                client.playback_play(()).await?;
                 writeln!(stdout, "Daemon response:\nplayback started")?;
                 Ok(())
             }
             Self::Pause => {
-                client.playback_pause(ctx).await?;
+                client.playback_pause(()).await?;
                 writeln!(stdout, "Daemon response:\nplayback paused")?;
                 Ok(())
             }
             Self::Stop => {
-                client.playback_clear_player(ctx).await?;
+                client.playback_clear_player(()).await?;
                 writeln!(stdout, "Daemon response:\nplayback stopped")?;
                 Ok(())
             }
             Self::Restart => {
-                client.playback_restart(ctx).await?;
+                client.playback_restart(()).await?;
                 writeln!(stdout, "Daemon response:\nplayback restarted")?;
                 Ok(())
             }
             Self::Next => {
-                client.playback_skip_forward(ctx, 1).await?;
+                client
+                    .playback_skip_forward(PlaybackSkipRequest::new(1))
+                    .await?;
                 writeln!(stdout, "Daemon response:\nnext track started")?;
                 Ok(())
             }
             Self::Previous => {
-                client.playback_skip_backward(ctx, 1).await?;
+                client
+                    .playback_skip_backward(PlaybackSkipRequest::new(1))
+                    .await?;
                 writeln!(stdout, "Daemon response:\nprevious track started")?;
                 Ok(())
             }
-            Self::Seek { command } => command.handle(ctx, client, stdout, stderr).await,
-            Self::Volume { command } => command.handle(ctx, client, stdout, stderr).await,
+            Self::Seek { command } => command.handle(client, stdout, stderr).await,
+            Self::Volume { command } => command.handle(client, stdout, stderr).await,
             Self::Repeat { mode } => {
                 let mode: mecomp_core::state::RepeatMode = (*mode).into();
-                client.playback_repeat(ctx, mode).await?;
+                client
+                    .playback_repeat(PlaybackRepeatRequest::new(mode))
+                    .await?;
                 writeln!(stdout, "Daemon response:\nrepeat mode set to {mode}")?;
                 Ok(())
             }
             Self::Shuffle => {
-                client.playback_shuffle(ctx).await?;
+                client.playback_shuffle(()).await?;
                 writeln!(stdout, "Daemon response:\nqueue shuffled")?;
                 Ok(())
             }
@@ -491,35 +514,35 @@ impl CommandHandler for SeekCommand {
 
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         _: &mut W2,
     ) -> Self::Output {
         match self {
             Self::Forward { amount } => {
                 client
-                    .playback_seek(
-                        ctx,
+                    .playback_seek(PlaybackSeekRequest::new(
                         SeekType::RelativeForwards,
                         Duration::from_secs_f32(*amount),
-                    )
+                    ))
                     .await?;
                 writeln!(stdout, "Daemon response:\nsought forward by {amount:.2}s")?;
             }
             Self::Backward { amount } => {
                 client
-                    .playback_seek(
-                        ctx,
+                    .playback_seek(PlaybackSeekRequest::new(
                         SeekType::RelativeBackwards,
                         Duration::from_secs_f32(*amount),
-                    )
+                    ))
                     .await?;
                 writeln!(stdout, "Daemon response:\nsought backward by {amount:.2}s")?;
             }
             Self::Absolute { position } => {
                 client
-                    .playback_seek(ctx, SeekType::Absolute, Duration::from_secs_f32(*position))
+                    .playback_seek(PlaybackSeekRequest::new(
+                        SeekType::Absolute,
+                        Duration::from_secs_f32(*position),
+                    ))
                     .await?;
                 writeln!(
                     stdout,
@@ -536,34 +559,39 @@ impl CommandHandler for VolumeCommand {
 
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         _: &mut W2,
     ) -> Self::Output {
         match self {
             Self::Set { volume } => {
-                client.playback_volume(ctx, *volume / 100.0).await?;
+                client
+                    .playback_volume(PlaybackVolumeSetRequest::new(*volume / 100.0))
+                    .await?;
                 writeln!(stdout, "Daemon response:\nvolume set to {volume}")?;
                 Ok(())
             }
             Self::Increase { amount } => {
-                client.playback_volume_up(ctx, *amount / 100.0).await?;
+                client
+                    .playback_volume_up(PlaybackVolumeAdjustRequest::new(*amount / 100.0))
+                    .await?;
                 writeln!(stdout, "Daemon response:\nvolume increased by {amount}")?;
                 Ok(())
             }
             Self::Decrease { amount } => {
-                client.playback_volume_down(ctx, *amount / 100.0).await?;
+                client
+                    .playback_volume_down(PlaybackVolumeAdjustRequest::new(*amount / 100.0))
+                    .await?;
                 writeln!(stdout, "Daemon response:\nvolume decreased by {amount}")?;
                 Ok(())
             }
             Self::Mute => {
-                client.playback_mute(ctx).await?;
+                client.playback_mute(()).await?;
                 writeln!(stdout, "Daemon response:\nvolume muted")?;
                 Ok(())
             }
             Self::Unmute => {
-                client.playback_unmute(ctx).await?;
+                client.playback_unmute(()).await?;
                 writeln!(stdout, "Daemon response:\nvolume unmuted")?;
                 Ok(())
             }
@@ -577,19 +605,22 @@ impl CommandHandler for QueueCommand {
     #[allow(clippy::too_many_lines)]
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
         match self {
             Self::Clear => {
-                client.playback_clear(ctx).await?;
+                client.playback_clear(()).await?;
                 writeln!(stdout, "Daemon response:\nqueue cleared")?;
             }
             Self::List { quiet: false } => {
-                let resp: Option<Box<[SongBrief]>> =
-                    client.state_audio(ctx).await?.map(|s| s.queue);
+                let resp = client
+                    .state_audio(())
+                    .await?
+                    .into_inner()
+                    .state
+                    .map(|s| s.queue);
                 if let Some(songs) = resp {
                     writeln!(
                         stdout,
@@ -601,8 +632,12 @@ impl CommandHandler for QueueCommand {
                 }
             }
             Self::List { quiet: true } => {
-                let resp: Option<Box<[SongBrief]>> =
-                    client.state_audio(ctx).await?.map(|s| s.queue);
+                let resp = client
+                    .state_audio(())
+                    .await?
+                    .into_inner()
+                    .state
+                    .map(|s| s.queue);
                 if let Some(songs) = resp {
                     writeln!(
                         stdout,
@@ -616,75 +651,43 @@ impl CommandHandler for QueueCommand {
             Self::Add { target, id } => {
                 let message: &str = match target {
                     QueueAddTarget::Artist => client
-                        .queue_add(
-                            ctx,
-                            RecordId {
-                                tb: artist::TABLE_NAME.to_owned(),
-                                id: Id::String(id.clone()),
-                            },
-                        )
-                        .await?
-                        .map(|()| "artist added to queue"),
+                        .queue_add(RecordId::new(artist::TABLE_NAME, id))
+                        .await
+                        .map(|_| "artist added to queue"),
                     QueueAddTarget::Album => client
-                        .queue_add(
-                            ctx,
-                            RecordId {
-                                tb: album::TABLE_NAME.to_owned(),
-                                id: Id::String(id.clone()),
-                            },
-                        )
-                        .await?
-                        .map(|()| "album added to queue"),
+                        .queue_add(RecordId::new(album::TABLE_NAME, id))
+                        .await
+                        .map(|_| "album added to queue"),
                     QueueAddTarget::Song => client
-                        .queue_add(
-                            ctx,
-                            RecordId {
-                                tb: song::TABLE_NAME.to_owned(),
-                                id: Id::String(id.clone()),
-                            },
-                        )
-                        .await?
-                        .map(|()| "song added to queue"),
+                        .queue_add(RecordId::new(song::TABLE_NAME, id))
+                        .await
+                        .map(|_| "song added to queue"),
                     QueueAddTarget::Playlist => client
-                        .queue_add(
-                            ctx,
-                            RecordId {
-                                tb: playlist::TABLE_NAME.to_owned(),
-                                id: Id::String(id.clone()),
-                            },
-                        )
-                        .await?
-                        .map(|()| "playlist added to queue"),
+                        .queue_add(RecordId::new(playlist::TABLE_NAME, id))
+                        .await
+                        .map(|_| "playlist added to queue"),
                     QueueAddTarget::Collection => client
-                        .queue_add(
-                            ctx,
-                            RecordId {
-                                tb: collection::TABLE_NAME.to_owned(),
-                                id: Id::String(id.clone()),
-                            },
-                        )
-                        .await?
-                        .map(|()| "collection added to queue"),
+                        .queue_add(RecordId::new(collection::TABLE_NAME, id))
+                        .await
+                        .map(|_| "collection added to queue"),
                     QueueAddTarget::Dynamic => client
-                        .queue_add(
-                            ctx,
-                            RecordId {
-                                tb: dynamic::TABLE_NAME.to_owned(),
-                                id: Id::String(id.clone()),
-                            },
-                        )
-                        .await?
-                        .map(|()| "dynamic added to queue"),
+                        .queue_add(RecordId::new(dynamic::TABLE_NAME, id))
+                        .await
+                        .map(|_| "dynamic added to queue"),
                 }?;
 
                 writeln!(stdout, "Daemon response:\n{message}")?;
             }
             Self::Remove { start, end } => {
-                client.queue_remove_range(ctx, *start..*end).await?;
+                client
+                    .queue_remove_range(QueueRemoveRangeRequest::new(*start, *end))
+                    .await?;
                 writeln!(stdout, "Daemon response:\nitems removed from queue")?;
             }
             Self::Set { index } => {
-                client.queue_set_index(ctx, *index).await?;
+                client
+                    .queue_set_index(QueueSetIndexRequest::new(*index))
+                    .await?;
                 writeln!(
                     stdout,
                     "Daemon response:\ncurrent song set to index {index}"
@@ -698,17 +701,16 @@ impl CommandHandler for QueueCommand {
                         "No input provided, this command is meant to be used with a pipe"
                     )?;
                 } else {
-                    let list: Vec<RecordId> = utils::parse_things_from_lines(
-                        stdin.lock().lines().filter_map(|l| match l {
+                    let ids: Vec<RecordId> =
+                        utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
                             Ok(line) => Some(line),
                             Err(e) => {
                                 writeln!(stderr, "Error reading from stdin: {e}").ok();
                                 None
                             }
-                        }),
-                    );
+                        }));
 
-                    client.queue_add_list(ctx, list).await??;
+                    client.queue_add_list(RecordIdList { ids }).await?;
                     writeln!(stdout, "Daemon response:\nitems added to queue")?;
                 }
             }
@@ -723,14 +725,17 @@ impl CommandHandler for super::PlaylistCommand {
     #[allow(clippy::too_many_lines)]
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
         match self {
             Self::List => {
-                let resp: Box<[Playlist]> = client.library_playlists_full(ctx).await??;
+                let resp = client
+                    .library_playlists_full(())
+                    .await?
+                    .into_inner()
+                    .playlists;
                 writeln!(
                     stdout,
                     "Daemon response:\n{}",
@@ -739,24 +744,20 @@ impl CommandHandler for super::PlaylistCommand {
                 Ok(())
             }
             Self::Get { method, target } => {
-                let resp: Option<Playlist> = match method {
+                let resp = match method {
                     PlaylistGetMethod::Id => {
                         client
-                            .playlist_get(
-                                ctx,
-                                RecordId {
-                                    tb: playlist::TABLE_NAME.to_owned(),
-                                    id: Id::String(target.clone()),
-                                },
-                            )
+                            .library_playlist_get(Ulid::new(target))
                             .await?
+                            .into_inner()
+                            .playlist
                     }
                     PlaylistGetMethod::Name => {
-                        if let Some(id) = client.playlist_get_id(ctx, target.clone()).await? {
-                            client.playlist_get(ctx, id).await?
-                        } else {
-                            None
-                        }
+                        client
+                            .library_playlist_get_by_name(PlaylistName::new(target))
+                            .await?
+                            .into_inner()
+                            .playlist
                     }
                 };
 
@@ -764,41 +765,42 @@ impl CommandHandler for super::PlaylistCommand {
                 Ok(())
             }
             Self::Create { name } => {
-                let resp: RecordId = client.playlist_get_or_create(ctx, name.clone()).await??;
+                let resp: RecordId = client
+                    .playlist_get_or_create(PlaylistName::new(name))
+                    .await?
+                    .into_inner();
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                 Ok(())
             }
             Self::Update { id, name } => {
-                let resp: Playlist = client
-                    .playlist_rename(
-                        ctx,
-                        RecordId {
-                            tb: playlist::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                        name.clone(),
-                    )
-                    .await??;
-                writeln!(
-                    stdout,
-                    "Daemon response:\nplaylist renamed to \"{}\"",
-                    resp.name
-                )?;
+                match client
+                    .playlist_rename(PlaylistRenameRequest::new(id, name))
+                    .await?
+                    .into_inner()
+                    .playlist
+                {
+                    None => {
+                        writeln!(stdout, "Daemon response:\nplaylist not found")?;
+                    }
+                    Some(playlist) => {
+                        writeln!(
+                            stdout,
+                            "Daemon response:\nplaylist renamed to \"{}\"",
+                            playlist.name
+                        )?;
+                    }
+                }
                 Ok(())
             }
             Self::Songs { id } => {
                 match client
-                    .playlist_get_songs(
-                        ctx,
-                        RecordId {
-                            tb: playlist::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                    )
+                    .library_playlist_get_songs(Ulid::new(id))
                     .await?
+                    .into_inner()
+                    .songs
                 {
                     Some(songs) => {
-                        let songs = songs.into_iter().map(Into::into).collect::<Box<_>>();
+                        let songs = songs.songs.into_iter().map(Into::into).collect::<Box<_>>();
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -813,51 +815,29 @@ impl CommandHandler for super::PlaylistCommand {
             }
 
             Self::Delete { id } => {
-                client
-                    .playlist_remove(
-                        ctx,
-                        RecordId {
-                            tb: playlist::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                    )
-                    .await??;
+                client.playlist_remove(Ulid::new(id)).await?;
                 writeln!(stdout, "Daemon response:\nplaylist deleted")?;
                 Ok(())
             }
-            Self::Add { command } => command.handle(ctx, client, stdout, stderr).await,
+            Self::Add { command } => command.handle(client, stdout, stderr).await,
             Self::Remove { id, item_ids } => {
                 client
-                    .playlist_remove_songs(
-                        ctx,
-                        RecordId {
-                            tb: playlist::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                        item_ids
-                            .iter()
-                            .map(|id| RecordId {
-                                tb: song::TABLE_NAME.to_owned(),
-                                id: Id::String(id.clone()),
-                            })
-                            .collect(),
-                    )
-                    .await??;
+                    .playlist_remove_songs(PlaylistRemoveSongsRequest {
+                        playlist_id: Ulid::new(id),
+                        song_ids: item_ids.iter().map(Ulid::new).collect(),
+                    })
+                    .await?;
                 writeln!(stdout, "Daemon response:\nsongs removed from playlist")?;
 
                 Ok(())
             }
             Self::Export { id, path } => {
                 client
-                    .playlist_export(
-                        ctx,
-                        RecordId {
-                            tb: playlist::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                        path.clone(),
-                    )
-                    .await??;
+                    .playlist_export(PlaylistExportRequest {
+                        playlist_id: Ulid::new(id),
+                        path: format!("{}", path.display()),
+                    })
+                    .await?;
                 writeln!(
                     stdout,
                     "Daemon response:\nplaylist exported to {}",
@@ -867,8 +847,12 @@ impl CommandHandler for super::PlaylistCommand {
             }
             Self::Import { path, name } => {
                 let resp: RecordId = client
-                    .playlist_import(ctx, path.clone(), name.clone())
-                    .await??;
+                    .playlist_import(PlaylistImportRequest {
+                        path: format!("{}", path.display()),
+                        name: name.clone(),
+                    })
+                    .await?
+                    .into_inner();
                 writeln!(
                     stdout,
                     "Daemon response:\nplaylist imported from {}\n\t{}",
@@ -886,55 +870,33 @@ impl CommandHandler for super::PlaylistAddCommand {
 
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
         let resp = match self {
             Self::Artist { id, artist_id } => client
-                .playlist_add(
-                    ctx,
-                    RecordId {
-                        tb: artist::TABLE_NAME.to_owned(),
-                        id: Id::String(artist_id.clone()),
-                    },
-                    RecordId {
-                        tb: playlist::TABLE_NAME.to_owned(),
-                        id: Id::String(id.clone()),
-                    },
-                )
+                .playlist_add(PlaylistAddRequest::new(
+                    id,
+                    RecordId::new(artist::TABLE_NAME, artist_id),
+                ))
                 .await?
                 .map(|()| "artist added to playlist"),
             Self::Album { id, album_id } => client
-                .playlist_add(
-                    ctx,
-                    RecordId {
-                        tb: album::TABLE_NAME.to_owned(),
-                        id: Id::String(album_id.clone()),
-                    },
-                    RecordId {
-                        tb: playlist::TABLE_NAME.to_owned(),
-                        id: Id::String(id.clone()),
-                    },
-                )
+                .playlist_add(PlaylistAddRequest::new(
+                    id,
+                    RecordId::new(album::TABLE_NAME, album_id),
+                ))
                 .await?
                 .map(|()| "album added to playlist"),
             Self::Song { id, song_ids } => client
-                .playlist_add_list(
-                    ctx,
-                    RecordId {
-                        tb: playlist::TABLE_NAME.to_owned(),
-                        id: Id::String(id.clone()),
-                    },
+                .playlist_add_list(PlaylistAddListRequest::new(
+                    id,
                     song_ids
                         .iter()
-                        .map(|id| RecordId {
-                            tb: song::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        })
+                        .map(|song_id| RecordId::new(song::TABLE_NAME, song_id))
                         .collect(),
-                )
+                ))
                 .await?
                 .map(|()| "songs added to playlist"),
             Self::Pipe { id } => {
@@ -943,7 +905,7 @@ impl CommandHandler for super::PlaylistAddCommand {
                     bail!("No input provided, this command is meant to be used with a pipe");
                 }
                 let list: Vec<RecordId> =
-                    utils::parse_things_from_lines(stdin.lock().lines().filter_map(|l| match l {
+                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
                         Ok(line) => Some(line),
                         Err(e) => {
                             writeln!(stderr, "Error reading from stdin: {e}").ok();
@@ -952,14 +914,7 @@ impl CommandHandler for super::PlaylistAddCommand {
                     }));
 
                 client
-                    .playlist_add_list(
-                        ctx,
-                        RecordId {
-                            tb: playlist::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                        list,
-                    )
+                    .playlist_add_list(PlaylistAddListRequest::new(id, list))
                     .await?
                     .map(|()| "items added to playlist")
             }
@@ -1003,14 +958,17 @@ impl CommandHandler for super::DynamicCommand {
     #[allow(clippy::too_many_lines)]
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         _: &mut W2,
     ) -> Self::Output {
         match self {
             Self::List => {
-                let resp: Box<[DynamicPlaylist]> = client.dynamic_playlist_list(ctx).await?;
+                let resp = client
+                    .library_dynamic_playlists_full(())
+                    .await?
+                    .into_inner()
+                    .playlists;
                 writeln!(
                     stdout,
                     "Daemon response:\n{}",
@@ -1020,30 +978,22 @@ impl CommandHandler for super::DynamicCommand {
             }
             Self::Get { id } => {
                 let resp: Option<DynamicPlaylist> = client
-                    .dynamic_playlist_get(
-                        ctx,
-                        RecordId {
-                            tb: dynamic::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                    )
-                    .await?;
+                    .library_dynamic_playlist_get(Ulid::new(id))
+                    .await?
+                    .into_inner()
+                    .playlist;
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                 Ok(())
             }
             Self::Songs { id } => {
                 match client
-                    .dynamic_playlist_get_songs(
-                        ctx,
-                        RecordId {
-                            tb: dynamic::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                    )
+                    .library_dynamic_playlist_get_songs(Ulid::new(id))
                     .await?
+                    .into_inner()
+                    .songs
                 {
                     Some(songs) => {
-                        let songs = songs.into_iter().map(Into::into).collect::<Box<_>>();
+                        let songs = songs.songs.into_iter().map(Into::into).collect::<Box<_>>();
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -1058,21 +1008,17 @@ impl CommandHandler for super::DynamicCommand {
             }
             Self::Create { name, query } => {
                 let resp: RecordId = client
-                    .dynamic_playlist_create(ctx, name.clone(), query.clone())
-                    .await??;
+                    .dynamic_playlist_create(DynamicPlaylistCreateRequest::new(
+                        name,
+                        query.compile_for_storage(),
+                    ))
+                    .await?
+                    .into_inner();
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                 Ok(())
             }
             Self::Delete { id } => {
-                client
-                    .dynamic_playlist_remove(
-                        ctx,
-                        RecordId {
-                            tb: dynamic::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                    )
-                    .await??;
+                client.dynamic_playlist_remove(Ulid::new(id)).await?;
                 writeln!(stdout, "Daemon response:\nDynamic playlist deleted")?;
                 Ok(())
             }
@@ -1082,23 +1028,22 @@ impl CommandHandler for super::DynamicCommand {
                     changes = changes.name(name.as_str());
                 }
                 if let Some(query) = &update.query {
-                    changes = changes.query(query.clone());
+                    changes = changes.query(query.compile_for_storage());
                 }
 
-                let resp: DynamicPlaylist = client
-                    .dynamic_playlist_update(
-                        ctx,
-                        RecordId {
-                            tb: dynamic::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                        changes,
-                    )
-                    .await??;
-                writeln!(
-                    stdout,
-                    "Daemon response:\nDynamic Playlist updated\n{resp:?}"
-                )?;
+                if let Some(resp) = client
+                    .dynamic_playlist_update(DynamicPlaylistUpdateRequest::new(id, changes))
+                    .await?
+                    .into_inner()
+                    .playlist
+                {
+                    writeln!(
+                        stdout,
+                        "Daemon response:\nDynamic Playlist updated\n{resp:?}"
+                    )?;
+                } else {
+                    writeln!(stdout, "Daemon response:\ndynamic playlist not found")?;
+                }
                 Ok(())
             }
             Self::ShowBNF => {
@@ -1106,7 +1051,9 @@ impl CommandHandler for super::DynamicCommand {
                 Ok(())
             }
             Self::Export { path } => {
-                client.dynamic_playlist_export(ctx, path.clone()).await??;
+                client
+                    .dynamic_playlist_export(mecomp_prost::Path::new(path))
+                    .await?;
                 writeln!(
                     stdout,
                     "Daemon response:\nDynamic playlists exported to {}",
@@ -1115,8 +1062,11 @@ impl CommandHandler for super::DynamicCommand {
                 Ok(())
             }
             Self::Import { path } => {
-                let resp: Vec<DynamicPlaylist> =
-                    client.dynamic_playlist_import(ctx, path.clone()).await??;
+                let resp: Vec<DynamicPlaylist> = client
+                    .dynamic_playlist_import(mecomp_prost::Path::new(path))
+                    .await?
+                    .into_inner()
+                    .playlists;
                 writeln!(
                     stdout,
                     "Daemon response:\n{}",
@@ -1133,14 +1083,17 @@ impl CommandHandler for super::CollectionCommand {
 
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         _: &mut W2,
     ) -> Self::Output {
         match self {
             Self::List => {
-                let resp: Box<[Collection]> = client.library_collections_full(ctx).await??;
+                let resp = client
+                    .library_collections_full(())
+                    .await?
+                    .into_inner()
+                    .collections;
                 writeln!(
                     stdout,
                     "Daemon response:\n{}",
@@ -1149,31 +1102,23 @@ impl CommandHandler for super::CollectionCommand {
                 Ok(())
             }
             Self::Get { id } => {
-                let resp: Option<Collection> = client
-                    .collection_get(
-                        ctx,
-                        RecordId {
-                            tb: collection::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                    )
-                    .await?;
+                let resp = client
+                    .library_collection_get(Ulid::new(id))
+                    .await?
+                    .into_inner()
+                    .collection;
                 writeln!(stdout, "Daemon response:\n{resp:?}")?;
                 Ok(())
             }
             Self::Songs { id } => {
                 match client
-                    .collection_get_songs(
-                        ctx,
-                        RecordId {
-                            tb: collection::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                    )
+                    .library_collection_get_songs(Ulid::new(id))
                     .await?
+                    .into_inner()
+                    .songs
                 {
                     Some(songs) => {
-                        let songs = songs.into_iter().map(Into::into).collect::<Box<_>>();
+                        let songs = songs.songs.into_iter().map(Into::into).collect::<Box<_>>();
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -1187,24 +1132,19 @@ impl CommandHandler for super::CollectionCommand {
                 Ok(())
             }
             Self::Recluster => {
-                let resp: Result<&str, _> = client
-                    .library_recluster(ctx)
+                let resp = client
+                    .library_recluster(())
                     .await?
-                    .map(|()| "reclustering started");
+                    .map(|()| "reclustering started")
+                    .into_inner();
                 writeln!(stdout, "Daemon response:\n{resp:?}")?;
                 Ok(())
             }
             Self::Freeze { id, name } => {
                 let resp: RecordId = client
-                    .collection_freeze(
-                        ctx,
-                        RecordId {
-                            tb: collection::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        },
-                        name.to_owned(),
-                    )
-                    .await??;
+                    .collection_freeze(CollectionFreezeRequest::new(id, Some(name)))
+                    .await?
+                    .into_inner();
                 writeln!(stdout, "Daemon response:\n{resp}")?;
                 Ok(())
             }
@@ -1217,65 +1157,56 @@ impl CommandHandler for super::RadioCommand {
 
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
         match self {
             Self::Song { id, n } => {
-                let resp: Box<[RecordId]> = client
-                    .radio_get_similar_ids(
-                        ctx,
-                        vec![RecordId {
-                            tb: song::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        }],
+                let resp = client
+                    .radio_get_similar_ids(RadioSimilarRequest::new(
+                        vec![RecordId::new(song::TABLE_NAME, id)],
                         *n,
-                    )
-                    .await??;
+                    ))
+                    .await?
+                    .into_inner()
+                    .ids;
                 writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
                 Ok(())
             }
             Self::Artist { id, n } => {
-                let resp: Box<[RecordId]> = client
-                    .radio_get_similar_ids(
-                        ctx,
-                        vec![RecordId {
-                            tb: artist::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        }],
+                let resp = client
+                    .radio_get_similar_ids(RadioSimilarRequest::new(
+                        vec![RecordId::new(artist::TABLE_NAME, id)],
                         *n,
-                    )
-                    .await??;
+                    ))
+                    .await?
+                    .into_inner()
+                    .ids;
                 writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
                 Ok(())
             }
             Self::Album { id, n } => {
-                let resp: Box<[RecordId]> = client
-                    .radio_get_similar_ids(
-                        ctx,
-                        vec![RecordId {
-                            tb: album::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        }],
+                let resp = client
+                    .radio_get_similar_ids(RadioSimilarRequest::new(
+                        vec![RecordId::new(album::TABLE_NAME, id)],
                         *n,
-                    )
-                    .await??;
+                    ))
+                    .await?
+                    .into_inner()
+                    .ids;
                 writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
                 Ok(())
             }
             Self::Playlist { id, n } => {
-                let resp: Box<[RecordId]> = client
-                    .radio_get_similar_ids(
-                        ctx,
-                        vec![RecordId {
-                            tb: playlist::TABLE_NAME.to_owned(),
-                            id: Id::String(id.clone()),
-                        }],
+                let resp = client
+                    .radio_get_similar_ids(RadioSimilarRequest::new(
+                        vec![RecordId::new(playlist::TABLE_NAME, id)],
                         *n,
-                    )
-                    .await??;
+                    ))
+                    .await?
+                    .into_inner()
+                    .ids;
                 writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
                 Ok(())
             }
@@ -1285,7 +1216,7 @@ impl CommandHandler for super::RadioCommand {
                     bail!("No input provided, this command is meant to be used with a pipe");
                 }
                 let list: Vec<RecordId> =
-                    utils::parse_things_from_lines(stdin.lock().lines().filter_map(|l| match l {
+                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
                         Ok(line) => Some(line),
                         Err(e) => {
                             writeln!(stderr, "Error reading from stdin: {e}").ok();
@@ -1293,7 +1224,11 @@ impl CommandHandler for super::RadioCommand {
                         }
                     }));
 
-                let resp: Box<[RecordId]> = client.radio_get_similar_ids(ctx, list, *n).await??;
+                let resp = client
+                    .radio_get_similar_ids(RadioSimilarRequest::new(list, *n))
+                    .await?
+                    .into_inner()
+                    .ids;
                 writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
                 Ok(())
             }

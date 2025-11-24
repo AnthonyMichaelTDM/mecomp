@@ -1,24 +1,39 @@
-// we can't really control the code-gen, so we have to allow some lints here
-#![allow(
-    clippy::derive_partial_eq_without_eq,
-    clippy::missing_const_for_fn,
-    clippy::too_many_lines,
-    clippy::default_trait_access,
-    clippy::doc_markdown,
-    clippy::missing_errors_doc,
-    clippy::must_use_candidate
-)]
-
 mod mecomp {
+    // we can't really control the code-gen, so we have to allow some lints here
+    #![allow(
+        clippy::derive_partial_eq_without_eq,
+        clippy::missing_const_for_fn,
+        clippy::too_many_lines,
+        clippy::default_trait_access,
+        clippy::doc_markdown,
+        clippy::missing_errors_doc,
+        clippy::must_use_candidate
+    )]
+
     include!("../out/mecomp.rs");
 }
+#[doc(hidden)]
+mod conversions;
+pub mod helpers;
 
 use std::time::Duration;
 
-pub use mecomp::*;
-
-use crate::mecomp::music_player_client::MusicPlayerClient;
+use tonic::service::Interceptor;
+use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
+
+pub use conversions::convert_duration;
+pub use mecomp::music_player_client as client;
+pub use mecomp::music_player_server as server;
+pub use mecomp::*;
+pub use tonic;
+
+pub type LibraryBrief = mecomp::LibraryBriefResponse;
+pub type LibraryFull = mecomp::LibraryFullResponse;
+pub type LibraryHealth = mecomp::LibraryHealthResponse;
+
+pub type MusicPlayerClient =
+    client::MusicPlayerClient<InterceptedService<Channel, TraceInterceptor>>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ConnectionError {
@@ -26,6 +41,15 @@ pub enum ConnectionError {
     Transport(#[from] tonic::transport::Error),
     #[error("Failed to connect to Music Player Daemon on port {port} after {retries} retries")]
     MaxRetriesExceeded { port: u16, retries: u64 },
+}
+
+#[derive(Clone, Debug)]
+pub struct TraceInterceptor {}
+impl Interceptor for TraceInterceptor {
+    fn call(&mut self, req: tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status> {
+        tracing::trace!("Received request with extensions: {:?}", req.extensions());
+        Ok(req)
+    }
 }
 
 /// Initialize the music player client
@@ -37,14 +61,19 @@ pub enum ConnectionError {
 /// # Panics
 ///
 /// Panics if <https://localhost:{rpc_port}> is not a valid URL.
-pub async fn init_client(rpc_port: u16) -> Result<MusicPlayerClient<Channel>, ConnectionError> {
+pub fn init_client(rpc_port: u16) -> Result<MusicPlayerClient, ConnectionError> {
     let endpoint = format!("http://localhost:{rpc_port}");
 
     let endpoint = Channel::from_shared(endpoint)
         .expect("Invalid endpoint URL")
-        .connect()
-        .await?;
-    Ok(MusicPlayerClient::new(endpoint))
+        .connect_lazy();
+
+    let interceptor = TraceInterceptor {};
+
+    Ok(music_player_client::MusicPlayerClient::with_interceptor(
+        endpoint,
+        interceptor,
+    ))
 }
 
 /// Initialize a client to the Music Player Daemon, with `MAX_RETRIES` retries spaced `DELAY` seconds apart
@@ -57,11 +86,11 @@ pub async fn init_client(rpc_port: u16) -> Result<MusicPlayerClient<Channel>, Co
 #[allow(clippy::missing_inline_in_public_items)]
 pub async fn init_client_with_retry<const MAX_RETRIES: u64, const DELAY: u64>(
     rpc_port: u16,
-) -> Result<MusicPlayerClient<Channel>, ConnectionError> {
+) -> Result<MusicPlayerClient, ConnectionError> {
     let mut retries = 0u64;
 
     while retries < MAX_RETRIES {
-        match init_client(rpc_port).await {
+        match init_client(rpc_port) {
             Ok(client) => return Ok(client),
             Err(e) => {
                 retries += 1;

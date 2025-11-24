@@ -1,4 +1,4 @@
-syntax = "proto3";
+syntax = "proto2";
 
 package mecomp;
 
@@ -27,20 +27,20 @@ enum PlaybackStatus {
 }
 
 message StateRuntime {
-	google.protobuf.Duration seek_position = 1;
-	float seek_percent = 2;
-	google.protobuf.Duration duration = 3;
+	required google.protobuf.Duration seek_position = 1;
+	required float seek_percent = 2;
+	required google.protobuf.Duration duration = 3;
 }
 
 message StateAudio {
 	repeated SongBrief queue = 1;
 	optional uint64 queue_position = 2;
-	SongBrief current_song = 3;
-	RepeatMode repeat_mode = 4;
-	StateRuntime runtime = 5;
-	PlaybackStatus status = 6;
-	bool muted = 7;
-	float volume = 8;
+	optional SongBrief current_song = 3;
+	required RepeatMode repeat_mode = 4;
+	optional StateRuntime runtime = 5;
+	required PlaybackStatus status = 6;
+	required bool muted = 7;
+	required float volume = 8;
 }
 
 message StateAudioResponse {

@@ -68,7 +68,11 @@ tracing = { workspace = true }
 walkdir = { workspace = true }
 
 # MECOMP dependencies
-mecomp-core = { workspace = true, features = ["rpc", "audio", "analysis"] }
+mecomp-core = { workspace = true, features = [
+    "notifications",
+    "audio",
+    "analysis",
+] }
 mecomp-storage = { workspace = true, features = ["serde", "db", "analysis"] }
 mecomp-analysis = { workspace = true }
 one-or-many = { workspace = true }
@@ -78,7 +82,7 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 criterion.workspace = true
 lofty = { workspace = true }
 mecomp-core = { workspace = true, features = [
-    "rpc",
+    "notifications",
     "mock_playback",
     "test_utils",
 ] }

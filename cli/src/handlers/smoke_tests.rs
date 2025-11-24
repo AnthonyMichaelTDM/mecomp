@@ -89,7 +89,7 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
         runtime: std::time::Duration::from_secs(180),
         track: Some(0),
         disc: Some(0),
-        release_year: Some(2021),
+        release: Some(2021),
         extension: "mp3".into(),
         path: "test.mp3".into(),
     };
@@ -108,7 +108,7 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
         id: album_id.clone(),
         title: song.album.clone(),
         artist: song.artist.clone(),
-        release: song.release_year,
+        release: song.release,
         runtime: song.runtime,
         song_count: 1,
         discs: 1,
@@ -199,13 +199,12 @@ macro_rules! set_snapshot_suffix {
 #[rstest]
 #[tokio::test]
 async fn test_ping_command(#[future] client: MusicPlayerClient) {
-    let ctx = tarpc::context::current();
     let command = Command::Ping;
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -217,13 +216,12 @@ async fn test_ping_command(#[future] client: MusicPlayerClient) {
 #[rstest]
 #[tokio::test]
 async fn test_stop_command(#[future] client: MusicPlayerClient) {
-    let ctx = tarpc::context::current();
     let command = Command::Stop;
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -311,13 +309,12 @@ async fn test_library_command(
     #[future] client: MusicPlayerClient,
     #[case] command: LibraryCommand,
 ) {
-    let ctx = tarpc::context::current();
     let command = Command::Library { command };
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -332,13 +329,12 @@ async fn test_library_command(
 #[case(StatusCommand::Analyze)]
 #[tokio::test]
 async fn test_status_command(#[future] client: MusicPlayerClient, #[case] command: StatusCommand) {
-    let ctx = tarpc::context::current();
     let command = Command::Status { command };
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -350,13 +346,12 @@ async fn test_status_command(#[future] client: MusicPlayerClient, #[case] comman
 #[rstest]
 #[tokio::test]
 async fn test_state_command(#[future] client: MusicPlayerClient) {
-    let ctx = tarpc::context::current();
     let command = Command::State;
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -371,13 +366,12 @@ async fn test_state_command(#[future] client: MusicPlayerClient) {
 #[case(CurrentTarget::Song)]
 #[tokio::test]
 async fn test_current_command(#[future] client: MusicPlayerClient, #[case] target: CurrentTarget) {
-    let ctx = tarpc::context::current();
     let command = Command::Current { target };
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -392,13 +386,12 @@ async fn test_current_command(#[future] client: MusicPlayerClient, #[case] targe
 #[case(RandTarget::Song)]
 #[tokio::test]
 async fn test_rand_command(#[future] client: MusicPlayerClient, #[case] target: RandTarget) {
-    let ctx = tarpc::context::current();
     let command = Command::Rand { target };
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -418,7 +411,6 @@ async fn test_search_command(
     #[case] target: SearchTarget,
     #[values(true, false)] quiet: bool,
 ) {
-    let ctx = tarpc::context::current();
     let command = Command::Search {
         quiet,
         target,
@@ -429,7 +421,7 @@ async fn test_search_command(
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -463,13 +455,12 @@ async fn test_playback_command(
     #[future] client: MusicPlayerClient,
     #[case] command: PlaybackCommand,
 ) {
-    let ctx = tarpc::context::current();
     let command = Command::Playback { command };
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -492,13 +483,12 @@ async fn test_playback_command(
 #[case(QueueCommand::Set { index: 0 })]
 #[tokio::test]
 async fn test_queue_command(#[future] client: MusicPlayerClient, #[case] command: QueueCommand) {
-    let ctx = tarpc::context::current();
     let command = Command::Queue { command };
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -523,13 +513,12 @@ async fn test_playlist_command(
     #[future] client: MusicPlayerClient,
     #[case] command: PlaylistCommand,
 ) {
-    let ctx = tarpc::context::current();
     let command = Command::Playlist { command };
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -541,7 +530,6 @@ async fn test_playlist_command(
 #[rstest]
 #[tokio::test]
 async fn test_playlist_create(#[future] client: MusicPlayerClient) {
-    let ctx = tarpc::context::current();
     let command = Command::Playlist {
         command: PlaylistCommand::Create {
             name: "New Playlist".to_string(),
@@ -551,7 +539,7 @@ async fn test_playlist_create(#[future] client: MusicPlayerClient) {
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     let stdout = String::from_utf8(stdout.0.clone()).unwrap();
@@ -595,13 +583,12 @@ async fn test_dynamic_playlist_command(
     #[future] client: MusicPlayerClient,
     #[case] command: DynamicCommand,
 ) {
-    let ctx = tarpc::context::current();
     let command = Command::Dynamic { command };
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -613,7 +600,6 @@ async fn test_dynamic_playlist_command(
 #[rstest]
 #[tokio::test]
 async fn test_dynamic_playlist_create(#[future] client: MusicPlayerClient) {
-    let ctx = tarpc::context::current();
     let command = Command::Dynamic {
         command: DynamicCommand::Create {
             name: "New Dynamic Playlist".to_string(),
@@ -624,7 +610,7 @@ async fn test_dynamic_playlist_create(#[future] client: MusicPlayerClient) {
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     let stdout = String::from_utf8(stdout.0.clone()).unwrap();
@@ -646,13 +632,12 @@ async fn test_collection_command(
     #[future] client: MusicPlayerClient,
     #[case] command: CollectionCommand,
 ) {
-    let ctx = tarpc::context::current();
     let command = Command::Collection { command };
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -666,7 +651,6 @@ async fn test_collection_command(
 /// this is a separate test because the returned value depends on when the test is run,
 /// the ulid of the new playlist if generated at runtime and will be different each time
 async fn test_collection_freeze(#[future] client: MusicPlayerClient) {
-    let ctx = tarpc::context::current();
     let command = Command::Collection {
         command: CollectionCommand::Freeze {
             id: item_id().to_string(),
@@ -677,7 +661,7 @@ async fn test_collection_freeze(#[future] client: MusicPlayerClient) {
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     let stdout = String::from_utf8(stdout.0.clone()).unwrap();
@@ -693,13 +677,12 @@ async fn test_collection_freeze(#[future] client: MusicPlayerClient) {
 #[case( RadioCommand::Playlist { id: item_id().to_string(), n: 1 } )]
 #[tokio::test]
 async fn test_radio_command(#[future] client: MusicPlayerClient, #[case] command: RadioCommand) {
-    let ctx = tarpc::context::current();
     let command = Command::Radio { command };
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(ctx, client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");

@@ -1,103 +1,46 @@
-syntax = "proto3";
+syntax = "proto2";
 
 package mecomp;
 
 import "apis/entities.proto";
 
 message LibraryAnalyzeRequest {
-	bool overwrite = 1;
+	required bool overwrite = 1;
 }
 
 message InProgressResponse {
-	bool in_progress = 1;
+	required bool in_progress = 1;
 }
 
+
 message LibraryBriefResponse {
-	LibraryBrief library = 1;
+  repeated ArtistBrief artists = 1;
+  repeated AlbumBrief albums = 2;
+  repeated SongBrief songs = 3;
+  repeated PlaylistBrief playlists = 4;
+  repeated CollectionBrief collections = 5;
+  repeated DynamicPlaylist dynamic_playlists = 6;
 }
 
 message LibraryFullResponse {
-	LibraryFull library = 1;
-}
-
-message ArtistBriefList {
-	repeated ArtistBrief artists = 1;
-}
-
-message ArtistList {
-	repeated Artist artists = 1;
-}
-
-message AlbumBriefList {
-	repeated AlbumBrief albums = 1;
-}
-
-message AlbumList {
-	repeated Album albums = 1;
-}
-
-message SongBriefList {
-	repeated SongBrief songs = 1;
-}
-
-message SongList {
-	repeated Song songs = 1;
-}
-
-message PlaylistBriefList {
-	repeated PlaylistBrief playlists = 1;
-}
-
-message PlaylistList {
-	repeated Playlist playlists = 1;
-}
-
-message CollectionBriefList {
-	repeated CollectionBrief collections = 1;
-}
-
-message CollectionList {
-	repeated Collection collections = 1;
+  repeated Artist artists = 1;
+  repeated Album albums = 2;
+  repeated Song songs = 3;
+  repeated Playlist playlists = 4;
+  repeated Collection collections = 5;
+  repeated DynamicPlaylist dynamic_playlists = 6;
 }
 
 message LibraryHealthResponse {
-	LibraryHealth health = 1;
-}
-
-message RecordIdRequest {
-	string id = 1;
-}
-
-message PathRequest {
-	string path = 1;
-}
-
-message SongResponse {
-	optional Song song = 1;
-}
-
-message ArtistCollectionResponse {
-	repeated Artist artists = 1;
-}
-
-message ArtistResponse {
-	optional Artist artist = 1;
-}
-
-message AlbumResponse {
-	optional Album album = 1;
-}
-
-message CollectionListResponse {
-	repeated Collection collections = 1;
-}
-
-message SongListOptionResponse {
-	bool found = 1;
-	repeated Song songs = 2;
-}
-
-message AlbumListOptionResponse {
-	bool found = 1;
-	repeated Album albums = 2;
+  required uint64 artists = 1;
+  required uint64 albums = 2;
+  required uint64 songs = 3;
+  optional uint64 unanalyzed_songs = 4;
+  required uint64 playlists = 5;
+  required uint64 collections = 6;
+  required uint64 dynamic_playlists = 7;
+  required uint64 orphaned_artists = 8;
+  required uint64 orphaned_albums = 9;
+  required uint64 orphaned_playlists = 10;
+  required uint64 orphaned_collections = 11;
 }

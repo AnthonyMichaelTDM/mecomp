@@ -3175,12 +3175,12 @@ dependencies = [
  "insta",
  "mecomp-core",
  "mecomp-daemon",
+ "mecomp-prost",
  "mecomp-storage",
  "mecomp-workspace-hack",
  "pretty_assertions",
  "rstest",
  "surrealdb",
- "tarpc",
  "tempfile",
  "tokio",
 ]
@@ -3215,7 +3215,6 @@ dependencies = [
  "serde",
  "shellexpand",
  "surrealdb",
- "tarpc",
  "tempfile",
  "thiserror 2.0.17",
  "tokio",
@@ -3285,6 +3284,8 @@ name = "mecomp-prost"
 version = "0.5.9"
 dependencies = [
  "log",
+ "mecomp-core",
+ "mecomp-storage",
  "mecomp-workspace-hack",
  "prost",
  "prost-types",
@@ -3293,6 +3294,7 @@ dependencies = [
  "tonic",
  "tonic-prost",
  "tonic-prost-build",
+ "tracing",
 ]
 
 [[package]]

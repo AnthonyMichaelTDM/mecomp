@@ -6,7 +6,7 @@ use thiserror::Error;
 
 /// An error in the UDP stack.
 #[derive(Error, Debug)]
-#[cfg(feature = "rpc")]
+#[cfg(feature = "notifications")]
 pub enum UdpError {
     #[error("IO error: {0}")]
     IO(#[from] std::io::Error),
@@ -77,7 +77,7 @@ pub enum LibraryError {
     #[cfg(feature = "audio")]
     Decoder(#[from] rodio::decoder::DecoderError),
     #[error("UdpError: {0}")]
-    #[cfg(feature = "rpc")]
+    #[cfg(feature = "notifications")]
     Udp(#[from] UdpError),
 }
 
@@ -96,7 +96,7 @@ pub enum SerializableLibraryError {
     #[error("Collection Reclustering already in progress.")]
     ReclusterInProgress,
     #[error("UdpError: {0}")]
-    #[cfg(feature = "rpc")]
+    #[cfg(feature = "notifications")]
     Udp(String),
     #[error("Backup Error: {0}")]
     BackupError(#[from] BackupError),
@@ -124,7 +124,7 @@ impl From<rodio::decoder::DecoderError> for SerializableLibraryError {
     }
 }
 
-#[cfg(feature = "rpc")]
+#[cfg(feature = "notifications")]
 impl From<UdpError> for SerializableLibraryError {
     #[inline]
     fn from(e: UdpError) -> Self {
@@ -140,7 +140,7 @@ impl From<LibraryError> for SerializableLibraryError {
             LibraryError::IO(e) => Self::IO(e.to_string()),
             #[cfg(feature = "audio")]
             LibraryError::Decoder(e) => Self::Decoder(e.to_string()),
-            #[cfg(feature = "rpc")]
+            #[cfg(feature = "notifications")]
             LibraryError::Udp(e) => Self::Udp(e.to_string()),
         }
     }
