@@ -11,9 +11,15 @@ readme.workspace = true
 license.workspace = true
 
 [dependencies]
+log.workspace = true
 prost = "0.14.1"
 prost-types = "0.14.1"
-tonic = { version = "0.14.2", default-features = false, features = ["codegen"] }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["time"] }
+tonic = { version = "0.14.2", default-features = false, features = [
+    "codegen",
+    "transport",
+] }
 
 tonic-prost = "0.14.2"
 

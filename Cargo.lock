@@ -3284,8 +3284,11 @@ dependencies = [
 name = "mecomp-prost"
 version = "0.5.9"
 dependencies = [
+ "log",
  "prost",
  "prost-types",
+ "thiserror 2.0.17",
+ "tokio",
  "tonic",
  "tonic-prost",
  "tonic-prost-build",
