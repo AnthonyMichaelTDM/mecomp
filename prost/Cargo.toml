@@ -10,6 +10,9 @@ categories.workspace = true
 readme.workspace = true
 license.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = ["prost", "prost-types", "tonic-prost"]
+
 [dependencies]
 log.workspace = true
 prost = "0.14.1"
@@ -20,8 +23,10 @@ tonic = { version = "0.14.2", default-features = false, features = [
     "codegen",
     "transport",
 ] }
-
 tonic-prost = "0.14.2"
+
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+
 
 [build-dependencies]
 tonic-prost-build = { version = "0.14.2", default-features = false }
