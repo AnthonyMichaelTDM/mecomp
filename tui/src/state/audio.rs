@@ -3,15 +3,21 @@
 //!
 //! The audio state store is responsible for maintaining the audio state, and for handling audio related actions.
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use tokio::sync::{
     broadcast,
     mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
 
-use mecomp_core::state::{Percent, StateAudio};
-use mecomp_core::{rpc::MusicPlayerClient, udp::StateChange};
+use mecomp_core::{
+    state::{Percent, StateAudio},
+    udp::StateChange,
+};
+use mecomp_prost::{
+    MusicPlayerClient, PlaybackRepeatRequest, PlaybackSeekRequest, PlaybackSkipRequest,
+    PlaybackVolumeAdjustRequest, QueueRemoveRangeRequest, QueueSetIndexRequest, RecordIdList,
+};
 
 use crate::termination::Interrupted;
 
@@ -42,11 +48,11 @@ impl AudioState {
     /// Fails if the state cannot be sent
     pub async fn main_loop(
         &self,
-        daemon: Arc<MusicPlayerClient>,
+        mut daemon: MusicPlayerClient,
         mut action_rx: UnboundedReceiver<AudioAction>,
         mut interrupt_rx: broadcast::Receiver<Interrupted>,
     ) -> anyhow::Result<Interrupted> {
-        let mut state = get_state(daemon.clone()).await?;
+        let mut state = get_state(&mut daemon).await?;
         let mut update_needed = false;
 
         // the initial state once
@@ -64,8 +70,8 @@ impl AudioState {
                 // and process them to do async operations
                 Some(action) = action_rx.recv() => {
                     match action {
-                        AudioAction::Playback(action) => handle_playback(&daemon, action).await?,
-                        AudioAction::Queue(action) => handle_queue(&daemon, action).await?,
+                        AudioAction::Playback(action) => handle_playback(&mut daemon, action).await?,
+                        AudioAction::Queue(action) => handle_queue(&mut daemon, action).await?,
                         AudioAction::StateChange(state_change) => {
                             match state_change {
                                 StateChange::Muted => state.muted = true,
@@ -104,7 +110,7 @@ impl AudioState {
                 }
             }
             if update_needed {
-                state = get_state(daemon.clone()).await?;
+                state = get_state(&mut daemon).await?;
                 update_needed = false;
             }
             self.state_tx.send(state.clone())?;
@@ -116,48 +122,70 @@ impl AudioState {
 }
 
 /// get the audio state from the daemon.
-async fn get_state(daemon: Arc<MusicPlayerClient>) -> anyhow::Result<StateAudio> {
-    let ctx = tarpc::context::current();
-    Ok(daemon.state_audio(ctx).await?.unwrap_or_default())
+async fn get_state(daemon: &mut MusicPlayerClient) -> anyhow::Result<StateAudio> {
+    Ok(daemon
+        .state_audio(())
+        .await?
+        .into_inner()
+        .state
+        .unwrap_or_default()
+        .into())
 }
 
 /// handle a playback action
-async fn handle_playback(daemon: &MusicPlayerClient, action: PlaybackAction) -> anyhow::Result<()> {
-    let ctx = tarpc::context::current();
-
+async fn handle_playback(
+    daemon: &mut MusicPlayerClient,
+    action: PlaybackAction,
+) -> anyhow::Result<()> {
     match action {
-        PlaybackAction::Toggle => daemon.playback_toggle(ctx).await?,
-        PlaybackAction::Next => daemon.playback_skip_forward(ctx, 1).await?,
-        PlaybackAction::Previous => daemon.playback_skip_backward(ctx, 1).await?,
-        PlaybackAction::Seek(seek_type, duration) => {
-            daemon.playback_seek(ctx, seek_type, duration).await?;
-        }
-        PlaybackAction::Volume(VolumeAction::Increase(amount)) => {
-            daemon.playback_volume_up(ctx, amount).await?;
-        }
-        PlaybackAction::Volume(VolumeAction::Decrease(amount)) => {
-            daemon.playback_volume_down(ctx, amount).await?;
-        }
-        PlaybackAction::ToggleMute => daemon.playback_volume_toggle_mute(ctx).await?,
+        PlaybackAction::Toggle => daemon.playback_toggle(()).await?.into_inner(),
+        PlaybackAction::Next => daemon
+            .playback_skip_forward(PlaybackSkipRequest::new(1))
+            .await?
+            .into_inner(),
+        PlaybackAction::Previous => daemon
+            .playback_skip_backward(PlaybackSkipRequest::new(1))
+            .await?
+            .into_inner(),
+        PlaybackAction::Seek(seek_type, duration) => daemon
+            .playback_seek(PlaybackSeekRequest::new(seek_type, duration))
+            .await?
+            .into_inner(),
+        PlaybackAction::Volume(VolumeAction::Increase(amount)) => daemon
+            .playback_volume_up(PlaybackVolumeAdjustRequest::new(amount))
+            .await?
+            .into_inner(),
+        PlaybackAction::Volume(VolumeAction::Decrease(amount)) => daemon
+            .playback_volume_down(PlaybackVolumeAdjustRequest::new(amount))
+            .await?
+            .into_inner(),
+        PlaybackAction::ToggleMute => daemon.playback_volume_toggle_mute(()).await?.into_inner(),
     }
 
     Ok(())
 }
 
 /// handle a queue action
-async fn handle_queue(daemon: &MusicPlayerClient, action: QueueAction) -> anyhow::Result<()> {
-    let ctx = tarpc::context::current();
-
+async fn handle_queue(daemon: &mut MusicPlayerClient, action: QueueAction) -> anyhow::Result<()> {
     match action {
-        QueueAction::Add(ids) => daemon.queue_add_list(ctx, ids).await??,
-        QueueAction::Remove(index) => {
-            #[allow(clippy::range_plus_one)]
-            daemon.queue_remove_range(ctx, index..index + 1).await?;
-        }
-        QueueAction::SetPosition(index) => daemon.queue_set_index(ctx, index).await?,
-        QueueAction::Shuffle => daemon.playback_shuffle(ctx).await?,
-        QueueAction::Clear => daemon.playback_clear(ctx).await?,
-        QueueAction::SetRepeatMode(mode) => daemon.playback_repeat(ctx, mode).await?,
+        QueueAction::Add(ids) => daemon
+            .queue_add_list(RecordIdList::new(ids))
+            .await?
+            .into_inner(),
+        QueueAction::Remove(index) => daemon
+            .queue_remove_range(QueueRemoveRangeRequest::new(index, index + 1))
+            .await?
+            .into_inner(),
+        QueueAction::SetPosition(index) => daemon
+            .queue_set_index(QueueSetIndexRequest::new(index))
+            .await?
+            .into_inner(),
+        QueueAction::Shuffle => daemon.playback_shuffle(()).await?.into_inner(),
+        QueueAction::Clear => daemon.playback_clear(()).await?.into_inner(),
+        QueueAction::SetRepeatMode(mode) => daemon
+            .playback_repeat(PlaybackRepeatRequest::new(mode))
+            .await?
+            .into_inner(),
     }
 
     Ok(())

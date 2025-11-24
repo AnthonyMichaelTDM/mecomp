@@ -3,7 +3,7 @@
 use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
-use mecomp_storage::db::schemas::artist::ArtistBrief;
+use mecomp_prost::ArtistBrief;
 use ratatui::{
     layout::{Margin, Rect},
     style::{Style, Stylize},
@@ -43,7 +43,7 @@ pub struct LibraryArtistsView {
 }
 
 struct Props {
-    artists: Box<[ArtistBrief]>,
+    artists: Vec<ArtistBrief>,
     sort_mode: NameSort<ArtistBrief>,
 }
 impl Props {

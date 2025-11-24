@@ -3,10 +3,8 @@
 use std::str::FromStr;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_storage::db::schemas::{
-    RecordId,
-    dynamic::{DynamicPlaylist, DynamicPlaylistChangeSet, query::Query},
-};
+use mecomp_prost::{DynamicPlaylist, DynamicPlaylistChangeSet, RecordId};
+use mecomp_storage::db::schemas::dynamic::query::Query;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Position, Rect},
@@ -139,13 +137,13 @@ impl Popup for DynamicPlaylistEditor {
             }
             (KeyCode::Enter, Some(query)) => {
                 let change_set = DynamicPlaylistChangeSet {
-                    name: Some(self.name_input.text().into()),
-                    query: Some(query),
+                    new_name: Some(self.name_input.text().into()),
+                    new_query: Some(query.to_string()),
                 };
 
                 self.action_tx
                     .send(Action::Library(LibraryAction::UpdateDynamicPlaylist(
-                        self.dynamic_playlist_id.clone(),
+                        self.dynamic_playlist_id.id.clone(),
                         change_set,
                     )))
                     .ok();
@@ -321,8 +319,8 @@ mod tests {
             Some(Action::Library(LibraryAction::UpdateDynamicPlaylist(
                 playlist.id.into(),
                 DynamicPlaylistChangeSet {
-                    name: Some(playlist.name.clone()),
-                    query: Some(playlist.query)
+                    new_name: Some(playlist.name.clone()),
+                    new_query: Some(playlist.query.to_string())
                 }
             )))
         );

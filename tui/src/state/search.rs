@@ -3,16 +3,13 @@
 //!
 //! The audio state store is responsible for maintaining the audio state, and for handling audio related actions.
 
-use std::sync::Arc;
-
 use tokio::sync::{
     broadcast,
     mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
 
-use mecomp_core::rpc::{MusicPlayerClient, SearchResult};
-
 use crate::termination::Interrupted;
+use mecomp_prost::{MusicPlayerClient, SearchRequest, SearchResult};
 
 /// The audio state store.
 #[derive(Debug, Clone)]
@@ -38,7 +35,7 @@ impl SearchState {
     /// or if the daemon client can't connect to the server
     pub async fn main_loop(
         &self,
-        daemon: Arc<MusicPlayerClient>,
+        mut daemon: MusicPlayerClient,
         mut action_rx: UnboundedReceiver<String>,
         mut interrupt_rx: broadcast::Receiver<Interrupted>,
     ) -> anyhow::Result<Interrupted> {
@@ -52,8 +49,7 @@ impl SearchState {
                 // Handle the actions coming from the UI
                 // and process them to do async operations
                 Some(query) = action_rx.recv() => {
-                    let ctx = tarpc::context::current();
-                    state = daemon.search(ctx, query, 100).await?;
+                    state = daemon.search(SearchRequest::new(query, 100)).await?.into_inner();
                     self.state_tx.send(state.clone())?;
                 },
                 // Catch and handle interrupt signal to gracefully shutdown

@@ -41,7 +41,7 @@ impl From<&AppState> for Props {
     fn from(value: &AppState) -> Self {
         Self {
             current_position: value.audio.queue_position,
-            repeat_mode: value.audio.repeat_mode,
+            repeat_mode: value.audio.repeat_mode.into(),
             queue: value.audio.queue.clone(),
         }
     }
@@ -111,9 +111,10 @@ impl Component for QueueBar {
             // Set the current song to the selected index
             KeyCode::Enter => {
                 if let Some(index) = self.list_state.selected() {
+                    #[allow(clippy::cast_possible_truncation)]
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(QueueAction::SetPosition(
-                            index,
+                            index as u64,
                         ))))
                         .unwrap();
                 }
@@ -127,9 +128,10 @@ impl Component for QueueBar {
             // Remove the selected index from the queue
             KeyCode::Char('d') => {
                 if let Some(index) = self.list_state.selected() {
+                    #[allow(clippy::cast_possible_truncation)]
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(QueueAction::Remove(
-                            index,
+                            index as u64,
                         ))))
                         .unwrap();
                 }
@@ -141,29 +143,14 @@ impl Component for QueueBar {
                     .unwrap();
             }
             // set the repeat mode
-            KeyCode::Char('r') => match self.props.repeat_mode {
-                RepeatMode::None => {
-                    self.action_tx
-                        .send(Action::Audio(AudioAction::Queue(
-                            QueueAction::SetRepeatMode(RepeatMode::One),
-                        )))
-                        .unwrap();
-                }
-                RepeatMode::One => {
-                    self.action_tx
-                        .send(Action::Audio(AudioAction::Queue(
-                            QueueAction::SetRepeatMode(RepeatMode::All),
-                        )))
-                        .unwrap();
-                }
-                RepeatMode::All => {
-                    self.action_tx
-                        .send(Action::Audio(AudioAction::Queue(
-                            QueueAction::SetRepeatMode(RepeatMode::None),
-                        )))
-                        .unwrap();
-                }
-            },
+            KeyCode::Char('r') => {
+                let repeat_mode = self.props.repeat_mode.into();
+                self.action_tx
+                    .send(Action::Audio(AudioAction::Queue(
+                        QueueAction::SetRepeatMode(repeat_mode),
+                    )))
+                    .unwrap();
+            }
             _ => {}
         }
     }

@@ -76,7 +76,7 @@ pub fn state_with_everything() -> AppState {
         runtime: std::time::Duration::from_secs(180),
         track: Some(0),
         disc: Some(0),
-        release_year: Some(2021),
+        release: Some(2021),
         extension: "mp3".into(),
         path: "test.mp3".into(),
     };
@@ -93,7 +93,7 @@ pub fn state_with_everything() -> AppState {
         id: album_id.clone().into(),
         title: song.album.clone(),
         artist: song.artist.clone(),
-        release: song.release_year,
+        release: song.release,
         runtime: song.runtime,
         song_count: 1,
         discs: 1,

@@ -3,9 +3,8 @@
 pub mod views;
 
 use crossterm::event::{MouseButton, MouseEventKind};
-use mecomp_storage::db::schemas::{
-    Id, RecordId, album, artist, collection, dynamic, playlist, song,
-};
+use mecomp_prost::{RecordId, Ulid};
+use mecomp_storage::db::schemas::{album, artist, collection, dynamic, playlist, song};
 use ratatui::layout::Position;
 use tokio::sync::mpsc::UnboundedSender;
 use views::{
@@ -77,27 +76,27 @@ pub enum ActiveView {
     /// A view with all the songs in the users library.
     Songs,
     /// A view of a specific song.
-    Song(Id),
+    Song(Ulid),
     /// A view with all the albums in the users library.
     Albums,
     /// A view of a specific album.
-    Album(Id),
+    Album(Ulid),
     /// A view with all the artists in the users library.
     Artists,
     /// A view of a specific artist.
-    Artist(Id),
+    Artist(Ulid),
     /// A view with all the playlists in the users library.
     Playlists,
     /// A view of a specific playlist.
-    Playlist(Id),
+    Playlist(Ulid),
     /// A view of all the dynamic playlists in the users library.
     DynamicPlaylists,
     /// A view of a specific dynamic playlist.
-    DynamicPlaylist(Id),
+    DynamicPlaylist(Ulid),
     /// A view with all the collections in the users library.
     Collections,
     /// A view of a specific collection.
-    Collection(Id),
+    Collection(Ulid),
     /// A view of a radio
     Radio(Vec<RecordId>),
     /// A view for getting a random song, album, etc.

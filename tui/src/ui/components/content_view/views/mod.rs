@@ -1,14 +1,10 @@
 pub mod dynamic;
 use mecomp_core::format_duration;
-use mecomp_storage::db::schemas::{
-    RecordId,
-    album::{Album, AlbumBrief},
-    artist::{Artist, ArtistBrief},
-    collection::{Collection, CollectionBrief},
-    dynamic::DynamicPlaylist,
-    playlist::{Playlist, PlaylistBrief},
-    song::{Song, SongBrief},
+use mecomp_prost::{
+    Album, AlbumBrief, Artist, ArtistBrief, Collection, CollectionBrief, DynamicPlaylist, Playlist,
+    PlaylistBrief, Song, SongBrief,
 };
+use mecomp_prost::{RecordId, convert_duration};
 use one_or_many::OneOrMany;
 use ratatui::{
     layout::Alignment,
@@ -88,7 +84,7 @@ impl ItemViewProps for AlbumViewProps {
                 Span::styled(&self.album.title, Style::default().bold()),
                 Span::raw(" "),
                 Span::styled(
-                    self.album.artist.as_slice().join(", "),
+                    self.album.artists.as_slice().join(", "),
                     Style::default().italic(),
                 ),
             ]),
@@ -104,7 +100,7 @@ impl ItemViewProps for AlbumViewProps {
                 Span::styled(self.album.song_count.to_string(), Style::default().italic()),
                 Span::raw("  Duration: "),
                 Span::styled(
-                    format_duration(&self.album.runtime),
+                    format_duration(&convert_duration(self.album.runtime)),
                     Style::default().italic(),
                 ),
             ]),
@@ -170,7 +166,7 @@ impl ItemViewProps for ArtistViewProps {
                 ),
                 Span::raw("  Duration: "),
                 Span::styled(
-                    format_duration(&self.artist.runtime),
+                    format_duration(&convert_duration(self.artist.runtime)),
                     Style::default().italic(),
                 ),
             ]),
@@ -196,24 +192,24 @@ pub struct CollectionViewProps {
 pub struct DynamicPlaylistViewProps {
     pub id: RecordId,
     pub dynamic_playlist: DynamicPlaylist,
-    pub songs: Box<[SongBrief]>,
+    pub songs: Vec<SongBrief>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlaylistViewProps {
     pub id: RecordId,
     pub playlist: Playlist,
-    pub songs: Box<[SongBrief]>,
+    pub songs: Vec<SongBrief>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SongViewProps {
     pub id: RecordId,
     pub song: Song,
-    pub artists: OneOrMany<ArtistBrief>,
+    pub artists: Vec<ArtistBrief>,
     pub album: AlbumBrief,
-    pub playlists: Box<[PlaylistBrief]>,
-    pub collections: Box<[CollectionBrief]>,
+    pub playlists: Vec<PlaylistBrief>,
+    pub collections: Vec<CollectionBrief>,
 }
 
 impl ItemViewProps for SongViewProps {
@@ -244,12 +240,14 @@ impl ItemViewProps for SongViewProps {
     }
 
     fn info_widget(&self) -> impl Widget {
+        let runtime = convert_duration(self.song.runtime);
+
         Paragraph::new(vec![
             Line::from(vec![
                 Span::styled(&self.song.title, Style::default().bold()),
                 Span::raw(" "),
                 Span::styled(
-                    self.song.artist.as_slice().join(", "),
+                    self.song.artists.as_slice().join(", "),
                     Style::default().italic(),
                 ),
             ]),
@@ -267,14 +265,14 @@ impl ItemViewProps for SongViewProps {
                 Span::styled(
                     format!(
                         "{}:{:04.1}",
-                        self.song.runtime.as_secs() / 60,
-                        self.song.runtime.as_secs_f32() % 60.0,
+                        runtime.as_secs() / 60,
+                        runtime.as_secs_f32() % 60.0,
                     ),
                     Style::default().italic(),
                 ),
                 Span::raw("  Genre(s): "),
                 Span::styled(
-                    self.song.genre.as_slice().join(", "),
+                    self.song.genres.as_slice().join(", "),
                     Style::default().italic(),
                 ),
             ]),
@@ -302,7 +300,7 @@ pub struct RadioViewProps {
     /// The number of similar songs to get
     pub count: u32,
     /// The songs that are similar to the things
-    pub songs: Box<[SongBrief]>,
+    pub songs: Vec<SongBrief>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -317,9 +315,9 @@ pub struct RandomViewProps {
 
 pub mod checktree_utils {
     use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-    use mecomp_storage::db::schemas::{
-        RecordId, album::AlbumBrief, artist::ArtistBrief, collection::CollectionBrief,
-        dynamic::DynamicPlaylist, playlist::PlaylistBrief, song::SongBrief,
+    use mecomp_prost::{
+        AlbumBrief, ArtistBrief, CollectionBrief, DynamicPlaylist, PlaylistBrief, RecordId,
+        SongBrief,
     };
     use ratatui::{
         layout::Position,
@@ -548,7 +546,7 @@ pub mod checktree_utils {
                 Span::styled(&album.title, Style::default().bold()),
                 Span::raw(" "),
                 Span::styled(
-                    album.artist.as_slice().join(", "),
+                    album.artists.as_slice().join(", "),
                     Style::default().italic(),
                 ),
             ]),
@@ -672,7 +670,10 @@ pub mod checktree_utils {
             Line::from(vec![
                 Span::styled(&song.title, Style::default().bold()),
                 Span::raw(" "),
-                Span::styled(song.artist.as_slice().join(", "), Style::default().italic()),
+                Span::styled(
+                    song.artists.as_slice().join(", "),
+                    Style::default().italic(),
+                ),
             ]),
         )
     }

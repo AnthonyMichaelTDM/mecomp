@@ -3,7 +3,7 @@
 use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_core::rpc::SearchResult;
+use mecomp_prost::SearchResult;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
     style::{Style, Stylize},

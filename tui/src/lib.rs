@@ -1,11 +1,6 @@
-use std::sync::Arc;
-
-use mecomp_core::{
-    rpc::MusicPlayerClient,
-    udp::{Event, Listener, Message},
-};
+use mecomp_core::udp::{Event, Listener, Message};
+use mecomp_prost::{MusicPlayerClient, RegisterListenerRequest};
 use state::action::{Action, PopupAction};
-use tarpc::context::Context;
 use termination::Interrupted;
 use tokio::sync::{broadcast, mpsc};
 use ui::widgets::popups::PopupType;
@@ -27,13 +22,13 @@ impl Subscriber {
     /// Returns an error if the main loop cannot be started, or if an error occurs while handling a message.
     pub async fn main_loop(
         &self,
-        daemon: Arc<MusicPlayerClient>,
+        mut daemon: MusicPlayerClient,
         action_tx: mpsc::UnboundedSender<Action>,
         mut interrupt_rx: broadcast::Receiver<Interrupted>,
     ) -> anyhow::Result<Interrupted> {
         let mut listener = Listener::new().await?;
         daemon
-            .register_listener(Context::current(), listener.local_addr()?)
+            .register_listener(RegisterListenerRequest::new(listener.local_addr()?))
             .await?;
 
         #[allow(clippy::redundant_pub_crate)]
@@ -131,7 +126,7 @@ mod subscriber_tests {
             runtime: std::time::Duration::from_secs(180),
             track: Some(0),
             disc: Some(0),
-            release_year: Some(2021),
+            release: Some(2021),
             extension: "mp3".into(),
             path: "test.mp3".into(),
         };
@@ -150,7 +145,7 @@ mod subscriber_tests {
             id: album_id.clone(),
             title: song.album.clone(),
             artist: song.artist.clone(),
-            release: song.release_year,
+            release: song.release,
             runtime: song.runtime,
             song_count: 1,
             discs: 1,

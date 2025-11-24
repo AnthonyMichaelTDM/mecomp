@@ -6,7 +6,7 @@ use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_core::format_duration;
-use mecomp_storage::db::schemas::collection::CollectionBrief;
+use mecomp_prost::{CollectionBrief, convert_duration};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Style, Stylize},
@@ -229,7 +229,7 @@ impl ComponentRender<RenderProps> for CollectionView {
                         ),
                         Span::raw("  Duration: "),
                         Span::styled(
-                            format_duration(&state.collection.runtime),
+                            format_duration(&convert_duration(state.collection.runtime)),
                             Style::default().italic(),
                         ),
                     ]),
@@ -325,7 +325,7 @@ pub struct LibraryCollectionsView {
 }
 
 struct Props {
-    collections: Box<[CollectionBrief]>,
+    collections: Vec<CollectionBrief>,
     sort_mode: NameSort<CollectionBrief>,
 }
 impl Props {

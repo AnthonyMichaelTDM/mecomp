@@ -1,10 +1,7 @@
-use std::sync::Arc;
-
 use action::Action;
-use mecomp_core::{
-    rpc::{MusicPlayerClient, SearchResult},
-    state::{StateAudio, library::LibraryBrief},
-};
+
+use mecomp_core::state::StateAudio;
+use mecomp_prost::{LibraryBrief, MusicPlayerClient, SearchResult};
 use tokio::sync::{
     broadcast,
     mpsc::{self, UnboundedReceiver, UnboundedSender},
@@ -92,7 +89,7 @@ impl Dispatcher {
     /// if any of the state stores fail to run.
     pub async fn main_loop(
         &self,
-        daemon: Arc<MusicPlayerClient>,
+        daemon: MusicPlayerClient,
         terminator: Terminator,
         action_rx: UnboundedReceiver<Action>,
         mut interrupt_rx: broadcast::Receiver<Interrupted>,

@@ -4,7 +4,7 @@ use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::format_duration;
-use mecomp_storage::db::schemas::playlist::PlaylistBrief;
+use mecomp_prost::{PlaylistBrief, convert_duration};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
@@ -177,7 +177,7 @@ impl Component for PlaylistView {
             KeyCode::Char('d') => {
                 let things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) = self.props.as_ref().and_then(|props| {
-                    let id = props.id.clone();
+                    let id = props.id.id.clone();
                     if things.is_empty() {
                         self.tree_state
                             .lock()
@@ -196,7 +196,7 @@ impl Component for PlaylistView {
                 if let Some(props) = &self.props {
                     self.action_tx
                         .send(Action::Popup(PopupAction::Open(PopupType::PlaylistEditor(
-                            props.playlist.clone().into(),
+                            props.playlist.clone(),
                         ))))
                         .unwrap();
                 }
@@ -265,7 +265,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
                         ),
                         Span::raw("  Duration: "),
                         Span::styled(
-                            format_duration(&state.playlist.runtime),
+                            format_duration(&convert_duration(state.playlist.runtime)),
                             Style::default().italic(),
                         ),
                     ]),
@@ -365,7 +365,7 @@ pub struct LibraryPlaylistsView {
 
 #[derive(Debug)]
 pub struct Props {
-    pub playlists: Box<[PlaylistBrief]>,
+    pub playlists: Vec<PlaylistBrief>,
     sort_mode: NameSort<PlaylistBrief>,
 }
 
@@ -499,7 +499,7 @@ impl Component for LibraryPlaylistsView {
 
                     if let Some(thing) = things {
                         self.action_tx
-                            .send(Action::Library(LibraryAction::RemovePlaylist(thing)))
+                            .send(Action::Library(LibraryAction::RemovePlaylist(thing.id)))
                             .unwrap();
                     }
                 }
@@ -934,8 +934,8 @@ mod item_view_tests {
         assert_eq!(
             rx.blocking_recv().unwrap(),
             Action::Library(LibraryAction::RemoveSongsFromPlaylist(
-                ("playlist", item_id()).into(),
-                vec![("song", item_id()).into()]
+                item_id(),
+                vec![item_id()]
             ))
         );
     }

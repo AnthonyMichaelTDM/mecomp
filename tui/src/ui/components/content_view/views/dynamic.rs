@@ -2,7 +2,8 @@ use std::{str::FromStr, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::format_duration;
-use mecomp_storage::db::schemas::dynamic::{DynamicPlaylist, query::Query};
+use mecomp_prost::{DynamicPlaylist, convert_duration};
+use mecomp_storage::db::schemas::dynamic::query::Query;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
@@ -282,7 +283,14 @@ impl ComponentRender<RenderProps> for DynamicView {
                         Span::styled(state.songs.len().to_string(), Style::default().italic()),
                         Span::raw("  Duration: "),
                         Span::styled(
-                            format_duration(&state.songs.iter().map(|s| s.runtime).sum()),
+                            format_duration(
+                                &state
+                                    .songs
+                                    .iter()
+                                    .map(|s| s.runtime)
+                                    .map(convert_duration)
+                                    .sum(),
+                            ),
                             Style::default().italic(),
                         ),
                     ]),
@@ -397,7 +405,7 @@ enum Focus {
 
 #[derive(Debug)]
 pub struct Props {
-    pub dynamics: Box<[DynamicPlaylist]>,
+    pub dynamics: Vec<DynamicPlaylist>,
     sort_mode: NameSort<DynamicPlaylist>,
 }
 
@@ -512,7 +520,9 @@ impl Component for LibraryDynamicView {
 
                     if let Some(thing) = things {
                         self.action_tx
-                            .send(Action::Library(LibraryAction::RemoveDynamicPlaylist(thing)))
+                            .send(Action::Library(LibraryAction::RemoveDynamicPlaylist(
+                                thing.id,
+                            )))
                             .unwrap();
                     }
                 }

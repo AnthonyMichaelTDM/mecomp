@@ -3,7 +3,7 @@
 use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
-use mecomp_storage::db::schemas::album::AlbumBrief;
+use mecomp_prost::AlbumBrief;
 use ratatui::{
     layout::{Margin, Rect},
     style::{Style, Stylize},
@@ -43,7 +43,7 @@ pub struct LibraryAlbumsView {
 }
 
 struct Props {
-    albums: Box<[AlbumBrief]>,
+    albums: Vec<AlbumBrief>,
     sort_mode: AlbumSort,
 }
 impl Props {
@@ -281,26 +281,26 @@ mod sort_mode_tests {
             AlbumBrief {
                 id: Album::generate_id(),
                 title: "C".into(),
-                artist: "B".to_string().into(),
+                artists: "B".to_string().into(),
                 release: Some(2021),
                 discs: 1,
-                genre: "A".to_string().into(),
+                genres: "A".to_string().into(),
             },
             AlbumBrief {
                 id: Album::generate_id(),
                 title: "B".into(),
-                artist: "A".to_string().into(),
+                artists: "A".to_string().into(),
                 release: Some(2022),
                 discs: 1,
-                genre: "C".to_string().into(),
+                genres: "C".to_string().into(),
             },
             AlbumBrief {
                 id: Album::generate_id(),
                 title: "A".into(),
-                artist: "C".to_string().into(),
+                artists: "C".to_string().into(),
                 release: Some(2023),
                 discs: 1,
-                genre: "B".to_string().into(),
+                genres: "B".to_string().into(),
             },
         ];
 
