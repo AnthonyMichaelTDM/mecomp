@@ -16,11 +16,11 @@ use mpris_server::{
     LoopStatus, Metadata, PlaybackStatus, Property, Server, Signal, Time, TrackId,
     zbus::{Error as ZbusError, zvariant::ObjectPath},
 };
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 #[derive(Debug)]
 pub struct Mpris {
-    pub daemon: Mutex<MusicPlayerClient>,
+    pub daemon: MusicPlayerClient,
     pub port: u16,
     pub state: RwLock<StateAudio>,
 }
@@ -30,7 +30,7 @@ impl Mpris {
     #[must_use]
     pub fn new_with_daemon(daemon: MusicPlayerClient) -> Self {
         Self {
-            daemon: Mutex::new(daemon),
+            daemon,
             port: 0,
             state: RwLock::new(StateAudio::default()),
         }
@@ -42,12 +42,9 @@ impl Mpris {
     ///
     /// Returns an error if the state cannot be retrieved from the daemon.
     pub async fn update_state(&self) -> Result<()> {
-        let mut state = self.state.write().await;
-
-        *state = self
+        let new_state = self
             .daemon
-            .lock()
-            .await
+            .clone()
             .state_audio(())
             .await
             .context("Failed to get state from daemon")?
@@ -55,6 +52,9 @@ impl Mpris {
             .state
             .ok_or_else(|| anyhow!("Failed to get state from daemon"))?
             .into();
+
+        *self.state.write().await = new_state;
+
         Ok(())
     }
 
@@ -100,8 +100,7 @@ impl Subscriber {
         server
             .imp()
             .daemon
-            .lock()
-            .await
+            .clone()
             .register_listener(RegisterListenerRequest::new(listener.local_addr()?))
             .await?;
 
@@ -115,7 +114,7 @@ impl Subscriber {
             tokio::select! {
                 Ok(message) = listener.recv() => {
                     match self
-                        .handle_message(message, &mut state, &server.imp().daemon)
+                        .handle_message(message, &mut state, server.imp().daemon.clone())
                         .await?
                     {
                         MessageOutcomes::Nothing => continue,
@@ -154,7 +153,7 @@ impl Subscriber {
         &self,
         message: Message,
         state: &mut StateAudio,
-        daemon: &Mutex<MusicPlayerClient>,
+        daemon: MusicPlayerClient,
     ) -> anyhow::Result<MessageOutcomes> {
         log::info!("Received event: {message:?}");
         match message {
@@ -184,8 +183,7 @@ impl Subscriber {
             Message::StateChange(StateChange::TrackChanged(_) | StateChange::QueueChanged) => {
                 // we'll need to update the internal state with the new song (and it's duration info and such)
                 *state = daemon
-                    .lock()
-                    .await
+                    .clone()
                     .state_audio(())
                     .await
                     .context("Failed to get state from daemon")?
@@ -321,7 +319,7 @@ mod subscriber_tests {
         let state = &mut StateAudio::default();
 
         let actual = Subscriber
-            .handle_message(message, state, &daemon)
+            .handle_message(message, state, daemon.clone())
             .await
             .unwrap();
 

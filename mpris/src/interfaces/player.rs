@@ -16,50 +16,52 @@ use crate::{Mpris, interfaces::root::SUPPORTED_MIME_TYPES, metadata_from_opt_son
 
 impl PlayerInterface for Mpris {
     async fn next(&self) -> fdo::Result<()> {
-        let mut daemon = self.daemon.lock().await;
         Handle::current()
-            .block_on(daemon.playback_skip_forward(PlaybackSkipRequest::new(1)))
+            .block_on(
+                self.daemon
+                    .clone()
+                    .playback_skip_forward(PlaybackSkipRequest::new(1)),
+            )
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     async fn previous(&self) -> fdo::Result<()> {
-        let mut daemon = self.daemon.lock().await;
         Handle::current()
-            .block_on(daemon.playback_skip_backward(PlaybackSkipRequest::new(1)))
+            .block_on(
+                self.daemon
+                    .clone()
+                    .playback_skip_backward(PlaybackSkipRequest::new(1)),
+            )
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     async fn pause(&self) -> fdo::Result<()> {
-        let mut daemon = self.daemon.lock().await;
         Handle::current()
-            .block_on(daemon.playback_pause(()))
+            .block_on(self.daemon.clone().playback_pause(()))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
 
         Ok(())
     }
 
     async fn play_pause(&self) -> fdo::Result<()> {
-        let mut daemon = self.daemon.lock().await;
         Handle::current()
-            .block_on(daemon.playback_toggle(()))
+            .block_on(self.daemon.clone().playback_toggle(()))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     async fn stop(&self) -> fdo::Result<()> {
-        let mut daemon = self.daemon.lock().await;
         Handle::current()
-            .block_on(daemon.playback_stop(()))
+            .block_on(self.daemon.clone().playback_stop(()))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     async fn play(&self) -> fdo::Result<()> {
-        let mut daemon = self.daemon.lock().await;
         Handle::current()
-            .block_on(daemon.playback_play(()))
+            .block_on(self.daemon.clone().playback_play(()))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
@@ -123,7 +125,7 @@ impl PlayerInterface for Mpris {
         path = path.canonicalize().unwrap_or(path);
 
         // add the song to the queue
-        let mut daemon = self.daemon.lock().await;
+        let mut daemon = self.daemon.clone();
         if let Some(song) = Handle::current()
             .block_on(daemon.library_song_get_by_path(mecomp_prost::Path::new(path)))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?
@@ -131,7 +133,7 @@ impl PlayerInterface for Mpris {
             .song
         {
             Handle::current()
-                .block_on(daemon.queue_add(song.id.clone()))
+                .block_on(daemon.queue_add(song.id))
                 .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         } else {
             return Err(fdo::Error::Failed(
@@ -167,7 +169,7 @@ impl PlayerInterface for Mpris {
             LoopStatus::Playlist => RepeatMode::All,
         };
 
-        let mut daemon = self.daemon.lock().await;
+        let mut daemon = self.daemon.clone();
         Handle::current()
             .block_on(daemon.playback_repeat(mecomp_prost::PlaybackRepeatRequest::new(repeat_mode)))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
@@ -193,7 +195,7 @@ impl PlayerInterface for Mpris {
     async fn set_shuffle(&self, shuffle: bool) -> Result<(), ZbusError> {
         // if called with false, does nothing, if called with true, shuffles the queue
         if shuffle {
-            let mut daemon = self.daemon.lock().await;
+            let mut daemon = self.daemon.clone();
 
             Handle::current()
                 .block_on(daemon.playback_shuffle(()))
@@ -219,7 +221,7 @@ impl PlayerInterface for Mpris {
     }
 
     async fn set_volume(&self, volume: Volume) -> Result<(), ZbusError> {
-        let mut daemon = self.daemon.lock().await;
+        let mut daemon = self.daemon.clone();
         #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
         Handle::current()
             .block_on(daemon.playback_volume(PlaybackVolumeSetRequest::new(volume as f32)))
@@ -249,7 +251,7 @@ impl PlayerInterface for Mpris {
 
         let offset = Duration::from_micros(offset.as_micros().unsigned_abs());
 
-        let mut daemon = self.daemon.lock().await;
+        let mut daemon = self.daemon.clone();
 
         Handle::current()
             .block_on(daemon.playback_seek(PlaybackSeekRequest::new(seek_type, offset)))
@@ -263,15 +265,14 @@ impl PlayerInterface for Mpris {
             return Ok(());
         }
 
-        let maybe_state = self.state.read().await;
-        if let Some(song) = maybe_state.current_song.as_ref() {
+        if let Some(song) = self.state.read().await.current_song.as_ref() {
             // if the position not in the range of the song, ignore the call
             let position = position.as_micros();
             if position < 0 || u128::from(position.unsigned_abs()) > song.runtime.as_micros() {
                 return Ok(());
             }
 
-            let mut daemon = self.daemon.lock().await;
+            let mut daemon = self.daemon.clone();
 
             Handle::current()
                 .block_on(daemon.playback_seek(PlaybackSeekRequest::new(
@@ -334,6 +335,7 @@ mod tests {
     };
 
     use mecomp_storage::db::schemas::song::SongBrief;
+    use one_or_many::OneOrMany;
     use pretty_assertions::{assert_eq, assert_ne};
     use rstest::rstest;
     use tempfile::TempDir;
@@ -368,20 +370,19 @@ mod tests {
         assert_eq!(mpris.can_go_next().await.unwrap(), true);
 
         // setup
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            songs.into_iter().map(Into::into).collect(),
+        )));
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         let Ok(StateChange::TrackChanged(Some(first_song))) = event_rx.recv() else {
             panic!("Expected a TrackChanged event, but got something else");
@@ -421,20 +422,19 @@ mod tests {
         assert_eq!(mpris.can_go_next().await.unwrap(), true);
 
         // setup
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            songs.into_iter().map(Into::into).collect(),
+        )));
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         let Ok(StateChange::TrackChanged(Some(first_song))) = event_rx.recv() else {
             panic!("Expected a TrackChanged event, but got something else");
@@ -506,21 +506,18 @@ mod tests {
         assert_eq!(mpris.can_go_next().await.unwrap(), true);
 
         // setup
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         // send one song to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-            songs[0].clone().into(),
+            OneOrMany::One(Box::new(songs[0].clone().into())),
         )));
         let _ = event_rx.recv();
         let _ = event_rx.recv();
@@ -569,24 +566,23 @@ mod tests {
         assert_eq!(mpris.can_go_previous().await.unwrap(), true);
 
         // setup
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         let first_song: mecomp_storage::db::schemas::RecordId = songs[0].id.clone().into();
         let third_song: mecomp_storage::db::schemas::RecordId = songs[2].id.clone().into();
         let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            songs.into_iter().map(Into::into).collect(),
+        )));
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         assert_eq!(
             event_rx.recv(),
@@ -631,17 +627,14 @@ mod tests {
         assert_eq!(mpris.can_go_previous().await.unwrap(), true);
 
         // setup
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         let first_song: mecomp_storage::db::schemas::RecordId = songs[0].id.clone().into();
         let second_song: mecomp_storage::db::schemas::RecordId = songs[1].id.clone().into();
@@ -649,7 +642,9 @@ mod tests {
         let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            songs.into_iter().map(Into::into).collect(),
+        )));
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         assert_eq!(
             event_rx.recv(),
@@ -726,22 +721,19 @@ mod tests {
         assert_eq!(mpris.can_go_previous().await.unwrap(), true);
 
         // setup
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-            songs[0].clone().into(),
+            OneOrMany::One(Box::new(songs[0].clone().into())),
         )));
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         let _ = event_rx.recv();
@@ -822,17 +814,14 @@ mod tests {
         assert_eq!(mpris.can_control().await.unwrap(), true);
 
         // setup
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         let first_song = songs[0].clone();
 
@@ -846,7 +835,7 @@ mod tests {
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-            first_song.clone().into(),
+            OneOrMany::One(Box::new(first_song.clone().into())),
         )));
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         assert_eq!(
@@ -984,24 +973,21 @@ mod tests {
         let (mpris, event_rx, tempdir, _) = fixtures.await;
 
         // setup
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         let first_song = songs[0].clone();
 
         // Opens the uri given as an argument //
 
         // open a valid file uri
-        let file_uri = format!("file://{}", first_song.path.display());
+        let file_uri = format!("file://{}", first_song.path);
         mpris.open_uri(file_uri).await.unwrap();
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         assert_eq!(
@@ -1070,19 +1056,16 @@ mod tests {
         let (mpris, event_rx, tempdir, audio_kernel) = fixtures.await;
 
         // setup
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
-        let first_song: SongBrief = songs[0].clone();
+        let first_song = songs[0].clone();
 
         // Returns the playback status. //
         // playback is stopped
@@ -1093,7 +1076,7 @@ mod tests {
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-            first_song.clone().into(),
+            OneOrMany::One(Box::new(first_song.clone().into())),
         )));
 
         // pause playback
@@ -1109,7 +1092,7 @@ mod tests {
                     events[0] = true;
                 }
                 StateChange::TrackChanged(Some(_)) => {
-                    mpris.state.write().await.current_song = Some(first_song.clone());
+                    mpris.state.write().await.current_song = Some(first_song.clone().into());
                     events[1] = true;
                 }
                 StateChange::StatusChanged(Status::Playing) => {
@@ -1308,19 +1291,16 @@ mod tests {
         let (mpris, event_rx, tempdir, audio_kernel) = fixtures.await;
 
         // setup
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
-        let first_song = songs[0].clone();
+        let first_song: SongBrief = songs[0].clone().into();
 
         // The metadata of the current element. //
         // when there is no current song
@@ -1344,14 +1324,14 @@ mod tests {
 
         *mpris.state.write().await = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .state_audio(Context::current())
+            .clone()
+            .state_audio(())
             .await
             .unwrap()
-            .unwrap();
+            .into_inner()
+            .state
+            .unwrap()
+            .into();
 
         // when there is a current song
         let metadata = mpris.metadata().await.unwrap();
@@ -1439,19 +1419,16 @@ mod tests {
         assert!(mpris.can_seek().await.unwrap());
 
         // setup
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
-        let first_song = songs[0].clone();
+        let first_song: SongBrief = songs[0].clone().into();
 
         // The current track position, between 0 and the [mpris:length] metadata entry. //
         // when there is no current song
@@ -1469,14 +1446,14 @@ mod tests {
         // update internal state
         *mpris.state.write().await = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .state_audio(Context::current())
+            .clone()
+            .state_audio(())
             .await
             .unwrap()
-            .unwrap();
+            .into_inner()
+            .state
+            .unwrap()
+            .into();
 
         let first_song_track_id = mpris.metadata().await.unwrap().trackid().unwrap();
 

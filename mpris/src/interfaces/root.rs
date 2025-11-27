@@ -18,9 +18,8 @@ impl RootInterface for Mpris {
     }
 
     async fn quit(&self) -> fdo::Result<()> {
-        let mut daemon = self.daemon.lock().await;
         Handle::current()
-            .block_on(daemon.daemon_shutdown(()))
+            .block_on(self.daemon.clone().daemon_shutdown(()))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
@@ -76,6 +75,7 @@ impl RootInterface for Mpris {
 mod tests {
     use super::*;
 
+    use crate::test_utils::fixtures;
     use pretty_assertions::assert_eq;
 
     #[tokio::test]
@@ -86,7 +86,7 @@ mod tests {
     ///
     /// Mecomp does not have a graphical user interface, so it does not support raising.
     async fn raise() {
-        let mpris = Mpris::new(0);
+        let (mpris, _, _, _) = fixtures().await;
         let result = mpris.can_raise().await;
         assert_eq!(result, Ok(false));
         let result = mpris.raise().await;
@@ -102,7 +102,7 @@ mod tests {
     ///
     /// Mecomp allows clients to shut it down.
     async fn quit() {
-        let mpris = Mpris::new(0);
+        let (mpris, _, _, _) = fixtures().await;
         let result = mpris.can_quit().await;
         assert_eq!(result, Ok(true));
         // this is safe to do since there is no daemon running.
@@ -121,7 +121,7 @@ mod tests {
     /// """
     /// Mecomp does not support fullscreen mode.
     async fn fullscreen() {
-        let mpris = Mpris::new(0);
+        let (mpris, _, _, _) = fixtures().await;
         let result = mpris.fullscreen().await;
         assert_eq!(result, Ok(false));
         let result = mpris.can_set_fullscreen().await;
@@ -137,7 +137,7 @@ mod tests {
     ///
     /// Mecomp currently does not implement the TrackList interface.
     async fn has_track_list() {
-        let mpris = Mpris::new(0);
+        let (mpris, _, _, _) = fixtures().await;
         let result = mpris.has_track_list().await;
         assert_eq!(result, Ok(false));
     }
@@ -149,7 +149,7 @@ mod tests {
     ///
     /// Mecomp identifies itself as "MECOMP Music Player".
     async fn identity() {
-        let mpris = Mpris::new(0);
+        let (mpris, _, _, _) = fixtures().await;
         let result = mpris.identity().await;
         assert_eq!(result, Ok("MECOMP Music Player".to_string()));
     }
@@ -162,7 +162,7 @@ mod tests {
     /// Mecomp currently doesn't have a desktop app, so it does not make sense to return a desktop entry.
     /// TODO: Once I've implemented the GUI, it should ship with a desktop entry that can be returned here.
     async fn desktop_entry() {
-        let mpris = Mpris::new(0);
+        let (mpris, _, _, _) = fixtures().await;
         let result = mpris.desktop_entry().await;
         assert_eq!(
             result,
@@ -177,7 +177,7 @@ mod tests {
     ///
     /// Mecomp can only play files from the local filesystem, so it supports the "file" URI scheme.
     async fn supported_uri_schemes() {
-        let mpris = Mpris::new(0);
+        let (mpris, _, _, _) = fixtures().await;
         let result = mpris.supported_uri_schemes().await;
         assert_eq!(result, Ok(vec!["file".to_string()]));
     }
@@ -190,7 +190,7 @@ mod tests {
     /// Mecomp can play anything that it can decode, so mime-types supported by both the [lofty-rs](https://crates.io/crates/lofty) and [rodio](https://0crates.io/crates/rodio) crates are supported.
     /// So, mp3, wav, ogg (vorbis), and flac
     async fn supported_mime_types() {
-        let mpris = Mpris::new(0);
+        let (mpris, _, _, _) = fixtures().await;
         let result = mpris.supported_mime_types().await;
         assert_eq!(
             result,
