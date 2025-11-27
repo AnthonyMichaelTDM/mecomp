@@ -1,5 +1,4 @@
 #![allow(clippy::module_name_repetitions)]
-pub mod library;
 use std::{fmt::Display, time::Duration};
 
 use mecomp_storage::db::schemas::song::SongBrief;
