@@ -29,7 +29,7 @@ message Song {
   required google.protobuf.Duration runtime = 7;
   optional uint32 track = 8;
   optional uint32 disc = 9;
-  optional uint32 release = 10;
+  optional uint32 release_year = 10;
   required string extension = 11;
   required string path = 12;
 }
@@ -56,7 +56,7 @@ message SongBrief {
   required google.protobuf.Duration runtime = 7;
   optional uint32 track = 8;
   optional uint32 disc = 9;
-  optional uint32 release = 10;
+  optional uint32 release_year = 10;
   required string path = 12;
 }
 
@@ -113,7 +113,7 @@ message Album {
   required RecordId id = 1;
   required string title = 2;
   repeated string artists = 3;
-  optional uint32 release = 4;
+  optional uint32 release_year = 4;
   required google.protobuf.Duration runtime = 5;
   required uint64 song_count = 6;
   required uint32 discs = 7;
@@ -136,7 +136,7 @@ message AlbumBrief {
   required RecordId id = 1;
   required string title = 2;
   repeated string artists = 3;
-  optional uint32 release = 4;
+  optional uint32 release_year = 4;
   required uint32 discs = 5;
   repeated string genres = 6;
 }

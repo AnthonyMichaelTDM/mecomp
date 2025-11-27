@@ -145,7 +145,7 @@ mod subscriber_tests {
             id: album_id.clone(),
             title: song.album.clone(),
             artist: song.artist.clone(),
-            release: song.release,
+            release: song.release_year,
             runtime: song.runtime,
             song_count: 1,
             discs: 1,

@@ -143,7 +143,7 @@ impl Album {
                 title: title.into(),
                 artist: album_artists.clone(),
                 runtime: Duration::from_secs(0),
-                release: None,
+                release_year: None,
                 song_count: 0,
                 discs: 1,
                 genre: OneOrMany::None,
@@ -245,7 +245,7 @@ mod tests {
             title: "Test Album".into(),
             artist: vec!["Test Artist".into()].into(),
             runtime: Duration::from_secs(0),
-            release: None,
+            release_year: None,
             song_count: 0,
             discs: 1,
             genre: OneOrMany::None,
@@ -447,7 +447,7 @@ mod tests {
             title: "Test Album".into(),
             artist: vec!["Test Artist".into()].into(),
             runtime: Duration::from_secs(0),
-            release: None,
+            release_year: None,
             song_count: 0,
             discs: 1,
             genre: OneOrMany::None,
@@ -464,7 +464,7 @@ mod tests {
         assert_eq!(read.title, album.title);
         assert_eq!(read.artist, album.artist);
         assert_eq!(read.runtime, album.runtime);
-        assert_eq!(read.release, album.release);
+        assert_eq!(read.release_year, album.release_year);
         assert_eq!(read.song_count, album.song_count);
         assert_eq!(read.discs, album.discs);
         assert_eq!(read.genre, album.genre);
@@ -509,7 +509,7 @@ mod tests {
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
-            release: None,
+            release_year: None,
             extension: "mp3".into(),
             path: "song.mp3".into(),
         };
@@ -546,7 +546,7 @@ mod tests {
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
-            release: None,
+            release_year: None,
             extension: "mp3".into(),
             path: "song.mp3".into(),
         };
@@ -581,7 +581,7 @@ mod tests {
             runtime: Duration::from_secs(120),
             track: None,
             disc: None,
-            release: None,
+            release_year: None,
             extension: "mp3".into(),
             path: "song.mp3".into(),
         };

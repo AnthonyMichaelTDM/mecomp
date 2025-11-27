@@ -92,7 +92,7 @@ impl ItemViewProps for AlbumViewProps {
                 Span::raw("Release Year: "),
                 Span::styled(
                     self.album
-                        .release
+                        .release_year
                         .map_or_else(|| "unknown".to_string(), |y| y.to_string()),
                     Style::default().italic(),
                 ),

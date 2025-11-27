@@ -213,7 +213,7 @@ pub async fn create_song_with_overrides<C: Connection>(
         runtime: Duration::from_secs(120),
         track: None,
         disc: None,
-        release: None,
+        release_year: None,
         extension: "mp3".into(),
         path: PathBuf::from_str(&format!("{}.mp3", id.key()))?,
     };

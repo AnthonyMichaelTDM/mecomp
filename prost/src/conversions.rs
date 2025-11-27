@@ -38,7 +38,7 @@ impl From<crate::SongBrief> for mecomp_storage::db::schemas::song::SongBrief {
             runtime: convert_duration(value.runtime),
             track: value.track,
             disc: value.disc,
-            release: value.release,
+            release_year: value.release,
             path: value.path.into(),
         }
     }

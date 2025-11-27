@@ -153,7 +153,7 @@ mod tests {
             title: "Test Album".into(),
             artist: vec!["Test Artist".into()].into(),
             runtime: Duration::from_secs(0),
-            release: None,
+            release_year: None,
             song_count: 0,
             discs: 1,
             genre: OneOrMany::None,
