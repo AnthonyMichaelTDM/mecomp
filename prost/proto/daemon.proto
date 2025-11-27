@@ -39,39 +39,34 @@ service MusicPlayer {
 	// Library inspection
 	rpc LibraryBrief(google.protobuf.Empty) returns (LibraryBriefResponse);
 	rpc LibraryFull(google.protobuf.Empty) returns (LibraryFullResponse);
-	rpc LibraryArtistsBrief(google.protobuf.Empty) returns (ArtistBriefList);
-	rpc LibraryArtistsFull(google.protobuf.Empty) returns (ArtistList);
-	rpc LibraryAlbumsBrief(google.protobuf.Empty) returns (AlbumBriefList);
-	rpc LibraryAlbumsFull(google.protobuf.Empty) returns (AlbumList);
-	rpc LibrarySongsBrief(google.protobuf.Empty) returns (SongBriefList);
-	rpc LibrarySongsFull(google.protobuf.Empty) returns (SongList);
-	rpc LibraryPlaylistsBrief(google.protobuf.Empty) returns (PlaylistBriefList);
-	rpc LibraryPlaylistsFull(google.protobuf.Empty) returns (PlaylistList);
-	rpc LibraryCollectionsBrief(google.protobuf.Empty) returns (CollectionBriefList);
-	rpc LibraryCollectionsFull(google.protobuf.Empty) returns (CollectionList);
-    rpc LibraryDynamicPlaylistsFull(google.protobuf.Empty) returns (DynamicPlaylistList);
 	rpc LibraryHealth(google.protobuf.Empty) returns (LibraryHealthResponse);
+	rpc LibraryArtists(google.protobuf.Empty) returns (ArtistBriefList);
+	rpc LibraryAlbums(google.protobuf.Empty) returns (AlbumBriefList);
+	rpc LibrarySongs(google.protobuf.Empty) returns (SongBriefList);
+	rpc LibraryPlaylists(google.protobuf.Empty) returns (PlaylistList);
+	rpc LibraryCollections(google.protobuf.Empty) returns (CollectionList);
+    rpc LibraryDynamicPlaylists(google.protobuf.Empty) returns (DynamicPlaylistList);
 
 	// Library lookup helpers
 	rpc LibrarySongGet(Ulid) returns (SongOption);
 	rpc LibrarySongGetByPath(Path) returns (SongOption);
-	rpc LibrarySongGetArtists(Ulid) returns (ArtistBriefListOption);
+	rpc LibrarySongGetArtists(Ulid) returns (ArtistBriefList);
 	rpc LibrarySongGetAlbum(Ulid) returns (AlbumBriefOption);
-	rpc LibrarySongGetPlaylists(Ulid) returns (PlaylistBriefListOption);
-	rpc LibrarySongGetCollections(Ulid) returns (CollectionBriefListOption);
+	rpc LibrarySongGetPlaylists(Ulid) returns (PlaylistList);
+	rpc LibrarySongGetCollections(Ulid) returns (CollectionList);
 	rpc LibraryAlbumGet(Ulid) returns (AlbumOption);
-	rpc LibraryAlbumGetArtists(Ulid) returns (ArtistBriefListOption);
-	rpc LibraryAlbumGetSongs(Ulid) returns (SongBriefListOption);
+	rpc LibraryAlbumGetArtists(Ulid) returns (ArtistBriefList);
+	rpc LibraryAlbumGetSongs(Ulid) returns (SongBriefList);
 	rpc LibraryArtistGet(Ulid) returns (ArtistOption);
-	rpc LibraryArtistGetSongs(Ulid) returns (SongBriefListOption);
-	rpc LibraryArtistGetAlbums(Ulid) returns (AlbumBriefListOption);
+	rpc LibraryArtistGetSongs(Ulid) returns (SongBriefList);
+	rpc LibraryArtistGetAlbums(Ulid) returns (AlbumBriefList);
     rpc LibraryPlaylistGet(Ulid) returns (PlaylistOption);
     rpc LibraryPlaylistGetByName(PlaylistName) returns (PlaylistOption);
-    rpc LibraryPlaylistGetSongs(Ulid) returns (SongBriefListOption);
+    rpc LibraryPlaylistGetSongs(Ulid) returns (SongBriefList);
     rpc LibraryCollectionGet(Ulid) returns (CollectionOption);
-    rpc LibraryCollectionGetSongs(Ulid) returns (SongBriefListOption);
+    rpc LibraryCollectionGetSongs(Ulid) returns (SongBriefList);
     rpc LibraryDynamicPlaylistGet(Ulid) returns (DynamicPlaylistOption);
-    rpc LibraryDynamicPlaylistGetSongs(Ulid) returns (SongBriefListOption);
+    rpc LibraryDynamicPlaylistGetSongs(Ulid) returns (SongBriefList);
 
 	// State inspection
 	rpc StateAudio(google.protobuf.Empty) returns (StateAudioResponse);
@@ -106,7 +101,7 @@ service MusicPlayer {
 	rpc PlaybackVolume(PlaybackVolumeSetRequest) returns (google.protobuf.Empty);
 	rpc PlaybackVolumeUp(PlaybackVolumeAdjustRequest) returns (google.protobuf.Empty);
 	rpc PlaybackVolumeDown(PlaybackVolumeAdjustRequest) returns (google.protobuf.Empty);
-	rpc PlaybackVolumeToggleMute(google.protobuf.Empty) returns (google.protobuf.Empty);
+	rpc PlaybackToggleMute(google.protobuf.Empty) returns (google.protobuf.Empty);
 	rpc PlaybackMute(google.protobuf.Empty) returns (google.protobuf.Empty);
 	rpc PlaybackUnmute(google.protobuf.Empty) returns (google.protobuf.Empty);
 
@@ -123,7 +118,7 @@ service MusicPlayer {
 	rpc PlaylistRemoveSongs(PlaylistRemoveSongsRequest) returns (google.protobuf.Empty);
 	rpc PlaylistAdd(PlaylistAddRequest) returns (google.protobuf.Empty);
 	rpc PlaylistAddList(PlaylistAddListRequest) returns (google.protobuf.Empty);
-	rpc PlaylistRename(PlaylistRenameRequest) returns (PlaylistOption);
+	rpc PlaylistRename(PlaylistRenameRequest) returns (PlaylistBrief);
 	rpc PlaylistExport(PlaylistExportRequest) returns (google.protobuf.Empty);
 	rpc PlaylistImport(PlaylistImportRequest) returns (RecordId);
 
@@ -136,7 +131,7 @@ service MusicPlayer {
 
 	// Dynamic playlists
 	rpc DynamicPlaylistCreate(DynamicPlaylistCreateRequest) returns (RecordId);
-	rpc DynamicPlaylistUpdate(DynamicPlaylistUpdateRequest) returns (DynamicPlaylistOption);
+	rpc DynamicPlaylistUpdate(DynamicPlaylistUpdateRequest) returns (DynamicPlaylist);
 	rpc DynamicPlaylistRemove(Ulid) returns (google.protobuf.Empty);
 	rpc DynamicPlaylistExport(Path) returns (google.protobuf.Empty);
 	rpc DynamicPlaylistImport(Path) returns (DynamicPlaylistList);

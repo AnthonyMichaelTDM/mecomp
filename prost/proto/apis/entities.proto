@@ -7,11 +7,11 @@ import "google/protobuf/duration.proto";
 
 message RecordId {
   required string tb = 1;
-	required Ulid id = 2;
+	required string id = 2;
 }
 
 message Ulid {
-  required string ulid = 1;
+  required string id = 1;
 }
 
 message RecordIdList {
