@@ -37,6 +37,7 @@ ignored = [
     "futures-io",
     "futures-lite",
     "futures-sink",
+    "futures-task",
     "futures-util",
     "hashbrown",
     "indexmap",
