@@ -2,11 +2,11 @@
 //!
 //! [org.mpris.MediaPlayer2](https://specifications.freedesktop.org/mpris-spec/latest/Media_Player.html)
 
+use futures::executor::block_on;
 use mpris_server::{
     RootInterface,
     zbus::{Error as ZbusError, fdo},
 };
-use tokio::runtime::Handle;
 
 use crate::Mpris;
 
@@ -18,8 +18,7 @@ impl RootInterface for Mpris {
     }
 
     async fn quit(&self) -> fdo::Result<()> {
-        Handle::current()
-            .block_on(self.daemon.clone().daemon_shutdown(()))
+        block_on(self.daemon.clone().daemon_shutdown(()))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
@@ -93,7 +92,7 @@ mod tests {
         assert_eq!(result, Ok(()));
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     /// """
     /// The media player may refuse to allow clients to shut it down. In this case, the [CanQuit] property is false and this method does nothing.
     /// Note: Media players which can be D-Bus activated, or for which there is no sensibly easy way to terminate a running instance
