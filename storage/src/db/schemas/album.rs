@@ -64,7 +64,7 @@ RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]
 }"
         )
     )]
-    pub song_count: usize,
+    pub song_count: u64,
     /// How many discs are in this [`Album`]?
     /// (Most will only have 1).
     #[cfg_attr(feature = "db", field(dt = "int"))]
