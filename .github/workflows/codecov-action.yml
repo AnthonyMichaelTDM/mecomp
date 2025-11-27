@@ -50,6 +50,7 @@ jobs:
           --workspace
           --profile tarpaulin
           --features mock_playback
+          --implicit-test-threads
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v5.5.1

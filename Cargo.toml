@@ -77,11 +77,16 @@ statrs.opt-level = 3
 rustfft.opt-level = 3
 # Set audio libraries to optimize for speed in tests
 symphonia.opt-level = 3
+cpal.opt-level = 3
+rubato.opt-level = 3
 rodio.opt-level = 3
 # Set async runtime to get better performance in tests
 tokio.opt-level = 3
 tokio-stream.opt-level = 3
 tonic.opt-level = 3
+tonic-prost.opt-level = 3
+tower.opt-level = 3
+hyper.opt-level = 3
 
 [profile.tarpaulin]
 inherits = "test"
@@ -118,7 +123,6 @@ futures = { version = "0.3.31", features = ["alloc"], default-features = false }
 # image = { version = "0.25.0" }
 log = { version = "0.4.28", features = ["serde"] }
 mpris-server = { version = "0.9.0" }
-zbus = { version = "5.12", features = ["tokio"], default-features = false }
 notify-debouncer-full = { version = "0.6.0", default-features = false }
 notify = { version = "8.2.0", default-features = false, features = [
     "macos_fsevent",

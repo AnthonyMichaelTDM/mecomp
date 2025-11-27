@@ -150,7 +150,7 @@ symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon",
 symphonia-format-riff = { version = "0.5", default-features = false, features = ["aiff", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
-tokio = { version = "1", features = ["fs", "io-std", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io"] }
 toml_datetime = { version = "0.7", features = ["serde"] }
@@ -222,7 +222,7 @@ symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon",
 symphonia-format-riff = { version = "0.5", default-features = false, features = ["aiff", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
-tokio = { version = "1", features = ["fs", "io-std", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io"] }
 toml_datetime = { version = "0.7", features = ["serde"] }

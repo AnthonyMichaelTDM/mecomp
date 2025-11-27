@@ -3247,7 +3247,6 @@ dependencies = [
  "surrealdb",
  "tempfile",
  "tokio",
- "zbus",
 ]
 
 [[package]]
@@ -7473,7 +7472,6 @@ dependencies = [
  "ordered-stream",
  "serde",
  "serde_repr",
- "tokio",
  "tracing",
  "uds_windows",
  "uuid",

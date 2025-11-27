@@ -38,7 +38,6 @@ shellexpand.workspace = true
 tokio.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 mecomp-prost.workspace = true
-zbus.workspace = true
 futures.workspace = true
 
 [dev-dependencies]

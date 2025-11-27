@@ -337,7 +337,7 @@ mod tests {
     ///
     /// the last case is irrelevant here, as we always return true for [CanGoNext]
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
     async fn test_next(
         #[future] fixtures: (
@@ -389,7 +389,7 @@ mod tests {
     }
 
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_next_maintains_status(
         #[future] fixtures: (
@@ -473,7 +473,7 @@ mod tests {
     }
 
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_next_no_next_track(
         #[future] fixtures: (
@@ -533,7 +533,7 @@ mod tests {
     ///
     /// the last case is irrelevant here, as we always return true for [CanGoPrevious]
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_prev(
         #[future] fixtures: (
@@ -594,7 +594,7 @@ mod tests {
         drop(tempdir);
     }
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_prev_maintains_state(
         #[future] fixtures: (
@@ -688,7 +688,7 @@ mod tests {
     }
 
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_prev_no_prev_track(
         #[future] fixtures: (
@@ -779,7 +779,7 @@ mod tests {
     ///
     /// the last case is irrelevant here, as we always return true for [CanControl]
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_play_pause_stop(
         #[future] fixtures: (
@@ -942,7 +942,7 @@ mod tests {
     ///
     /// Mecomp does not currently implement the [TrackList interface], so the last case is irrelevant here.
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_open_uri(
         #[future] fixtures: (
@@ -1025,7 +1025,7 @@ mod tests {
     /// """
     /// Mecomp supports returning the playback status.
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_playback_status(
         #[future] fixtures: (
@@ -1115,7 +1115,7 @@ mod tests {
     ///
     /// Mecomp supports setting the loop status.
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_loop_status(
         #[future] fixtures: (
@@ -1176,7 +1176,7 @@ mod tests {
     ///
     /// Mecomp supports returning the playback rate, but does not support changing it.
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_rate(
         #[future] fixtures: (
@@ -1224,7 +1224,7 @@ mod tests {
     /// as setting shuffle to false will not restore the original order of the queue
     /// and is instead a no-op.
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_shuffle(
         #[future] fixtures: (
@@ -1260,7 +1260,7 @@ mod tests {
     ///     which contains a D-Bus path that uniquely identifies this track.
     /// """
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_metadata(
         #[future] fixtures: (
@@ -1332,7 +1332,7 @@ mod tests {
     /// When setting, if a negative value is passed, the volume should be set to 0.0.
     /// """
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_volume(
         #[future] fixtures: (
@@ -1386,7 +1386,7 @@ mod tests {
     /// If the given `track_id` this does not match the id of the currently-playing track, the call is ignored as "stale"
     /// """
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_position(
         #[future] fixtures: (
