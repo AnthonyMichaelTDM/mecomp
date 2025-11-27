@@ -3,118 +3,92 @@ source: cli/src/handlers/smoke_tests.rs
 expression: "String::from_utf8(stdout.0.clone()).unwrap()"
 ---
 Daemon response:
-Ok(
-    LibraryBrief {
-        artists: [
-            ArtistBrief {
-                id: Thing {
-                    tb: "artist",
-                    id: String(
-                        "01J1K5B6RJ84WJXCWYJ5WNE12E",
-                    ),
-                },
-                name: "Test Artist",
+LibraryBriefResponse {
+    artists: [
+        ArtistBrief {
+            id: RecordId {
+                tb: "artist",
+                id: "01J1K5B6RJ84WJXCWYJ5WNE12E",
             },
-        ],
-        albums: [
-            AlbumBrief {
-                id: Thing {
-                    tb: "album",
-                    id: String(
-                        "01J1K5B6RJ84WJXCWYJ5WNE12E",
-                    ),
-                },
-                title: "Test Album",
-                artist: One(
-                    "Test Artist",
-                ),
-                release: Some(
-                    2021,
-                ),
-                discs: 1,
-                genre: One(
-                    "Test Genre",
-                ),
+            name: "Test Artist",
+        },
+    ],
+    albums: [
+        AlbumBrief {
+            id: RecordId {
+                tb: "album",
+                id: "01J1K5B6RJ84WJXCWYJ5WNE12E",
             },
-        ],
-        songs: [
-            SongBrief {
-                id: Thing {
-                    tb: "song",
-                    id: String(
-                        "01J1K5B6RJ84WJXCWYJ5WNE12E",
-                    ),
-                },
-                title: "Test Song",
-                artist: One(
-                    "Test Artist",
-                ),
-                album_artist: One(
-                    "Test Artist",
-                ),
-                album: "Test Album",
-                genre: One(
-                    "Test Genre",
-                ),
-                runtime: 180s,
-                track: Some(
-                    0,
-                ),
-                disc: Some(
-                    0,
-                ),
-                release_year: Some(
-                    2021,
-                ),
-                extension: "mp3",
-                path: "test.mp3",
+            title: "Test Album",
+            artists: [
+                "Test Artist",
+            ],
+            release_year: None,
+            discs: 1,
+            genres: [
+                "Test Genre",
+            ],
+        },
+    ],
+    songs: [
+        SongBrief {
+            id: RecordId {
+                tb: "song",
+                id: "01J1K5B6RJ84WJXCWYJ5WNE12E",
             },
-        ],
-        playlists: [
-            PlaylistBrief {
-                id: Thing {
-                    tb: "playlist",
-                    id: String(
-                        "01J1K5B6RJ84WJXCWYJ5WNE12E",
-                    ),
-                },
-                name: "Test Playlist",
+            title: "Test Song",
+            artists: [
+                "Test Artist",
+            ],
+            album_artists: [
+                "Test Artist",
+            ],
+            album: "Test Album",
+            genres: [
+                "Test Genre",
+            ],
+            runtime: Duration {
+                seconds: 180,
+                nanos: 0,
             },
-        ],
-        collections: [
-            CollectionBrief {
-                id: Thing {
-                    tb: "collection",
-                    id: String(
-                        "01J1K5B6RJ84WJXCWYJ5WNE12E",
-                    ),
-                },
-                name: "Collection 0",
+            track: Some(
+                0,
+            ),
+            disc: Some(
+                0,
+            ),
+            release_year: Some(
+                2021,
+            ),
+            path: "test.mp3",
+        },
+    ],
+    playlists: [
+        PlaylistBrief {
+            id: RecordId {
+                tb: "playlist",
+                id: "01J1K5B6RJ84WJXCWYJ5WNE12E",
             },
-        ],
-        dynamic_playlists: [
-            DynamicPlaylist {
-                id: Thing {
-                    tb: "dynamic",
-                    id: String(
-                        "01J1K5B6RJ84WJXCWYJ5WNE12E",
-                    ),
-                },
-                name: "Test Dynamic",
-                query: Query {
-                    root: Leaf(
-                        LeafClause {
-                            left: Field(
-                                Title,
-                            ),
-                            operator: Equal,
-                            right: String(
-                                "Test Song",
-                            ),
-                        },
-                    ),
-                },
+            name: "Test Playlist",
+        },
+    ],
+    collections: [
+        CollectionBrief {
+            id: RecordId {
+                tb: "collection",
+                id: "01J1K5B6RJ84WJXCWYJ5WNE12E",
             },
-        ],
-    },
-)
+            name: "Collection 0",
+        },
+    ],
+    dynamic_playlists: [
+        DynamicPlaylist {
+            id: RecordId {
+                tb: "dynamic",
+                id: "01J1K5B6RJ84WJXCWYJ5WNE12E",
+            },
+            name: "Test Dynamic",
+            query: "title = \"Test Song\"",
+        },
+    ],
+}
