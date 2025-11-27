@@ -119,7 +119,7 @@ pub struct SongChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub disc: Option<Option<u32>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub release_year: Option<Option<u32>>,
+    pub release: Option<Option<u32>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub extension: Option<String>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -193,7 +193,7 @@ pub struct SongMetadata {
     pub album_artist: OneOrMany<String>,
     pub genre: OneOrMany<String>,
     pub runtime: Duration,
-    pub release_year: Option<u32>,
+    pub release: Option<u32>,
     pub track: Option<u32>,
     pub disc: Option<u32>,
     pub extension: String,
@@ -212,7 +212,7 @@ impl From<&Song> for SongMetadata {
             runtime: song.runtime,
             track: song.track,
             disc: song.disc,
-            release_year: song.release,
+            release: song.release,
             extension: song.extension.clone(),
             path: song.path.clone(),
         }
@@ -231,7 +231,7 @@ impl From<Song> for SongMetadata {
             runtime: song.runtime,
             track: song.track,
             disc: song.disc,
-            release_year: song.release,
+            release: song.release,
             extension: song.extension,
             path: song.path,
         }
@@ -274,8 +274,8 @@ impl SongMetadata {
         if self.disc != song.disc {
             changeset.disc = Some(self.disc);
         }
-        if self.release_year != song.release {
-            changeset.release_year = Some(self.release_year);
+        if self.release != song.release {
+            changeset.release = Some(self.release);
         }
         if self.extension != song.extension {
             changeset.extension = Some(self.extension.clone());
@@ -383,7 +383,7 @@ impl SongMetadata {
             disc: tag
                 .get_string(&ItemKey::DiscNumber)
                 .and_then(|x| x.parse().ok()),
-            release_year: tag.get_string(&ItemKey::Year).and_then(|x| x.parse().ok()),
+            release: tag.get_string(&ItemKey::Year).and_then(|x| x.parse().ok()),
             extension: path
                 .extension()
                 .unwrap_or_default()
@@ -454,7 +454,7 @@ mod tests {
         runtime: Duration::from_secs(3600),
         track: Some(1),
         disc: Some(1),
-        release_year: Some(2021),
+        release: Some(2021),
         extension: "mp3".into(),
         path: PathBuf::from("path"),
     },
@@ -482,7 +482,7 @@ mod tests {
         runtime: Duration::from_secs(3000),
         track: Some(2),
         disc: Some(3),
-        release_year: Some(2022),
+        release: Some(2022),
         extension: "m3a".into(),
         path: PathBuf::from("other_path"),
     },
@@ -509,7 +509,7 @@ mod tests {
         runtime: Some(Duration::from_secs(3000)),
         track: Some(Some(2)),
         disc: Some(Some(3)),
-        release_year: Some(Some(2022)),
+        release: Some(Some(2022)),
         extension: Some("m3a".into()),
         path: Some(PathBuf::from("other_path")),
     })]

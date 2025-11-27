@@ -367,7 +367,7 @@ impl Song {
             album_artist: metadata.album_artist,
             album: metadata.album,
             genre: metadata.genre,
-            release: metadata.release_year,
+            release: metadata.release,
             runtime: metadata.runtime,
             extension: metadata.extension,
             track: metadata.track,
@@ -775,7 +775,7 @@ mod test {
             track: Some(Some(2)),
             disc: Some(Some(2)),
             genre: Some("Updated Genre".to_string().into()),
-            release_year: Some(Some(2021)),
+            release: Some(Some(2021)),
             extension: Some("flac".into()),
             ..Default::default()
         };
@@ -789,7 +789,7 @@ mod test {
         assert_eq!(updated.track, changes.track.unwrap());
         assert_eq!(updated.disc, changes.disc.unwrap());
         assert_eq!(updated.genre, changes.genre.unwrap());
-        assert_eq!(updated.release, changes.release_year.unwrap());
+        assert_eq!(updated.release, changes.release.unwrap());
         assert_eq!(updated.extension, changes.extension.unwrap());
         Ok(())
     }
@@ -1057,7 +1057,7 @@ mod test {
         assert_eq!(song.runtime, metadata.runtime);
         assert_eq!(song.track, metadata.track);
         assert_eq!(song.disc, metadata.disc);
-        assert_eq!(song.release, metadata.release_year);
+        assert_eq!(song.release, metadata.release);
         assert_eq!(song.extension, metadata.extension);
         assert_eq!(song.path, metadata.path);
 
