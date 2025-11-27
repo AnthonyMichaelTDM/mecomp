@@ -21,8 +21,7 @@ fn main() {
         .build_server(true)
         .out_dir("out")
         .emit_package(true)
-        // need to make sure the client is Sync
-        .trait_attribute("mecomp", "#[trait_variant::make(Send + Sync)]")
+        .use_arc_self(true)
         .compile_protos(PROTO_FILES, &["proto"])
         .unwrap_or_else(|e| panic!("Failed to compile protos {e:?}"));
 }

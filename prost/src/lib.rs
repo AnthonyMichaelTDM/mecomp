@@ -22,7 +22,7 @@ use tonic::service::Interceptor;
 use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
 
-pub use conversions::convert_duration;
+pub use conversions::convert_std_duration;
 pub use mecomp::music_player_client as client;
 pub use mecomp::music_player_server as server;
 pub use mecomp::*;

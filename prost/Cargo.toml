@@ -16,7 +16,7 @@ ignored = ["prost", "prost-types", "tonic-prost"]
 [dependencies]
 log.workspace = true
 prost = "0.14.1"
-prost-types = "0.14.1"
+prost-types = { version = "0.14.1" }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["time"] }
 tonic = { version = "0.14.2", default-features = false, features = ["codegen"] }

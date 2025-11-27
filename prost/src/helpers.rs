@@ -4,10 +4,12 @@ use core::fmt;
 use std::str::FromStr;
 
 impl crate::SearchResult {
+    #[must_use]
     pub const fn len(&self) -> usize {
         self.songs.len() + self.albums.len() + self.artists.len()
     }
 
+    #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -31,11 +33,29 @@ impl crate::LibraryAnalyzeRequest {
 }
 
 impl crate::RecordId {
-    pub fn new(tb: impl Into<String>, id: impl Into<String>) -> Self {
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn new(tb: impl ToString, id: impl ToString) -> Self {
         Self {
-            tb: tb.into(),
-            id: crate::Ulid::new(id),
+            tb: tb.to_string(),
+            id: id.to_string(),
         }
+    }
+
+    #[must_use]
+    pub fn ulid(&self) -> crate::Ulid {
+        crate::Ulid {
+            id: self.id.clone(),
+        }
+    }
+}
+
+impl<S, U> From<(S, U)> for crate::RecordId
+where
+    S: ToString,
+    U: Into<crate::Ulid>,
+{
+    fn from((tb, id): (S, U)) -> Self {
+        Self::new(tb, id.into())
     }
 }
 
@@ -54,20 +74,21 @@ impl fmt::Display for crate::RecordId {
 }
 
 impl crate::Ulid {
-    pub fn new(id: impl Into<String>) -> Self {
-        Self { ulid: id.into() }
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn new(id: impl ToString) -> Self {
+        Self { id: id.to_string() }
     }
 }
 
 impl fmt::Display for crate::Ulid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.ulid.fmt(f)
+        self.id.fmt(f)
     }
 }
 
 impl crate::RecordIdList {
     #[must_use]
-    pub fn new(ids: Vec<crate::RecordId>) -> Self {
+    pub const fn new(ids: Vec<crate::RecordId>) -> Self {
         Self { ids }
     }
 }
@@ -172,6 +193,7 @@ impl crate::QueueSetIndexRequest {
 }
 
 impl crate::DynamicPlaylistCreateRequest {
+    #[allow(clippy::needless_pass_by_value)]
     #[must_use]
     pub fn new(name: impl ToString, query: impl ToString) -> Self {
         Self {
@@ -221,10 +243,10 @@ impl crate::RadioSimilarRequest {
 }
 
 impl crate::CollectionFreezeRequest {
-    pub fn new(id: impl Into<String>, name: Option<impl Into<String>>) -> Self {
+    pub fn new(id: impl ToString, name: impl Into<String>) -> Self {
         Self {
             id: crate::Ulid::new(id),
-            name: name.map(Into::into),
+            name: name.into(),
         }
     }
 }
@@ -252,5 +274,34 @@ impl crate::PlaylistName {
     #[must_use]
     pub fn new(name: impl Into<String>) -> Self {
         Self { name: name.into() }
+    }
+}
+
+impl crate::PlaylistExportRequest {
+    #[must_use]
+    pub fn new(playlist_id: impl Into<crate::Ulid>, path: impl AsRef<std::path::Path>) -> Self {
+        Self {
+            playlist_id: playlist_id.into(),
+            path: format!("{}", path.as_ref().display()),
+        }
+    }
+}
+
+impl crate::PlaylistImportRequest {
+    #[must_use]
+    pub fn new(path: impl AsRef<std::path::Path>) -> Self {
+        Self {
+            path: format!("{}", path.as_ref().display()),
+            name: None,
+        }
+    }
+
+    #[must_use]
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn with_name(path: impl AsRef<std::path::Path>, name: impl ToString) -> Self {
+        Self {
+            path: format!("{}", path.as_ref().display()),
+            name: Some(name.to_string()),
+        }
     }
 }
