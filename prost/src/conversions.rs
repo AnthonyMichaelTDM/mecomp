@@ -320,7 +320,7 @@ impl From<mecomp_storage::db::schemas::album::Album> for crate::Album {
             id: crate::RecordId::new(value.id.table(), value.id.key()),
             title: value.title,
             artists: value.artist.into(),
-            release_year: value.release_year,
+            release: value.release,
             runtime: convert_std_duration(value.runtime),
             song_count: value.song_count,
             discs: value.discs,
@@ -335,7 +335,7 @@ impl From<mecomp_storage::db::schemas::album::AlbumBrief> for crate::AlbumBrief 
             id: crate::RecordId::new(value.id.table(), value.id.key()),
             title: value.title,
             artists: value.artist.into(),
-            release_year: value.release_year,
+            release: value.release,
             discs: value.discs,
             genres: value.genre.into(),
         }
@@ -348,7 +348,7 @@ impl From<mecomp_storage::db::schemas::album::Album> for crate::AlbumBrief {
             id: crate::RecordId::new(value.id.table(), value.id.key()),
             title: value.title,
             artists: value.artist.into(),
-            release_year: value.release_year,
+            release: value.release,
             discs: value.discs,
             genres: value.genre.into(),
         }
@@ -361,7 +361,7 @@ impl From<crate::Album> for crate::AlbumBrief {
             id: value.id,
             title: value.title,
             artists: value.artists,
-            release_year: value.release_year,
+            release: value.release,
             discs: value.discs,
             genres: value.genres,
         }

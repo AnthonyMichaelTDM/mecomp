@@ -570,7 +570,7 @@ mod tests {
             artist: artist.name.clone().into(),
             song_count: 4,
             runtime: Duration::from_secs(8),
-            release_year: None,
+            release: None,
             discs: 1,
             genre: OneOrMany::None,
         };
@@ -621,7 +621,7 @@ mod tests {
             artist: artist.name.clone().into(),
             song_count: 0,
             runtime: Duration::from_secs(0),
-            release_year: None,
+            release: None,
             discs: 1,
             genre: OneOrMany::None,
         };
@@ -676,7 +676,7 @@ mod tests {
             artist: OneOrMany::Many(vec![artist.name.clone(), artist2.name.clone()]),
             song_count: 0,
             runtime: Duration::from_secs(0),
-            release_year: None,
+            release: None,
             discs: 1,
             genre: OneOrMany::None,
         };
@@ -819,7 +819,7 @@ mod tests {
             artist: artist.name.clone().into(),
             song_count: 4,
             runtime: Duration::from_secs(5),
-            release_year: None,
+            release: None,
             discs: 1,
             genre: OneOrMany::None,
         };

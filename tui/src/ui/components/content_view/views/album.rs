@@ -282,7 +282,7 @@ mod sort_mode_tests {
                 id: RecordId::new("album", "1"),
                 title: "C".into(),
                 artists: vec!["B".to_string()],
-                release_year: Some(2021),
+                release: Some(2021),
                 discs: 1,
                 genres: vec!["A".to_string()],
             },
@@ -290,7 +290,7 @@ mod sort_mode_tests {
                 id: RecordId::new("album", "2"),
                 title: "B".into(),
                 artists: vec!["A".to_string()],
-                release_year: Some(2022),
+                release: Some(2022),
                 discs: 1,
                 genres: vec!["C".to_string()],
             },
@@ -298,7 +298,7 @@ mod sort_mode_tests {
                 id: RecordId::new("album", "3"),
                 title: "A".into(),
                 artists: vec!["C".to_string()],
-                release_year: Some(2023),
+                release: Some(2023),
                 discs: 1,
                 genres: vec!["B".to_string()],
             },
@@ -315,9 +315,9 @@ mod sort_mode_tests {
         assert_eq!(albums[2].artists, vec!["C".to_string()]);
 
         AlbumSort::ReleaseYear.sort_items(&mut albums);
-        assert_eq!(albums[0].release_year, Some(2023));
-        assert_eq!(albums[1].release_year, Some(2022));
-        assert_eq!(albums[2].release_year, Some(2021));
+        assert_eq!(albums[0].release, Some(2023));
+        assert_eq!(albums[1].release, Some(2022));
+        assert_eq!(albums[2].release, Some(2021));
     }
 }
 

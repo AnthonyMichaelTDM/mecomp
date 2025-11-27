@@ -35,7 +35,7 @@ pub struct Album {
     /// Release year of this [`Album`].
     #[cfg_attr(feature = "db", field(dt = "option<int>"))]
     #[cfg_attr(feature = "serde", serde(default))]
-    pub release_year: Option<u32>,
+    pub release: Option<u32>,
     /// Total runtime of this [`Album`].
     #[cfg_attr(
         feature = "db",
@@ -105,7 +105,7 @@ pub struct AlbumBrief {
     pub id: AlbumId,
     pub title: String,
     pub artist: OneOrMany<String>,
-    pub release_year: Option<u32>,
+    pub release: Option<u32>,
     pub discs: u32,
     pub genre: OneOrMany<String>,
 }
@@ -117,7 +117,7 @@ impl From<Album> for AlbumBrief {
             id: album.id,
             title: album.title,
             artist: album.artist,
-            release_year: album.release_year,
+            release: album.release,
             discs: album.discs,
             genre: album.genre,
         }
@@ -135,7 +135,7 @@ mod tests {
             id: AlbumId::from((TABLE_NAME, "id")),
             title: "test".into(),
             artist: "test".to_string().into(),
-            release_year: Some(2021),
+            release: Some(2021),
             runtime: Duration::from_secs(0),
             song_count: 0,
             discs: 1,
@@ -148,7 +148,7 @@ mod tests {
             id: AlbumId::from((TABLE_NAME, "id")),
             title: "test".into(),
             artist: "test".to_string().into(),
-            release_year: Some(2021),
+            release: Some(2021),
             discs: 1,
             genre: "test".to_string().into(),
         }

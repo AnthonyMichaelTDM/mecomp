@@ -129,7 +129,7 @@ impl SortMode<AlbumBrief> for AlbumSort {
                     .sort_by_cached_key(|album| album.artists.iter().map(key).collect::<Vec<_>>());
             }
             Self::ReleaseYear => {
-                albums.sort_by_key(|album| album.release_year.unwrap_or(0));
+                albums.sort_by_key(|album| album.release.unwrap_or(0));
                 albums.reverse();
             }
         }

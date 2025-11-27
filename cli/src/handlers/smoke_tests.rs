@@ -109,7 +109,7 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
         id: album_id.clone(),
         title: song.album.clone(),
         artist: song.artist.clone(),
-        release_year: song.release_year,
+        release: song.release_year,
         runtime: song.runtime,
         song_count: 1,
         discs: 1,

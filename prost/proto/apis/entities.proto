@@ -113,7 +113,7 @@ message Album {
   required RecordId id = 1;
   required string title = 2;
   repeated string artists = 3;
-  optional uint32 release_year = 4;
+  optional uint32 release = 4;
   required google.protobuf.Duration runtime = 5;
   required uint64 song_count = 6;
   required uint32 discs = 7;
@@ -136,7 +136,7 @@ message AlbumBrief {
   required RecordId id = 1;
   required string title = 2;
   repeated string artists = 3;
-  optional uint32 release_year = 4;
+  optional uint32 release = 4;
   required uint32 discs = 5;
   repeated string genres = 6;
 }

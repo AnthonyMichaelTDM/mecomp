@@ -87,7 +87,7 @@ pub fn state_with_everything() -> AppState {
         id: album_id.clone().into(),
         title: song.album.clone(),
         artists: vec![song.artists[0].clone()],
-        release_year: song.release_year,
+        release: song.release_year,
         runtime: song.runtime,
         song_count: 1,
         discs: 1,
