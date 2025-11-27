@@ -1,17 +1,9 @@
 //! Handles displaying the output of various commands in a human and machine readable format.
 
-use std::fmt::Write;
+use std::{fmt::Write, time::Duration};
 
 use mecomp_core::state::StateAudio;
-use mecomp_storage::db::schemas::{
-    RecordId,
-    album::AlbumBrief,
-    artist::ArtistBrief,
-    collection::Collection,
-    dynamic::{DynamicPlaylist, query::Compile},
-    playlist::Playlist,
-    song::SongBrief,
-};
+use mecomp_prost::{AlbumBrief, ArtistBrief, Playlist, RecordId, SongBrief};
 
 pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
@@ -99,7 +91,7 @@ pub fn song_list(
             writeln!(
                 output,
                 "\t{}: \"{}\" (by: {:?}, album: {})",
-                song.id, song.title, song.artist, song.album
+                song.id, song.title, song.artists, song.album
             )?;
         }
     }
@@ -125,7 +117,7 @@ pub fn album_list(
             writeln!(
                 output,
                 "\t{}: \"{}\" (by: {:?})",
-                album.id, album.title, album.artist
+                album.id, album.title, album.artists
             )?;
         }
     }
@@ -164,7 +156,10 @@ pub fn playlist_list(prefix: &str, playlists: &[Playlist]) -> Result<String, std
         writeln!(
             output,
             "\t{}: \"{}\" ({} songs, {:?})",
-            playlist.id, playlist.name, playlist.song_count, playlist.runtime
+            playlist.id,
+            playlist.name,
+            playlist.song_count,
+            Duration::try_from(playlist.runtime).unwrap_or_default()
         )?;
     }
 
@@ -173,7 +168,7 @@ pub fn playlist_list(prefix: &str, playlists: &[Playlist]) -> Result<String, std
 
 pub fn dynamic_playlist_list(
     prefix: &str,
-    playlists: &[DynamicPlaylist],
+    playlists: &[mecomp_prost::DynamicPlaylist],
 ) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
@@ -183,9 +178,7 @@ pub fn dynamic_playlist_list(
         writeln!(
             output,
             "\t{}: \"{}\" ({})",
-            playlist.id,
-            playlist.name,
-            playlist.query.compile_for_storage()
+            playlist.id, playlist.name, playlist.query
         )?;
     }
 
@@ -194,7 +187,7 @@ pub fn dynamic_playlist_list(
 
 pub fn collection_list(
     prefix: &str,
-    collections: &[Collection],
+    collections: &[mecomp_prost::Collection],
 ) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
@@ -204,7 +197,10 @@ pub fn collection_list(
         writeln!(
             output,
             "\t{}: \"{}\" ({} songs, {:?})",
-            collection.id, collection.name, collection.song_count, collection.runtime
+            collection.id,
+            collection.name,
+            collection.song_count,
+            Duration::try_from(collection.runtime).unwrap_or_default()
         )?;
     }
 

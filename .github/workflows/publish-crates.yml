@@ -58,6 +58,7 @@ jobs:
             mecomp-analysis,
             mecomp-storage,
             mecomp-core,
+            mecomp-prost,
             mecomp-daemon,
             mecomp-mpris,
             mecomp-cli,

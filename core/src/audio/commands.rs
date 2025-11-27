@@ -348,7 +348,6 @@ mod tests {
             track: None,
             disc: None,
             release_year: None,
-            extension: "mp3".into(),
             path: "foo/bar.mp3".into(),
         }
     }

@@ -19,8 +19,7 @@ pub trait CommandHandler {
 
     async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
         &self,
-        ctx: tarpc::context::Context,
-        client: mecomp_core::rpc::MusicPlayerClient,
+        client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output;
@@ -73,7 +72,7 @@ pub enum Command {
 
         /// The maximum number of results to return
         #[clap(default_value = "10", value_hint = ValueHint::Other)]
-        limit: usize,
+        limit: u64,
     },
     /// Playback control
     Playback {
@@ -355,16 +354,16 @@ pub enum QueueCommand {
     Remove {
         /// The start index of the range to remove
         #[clap(value_hint = ValueHint::Other)]
-        start: usize,
+        start: u64,
         /// The end index of the range to remove
         #[clap(value_hint = ValueHint::Other)]
-        end: usize,
+        end: u64,
     },
     /// set the current song to the given index
     Set {
         /// The index to set the current song to
         #[clap(value_hint = ValueHint::Other)]
-        index: usize,
+        index: u64,
     },
     /// Add a list of items to the queue (from a pipe)
     ///

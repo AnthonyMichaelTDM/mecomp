@@ -1,0 +1,39 @@
+syntax = "proto2";
+
+package mecomp;
+
+import "apis/entities.proto";
+
+message PlaylistName {
+  required string name = 1;
+}
+
+message PlaylistRemoveSongsRequest {
+  required Ulid playlist_id = 1;
+  repeated Ulid song_ids = 2;
+}
+
+message PlaylistAddRequest {
+  required Ulid playlist_id = 1;
+  required RecordId record_id = 2;
+}
+
+message PlaylistAddListRequest {
+  required Ulid playlist_id = 1;
+  repeated RecordId record_ids = 2;
+}
+
+message PlaylistRenameRequest {
+  required Ulid playlist_id = 1;
+  required string name = 2;
+}
+
+message PlaylistExportRequest {
+  required Ulid playlist_id = 1;
+  required string path = 2;
+}
+
+message PlaylistImportRequest {
+  required string path = 1;
+  optional string name = 2;
+}

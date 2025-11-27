@@ -4,7 +4,7 @@ use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::format_duration;
-use mecomp_storage::db::schemas::playlist::PlaylistBrief;
+use mecomp_prost::PlaylistBrief;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
     style::{Style, Stylize},
@@ -177,7 +177,7 @@ impl Component for PlaylistView {
             KeyCode::Char('d') => {
                 let things = self.tree_state.lock().unwrap().get_checked_things();
                 if let Some(action) = self.props.as_ref().and_then(|props| {
-                    let id = props.id.clone();
+                    let id = props.id.ulid();
                     if things.is_empty() {
                         self.tree_state
                             .lock()
@@ -254,6 +254,12 @@ impl ComponentRender<RenderProps> for PlaylistView {
             let [info_area, content_area] = split_area(content_area);
 
             // render the playlist info
+            let duration = state
+                .playlist
+                .runtime
+                .normalized()
+                .try_into()
+                .unwrap_or_default();
             frame.render_widget(
                 Paragraph::new(vec![
                     Line::from(Span::styled(&state.playlist.name, Style::default().bold())),
@@ -264,10 +270,7 @@ impl ComponentRender<RenderProps> for PlaylistView {
                             Style::default().italic(),
                         ),
                         Span::raw("  Duration: "),
-                        Span::styled(
-                            format_duration(&state.playlist.runtime),
-                            Style::default().italic(),
-                        ),
+                        Span::styled(format_duration(&duration), Style::default().italic()),
                     ]),
                 ])
                 .alignment(Alignment::Center),
@@ -365,7 +368,7 @@ pub struct LibraryPlaylistsView {
 
 #[derive(Debug)]
 pub struct Props {
-    pub playlists: Box<[PlaylistBrief]>,
+    pub playlists: Vec<PlaylistBrief>,
     sort_mode: NameSort<PlaylistBrief>,
 }
 
@@ -499,7 +502,7 @@ impl Component for LibraryPlaylistsView {
 
                     if let Some(thing) = things {
                         self.action_tx
-                            .send(Action::Library(LibraryAction::RemovePlaylist(thing)))
+                            .send(Action::Library(LibraryAction::RemovePlaylist(thing.ulid())))
                             .unwrap();
                     }
                 }
@@ -647,7 +650,7 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
 #[cfg(test)]
 mod sort_mode_tests {
     use super::*;
-    use mecomp_storage::db::schemas::playlist::Playlist;
+    use mecomp_prost::RecordId;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
@@ -671,15 +674,15 @@ mod sort_mode_tests {
     fn test_sort_items() {
         let mut songs = vec![
             PlaylistBrief {
-                id: Playlist::generate_id(),
+                id: RecordId::new("playlist", "playlist1"),
                 name: "C".into(),
             },
             PlaylistBrief {
-                id: Playlist::generate_id(),
+                id: RecordId::new("playlist", "playlist2"),
                 name: "A".into(),
             },
             PlaylistBrief {
-                id: Playlist::generate_id(),
+                id: RecordId::new("playlist", "playlist3"),
                 name: "B".into(),
             },
         ];
@@ -934,7 +937,7 @@ mod item_view_tests {
         assert_eq!(
             rx.blocking_recv().unwrap(),
             Action::Library(LibraryAction::RemoveSongsFromPlaylist(
-                ("playlist", item_id()).into(),
+                item_id(),
                 vec![("song", item_id()).into()]
             ))
         );
@@ -1230,9 +1233,7 @@ mod library_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('d')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Library(LibraryAction::RemovePlaylist(
-                ("playlist", item_id()).into()
-            ))
+            Action::Library(LibraryAction::RemovePlaylist(item_id()))
         );
     }
 

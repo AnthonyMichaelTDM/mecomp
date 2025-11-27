@@ -1,8 +1,7 @@
 use std::{fmt::Display, marker::PhantomData};
 
-use mecomp_storage::db::schemas::{
-    album::AlbumBrief, artist::ArtistBrief, collection::CollectionBrief, dynamic::DynamicPlaylist,
-    playlist::PlaylistBrief, song::SongBrief,
+use mecomp_prost::{
+    AlbumBrief, ArtistBrief, CollectionBrief, DynamicPlaylist, PlaylistBrief, SongBrief,
 };
 
 use super::traits::SortMode;
@@ -63,16 +62,16 @@ impl SortMode<SongBrief> for SongSort {
         match self {
             Self::Title => songs.sort_by_key(|song| key(&song.title)),
             Self::Artist => {
-                songs.sort_by_cached_key(|song| song.artist.iter().map(key).collect::<Vec<_>>());
+                songs.sort_by_cached_key(|song| song.artists.iter().map(key).collect::<Vec<_>>());
             }
             Self::Album => songs.sort_by_key(|song| key(&song.album)),
             Self::AlbumArtist => {
                 songs.sort_by_cached_key(|song| {
-                    song.album_artist.iter().map(key).collect::<Vec<_>>()
+                    song.album_artists.iter().map(key).collect::<Vec<_>>()
                 });
             }
             Self::Genre => {
-                songs.sort_by_cached_key(|song| song.genre.iter().map(key).collect::<Vec<_>>());
+                songs.sort_by_cached_key(|song| song.genres.iter().map(key).collect::<Vec<_>>());
             }
         }
     }
@@ -126,7 +125,8 @@ impl SortMode<AlbumBrief> for AlbumSort {
         match self {
             Self::Title => albums.sort_by_key(|album| key(&album.title)),
             Self::Artist => {
-                albums.sort_by_cached_key(|album| album.artist.iter().map(key).collect::<Vec<_>>());
+                albums
+                    .sort_by_cached_key(|album| album.artists.iter().map(key).collect::<Vec<_>>());
             }
             Self::ReleaseYear => {
                 albums.sort_by_key(|album| album.release.unwrap_or(0));

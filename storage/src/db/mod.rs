@@ -156,8 +156,8 @@ mod minimal_reproduction {
     struct User {
         id: RecordId,
         name: String,
-        age: usize,
-        favorite_numbers: [usize; 7],
+        age: u64,
+        favorite_numbers: [u64; 7],
     }
 
     static SCHEMA_SQL: &str = r"
@@ -175,7 +175,7 @@ mod minimal_reproduction {
     DEFINE INDEX users_age_normal_index ON users FIELDS age;
     DEFINE INDEX users_favorite_numbers_vector_index ON users FIELDS favorite_numbers MTREE DIMENSION 7;
     ";
-    const NUMBER_OF_USERS: usize = 100;
+    const NUMBER_OF_USERS: u64 = 100;
 
     #[tokio::test]
     async fn minimal_reproduction() {
@@ -262,7 +262,7 @@ mod minimal_reproduction {
             .unwrap();
         dbg!(&resp_old);
         let res = resp_old.take(0).unwrap();
-        let cnt: Option<usize> = res.1.unwrap();
+        let cnt: Option<u64> = res.1.unwrap();
         assert_eq!(cnt, Some(NUMBER_OF_USERS));
         let stats_old: Stats = res.0;
 
@@ -271,7 +271,7 @@ mod minimal_reproduction {
 
         let result: Vec<User> = db.delete("users").await.unwrap();
 
-        assert_eq!(result.len(), NUMBER_OF_USERS);
+        assert_eq!(result.len() as u64, NUMBER_OF_USERS);
         assert!(result.contains(&john), "Result does not contain 'john'");
         assert!(result.contains(&sally), "Result does not contain 'sally'");
     }

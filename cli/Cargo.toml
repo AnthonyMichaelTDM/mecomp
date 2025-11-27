@@ -29,19 +29,19 @@ default = []
 clap = { workspace = true }
 clap_complete = { workspace = true }
 anyhow = { workspace = true }
-tarpc = { workspace = true }
 tokio = { workspace = true }
 
 
 # MECOMP dependencies
-mecomp-core = { workspace = true, features = ["rpc"] }
+mecomp-core.workspace = true
 mecomp-storage = { workspace = true, features = ["serde", "analysis"] }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+mecomp-prost.workspace = true
 
 [dev-dependencies]
 insta = { version = "1.44.1", default-features = false }
 pretty_assertions = { workspace = true }
-mecomp-core = { workspace = true, features = ["rpc", "mock_playback"] }
+mecomp-core = { workspace = true, features = ["mock_playback"] }
 mecomp-storage = { workspace = true, features = [
     "serde",
     "db",

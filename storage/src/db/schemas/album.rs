@@ -64,7 +64,7 @@ RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]
 }"
         )
     )]
-    pub song_count: usize,
+    pub song_count: u64,
     /// How many discs are in this [`Album`]?
     /// (Most will only have 1).
     #[cfg_attr(feature = "db", field(dt = "int"))]
@@ -92,7 +92,7 @@ pub struct AlbumChangeSet {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub artist: Option<OneOrMany<String>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub release: Option<Option<i32>>,
+    pub release_year: Option<Option<i32>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub discs: Option<u32>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]

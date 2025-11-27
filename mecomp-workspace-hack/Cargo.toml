@@ -30,11 +30,14 @@ ignored = [
     "event-listener",
     "event-listener-strategy",
     "fastrand",
+    "futures",
     "futures-channel",
     "futures-core",
     "futures-executor",
     "futures-io",
     "futures-lite",
+    "futures-sink",
+    "futures-task",
     "futures-util",
     "hashbrown",
     "indexmap",
@@ -49,6 +52,7 @@ ignored = [
     "num-traits",
     "phf_shared",
     "proc-macro2",
+    "prost",
     "quote",
     "rand",
     "rand_core",
@@ -67,12 +71,13 @@ ignored = [
     "symphonia-core",
     "symphonia-format-riff",
     "syn",
+    "sync_wrapper",
     "tokio",
     "tokio-stream",
     "tokio-util",
     "toml_datetime",
     "toml_parser",
-    "tracing",
+    "tonic",
     "tracing-core",
     "ulid",
     "uuid",
@@ -104,11 +109,14 @@ either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
 event-listener-strategy = { version = "0.5" }
 fastrand = { version = "2" }
+futures = { version = "0.3" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-lite = { version = "2" }
+futures-sink = { version = "0.3" }
+futures-task = { version = "0.3", default-features = false, features = ["std"] }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
 hashbrown = { version = "0.16", default-features = false, features = ["inline-more"] }
 indexmap = { version = "2", features = ["serde"] }
@@ -123,6 +131,7 @@ num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
 phf_shared = { version = "0.11", features = ["unicase"] }
 proc-macro2 = { version = "1" }
+prost = { version = "0.14" }
 quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
 rand_core = { version = "0.6", default-features = false, features = ["std"] }
@@ -141,12 +150,13 @@ symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = [
 symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
 symphonia-format-riff = { version = "0.5", default-features = false, features = ["aiff", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
+sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
-tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
+tokio-util = { version = "0.7", features = ["codec", "compat", "io"] }
 toml_datetime = { version = "0.7", features = ["serde"] }
 toml_parser = { version = "1" }
-tracing = { version = "0.1", features = ["log"] }
+tonic = { version = "0.14" }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
@@ -171,11 +181,14 @@ either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
 event-listener-strategy = { version = "0.5" }
 fastrand = { version = "2" }
+futures = { version = "0.3" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-lite = { version = "2" }
+futures-sink = { version = "0.3" }
+futures-task = { version = "0.3", default-features = false, features = ["std"] }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
 hashbrown = { version = "0.16", default-features = false, features = ["inline-more"] }
 indexmap = { version = "2", features = ["serde"] }
@@ -190,6 +203,7 @@ num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
 phf_shared = { version = "0.11", features = ["unicase"] }
 proc-macro2 = { version = "1" }
+prost = { version = "0.14" }
 quote = { version = "1" }
 rand = { version = "0.8", features = ["small_rng"] }
 rand_core = { version = "0.6", default-features = false, features = ["std"] }
@@ -208,12 +222,13 @@ symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = [
 symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
 symphonia-format-riff = { version = "0.5", default-features = false, features = ["aiff", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
+sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
-tokio-util = { version = "0.7", features = ["codec", "compat", "io", "time"] }
+tokio-util = { version = "0.7", features = ["codec", "compat", "io"] }
 toml_datetime = { version = "0.7", features = ["serde"] }
 toml_parser = { version = "1" }
-tracing = { version = "0.1", features = ["log"] }
+tonic = { version = "0.14" }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }

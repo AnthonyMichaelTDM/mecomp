@@ -3,7 +3,7 @@
 use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_core::rpc::SearchResult;
+use mecomp_prost::SearchResult;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
     style::{Style, Stylize},
@@ -357,6 +357,7 @@ mod tests {
     };
     use crossterm::event::KeyEvent;
     use crossterm::event::KeyModifiers;
+    use mecomp_prost::RecordId;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -595,27 +596,30 @@ mod tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
-                ("song", item_id()).into()
-            ])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![RecordId::new(
+                "song",
+                item_id()
+            )])))
         );
 
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![
-                ("song", item_id()).into()
-            ],)))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![RecordId::new(
+                "song",
+                item_id()
+            )],)))
         );
 
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
-                ("song", item_id()).into()
-            ])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![RecordId::new(
+                "song",
+                item_id()
+            )])))
         );
     }
 
@@ -827,7 +831,7 @@ mod tests {
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id().into())))
         );
         let expected = Buffer::with_lines([
             "┌Search────────────────────────┐",

@@ -122,7 +122,7 @@ impl Component for RadioView {
                 } else if let Some(props) = &self.props {
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(QueueAction::Add(
-                            props.songs.iter().map(|s| s.id.clone().into()).collect(),
+                            props.songs.iter().map(|s| s.id.clone()).collect(),
                         ))))
                         .expect("failed to send action");
                 }
@@ -139,7 +139,7 @@ impl Component for RadioView {
                 } else if let Some(props) = &self.props {
                     self.action_tx
                         .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
-                            props.songs.iter().map(|s| s.id.clone().into()).collect(),
+                            props.songs.iter().map(|s| s.id.clone()).collect(),
                         ))))
                         .expect("failed to send action");
                 }
@@ -442,7 +442,7 @@ mod tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id().into())))
         );
 
         // check the artist
@@ -517,7 +517,7 @@ mod tests {
             );
             assert_eq!(
                 rx.blocking_recv().unwrap(),
-                Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
+                Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id().into())))
             );
         }
 
@@ -557,7 +557,7 @@ mod tests {
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id().into())))
         );
 
         // scroll up

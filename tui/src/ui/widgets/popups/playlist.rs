@@ -11,7 +11,7 @@
 use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_storage::db::schemas::{RecordId, playlist::PlaylistBrief};
+use mecomp_prost::{RecordId, Ulid};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Margin, Position, Rect},
@@ -328,7 +328,7 @@ impl ComponentRender<Rect> for PlaylistSelector {
 /// Popup for changing the name of a playlist.
 pub struct PlaylistEditor {
     action_tx: UnboundedSender<Action>,
-    playlist_id: RecordId,
+    playlist_id: Ulid,
     input_box: InputBox,
 }
 
@@ -337,15 +337,16 @@ impl PlaylistEditor {
     pub fn new(
         state: &AppState,
         action_tx: UnboundedSender<Action>,
-        playlist: PlaylistBrief,
+        playlist_id: Ulid,
+        playlist_name: &str,
     ) -> Self {
         let mut input_box = InputBox::new(state, action_tx.clone());
-        input_box.set_text(&playlist.name);
+        input_box.set_text(playlist_name);
 
         Self {
-            input_box,
             action_tx,
-            playlist_id: playlist.id.into(),
+            playlist_id,
+            input_box,
         }
     }
 }
@@ -444,16 +445,13 @@ mod selector_tests {
     use super::*;
     use crate::{
         state::component::ActiveComponent,
-        test_utils::setup_test_terminal,
+        test_utils::{item_id, setup_test_terminal},
         ui::components::content_view::{ActiveView, views::ViewData},
     };
     use anyhow::Result;
-    use mecomp_core::{
-        config::Settings,
-        rpc::SearchResult,
-        state::{StateAudio, library::LibraryBrief},
-    };
-    use mecomp_storage::db::schemas::playlist::Playlist;
+    use mecomp_core::{config::Settings, state::StateAudio};
+    use mecomp_prost::{LibraryBrief, PlaylistBrief, SearchResult};
+    use mecomp_storage::db::schemas::playlist::TABLE_NAME;
     use pretty_assertions::assert_eq;
     use ratatui::{
         buffer::Buffer,
@@ -470,10 +468,9 @@ mod selector_tests {
             search: SearchResult::default(),
             library: LibraryBrief {
                 playlists: vec![PlaylistBrief {
-                    id: Playlist::generate_id(),
+                    id: RecordId::new(TABLE_NAME, item_id()),
                     name: "playlist 1".into(),
-                }]
-                .into_boxed_slice(),
+                }],
                 ..Default::default()
             },
             active_view: ActiveView::default(),
@@ -638,16 +635,13 @@ mod editor_tests {
     use super::*;
     use crate::{
         state::component::ActiveComponent,
-        test_utils::{assert_buffer_eq, setup_test_terminal},
+        test_utils::{assert_buffer_eq, item_id, setup_test_terminal},
         ui::components::content_view::{ActiveView, views::ViewData},
     };
     use anyhow::Result;
-    use mecomp_core::{
-        config::Settings,
-        rpc::SearchResult,
-        state::{StateAudio, library::LibraryBrief},
-    };
-    use mecomp_storage::db::schemas::playlist::Playlist;
+    use mecomp_core::{config::Settings, state::StateAudio};
+    use mecomp_prost::{LibraryBrief, PlaylistBrief, SearchResult};
+    use mecomp_storage::db::schemas::playlist::TABLE_NAME;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
     use rstest::{fixture, rstest};
@@ -668,7 +662,7 @@ mod editor_tests {
     #[fixture]
     fn playlist() -> PlaylistBrief {
         PlaylistBrief {
-            id: Playlist::generate_id(),
+            id: RecordId::new(TABLE_NAME, item_id()),
             name: "Test Playlist".into(),
         }
     }
@@ -685,7 +679,7 @@ mod editor_tests {
     ) {
         let (_, area) = setup_test_terminal(terminal_size.0, terminal_size.1);
         let action_tx = tokio::sync::mpsc::unbounded_channel().0;
-        let editor = PlaylistEditor::new(&state, action_tx, playlist);
+        let editor = PlaylistEditor::new(&state, action_tx, playlist.id.ulid(), &playlist.name);
         let area = editor.area(area);
         assert_eq!(area, expected_area);
     }
@@ -694,7 +688,7 @@ mod editor_tests {
     fn test_playlist_editor_render(state: AppState, playlist: PlaylistBrief) -> Result<()> {
         let (mut terminal, _) = setup_test_terminal(20, 5);
         let action_tx = tokio::sync::mpsc::unbounded_channel().0;
-        let editor = PlaylistEditor::new(&state, action_tx, playlist);
+        let editor = PlaylistEditor::new(&state, action_tx, playlist.id.ulid(), &playlist.name);
         let buffer = terminal
             .draw(|frame| editor.render_popup(frame))?
             .buffer
@@ -715,7 +709,7 @@ mod editor_tests {
     #[rstest]
     fn test_playlist_editor_input(state: AppState, playlist: PlaylistBrief) {
         let (action_tx, mut action_rx) = tokio::sync::mpsc::unbounded_channel();
-        let mut editor = PlaylistEditor::new(&state, action_tx, playlist.clone());
+        let mut editor = PlaylistEditor::new(&state, action_tx, playlist.id.ulid(), &playlist.name);
 
         // Test typing
         editor.inner_handle_key_event(KeyEvent::from(KeyCode::Char('a')));

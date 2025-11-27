@@ -7,16 +7,11 @@ pub mod audio;
 pub mod config;
 pub mod errors;
 pub mod logger;
-#[cfg(feature = "rpc")]
-pub mod rpc;
 pub mod state;
 #[cfg(any(test, feature = "test_utils"))]
 pub mod test_utils;
-#[cfg(feature = "rpc")]
+#[cfg(feature = "notifications")]
 pub mod udp;
-
-#[cfg(test)]
-extern crate rstest_reuse;
 
 /// This macro returns the name of the enclosing function.
 /// As the internal implementation is based on the [`std::any::type_name`], this macro derives

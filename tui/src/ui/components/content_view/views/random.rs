@@ -35,13 +35,13 @@ impl ItemType {
     pub fn to_action(&self, props: &RandomViewProps) -> Option<Action> {
         match self {
             Self::Album => Some(Action::ActiveView(ViewAction::Set(ActiveView::Album(
-                props.album.id.clone(),
+                props.album.ulid(),
             )))),
             Self::Artist => Some(Action::ActiveView(ViewAction::Set(ActiveView::Artist(
-                props.artist.id.clone(),
+                props.artist.ulid(),
             )))),
             Self::Song => Some(Action::ActiveView(ViewAction::Set(ActiveView::Song(
-                props.song.id.clone(),
+                props.song.ulid(),
             )))),
         }
     }
@@ -214,38 +214,38 @@ impl ComponentRender<RenderProps> for RandomView {
 mod tests {
     use super::*;
     use crate::{
-        test_utils::{assert_buffer_eq, setup_test_terminal, state_with_everything},
+        test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
         ui::components::content_view::ActiveView,
     };
     use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
-    use mecomp_storage::db::schemas::{album::Album, artist::Artist, song::Song};
+    use mecomp_prost::RecordId;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
     #[test]
     fn test_random_view_type_to_action() {
         let props = RandomViewProps {
-            album: Album::generate_id().into(),
-            artist: Artist::generate_id().into(),
-            song: Song::generate_id().into(),
+            album: RecordId::new("album", item_id()),
+            artist: RecordId::new("artist", item_id()),
+            song: RecordId::new("song", item_id()),
         };
 
         assert_eq!(
             ItemType::Album.to_action(&props),
             Some(Action::ActiveView(ViewAction::Set(ActiveView::Album(
-                props.album.id.clone()
+                props.album.ulid()
             ))))
         );
         assert_eq!(
             ItemType::Artist.to_action(&props),
             Some(Action::ActiveView(ViewAction::Set(ActiveView::Artist(
-                props.artist.id.clone()
+                props.artist.ulid()
             ))))
         );
         assert_eq!(
             ItemType::Song.to_action(&props),
             Some(Action::ActiveView(ViewAction::Set(ActiveView::Song(
-                props.song.id.clone()
+                props.song.ulid()
             ))))
         );
     }
@@ -358,7 +358,7 @@ mod tests {
         assert_eq!(
             rx.blocking_recv().unwrap(),
             Action::ActiveView(ViewAction::Set(ActiveView::Album(
-                random_view_props.album.id,
+                random_view_props.album.ulid(),
             )))
         );
 
@@ -367,7 +367,7 @@ mod tests {
         assert_eq!(
             rx.blocking_recv().unwrap(),
             Action::ActiveView(ViewAction::Set(ActiveView::Artist(
-                random_view_props.artist.id,
+                random_view_props.artist.ulid(),
             )))
         );
 
@@ -375,9 +375,9 @@ mod tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(
-                ActiveView::Song(random_view_props.song.id,)
-            ))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(
+                random_view_props.song.ulid(),
+            )))
         );
     }
 
@@ -413,7 +413,7 @@ mod tests {
         assert_eq!(
             rx.blocking_recv().unwrap(),
             Action::ActiveView(ViewAction::Set(ActiveView::Album(
-                random_view_props.album.id.clone(),
+                random_view_props.album.ulid(),
             )))
         );
 
@@ -440,7 +440,7 @@ mod tests {
         assert_eq!(
             rx.blocking_recv().unwrap(),
             Action::ActiveView(ViewAction::Set(ActiveView::Artist(
-                random_view_props.artist.id,
+                random_view_props.artist.ulid(),
             )))
         );
 
@@ -467,7 +467,7 @@ mod tests {
         assert_eq!(
             rx.blocking_recv().unwrap(),
             Action::ActiveView(ViewAction::Set(ActiveView::Album(
-                random_view_props.album.id,
+                random_view_props.album.ulid(),
             )))
         );
 
@@ -492,7 +492,9 @@ mod tests {
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Song(random_view_props.song.id)))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(
+                random_view_props.song.ulid()
+            )))
         );
 
         // clicking on nothing should clear the selection

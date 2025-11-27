@@ -27,11 +27,12 @@ use csv::{Reader, Writer};
 /// * `exists` - Whether the file should exist or not
 ///   * if true, the file must exist
 ///   * if false, the file may not exist but will be overwritten if it does
-pub(crate) fn validate_file_path(
-    path: &Path,
+pub(crate) fn validate_file_path<P: AsRef<Path>>(
+    path: P,
     extension: &str,
     exists: bool,
 ) -> Result<(), BackupError> {
+    let path = path.as_ref();
     if path.is_dir() {
         log::warn!("Path is a directory: {}", path.display());
         Err(BackupError::PathIsDirectory(path.to_path_buf()))

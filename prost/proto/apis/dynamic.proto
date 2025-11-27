@@ -1,0 +1,20 @@
+syntax = "proto2";
+
+package mecomp;
+
+import "apis/entities.proto";
+
+message DynamicPlaylistCreateRequest {
+  required string name = 1;
+  required string query = 2;
+}
+
+message DynamicPlaylistUpdateRequest {
+  required Ulid id = 1;
+  required DynamicPlaylistChangeSet changes = 2;
+}
+
+message DynamicPlaylistSongsResponse {
+  required bool found = 1;
+  repeated Song songs = 2;
+}

@@ -59,7 +59,7 @@ RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]
 }"
         )
     )]
-    pub album_count: usize,
+    pub album_count: u64,
 
     /// the number of songs this artist has.
     ///
@@ -77,7 +77,7 @@ RETURN $count;
 } "
         )
     )]
-    pub song_count: usize,
+    pub song_count: u64,
 }
 
 impl Artist {

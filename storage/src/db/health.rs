@@ -22,7 +22,7 @@ use crate::{
 ///
 /// see [`Count::count`]
 #[instrument]
-pub async fn count_albums<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
+pub async fn count_albums<C: Connection>(db: &Surreal<C>) -> Result<u64, Error> {
     Count::count(db, Album::TABLE_NAME).await
 }
 
@@ -32,7 +32,7 @@ pub async fn count_albums<C: Connection>(db: &Surreal<C>) -> Result<usize, Error
 ///
 /// see [`Count::count`]
 #[instrument]
-pub async fn count_artists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
+pub async fn count_artists<C: Connection>(db: &Surreal<C>) -> Result<u64, Error> {
     Count::count(db, Artist::TABLE_NAME).await
 }
 
@@ -42,7 +42,7 @@ pub async fn count_artists<C: Connection>(db: &Surreal<C>) -> Result<usize, Erro
 ///
 /// see [`Count::count`]
 #[instrument]
-pub async fn count_playlists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
+pub async fn count_playlists<C: Connection>(db: &Surreal<C>) -> Result<u64, Error> {
     Count::count(db, Playlist::TABLE_NAME).await
 }
 
@@ -52,7 +52,7 @@ pub async fn count_playlists<C: Connection>(db: &Surreal<C>) -> Result<usize, Er
 ///
 /// see [`Count::count`]
 #[instrument]
-pub async fn count_collections<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
+pub async fn count_collections<C: Connection>(db: &Surreal<C>) -> Result<u64, Error> {
     Count::count(db, Collection::TABLE_NAME).await
 }
 
@@ -62,7 +62,7 @@ pub async fn count_collections<C: Connection>(db: &Surreal<C>) -> Result<usize, 
 ///
 /// see [`Count::count`]
 #[instrument]
-pub async fn count_dynamic_playlists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
+pub async fn count_dynamic_playlists<C: Connection>(db: &Surreal<C>) -> Result<u64, Error> {
     Count::count(db, DynamicPlaylist::TABLE_NAME).await
 }
 
@@ -72,7 +72,7 @@ pub async fn count_dynamic_playlists<C: Connection>(db: &Surreal<C>) -> Result<u
 ///
 /// see [`Count::count`]
 #[instrument]
-pub async fn count_songs<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
+pub async fn count_songs<C: Connection>(db: &Surreal<C>) -> Result<u64, Error> {
     Count::count(db, Song::TABLE_NAME).await
 }
 
@@ -83,10 +83,10 @@ pub async fn count_songs<C: Connection>(db: &Surreal<C>) -> Result<usize, Error>
 /// see [`super::schemas::analysis::Analysis::read_songs_without_analysis`]
 #[cfg(feature = "analysis")]
 #[instrument]
-pub async fn count_unanalyzed_songs<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
-    let result: usize = super::schemas::analysis::Analysis::read_songs_without_analysis(db)
+pub async fn count_unanalyzed_songs<C: Connection>(db: &Surreal<C>) -> Result<u64, Error> {
+    let result = super::schemas::analysis::Analysis::read_songs_without_analysis(db)
         .await?
-        .len();
+        .len() as u64;
     Ok(result)
 }
 
@@ -97,7 +97,7 @@ pub async fn count_unanalyzed_songs<C: Connection>(db: &Surreal<C>) -> Result<us
 ///
 /// see [`Count::count_orphaned`]
 #[instrument]
-pub async fn count_orphaned_albums<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
+pub async fn count_orphaned_albums<C: Connection>(db: &Surreal<C>) -> Result<u64, Error> {
     Count::count_orphaned(db, Album::TABLE_NAME, "album_to_song").await
 }
 
@@ -108,7 +108,7 @@ pub async fn count_orphaned_albums<C: Connection>(db: &Surreal<C>) -> Result<usi
 ///
 /// see [`Count::count_orphaned`]
 #[instrument]
-pub async fn count_orphaned_artists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
+pub async fn count_orphaned_artists<C: Connection>(db: &Surreal<C>) -> Result<u64, Error> {
     Count::count_orphaned_both(db, Artist::TABLE_NAME, "artist_to_album", "artist_to_song").await
 }
 
@@ -119,7 +119,7 @@ pub async fn count_orphaned_artists<C: Connection>(db: &Surreal<C>) -> Result<us
 ///
 /// see [`Count::count_orphaned`]
 #[instrument]
-pub async fn count_orphaned_collections<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
+pub async fn count_orphaned_collections<C: Connection>(db: &Surreal<C>) -> Result<u64, Error> {
     Count::count_orphaned(db, Collection::TABLE_NAME, "collection_to_song").await
 }
 
@@ -130,7 +130,7 @@ pub async fn count_orphaned_collections<C: Connection>(db: &Surreal<C>) -> Resul
 ///
 /// see [`Count::count_orphaned`]
 #[instrument]
-pub async fn count_orphaned_playlists<C: Connection>(db: &Surreal<C>) -> Result<usize, Error> {
+pub async fn count_orphaned_playlists<C: Connection>(db: &Surreal<C>) -> Result<u64, Error> {
     Count::count_orphaned(db, Playlist::TABLE_NAME, "playlist_to_song").await
 }
 

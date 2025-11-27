@@ -1,7 +1,6 @@
 //----------------------------------------------------------------------------------------- std lib
-use std::{fs::File, ops::Range, path::PathBuf, sync::Arc, time::Duration};
+use std::{fs::File, path::PathBuf, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
-use ::tarpc::context::Context;
 use log::{debug, error, info, warn};
 use surrealdb::{Surreal, engine::local::Db};
 use tokio::sync::Mutex;
@@ -13,28 +12,33 @@ use mecomp_core::{
         commands::{AudioCommand, QueueCommand, VolumeCommand},
     },
     config::Settings,
-    errors::{BackupError, SerializableLibraryError},
-    rpc::{
-        AlbumId, ArtistId, CollectionId, DynamicPlaylistId, MusicPlayer, PlaylistId, SearchResult,
-        SongId,
-    },
-    state::{
-        RepeatMode, SeekType, StateAudio,
-        library::{LibraryBrief, LibraryFull, LibraryHealth},
-    },
+    errors::BackupError,
+    state::{RepeatMode, SeekType},
     udp::{Event, Message, Sender},
 };
-use mecomp_storage::{
-    db::schemas::{
-        self,
-        album::{Album, AlbumBrief},
-        artist::{Artist, ArtistBrief},
-        collection::{Collection, CollectionBrief},
-        dynamic::{DynamicPlaylist, DynamicPlaylistChangeSet, query::Query},
-        playlist::{Playlist, PlaylistBrief, PlaylistChangeSet},
-        song::{Song, SongBrief},
-    },
-    errors::Error,
+use mecomp_prost::{
+    AlbumBriefList, AlbumBriefOption, AlbumOption, ArtistBriefList, ArtistBriefListOption,
+    ArtistBriefOption, ArtistOption, CollectionFreezeRequest, CollectionList, CollectionOption,
+    DynamicPlaylistCreateRequest, DynamicPlaylistList, DynamicPlaylistOption,
+    DynamicPlaylistUpdateRequest, InProgressResponse, LibraryAnalyzeRequest, LibraryBrief,
+    LibraryFull, LibraryHealth, Path, PingResponse, PlaybackRepeatRequest, PlaybackSeekRequest,
+    PlaybackSkipRequest, PlaybackVolumeAdjustRequest, PlaybackVolumeSetRequest,
+    PlaylistAddListRequest, PlaylistAddRequest, PlaylistBrief, PlaylistExportRequest,
+    PlaylistImportRequest, PlaylistList, PlaylistName, PlaylistOption, PlaylistRemoveSongsRequest,
+    PlaylistRenameRequest, QueueRemoveRangeRequest, QueueSetIndexRequest, RadioSimilarRequest,
+    RecordId, RecordIdList, RegisterListenerRequest, SearchRequest, SearchResult, SongBriefList,
+    SongBriefOption, SongOption, StateAudioResponse, Ulid,
+    server::MusicPlayer as MusicPlayerTrait,
+    tonic::{self, Code, Request, Response},
+};
+use mecomp_storage::db::schemas::{
+    self,
+    album::Album,
+    artist::Artist,
+    collection::Collection,
+    dynamic::{DynamicPlaylist, DynamicPlaylistChangeSet, query::Query},
+    playlist::{Playlist, PlaylistChangeSet},
+    song::Song,
 };
 use one_or_many::OneOrMany;
 
@@ -50,7 +54,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
-pub struct MusicPlayerServer {
+pub struct MusicPlayer {
     db: Arc<Surreal<Db>>,
     settings: Arc<Settings>,
     audio_kernel: Arc<AudioKernelSender>,
@@ -62,7 +66,7 @@ pub struct MusicPlayerServer {
     interrupt: Arc<termination::InterruptReceiver>,
 }
 
-impl MusicPlayerServer {
+impl MusicPlayer {
     #[must_use]
     #[inline]
     pub fn new(
@@ -101,26 +105,56 @@ impl MusicPlayerServer {
     }
 }
 
+type TonicResult<T> = std::result::Result<Response<T>, tonic::Status>;
+
 #[allow(clippy::missing_inline_in_public_items)]
-impl MusicPlayer for MusicPlayerServer {
+#[tonic::async_trait]
+impl MusicPlayerTrait for MusicPlayer {
     #[instrument]
-    async fn register_listener(self, context: Context, listener_addr: std::net::SocketAddr) {
+    async fn register_listener(
+        self: Arc<Self>,
+        request: Request<RegisterListenerRequest>,
+    ) -> TonicResult<()> {
+        let RegisterListenerRequest { host, port } = request.into_inner();
+        let listener_addr = format!("{host}:{port}").parse().map_err(|e| {
+            tonic::Status::invalid_argument(format!("Invalid listener address: {e}"))
+        })?;
         info!("Registering listener: {listener_addr}");
         self.publisher.add_subscriber(listener_addr).await;
+        Ok(Response::new(()))
+    }
+    async fn ping(self: Arc<Self>, _: Request<()>) -> TonicResult<PingResponse> {
+        Ok(Response::new(PingResponse {
+            message: "pong".to_string(),
+        }))
+    }
+    async fn daemon_shutdown(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
+        let terminator = self.terminator.clone();
+        std::thread::Builder::new()
+            .name(String::from("Daemon Shutdown"))
+            .spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                let terminate_result = terminator
+                    .blocking_lock()
+                    .terminate(termination::Interrupted::UserInt);
+                if let Err(e) = terminate_result {
+                    error!("Error terminating daemon, panicking instead: {e}");
+                    panic!("Error terminating daemon: {e}");
+                }
+            })
+            .unwrap();
+        info!("Shutting down daemon in 1 second");
+        Ok(Response::new(()))
     }
 
-    async fn ping(self, _: Context) -> String {
-        "pong".to_string()
-    }
-
-    /// Rescans the music library, only error is if a rescan is already in progress.
+    /// rescans the music library, only error is if a rescan is already in progress.
     #[instrument]
-    async fn library_rescan(self, context: Context) -> Result<(), SerializableLibraryError> {
+    async fn library_rescan(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Rescanning library");
 
         if self.library_rescan_lock.try_lock().is_err() {
             warn!("Library rescan already in progress");
-            return Err(SerializableLibraryError::RescanInProgress);
+            return Err(tonic::Status::aborted("Library rescan already in progress"));
         }
 
         let span = tracing::Span::current();
@@ -150,26 +184,33 @@ impl MusicPlayer for MusicPlayerServer {
             .instrument(span),
         );
 
-        Ok(())
+        Ok(Response::new(()))
     }
     /// Check if a rescan is in progress.
     #[instrument]
-    async fn library_rescan_in_progress(self, context: Context) -> bool {
-        self.library_rescan_lock.try_lock().is_err()
+    async fn library_rescan_in_progress(
+        self: Arc<Self>,
+        _: Request<()>,
+    ) -> TonicResult<InProgressResponse> {
+        let in_progress = self.library_rescan_lock.try_lock().is_err();
+        Ok(Response::new(InProgressResponse { in_progress }))
     }
     /// Analyze the music library, only error is if an analysis is already in progress.
     #[instrument]
     async fn library_analyze(
-        self,
-        context: Context,
-        overwrite: bool,
-    ) -> Result<(), SerializableLibraryError> {
+        self: Arc<Self>,
+        request: Request<LibraryAnalyzeRequest>,
+    ) -> TonicResult<()> {
+        let overwrite = request.get_ref().overwrite;
         info!("Analyzing library");
 
         if self.library_analyze_lock.try_lock().is_err() {
             warn!("Library analysis already in progress");
-            return Err(SerializableLibraryError::AnalysisInProgress);
+            return Err(tonic::Status::aborted(
+                "Library analysis already in progress",
+            ));
         }
+
         let span = tracing::Span::current();
 
         tokio::task::spawn(
@@ -190,21 +231,27 @@ impl MusicPlayer for MusicPlayerServer {
             .instrument(span),
         );
 
-        Ok(())
+        Ok(Response::new(()))
     }
     /// Check if an analysis is in progress.
     #[instrument]
-    async fn library_analyze_in_progress(self, context: Context) -> bool {
-        self.library_analyze_lock.try_lock().is_err()
+    async fn library_analyze_in_progress(
+        self: Arc<Self>,
+        _: Request<()>,
+    ) -> TonicResult<InProgressResponse> {
+        let in_progress = self.library_analyze_lock.try_lock().is_err();
+        Ok(Response::new(InProgressResponse { in_progress }))
     }
     /// Recluster the music library, only error is if a recluster is already in progress.
     #[instrument]
-    async fn library_recluster(self, context: Context) -> Result<(), SerializableLibraryError> {
+    async fn library_recluster(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Reclustering collections");
 
         if self.collection_recluster_lock.try_lock().is_err() {
             warn!("Collection reclustering already in progress");
-            return Err(SerializableLibraryError::ReclusterInProgress);
+            return Err(tonic::Status::aborted(
+                "Collection reclustering already in progress",
+            ));
         }
 
         let span = tracing::Span::current();
@@ -231,357 +278,460 @@ impl MusicPlayer for MusicPlayerServer {
             .instrument(span),
         );
 
-        Ok(())
+        Ok(Response::new(()))
     }
     /// Check if a recluster is in progress.
     #[instrument]
-    async fn library_recluster_in_progress(self, context: Context) -> bool {
-        self.collection_recluster_lock.try_lock().is_err()
+    async fn library_recluster_in_progress(
+        self: Arc<Self>,
+        _: Request<()>,
+    ) -> TonicResult<InProgressResponse> {
+        let in_progress = self.collection_recluster_lock.try_lock().is_err();
+        Ok(Response::new(InProgressResponse { in_progress }))
     }
+
     /// Returns brief information about the music library.
     #[instrument]
-    async fn library_brief(
-        self,
-        context: Context,
-    ) -> Result<LibraryBrief, SerializableLibraryError> {
+    async fn library_brief(self: Arc<Self>, _: Request<()>) -> TonicResult<LibraryBrief> {
         info!("Creating library brief");
-        Ok(services::library::brief(&self.db)
+        let brief = services::library::brief(&self.db)
             .await
-            .inspect_err(|e| warn!("Error in library_brief: {e}"))?)
+            .map_err(|e| tonic::Status::internal(format!("Error in library_brief: {e}")))?;
+        Ok(Response::new(brief))
     }
     /// Returns full information about the music library. (all songs, artists, albums, etc.)
     #[instrument]
-    async fn library_full(self, context: Context) -> Result<LibraryFull, SerializableLibraryError> {
+    async fn library_full(self: Arc<Self>, _: Request<()>) -> TonicResult<LibraryFull> {
         info!("Creating library full");
-        Ok(services::library::full(&self.db)
-            .await
-            .inspect_err(|e| warn!("Error in library_full: {e}"))?)
-    }
-    /// Returns brief information about the music library's artists.
-    #[instrument]
-    async fn library_artists_brief(
-        self,
-        context: Context,
-    ) -> Result<Box<[ArtistBrief]>, SerializableLibraryError> {
-        info!("Creating library artists brief");
-        Ok(Artist::read_all_brief(&self.db)
-            .await
-            .inspect_err(|e| warn!("Error in library_artists_brief: {e}"))?
-            .into_boxed_slice())
-    }
-    /// Returns full information about the music library's artists.
-    #[instrument]
-    async fn library_artists_full(
-        self,
-        context: Context,
-    ) -> Result<Box<[Artist]>, SerializableLibraryError> {
-        info!("Creating library artists full");
-        Ok(Artist::read_all(&self.db)
-            .await
-            .inspect_err(|e| warn!("Error in library_artists_brief: {e}"))?
-            .into_boxed_slice())
-    }
-    /// Returns brief information about the music library's albums.
-    #[instrument]
-    async fn library_albums_brief(
-        self,
-        context: Context,
-    ) -> Result<Box<[AlbumBrief]>, SerializableLibraryError> {
-        info!("Creating library albums brief");
-        Ok(Album::read_all_brief(&self.db)
-            .await
-            .inspect_err(|e| warn!("Error in library_albums_brief: {e}"))?
-            .into_boxed_slice())
-    }
-    /// Returns full information about the music library's albums.
-    #[instrument]
-    async fn library_albums_full(
-        self,
-        context: Context,
-    ) -> Result<Box<[Album]>, SerializableLibraryError> {
-        info!("Creating library albums full");
-        Ok(Album::read_all(&self.db)
-            .await
-            .map(std::vec::Vec::into_boxed_slice)
-            .inspect_err(|e| warn!("Error in library_albums_full: {e}"))?)
-    }
-    /// Returns brief information about the music library's songs.
-    #[instrument]
-    async fn library_songs_brief(
-        self,
-        context: Context,
-    ) -> Result<Box<[SongBrief]>, SerializableLibraryError> {
-        info!("Creating library songs brief");
-        Ok(Song::read_all_brief(&self.db)
-            .await
-            .inspect_err(|e| warn!("Error in library_songs_brief: {e}"))?
-            .into_boxed_slice())
-    }
-    /// Returns full information about the music library's songs.
-    #[instrument]
-    async fn library_songs_full(
-        self,
-        context: Context,
-    ) -> Result<Box<[Song]>, SerializableLibraryError> {
-        info!("Creating library songs full");
-        Ok(Song::read_all(&self.db)
-            .await
-            .inspect_err(|e| warn!("Error in library_songs_full: {e}"))?
-            .into_boxed_slice())
-    }
-    /// Returns brief information about the users playlists.
-    #[instrument]
-    async fn library_playlists_brief(
-        self,
-        context: Context,
-    ) -> Result<Box<[PlaylistBrief]>, SerializableLibraryError> {
-        info!("Creating library playlists brief");
-        Ok(Playlist::read_all_brief(&self.db)
-            .await
-            .inspect_err(|e| warn!("Error in library_playlists_brief: {e}"))?
-            .into_boxed_slice())
-    }
-    /// Returns full information about the users playlists.
-    #[instrument]
-    async fn library_playlists_full(
-        self,
-        context: Context,
-    ) -> Result<Box<[Playlist]>, SerializableLibraryError> {
-        info!("Creating library playlists full");
-        Ok(Playlist::read_all(&self.db)
-            .await
-            .inspect_err(|e| warn!("Error in library_playlists_full: {e}"))?
-            .into_boxed_slice())
-    }
-    /// Return brief information about the users collections.
-    #[instrument]
-    async fn library_collections_brief(
-        self,
-        context: Context,
-    ) -> Result<Box<[CollectionBrief]>, SerializableLibraryError> {
-        info!("Creating library collections brief");
-        Ok(Collection::read_all_brief(&self.db)
-            .await
-            .inspect_err(|e| warn!("Error in library_collections_brief: {e}"))?
-            .into_boxed_slice())
-    }
-    /// Return full information about the users collections.
-    #[instrument]
-    async fn library_collections_full(
-        self,
-        context: Context,
-    ) -> Result<Box<[Collection]>, SerializableLibraryError> {
-        info!("Creating library collections full");
-        Ok(Collection::read_all(&self.db)
-            .await
-            .inspect_err(|e| warn!("Error in library_collections_full: {e}"))?
-            .into_boxed_slice())
+        Ok(Response::new(
+            services::library::full(&self.db)
+                .await
+                .map_err(|e| tonic::Status::internal(format!("Error in library_full: {e}")))?,
+        ))
     }
     /// Returns information about the health of the music library (are there any missing files, etc.)
     #[instrument]
-    async fn library_health(
-        self,
-        context: Context,
-    ) -> Result<LibraryHealth, SerializableLibraryError> {
+    async fn library_health(self: Arc<Self>, _: Request<()>) -> TonicResult<LibraryHealth> {
         info!("Creating library health");
-        Ok(services::library::health(&self.db)
-            .await
-            .inspect_err(|e| warn!("Error in library_health: {e}"))?)
+        Ok(Response::new(
+            services::library::health(&self.db)
+                .await
+                .map_err(|e| tonic::Status::internal(format!("Error in library_health: {e}")))?,
+        ))
     }
+
+    #[instrument]
+    async fn library_artists(self: Arc<Self>, _: Request<()>) -> TonicResult<ArtistBriefList> {
+        info!("Creating library artists brief");
+        let artists = Artist::read_all_brief(&self.db)
+            .await
+            .map_err(|e| tonic::Status::internal(format!("Error in library_artists_brief: {e}")))?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(ArtistBriefList { artists }))
+    }
+    #[instrument]
+    async fn library_albums(self: Arc<Self>, _: Request<()>) -> TonicResult<AlbumBriefList> {
+        info!("Creating library albums brief");
+        let albums = Album::read_all_brief(&self.db)
+            .await
+            .map_err(|e| tonic::Status::internal(format!("Error in library_albums_brief: {e}")))?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(AlbumBriefList { albums }))
+    }
+    #[instrument]
+    async fn library_songs(self: Arc<Self>, _: Request<()>) -> TonicResult<SongBriefList> {
+        info!("Creating library songs brief");
+        let songs = Song::read_all_brief(&self.db)
+            .await
+            .map_err(|e| tonic::Status::internal(format!("Error in library_songs_brief: {e}")))?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(SongBriefList { songs }))
+    }
+    #[instrument]
+    async fn library_playlists(self: Arc<Self>, _: Request<()>) -> TonicResult<PlaylistList> {
+        info!("Creating library playlists brief");
+        let playlists = Playlist::read_all(&self.db)
+            .await
+            .map_err(|e| tonic::Status::internal(format!("Error in library_playlists_brief: {e}")))?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(PlaylistList { playlists }))
+    }
+    #[instrument]
+    async fn library_collections(self: Arc<Self>, _: Request<()>) -> TonicResult<CollectionList> {
+        info!("Creating library collections brief");
+        let collections = Collection::read_all(&self.db)
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("Error in library_collections_brief: {e}"))
+            })?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(CollectionList { collections }))
+    }
+    #[instrument]
+    async fn library_dynamic_playlists(
+        self: Arc<Self>,
+        _: Request<()>,
+    ) -> TonicResult<DynamicPlaylistList> {
+        info!("Creating library dynamic playlists full");
+        let playlists = DynamicPlaylist::read_all(&self.db)
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("Error in library_dynamic_playlists_full: {e}"))
+            })?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(DynamicPlaylistList { playlists }))
+    }
+
     /// Get a song by its ID.
     #[instrument]
-    async fn library_song_get(self, context: Context, id: SongId) -> Option<Song> {
-        let id = id.into();
+    async fn library_song_get(self: Arc<Self>, request: Request<Ulid>) -> TonicResult<SongOption> {
+        let id = (schemas::song::TABLE_NAME, request.into_inner().id).into();
         info!("Getting song by ID: {id}");
-        Song::read(&self.db, id)
+        let song = Song::read(&self.db, id)
             .await
-            .inspect_err(|e| warn!("Error in library_song_get: {e}"))
-            .unwrap_or_default()
+            .map_err(|e| tonic::Status::internal(format!("Error in library_song_get: {e}")))?
+            .map(Into::into);
+        Ok(Response::new(SongOption { song }))
     }
     /// Get a song by its file path.
     #[instrument]
-    async fn library_song_get_by_path(self, context: Context, path: PathBuf) -> Option<Song> {
+    async fn library_song_get_by_path(
+        self: Arc<Self>,
+        request: Request<Path>,
+    ) -> TonicResult<SongOption> {
+        let path = request.into_inner().path;
+        let path = PathBuf::from(path)
+            .canonicalize()
+            .map_err(|e| tonic::Status::invalid_argument(format!("Invalid path provided: {e}")))?;
         info!("Getting song by path: {}", path.display());
-        Song::read_by_path(&self.db, path)
+        let song = Song::read_by_path(&self.db, path)
             .await
-            .inspect_err(|e| warn!("Error in library_song_get_by_path: {e}"))
-            .unwrap_or_default()
+            .map_err(|e| {
+                tonic::Status::internal(format!("Error in library_song_get_by_path: {e}"))
+            })?
+            .map(Into::into);
+        Ok(Response::new(SongOption { song }))
     }
     /// Get the artists of a song.
     #[instrument]
-    async fn library_song_get_artist(self, context: Context, id: SongId) -> OneOrMany<Artist> {
-        let id = id.into();
+    async fn library_song_get_artists(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<ArtistBriefList> {
+        let id = (schemas::song::TABLE_NAME, request.into_inner().id).into();
         info!("Getting artist of: {id}");
-        Song::read_artist(&self.db, id)
+        let artists = Song::read_artist(&self.db, id)
             .await
-            .inspect_err(|e| warn!("Error in library_song_get_artist: {e}"))
-            .unwrap_or_default()
+            .map_err(|e| tonic::Status::internal(format!("Error in library_song_get_artist: {e}")))?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(ArtistBriefList { artists }))
     }
-    /// Get the album of a song.
     #[instrument]
-    async fn library_song_get_album(self, context: Context, id: SongId) -> Option<Album> {
-        let id = id.into();
-        info!("Getting album of: {id}");
-        Song::read_album(&self.db, id)
+    async fn library_song_get_album(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<AlbumBriefOption> {
+        let song_id = (schemas::song::TABLE_NAME, request.into_inner().id).into();
+        info!("Resolving album for song {song_id}");
+        let album = Song::read_album(&self.db, song_id)
             .await
-            .inspect_err(|e| warn!("Error in library_song_get_album: {e}"))
-            .unwrap_or_default()
+            .map_err(|e| tonic::Status::internal(format!("library_song_get_album failed: {e}")))?
+            .map(Into::into);
+        Ok(Response::new(AlbumBriefOption { album }))
     }
-    /// Get the Playlists a song is in.
     #[instrument]
-    async fn library_song_get_playlists(self, context: Context, id: SongId) -> Box<[Playlist]> {
-        let id = id.into();
-        info!("Getting playlists of: {id}");
-        Song::read_playlists(&self.db, id)
+    async fn library_song_get_playlists(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<PlaylistList> {
+        let song_id = (schemas::song::TABLE_NAME, request.into_inner().id).into();
+        info!("Collecting playlists containing {song_id}");
+        let playlists = Song::read_playlists(&self.db, song_id)
             .await
-            .inspect_err(|e| warn!("Error in library_song_get_playlists: {e}"))
-            .ok()
-            .unwrap_or_default()
-            .into()
+            .map_err(|e| {
+                tonic::Status::internal(format!("library_song_get_playlists failed: {e}"))
+            })?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(PlaylistList { playlists }))
     }
-    /// Get the Collections a song is in.
     #[instrument]
-    async fn library_song_get_collections(self, context: Context, id: SongId) -> Box<[Collection]> {
-        let id = id.into();
-        info!("Getting collections of: {id}");
-        Song::read_collections(&self.db, id)
+    async fn library_song_get_collections(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<CollectionList> {
+        let song_id = (schemas::song::TABLE_NAME, request.into_inner().id).into();
+        info!("Collecting collections containing {song_id}");
+        let collections = Song::read_collections(&self.db, song_id)
             .await
-            .inspect_err(|e| warn!("Error in library_song_get_collections: {e}"))
-            .ok()
-            .unwrap_or_default()
-            .into()
+            .map_err(|e| {
+                tonic::Status::internal(format!("library_song_get_collections failed: {e}"))
+            })?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(CollectionList { collections }))
     }
-
-    /// Get an album by its ID.
     #[instrument]
-    async fn library_album_get(self, context: Context, id: AlbumId) -> Option<Album> {
-        let id = id.into();
-        info!("Getting album by ID: {id}");
-        Album::read(&self.db, id)
+    async fn library_album_get(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<AlbumOption> {
+        let album_id = (schemas::album::TABLE_NAME, request.into_inner().id).into();
+        info!("Fetching album {album_id}");
+        let album = Album::read(&self.db, album_id)
             .await
-            .inspect_err(|e| warn!("Error in library_album_get: {e}"))
-            .ok()
-            .flatten()
+            .map_err(|e| tonic::Status::internal(format!("library_album_get failed: {e}")))?
+            .map(Into::into);
+        Ok(Response::new(AlbumOption { album }))
     }
-    /// Get the artists of an album
     #[instrument]
-    async fn library_album_get_artist(self, context: Context, id: AlbumId) -> OneOrMany<Artist> {
-        let id = id.into();
-        info!("Getting artists of: {id}");
-        Album::read_artist(&self.db, id)
+    async fn library_album_get_artists(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<ArtistBriefList> {
+        let album_id = (schemas::album::TABLE_NAME, request.into_inner().id).into();
+        info!("Fetching contributors for album {album_id}");
+        let artists = Album::read_artist(&self.db, album_id)
             .await
-            .inspect_err(|e| warn!("Error in library_album_get_artist: {e}"))
-            .ok()
-            .into()
+            .map_err(|e| tonic::Status::internal(format!("library_album_get_artist failed: {e}")))?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(ArtistBriefList { artists }))
     }
-    /// Get the songs of an album
     #[instrument]
-    async fn library_album_get_songs(self, context: Context, id: AlbumId) -> Option<Box<[Song]>> {
-        let id = id.into();
-        info!("Getting songs of: {id}");
-        Album::read_songs(&self.db, id)
+    async fn library_album_get_songs(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<SongBriefList> {
+        let album_id = (schemas::album::TABLE_NAME, request.into_inner().id).into();
+        info!("Listing songs for album {album_id}");
+        let songs = Album::read_songs(&self.db, album_id)
             .await
-            .inspect_err(|e| warn!("Error in library_album_get_songs: {e}"))
-            .ok()
-            .map(Vec::into_boxed_slice)
+            .map_err(|e| tonic::Status::internal(format!("library_album_get_songs failed: {e}")))?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(SongBriefList { songs }))
     }
-    /// Get an artist by its ID.
     #[instrument]
-    async fn library_artist_get(self, context: Context, id: ArtistId) -> Option<Artist> {
-        let id = id.into();
-        info!("Getting artist by ID: {id}");
-        Artist::read(&self.db, id)
+    async fn library_artist_get(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<ArtistOption> {
+        let artist_id = (schemas::artist::TABLE_NAME, request.into_inner().id).into();
+        info!("Fetching artist {artist_id}");
+        let artist = Artist::read(&self.db, artist_id)
             .await
-            .inspect_err(|e| warn!("Error in library_artist_get: {e}"))
-            .ok()
-            .flatten()
+            .map_err(|e| tonic::Status::internal(format!("library_artist_get failed: {e}")))?
+            .map(Into::into);
+        Ok(Response::new(ArtistOption { artist }))
     }
-    /// Get the songs of an artist
     #[instrument]
-    async fn library_artist_get_songs(self, context: Context, id: ArtistId) -> Option<Box<[Song]>> {
-        let id = id.into();
-        info!("Getting songs of: {id}");
-        Artist::read_songs(&self.db, id)
+    async fn library_artist_get_songs(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<SongBriefList> {
+        let artist_id = (schemas::artist::TABLE_NAME, request.into_inner().id).into();
+        info!("Listing songs for artist {artist_id}");
+        let songs = Artist::read_songs(&self.db, artist_id)
             .await
-            .inspect_err(|e| warn!("Error in library_artist_get_songs: {e}"))
-            .ok()
-            .map(Vec::into_boxed_slice)
+            .map_err(|e| tonic::Status::internal(format!("library_artist_get_songs failed: {e}")))?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(SongBriefList { songs }))
     }
-    /// Get the albums of an artist
     #[instrument]
     async fn library_artist_get_albums(
-        self,
-        context: Context,
-        id: ArtistId,
-    ) -> Option<Box<[Album]>> {
-        let id = id.into();
-        info!("Getting albums of: {id}");
-        Artist::read_albums(&self.db, id)
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<AlbumBriefList> {
+        let artist_id = (schemas::artist::TABLE_NAME, request.into_inner().id).into();
+        info!("Listing albums for artist {artist_id}");
+        let albums = Artist::read_albums(&self.db, artist_id)
             .await
-            .inspect_err(|e| warn!("Error in library_artist_get_albums: {e}"))
-            .ok()
-            .map(Vec::into_boxed_slice)
+            .map_err(|e| tonic::Status::internal(format!("library_artist_get_albums failed: {e}")))?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(AlbumBriefList { albums }))
+    }
+    #[instrument]
+    async fn library_playlist_get(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<PlaylistOption> {
+        let playlist_id = (schemas::playlist::TABLE_NAME, request.into_inner().id).into();
+        info!("Fetching playlist {playlist_id}");
+        let playlist = Playlist::read(&self.db, playlist_id)
+            .await
+            .map_err(|e| tonic::Status::internal(format!("library_playlist_get failed: {e}")))?
+            .map(Into::into);
+        Ok(Response::new(PlaylistOption { playlist }))
+    }
+    #[instrument]
+    async fn library_playlist_get_by_name(
+        self: Arc<Self>,
+        request: Request<PlaylistName>,
+    ) -> TonicResult<PlaylistOption> {
+        let name = request.into_inner().name;
+        info!("Fetching playlist by name: {name}");
+        let playlist = Playlist::read_by_name(&self.db, name)
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("library_playlist_get_by_name failed: {e}"))
+            })?
+            .map(Into::into);
+        Ok(Response::new(PlaylistOption { playlist }))
+    }
+    #[instrument]
+    async fn library_playlist_get_songs(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<SongBriefList> {
+        let playlist_id = (schemas::playlist::TABLE_NAME, request.into_inner().id).into();
+        info!("Listing songs for playlist {playlist_id}");
+        let songs = Playlist::read_songs(&self.db, playlist_id)
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("library_playlist_get_songs failed: {e}"))
+            })?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(SongBriefList { songs }))
+    }
+    #[instrument]
+    async fn library_collection_get(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<CollectionOption> {
+        let collection_id = (schemas::collection::TABLE_NAME, request.into_inner().id).into();
+        info!("Fetching collection {collection_id}");
+        let collection = Collection::read(&self.db, collection_id)
+            .await
+            .map_err(|e| tonic::Status::internal(format!("library_collection_get failed: {e}")))?
+            .map(Into::into);
+        Ok(Response::new(CollectionOption { collection }))
+    }
+    #[instrument]
+    async fn library_collection_get_songs(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<SongBriefList> {
+        let collection_id = (schemas::collection::TABLE_NAME, request.into_inner().id).into();
+        info!("Listing songs for collection {collection_id}");
+        let songs = Collection::read_songs(&self.db, collection_id)
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("library_collection_get_songs failed: {e}"))
+            })?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(SongBriefList { songs }))
+    }
+    #[instrument]
+    async fn library_dynamic_playlist_get(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<DynamicPlaylistOption> {
+        let dynamic_playlist_id = (schemas::dynamic::TABLE_NAME, request.into_inner().id).into();
+        info!("Fetching dynamic playlist {dynamic_playlist_id}");
+        let playlist = DynamicPlaylist::read(&self.db, dynamic_playlist_id)
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("library_dynamic_playlist_get failed: {e}"))
+            })?
+            .map(Into::into);
+        Ok(Response::new(DynamicPlaylistOption { playlist }))
+    }
+    #[instrument]
+    async fn library_dynamic_playlist_get_songs(
+        self: Arc<Self>,
+        request: Request<Ulid>,
+    ) -> TonicResult<SongBriefList> {
+        let dynamic_playlist_id = (schemas::dynamic::TABLE_NAME, request.into_inner().id).into();
+        info!("Listing songs for dynamic playlist {dynamic_playlist_id}");
+        let songs = DynamicPlaylist::run_query_by_id(&self.db, dynamic_playlist_id)
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("library_dynamic_playlist_get_songs failed: {e}"))
+            })?
+            .ok_or_else(|| tonic::Status::not_found("dynamic playlist not found"))?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(Response::new(SongBriefList { songs }))
     }
 
-    /// tells the daemon to shutdown.
     #[instrument]
-    async fn daemon_shutdown(self, context: Context) {
-        let terminator = self.terminator.clone();
-        std::thread::Builder::new()
-            .name(String::from("Daemon Shutdown"))
-            .spawn(move || {
-                std::thread::sleep(std::time::Duration::from_secs(1));
-                let terminate_result = terminator
-                    .blocking_lock()
-                    .terminate(termination::Interrupted::UserInt);
-                if let Err(e) = terminate_result {
-                    error!("Error terminating daemon, panicking instead: {e}");
-                    panic!("Error terminating daemon: {e}");
-                }
-            })
-            .unwrap();
-        info!("Shutting down daemon in 1 second");
-    }
-
-    /// returns full information about the current state of the audio player (queue, current song, etc.)
-    #[instrument]
-    async fn state_audio(self, context: Context) -> Option<StateAudio> {
+    async fn state_audio(self: Arc<Self>, _: Request<()>) -> TonicResult<StateAudioResponse> {
         debug!("Getting state of audio player");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
-        rx.await
+        let state = rx
+            .await
             .inspect_err(|e| warn!("Error in state_audio: {e}"))
             .ok()
-    }
+            .map(Into::into);
 
-    /// returns the current artist.
+        Ok(Response::new(StateAudioResponse { state }))
+    }
     #[instrument]
-    async fn current_artist(self, context: Context) -> OneOrMany<Artist> {
-        info!("Getting current artist");
+    async fn current_artists(
+        self: Arc<Self>,
+        _: Request<()>,
+    ) -> TonicResult<ArtistBriefListOption> {
+        info!("Fetching current song artists");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         self.audio_kernel.send(AudioCommand::ReportStatus(tx));
 
         if let Some(song) = rx
             .await
-            .inspect_err(|e| warn!("Error in current_artist: {e}"))
+            .inspect_err(|e| warn!("Error in current_artists: {e}"))
             .ok()
-            .and_then(|state| state.current_song)
+            .and_then(|s| s.current_song)
         {
-            Song::read_artist(&self.db, song.id)
+            let artists = Song::read_artist(&self.db, song.id)
                 .await
-                .inspect_err(|e| warn!("Error in current_album: {e}"))
-                .unwrap_or_default()
+                .map_err(|e| {
+                    tonic::Status::not_found(format!("Error finding artists of current song: {e}"))
+                })?
+                .into_iter()
+                .map(Into::into)
+                .collect();
+            let artists = ArtistBriefList { artists };
+            Ok(Response::new(ArtistBriefListOption {
+                artists: Some(artists),
+            }))
         } else {
-            OneOrMany::None
+            Ok(Response::new(ArtistBriefListOption { artists: None }))
         }
     }
-    /// returns the current album.
     #[instrument]
-    async fn current_album(self, context: Context) -> Option<Album> {
-        info!("Getting current album");
+    async fn current_album(self: Arc<Self>, _: Request<()>) -> TonicResult<AlbumBriefOption> {
+        info!("Fetching current song album");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         self.audio_kernel.send(AudioCommand::ReportStatus(tx));
@@ -590,276 +740,382 @@ impl MusicPlayer for MusicPlayerServer {
             .await
             .inspect_err(|e| warn!("Error in current_album: {e}"))
             .ok()
-            .and_then(|state| state.current_song)
+            .and_then(|s| s.current_song)
         {
-            Song::read_album(&self.db, song.id)
+            let album = Song::read_album(&self.db, song.id)
                 .await
-                .inspect_err(|e| warn!("Error in current_album: {e}"))
-                .unwrap_or_default()
+                .map_err(|e| {
+                    tonic::Status::not_found(format!("Error finding album of current song: {e}"))
+                })?
+                .map(Into::into);
+            Ok(Response::new(AlbumBriefOption { album }))
         } else {
-            None
+            Ok(Response::new(AlbumBriefOption { album: None }))
         }
     }
-    /// returns the current song.
     #[instrument]
-    async fn current_song(self, context: Context) -> Option<SongBrief> {
-        info!("Getting current song");
+    async fn current_song(self: Arc<Self>, _: Request<()>) -> TonicResult<SongBriefOption> {
+        info!("Fetching current song");
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         self.audio_kernel.send(AudioCommand::ReportStatus(tx));
-
-        rx.await
-            .inspect_err(|e| warn!("Error in current_song: {e}"))
-            .ok()
-            .and_then(|state| state.current_song)
+        let song = rx.await.ok().and_then(|s| s.current_song).map(Into::into);
+        Ok(Response::new(SongBriefOption { song }))
     }
 
-    /// returns a random artist.
+    /// Get a random artist
     #[instrument]
-    async fn rand_artist(self, context: Context) -> Option<ArtistBrief> {
+    async fn rand_artist(self: Arc<Self>, _: Request<()>) -> TonicResult<ArtistBriefOption> {
         info!("Getting random artist");
-        Artist::read_rand(&self.db, 1)
+        let artist = Artist::read_rand(&self.db, 1)
             .await
-            .inspect_err(|e| warn!("Error in rand_artist: {e}"))
-            .ok()
-            .and_then(|results| results.first().cloned())
+            .map_err(|e| tonic::Status::internal(format!("rand_artist failed: {e}")))?
+            .first()
+            .cloned()
+            .map(Into::into);
+        Ok(Response::new(ArtistBriefOption { artist }))
     }
-    /// returns a random album.
+    /// Get a random album
     #[instrument]
-    async fn rand_album(self, context: Context) -> Option<AlbumBrief> {
+    async fn rand_album(self: Arc<Self>, _: Request<()>) -> TonicResult<AlbumBriefOption> {
         info!("Getting random album");
-        Album::read_rand(&self.db, 1)
+        let album = Album::read_rand(&self.db, 1)
             .await
-            .inspect_err(|e| warn!("Error in rand_album: {e}"))
-            .ok()
-            .and_then(|results| results.first().cloned())
+            .map_err(|e| tonic::Status::internal(format!("rand_album failed: {e}")))?
+            .first()
+            .cloned()
+            .map(Into::into);
+        Ok(Response::new(AlbumBriefOption { album }))
     }
-    /// returns a random song.
+    /// Get a random song
     #[instrument]
-    async fn rand_song(self, context: Context) -> Option<SongBrief> {
+    async fn rand_song(self: Arc<Self>, _: Request<()>) -> TonicResult<SongBriefOption> {
         info!("Getting random song");
-        Song::read_rand(&self.db, 1)
+        let song = Song::read_rand(&self.db, 1)
             .await
-            .inspect_err(|e| warn!("Error in rand_song: {e}"))
-            .ok()
-            .and_then(|results| results.first().cloned())
+            .map_err(|e| tonic::Status::internal(format!("rand_song failed: {e}")))?
+            .first()
+            .cloned()
+            .map(Into::into);
+        Ok(Response::new(SongBriefOption { song }))
     }
 
     /// returns a list of artists, albums, and songs matching the given search query.
-    #[instrument]
-    async fn search(self, context: Context, query: String, limit: usize) -> SearchResult {
+    async fn search(self: Arc<Self>, request: Request<SearchRequest>) -> TonicResult<SearchResult> {
+        let SearchRequest { query, limit } = request.into_inner();
         info!("Searching for: {query}");
         // basic idea:
         // 1. search for songs
         // 2. search for albums
         // 3. search for artists
         // 4. return the results
-        let songs = Song::search(&self.db, &query, limit)
-            .await
-            .inspect_err(|e| warn!("Error in search: {e}"))
-            .unwrap_or_default()
-            .into();
+        let songs = Song::search(
+            &self.db,
+            &query,
+            usize::try_from(limit).unwrap_or(usize::MAX),
+        )
+        .await
+        .inspect_err(|e| warn!("Error in search: {e}"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
-        let albums = Album::search(&self.db, &query, limit)
-            .await
-            .inspect_err(|e| warn!("Error in search: {e}"))
-            .unwrap_or_default()
-            .into();
+        let albums = Album::search(
+            &self.db,
+            &query,
+            usize::try_from(limit).unwrap_or(usize::MAX),
+        )
+        .await
+        .inspect_err(|e| warn!("Error in search: {e}"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
-        let artists = Artist::search(&self.db, &query, limit)
-            .await
-            .inspect_err(|e| warn!("Error in search: {e}"))
-            .unwrap_or_default()
-            .into();
-        SearchResult {
+        let artists = Artist::search(
+            &self.db,
+            &query,
+            usize::try_from(limit).unwrap_or(usize::MAX),
+        )
+        .await
+        .inspect_err(|e| warn!("Error in search: {e}"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(Into::into)
+        .collect();
+        Ok(Response::new(SearchResult {
             songs,
             albums,
             artists,
-        }
+        }))
     }
     /// returns a list of artists matching the given search query.
     #[instrument]
     async fn search_artist(
-        self,
-        context: Context,
-        query: String,
-        limit: usize,
-    ) -> Box<[ArtistBrief]> {
+        self: Arc<Self>,
+        request: Request<SearchRequest>,
+    ) -> TonicResult<ArtistBriefList> {
+        let SearchRequest { query, limit } = request.into_inner();
         info!("Searching for artist: {query}");
-        Artist::search(&self.db, &query, limit)
-            .await
-            .inspect_err(|e| {
-                warn!("Error in search_artist: {e}");
-            })
-            .unwrap_or_default()
-            .into()
+        let artists = Artist::search(
+            &self.db,
+            &query,
+            usize::try_from(limit).unwrap_or(usize::MAX),
+        )
+        .await
+        .inspect_err(|e| {
+            warn!("Error in search_artist: {e}");
+        })
+        .unwrap_or_default()
+        .into_iter()
+        .map(Into::into)
+        .collect();
+        Ok(Response::new(ArtistBriefList { artists }))
     }
     /// returns a list of albums matching the given search query.
     #[instrument]
     async fn search_album(
-        self,
-        context: Context,
-        query: String,
-        limit: usize,
-    ) -> Box<[AlbumBrief]> {
+        self: Arc<Self>,
+        request: Request<SearchRequest>,
+    ) -> TonicResult<AlbumBriefList> {
+        let SearchRequest { query, limit } = request.into_inner();
         info!("Searching for album: {query}");
-        Album::search(&self.db, &query, limit)
-            .await
-            .inspect_err(|e| {
-                warn!("Error in search_album: {e}");
-            })
-            .unwrap_or_default()
-            .into()
+        let albums = Album::search(
+            &self.db,
+            &query,
+            usize::try_from(limit).unwrap_or(usize::MAX),
+        )
+        .await
+        .inspect_err(|e| {
+            warn!("Error in search_album: {e}");
+        })
+        .unwrap_or_default()
+        .into_iter()
+        .map(Into::into)
+        .collect();
+        Ok(Response::new(AlbumBriefList { albums }))
     }
     /// returns a list of songs matching the given search query.
     #[instrument]
-    async fn search_song(self, context: Context, query: String, limit: usize) -> Box<[SongBrief]> {
+    async fn search_song(
+        self: Arc<Self>,
+        request: Request<SearchRequest>,
+    ) -> TonicResult<SongBriefList> {
+        let SearchRequest { query, limit } = request.into_inner();
         info!("Searching for song: {query}");
-        Song::search(&self.db, &query, limit)
-            .await
-            .inspect_err(|e| {
-                warn!("Error in search_song: {e}");
-            })
-            .unwrap_or_default()
-            .into()
+        let songs = Song::search(
+            &self.db,
+            &query,
+            usize::try_from(limit).unwrap_or(usize::MAX),
+        )
+        .await
+        .inspect_err(|e| {
+            warn!("Error in search_song: {e}");
+        })
+        .unwrap_or_default()
+        .into_iter()
+        .map(Into::into)
+        .collect();
+        Ok(Response::new(SongBriefList { songs }))
     }
 
-    /// toggles playback (play/pause).
+    /// toggles playback (play/pause)
     #[instrument]
-    async fn playback_toggle(self, context: Context) {
+    async fn playback_toggle(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Toggling playback");
         self.audio_kernel.send(AudioCommand::TogglePlayback);
+        Ok(Response::new(()))
     }
-    /// start playback (unpause).
+    /// starts playback (unpause).
     #[instrument]
-    async fn playback_play(self, context: Context) {
-        info!("Starting playback");
+    async fn playback_play(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
+        info!("Playing");
         self.audio_kernel.send(AudioCommand::Play);
+        Ok(Response::new(()))
     }
     /// pause playback.
     #[instrument]
-    async fn playback_pause(self, context: Context) {
+    async fn playback_pause(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Pausing playback");
         self.audio_kernel.send(AudioCommand::Pause);
+        Ok(Response::new(()))
     }
     /// stop playback.
     #[instrument]
-    async fn playback_stop(self, context: Context) {
+    async fn playback_stop(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Stopping playback");
         self.audio_kernel.send(AudioCommand::Stop);
+        Ok(Response::new(()))
     }
     /// restart the current song.
     #[instrument]
-    async fn playback_restart(self, context: Context) {
+    async fn playback_restart(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Restarting current song");
         self.audio_kernel.send(AudioCommand::RestartSong);
+        Ok(Response::new(()))
     }
     /// skip forward by the given amount of songs
     #[instrument]
-    async fn playback_skip_forward(self, context: Context, amount: usize) {
+    async fn playback_skip_forward(
+        self: Arc<Self>,
+        request: Request<PlaybackSkipRequest>,
+    ) -> TonicResult<()> {
+        let PlaybackSkipRequest { amount } = request.into_inner();
         info!("Skipping forward by {amount} songs");
         self.audio_kernel
-            .send(AudioCommand::Queue(QueueCommand::SkipForward(amount)));
+            .send(AudioCommand::Queue(QueueCommand::SkipForward(
+                usize::try_from(amount).unwrap_or(usize::MAX),
+            )));
+        Ok(Response::new(()))
     }
     /// go backwards by the given amount of songs.
     #[instrument]
-    async fn playback_skip_backward(self, context: Context, amount: usize) {
+    async fn playback_skip_backward(
+        self: Arc<Self>,
+        request: Request<PlaybackSkipRequest>,
+    ) -> TonicResult<()> {
+        let PlaybackSkipRequest { amount } = request.into_inner();
         info!("Going back by {amount} songs");
         self.audio_kernel
-            .send(AudioCommand::Queue(QueueCommand::SkipBackward(amount)));
+            .send(AudioCommand::Queue(QueueCommand::SkipBackward(
+                usize::try_from(amount).unwrap_or(usize::MAX),
+            )));
+        Ok(Response::new(()))
     }
     /// stop playback.
     /// (clears the queue and stops playback)
     #[instrument]
-    async fn playback_clear_player(self, context: Context) {
+    async fn playback_clear_player(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Stopping playback");
         self.audio_kernel.send(AudioCommand::ClearPlayer);
+        Ok(Response::new(()))
     }
     /// clear the queue.
     #[instrument]
-    async fn playback_clear(self, context: Context) {
+    async fn playback_clear(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Clearing queue and stopping playback");
         self.audio_kernel
             .send(AudioCommand::Queue(QueueCommand::Clear));
+        Ok(Response::new(()))
     }
     /// seek forwards, backwards, or to an absolute second in the current song.
     #[instrument]
-    async fn playback_seek(self, context: Context, seek: SeekType, duration: Duration) {
+    async fn playback_seek(
+        self: Arc<Self>,
+        request: Request<PlaybackSeekRequest>,
+    ) -> TonicResult<()> {
+        let PlaybackSeekRequest { seek, duration } = request.into_inner();
+        let duration: Duration = duration.normalized().try_into().map_err(|e| {
+            tonic::Status::invalid_argument(format!("Invalid duration provided: {e}"))
+        })?;
+        let seek: SeekType = mecomp_prost::SeekType::try_from(seek)
+            .map_err(|e| tonic::Status::invalid_argument(e.to_string()))?
+            .into();
         info!("Seeking {seek} by {:.2}s", duration.as_secs_f32());
         self.audio_kernel.send(AudioCommand::Seek(seek, duration));
+        Ok(Response::new(()))
     }
     /// set the repeat mode.
     #[instrument]
-    async fn playback_repeat(self, context: Context, mode: RepeatMode) {
+    async fn playback_repeat(
+        self: Arc<Self>,
+        request: Request<PlaybackRepeatRequest>,
+    ) -> TonicResult<()> {
+        let PlaybackRepeatRequest { mode } = request.into_inner();
+        let mode: RepeatMode = mecomp_prost::RepeatMode::try_from(mode)
+            .map_err(|e| tonic::Status::invalid_argument(e.to_string()))?
+            .into();
         info!("Setting repeat mode to: {mode}");
         self.audio_kernel
             .send(AudioCommand::Queue(QueueCommand::SetRepeatMode(mode)));
+        Ok(Response::new(()))
     }
     /// Shuffle the current queue, then start playing from the 1st Song in the queue.
     #[instrument]
-    async fn playback_shuffle(self, context: Context) {
+    async fn playback_shuffle(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Shuffling queue");
         self.audio_kernel
             .send(AudioCommand::Queue(QueueCommand::Shuffle));
+        Ok(Response::new(()))
     }
     /// set the volume to the given value
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will multiply each sample by this value.
     #[instrument]
-    async fn playback_volume(self, context: Context, volume: f32) {
+    async fn playback_volume(
+        self: Arc<Self>,
+        request: Request<PlaybackVolumeSetRequest>,
+    ) -> TonicResult<()> {
+        let PlaybackVolumeSetRequest { volume } = request.into_inner();
         info!("Setting volume to: {volume}",);
         self.audio_kernel
             .send(AudioCommand::Volume(VolumeCommand::Set(volume)));
+        Ok(Response::new(()))
     }
     /// increase the volume by the given amount
     #[instrument]
-    async fn playback_volume_up(self, context: Context, amount: f32) {
+    async fn playback_volume_up(
+        self: Arc<Self>,
+        request: Request<PlaybackVolumeAdjustRequest>,
+    ) -> TonicResult<()> {
+        let PlaybackVolumeAdjustRequest { amount } = request.into_inner();
         info!("Increasing volume by: {amount}",);
         self.audio_kernel
             .send(AudioCommand::Volume(VolumeCommand::Up(amount)));
+        Ok(Response::new(()))
     }
     /// decrease the volume by the given amount
     #[instrument]
-    async fn playback_volume_down(self, context: Context, amount: f32) {
+    async fn playback_volume_down(
+        self: Arc<Self>,
+        request: Request<PlaybackVolumeAdjustRequest>,
+    ) -> TonicResult<()> {
+        let PlaybackVolumeAdjustRequest { amount } = request.into_inner();
         info!("Decreasing volume by: {amount}",);
         self.audio_kernel
             .send(AudioCommand::Volume(VolumeCommand::Down(amount)));
+        Ok(Response::new(()))
     }
     /// toggle the volume mute.
     #[instrument]
-    async fn playback_volume_toggle_mute(self, context: Context) {
+    async fn playback_toggle_mute(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Toggling volume mute");
         self.audio_kernel
             .send(AudioCommand::Volume(VolumeCommand::ToggleMute));
+        Ok(Response::new(()))
     }
     /// mute the volume.
     #[instrument]
-    async fn playback_mute(self, context: Context) {
+    async fn playback_mute(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Muting volume");
         self.audio_kernel
             .send(AudioCommand::Volume(VolumeCommand::Mute));
+        Ok(Response::new(()))
     }
     /// unmute the volume.
     #[instrument]
-    async fn playback_unmute(self, context: Context) {
+    async fn playback_unmute(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Unmuting volume");
         self.audio_kernel
             .send(AudioCommand::Volume(VolumeCommand::Unmute));
+        Ok(Response::new(()))
     }
 
     /// add a song to the queue.
     /// (if the queue is empty, it will start playing the song.)
     #[instrument]
-    async fn queue_add(
-        self,
-        context: Context,
-        thing: schemas::RecordId,
-    ) -> Result<(), SerializableLibraryError> {
+    async fn queue_add(self: Arc<Self>, request: Request<RecordId>) -> TonicResult<()> {
+        let thing = request.into_inner().into();
         info!("Adding thing to queue: {thing}");
 
-        let songs = services::get_songs_from_things(&self.db, &[thing]).await?;
+        let songs = services::get_songs_from_things(&self.db, &[thing])
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("Error getting songs from provided things: {e}"))
+            })?;
 
         if songs.is_empty() {
-            return Err(Error::NotFound.into());
+            return Err(tonic::Status::not_found("No songs found"));
         }
 
         self.audio_kernel
@@ -867,16 +1123,15 @@ impl MusicPlayer for MusicPlayerServer {
                 songs.into_iter().map(Into::into).collect(),
             )));
 
-        Ok(())
+        Ok(Response::new(()))
     }
     /// add a list of things to the queue.
     /// (if the queue is empty, it will start playing the first thing in the list.)
     #[instrument]
-    async fn queue_add_list(
-        self,
-        context: Context,
-        list: Vec<schemas::RecordId>,
-    ) -> Result<(), SerializableLibraryError> {
+    async fn queue_add_list(self: Arc<Self>, request: Request<RecordIdList>) -> TonicResult<()> {
+        let RecordIdList { ids } = request.into_inner();
+        let list = ids.into_iter().map(Into::into).collect::<Vec<_>>();
+
         info!(
             "Adding list to queue: ({})",
             list.iter()
@@ -886,47 +1141,75 @@ impl MusicPlayer for MusicPlayerServer {
         );
 
         // go through the list, and get songs for each thing (depending on what it is)
-        let songs: OneOrMany<Song> = services::get_songs_from_things(&self.db, &list).await?;
+        let songs: OneOrMany<Song> = services::get_songs_from_things(&self.db, &list)
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("Error getting songs from provided things: {e}"))
+            })?;
 
         self.audio_kernel
             .send(AudioCommand::Queue(QueueCommand::AddToQueue(
                 songs.into_iter().map(Into::into).collect(),
             )));
 
-        Ok(())
+        Ok(Response::new(()))
     }
     /// set the current song to a queue index.
     /// if the index is out of bounds, it will be clamped to the nearest valid index.
     #[instrument]
-    async fn queue_set_index(self, context: Context, index: usize) {
+    async fn queue_set_index(
+        self: Arc<Self>,
+        request: Request<QueueSetIndexRequest>,
+    ) -> TonicResult<()> {
+        let QueueSetIndexRequest { index } = request.into_inner();
         info!("Setting queue index to: {index}");
 
         self.audio_kernel
-            .send(AudioCommand::Queue(QueueCommand::SetPosition(index)));
+            .send(AudioCommand::Queue(QueueCommand::SetPosition(
+                usize::try_from(index).unwrap_or(usize::MAX),
+            )));
+        Ok(Response::new(()))
     }
     /// remove a range of songs from the queue.
     /// if the range is out of bounds, it will be clamped to the nearest valid range.
     #[instrument]
-    async fn queue_remove_range(self, context: Context, range: Range<usize>) {
+    async fn queue_remove_range(
+        self: Arc<Self>,
+        request: Request<QueueRemoveRangeRequest>,
+    ) -> TonicResult<()> {
+        let QueueRemoveRangeRequest { start, end } = request.into_inner();
+        let start = usize::try_from(start).map_err(|e| {
+            tonic::Status::invalid_argument(format!("Invalid start index for range: {e}"))
+        })?;
+        let end = usize::try_from(end).map_err(|e| {
+            tonic::Status::invalid_argument(format!("Invalid end index for range: {e}"))
+        })?;
+        let range = start..end;
         info!("Removing queue range: {range:?}");
 
         self.audio_kernel
             .send(AudioCommand::Queue(QueueCommand::RemoveRange(range)));
+        Ok(Response::new(()))
     }
 
     /// create a new playlist.
     /// if a playlist with the same name already exists, this will return that playlist's id in the error variant
     #[instrument]
     async fn playlist_get_or_create(
-        self,
-        context: Context,
-        name: String,
-    ) -> Result<PlaylistId, SerializableLibraryError> {
+        self: Arc<Self>,
+        request: Request<PlaylistName>,
+    ) -> TonicResult<RecordId> {
+        let PlaylistName { name } = request.into_inner();
         info!("Creating new playlist: {name}");
 
         // see if a playlist with that name already exists
         match Playlist::read_by_name(&self.db, name.clone()).await {
-            Ok(Some(playlist)) => return Ok(playlist.id.into()),
+            Ok(Some(playlist)) => {
+                return Ok(Response::new(RecordId::new(
+                    playlist.id.table(),
+                    playlist.id.key(),
+                )));
+            }
             Err(e) => warn!("Error in playlist_new (looking for existing playlist): {e}"),
             _ => {}
         }
@@ -941,106 +1224,113 @@ impl MusicPlayer for MusicPlayerServer {
             },
         )
         .await
-        .inspect_err(|e| warn!("Error in playlist_new (creating new playlist): {e}"))?
-        {
-            Some(playlist) => Ok(playlist.id.into()),
-            None => Err(Error::NotCreated.into()),
+        .map_err(|e| {
+            tonic::Status::internal(format!(
+                "Error in playlist_new (creating new playlist): {e}"
+            ))
+        })? {
+            Some(playlist) => Ok(Response::new(RecordId::new(
+                playlist.id.table(),
+                playlist.id.key(),
+            ))),
+            None => Err(tonic::Status::not_found("playlist was not created")),
         }
     }
     /// remove a playlist.
     #[instrument]
-    async fn playlist_remove(
-        self,
-        context: Context,
-        id: PlaylistId,
-    ) -> Result<(), SerializableLibraryError> {
-        let id = id.into();
+    async fn playlist_remove(self: Arc<Self>, request: Request<Ulid>) -> TonicResult<()> {
+        let id = (schemas::playlist::TABLE_NAME, request.into_inner().id).into();
         info!("Removing playlist with id: {id}");
-
         Playlist::delete(&self.db, id)
-            .await?
-            .ok_or(Error::NotFound)?;
-
-        Ok(())
+            .await
+            .map_err(|e| tonic::Status::internal(format!("failed to delete playlist, {e}")))?
+            .ok_or_else(|| tonic::Status::not_found("playlist was not found"))?;
+        Ok(Response::new(()))
     }
     /// clone a playlist.
     /// (creates a new playlist with the same name (append " (copy)") and contents as the given playlist.)
     /// returns the id of the new playlist
     #[instrument]
-    async fn playlist_clone(
-        self,
-        context: Context,
-        id: PlaylistId,
-    ) -> Result<PlaylistId, SerializableLibraryError> {
-        let id = id.into();
+    async fn playlist_clone(self: Arc<Self>, request: Request<Ulid>) -> TonicResult<RecordId> {
+        let id = (schemas::playlist::TABLE_NAME, request.into_inner().id).into();
         info!("Cloning playlist with id: {id}");
 
-        let new_playlist = Playlist::create_copy(&self.db, id)
-            .await?
-            .ok_or(Error::NotFound)?;
-
-        Ok(new_playlist.id.into())
-    }
-    /// get the id of a playlist.
-    /// returns none if the playlist does not exist.
-    #[instrument]
-    async fn playlist_get_id(self, context: Context, name: String) -> Option<PlaylistId> {
-        info!("Getting playlist ID: {name}");
-
-        Playlist::read_by_name(&self.db, name)
+        let new = Playlist::create_copy(&self.db, id)
             .await
-            .inspect_err(|e| warn!("Error in playlist_get_id: {e}"))
-            .ok()
-            .flatten()
-            .map(|playlist| playlist.id.into())
+            .map_err(|e| tonic::Status::internal(format!("failed to clone playlist, {e}")))?
+            .ok_or_else(|| tonic::Status::not_found("playlist was not found"))?;
+
+        Ok(Response::new(RecordId::new(new.id.table(), new.id.key())))
     }
     /// remove a list of songs from a playlist.
     /// if the songs are not in the playlist, this will do nothing.
     #[instrument]
     async fn playlist_remove_songs(
-        self,
-        context: Context,
-        playlist: PlaylistId,
-        songs: Vec<SongId>,
-    ) -> Result<(), SerializableLibraryError> {
-        let playlist = playlist.into();
-        let songs = songs.into_iter().map(Into::into).collect::<Vec<_>>();
+        self: Arc<Self>,
+        request: Request<PlaylistRemoveSongsRequest>,
+    ) -> TonicResult<()> {
+        let PlaylistRemoveSongsRequest {
+            playlist_id,
+            song_ids,
+        } = request.into_inner();
+        let playlist = (schemas::playlist::TABLE_NAME, playlist_id.id).into();
+        let songs = song_ids
+            .into_iter()
+            .map(|id| (schemas::song::TABLE_NAME, id.id).into())
+            .collect::<Vec<_>>();
         info!("Removing song from playlist: {playlist} ({songs:?})");
 
-        Ok(Playlist::remove_songs(&self.db, playlist, songs).await?)
+        Playlist::remove_songs(&self.db, playlist, songs)
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("failed to remove songs from playlist, {e}"))
+            })?;
+        Ok(Response::new(()))
     }
     /// Add a thing to a playlist.
     /// If the thing is something that has songs (an album, artist, etc.), it will add all the songs.
     #[instrument]
     async fn playlist_add(
-        self,
-        context: Context,
-        playlist: PlaylistId,
-        thing: schemas::RecordId,
-    ) -> Result<(), SerializableLibraryError> {
-        let playlist = playlist.into();
+        self: Arc<Self>,
+        request: Request<PlaylistAddRequest>,
+    ) -> TonicResult<()> {
+        let PlaylistAddRequest {
+            playlist_id,
+            record_id,
+        } = request.into_inner();
+        let playlist = (schemas::playlist::TABLE_NAME, playlist_id.id).into();
+        let thing = record_id.into();
         info!("Adding thing to playlist: {playlist} ({thing})");
 
         // get songs for the thing
-        let songs: OneOrMany<Song> = services::get_songs_from_things(&self.db, &[thing]).await?;
+        let songs: OneOrMany<Song> = services::get_songs_from_things(&self.db, &[thing])
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("failed to get songs from things, {e}"))
+            })?;
 
-        Ok(Playlist::add_songs(
+        Playlist::add_songs(
             &self.db,
             playlist,
             songs.into_iter().map(|s| s.id).collect::<Vec<_>>(),
         )
-        .await?)
+        .await
+        .map_err(|e| tonic::Status::internal(format!("Error adding things to playlist: {e}")))?;
+        Ok(Response::new(()))
     }
     /// Add a list of things to a playlist.
     /// If the things are something that have songs (an album, artist, etc.), it will add all the songs.
     #[instrument]
     async fn playlist_add_list(
-        self,
-        context: Context,
-        playlist: PlaylistId,
-        list: Vec<schemas::RecordId>,
-    ) -> Result<(), SerializableLibraryError> {
-        let playlist = playlist.into();
+        self: Arc<Self>,
+        request: Request<PlaylistAddListRequest>,
+    ) -> TonicResult<()> {
+        let PlaylistAddListRequest {
+            playlist_id,
+            record_ids,
+        } = request.into_inner();
+        let playlist = (schemas::playlist::TABLE_NAME, playlist_id.id).into();
+        let list = record_ids.into_iter().map(Into::into).collect::<Vec<_>>();
         info!(
             "Adding list to playlist: {playlist} ({})",
             list.iter()
@@ -1050,72 +1340,57 @@ impl MusicPlayer for MusicPlayerServer {
         );
 
         // go through the list, and get songs for each thing (depending on what it is)
-        let songs: OneOrMany<Song> = services::get_songs_from_things(&self.db, &list).await?;
+        let songs: OneOrMany<Song> = services::get_songs_from_things(&self.db, &list)
+            .await
+            .map_err(|e| {
+                tonic::Status::internal(format!("failed to get songs from things, {e}"))
+            })?;
 
-        Ok(Playlist::add_songs(
+        Playlist::add_songs(
             &self.db,
             playlist,
             songs.into_iter().map(|s| s.id).collect::<Vec<_>>(),
         )
-        .await?)
-    }
-    /// Get a playlist by its ID.
-    #[instrument]
-    async fn playlist_get(self, context: Context, id: PlaylistId) -> Option<Playlist> {
-        let id = id.into();
-        info!("Getting playlist by ID: {id}");
-
-        Playlist::read(&self.db, id)
-            .await
-            .inspect_err(|e| warn!("Error in playlist_get: {e}"))
-            .ok()
-            .flatten()
-    }
-    /// Get the songs of a playlist
-    #[instrument]
-    async fn playlist_get_songs(self, context: Context, id: PlaylistId) -> Option<Box<[Song]>> {
-        let id = id.into();
-        info!("Getting songs in: {id}");
-        Playlist::read_songs(&self.db, id)
-            .await
-            .inspect_err(|e| warn!("Error in playlist_get_songs: {e}"))
-            .ok()
-            .map(Into::into)
+        .await
+        .map_err(|e| tonic::Status::internal(format!("failed to add songs to playlist, {e}")))?;
+        Ok(Response::new(()))
     }
     /// Rename a playlist.
     #[instrument]
     async fn playlist_rename(
-        self,
-        context: Context,
-        id: PlaylistId,
-        name: String,
-    ) -> Result<Playlist, SerializableLibraryError> {
-        let id = id.into();
+        self: Arc<Self>,
+        request: Request<PlaylistRenameRequest>,
+    ) -> TonicResult<PlaylistBrief> {
+        let PlaylistRenameRequest { playlist_id, name } = request.into_inner();
+        let id = (schemas::playlist::TABLE_NAME, playlist_id.id).into();
         info!("Renaming playlist: {id} ({name})");
-        Playlist::update(&self.db, id, PlaylistChangeSet::new().name(name))
-            .await?
-            .ok_or(Error::NotFound.into())
+        let updated = Playlist::update(&self.db, id, PlaylistChangeSet::new().name(name))
+            .await
+            .map_err(|e| tonic::Status::internal(format!("failed to rename playlist, {e}")))?
+            .ok_or_else(|| tonic::Status::not_found("playlist not found"))?;
+        Ok(Response::new(updated.into()))
     }
     /// Export a playlist to a .m3u file
     #[instrument]
     async fn playlist_export(
-        self,
-        context: Context,
-        id: PlaylistId,
-        path: PathBuf,
-    ) -> Result<(), SerializableLibraryError> {
-        info!("Exporting playlist to: {}", path.display());
+        self: Arc<Self>,
+        request: Request<PlaylistExportRequest>,
+    ) -> TonicResult<()> {
+        let PlaylistExportRequest { playlist_id, path } = request.into_inner();
+        let id = (schemas::playlist::TABLE_NAME, playlist_id.id).into();
+        info!("Exporting playlist to: {path}");
 
         // validate the path
-        validate_file_path(&path, "m3u", false)?;
+        validate_file_path(&path, "m3u", false)
+            .map_err(|e| tonic::Status::invalid_argument(format!("invalid file path: {e}")))?;
 
         // read the playlist
-        let playlist = Playlist::read(&self.db, id.into())
+        let playlist = Playlist::read(&self.db, id)
             .await
             .inspect_err(|e| warn!("Error in playlist_export: {e}"))
             .ok()
             .flatten()
-            .ok_or(Error::NotFound)?;
+            .ok_or_else(|| tonic::Status::not_found("playlist not found"))?;
         // get the songs in the playlist
         let songs = Playlist::read_songs(&self.db, playlist.id)
             .await
@@ -1127,27 +1402,30 @@ impl MusicPlayer for MusicPlayerServer {
         let file = File::create(&path).inspect_err(|e| warn!("Error in playlist_export: {e}"))?;
         // write the playlist to the file
         export_playlist(&playlist.name, &songs, file)
-            .inspect_err(|e| warn!("Error in playlist_export: {e}"))?;
-        info!("Exported playlist to: {}", path.display());
-        Ok(())
+            .inspect_err(|e| warn!("Error in playlist_export: {e}"))
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        info!("Exported playlist to: {path}");
+        Ok(Response::new(()))
     }
     /// Import a playlist from a .m3u file
     #[instrument]
     async fn playlist_import(
-        self,
-        context: Context,
-        path: PathBuf,
-        name: Option<String>,
-    ) -> Result<PlaylistId, SerializableLibraryError> {
-        info!("Importing playlist from: {}", path.display());
+        self: Arc<Self>,
+        request: Request<PlaylistImportRequest>,
+    ) -> TonicResult<RecordId> {
+        let PlaylistImportRequest { path, name } = request.into_inner();
+
+        info!("Importing playlist from: {path}");
 
         // validate the path
-        validate_file_path(&path, "m3u", true)?;
+        validate_file_path(&path, "m3u", true)
+            .map_err(|e| tonic::Status::invalid_argument(format!("invalid file path: {e}")))?;
 
         // read file
         let file = File::open(&path).inspect_err(|e| warn!("Error in playlist_import: {e}"))?;
-        let (parsed_name, song_paths) =
-            import_playlist(file).inspect_err(|e| warn!("Error in playlist_import: {e}"))?;
+        let (parsed_name, song_paths) = import_playlist(file)
+            .inspect_err(|e| warn!("Error in playlist_import: {e}"))
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
 
         log::debug!("Parsed playlist name: {parsed_name:?}");
         log::debug!("Parsed song paths: {song_paths:?}");
@@ -1161,7 +1439,10 @@ impl MusicPlayer for MusicPlayerServer {
         if let Ok(Some(playlist)) = Playlist::read_by_name(&self.db, name.clone()).await {
             // if it does, return the id
             info!("Playlist \"{name}\" already exists, will not import");
-            return Ok(playlist.id.into());
+            return Ok(Response::new(RecordId::new(
+                playlist.id.table(),
+                playlist.id.key(),
+            )));
         }
 
         // create the playlist
@@ -1175,15 +1456,17 @@ impl MusicPlayer for MusicPlayerServer {
             },
         )
         .await
-        .inspect_err(|e| warn!("Error in playlist_import: {e}"))?
-        .ok_or(Error::NotCreated)?;
+        .inspect_err(|e| warn!("Error in playlist_import: {e}"))
+        .map_err(|e| tonic::Status::internal(e.to_string()))?
+        .ok_or_else(|| tonic::Status::not_found("failed to create playlist"))?;
 
         // lookup all the songs
         let mut songs = Vec::new();
         for path in &song_paths {
             let Some(song) = Song::read_by_path(&self.db, path.clone())
                 .await
-                .inspect_err(|e| warn!("Error in playlist_import: {e}"))?
+                .inspect_err(|e| warn!("Error in playlist_import: {e}"))
+                .map_err(|e| tonic::Status::internal(e.to_string()))?
             else {
                 warn!("Song at {} not found in the library", path.display());
                 continue;
@@ -1193,7 +1476,10 @@ impl MusicPlayer for MusicPlayerServer {
         }
 
         if songs.is_empty() {
-            return Err(BackupError::NoValidSongs(song_paths.len()).into());
+            return Err(tonic::Status::new(
+                Code::InvalidArgument,
+                BackupError::NoValidSongs(song_paths.len()).to_string(),
+            ));
         }
 
         // add the songs to the playlist
@@ -1201,179 +1487,154 @@ impl MusicPlayer for MusicPlayerServer {
             .await
             .inspect_err(|e| {
                 warn!("Error in playlist_import: {e}");
-            })?;
+            })
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
 
         // return the playlist id
-        Ok(playlist.id.into())
+        Ok(Response::new(RecordId::new(
+            playlist.id.table(),
+            playlist.id.key(),
+        )))
     }
 
-    /// Collections: get a collection by its ID.
-    #[instrument]
-    async fn collection_get(self, context: Context, id: CollectionId) -> Option<Collection> {
-        info!("Getting collection by ID: {id:?}");
-        Collection::read(&self.db, id.into())
-            .await
-            .inspect_err(|e| warn!("Error in collection_get: {e}"))
-            .ok()
-            .flatten()
-    }
     /// Collections: freeze a collection (convert it to a playlist).
     #[instrument]
     async fn collection_freeze(
-        self,
-        context: Context,
-        id: CollectionId,
-        name: String,
-    ) -> Result<PlaylistId, SerializableLibraryError> {
+        self: Arc<Self>,
+        request: Request<CollectionFreezeRequest>,
+    ) -> TonicResult<RecordId> {
+        let CollectionFreezeRequest { id, name } = request.into_inner();
+        let id = (schemas::collection::TABLE_NAME, id.id).into();
         info!("Freezing collection: {id:?} ({name})");
-        Ok(Collection::freeze(&self.db, id.into(), name)
+        let playlist = Collection::freeze(&self.db, id, name)
             .await
-            .map(|p| p.id.into())?)
-    }
-    /// Get the songs of a collection
-    #[instrument]
-    async fn collection_get_songs(self, context: Context, id: CollectionId) -> Option<Box<[Song]>> {
-        let id = id.into();
-        info!("Getting songs in: {id}");
-        Collection::read_songs(&self.db, id)
-            .await
-            .inspect_err(|e| warn!("Error in collection_get_songs: {e}"))
-            .ok()
-            .map(Into::into)
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        Ok(Response::new(RecordId::new(
+            playlist.id.table(),
+            playlist.id.key(),
+        )))
     }
 
     /// Radio: get the `n` most similar songs to the given things.
     #[instrument]
     async fn radio_get_similar(
-        self,
-        context: Context,
-        things: Vec<schemas::RecordId>,
-        n: u32,
-    ) -> Result<Box<[Song]>, SerializableLibraryError> {
-        info!("Getting the {n} most similar songs to: {things:?}");
-        Ok(services::radio::get_similar(&self.db, things, n)
+        self: Arc<Self>,
+        request: Request<RadioSimilarRequest>,
+    ) -> TonicResult<SongBriefList> {
+        let RadioSimilarRequest { record_ids, limit } = request.into_inner();
+        let things = record_ids.into_iter().map(Into::into).collect();
+        info!("Getting the {limit} most similar songs to: {things:?}");
+        let songs = services::radio::get_similar(&self.db, things, limit)
             .await
-            .map(Vec::into_boxed_slice)
-            .inspect_err(|e| warn!("Error in radio_get_similar: {e}"))?)
+            .inspect_err(|e| warn!("Error in radio_get_similar: {e}"))
+            .map_err(|e| tonic::Status::internal(e.to_string()))?
+            .into_iter()
+            .map(|s| s.brief().into())
+            .collect();
+        Ok(Response::new(SongBriefList { songs }))
     }
     /// Radio: get the ids of the `n` most similar songs to the given things.
     #[instrument]
     async fn radio_get_similar_ids(
-        self,
-        context: Context,
-        things: Vec<schemas::RecordId>,
-        n: u32,
-    ) -> Result<Box<[SongId]>, SerializableLibraryError> {
-        info!("Getting the {n} most similar songs to: {things:?}");
-        Ok(services::radio::get_similar(&self.db, things, n)
+        self: Arc<Self>,
+        request: Request<RadioSimilarRequest>,
+    ) -> TonicResult<RecordIdList> {
+        let RadioSimilarRequest { record_ids, limit } = request.into_inner();
+        let things = record_ids.into_iter().map(Into::into).collect();
+        info!("Getting the {limit} most similar songs to: {things:?}");
+        let ids = services::radio::get_similar(&self.db, things, limit)
             .await
-            .map(|songs| songs.into_iter().map(|song| song.id.into()).collect())
-            .inspect_err(|e| warn!("Error in radio_get_similar_songs: {e}"))?)
+            .inspect_err(|e| warn!("Error in radio_get_similar_songs: {e}"))
+            .map_err(|e| tonic::Status::internal(e.to_string()))?
+            .into_iter()
+            .map(|song| RecordId::new(song.id.table(), song.id.key()))
+            .collect();
+        Ok(Response::new(RecordIdList::new(ids)))
     }
 
-    // Dynamic playlist commands
     /// Dynamic Playlists: create a new DP with the given name and query
     #[instrument]
     async fn dynamic_playlist_create(
-        self,
-        context: Context,
-        name: String,
-        query: Query,
-    ) -> Result<DynamicPlaylistId, SerializableLibraryError> {
+        self: Arc<Self>,
+        request: Request<DynamicPlaylistCreateRequest>,
+    ) -> TonicResult<RecordId> {
+        let DynamicPlaylistCreateRequest { name, query } = request.into_inner();
+        let query = query
+            .parse::<Query>()
+            .map_err(|e| tonic::Status::invalid_argument(e.to_string()))?;
         let id = DynamicPlaylist::generate_id();
         info!("Creating new DP: {id:?} ({name})");
 
         match DynamicPlaylist::create(&self.db, DynamicPlaylist { id, name, query })
             .await
-            .inspect_err(|e| warn!("Error in dynamic_playlist_create: {e}"))?
+            .inspect_err(|e| warn!("Error in dynamic_playlist_create: {e}"))
+            .map_err(|e| tonic::Status::internal(e.to_string()))?
         {
-            Some(dp) => Ok(dp.id.into()),
-            None => Err(Error::NotCreated.into()),
+            Some(dp) => Ok(Response::new(RecordId::new(dp.id.table(), dp.id.key()))),
+            None => Err(tonic::Status::not_found(
+                "failed to create dynamic playlist",
+            )),
         }
-    }
-    /// Dynamic Playlists: list all DPs
-    #[instrument]
-    async fn dynamic_playlist_list(self, context: Context) -> Box<[DynamicPlaylist]> {
-        info!("Listing DPs");
-        DynamicPlaylist::read_all(&self.db)
-            .await
-            .inspect_err(|e| warn!("Error in dynamic_playlist_list: {e}"))
-            .ok()
-            .map(Into::into)
-            .unwrap_or_default()
     }
     /// Dynamic Playlists: update a DP
     #[instrument]
     async fn dynamic_playlist_update(
-        self,
-        context: Context,
-        id: DynamicPlaylistId,
-        changes: DynamicPlaylistChangeSet,
-    ) -> Result<DynamicPlaylist, SerializableLibraryError> {
+        self: Arc<Self>,
+        request: Request<DynamicPlaylistUpdateRequest>,
+    ) -> TonicResult<mecomp_prost::DynamicPlaylist> {
+        let DynamicPlaylistUpdateRequest { id, changes } = request.into_inner();
+        let query = if let Some(new_query) = changes.new_query {
+            Some(
+                new_query
+                    .parse::<Query>()
+                    .map_err(|e| tonic::Status::invalid_argument(e.to_string()))?,
+            )
+        } else {
+            None
+        };
+        let id = (schemas::dynamic::TABLE_NAME, id.id).into();
+        let changes = DynamicPlaylistChangeSet {
+            name: changes.new_name,
+            query,
+        };
         info!("Updating DP: {id:?}, {changes:?}");
-        DynamicPlaylist::update(&self.db, id.into(), changes)
+        let updated = DynamicPlaylist::update(&self.db, id, changes)
             .await
-            .inspect_err(|e| warn!("Error in dynamic_playlist_update: {e}"))?
-            .ok_or(Error::NotFound.into())
+            .inspect_err(|e| warn!("Error in dynamic_playlist_update: {e}"))
+            .map_err(|e| tonic::Status::internal(e.to_string()))?
+            .ok_or_else(|| tonic::Status::not_found("Dynamic Playlist not found"))?
+            .into();
+        Ok(Response::new(updated))
     }
     /// Dynamic Playlists: remove a DP
     #[instrument]
-    async fn dynamic_playlist_remove(
-        self,
-        context: Context,
-        id: DynamicPlaylistId,
-    ) -> Result<(), SerializableLibraryError> {
+    async fn dynamic_playlist_remove(self: Arc<Self>, request: Request<Ulid>) -> TonicResult<()> {
+        let id = (schemas::dynamic::TABLE_NAME, request.into_inner().id).into();
         info!("Removing DP with id: {id:?}");
-        DynamicPlaylist::delete(&self.db, id.into())
-            .await?
-            .ok_or(Error::NotFound)?;
-        Ok(())
-    }
-    /// Dynamic Playlists: get a DP by its ID
-    #[instrument]
-    async fn dynamic_playlist_get(
-        self,
-        context: Context,
-        id: DynamicPlaylistId,
-    ) -> Option<DynamicPlaylist> {
-        info!("Getting DP by ID: {id:?}");
-        DynamicPlaylist::read(&self.db, id.into())
+        DynamicPlaylist::delete(&self.db, id)
             .await
-            .inspect_err(|e| warn!("Error in dynamic_playlist_get: {e}"))
-            .ok()
-            .flatten()
-    }
-    /// Dynamic Playlists: get the songs of a DP
-    #[instrument]
-    async fn dynamic_playlist_get_songs(
-        self,
-        context: Context,
-        id: DynamicPlaylistId,
-    ) -> Option<Box<[Song]>> {
-        info!("Getting songs in DP: {id:?}");
-        DynamicPlaylist::run_query_by_id(&self.db, id.into())
-            .await
-            .inspect_err(|e| warn!("Error in dynamic_playlist_get_songs: {e}"))
-            .ok()
-            .flatten()
-            .map(Into::into)
+            .map_err(|e| tonic::Status::internal(e.to_string()))?
+            .ok_or_else(|| tonic::Status::not_found("Dynamic Playlist not found"))?;
+        Ok(Response::new(()))
     }
     /// Dynamic Playlists: export dynamic playlists to a csv file
     #[instrument]
     async fn dynamic_playlist_export(
-        self,
-        context: Context,
-        path: PathBuf,
-    ) -> Result<(), SerializableLibraryError> {
-        info!("Exporting dynamic playlists to: {}", path.display());
+        self: Arc<Self>,
+        request: Request<mecomp_prost::Path>,
+    ) -> TonicResult<()> {
+        let path = request.into_inner().path;
+        info!("Exporting dynamic playlists to: {path}");
 
         // validate the path
-        validate_file_path(&path, "csv", false)?;
+        validate_file_path(&path, "csv", false)
+            .map_err(|e| tonic::Status::invalid_argument(format!("Backup Error: {e}")))?;
 
         // read the playlists
         let playlists = DynamicPlaylist::read_all(&self.db)
             .await
-            .inspect_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
+            .inspect_err(|e| warn!("Error in dynamic_playlist_export: {e}"))
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
 
         // create the file
         let file =
@@ -1381,21 +1642,23 @@ impl MusicPlayer for MusicPlayerServer {
         let writer = csv::Writer::from_writer(std::io::BufWriter::new(file));
         // write the playlists to the file
         export_dynamic_playlists(&playlists, writer)
-            .inspect_err(|e| warn!("Error in dynamic_playlist_export: {e}"))?;
-        info!("Exported dynamic playlists to: {}", path.display());
-        Ok(())
+            .inspect_err(|e| warn!("Error in dynamic_playlist_export: {e}"))
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        info!("Exported dynamic playlists to: {path}");
+        Ok(Response::new(()))
     }
     /// Dynamic Playlists: import dynamic playlists from a csv file
     #[instrument]
     async fn dynamic_playlist_import(
-        self,
-        context: Context,
-        path: PathBuf,
-    ) -> Result<Vec<DynamicPlaylist>, SerializableLibraryError> {
-        info!("Importing dynamic playlists from: {}", path.display());
+        self: Arc<Self>,
+        request: Request<mecomp_prost::Path>,
+    ) -> TonicResult<DynamicPlaylistList> {
+        let path = request.into_inner().path;
+        info!("Importing dynamic playlists from: {path}");
 
         // validate the path
-        validate_file_path(&path, "csv", true)?;
+        validate_file_path(&path, "csv", true)
+            .map_err(|e| tonic::Status::invalid_argument(format!("Backup Error: {e}")))?;
 
         // read file
         let file =
@@ -1406,10 +1669,14 @@ impl MusicPlayer for MusicPlayerServer {
 
         // read the playlists from the file
         let playlists = import_dynamic_playlists(reader)
-            .inspect_err(|e| warn!("Error in dynamic_playlist_import: {e}"))?;
+            .inspect_err(|e| warn!("Error in dynamic_playlist_import: {e}"))
+            .map_err(|e| tonic::Status::internal(format!("Backup Error: {e}")))?;
 
         if playlists.is_empty() {
-            return Err(BackupError::NoValidPlaylists.into());
+            return Err(tonic::Status::new(
+                Code::InvalidArgument,
+                format!("Backup Error: {}", BackupError::NoValidPlaylists),
+            ));
         }
 
         // create the playlists
@@ -1429,11 +1696,13 @@ impl MusicPlayer for MusicPlayerServer {
             ids.push(
                 DynamicPlaylist::create(&self.db, playlist)
                     .await
-                    .inspect_err(|e| warn!("Error in dynamic_playlist_import: {e}"))?
-                    .ok_or(Error::NotCreated)?,
+                    .inspect_err(|e| warn!("Error in dynamic_playlist_import: {e}"))
+                    .map_err(|e| tonic::Status::internal(e.to_string()))?
+                    .ok_or_else(|| tonic::Status::internal("Failed to create Dynamic Playlist"))?
+                    .into(),
             );
         }
 
-        Ok(ids)
+        Ok(Response::new(DynamicPlaylistList { playlists: ids }))
     }
 }

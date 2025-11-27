@@ -9,10 +9,8 @@ use mecomp_analysis::{
     clustering::{ClusteringHelper, KOptimal, NotInitialized},
     decoder::{Decoder, MecompDecoder},
 };
-use mecomp_core::{
-    config::ReclusterSettings,
-    state::library::{LibraryBrief, LibraryFull, LibraryHealth},
-};
+use mecomp_core::config::ReclusterSettings;
+use mecomp_prost::{LibraryBrief, LibraryFull, LibraryHealth};
 use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
 use tracing::{Instrument, instrument};
@@ -452,13 +450,43 @@ pub async fn recluster<C: Connection>(
 #[instrument]
 #[inline]
 pub async fn brief<C: Connection>(db: &Surreal<C>) -> Result<LibraryBrief, Error> {
+    let artists = Artist::read_all_brief(db)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    let albums = Album::read_all_brief(db)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    let songs = Song::read_all_brief(db)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    let playlists = Playlist::read_all_brief(db)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    let collections = Collection::read_all_brief(db)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    let dynamic_playlists = DynamicPlaylist::read_all(db)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
     Ok(LibraryBrief {
-        artists: Artist::read_all_brief(db).await?.into_boxed_slice(),
-        albums: Album::read_all_brief(db).await?.into_boxed_slice(),
-        songs: Song::read_all_brief(db).await?.into_boxed_slice(),
-        playlists: Playlist::read_all_brief(db).await?.into_boxed_slice(),
-        collections: Collection::read_all_brief(db).await?.into_boxed_slice(),
-        dynamic_playlists: DynamicPlaylist::read_all(db).await?.into_boxed_slice(),
+        artists,
+        albums,
+        songs,
+        playlists,
+        collections,
+        dynamic_playlists,
     })
 }
 
@@ -471,12 +499,36 @@ pub async fn brief<C: Connection>(db: &Surreal<C>) -> Result<LibraryBrief, Error
 #[inline]
 pub async fn full<C: Connection>(db: &Surreal<C>) -> Result<LibraryFull, Error> {
     Ok(LibraryFull {
-        artists: Artist::read_all(db).await?.into(),
-        albums: Album::read_all(db).await?.into(),
-        songs: Song::read_all(db).await?.into(),
-        playlists: Playlist::read_all(db).await?.into(),
-        collections: Collection::read_all(db).await?.into(),
-        dynamic_playlists: DynamicPlaylist::read_all(db).await?.into(),
+        artists: Artist::read_all(db)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect(),
+        albums: Album::read_all(db)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect(),
+        songs: Song::read_all(db)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect(),
+        playlists: Playlist::read_all(db)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect(),
+        collections: Collection::read_all(db)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect(),
+        dynamic_playlists: DynamicPlaylist::read_all(db)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect(),
     })
 }
 
@@ -901,11 +953,11 @@ mod tests {
         init();
         let db = init_test_database().await.unwrap();
         let brief = brief(&db).await.unwrap();
-        assert_eq!(brief.artists, Box::default());
-        assert_eq!(brief.albums, Box::default());
-        assert_eq!(brief.songs, Box::default());
-        assert_eq!(brief.playlists, Box::default());
-        assert_eq!(brief.collections, Box::default());
+        assert_eq!(brief.artists, Vec::default());
+        assert_eq!(brief.albums, Vec::default());
+        assert_eq!(brief.songs, Vec::default());
+        assert_eq!(brief.playlists, Vec::default());
+        assert_eq!(brief.collections, Vec::default());
     }
 
     #[tokio::test]

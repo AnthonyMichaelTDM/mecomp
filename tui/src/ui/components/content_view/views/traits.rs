@@ -1,5 +1,5 @@
 use super::ViewData;
-use mecomp_storage::db::schemas::RecordId;
+use mecomp_prost::RecordId;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     widgets::Widget,

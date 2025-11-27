@@ -1,0 +1,11 @@
+syntax = "proto2";
+
+package mecomp;
+
+import "apis/entities.proto";
+
+message CollectionFreezeRequest {
+  required Ulid id = 1;
+  // New name for the collection
+  required string name = 2;
+}

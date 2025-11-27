@@ -3,10 +3,8 @@
 use std::str::FromStr;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_storage::db::schemas::{
-    RecordId,
-    dynamic::{DynamicPlaylist, DynamicPlaylistChangeSet, query::Query},
-};
+use mecomp_prost::{DynamicPlaylist, DynamicPlaylistChangeSet, RecordId};
+use mecomp_storage::db::schemas::dynamic::query::Query;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Position, Rect},
@@ -50,11 +48,11 @@ impl DynamicPlaylistEditor {
         let mut name_input = InputBox::new(state, action_tx.clone());
         name_input.set_text(&dynamic_playlist.name);
         let mut query_input = InputBox::new(state, action_tx.clone());
-        query_input.set_text(&dynamic_playlist.query.to_string());
+        query_input.set_text(&dynamic_playlist.query.clone());
 
         Self {
             action_tx,
-            dynamic_playlist_id: dynamic_playlist.id.into(),
+            dynamic_playlist_id: dynamic_playlist.id,
             name_input,
             query_input,
             focus: Focus::Name,
@@ -139,13 +137,13 @@ impl Popup for DynamicPlaylistEditor {
             }
             (KeyCode::Enter, Some(query)) => {
                 let change_set = DynamicPlaylistChangeSet {
-                    name: Some(self.name_input.text().into()),
-                    query: Some(query),
+                    new_name: Some(self.name_input.text().into()),
+                    new_query: Some(query.to_string()),
                 };
 
                 self.action_tx
                     .send(Action::Library(LibraryAction::UpdateDynamicPlaylist(
-                        self.dynamic_playlist_id.clone(),
+                        self.dynamic_playlist_id.ulid(),
                         change_set,
                     )))
                     .ok();
@@ -253,7 +251,7 @@ impl ComponentRender<Rect> for DynamicPlaylistEditor {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::{assert_buffer_eq, setup_test_terminal};
+    use crate::test_utils::{assert_buffer_eq, item_id, setup_test_terminal};
 
     use super::*;
 
@@ -270,9 +268,9 @@ mod tests {
     #[fixture]
     fn playlist() -> DynamicPlaylist {
         DynamicPlaylist {
-            id: DynamicPlaylist::generate_id(),
+            id: RecordId::new("dynamic", item_id()),
             name: "Test".into(),
-            query: Query::from_str("title = \"foo \"").unwrap(),
+            query: Query::from_str("title = \"foo \"").unwrap().to_string(),
         }
     }
 
@@ -321,8 +319,8 @@ mod tests {
             Some(Action::Library(LibraryAction::UpdateDynamicPlaylist(
                 playlist.id.into(),
                 DynamicPlaylistChangeSet {
-                    name: Some(playlist.name.clone()),
-                    query: Some(playlist.query)
+                    new_name: Some(playlist.name.clone()),
+                    new_query: Some(playlist.query.to_string())
                 }
             )))
         );

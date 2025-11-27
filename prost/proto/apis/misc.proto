@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package mecomp;
+
+// Miscellaneous requests that do not naturally fit into other API files.
+message RegisterListenerRequest {
+	string host = 1;
+	uint32 port = 2;
+}
+
+message PingResponse {
+	string message = 1;
+}
