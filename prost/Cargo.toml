@@ -30,3 +30,6 @@ mecomp-storage.workspace = true
 
 [build-dependencies]
 tonic-prost-build = { version = "0.14.2", default-features = false }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }

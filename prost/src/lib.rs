@@ -10,6 +10,7 @@ mod mecomp {
         clippy::must_use_candidate
     )]
 
+    #[cfg(not(tarpaulin_include))]
     include!("../out/mecomp.rs");
 }
 #[doc(hidden)]
