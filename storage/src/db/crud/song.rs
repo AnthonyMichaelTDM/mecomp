@@ -981,7 +981,7 @@ mod test {
                 .iter()
                 .chain(song_case.artists.iter())
                 .collect::<std::collections::HashSet<_>>()
-                .len()
+                .len() as u64
         );
         assert_eq!(count_albums(&db).await.unwrap(), 1);
     }
