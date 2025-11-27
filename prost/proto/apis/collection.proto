@@ -6,6 +6,6 @@ import "apis/entities.proto";
 
 message CollectionFreezeRequest {
   required Ulid id = 1;
-  // Optional new name for the collection
-  optional string name = 2;
+  // New name for the collection
+  required string name = 2;
 }

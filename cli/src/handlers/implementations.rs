@@ -1142,7 +1142,7 @@ impl CommandHandler for super::CollectionCommand {
             }
             Self::Freeze { id, name } => {
                 let resp: RecordId = client
-                    .collection_freeze(CollectionFreezeRequest::new(id, Some(name)))
+                    .collection_freeze(CollectionFreezeRequest::new(id, name))
                     .await?
                     .into_inner();
                 writeln!(stdout, "Daemon response:\n{resp}")?;
