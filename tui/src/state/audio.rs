@@ -159,7 +159,7 @@ async fn handle_playback(
             .playback_volume_down(PlaybackVolumeAdjustRequest::new(amount))
             .await?
             .into_inner(),
-        PlaybackAction::ToggleMute => daemon.playback_volume_toggle_mute(()).await?.into_inner(),
+        PlaybackAction::ToggleMute => daemon.playback_toggle_mute(()).await?.into_inner(),
     }
 
     Ok(())

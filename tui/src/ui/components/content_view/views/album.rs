@@ -254,7 +254,7 @@ impl ComponentRender<RenderProps> for LibraryAlbumsView {
 #[cfg(test)]
 mod sort_mode_tests {
     use super::*;
-    use mecomp_storage::db::schemas::album::Album;
+    use mecomp_prost::RecordId;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
@@ -279,28 +279,28 @@ mod sort_mode_tests {
     fn test_sort_items() {
         let mut albums = vec![
             AlbumBrief {
-                id: Album::generate_id(),
+                id: RecordId::new("album", "1"),
                 title: "C".into(),
-                artists: "B".to_string().into(),
-                release: Some(2021),
+                artists: vec!["B".to_string()],
+                release_year: Some(2021),
                 discs: 1,
-                genres: "A".to_string().into(),
+                genres: vec!["A".to_string()],
             },
             AlbumBrief {
-                id: Album::generate_id(),
+                id: RecordId::new("album", "2"),
                 title: "B".into(),
-                artists: "A".to_string().into(),
-                release: Some(2022),
+                artists: vec!["A".to_string()],
+                release_year: Some(2022),
                 discs: 1,
-                genres: "C".to_string().into(),
+                genres: vec!["C".to_string()],
             },
             AlbumBrief {
-                id: Album::generate_id(),
+                id: RecordId::new("album", "3"),
                 title: "A".into(),
-                artists: "C".to_string().into(),
-                release: Some(2023),
+                artists: vec!["C".to_string()],
+                release_year: Some(2023),
                 discs: 1,
-                genres: "B".to_string().into(),
+                genres: vec!["B".to_string()],
             },
         ];
 
@@ -310,14 +310,14 @@ mod sort_mode_tests {
         assert_eq!(albums[2].title, "C");
 
         AlbumSort::Artist.sort_items(&mut albums);
-        assert_eq!(albums[0].artist, "A".to_string().into());
-        assert_eq!(albums[1].artist, "B".to_string().into());
-        assert_eq!(albums[2].artist, "C".to_string().into());
+        assert_eq!(albums[0].artists, vec!["A".to_string()]);
+        assert_eq!(albums[1].artists, vec!["B".to_string()]);
+        assert_eq!(albums[2].artists, vec!["C".to_string()]);
 
         AlbumSort::ReleaseYear.sort_items(&mut albums);
-        assert_eq!(albums[0].release, Some(2023));
-        assert_eq!(albums[1].release, Some(2022));
-        assert_eq!(albums[2].release, Some(2021));
+        assert_eq!(albums[0].release_year, Some(2023));
+        assert_eq!(albums[1].release_year, Some(2022));
+        assert_eq!(albums[2].release_year, Some(2021));
     }
 }
 

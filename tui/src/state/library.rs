@@ -5,7 +5,7 @@
 use mecomp_prost::{
     DynamicPlaylistCreateRequest, DynamicPlaylistUpdateRequest, LibraryAnalyzeRequest,
     LibraryBriefResponse as LibraryBrief, MusicPlayerClient, PlaylistAddListRequest, PlaylistName,
-    PlaylistRemoveSongsRequest, PlaylistRenameRequest,
+    PlaylistRemoveSongsRequest, PlaylistRenameRequest, tonic,
 };
 use tokio::sync::{
     broadcast,
@@ -95,7 +95,7 @@ async fn handle_action(
         LibraryAction::RemoveSongsFromPlaylist(playlist, songs) => daemon
             .playlist_remove_songs(PlaylistRemoveSongsRequest::new(playlist, songs))
             .await?
-            .map(|_| flag_update())
+            .map(|()| flag_update())
             .into_inner(),
         LibraryAction::AddThingsToPlaylist(playlist, things) => daemon
             .playlist_add_list(PlaylistAddListRequest::new(playlist, things))
@@ -111,7 +111,7 @@ async fn handle_action(
                 .playlist_add_list(PlaylistAddListRequest::new(playlist, things))
                 .await?
                 .map(|()| flag_update())
-                .into_inner()
+                .into_inner();
         }
         LibraryAction::CreateDynamicPlaylist(name, query) => daemon
             .dynamic_playlist_create(DynamicPlaylistCreateRequest::new(name, query))
@@ -147,6 +147,7 @@ async fn rescan_library(daemon: &mut MusicPlayerClient) -> anyhow::Result<()> {
     // don't error out is a rescan is in progress
     match daemon.library_rescan(()).await {
         Ok(_) => Ok(()),
+        Err(e) if e.code() == tonic::Code::Aborted => Ok(()),
         Err(e) => Err(e.into()),
     }
 }
@@ -159,6 +160,7 @@ async fn analyze_library(daemon: &mut MusicPlayerClient) -> anyhow::Result<()> {
         .await
     {
         Ok(_) => Ok(()),
+        Err(e) if e.code() == tonic::Code::Aborted => Ok(()),
         Err(e) => Err(e.into()),
     }
 }
@@ -167,6 +169,7 @@ async fn analyze_library(daemon: &mut MusicPlayerClient) -> anyhow::Result<()> {
 async fn recluster_library(daemon: &mut MusicPlayerClient) -> anyhow::Result<()> {
     match daemon.library_recluster(()).await {
         Ok(_) => Ok(()),
+        Err(e) if e.code() == tonic::Code::Aborted => Ok(()),
         Err(e) => Err(e.into()),
     }
 }

@@ -373,10 +373,8 @@ mod tests {
         },
     };
     use crossterm::event::KeyModifiers;
-    use mecomp_core::{
-        rpc::SearchResult,
-        state::{Percent, RepeatMode, StateAudio, StateRuntime, Status, library::LibraryBrief},
-    };
+    use mecomp_core::state::{Percent, RepeatMode, StateAudio, StateRuntime, Status};
+    use mecomp_prost::{LibraryBrief, SearchResult};
     use mecomp_storage::db::schemas::song::{Song, SongBrief};
     use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
@@ -395,7 +393,6 @@ mod tests {
             track: Some(0),
             disc: Some(0),
             release_year: Some(2021),
-            extension: "mp3".into(),
             path: "test.mp3".into(),
         }
     }
@@ -522,7 +519,7 @@ mod tests {
 
         let state = AppState {
             search: SearchResult {
-                songs: vec![song].into_boxed_slice(),
+                songs: vec![song.into()],
                 ..Default::default()
             },
             ..state
@@ -617,7 +614,7 @@ mod tests {
 
         let state = AppState {
             library: LibraryBrief {
-                songs: vec![song].into_boxed_slice(),
+                songs: vec![song.into()],
                 ..Default::default()
             },
             ..state
@@ -638,7 +635,7 @@ mod tests {
         let mut app = App::new(&state, tx);
 
         let state = AppState {
-            active_view: ActiveView::Song(song.id.key().to_owned().into()),
+            active_view: ActiveView::Song(song.id.key().to_string().into()),
             ..state
         };
         app = app.move_with_view(&state);

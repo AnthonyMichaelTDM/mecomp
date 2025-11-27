@@ -253,7 +253,7 @@ impl ComponentRender<RenderProps> for LibraryArtistsView {
 #[cfg(test)]
 mod sort_mode_tests {
     use super::*;
-    use mecomp_storage::db::schemas::artist::Artist;
+    use mecomp_prost::RecordId;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
@@ -277,15 +277,15 @@ mod sort_mode_tests {
     fn test_sort_items() {
         let mut artists = vec![
             ArtistBrief {
-                id: Artist::generate_id(),
+                id: RecordId::new("artist", "3"),
                 name: "C".into(),
             },
             ArtistBrief {
-                id: Artist::generate_id(),
+                id: RecordId::new("artist", "2"),
                 name: "B".into(),
             },
             ArtistBrief {
-                id: Artist::generate_id(),
+                id: RecordId::new("artist", "1"),
                 name: "A".into(),
             },
         ];

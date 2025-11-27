@@ -1,11 +1,11 @@
 pub mod dynamic;
+use std::time::Duration;
+
 use mecomp_core::format_duration;
+use mecomp_prost::RecordId;
 use mecomp_prost::{
-    Album, AlbumBrief, Artist, ArtistBrief, Collection, CollectionBrief, DynamicPlaylist, Playlist,
-    PlaylistBrief, Song, SongBrief,
+    Album, AlbumBrief, Artist, ArtistBrief, Collection, DynamicPlaylist, Playlist, Song, SongBrief,
 };
-use mecomp_prost::{RecordId, convert_duration};
-use one_or_many::OneOrMany;
 use ratatui::{
     layout::Alignment,
     style::{Style, Stylize},
@@ -47,8 +47,8 @@ pub struct ViewData {
 pub struct AlbumViewProps {
     pub id: RecordId,
     pub album: Album,
-    pub artists: OneOrMany<ArtistBrief>,
-    pub songs: Box<[SongBrief]>,
+    pub artists: Vec<ArtistBrief>,
+    pub songs: Vec<SongBrief>,
 }
 
 impl ItemViewProps for AlbumViewProps {
@@ -79,6 +79,13 @@ impl ItemViewProps for AlbumViewProps {
     }
 
     fn info_widget(&self) -> impl Widget {
+        let duration = self
+            .album
+            .runtime
+            .normalized()
+            .try_into()
+            .unwrap_or_default();
+
         Paragraph::new(vec![
             Line::from(vec![
                 Span::styled(&self.album.title, Style::default().bold()),
@@ -99,10 +106,7 @@ impl ItemViewProps for AlbumViewProps {
                 Span::raw("  Songs: "),
                 Span::styled(self.album.song_count.to_string(), Style::default().italic()),
                 Span::raw("  Duration: "),
-                Span::styled(
-                    format_duration(&convert_duration(self.album.runtime)),
-                    Style::default().italic(),
-                ),
+                Span::styled(format_duration(&duration), Style::default().italic()),
             ]),
         ])
         .alignment(Alignment::Center)
@@ -119,8 +123,8 @@ impl ItemViewProps for AlbumViewProps {
 pub struct ArtistViewProps {
     pub id: RecordId,
     pub artist: Artist,
-    pub albums: Box<[AlbumBrief]>,
-    pub songs: Box<[SongBrief]>,
+    pub albums: Vec<AlbumBrief>,
+    pub songs: Vec<SongBrief>,
 }
 
 impl ItemViewProps for ArtistViewProps {
@@ -151,6 +155,13 @@ impl ItemViewProps for ArtistViewProps {
     }
 
     fn info_widget(&self) -> impl Widget {
+        let duration = self
+            .artist
+            .runtime
+            .normalized()
+            .try_into()
+            .unwrap_or_default();
+
         Paragraph::new(vec![
             Line::from(Span::styled(&self.artist.name, Style::default().bold())),
             Line::from(vec![
@@ -165,10 +176,7 @@ impl ItemViewProps for ArtistViewProps {
                     Style::default().italic(),
                 ),
                 Span::raw("  Duration: "),
-                Span::styled(
-                    format_duration(&convert_duration(self.artist.runtime)),
-                    Style::default().italic(),
-                ),
+                Span::styled(format_duration(&duration), Style::default().italic()),
             ]),
         ])
         .alignment(Alignment::Center)
@@ -185,7 +193,7 @@ impl ItemViewProps for ArtistViewProps {
 pub struct CollectionViewProps {
     pub id: RecordId,
     pub collection: Collection,
-    pub songs: Box<[SongBrief]>,
+    pub songs: Vec<SongBrief>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -208,8 +216,8 @@ pub struct SongViewProps {
     pub song: Song,
     pub artists: Vec<ArtistBrief>,
     pub album: AlbumBrief,
-    pub playlists: Vec<PlaylistBrief>,
-    pub collections: Vec<CollectionBrief>,
+    pub playlists: Vec<Playlist>,
+    pub collections: Vec<Collection>,
 }
 
 impl ItemViewProps for SongViewProps {
@@ -240,7 +248,12 @@ impl ItemViewProps for SongViewProps {
     }
 
     fn info_widget(&self) -> impl Widget {
-        let runtime = convert_duration(self.song.runtime);
+        let runtime: Duration = self
+            .song
+            .runtime
+            .normalized()
+            .try_into()
+            .unwrap_or_default();
 
         Paragraph::new(vec![
             Line::from(vec![
@@ -578,8 +591,8 @@ pub mod checktree_utils {
     /// # Errors
     ///
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
-    pub fn create_collection_tree_item(
-        collections: &[CollectionBrief],
+    pub fn create_collection_tree_item<C: Into<CollectionBrief> + Clone>(
+        collections: &[C],
     ) -> Result<CheckTreeItem<'_, String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             collections,
@@ -590,21 +603,21 @@ pub mod checktree_utils {
     }
 
     #[must_use]
-    pub fn create_collection_tree_leaf(collection: &CollectionBrief) -> CheckTreeItem<'_, String> {
+    pub fn create_collection_tree_leaf<C: Into<CollectionBrief> + Clone>(
+        collection: &C,
+    ) -> CheckTreeItem<'_, String> {
+        let collection: CollectionBrief = collection.clone().into();
         CheckTreeItem::new_leaf(
             collection.id.to_string(),
-            Line::from(vec![Span::styled(
-                &collection.name,
-                Style::default().bold(),
-            )]),
+            Line::from(vec![Span::styled(collection.name, Style::default().bold())]),
         )
     }
 
     /// # Errors
     ///
     /// Returns an error if the tree item cannot be created (e.g. duplicate ids)
-    pub fn create_playlist_tree_item(
-        playlists: &[PlaylistBrief],
+    pub fn create_playlist_tree_item<P: Into<PlaylistBrief> + Clone>(
+        playlists: &[P],
     ) -> Result<CheckTreeItem<'_, String>, std::io::Error> {
         CheckTreeItem::<String>::new_with_items(
             playlists,
@@ -615,10 +628,13 @@ pub mod checktree_utils {
     }
 
     #[must_use]
-    pub fn create_playlist_tree_leaf(playlist: &PlaylistBrief) -> CheckTreeItem<'_, String> {
+    pub fn create_playlist_tree_leaf<P: Into<PlaylistBrief> + Clone>(
+        playlist: &P,
+    ) -> CheckTreeItem<'_, String> {
+        let playlist: PlaylistBrief = playlist.clone().into();
         CheckTreeItem::new_leaf(
             playlist.id.to_string(),
-            Line::from(vec![Span::styled(&playlist.name, Style::default().bold())]),
+            Line::from(vec![Span::styled(playlist.name, Style::default().bold())]),
         )
     }
 

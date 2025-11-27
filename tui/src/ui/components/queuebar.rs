@@ -41,7 +41,7 @@ impl From<&AppState> for Props {
     fn from(value: &AppState) -> Self {
         Self {
             current_position: value.audio.queue_position,
-            repeat_mode: value.audio.repeat_mode.into(),
+            repeat_mode: value.audio.repeat_mode,
             queue: value.audio.queue.clone(),
         }
     }

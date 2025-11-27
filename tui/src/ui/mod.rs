@@ -224,10 +224,10 @@ async fn song_view_future(
     id: Ulid,
 ) -> anyhow::Result<(
     Option<mecomp_prost::Song>,
-    Option<Vec<mecomp_prost::ArtistBrief>>,
+    Vec<mecomp_prost::ArtistBrief>,
     Option<mecomp_prost::AlbumBrief>,
-    Option<Vec<mecomp_prost::PlaylistBrief>>,
-    Option<Vec<mecomp_prost::CollectionBrief>>,
+    Vec<mecomp_prost::Playlist>,
+    Vec<mecomp_prost::Collection>,
 )> {
     let mut copy = daemon.clone();
     let song = copy.library_song_get(id.clone());
@@ -245,10 +245,10 @@ async fn song_view_future(
             |(song, artists, album, playlists, collections)| {
                 (
                     song.into_inner().song,
-                    artists.into_inner().artists.map(|a| a.artists),
+                    artists.into_inner().artists,
                     album.into_inner().album,
-                    playlists.into_inner().playlists.map(|p| p.playlists),
-                    collections.into_inner().collections.map(|c| c.collections),
+                    playlists.into_inner().playlists,
+                    collections.into_inner().collections,
                 )
             },
         )?,
@@ -260,8 +260,8 @@ async fn album_view_future(
     id: Ulid,
 ) -> anyhow::Result<(
     Option<mecomp_prost::Album>,
-    Option<Vec<mecomp_prost::ArtistBrief>>,
-    Option<Vec<mecomp_prost::SongBrief>>,
+    Vec<mecomp_prost::ArtistBrief>,
+    Vec<mecomp_prost::SongBrief>,
 )> {
     let mut copy = daemon.clone();
     let album = copy.library_album_get(id.clone());
@@ -274,8 +274,8 @@ async fn album_view_future(
         tokio::try_join!(album, artists, songs).map(|(album, artists, songs)| {
             (
                 album.into_inner().album,
-                artists.into_inner().artists.map(|a| a.artists),
-                songs.into_inner().songs.map(|s| s.songs),
+                artists.into_inner().artists,
+                songs.into_inner().songs,
             )
         })?,
     )
@@ -286,8 +286,8 @@ async fn artist_view_future(
     id: Ulid,
 ) -> anyhow::Result<(
     Option<mecomp_prost::Artist>,
-    Option<Vec<mecomp_prost::AlbumBrief>>,
-    Option<Vec<mecomp_prost::SongBrief>>,
+    Vec<mecomp_prost::AlbumBrief>,
+    Vec<mecomp_prost::SongBrief>,
 )> {
     let mut copy = daemon.clone();
     let artist = copy.library_artist_get(id.clone());
@@ -300,8 +300,8 @@ async fn artist_view_future(
         tokio::try_join!(artist, albums, songs,).map(|(artist, albums, songs)| {
             (
                 artist.into_inner().artist,
-                albums.into_inner().albums.map(|a| a.albums),
-                songs.into_inner().songs.map(|s| s.songs),
+                albums.into_inner().albums,
+                songs.into_inner().songs,
             )
         })?,
     )
@@ -310,20 +310,13 @@ async fn artist_view_future(
 async fn playlist_view_future(
     daemon: MusicPlayerClient,
     id: Ulid,
-) -> anyhow::Result<(
-    Option<mecomp_prost::Playlist>,
-    Option<Vec<mecomp_prost::SongBrief>>,
-)> {
+) -> anyhow::Result<(Option<mecomp_prost::Playlist>, Vec<mecomp_prost::SongBrief>)> {
     let mut copy = daemon.clone();
     let playlist = copy.library_playlist_get(id.clone());
     let mut copy = daemon.clone();
     let songs = copy.library_playlist_get_songs(id.clone());
-    Ok(tokio::try_join!(playlist, songs,).map(|(playlist, songs)| {
-        (
-            playlist.into_inner().playlist,
-            songs.into_inner().songs.map(|s| s.songs),
-        )
-    })?)
+    Ok(tokio::try_join!(playlist, songs,)
+        .map(|(playlist, songs)| (playlist.into_inner().playlist, songs.into_inner().songs))?)
 }
 
 async fn dynamic_playlist_view_future(
@@ -331,7 +324,7 @@ async fn dynamic_playlist_view_future(
     id: Ulid,
 ) -> anyhow::Result<(
     Option<mecomp_prost::DynamicPlaylist>,
-    Option<Vec<mecomp_prost::SongBrief>>,
+    Vec<mecomp_prost::SongBrief>,
 )> {
     let mut copy = daemon.clone();
     let dynamic_playlist = copy.library_dynamic_playlist_get(id.clone());
@@ -341,7 +334,7 @@ async fn dynamic_playlist_view_future(
         tokio::try_join!(dynamic_playlist, songs,).map(|(dynamic_playlist, songs)| {
             (
                 dynamic_playlist.into_inner().playlist,
-                songs.into_inner().songs.map(|s| s.songs),
+                songs.into_inner().songs,
             )
         })?,
     )
@@ -352,7 +345,7 @@ async fn collection_view_future(
     id: Ulid,
 ) -> anyhow::Result<(
     Option<mecomp_prost::Collection>,
-    Option<Vec<mecomp_prost::SongBrief>>,
+    Vec<mecomp_prost::SongBrief>,
 )> {
     let mut copy = daemon.clone();
     let collection = copy.library_collection_get(id.clone());
@@ -360,10 +353,7 @@ async fn collection_view_future(
     let songs = copy.library_collection_get_songs(id.clone());
     Ok(
         tokio::try_join!(collection, songs,).map(|(collection, songs)| {
-            (
-                collection.into_inner().collection,
-                songs.into_inner().songs.map(|s| s.songs),
-            )
+            (collection.into_inner().collection, songs.into_inner().songs)
         })?,
     )
 }
@@ -402,15 +392,9 @@ async fn handle_additional_view_data(
 ) -> Option<ViewData> {
     match active_view {
         ActiveView::Song(id) => {
-            if let Ok((
-                Some(song),
-                Some(artists),
-                Some(album),
-                Some(playlists),
-                Some(collections),
-            )) = song_view_future(daemon, id.clone()).await
+            if let Ok((Some(song), artists, Some(album), playlists, collections)) =
+                song_view_future(daemon, id.clone()).await
             {
-                let album = album.into();
                 let song_view_props = SongViewProps {
                     id: song.id.clone(),
                     song,
@@ -431,11 +415,7 @@ async fn handle_additional_view_data(
             }
         }
         ActiveView::Album(id) => {
-            if let Ok((Some(album), Some(artists), Some(songs))) =
-                album_view_future(daemon, id.clone()).await
-            {
-                let artists = artists.into_iter().map(Into::into).collect();
-                let songs = songs.into_iter().map(Into::into).collect();
+            if let Ok((Some(album), artists, songs)) = album_view_future(daemon, id.clone()).await {
                 let album_view_props = AlbumViewProps {
                     id: album.id.clone(),
                     album,
@@ -454,11 +434,8 @@ async fn handle_additional_view_data(
             }
         }
         ActiveView::Artist(id) => {
-            if let Ok((Some(artist), Some(albums), Some(songs))) =
-                artist_view_future(daemon, id.clone()).await
+            if let Ok((Some(artist), albums, songs)) = artist_view_future(daemon, id.clone()).await
             {
-                let albums = albums.into_iter().map(Into::into).collect();
-                let songs = songs.into_iter().map(Into::into).collect();
                 let artist_view_props = ArtistViewProps {
                     id: artist.id.clone(),
                     artist,
@@ -477,10 +454,7 @@ async fn handle_additional_view_data(
             }
         }
         ActiveView::Playlist(id) => {
-            if let Ok((Some(playlist), Some(songs))) =
-                playlist_view_future(daemon, id.clone()).await
-            {
-                let songs = songs.into_iter().map(Into::into).collect();
+            if let Ok((Some(playlist), songs)) = playlist_view_future(daemon, id.clone()).await {
                 let playlist_view_props = PlaylistViewProps {
                     id: playlist.id.clone(),
                     playlist,
@@ -498,10 +472,9 @@ async fn handle_additional_view_data(
             }
         }
         ActiveView::DynamicPlaylist(id) => {
-            if let Ok((Some(dynamic_playlist), Some(songs))) =
+            if let Ok((Some(dynamic_playlist), songs)) =
                 dynamic_playlist_view_future(daemon, id.clone()).await
             {
-                let songs = songs.into_iter().map(Into::into).collect();
                 let dynamic_playlist_view_props = DynamicPlaylistViewProps {
                     id: dynamic_playlist.id.clone(),
                     dynamic_playlist,
@@ -519,10 +492,8 @@ async fn handle_additional_view_data(
             }
         }
         ActiveView::Collection(id) => {
-            if let Ok((Some(collection), Some(songs))) =
-                collection_view_future(daemon, id.clone()).await
+            if let Ok((Some(collection), songs)) = collection_view_future(daemon, id.clone()).await
             {
-                let songs = songs.into_iter().map(Into::into).collect();
                 let collection_view_props = CollectionViewProps {
                     id: collection.id.clone(),
                     collection,
@@ -541,15 +512,14 @@ async fn handle_additional_view_data(
         }
         ActiveView::Radio(ids) => {
             let count = state.settings.tui.radio_count;
-            let radio_view_props = if let Ok(resp) = daemon
+            let radio_view_props = daemon
                 .radio_get_similar(RadioSimilarRequest::new(ids.clone(), count))
                 .await
-            {
-                let songs = resp.into_inner().songs;
-                Some(RadioViewProps { count, songs })
-            } else {
-                None
-            };
+                .ok()
+                .map(|resp| RadioViewProps {
+                    count,
+                    songs: resp.into_inner().songs,
+                });
             Some(ViewData {
                 radio: radio_view_props,
                 ..state.additional_view_data.clone()
@@ -560,9 +530,9 @@ async fn handle_additional_view_data(
                 random_view_future(daemon.clone()).await
             {
                 let random_view_props = RandomViewProps {
-                    album: album.id.into(),
-                    artist: artist.id.into(),
-                    song: song.id.into(),
+                    album: album.id,
+                    artist: artist.id,
+                    song: song.id,
                 };
                 Some(ViewData {
                     random: Some(random_view_props),

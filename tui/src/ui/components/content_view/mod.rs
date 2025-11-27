@@ -107,12 +107,12 @@ pub enum ActiveView {
 impl From<RecordId> for ActiveView {
     fn from(value: RecordId) -> Self {
         match value.tb.as_str() {
-            album::TABLE_NAME => Self::Album(value.id),
-            artist::TABLE_NAME => Self::Artist(value.id),
-            collection::TABLE_NAME => Self::Collection(value.id),
-            playlist::TABLE_NAME => Self::Playlist(value.id),
-            song::TABLE_NAME => Self::Song(value.id),
-            dynamic::TABLE_NAME => Self::DynamicPlaylist(value.id),
+            album::TABLE_NAME => Self::Album(value.ulid()),
+            artist::TABLE_NAME => Self::Artist(value.ulid()),
+            collection::TABLE_NAME => Self::Collection(value.ulid()),
+            playlist::TABLE_NAME => Self::Playlist(value.ulid()),
+            song::TABLE_NAME => Self::Song(value.ulid()),
+            dynamic::TABLE_NAME => Self::DynamicPlaylist(value.ulid()),
             _ => Self::None,
         }
     }
@@ -316,18 +316,18 @@ mod tests {
     #[case(ActiveView::None)]
     #[case(ActiveView::Search)]
     #[case(ActiveView::Songs)]
-    #[case(ActiveView::Song(item_id()))]
+    #[case(ActiveView::Song(Ulid::new(item_id())))]
     #[case(ActiveView::Albums)]
-    #[case(ActiveView::Album(item_id()))]
+    #[case(ActiveView::Album(Ulid::new(item_id())))]
     #[case(ActiveView::Artists)]
-    #[case(ActiveView::Artist(item_id()))]
+    #[case(ActiveView::Artist(Ulid::new(item_id())))]
     #[case(ActiveView::Playlists)]
-    #[case(ActiveView::Playlist(item_id()))]
+    #[case(ActiveView::Playlist(Ulid::new(item_id())))]
     #[case(ActiveView::DynamicPlaylists)]
-    #[case(ActiveView::DynamicPlaylist(item_id()))]
+    #[case(ActiveView::DynamicPlaylist(Ulid::new(item_id())))]
     #[case(ActiveView::Collections)]
-    #[case(ActiveView::Collection(item_id()))]
-    #[case(ActiveView::Radio(vec![RecordId::from(("song", item_id()))]))]
+    #[case(ActiveView::Collection(Ulid::new(item_id())))]
+    #[case(ActiveView::Radio(vec![RecordId::new("song", item_id())]))]
     #[case(ActiveView::Random)]
     fn smoke_render(#[case] active_view: ActiveView, #[values(true, false)] is_focused: bool) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
@@ -347,18 +347,18 @@ mod tests {
     #[case(ActiveView::None)]
     #[case(ActiveView::Search)]
     #[case(ActiveView::Songs)]
-    #[case(ActiveView::Song(item_id()))]
+    #[case(ActiveView::Song(Ulid::new(item_id())))]
     #[case(ActiveView::Albums)]
-    #[case(ActiveView::Album(item_id()))]
+    #[case(ActiveView::Album(Ulid::new(item_id())))]
     #[case(ActiveView::Artists)]
-    #[case(ActiveView::Artist(item_id()))]
+    #[case(ActiveView::Artist(Ulid::new(item_id())))]
     #[case(ActiveView::Playlists)]
-    #[case(ActiveView::Playlist(item_id()))]
+    #[case(ActiveView::Playlist(Ulid::new(item_id())))]
     #[case(ActiveView::DynamicPlaylists)]
-    #[case(ActiveView::DynamicPlaylist(item_id()))]
+    #[case(ActiveView::DynamicPlaylist(Ulid::new(item_id())))]
     #[case(ActiveView::Collections)]
-    #[case(ActiveView::Collection(item_id()))]
-    #[case(ActiveView::Radio(vec![RecordId::from(("song", item_id()))]))]
+    #[case(ActiveView::Collection(Ulid::new(item_id())))]
+    #[case(ActiveView::Radio(vec![RecordId::new("song", item_id())]))]
     #[case(ActiveView::Random)]
     fn test_get_active_view_component(#[case] active_view: ActiveView) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();

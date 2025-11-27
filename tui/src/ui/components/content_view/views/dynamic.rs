@@ -1,8 +1,8 @@
-use std::{str::FromStr, sync::Mutex};
+use std::{str::FromStr, sync::Mutex, time::Duration};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_core::format_duration;
-use mecomp_prost::{DynamicPlaylist, convert_duration};
+use mecomp_prost::DynamicPlaylist;
 use mecomp_storage::db::schemas::dynamic::query::Query;
 use ratatui::{
     Frame,
@@ -287,15 +287,17 @@ impl ComponentRender<RenderProps> for DynamicView {
                                 &state
                                     .songs
                                     .iter()
-                                    .map(|s| s.runtime)
-                                    .map(convert_duration)
+                                    .map(|s| {
+                                        TryInto::<Duration>::try_into(s.runtime.normalized())
+                                            .unwrap_or_default()
+                                    })
                                     .sum(),
                             ),
                             Style::default().italic(),
                         ),
                     ]),
                     Line::from(Span::styled(
-                        state.dynamic_playlist.query.to_string(),
+                        state.dynamic_playlist.query.clone(),
                         Style::default().italic(),
                     )),
                 ])
@@ -521,7 +523,7 @@ impl Component for LibraryDynamicView {
                     if let Some(thing) = things {
                         self.action_tx
                             .send(Action::Library(LibraryAction::RemoveDynamicPlaylist(
-                                thing.id,
+                                thing.ulid(),
                             )))
                             .unwrap();
                     }
@@ -764,6 +766,7 @@ mod item_view_tests {
         ui::{components::content_view::ActiveView, widgets::popups::PopupType},
     };
     use crossterm::event::KeyModifiers;
+    use mecomp_prost::RecordId;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
     use tokio::sync::mpsc::unbounded_channel;
@@ -879,7 +882,7 @@ mod item_view_tests {
         // - "q" should add the checked items to the queue
         // - "r" should start radio from the checked items
         // - "p" should add the checked items to a playlist
-        let song_id: mecomp_storage::db::schemas::RecordId = ("song", item_id()).into();
+        let song_id: RecordId = ("song", item_id()).into();
         view.handle_key_event(KeyEvent::from(KeyCode::Enter));
         view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
@@ -1181,9 +1184,7 @@ mod library_view_tests {
 
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Library(LibraryAction::RemoveDynamicPlaylist(
-                ("dynamic", item_id()).into()
-            ))
+            Action::Library(LibraryAction::RemoveDynamicPlaylist(item_id()))
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),

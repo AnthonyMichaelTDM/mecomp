@@ -86,6 +86,8 @@ impl Subscriber {
 
 #[cfg(test)]
 mod subscriber_tests {
+    use std::sync::Arc;
+
     use super::*;
     use mecomp_core::{audio::AudioKernelSender, config::Settings};
     use mecomp_daemon::init_test_client_server;
@@ -98,7 +100,6 @@ mod subscriber_tests {
     };
     use rstest::{fixture, rstest};
     use surrealdb::{RecordId, Surreal, engine::local::Db};
-    use tarpc::context::Context;
     use tempfile::tempdir;
     use termination::create_termination;
     use test_utils::item_id;
@@ -108,12 +109,12 @@ mod subscriber_tests {
     async fn db_with_state() -> Arc<Surreal<Db>> {
         let db = Arc::new(init_test_database().await.unwrap());
 
-        let album_id = RecordId::from_table_key("album", item_id());
-        let analysis_id = RecordId::from_table_key("analysis", item_id());
-        let artist_id = RecordId::from_table_key("artist", item_id());
-        let collection_id = RecordId::from_table_key("collection", item_id());
-        let playlist_id = RecordId::from_table_key("playlist", item_id());
-        let song_id = RecordId::from_table_key("song", item_id());
+        let album_id = RecordId::from_table_key("album", item_id().to_string());
+        let analysis_id = RecordId::from_table_key("analysis", item_id().to_string());
+        let artist_id = RecordId::from_table_key("artist", item_id().to_string());
+        let collection_id = RecordId::from_table_key("collection", item_id().to_string());
+        let playlist_id = RecordId::from_table_key("playlist", item_id().to_string());
+        let song_id = RecordId::from_table_key("song", item_id().to_string());
 
         // create a song, artist, album, collection, and playlist
         let song = Song {
@@ -126,7 +127,7 @@ mod subscriber_tests {
             runtime: std::time::Duration::from_secs(180),
             track: Some(0),
             disc: Some(0),
-            release: Some(2021),
+            release_year: Some(2021),
             extension: "mp3".into(),
             path: "test.mp3".into(),
         };
@@ -145,7 +146,7 @@ mod subscriber_tests {
             id: album_id.clone(),
             title: song.album.clone(),
             artist: song.artist.clone(),
-            release: song.release_year,
+            release_year: song.release_year,
             runtime: song.runtime,
             song_count: 1,
             discs: 1,
@@ -239,7 +240,7 @@ mod subscriber_tests {
     #[rstest]
     #[tokio::test]
     async fn test_connect(#[future] daemon: MusicPlayerClient) {
-        let daemon = Arc::new(daemon.await);
+        let mut daemon = daemon.await;
 
         let (mut terminator, interrupt_rx) = create_termination();
         let (action_tx, mut action_rx) = mpsc::unbounded_channel();
@@ -261,11 +262,7 @@ mod subscriber_tests {
 
         tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
 
-        daemon
-            .library_rescan(Context::current())
-            .await
-            .unwrap()
-            .unwrap();
+        daemon.library_rescan(()).await.unwrap();
 
         let action = action_rx.recv().await.unwrap();
 

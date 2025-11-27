@@ -6,7 +6,7 @@ use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_core::format_duration;
-use mecomp_prost::{CollectionBrief, convert_duration};
+use mecomp_prost::CollectionBrief;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Style, Stylize},
@@ -229,7 +229,14 @@ impl ComponentRender<RenderProps> for CollectionView {
                         ),
                         Span::raw("  Duration: "),
                         Span::styled(
-                            format_duration(&convert_duration(state.collection.runtime)),
+                            format_duration(
+                                &state
+                                    .collection
+                                    .runtime
+                                    .normalized()
+                                    .try_into()
+                                    .unwrap_or_default(),
+                            ),
                             Style::default().italic(),
                         ),
                     ]),
@@ -499,7 +506,7 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
 #[cfg(test)]
 mod sort_mode_tests {
     use super::*;
-    use mecomp_storage::db::schemas::collection::Collection;
+    use mecomp_prost::RecordId;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
@@ -523,15 +530,15 @@ mod sort_mode_tests {
     fn test_sort_collectionss() {
         let mut collections = vec![
             CollectionBrief {
-                id: Collection::generate_id(),
+                id: RecordId::new("collection", "3"),
                 name: "C".into(),
             },
             CollectionBrief {
-                id: Collection::generate_id(),
+                id: RecordId::new("collection", "1"),
                 name: "A".into(),
             },
             CollectionBrief {
-                id: Collection::generate_id(),
+                id: RecordId::new("collection", "2"),
                 name: "B".into(),
             },
         ];

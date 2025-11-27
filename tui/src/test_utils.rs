@@ -1,14 +1,8 @@
-use mecomp_core::{rpc::SearchResult, state::library::LibraryBrief};
-use mecomp_storage::db::schemas::{
-    Id, RecordId,
-    album::{Album, AlbumBrief},
-    artist::{Artist, ArtistBrief},
-    collection::{Collection, CollectionBrief},
-    dynamic::DynamicPlaylist,
-    playlist::{Playlist, PlaylistBrief},
-    song::{Song, SongBrief},
+use mecomp_prost::{
+    Album, AlbumBrief, Artist, ArtistBrief, Collection, CollectionBrief, DynamicPlaylist,
+    LibraryBrief, Playlist, PlaylistBrief, RecordId, SearchResult, Song, SongBrief, Ulid,
+    convert_std_duration,
 };
-use one_or_many::OneOrMany;
 use ratatui::{Terminal, backend::TestBackend, layout::Rect};
 
 use crate::{
@@ -51,39 +45,39 @@ pub fn assert_buffer_eq(buffer: &ratatui::buffer::Buffer, expected: &ratatui::bu
 }
 
 /// the id used for all the items in this fake library
-pub fn item_id() -> Id {
-    Id::String("01J1K5B6RJ84WJXCWYJ5WNE12E".into())
+pub fn item_id() -> Ulid {
+    Ulid::new("01J1K5B6RJ84WJXCWYJ5WNE12E")
 }
 
 /// Create an `AppState` that has the 1 of every type of item in the library (song, artist, album, ...)
 /// and `ContentView` as the active component, also, every view has data to display.
 #[allow(clippy::too_many_lines)]
 pub fn state_with_everything() -> AppState {
-    let album_id = RecordId::from(("album", item_id()));
-    let artist_id = RecordId::from(("artist", item_id()));
-    let collection_id = RecordId::from(("collection", item_id()));
-    let playlist_id = RecordId::from(("playlist", item_id()));
-    let song_id = RecordId::from(("song", item_id()));
-    let dynamic_id = RecordId::from(("dynamic", item_id()));
+    let album_id = RecordId::new("album", item_id());
+    let artist_id = RecordId::new("artist", item_id());
+    let collection_id = RecordId::new("collection", item_id());
+    let playlist_id = RecordId::new("playlist", item_id());
+    let song_id = RecordId::new("song", item_id());
+    let dynamic_id = RecordId::new("dynamic", item_id());
 
     let song = Song {
         id: song_id.clone().into(),
         title: "Test Song".into(),
-        artist: "Test Artist".to_string().into(),
-        album_artist: "Test Artist".to_string().into(),
+        artists: vec!["Test Artist".to_string()],
+        album_artists: vec!["Test Artist".to_string()],
         album: "Test Album".into(),
-        genre: "Test Genre".to_string().into(),
-        runtime: std::time::Duration::from_secs(180),
+        genres: vec!["Test Genre".to_string()],
+        runtime: convert_std_duration(std::time::Duration::from_secs(180)),
         track: Some(0),
         disc: Some(0),
-        release: Some(2021),
+        release_year: Some(2021),
         extension: "mp3".into(),
         path: "test.mp3".into(),
     };
     let song_brief: SongBrief = song.clone().into();
     let artist = Artist {
         id: artist_id.clone().into(),
-        name: song.artist[0].clone(),
+        name: song.artists[0].clone(),
         runtime: song.runtime,
         album_count: 1,
         song_count: 1,
@@ -97,7 +91,7 @@ pub fn state_with_everything() -> AppState {
         runtime: song.runtime,
         song_count: 1,
         discs: 1,
-        genre: song.genre.clone(),
+        genres: song.genres.clone(),
     };
     let album_brief: AlbumBrief = album.clone().into();
     let collection = Collection {
@@ -117,18 +111,18 @@ pub fn state_with_everything() -> AppState {
     let dynamic = DynamicPlaylist {
         id: dynamic_id.clone().into(),
         name: "Test Dynamic".into(),
-        query: "title = \"Test Song\"".parse().unwrap(),
+        query: "title = \"Test Song\"".into(),
     };
 
     AppState {
         active_component: ActiveComponent::ContentView,
         library: LibraryBrief {
-            artists: vec![artist_brief.clone()].into_boxed_slice(),
-            albums: vec![album_brief.clone()].into_boxed_slice(),
-            songs: vec![song_brief.clone()].into_boxed_slice(),
-            playlists: vec![playlist_brief.clone()].into_boxed_slice(),
-            collections: vec![collection_brief.clone()].into_boxed_slice(),
-            dynamic_playlists: vec![dynamic.clone()].into_boxed_slice(),
+            artists: vec![artist_brief.clone()],
+            albums: vec![album_brief.clone()],
+            songs: vec![song_brief.clone()],
+            playlists: vec![playlist_brief.clone()],
+            collections: vec![collection_brief.clone()],
+            dynamic_playlists: vec![dynamic.clone()],
         },
         additional_view_data: ViewData {
             random: Some(RandomViewProps {
@@ -139,47 +133,47 @@ pub fn state_with_everything() -> AppState {
             album: Some(AlbumViewProps {
                 id: album_id,
                 album,
-                artists: OneOrMany::One(Box::new(artist_brief.clone())),
-                songs: vec![song_brief.clone()].into_boxed_slice(),
+                artists: vec![artist_brief.clone()],
+                songs: vec![song_brief.clone()],
             }),
             artist: Some(ArtistViewProps {
                 id: artist_id,
                 artist,
-                albums: vec![album_brief.clone()].into_boxed_slice(),
-                songs: vec![song_brief.clone()].into_boxed_slice(),
+                albums: vec![album_brief.clone()],
+                songs: vec![song_brief.clone()],
             }),
             song: Some(SongViewProps {
                 id: song_id,
                 song,
-                artists: OneOrMany::One(Box::new(artist_brief.clone())),
+                artists: vec![artist_brief.clone()],
                 album: album_brief.clone(),
-                playlists: vec![playlist_brief].into_boxed_slice(),
-                collections: vec![collection_brief].into_boxed_slice(),
+                playlists: vec![playlist.clone()],
+                collections: vec![collection.clone()],
             }),
             collection: Some(CollectionViewProps {
                 id: collection_id,
                 collection,
-                songs: vec![song_brief.clone()].into_boxed_slice(),
+                songs: vec![song_brief.clone()],
             }),
             playlist: Some(PlaylistViewProps {
                 id: playlist_id,
                 playlist,
-                songs: vec![song_brief.clone()].into_boxed_slice(),
+                songs: vec![song_brief.clone()],
             }),
             dynamic_playlist: Some(DynamicPlaylistViewProps {
                 id: dynamic_id,
                 dynamic_playlist: dynamic,
-                songs: vec![song_brief.clone()].into_boxed_slice(),
+                songs: vec![song_brief.clone()],
             }),
             radio: Some(RadioViewProps {
                 count: 1,
-                songs: vec![song_brief.clone()].into_boxed_slice(),
+                songs: vec![song_brief.clone()],
             }),
         },
         search: SearchResult {
-            songs: vec![song_brief].into_boxed_slice(),
-            albums: vec![album_brief].into_boxed_slice(),
-            artists: vec![artist_brief].into_boxed_slice(),
+            songs: vec![song_brief],
+            albums: vec![album_brief],
+            artists: vec![artist_brief],
         },
         ..Default::default()
     }

@@ -3,7 +3,7 @@ pub mod notification;
 pub mod playlist;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_prost::{DynamicPlaylist, Playlist, RecordId};
+use mecomp_prost::{DynamicPlaylist, PlaylistBrief, RecordId};
 use ratatui::{
     layout::Position,
     prelude::Rect,
@@ -108,7 +108,7 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
 pub enum PopupType {
     Notification(Text<'static>),
     Playlist(Vec<RecordId>),
-    PlaylistEditor(Playlist),
+    PlaylistEditor(PlaylistBrief),
     DynamicPlaylistEditor(DynamicPlaylist),
 }
 
@@ -129,7 +129,7 @@ impl PopupType {
             Self::PlaylistEditor(playlist) => Box::new(playlist::PlaylistEditor::new(
                 state,
                 action_tx,
-                playlist.id.id.clone(),
+                playlist.id.ulid(),
                 &playlist.name,
             )) as _,
             Self::DynamicPlaylistEditor(playlist) => Box::new(dynamic::DynamicPlaylistEditor::new(
