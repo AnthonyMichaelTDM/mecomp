@@ -1,6 +1,6 @@
 //! Handles displaying the output of various commands in a human and machine readable format.
 
-use std::fmt::Write;
+use std::{fmt::Write, time::Duration};
 
 use mecomp_core::state::StateAudio;
 use mecomp_prost::{AlbumBrief, ArtistBrief, Playlist, RecordId, SongBrief};
@@ -156,7 +156,10 @@ pub fn playlist_list(prefix: &str, playlists: &[Playlist]) -> Result<String, std
         writeln!(
             output,
             "\t{}: \"{}\" ({} songs, {:?})",
-            playlist.id, playlist.name, playlist.song_count, playlist.runtime
+            playlist.id,
+            playlist.name,
+            playlist.song_count,
+            Duration::try_from(playlist.runtime).unwrap_or_default()
         )?;
     }
 
@@ -194,7 +197,10 @@ pub fn collection_list(
         writeln!(
             output,
             "\t{}: \"{}\" ({} songs, {:?})",
-            collection.id, collection.name, collection.song_count, collection.runtime
+            collection.id,
+            collection.name,
+            collection.song_count,
+            Duration::try_from(collection.runtime).unwrap_or_default()
         )?;
     }
 

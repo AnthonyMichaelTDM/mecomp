@@ -62,7 +62,7 @@ fn get_song_candidates(
     rt: &tokio::runtime::Handle,
     client: &mut MusicPlayerClient,
 ) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.library_songs_brief(()));
+    let response = rt.block_on(client.library_songs(()));
     if let Err(e) = response {
         eprintln!("Failed to fetch songs: {e}");
         return vec![];
@@ -73,7 +73,7 @@ fn get_song_candidates(
         .into_iter()
         .map(|song| {
             (
-                song.id.id.to_string(),
+                song.id.id,
                 StyledStr::from(format!(
                     "\"{}\" (by: {:?}, album: {})",
                     song.title, song.artists, song.album
@@ -87,7 +87,7 @@ fn get_album_candidates(
     rt: &tokio::runtime::Handle,
     client: &mut MusicPlayerClient,
 ) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.library_albums_brief(()));
+    let response = rt.block_on(client.library_albums(()));
     if let Err(e) = response {
         eprintln!("Failed to fetch albums: {e}");
         return vec![];
@@ -98,7 +98,7 @@ fn get_album_candidates(
         .into_iter()
         .map(|album| {
             (
-                album.id.id.to_string(),
+                album.id.id,
                 StyledStr::from(format!("\"{}\" (by: {:?})", album.title, album.artists)),
             )
         })
@@ -109,7 +109,7 @@ fn get_artist_candidates(
     rt: &tokio::runtime::Handle,
     client: &mut MusicPlayerClient,
 ) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.library_artists_brief(()));
+    let response = rt.block_on(client.library_artists(()));
     if let Err(e) = response {
         eprintln!("Failed to fetch artists: {e}");
         return vec![];
@@ -120,7 +120,7 @@ fn get_artist_candidates(
         .into_iter()
         .map(|artist| {
             (
-                artist.id.id.to_string(),
+                artist.id.id,
                 StyledStr::from(format!("\"{}\"", artist.name)),
             )
         })
@@ -131,7 +131,7 @@ fn get_playlist_candidates(
     rt: &tokio::runtime::Handle,
     client: &mut MusicPlayerClient,
 ) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.library_playlists_brief(()));
+    let response = rt.block_on(client.library_playlists(()));
     if let Err(e) = response {
         eprintln!("Failed to fetch playlists: {e}");
         return vec![];
@@ -142,7 +142,7 @@ fn get_playlist_candidates(
         .into_iter()
         .map(|playlist| {
             (
-                playlist.id.id.to_string(),
+                playlist.id.id,
                 StyledStr::from(format!("\"{}\"", playlist.name)),
             )
         })
@@ -153,7 +153,7 @@ fn get_dynamic_playlist_candidates(
     rt: &tokio::runtime::Handle,
     client: &mut MusicPlayerClient,
 ) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.library_dynamic_playlists_full(()));
+    let response = rt.block_on(client.library_dynamic_playlists(()));
     if let Err(e) = response {
         eprintln!("Failed to fetch dynamic playlists: {e}");
         return vec![];
@@ -164,7 +164,7 @@ fn get_dynamic_playlist_candidates(
         .into_iter()
         .map(|playlist| {
             (
-                playlist.id.id.to_string(),
+                playlist.id.id,
                 StyledStr::from(format!("\"{}\" ({})", playlist.name, playlist.query)),
             )
         })
@@ -175,7 +175,7 @@ fn get_collection_candidates(
     rt: &tokio::runtime::Handle,
     client: &mut MusicPlayerClient,
 ) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.library_collections_brief(()));
+    let response = rt.block_on(client.library_collections(()));
     if let Err(e) = response {
         eprintln!("Failed to fetch collections: {e}");
         return vec![];
@@ -186,7 +186,7 @@ fn get_collection_candidates(
         .into_iter()
         .map(|collection| {
             (
-                collection.id.id.to_string(),
+                collection.id.id,
                 StyledStr::from(format!("\"{}\"", collection.name)),
             )
         })

@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use clap::Parser;
-use mecomp_core::{audio::AudioKernelSender, config::Settings, rpc::MusicPlayerClient};
+use mecomp_core::{audio::AudioKernelSender, config::Settings};
 use mecomp_daemon::init_test_client_server;
+use mecomp_prost::MusicPlayerClient;
 use mecomp_storage::{
     db::schemas::{
         album::Album, analysis::Analysis, artist::Artist, collection::Collection,
@@ -89,7 +90,7 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
         runtime: std::time::Duration::from_secs(180),
         track: Some(0),
         disc: Some(0),
-        release: Some(2021),
+        release_year: Some(2021),
         extension: "mp3".into(),
         path: "test.mp3".into(),
     };
@@ -108,7 +109,7 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
         id: album_id.clone(),
         title: song.album.clone(),
         artist: song.artist.clone(),
-        release: song.release,
+        release_year: song.release_year,
         runtime: song.runtime,
         song_count: 1,
         discs: 1,

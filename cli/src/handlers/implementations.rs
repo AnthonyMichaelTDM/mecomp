@@ -21,6 +21,7 @@ use mecomp_prost::{
     PlaylistImportRequest, PlaylistName, PlaylistRemoveSongsRequest, PlaylistRenameRequest,
     QueueRemoveRangeRequest, QueueSetIndexRequest, RadioSimilarRequest, RecordId, RecordIdList,
     SearchRequest, SearchResult, Ulid,
+    tonic::{Code, Response},
 };
 use mecomp_storage::db::schemas::{
     album, artist, collection,
@@ -96,21 +97,21 @@ impl CommandHandler for Command {
             } => Ok(writeln!(
                 stdout,
                 "Daemon response:\n{:#?}",
-                client.rand_artist(()).await?
+                client.rand_artist(()).await?.into_inner().artist
             )?),
             Self::Rand {
                 target: RandTarget::Album,
             } => Ok(writeln!(
                 stdout,
                 "Daemon response:\n{:#?}",
-                client.rand_album(()).await?
+                client.rand_album(()).await?.into_inner().album
             )?),
             Self::Rand {
                 target: RandTarget::Song,
             } => Ok(writeln!(
                 stdout,
                 "Daemon response:\n{:#?}",
-                client.rand_song(()).await?
+                client.rand_song(()).await?.into_inner().song
             )?),
 
             Self::Search {
@@ -259,7 +260,7 @@ impl CommandHandler for LibraryCommand {
             Self::List { quiet, target } => {
                 match target {
                     LibraryListTarget::Artists => {
-                        let resp = client.library_artists_brief(()).await?.into_inner().artists;
+                        let resp = client.library_artists(()).await?.into_inner().artists;
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -267,7 +268,7 @@ impl CommandHandler for LibraryCommand {
                         )?;
                     }
                     LibraryListTarget::Albums => {
-                        let resp = client.library_albums_brief(()).await?.into_inner().albums;
+                        let resp = client.library_albums(()).await?.into_inner().albums;
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -275,7 +276,7 @@ impl CommandHandler for LibraryCommand {
                         )?;
                     }
                     LibraryListTarget::Songs => {
-                        let resp = client.library_songs_brief(()).await?.into_inner().songs;
+                        let resp = client.library_songs(()).await?.into_inner().songs;
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -283,11 +284,7 @@ impl CommandHandler for LibraryCommand {
                         )?;
                     }
                     LibraryListTarget::Playlists => {
-                        let resp = client
-                            .library_playlists_full(())
-                            .await?
-                            .into_inner()
-                            .playlists;
+                        let resp = client.library_playlists(()).await?.into_inner().playlists;
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
@@ -296,7 +293,7 @@ impl CommandHandler for LibraryCommand {
                     }
                     LibraryListTarget::DynamicPlaylists => {
                         let resp = client
-                            .library_dynamic_playlists_full(())
+                            .library_dynamic_playlists(())
                             .await?
                             .into_inner()
                             .playlists;
@@ -308,7 +305,7 @@ impl CommandHandler for LibraryCommand {
                     }
                     LibraryListTarget::Collections => {
                         let resp = client
-                            .library_collections_full(())
+                            .library_collections(())
                             .await?
                             .into_inner()
                             .collections;
@@ -731,11 +728,7 @@ impl CommandHandler for super::PlaylistCommand {
     ) -> Self::Output {
         match self {
             Self::List => {
-                let resp = client
-                    .library_playlists_full(())
-                    .await?
-                    .into_inner()
-                    .playlists;
+                let resp = client.library_playlists(()).await?.into_inner().playlists;
                 writeln!(
                     stdout,
                     "Daemon response:\n{}",
@@ -775,41 +768,40 @@ impl CommandHandler for super::PlaylistCommand {
             Self::Update { id, name } => {
                 match client
                     .playlist_rename(PlaylistRenameRequest::new(id, name))
-                    .await?
-                    .into_inner()
-                    .playlist
+                    .await
+                    .map(Response::into_inner)
                 {
-                    None => {
-                        writeln!(stdout, "Daemon response:\nplaylist not found")?;
-                    }
-                    Some(playlist) => {
+                    Ok(playlist) => {
                         writeln!(
                             stdout,
                             "Daemon response:\nplaylist renamed to \"{}\"",
                             playlist.name
                         )?;
                     }
+                    Err(e) if e.code() == Code::NotFound => {
+                        writeln!(stdout, "Daemon response:\nplaylist not found")?;
+                    }
+                    Err(e) => bail!(e),
                 }
                 Ok(())
             }
             Self::Songs { id } => {
                 match client
                     .library_playlist_get_songs(Ulid::new(id))
-                    .await?
-                    .into_inner()
-                    .songs
+                    .await
+                    .map(|r| r.into_inner().songs)
                 {
-                    Some(songs) => {
-                        let songs = songs.songs.into_iter().map(Into::into).collect::<Box<_>>();
+                    Ok(songs) => {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
                             printing::song_list("Songs", &songs, false)?
                         )?;
                     }
-                    None => {
+                    Err(e) if e.code() == Code::NotFound => {
                         writeln!(stdout, "Daemon response:\nplaylist not found")?;
                     }
+                    Err(e) => bail!(e),
                 }
                 Ok(())
             }
@@ -918,7 +910,8 @@ impl CommandHandler for super::PlaylistAddCommand {
                     .await?
                     .map(|()| "items added to playlist")
             }
-        };
+        }
+        .into_inner();
         writeln!(stdout, "Daemon response:\n{resp:?}")?;
         Ok(())
     }
@@ -965,7 +958,7 @@ impl CommandHandler for super::DynamicCommand {
         match self {
             Self::List => {
                 let resp = client
-                    .library_dynamic_playlists_full(())
+                    .library_dynamic_playlists(())
                     .await?
                     .into_inner()
                     .playlists;
@@ -988,21 +981,20 @@ impl CommandHandler for super::DynamicCommand {
             Self::Songs { id } => {
                 match client
                     .library_dynamic_playlist_get_songs(Ulid::new(id))
-                    .await?
-                    .into_inner()
-                    .songs
+                    .await
+                    .map(|r| r.into_inner().songs)
                 {
-                    Some(songs) => {
-                        let songs = songs.songs.into_iter().map(Into::into).collect::<Box<_>>();
+                    Ok(songs) => {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
                             printing::song_list("Songs", &songs, false)?
                         )?;
                     }
-                    None => {
+                    Err(e) if e.code() == Code::NotFound => {
                         writeln!(stdout, "Daemon response:\ndynamic playlist not found")?;
                     }
+                    Err(e) => bail!(e),
                 }
                 Ok(())
             }
@@ -1031,11 +1023,10 @@ impl CommandHandler for super::DynamicCommand {
                     changes = changes.query(query.compile_for_storage());
                 }
 
-                if let Some(resp) = client
+                if let Ok(resp) = client
                     .dynamic_playlist_update(DynamicPlaylistUpdateRequest::new(id, changes))
-                    .await?
-                    .into_inner()
-                    .playlist
+                    .await
+                    .map(Response::into_inner)
                 {
                     writeln!(
                         stdout,
@@ -1090,7 +1081,7 @@ impl CommandHandler for super::CollectionCommand {
         match self {
             Self::List => {
                 let resp = client
-                    .library_collections_full(())
+                    .library_collections(())
                     .await?
                     .into_inner()
                     .collections;
@@ -1113,21 +1104,20 @@ impl CommandHandler for super::CollectionCommand {
             Self::Songs { id } => {
                 match client
                     .library_collection_get_songs(Ulid::new(id))
-                    .await?
-                    .into_inner()
-                    .songs
+                    .await
+                    .map(|r| r.into_inner().songs)
                 {
-                    Some(songs) => {
-                        let songs = songs.songs.into_iter().map(Into::into).collect::<Box<_>>();
+                    Ok(songs) => {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
                             printing::song_list("Songs", &songs, false)?
                         )?;
                     }
-                    None => {
+                    Err(e) if e.code() == Code::NotFound => {
                         writeln!(stdout, "Daemon response:\ncollection not found")?;
                     }
+                    Err(e) => bail!(e),
                 }
                 Ok(())
             }
