@@ -13,7 +13,7 @@ Some(
         artists: [
             "Test Artist",
         ],
-        release_year: Some(
+        release: Some(
             2021,
         ),
         runtime: Duration {

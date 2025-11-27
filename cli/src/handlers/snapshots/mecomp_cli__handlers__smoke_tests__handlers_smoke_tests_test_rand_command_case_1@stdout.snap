@@ -13,7 +13,9 @@ Some(
         artists: [
             "Test Artist",
         ],
-        release_year: None,
+        release: Some(
+            2021,
+        ),
         discs: 1,
         genres: [
             "Test Genre",
