@@ -11,8 +11,9 @@ use mecomp_analysis::{
 };
 use mecomp_core::{
     config::ReclusterSettings,
-    state::library::{LibraryBrief, LibraryFull, LibraryHealth},
+    state::library::{LibraryBrief, LibraryFull},
 };
+use mecomp_prost::LibraryHealth;
 use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
 use tracing::{Instrument, instrument};
