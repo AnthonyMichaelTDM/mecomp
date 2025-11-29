@@ -177,7 +177,7 @@ MECOMP is designed to be modular and extensible, and is composed of a daemon (wh
 
 ### MECOMP-Daemon
 
-MECOMP-Daemon is a long-running RPC server that is the core of the application, it handles all the backend logic and state-management necessary for the application to function. the MECOMP clients are simply frontends to this server. It is written in rust and uses gRPC (inplemented with the [tonic library](https://github.com/hyperium/tonic)) for inter-process communication via RPC.
+MECOMP-Daemon is a long-running RPC server that is the core of the application, it handles all the backend logic and state-management necessary for the application to function. the MECOMP clients are simply frontends to this server. It is written in rust and uses gRPC (implemented with the [tonic library](https://github.com/hyperium/tonic)) for inter-process communication via RPC.
 
 ### Clients
 
