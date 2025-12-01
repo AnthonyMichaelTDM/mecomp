@@ -18,7 +18,6 @@ use tracing::Instrument;
 use mecomp_core::{
     audio::{AudioKernelSender, commands::AudioCommand},
     config::Settings,
-    is_server_running,
     logger::{init_logger, init_tracing},
     udp::{Message, Sender, StateChange},
 };
@@ -123,16 +122,17 @@ pub async fn start_daemon(
     tracing::subscriber::set_global_default(init_tracing())?;
     log::debug!("initialized logging");
 
+    // bind to `localhost:{rpc_port}`, we do this as soon as possible to minimize perceived startup delay
+    let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), settings.daemon.rpc_port);
+    let listener = TcpListener::bind(server_addr).await?;
+    info!(
+        "Listening on {}, reparing to handle requests",
+        listener.local_addr()?
+    );
+    let incoming = TcpListenerStream::new(listener);
+
     // start initializing the database asynchronously
     let db_task = tokio::task::spawn(init_database());
-
-    // check if a server is already running
-    if is_server_running(settings.daemon.rpc_port) {
-        anyhow::bail!(
-            "A server is already running on port {}",
-            settings.daemon.rpc_port
-        );
-    }
 
     // initialize the termination handler
     let (terminator, interrupt_rx) = termination::create_termination();
@@ -170,8 +170,8 @@ pub async fn start_daemon(
         interrupt_rx.resubscribe(),
     )?;
 
-    // Initialize the server.
-    let server = MusicPlayer::new(
+    // Initialize the server state.
+    let state = MusicPlayer::new(
         db.clone(),
         settings.clone(),
         audio_kernel.clone(),
@@ -181,7 +181,7 @@ pub async fn start_daemon(
     );
 
     // Start the daemon server.
-    if let Err(e) = run_daemon(server, settings, interrupt_rx.resubscribe()).await {
+    if let Err(e) = run_daemon(incoming, state, interrupt_rx.resubscribe()).await {
         error!("Error running daemon: {e}");
     }
 
@@ -210,18 +210,12 @@ pub async fn start_daemon(
 /// Run the daemon with the given settings, database, and state file path.
 /// Does not handle setup or teardown, just runs the server.
 async fn run_daemon(
-    server: MusicPlayer,
-    settings: Arc<Settings>,
+    incoming: TcpListenerStream,
+    state: MusicPlayer,
     mut interrupt_rx: InterruptReceiver,
 ) -> anyhow::Result<()> {
-    // Start the RPC server.
-    let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), settings.daemon.rpc_port);
-
-    let listener = TcpListener::bind(server_addr).await?;
-    info!("Listening on {}", listener.local_addr()?);
-    let incoming = TcpListenerStream::new(listener);
-
-    let svc = MusicPlayerServer::new(server);
+    // Start the RPC server listening to the given stream of `incoming` data
+    let svc = MusicPlayerServer::new(state);
 
     let shutdown_future = async move {
         // Wait for the server to be stopped.
@@ -240,6 +234,8 @@ async fn run_daemon(
             Err(e) => error!("Stopping server because of an unexpected error: {e}"),
         }
     };
+
+    info!("Daemon is ready to handle requests");
 
     tonic::transport::Server::builder()
         .trace_fn(|r| tracing::trace_span!("grpc", "request" = %r.uri()))
