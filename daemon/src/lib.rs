@@ -126,7 +126,7 @@ pub async fn start_daemon(
     let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), settings.daemon.rpc_port);
     let listener = TcpListener::bind(server_addr).await?;
     info!(
-        "Listening on {}, reparing to handle requests",
+        "Listening on {}, preparing to handle requests",
         listener.local_addr()?
     );
     let incoming = TcpListenerStream::new(listener);
