@@ -83,7 +83,7 @@ jobs:
       - name: Install linux dependencies
         run: |
           sudo apt update
-          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev libdbus-1-dev
+          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev libdbus-1-dev protobuf-compiler
         if: contains(matrix.platform.os, 'ubuntu')
 
       - name: Setup cache
