@@ -1,5 +1,7 @@
 const PROTO_FILES: &[&str] = &[
     "proto/daemon.proto",
+    "proto/google/protobuf/duration.proto",
+    "proto/google/protobuf/empty.proto",
     "proto/apis/collection.proto",
     "proto/apis/dynamic.proto",
     "proto/apis/entities.proto",
@@ -21,6 +23,7 @@ fn main() {
         .build_server(true)
         .out_dir("out")
         .emit_package(true)
+        .emit_rerun_if_changed(true)
         .use_arc_self(true)
         .compile_protos(PROTO_FILES, &["proto"])
         .unwrap_or_else(|e| panic!("Failed to compile protos {e:?}"));
