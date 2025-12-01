@@ -32,7 +32,7 @@ fn main() -> anyhow::Result<()> {
         .build()?;
 
     rt.block_on(async {
-        let client = mecomp_prost::init_client(flags.port)?;
+        let client = mecomp_prost::init_client(flags.port).await?;
 
         let mut stdout_adapter = WriteAdapter(std::io::stdout());
         let mut stderr_adapter = WriteAdapter(std::io::stderr());

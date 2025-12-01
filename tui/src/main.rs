@@ -2,7 +2,7 @@ use clap::{CommandFactory, Parser};
 use mecomp_core::config::Settings;
 #[cfg(feature = "autostart-daemon")]
 use mecomp_core::is_server_running;
-use mecomp_prost::init_client;
+use mecomp_prost::init_client_with_retry;
 use mecomp_tui::{
     Subscriber,
     state::Dispatcher,
@@ -41,8 +41,7 @@ async fn main() -> anyhow::Result<()> {
     let server_process = MaybeDaemonHandler::start(settings.daemon.rpc_port).await?;
 
     // initialize the client
-    // let daemon = init_client_with_retry::<5, 1>(settings.daemon.rpc_port).await?;
-    let daemon = init_client(settings.daemon.rpc_port)?;
+    let daemon = init_client_with_retry::<5, 1>(settings.daemon.rpc_port).await?;
 
     // initialize the signal handlers
 

@@ -31,13 +31,7 @@ pub fn complete_things(table: CompletableTable) -> impl Fn() -> Vec<CompletionCa
 
         let handle = tokio::runtime::Handle::current();
 
-        let mut client: MusicPlayerClient = match mecomp_prost::init_client(6600) {
-            Ok(client) => client,
-            Err(e) => {
-                eprintln!("Failed to connect to daemon: {e}");
-                return vec![];
-            }
-        };
+        let mut client: MusicPlayerClient = mecomp_prost::lazy_init_client(6600);
 
         let candidates = match table {
             CompletableTable::Song => get_song_candidates(&handle, &mut client),

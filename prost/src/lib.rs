@@ -38,9 +38,9 @@ pub type MusicPlayerClient =
 
 #[derive(thiserror::Error, Debug)]
 pub enum ConnectionError {
-    #[error("Transport error: {0}")]
+    #[error("{0}")]
     Transport(#[from] tonic::transport::Error),
-    #[error("Failed to connect to Music Player Daemon on port {port} after {retries} retries")]
+    #[error("failed to connect to Music Player Daemon on port {port} after {retries} retries")]
     MaxRetriesExceeded { port: u16, retries: u64 },
 }
 
@@ -53,6 +53,28 @@ impl Interceptor for TraceInterceptor {
     }
 }
 
+/// Initialize the music player client, without verifying the connection.
+///
+/// # Note
+///
+/// Does not check that the daemon is actually running, to get a verified connection use either `init_client` or `init_client_with_retry`
+///
+/// # Panics
+///
+/// Panics if <https://localhost:{rpc_port}> is not a valid URL.
+#[must_use]
+pub fn lazy_init_client(rpc_port: u16) -> MusicPlayerClient {
+    let endpoint = format!("http://localhost:{rpc_port}");
+
+    let endpoint = Channel::from_shared(endpoint)
+        .expect("Invalid endpoint URL")
+        .connect_lazy();
+
+    let interceptor = TraceInterceptor {};
+
+    music_player_client::MusicPlayerClient::with_interceptor(endpoint, interceptor)
+}
+
 /// Initialize the music player client
 ///
 /// # Errors
@@ -62,19 +84,19 @@ impl Interceptor for TraceInterceptor {
 /// # Panics
 ///
 /// Panics if <https://localhost:{rpc_port}> is not a valid URL.
-pub fn init_client(rpc_port: u16) -> Result<MusicPlayerClient, ConnectionError> {
+pub async fn init_client(rpc_port: u16) -> Result<MusicPlayerClient, ConnectionError> {
     let endpoint = format!("http://localhost:{rpc_port}");
 
     let endpoint = Channel::from_shared(endpoint)
         .expect("Invalid endpoint URL")
-        .connect_lazy();
+        .connect()
+        .await?;
 
     let interceptor = TraceInterceptor {};
 
-    Ok(music_player_client::MusicPlayerClient::with_interceptor(
-        endpoint,
-        interceptor,
-    ))
+    let client = music_player_client::MusicPlayerClient::with_interceptor(endpoint, interceptor);
+
+    Ok(client)
 }
 
 /// Initialize a client to the Music Player Daemon, with `MAX_RETRIES` retries spaced `DELAY` seconds apart
@@ -91,7 +113,7 @@ pub async fn init_client_with_retry<const MAX_RETRIES: u64, const DELAY: u64>(
     let mut retries = 0u64;
 
     while retries < MAX_RETRIES {
-        match init_client(rpc_port) {
+        match init_client(rpc_port).await {
             Ok(client) => return Ok(client),
             Err(e) => {
                 retries += 1;

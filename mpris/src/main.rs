@@ -41,10 +41,12 @@ async fn main() {
     // connect to the daemon
     let Ok(daemon) = mecomp_prost::init_client_with_retry::<5, 1>(flags.port)
         .await
-        .inspect_err(|e| log::error!("Failed to connect to daemon: {e}"))
+        .inspect_err(|e| log::error!("{e}"))
     else {
         return;
     };
+
+    log::info!("Connected to daemon");
 
     // create the Mpris instance
     let mpris = Mpris::new_with_daemon(daemon);
