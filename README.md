@@ -27,13 +27,13 @@ MECOMP is a local music player that it is designed to solve a very specific prob
 
 On linux, you will need to have the following packages installed:
 
-`libasound2-dev` `pkg-config` `wget` `libavutil-dev` `libavformat-dev`
+`libasound2-dev` `pkg-config` `wget` `libavutil-dev` `libavformat-dev` `protobuf-compiler`
 
 ```sh
 # debian/ubuntu
-sudo apt-get install libasound2-dev pkg-config wget libavutil-dev libavformat-dev
+sudo apt-get install libasound2-dev pkg-config wget libavutil-dev libavformat-dev protobuf-compiler
 # Arch (btw)
-sudo pacman -S alsa-lib pkg-config wget ffmpeg
+sudo pacman -S alsa-lib pkg-config wget ffmpeg protobuf
 ```
 
 </details>
