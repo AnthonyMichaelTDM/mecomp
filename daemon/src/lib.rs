@@ -117,6 +117,15 @@ pub async fn start_daemon(
     // Throw the given settings into an Arc so we can share settings across threads.
     let settings = Arc::new(settings);
 
+    // Initialize the logger, database, and tracing.
+    init_logger(settings.daemon.log_level, log_file_path);
+    set_database_path(db_dir)?;
+    tracing::subscriber::set_global_default(init_tracing())?;
+    log::debug!("initialized logging");
+
+    // start initializing the database asynchronously
+    let db_task = tokio::task::spawn(init_database());
+
     // check if a server is already running
     if is_server_running(settings.daemon.rpc_port) {
         anyhow::bail!(
@@ -125,14 +134,30 @@ pub async fn start_daemon(
         );
     }
 
-    // Initialize the logger, database, and tracing.
-    init_logger(settings.daemon.log_level, log_file_path);
-    set_database_path(db_dir)?;
-    let db = Arc::new(init_database().await?);
-    tracing::subscriber::set_global_default(init_tracing())?;
-
     // initialize the termination handler
     let (terminator, interrupt_rx) = termination::create_termination();
+    log::debug!("initialized terminator");
+
+    // initialize the event publisher
+    let event_publisher_guard = EventPublisher::new().await;
+    log::debug!("initialized event publisher");
+
+    // Start the audio kernel.
+    let audio_kernel = AudioKernelSender::start(event_publisher_guard.event_tx.clone());
+    log::debug!("initialized audio kernel");
+
+    // optionally restore the queue state
+    if let Some(state_path) = &state_file_path {
+        info!("Restoring queue state from {}", state_path.display());
+        match QueueState::load_from_file(state_path) {
+            Ok(state) => state.restore_to(&audio_kernel),
+            Err(e) => error!("Failed to restore queue state: {e}"),
+        }
+    }
+
+    // join the db initialization task
+    let db = Arc::new(db_task.await??);
+    log::debug!("initialized database");
 
     // Start the music library watcher.
     #[cfg(feature = "dynamic_updates")]
@@ -144,22 +169,6 @@ pub async fn start_daemon(
         settings.daemon.genre_separator.clone(),
         interrupt_rx.resubscribe(),
     )?;
-
-    // initialize the event publisher
-    let event_publisher_guard = EventPublisher::new().await;
-
-    // Start the audio kernel.
-    let audio_kernel = AudioKernelSender::start(event_publisher_guard.event_tx.clone());
-
-    // optionally restore the queue state
-    if let Some(state_path) = &state_file_path {
-        info!("Restoring queue state from {}", state_path.display());
-        if let Err(e) =
-            QueueState::load_from_file(state_path).map(|state| state.restore_to(&audio_kernel))
-        {
-            error!("Failed to restore queue state: {e}");
-        }
-    }
 
     // Initialize the server.
     let server = MusicPlayer::new(
@@ -187,15 +196,13 @@ pub async fn start_daemon(
 
     if let Some(state_path) = &state_file_path {
         info!("Persisting queue state to {}", state_path.display());
-        if let Err(e) = QueueState::retrieve(&audio_kernel)
+        let _ = QueueState::retrieve(&audio_kernel)
             .await
             .and_then(|state| state.save_to_file(state_path))
-        {
-            error!("Failed to persist queue state: {e}");
-        }
+            .inspect_err(|e| error!("Failed to persist queue state: {e}"));
     }
 
-    log::info!("Cleanup complete, exiting...");
+    log::info!("Cleanup complete");
 
     Ok(())
 }
