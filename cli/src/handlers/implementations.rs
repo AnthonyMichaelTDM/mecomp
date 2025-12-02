@@ -709,6 +709,7 @@ impl CommandHandler for QueueCommand {
                     "Daemon response:\ncurrent song set to index {index}"
                 )?;
             }
+            #[allow(deprecated)]
             Self::Pipe => {
                 let stdin = std::io::stdin();
                 if stdin.is_terminal() {
@@ -969,6 +970,7 @@ impl CommandHandler for super::PlaylistAddCommand {
                         .map(|()| "songs added to playlist")
                 }
             }
+            #[allow(deprecated)]
             Self::Pipe { id } => {
                 let stdin = std::io::stdin();
                 if stdin.is_terminal() {
@@ -1327,6 +1329,7 @@ impl CommandHandler for super::RadioCommand {
                 writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
                 Ok(())
             }
+            #[allow(deprecated)]
             Self::Pipe { n } => {
                 let stdin = std::io::stdin();
                 if stdin.is_terminal() {

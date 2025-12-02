@@ -374,6 +374,9 @@ pub enum QueueCommand {
     /// mecomp-cli search all "the beatles" -q | mecomp-cli queue pipe
     /// ```
     /// This will add all the results of the search to the queue
+    ///
+    /// Deprecated: Use `queue add` without arguments and pipe input instead
+    #[deprecated(since = "0.5.10", note = "Use `queue add` without arguments and pipe input instead")]
     Pipe,
 }
 
@@ -503,6 +506,9 @@ pub enum PlaylistAddCommand {
     /// mecomp-cli search all "the beatles" -q | mecomp-cli playlist add pipe
     /// ```
     /// This will add all the results of the search to the playlist
+    ///
+    /// Deprecated: Use `playlist add song <playlist-id>` without song_ids and pipe input instead
+    #[deprecated(since = "0.5.10", note = "Use `playlist add song <playlist-id>` without song_ids and pipe input instead")]
     Pipe {
         /// The id of the playlist
         #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
@@ -654,6 +660,9 @@ pub enum RadioCommand {
     /// mecomp-cli search all "the beatles" -q | mecomp-cli radio pipe 5
     /// ```
     /// This will add all the results of the search to the radio, and print out the 5 most similar songs
+    ///
+    /// Deprecated: Use `radio song <n>` without an id and pipe input instead
+    #[deprecated(since = "0.5.10", note = "Use `radio song <n>` without an id and pipe input instead")]
     Pipe {
         /// The number of songs to get
         #[clap(value_hint = ValueHint::Other)]

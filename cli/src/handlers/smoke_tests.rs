@@ -471,12 +471,12 @@ async fn test_playback_command(
 }
 
 #[rstest]
-#[case(QueueCommand::Add { id: item_id().to_string(), target: QueueAddTarget::Album })]
-#[case(QueueCommand::Add { id: item_id().to_string(), target: QueueAddTarget::Artist })]
-#[case(QueueCommand::Add { id: item_id().to_string(), target: QueueAddTarget::Song })]
-#[case(QueueCommand::Add { id: item_id().to_string(), target: QueueAddTarget::Playlist })]
-#[case(QueueCommand::Add { id: item_id().to_string(), target: QueueAddTarget::Collection })]
-#[case(QueueCommand::Add { id: item_id().to_string(), target: QueueAddTarget::Dynamic })]
+#[case(QueueCommand::Add { id: Some(item_id().to_string()), target: Some(QueueAddTarget::Album) })]
+#[case(QueueCommand::Add { id: Some(item_id().to_string()), target: Some(QueueAddTarget::Artist) })]
+#[case(QueueCommand::Add { id: Some(item_id().to_string()), target: Some(QueueAddTarget::Song) })]
+#[case(QueueCommand::Add { id: Some(item_id().to_string()), target: Some(QueueAddTarget::Playlist) })]
+#[case(QueueCommand::Add { id: Some(item_id().to_string()), target: Some(QueueAddTarget::Collection) })]
+#[case(QueueCommand::Add { id: Some(item_id().to_string()), target: Some(QueueAddTarget::Dynamic) })]
 #[case(QueueCommand::Remove { start: 0, end: 1 })]
 #[case(QueueCommand::Clear)]
 #[case(QueueCommand::List { quiet: false })]
@@ -500,8 +500,8 @@ async fn test_queue_command(#[future] client: MusicPlayerClient, #[case] command
 
 #[rstest]
 #[case(PlaylistCommand::Add { command: PlaylistAddCommand::Song { id: item_id().to_string(), song_ids: vec![item_id().to_string()] } })]
-#[case(PlaylistCommand::Add { command: PlaylistAddCommand::Album { id: item_id().to_string(), album_id: item_id().to_string() } })]
-#[case(PlaylistCommand::Add { command: PlaylistAddCommand::Artist { id: item_id().to_string(), artist_id: item_id().to_string() } })]
+#[case(PlaylistCommand::Add { command: PlaylistAddCommand::Album { id: item_id().to_string(), album_id: Some(item_id().to_string()) } })]
+#[case(PlaylistCommand::Add { command: PlaylistAddCommand::Artist { id: item_id().to_string(), artist_id: Some(item_id().to_string()) } })]
 #[case(PlaylistCommand::Remove { id: item_id().to_string(), item_ids: vec![item_id().to_string()] })]
 #[case(PlaylistCommand::List)]
 #[case(PlaylistCommand::Get { method: PlaylistGetMethod::Name, target: "Test Playlist".to_string() })]
@@ -672,10 +672,10 @@ async fn test_collection_freeze(#[future] client: MusicPlayerClient) {
 }
 
 #[rstest]
-#[case( RadioCommand::Album { id: item_id().to_string(), n: 1 } )]
-#[case( RadioCommand::Artist { id: item_id().to_string(), n: 1 } )]
-#[case( RadioCommand::Song { id: item_id().to_string(), n: 1 } )]
-#[case( RadioCommand::Playlist { id: item_id().to_string(), n: 1 } )]
+#[case( RadioCommand::Album { id: Some(item_id().to_string()), n: 1 } )]
+#[case( RadioCommand::Artist { id: Some(item_id().to_string()), n: 1 } )]
+#[case( RadioCommand::Song { id: Some(item_id().to_string()), n: 1 } )]
+#[case( RadioCommand::Playlist { id: Some(item_id().to_string()), n: 1 } )]
 #[tokio::test]
 async fn test_radio_command(#[future] client: MusicPlayerClient, #[case] command: RadioCommand) {
     let command = Command::Radio { command };
