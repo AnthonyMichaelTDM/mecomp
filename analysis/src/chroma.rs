@@ -266,7 +266,9 @@ pub fn pip_track(
 
     // Validate that a valid frequency range was found
     if beginning >= end {
-        return Err(AnalysisError::AnalysisError(String::from("in chroma: no valid frequency range found")));
+        return Err(AnalysisError::AnalysisError(String::from(
+            "in chroma: no valid frequency range found",
+        )));
     }
     // There will be at most taken_columns * length elements in pitches / mags
     let mut pitches = Vec::with_capacity(taken_columns * length);
