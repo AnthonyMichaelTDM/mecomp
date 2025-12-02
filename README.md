@@ -27,13 +27,13 @@ MECOMP is a local music player that it is designed to solve a very specific prob
 
 On linux, you will need to have the following packages installed:
 
-`libasound2-dev` `pkg-config` `wget` `libavutil-dev` `libavformat-dev`
+`libasound2-dev` `pkg-config` `wget` `libavutil-dev` `libavformat-dev` `protobuf-compiler`
 
 ```sh
 # debian/ubuntu
-sudo apt-get install libasound2-dev pkg-config wget libavutil-dev libavformat-dev
+sudo apt-get install libasound2-dev pkg-config wget libavutil-dev libavformat-dev protobuf-compiler
 # Arch (btw)
-sudo pacman -S alsa-lib pkg-config wget ffmpeg
+sudo pacman -S alsa-lib pkg-config wget ffmpeg protobuf
 ```
 
 </details>
@@ -177,7 +177,7 @@ MECOMP is designed to be modular and extensible, and is composed of a daemon (wh
 
 ### MECOMP-Daemon
 
-MECOMP-Daemon is a long-running RPC server that is the core of the application, it handles all the backend logic and state-management necessary for the application to function. the MECOMP clients are simply frontends to this server. It is written in rust and uses google's [tarpc](https://github.com/google/tarpc) library for inter-process communication via RPC.
+MECOMP-Daemon is a long-running RPC server that is the core of the application, it handles all the backend logic and state-management necessary for the application to function. the MECOMP clients are simply frontends to this server. It is written in rust and uses gRPC (implemented with the [tonic library](https://github.com/hyperium/tonic)) for inter-process communication via RPC.
 
 ### Clients
 

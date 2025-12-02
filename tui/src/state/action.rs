@@ -4,14 +4,9 @@
 
 use std::time::Duration;
 
-use mecomp_core::{
-    state::{RepeatMode, SeekType},
-    udp::StateChange,
-};
-use mecomp_storage::db::schemas::{
-    RecordId,
-    dynamic::{DynamicPlaylistChangeSet, query::Query},
-};
+use mecomp_core::{state::SeekType, udp::StateChange};
+use mecomp_prost::{DynamicPlaylistChangeSet, RecordId, Ulid};
+use mecomp_storage::db::schemas::dynamic::query::Query;
 
 use crate::ui::{components::content_view::ActiveView, widgets::popups::PopupType};
 
@@ -80,15 +75,15 @@ pub enum QueueAction {
     /// Add a list of things to the queue (by id)
     Add(Vec<RecordId>),
     /// Remove something from the queue (by index)
-    Remove(usize),
+    Remove(u64),
     /// Set the current queue position
-    SetPosition(usize),
+    SetPosition(u64),
     /// Shuffle the queue
     Shuffle,
     /// Clear the queue
     Clear,
     /// Set the repeat mode
-    SetRepeatMode(RepeatMode),
+    SetRepeatMode(mecomp_prost::RepeatMode),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -104,11 +99,11 @@ pub enum LibraryAction {
     /// Create a new playlist with the given name
     CreatePlaylist(String),
     /// Delete a playlist by id
-    RemovePlaylist(RecordId),
+    RemovePlaylist(Ulid),
     /// Rename a playlist by id
-    RenamePlaylist(RecordId, String),
+    RenamePlaylist(Ulid, String),
     /// Remove a song from a playlist (`PlaylistId`, Vec<`SongId`>)
-    RemoveSongsFromPlaylist(RecordId, Vec<RecordId>),
+    RemoveSongsFromPlaylist(Ulid, Vec<RecordId>),
     /// Add a list of things to a playlist (`PlaylistId`, Vec<`SongId`>)
     AddThingsToPlaylist(RecordId, Vec<RecordId>),
     /// Create a new playlist with the given name (if it doesn't exist) and add the songs to it
@@ -117,9 +112,9 @@ pub enum LibraryAction {
     /// Create a new dynamic playlist with the given name and query
     CreateDynamicPlaylist(String, Query),
     /// Delete a dynamic playlist by id
-    RemoveDynamicPlaylist(RecordId),
+    RemoveDynamicPlaylist(Ulid),
     /// Update the query of a dynamic playlist
-    UpdateDynamicPlaylist(RecordId, DynamicPlaylistChangeSet),
+    UpdateDynamicPlaylist(Ulid, DynamicPlaylistChangeSet),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

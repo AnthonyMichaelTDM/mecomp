@@ -5,14 +5,15 @@ expression: "String::from_utf8(stdout.0.clone()).unwrap()"
 Daemon response:
 Some(
     Artist {
-        id: Thing {
+        id: RecordId {
             tb: "artist",
-            id: String(
-                "01J1K5B6RJ84WJXCWYJ5WNE12E",
-            ),
+            id: "01J1K5B6RJ84WJXCWYJ5WNE12E",
         },
         name: "Test Artist",
-        runtime: 180s,
+        runtime: Duration {
+            seconds: 180,
+            nanos: 0,
+        },
         album_count: 1,
         song_count: 1,
     },

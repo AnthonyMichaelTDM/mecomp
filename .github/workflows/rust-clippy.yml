@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y --no-install-recommends libasound2-dev wget libavutil-dev libavformat-dev
+          sudo apt install -y --no-install-recommends libasound2-dev wget libavutil-dev libavformat-dev protobuf-compiler
 
       - name: Set up mold linker
         uses: rui314/setup-mold@v1

@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev
+          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev protobuf-compiler
 
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -58,6 +58,7 @@ jobs:
             mecomp-analysis,
             mecomp-storage,
             mecomp-core,
+            mecomp-prost,
             mecomp-daemon,
             mecomp-mpris,
             mecomp-cli,
@@ -76,7 +77,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev
+          sudo apt install -y --no-install-recommends libasound2-dev pkg-config wget libavutil-dev libavformat-dev protobuf-compiler
 
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable

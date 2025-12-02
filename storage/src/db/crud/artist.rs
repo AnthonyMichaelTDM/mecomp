@@ -589,7 +589,7 @@ mod tests {
                 artist: artist.name.clone().into(),
                 album: album.title.clone(),
                 runtime: Duration::from_secs(2),
-                track: Some(i as u16 + 1),
+                track: Some(i as u32 + 1),
                 disc: Some(1),
                 genre: OneOrMany::None,
                 album_artist: artist.name.clone().into(),

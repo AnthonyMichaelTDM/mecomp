@@ -3,7 +3,7 @@
 use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
-use mecomp_storage::db::schemas::song::SongBrief;
+use mecomp_prost::SongBrief;
 use ratatui::{
     layout::{Margin, Rect},
     style::{Style, Stylize},
@@ -43,7 +43,7 @@ pub struct LibrarySongsView {
 }
 
 pub(crate) struct Props {
-    pub(crate) songs: Box<[SongBrief]>,
+    pub(crate) songs: Vec<SongBrief>,
     pub(crate) sort_mode: SongSort,
 }
 
@@ -257,7 +257,7 @@ impl ComponentRender<RenderProps> for LibrarySongsView {
 #[cfg(test)]
 mod sort_mode_tests {
     use super::*;
-    use mecomp_storage::db::schemas::song::Song;
+    use mecomp_prost::{RecordId, convert_std_duration};
     use pretty_assertions::assert_eq;
     use rstest::rstest;
     use std::time::Duration;
@@ -287,45 +287,45 @@ mod sort_mode_tests {
     fn test_sort_songs() {
         let mut songs = vec![
             SongBrief {
-                id: Song::generate_id(),
+                id: RecordId::new("song", "1"),
                 title: "C".into(),
-                artist: "B".to_string().into(),
+                artists: vec!["B".to_string()],
                 album: "A".into(),
-                album_artist: "C".to_string().into(),
-                genre: "B".to_string().into(),
-                runtime: Duration::from_secs(180),
+                album_artists: vec!["C".to_string()],
+                genres: vec!["B".to_string()],
+                runtime: convert_std_duration(Duration::from_secs(180)),
                 track: Some(1),
                 disc: Some(1),
                 release_year: Some(2021),
-                extension: "mp3".into(),
+                // extension: "mp3".into(),
                 path: "test.mp3".into(),
             },
             SongBrief {
-                id: Song::generate_id(),
+                id: RecordId::new("song", "2"),
                 title: "B".into(),
-                artist: "A".to_string().into(),
+                artists: vec!["A".to_string()],
                 album: "C".into(),
-                album_artist: "B".to_string().into(),
-                genre: "A".to_string().into(),
-                runtime: Duration::from_secs(180),
+                album_artists: vec!["B".to_string()],
+                genres: vec!["A".to_string()],
+                runtime: convert_std_duration(Duration::from_secs(180)),
                 track: Some(1),
                 disc: Some(1),
                 release_year: Some(2021),
-                extension: "mp3".into(),
+                // extension: "mp3".into(),
                 path: "test.mp3".into(),
             },
             SongBrief {
-                id: Song::generate_id(),
+                id: RecordId::new("song", "3"),
                 title: "A".into(),
-                artist: "C".to_string().into(),
+                artists: vec!["C".to_string()],
                 album: "B".into(),
-                album_artist: "A".to_string().into(),
-                genre: "C".to_string().into(),
-                runtime: Duration::from_secs(180),
+                album_artists: vec!["A".to_string()],
+                genres: vec!["C".to_string()],
+                runtime: convert_std_duration(Duration::from_secs(180)),
                 track: Some(1),
                 disc: Some(1),
                 release_year: Some(2021),
-                extension: "mp3".into(),
+                // extension: "mp3".into(),
                 path: "test.mp3".into(),
             },
         ];
@@ -336,9 +336,9 @@ mod sort_mode_tests {
         assert_eq!(songs[2].title, "C");
 
         SongSort::Artist.sort_items(&mut songs);
-        assert_eq!(songs[0].artist, "A".to_string().into());
-        assert_eq!(songs[1].artist, "B".to_string().into());
-        assert_eq!(songs[2].artist, "C".to_string().into());
+        assert_eq!(songs[0].artists, vec!["A".to_string()]);
+        assert_eq!(songs[1].artists, vec!["B".to_string()]);
+        assert_eq!(songs[2].artists, vec!["C".to_string()]);
 
         SongSort::Album.sort_items(&mut songs);
         assert_eq!(songs[0].album, "A");
@@ -346,14 +346,14 @@ mod sort_mode_tests {
         assert_eq!(songs[2].album, "C");
 
         SongSort::AlbumArtist.sort_items(&mut songs);
-        assert_eq!(songs[0].album_artist, "A".to_string().into());
-        assert_eq!(songs[1].album_artist, "B".to_string().into());
-        assert_eq!(songs[2].album_artist, "C".to_string().into());
+        assert_eq!(songs[0].album_artists, vec!["A".to_string()]);
+        assert_eq!(songs[1].album_artists, vec!["B".to_string()]);
+        assert_eq!(songs[2].album_artists, vec!["C".to_string()]);
 
         SongSort::Genre.sort_items(&mut songs);
-        assert_eq!(songs[0].genre, "A".to_string().into());
-        assert_eq!(songs[1].genre, "B".to_string().into());
-        assert_eq!(songs[2].genre, "C".to_string().into());
+        assert_eq!(songs[0].genres, vec!["A".to_string()]);
+        assert_eq!(songs[1].genres, vec!["B".to_string()]);
+        assert_eq!(songs[2].genres, vec!["C".to_string()]);
     }
 }
 
@@ -364,6 +364,7 @@ mod item_view_tests {
         assert_buffer_eq, item_id, setup_test_terminal, state_with_everything,
     };
     use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
+    use mecomp_prost::RecordId;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -653,23 +654,26 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
-                ("song", item_id()).into()
-            ])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![RecordId::new(
+                "song",
+                item_id()
+            )])))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![
-                ("song", item_id()).into()
-            ],)))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![RecordId::new(
+                "song",
+                item_id()
+            )],)))
         );
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
-                ("song", item_id()).into()
-            ])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![RecordId::new(
+                "song",
+                item_id()
+            )])))
         );
 
         // there are checked items
@@ -682,7 +686,7 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Album(item_id())))
+            Action::ActiveView(ViewAction::Set(ActiveView::Album(item_id().into())))
         );
 
         // check the item
@@ -692,27 +696,30 @@ mod item_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('q')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
-                ("album", item_id()).into()
-            ])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![RecordId::new(
+                "album",
+                item_id()
+            )])))
         );
 
         // start radio
         view.handle_key_event(KeyEvent::from(KeyCode::Char('r')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![
-                ("album", item_id()).into()
-            ],)))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![RecordId::new(
+                "album",
+                item_id()
+            )],)))
         );
 
         // add to playlist
         view.handle_key_event(KeyEvent::from(KeyCode::Char('p')));
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
-                ("album", item_id()).into()
-            ])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![RecordId::new(
+                "album",
+                item_id()
+            )])))
         );
     }
 
@@ -831,7 +838,7 @@ mod item_view_tests {
             );
             assert_eq!(
                 rx.blocking_recv().unwrap(),
-                Action::ActiveView(ViewAction::Set(ActiveView::Artist(item_id())))
+                Action::ActiveView(ViewAction::Set(ActiveView::Artist(item_id().into())))
             );
         }
 
@@ -862,6 +869,7 @@ mod library_view_tests {
     };
 
     use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
+    use mecomp_prost::RecordId;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
 
@@ -1024,7 +1032,7 @@ mod library_view_tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id().into())))
         );
 
         // there are checked items
@@ -1035,9 +1043,10 @@ mod library_view_tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![
-                ("song", item_id()).into()
-            ])))
+            Action::Audio(AudioAction::Queue(QueueAction::Add(vec![RecordId::new(
+                "song",
+                item_id()
+            )])))
         );
 
         // start radio
@@ -1045,9 +1054,10 @@ mod library_view_tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![
-                ("song", item_id()).into()
-            ],)))
+            Action::ActiveView(ViewAction::Set(ActiveView::Radio(vec![RecordId::new(
+                "song",
+                item_id()
+            )])))
         );
 
         // add to playlist
@@ -1055,9 +1065,10 @@ mod library_view_tests {
         let action = rx.blocking_recv().unwrap();
         assert_eq!(
             action,
-            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![
-                ("song", item_id()).into()
-            ])))
+            Action::Popup(PopupAction::Open(PopupType::Playlist(vec![RecordId::new(
+                "song",
+                item_id()
+            )])))
         );
     }
 
@@ -1158,7 +1169,7 @@ mod library_view_tests {
         );
         assert_eq!(
             rx.blocking_recv().unwrap(),
-            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id())))
+            Action::ActiveView(ViewAction::Set(ActiveView::Song(item_id().into())))
         );
 
         // clicking on an empty area should clear the selection

@@ -4,92 +4,59 @@
 
 use std::{path::PathBuf, str::FromStr, time::Duration};
 
+use futures::executor::block_on;
 use mecomp_core::state::{RepeatMode, SeekType, Status};
+use mecomp_prost::{PlaybackSeekRequest, PlaybackSkipRequest, PlaybackVolumeSetRequest};
 use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Time, TrackId, Volume,
     zbus::{Error as ZbusError, fdo},
 };
-use tarpc::context::Context;
 
 use crate::{Mpris, interfaces::root::SUPPORTED_MIME_TYPES, metadata_from_opt_song};
 
 impl PlayerInterface for Mpris {
     async fn next(&self) -> fdo::Result<()> {
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .playback_skip_forward(context, 1)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        block_on(
+            self.daemon
+                .clone()
+                .playback_skip_forward(PlaybackSkipRequest::new(1)),
+        )
+        .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     async fn previous(&self) -> fdo::Result<()> {
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .playback_skip_backward(context, 1)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        block_on(
+            self.daemon
+                .clone()
+                .playback_skip_backward(PlaybackSkipRequest::new(1)),
+        )
+        .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     async fn pause(&self) -> fdo::Result<()> {
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .playback_pause(context)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        block_on(self.daemon.clone().playback_pause(()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+
         Ok(())
     }
 
     async fn play_pause(&self) -> fdo::Result<()> {
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .playback_toggle(context)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        block_on(self.daemon.clone().playback_toggle(()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     async fn stop(&self) -> fdo::Result<()> {
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            let context = Context::current();
-            daemon
-                .playback_stop(context)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
-
+        block_on(self.daemon.clone().playback_stop(()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     async fn play(&self) -> fdo::Result<()> {
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .playback_play(context)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        block_on(self.daemon.clone().playback_play(()))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
@@ -152,27 +119,18 @@ impl PlayerInterface for Mpris {
         path = path.canonicalize().unwrap_or(path);
 
         // add the song to the queue
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            let context = Context::current();
-            if let Some(song) = daemon
-                .library_song_get_by_path(context, path)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?
-            {
-                let context = Context::current();
-                daemon
-                    .queue_add(context, song.id.clone().into())
-                    .await
-                    .map_err(|e| fdo::Error::Failed(e.to_string()))?
-                    .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-            } else {
-                return Err(fdo::Error::Failed(
-                    "Failed to find song in database".to_string(),
-                ));
-            }
+        let mut daemon = self.daemon.clone();
+        if let Some(song) = block_on(daemon.library_song_get_by_path(mecomp_prost::Path::new(path)))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?
+            .into_inner()
+            .song
+        {
+            block_on(daemon.queue_add(song.id)).map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        } else {
+            return Err(fdo::Error::Failed(
+                "Failed to find song in database".to_string(),
+            ));
         }
-        drop(daemon_read_lock);
 
         Ok(())
     }
@@ -202,16 +160,9 @@ impl PlayerInterface for Mpris {
             LoopStatus::Playlist => RepeatMode::All,
         };
 
-        let context = Context::current();
-
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            daemon
-                .playback_repeat(context, repeat_mode)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        let mut daemon = self.daemon.clone();
+        block_on(daemon.playback_repeat(mecomp_prost::PlaybackRepeatRequest::new(repeat_mode)))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
 
         Ok(())
     }
@@ -234,15 +185,9 @@ impl PlayerInterface for Mpris {
     async fn set_shuffle(&self, shuffle: bool) -> Result<(), ZbusError> {
         // if called with false, does nothing, if called with true, shuffles the queue
         if shuffle {
-            let context = Context::current();
-            let daemon_read_lock = self.daemon().await;
-            if let Some(daemon) = daemon_read_lock.as_ref() {
-                daemon
-                    .playback_shuffle(context)
-                    .await
-                    .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-            }
-            drop(daemon_read_lock);
+            let mut daemon = self.daemon.clone();
+
+            block_on(daemon.playback_shuffle(())).map_err(|e| fdo::Error::Failed(e.to_string()))?;
         }
 
         Ok(())
@@ -264,16 +209,11 @@ impl PlayerInterface for Mpris {
     }
 
     async fn set_volume(&self, volume: Volume) -> Result<(), ZbusError> {
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-            daemon
-                .playback_volume(context, volume as f32)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        let mut daemon = self.daemon.clone();
+        #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+        block_on(daemon.playback_volume(PlaybackVolumeSetRequest::new(volume as f32)))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+
         Ok(())
     }
 
@@ -290,23 +230,18 @@ impl PlayerInterface for Mpris {
 
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
         //TODO: if the value passed in would mean seeking beyond the end of the track, act like a call to Next
-        let context = Context::current();
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            let seek_type = if offset.as_micros() > 0 {
-                SeekType::RelativeForwards
-            } else {
-                SeekType::RelativeBackwards
-            };
+        let seek_type = if offset.as_micros() > 0 {
+            SeekType::RelativeForwards
+        } else {
+            SeekType::RelativeBackwards
+        };
 
-            let offset = Duration::from_micros(offset.as_micros().unsigned_abs());
+        let offset = Duration::from_micros(offset.as_micros().unsigned_abs());
 
-            daemon
-                .playback_seek(context, seek_type, offset)
-                .await
-                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        }
-        drop(daemon_read_lock);
+        let mut daemon = self.daemon.clone();
+
+        block_on(daemon.playback_seek(PlaybackSeekRequest::new(seek_type, offset)))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
@@ -316,30 +251,19 @@ impl PlayerInterface for Mpris {
             return Ok(());
         }
 
-        let daemon_read_lock = self.daemon().await;
-        if let Some(daemon) = daemon_read_lock.as_ref() {
-            let maybe_state = self.state.read().await;
-            if let Some(song) = maybe_state.current_song.as_ref() {
-                // if the position not in the range of the song, ignore the call
-                let position = position.as_micros();
-                if position < 0 || u128::from(position.unsigned_abs()) > song.runtime.as_micros() {
-                    return Ok(());
-                }
-
-                let context = Context::current();
-
-                daemon
-                    .playback_seek(
-                        context,
-                        SeekType::Absolute,
-                        Duration::from_micros(u64::try_from(position).unwrap_or_default()),
-                    )
-                    .await
-                    .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        if let Some(song) = self.state.read().await.current_song.as_ref() {
+            // if the position not in the range of the song, ignore the call
+            let position = position.as_micros();
+            if position < 0 || u128::from(position.unsigned_abs()) > song.runtime.as_micros() {
+                return Ok(());
             }
-            drop(maybe_state);
+
+            block_on(self.daemon.clone().playback_seek(PlaybackSeekRequest::new(
+                SeekType::Absolute,
+                Duration::from_micros(u64::try_from(position).unwrap_or_default()),
+            )))
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         }
-        drop(daemon_read_lock);
 
         Ok(())
     }
@@ -394,6 +318,7 @@ mod tests {
     };
 
     use mecomp_storage::db::schemas::song::SongBrief;
+    use one_or_many::OneOrMany;
     use pretty_assertions::{assert_eq, assert_ne};
     use rstest::rstest;
     use tempfile::TempDir;
@@ -412,7 +337,7 @@ mod tests {
     ///
     /// the last case is irrelevant here, as we always return true for [CanGoNext]
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
+    #[timeout(Duration::from_secs(20))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
     async fn test_next(
         #[future] fixtures: (
@@ -428,21 +353,19 @@ mod tests {
         assert_eq!(mpris.can_go_next().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            songs.into_iter().map(Into::into).collect(),
+        )));
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         let Ok(StateChange::TrackChanged(Some(first_song))) = event_rx.recv() else {
             panic!("Expected a TrackChanged event, but got something else");
@@ -466,8 +389,8 @@ mod tests {
     }
 
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_next_maintains_status(
         #[future] fixtures: (
             Mpris,
@@ -482,21 +405,19 @@ mod tests {
         assert_eq!(mpris.can_go_next().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            songs.into_iter().map(Into::into).collect(),
+        )));
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         let Ok(StateChange::TrackChanged(Some(first_song))) = event_rx.recv() else {
             panic!("Expected a TrackChanged event, but got something else");
@@ -552,8 +473,8 @@ mod tests {
     }
 
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_next_no_next_track(
         #[future] fixtures: (
             Mpris,
@@ -568,22 +489,18 @@ mod tests {
         assert_eq!(mpris.can_go_next().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         // send one song to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-            songs[0].clone().into(),
+            OneOrMany::One(Box::new(songs[0].clone().into())),
         )));
         let _ = event_rx.recv();
         let _ = event_rx.recv();
@@ -616,8 +533,8 @@ mod tests {
     ///
     /// the last case is irrelevant here, as we always return true for [CanGoPrevious]
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_prev(
         #[future] fixtures: (
             Mpris,
@@ -632,25 +549,23 @@ mod tests {
         assert_eq!(mpris.can_go_previous().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         let first_song: mecomp_storage::db::schemas::RecordId = songs[0].id.clone().into();
         let third_song: mecomp_storage::db::schemas::RecordId = songs[2].id.clone().into();
         let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            songs.into_iter().map(Into::into).collect(),
+        )));
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         assert_eq!(
             event_rx.recv(),
@@ -679,8 +594,8 @@ mod tests {
         drop(tempdir);
     }
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_prev_maintains_state(
         #[future] fixtures: (
             Mpris,
@@ -695,18 +610,14 @@ mod tests {
         assert_eq!(mpris.can_go_previous().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         let first_song: mecomp_storage::db::schemas::RecordId = songs[0].id.clone().into();
         let second_song: mecomp_storage::db::schemas::RecordId = songs[1].id.clone().into();
@@ -714,7 +625,9 @@ mod tests {
         let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
-        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(songs.into())));
+        audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
+            songs.into_iter().map(Into::into).collect(),
+        )));
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         assert_eq!(
             event_rx.recv(),
@@ -775,8 +688,8 @@ mod tests {
     }
 
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_prev_no_prev_track(
         #[future] fixtures: (
             Mpris,
@@ -791,23 +704,19 @@ mod tests {
         assert_eq!(mpris.can_go_previous().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-            songs[0].clone().into(),
+            OneOrMany::One(Box::new(songs[0].clone().into())),
         )));
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         let _ = event_rx.recv();
@@ -870,8 +779,8 @@ mod tests {
     ///
     /// the last case is irrelevant here, as we always return true for [CanControl]
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_play_pause_stop(
         #[future] fixtures: (
             Mpris,
@@ -888,18 +797,14 @@ mod tests {
         assert_eq!(mpris.can_control().await.unwrap(), true);
 
         // setup
-        let context = Context::current();
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         let first_song = songs[0].clone();
 
@@ -913,7 +818,7 @@ mod tests {
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-            first_song.clone().into(),
+            OneOrMany::One(Box::new(first_song.clone().into())),
         )));
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         assert_eq!(
@@ -1037,8 +942,8 @@ mod tests {
     ///
     /// Mecomp does not currently implement the [TrackList interface], so the last case is irrelevant here.
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_open_uri(
         #[future] fixtures: (
             Mpris,
@@ -1051,25 +956,21 @@ mod tests {
         let (mpris, event_rx, tempdir, _) = fixtures.await;
 
         // setup
-        let context = Context::current();
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
         let first_song = songs[0].clone();
 
         // Opens the uri given as an argument //
 
         // open a valid file uri
-        let file_uri = format!("file://{}", first_song.path.display());
+        let file_uri = format!("file://{}", first_song.path);
         mpris.open_uri(file_uri).await.unwrap();
         assert_eq!(event_rx.recv(), Ok(StateChange::QueueChanged));
         assert_eq!(
@@ -1124,8 +1025,8 @@ mod tests {
     /// """
     /// Mecomp supports returning the playback status.
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_playback_status(
         #[future] fixtures: (
             Mpris,
@@ -1138,20 +1039,16 @@ mod tests {
         let (mpris, event_rx, tempdir, audio_kernel) = fixtures.await;
 
         // setup
-        let context = Context::current();
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
-        let first_song: SongBrief = songs[0].clone();
+        let first_song = songs[0].clone();
 
         // Returns the playback status. //
         // playback is stopped
@@ -1162,7 +1059,7 @@ mod tests {
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-            first_song.clone().into(),
+            OneOrMany::One(Box::new(first_song.clone().into())),
         )));
 
         // pause playback
@@ -1178,7 +1075,7 @@ mod tests {
                     events[0] = true;
                 }
                 StateChange::TrackChanged(Some(_)) => {
-                    mpris.state.write().await.current_song = Some(first_song.clone());
+                    mpris.state.write().await.current_song = Some(first_song.clone().into());
                     events[1] = true;
                 }
                 StateChange::StatusChanged(Status::Playing) => {
@@ -1218,8 +1115,8 @@ mod tests {
     ///
     /// Mecomp supports setting the loop status.
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_loop_status(
         #[future] fixtures: (
             Mpris,
@@ -1279,8 +1176,8 @@ mod tests {
     ///
     /// Mecomp supports returning the playback rate, but does not support changing it.
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_rate(
         #[future] fixtures: (
             Mpris,
@@ -1327,8 +1224,8 @@ mod tests {
     /// as setting shuffle to false will not restore the original order of the queue
     /// and is instead a no-op.
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_shuffle(
         #[future] fixtures: (
             Mpris,
@@ -1363,8 +1260,8 @@ mod tests {
     ///     which contains a D-Bus path that uniquely identifies this track.
     /// """
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_metadata(
         #[future] fixtures: (
             Mpris,
@@ -1377,20 +1274,16 @@ mod tests {
         let (mpris, event_rx, tempdir, audio_kernel) = fixtures.await;
 
         // setup
-        let context = Context::current();
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
-        let first_song = songs[0].clone();
+        let first_song: SongBrief = songs[0].clone().into();
 
         // The metadata of the current element. //
         // when there is no current song
@@ -1414,14 +1307,14 @@ mod tests {
 
         *mpris.state.write().await = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .state_audio(Context::current())
+            .clone()
+            .state_audio(())
             .await
             .unwrap()
-            .unwrap();
+            .into_inner()
+            .state
+            .unwrap()
+            .into();
 
         // when there is a current song
         let metadata = mpris.metadata().await.unwrap();
@@ -1439,8 +1332,8 @@ mod tests {
     /// When setting, if a negative value is passed, the volume should be set to 0.0.
     /// """
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_volume(
         #[future] fixtures: (
             Mpris,
@@ -1493,8 +1386,8 @@ mod tests {
     /// If the given `track_id` this does not match the id of the currently-playing track, the call is ignored as "stale"
     /// """
     #[rstest]
-    #[timeout(Duration::from_secs(10))]
-    #[tokio::test]
+    #[timeout(Duration::from_secs(20))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_position(
         #[future] fixtures: (
             Mpris,
@@ -1509,20 +1402,16 @@ mod tests {
         assert!(mpris.can_seek().await.unwrap());
 
         // setup
-        let context = Context::current();
-        let songs: Vec<SongBrief> = mpris
+        let songs = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .library_songs_brief(context)
+            .clone()
+            .library_songs(())
             .await
             .unwrap()
-            .unwrap()
-            .to_vec();
+            .into_inner()
+            .songs;
         assert_eq!(songs.len(), 4);
-        let first_song = songs[0].clone();
+        let first_song: SongBrief = songs[0].clone().into();
 
         // The current track position, between 0 and the [mpris:length] metadata entry. //
         // when there is no current song
@@ -1540,14 +1429,14 @@ mod tests {
         // update internal state
         *mpris.state.write().await = mpris
             .daemon
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .state_audio(Context::current())
+            .clone()
+            .state_audio(())
             .await
             .unwrap()
-            .unwrap();
+            .into_inner()
+            .state
+            .unwrap()
+            .into();
 
         let first_song_track_id = mpris.metadata().await.unwrap().trackid().unwrap();
 

@@ -1,0 +1,16 @@
+syntax = "proto2";
+
+package mecomp;
+
+import "apis/entities.proto";
+
+message SearchResult {
+  repeated SongBrief songs = 1;
+  repeated AlbumBrief albums = 2;
+  repeated ArtistBrief artists = 3;
+}
+
+message SearchRequest {
+  required string query = 1;
+  required uint64 limit = 2;
+}

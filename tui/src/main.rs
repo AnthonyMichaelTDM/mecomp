@@ -1,9 +1,8 @@
-use std::sync::Arc;
-
 use clap::{CommandFactory, Parser};
+use mecomp_core::config::Settings;
 #[cfg(feature = "autostart-daemon")]
 use mecomp_core::is_server_running;
-use mecomp_core::{config::Settings, rpc::init_client_with_retry};
+use mecomp_prost::init_client_with_retry;
 use mecomp_tui::{
     Subscriber,
     state::Dispatcher,
@@ -42,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
     let server_process = MaybeDaemonHandler::start(settings.daemon.rpc_port).await?;
 
     // initialize the client
-    let daemon = Arc::new(init_client_with_retry::<5, 1>(settings.daemon.rpc_port).await?);
+    let daemon = init_client_with_retry::<5, 1>(settings.daemon.rpc_port).await?;
 
     // initialize the signal handlers
 

@@ -10,6 +10,7 @@ members = [
     "mecomp-workspace-hack",
     "mpris",
     "one-or-many",
+    "prost",
     "storage",
     "surrealqlx/lib",
     "surrealqlx/macros",
@@ -76,7 +77,16 @@ statrs.opt-level = 3
 rustfft.opt-level = 3
 # Set audio libraries to optimize for speed in tests
 symphonia.opt-level = 3
+cpal.opt-level = 3
+rubato.opt-level = 3
 rodio.opt-level = 3
+# Set async runtime to get better performance in tests
+tokio.opt-level = 3
+tokio-stream.opt-level = 3
+tonic.opt-level = 3
+tonic-prost.opt-level = 3
+tower.opt-level = 3
+hyper.opt-level = 3
 
 [profile.tarpaulin]
 inherits = "test"
@@ -112,7 +122,7 @@ env_logger = { version = "0.11.8", features = [
 futures = { version = "0.3.31", features = ["alloc"], default-features = false }
 # image = { version = "0.25.0" }
 log = { version = "0.4.28", features = ["serde"] }
-mpris-server = "0.9.0"
+mpris-server = { version = "0.9.0" }
 notify-debouncer-full = { version = "0.6.0", default-features = false }
 notify = { version = "8.2.0", default-features = false, features = [
     "macos_fsevent",
@@ -147,11 +157,6 @@ surrealdb = { version = "=2.4.0", features = [
     "kv-mem",
     "kv-surrealkv",
 ], default-features = false }
-tarpc = { version = "0.37.0", features = [
-    "serde-transport",
-    "serde-transport-json",
-    "tcp",
-] }
 thiserror = { version = "2.0.17" }
 tokio = { version = "1.48.0", features = [
     "macros",
@@ -159,6 +164,7 @@ tokio = { version = "1.48.0", features = [
     "sync",
     "time",
 ] }
+tokio-stream = { version = "0.1.17" }
 walkdir = { version = "2.5.0" }
 
 # tracing libraries
@@ -174,6 +180,7 @@ tracing-flame = "0.2.0"
 mecomp-analysis = { path = "analysis", version = "=0.5.9" }
 mecomp-core = { path = "core", default-features = false, version = "=0.5.9" }
 mecomp-daemon = { path = "daemon", version = "=0.5.9" }
+mecomp-prost = { path = "prost", version = "=0.5.9" }
 mecomp-storage = { path = "storage", default-features = false, version = "=0.5.9" }
 surrealqlx = { path = "surrealqlx/lib", version = "=0.1.7" }
 surrealqlx-macros = { path = "surrealqlx/macros", version = "=0.1.7" }

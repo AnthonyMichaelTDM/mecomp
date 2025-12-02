@@ -1,5 +1,4 @@
 #![allow(clippy::module_name_repetitions)]
-pub mod library;
 use std::{fmt::Display, time::Duration};
 
 use mecomp_storage::db::schemas::song::SongBrief;
@@ -293,7 +292,6 @@ mod tests {
                     track: None,
                     disc: None,
                     release_year: None,
-                    extension: "mp3".into(),
                     path: "foo/bar.mp3".into(),
                 }
             ]),
@@ -310,7 +308,6 @@ mod tests {
                     track: None,
                     disc: None,
                     release_year: None,
-                    extension: "mp3".into(),
                     path: "foo/bar.mp3".into(),
                 }
             ),
