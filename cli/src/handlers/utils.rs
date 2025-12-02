@@ -1,5 +1,7 @@
 use core::fmt;
-use std::io;
+use std::io::{self, BufRead, IsTerminal, Stdin};
+
+use mecomp_prost::RecordId;
 
 pub fn parse_from_lines<Lines, Out>(lines: Lines) -> Vec<Out>
 where
@@ -12,6 +14,26 @@ where
         }
         acc
     })
+}
+
+/// Check if we should read from stdin based on whether stdin is a terminal
+/// and whether the optional parameter is None
+pub fn should_read_from_stdin<T>(stdin: &Stdin, optional_param: &Option<T>) -> bool {
+    !stdin.is_terminal() || optional_param.is_none()
+}
+
+/// Read RecordIds from stdin, filtering and handling errors
+pub fn read_record_ids_from_stdin<W: fmt::Write>(
+    stdin: Stdin,
+    stderr: &mut W,
+) -> Vec<RecordId> {
+    parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
+        Ok(line) => Some(line),
+        Err(e) => {
+            writeln!(stderr, "Error reading from stdin: {e}").ok();
+            None
+        }
+    }))
 }
 
 pub struct WriteAdapter<W>(pub W);

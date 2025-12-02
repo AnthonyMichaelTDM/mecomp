@@ -649,16 +649,8 @@ impl CommandHandler for QueueCommand {
                 // If neither target nor id is provided, or if stdin is not a terminal,
                 // read RecordIds from stdin
                 let stdin = std::io::stdin();
-                if (target.is_none() && id.is_none()) || !stdin.is_terminal() {
-                    let ids: Vec<RecordId> =
-                        utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                            Ok(line) => Some(line),
-                            Err(e) => {
-                                writeln!(stderr, "Error reading from stdin: {e}").ok();
-                                None
-                            }
-                        }));
-
+                if utils::should_read_from_stdin(&stdin, id) {
+                    let ids = utils::read_record_ids_from_stdin(stdin, stderr);
                     client.queue_add_list(RecordIdList { ids }).await?;
                     writeln!(stdout, "Daemon response:\nitems added to queue")?;
                 } else if let (Some(target), Some(id)) = (target, id) {
@@ -691,7 +683,7 @@ impl CommandHandler for QueueCommand {
 
                     writeln!(stdout, "Daemon response:\n{message}")?;
                 } else {
-                    bail!("Either provide both target and id, or pipe RecordIds via stdin");
+                    bail!("Provide both target and id, or omit them to read from stdin");
                 }
             }
             Self::Remove { start, end } => {
@@ -889,16 +881,8 @@ impl CommandHandler for super::PlaylistAddCommand {
         let stdin = std::io::stdin();
         let resp = match self {
             Self::Artist { id, artist_id } => {
-                if !stdin.is_terminal() || artist_id.is_none() {
-                    // Read from stdin
-                    let list: Vec<RecordId> =
-                        utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                            Ok(line) => Some(line),
-                            Err(e) => {
-                                writeln!(stderr, "Error reading from stdin: {e}").ok();
-                                None
-                            }
-                        }));
+                if utils::should_read_from_stdin(&stdin, artist_id) {
+                    let list = utils::read_record_ids_from_stdin(stdin, stderr);
                     client
                         .playlist_add_list(PlaylistAddListRequest::new(id, list))
                         .await?
@@ -912,20 +896,12 @@ impl CommandHandler for super::PlaylistAddCommand {
                         .await?
                         .map(|()| "artist added to playlist")
                 } else {
-                    bail!("Either provide an artist_id or pipe RecordIds via stdin")
+                    bail!("Provide an artist id or omit it to read from stdin")
                 }
             }
             Self::Album { id, album_id } => {
-                if !stdin.is_terminal() || album_id.is_none() {
-                    // Read from stdin
-                    let list: Vec<RecordId> =
-                        utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                            Ok(line) => Some(line),
-                            Err(e) => {
-                                writeln!(stderr, "Error reading from stdin: {e}").ok();
-                                None
-                            }
-                        }));
+                if utils::should_read_from_stdin(&stdin, album_id) {
+                    let list = utils::read_record_ids_from_stdin(stdin, stderr);
                     client
                         .playlist_add_list(PlaylistAddListRequest::new(id, list))
                         .await?
@@ -939,20 +915,12 @@ impl CommandHandler for super::PlaylistAddCommand {
                         .await?
                         .map(|()| "album added to playlist")
                 } else {
-                    bail!("Either provide an album_id or pipe RecordIds via stdin")
+                    bail!("Provide an album id or omit it to read from stdin")
                 }
             }
             Self::Song { id, song_ids } => {
                 if !stdin.is_terminal() || song_ids.is_empty() {
-                    // Read from stdin
-                    let list: Vec<RecordId> =
-                        utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                            Ok(line) => Some(line),
-                            Err(e) => {
-                                writeln!(stderr, "Error reading from stdin: {e}").ok();
-                                None
-                            }
-                        }));
+                    let list = utils::read_record_ids_from_stdin(stdin, stderr);
                     client
                         .playlist_add_list(PlaylistAddListRequest::new(id, list))
                         .await?
@@ -1234,19 +1202,12 @@ impl CommandHandler for super::RadioCommand {
         let stdin = std::io::stdin();
         match self {
             Self::Song { id, n } => {
-                let ids = if !stdin.is_terminal() || id.is_none() {
-                    // Read from stdin
-                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                        Ok(line) => Some(line),
-                        Err(e) => {
-                            writeln!(stderr, "Error reading from stdin: {e}").ok();
-                            None
-                        }
-                    }))
+                let ids = if utils::should_read_from_stdin(&stdin, id) {
+                    utils::read_record_ids_from_stdin(stdin, stderr)
                 } else if let Some(id) = id {
                     vec![RecordId::new(song::TABLE_NAME, id)]
                 } else {
-                    bail!("Either provide a song id or pipe RecordIds via stdin")
+                    bail!("Provide a song id or omit it to read from stdin")
                 };
                 
                 let resp = client
@@ -1258,19 +1219,12 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Artist { id, n } => {
-                let ids = if !stdin.is_terminal() || id.is_none() {
-                    // Read from stdin
-                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                        Ok(line) => Some(line),
-                        Err(e) => {
-                            writeln!(stderr, "Error reading from stdin: {e}").ok();
-                            None
-                        }
-                    }))
+                let ids = if utils::should_read_from_stdin(&stdin, id) {
+                    utils::read_record_ids_from_stdin(stdin, stderr)
                 } else if let Some(id) = id {
                     vec![RecordId::new(artist::TABLE_NAME, id)]
                 } else {
-                    bail!("Either provide an artist id or pipe RecordIds via stdin")
+                    bail!("Provide an artist id or omit it to read from stdin")
                 };
                 
                 let resp = client
@@ -1282,19 +1236,12 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Album { id, n } => {
-                let ids = if !stdin.is_terminal() || id.is_none() {
-                    // Read from stdin
-                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                        Ok(line) => Some(line),
-                        Err(e) => {
-                            writeln!(stderr, "Error reading from stdin: {e}").ok();
-                            None
-                        }
-                    }))
+                let ids = if utils::should_read_from_stdin(&stdin, id) {
+                    utils::read_record_ids_from_stdin(stdin, stderr)
                 } else if let Some(id) = id {
                     vec![RecordId::new(album::TABLE_NAME, id)]
                 } else {
-                    bail!("Either provide an album id or pipe RecordIds via stdin")
+                    bail!("Provide an album id or omit it to read from stdin")
                 };
                 
                 let resp = client
@@ -1306,19 +1253,12 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Playlist { id, n } => {
-                let ids = if !stdin.is_terminal() || id.is_none() {
-                    // Read from stdin
-                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                        Ok(line) => Some(line),
-                        Err(e) => {
-                            writeln!(stderr, "Error reading from stdin: {e}").ok();
-                            None
-                        }
-                    }))
+                let ids = if utils::should_read_from_stdin(&stdin, id) {
+                    utils::read_record_ids_from_stdin(stdin, stderr)
                 } else if let Some(id) = id {
                     vec![RecordId::new(playlist::TABLE_NAME, id)]
                 } else {
-                    bail!("Either provide a playlist id or pipe RecordIds via stdin")
+                    bail!("Provide a playlist id or omit it to read from stdin")
                 };
                 
                 let resp = client
