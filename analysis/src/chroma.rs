@@ -389,9 +389,9 @@ pub fn chroma_stft(
         .to_owned();
 
     Zip::from(raw_chroma.columns_mut()).for_each(|mut row| {
-        let max = row.sum(); // we know that our values are positive, so no need to use abs
-        if max >= f64::MIN_POSITIVE {
-            row /= max;
+        let sum = row.sum(); // we know that our values are positive, so no need to use abs
+        if sum >= f64::MIN_POSITIVE {
+            row /= sum;
         }
     });
 
