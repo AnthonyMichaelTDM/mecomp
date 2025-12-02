@@ -41,12 +41,13 @@ pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f
     let signal = reflect_pad(signal, half_window_length);
 
     // Periodic, so window_size + 1
-    let mut hann_window = Array::zeros(window_length + 1);
     #[allow(clippy::cast_precision_loss)]
-    for n in 0..window_length {
-        hann_window[[n]] =
-            0.5f32.mul_add(-f32::cos(2. * n as f32 * PI / (window_length as f32)), 0.5);
-    }
+    let mut hann_window = -0.5
+        * Array::from_shape_fn(window_length + 1, |n| {
+            2. * n as f32 * PI / (window_length as f32)
+        })
+        .cos()
+        + 0.5;
     hann_window = hann_window.slice_move(s![0..window_length]);
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(window_length);
