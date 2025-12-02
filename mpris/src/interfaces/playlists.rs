@@ -3,10 +3,9 @@
 //! [org.mpris.MediaPlayer2.Playlists](https://specifications.freedesktop.org/mpris-spec/latest/Playlists_Interface.html)
 
 use mpris_server::{
-    zbus::{fdo, Error as ZbusError},
     Playlist, PlaylistId, PlaylistOrdering, PlaylistsInterface,
+    zbus::{Error as ZbusError, fdo},
 };
-use tarpc::context::Context;
 
 use crate::Mpris;
 

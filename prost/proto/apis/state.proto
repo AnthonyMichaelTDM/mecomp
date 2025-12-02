@@ -1,0 +1,60 @@
+syntax = "proto2";
+
+package mecomp;
+
+import "google/protobuf/duration.proto";
+import "apis/entities.proto";
+
+enum SeekType {
+	SEEK_TYPE_UNSPECIFIED = 0;
+	SEEK_TYPE_ABSOLUTE = 1;
+	SEEK_TYPE_RELATIVE_FORWARDS = 2;
+	SEEK_TYPE_RELATIVE_BACKWARDS = 3;
+}
+
+enum RepeatMode {
+	REPEAT_MODE_UNSPECIFIED = 0;
+	REPEAT_MODE_NONE = 1;
+	REPEAT_MODE_ONE = 2;
+	REPEAT_MODE_ALL = 3;
+}
+
+enum PlaybackStatus {
+	PLAYBACK_STATUS_UNSPECIFIED = 0;
+	PLAYBACK_STATUS_STOPPED = 1;
+	PLAYBACK_STATUS_PAUSED = 2;
+	PLAYBACK_STATUS_PLAYING = 3;
+}
+
+message StateRuntime {
+	required google.protobuf.Duration seek_position = 1;
+	required float seek_percent = 2;
+	required google.protobuf.Duration duration = 3;
+}
+
+message StateAudio {
+	repeated SongBrief queue = 1;
+	optional uint64 queue_position = 2;
+	optional SongBrief current_song = 3;
+	required RepeatMode repeat_mode = 4;
+	optional StateRuntime runtime = 5;
+	required PlaybackStatus status = 6;
+	required bool muted = 7;
+	required float volume = 8;
+}
+
+message StateAudioResponse {
+	optional StateAudio state = 1;
+}
+
+message CurrentArtistResponse {
+	repeated Artist artists = 1;
+}
+
+message CurrentAlbumResponse {
+	optional Album album = 1;
+}
+
+message CurrentSongResponse {
+	optional SongBrief song = 1;
+}

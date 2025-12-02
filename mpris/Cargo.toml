@@ -30,25 +30,22 @@ anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 log.workspace = true
-mecomp-core = { workspace = true, features = ["rpc"] }
+mecomp-core = { workspace = true }
 mecomp-storage = { workspace = true }
 mpris-server.workspace = true
 percent-encoding.workspace = true
 shellexpand.workspace = true
-tarpc.workspace = true
 tokio.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+mecomp-prost.workspace = true
+futures.workspace = true
 
 [dev-dependencies]
 one-or-many = { workspace = true }
 pretty_assertions.workspace = true
 tempfile.workspace = true
 mecomp-storage = { workspace = true, features = ["serde", "db", "test_utils"] }
-mecomp-core = { workspace = true, features = [
-    "rpc",
-    "mock_playback",
-    "test_utils",
-] }
+mecomp-core = { workspace = true, features = ["mock_playback", "test_utils"] }
 mecomp-daemon = { workspace = true }
 rstest.workspace = true
 surrealdb.workspace = true

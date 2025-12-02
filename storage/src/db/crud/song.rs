@@ -367,7 +367,7 @@ impl Song {
             album_artist: metadata.album_artist,
             album: metadata.album,
             genre: metadata.genre,
-            release_year: metadata.release_year,
+            release_year: metadata.release,
             runtime: metadata.runtime,
             extension: metadata.extension,
             track: metadata.track,
@@ -981,7 +981,7 @@ mod test {
                 .iter()
                 .chain(song_case.artists.iter())
                 .collect::<std::collections::HashSet<_>>()
-                .len()
+                .len() as u64
         );
         assert_eq!(count_albums(&db).await.unwrap(), 1);
     }
@@ -1057,7 +1057,7 @@ mod test {
         assert_eq!(song.runtime, metadata.runtime);
         assert_eq!(song.track, metadata.track);
         assert_eq!(song.disc, metadata.disc);
-        assert_eq!(song.release_year, metadata.release_year);
+        assert_eq!(song.release_year, metadata.release);
         assert_eq!(song.extension, metadata.extension);
         assert_eq!(song.path, metadata.path);
 

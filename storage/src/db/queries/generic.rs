@@ -125,12 +125,12 @@ pub fn read_related_in(
 /// Struct to assist deserializing the results of the count queries
 #[derive(Debug, serde::Deserialize, PartialEq, Eq, Clone, Copy)]
 pub struct Count {
-    count: usize,
+    count: u64,
 }
 
 impl Count {
     #[cfg(test)]
-    pub const fn new(count: usize) -> Self {
+    pub const fn new(count: u64) -> Self {
         Self { count }
     }
 
@@ -142,7 +142,7 @@ impl Count {
     pub async fn count<C: surrealdb::Connection>(
         db: &surrealdb::Surreal<C>,
         table: &str,
-    ) -> Result<usize, Error> {
+    ) -> Result<u64, Error> {
         let result: Option<Self> = db.query(count(table)).await?.take(0)?;
         Ok(result.map_or_else(
             || {
@@ -162,7 +162,7 @@ impl Count {
         db: &surrealdb::Surreal<C>,
         table: &str,
         relation: &str,
-    ) -> Result<usize, Error> {
+    ) -> Result<u64, Error> {
         let result: Option<Self> = db.query(count_orphaned(table, relation)).await?.take(0)?;
         Ok(result.map_or_else(
             || {
@@ -180,7 +180,7 @@ impl Count {
         table: &str,
         relation1: &str,
         relation2: &str,
-    ) -> Result<usize, Error> {
+    ) -> Result<u64, Error> {
         let result: Option<Self> = db
             .query(count_orphaned_both(table, relation1, relation2))
             .await?

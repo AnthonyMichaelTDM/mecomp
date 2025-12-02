@@ -1,0 +1,35 @@
+[package]
+name = "mecomp-prost"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Protobuf definitions and utilities for the MECOMP daemon and clients."
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[package.metadata.cargo-machete]
+ignored = ["prost", "prost-types", "tonic-prost"]
+
+[dependencies]
+log.workspace = true
+prost = "0.14.1"
+prost-types = { version = "0.14.1" }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["time"] }
+tonic = { version = "0.14.2", default-features = false, features = ["codegen"] }
+tonic-prost = "0.14.2"
+tracing.workspace = true
+
+mecomp-core = { workspace = true }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+mecomp-storage.workspace = true
+
+
+[build-dependencies]
+tonic-prost-build = { version = "0.14.2", default-features = false }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }

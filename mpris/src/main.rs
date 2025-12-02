@@ -28,7 +28,7 @@ struct Flags {
     log_level: LevelFilter,
 }
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main()]
 async fn main() {
     clap_complete::CompleteEnv::with_factory(Flags::command).complete();
 
@@ -38,14 +38,18 @@ async fn main() {
     // initialize the logger
     init_logger(flags.log_level, None);
 
-    // create a new Mpris instance
-    let mpris = Mpris::new(flags.port);
-
     // connect to the daemon
-    if let Err(e) = mpris.connect_with_retry().await {
-        log::error!("Failed to connect to daemon: {e}");
+    let Ok(daemon) = mecomp_prost::init_client_with_retry::<5, 1>(flags.port)
+        .await
+        .inspect_err(|e| log::error!("{e}"))
+    else {
         return;
-    }
+    };
+
+    log::info!("Connected to daemon");
+
+    // create the Mpris instance
+    let mpris = Mpris::new_with_daemon(daemon);
 
     let bus_name_suffix = format!("mecomp.mpris.port{}.pid{}", mpris.port, std::process::id());
 

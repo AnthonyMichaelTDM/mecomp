@@ -7,125 +7,55 @@ use std::time::Duration;
 use anyhow::{Context as _, Result, anyhow};
 
 use mecomp_core::{
-    rpc::{MusicPlayerClient, init_client},
     state::{Percent, RepeatMode, StateAudio, Status},
     udp::{Event, Listener, Message, StateChange},
 };
+use mecomp_prost::{MusicPlayerClient, RegisterListenerRequest};
 use mecomp_storage::db::schemas::song::SongBrief;
 use mpris_server::{
     LoopStatus, Metadata, PlaybackStatus, Property, Server, Signal, Time, TrackId,
     zbus::{Error as ZbusError, zvariant::ObjectPath},
 };
-use tarpc::context::Context;
-use tokio::sync::{RwLock, RwLockReadGuard};
+use tokio::sync::RwLock;
 
+#[derive(Debug)]
 pub struct Mpris {
-    daemon: RwLock<Option<MusicPlayerClient>>,
+    pub daemon: MusicPlayerClient,
     pub port: u16,
     pub state: RwLock<StateAudio>,
 }
 
 impl Mpris {
-    /// Create a new Mpris instance pending a connection to a daemon.
-    #[must_use]
-    pub fn new(port: u16) -> Self {
-        Self {
-            daemon: RwLock::new(None),
-            port,
-            state: RwLock::new(StateAudio::default()),
-        }
-    }
-
-    /// Give access to the inner Daemon client (checks if the daemon is connected first).
-    pub async fn daemon(&self) -> RwLockReadGuard<'_, Option<MusicPlayerClient>> {
-        let mut maybedaemon = self.daemon.write().await;
-        if let Some(daemon) = maybedaemon.as_ref() {
-            let context = Context::current();
-            if daemon.ping(context).await.is_ok() {
-                return maybedaemon.downgrade();
-            }
-        }
-
-        // if we get here, either the daemon is not connected, or it's not responding
-        *maybedaemon = None;
-        log::info!("Lost connection to daemon, shutting down");
-        // spawn a new thread to kill the server after some delay
-        #[cfg(not(test))] // we don't want to exit the process in tests
-        std::thread::spawn(|| {
-            std::thread::sleep(Duration::from_secs(5));
-            std::process::exit(0);
-        });
-        // if let Err(e) = self.connect_with_retry().await {
-        //     log::error!("Failed to reconnect to daemon: {}", e);
-        // } else {
-        //     log::info!("Reconnected to daemon");
-        // }
-        maybedaemon.downgrade()
-    }
-
     /// Create a new Mpris instance with a daemon already connected.
     #[must_use]
     pub fn new_with_daemon(daemon: MusicPlayerClient) -> Self {
         Self {
-            daemon: RwLock::new(Some(daemon)),
+            daemon,
             port: 0,
             state: RwLock::new(StateAudio::default()),
         }
     }
 
-    /// Connect to the daemon.
+    /// Update the state from the daemon.
     ///
     /// # Errors
     ///
-    /// Returns an error if the daemon cannot be connected.
-    pub async fn connect(&self) -> Result<()> {
-        if self.daemon.read().await.is_some() {
-            return Ok(());
-        }
-
-        let daemon = init_client(self.port).await.context(format!(
-            "Failed to connect to daemon on port: {}",
-            self.port
-        ))?;
-
-        *self.state.write().await = daemon
-            .state_audio(Context::current())
+    /// Returns an error if the state cannot be retrieved from the daemon.
+    pub async fn update_state(&self) -> Result<()> {
+        let new_state = self
+            .daemon
+            .clone()
+            .state_audio(())
             .await
-            .context(
-                "Failed to get initial state from daemon, please ensure the daemon is running",
-            )?
-            .ok_or_else(|| anyhow!("Failed to get initial state from daemon"))?;
-        *self.daemon.write().await = Some(daemon);
+            .context("Failed to get state from daemon")?
+            .into_inner()
+            .state
+            .ok_or_else(|| anyhow!("Failed to get state from daemon"))?
+            .into();
+
+        *self.state.write().await = new_state;
 
         Ok(())
-    }
-
-    /// Connect to the daemon if not already connected.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the daemon cannot be connected after 5 retries.
-    pub async fn connect_with_retry(&self) -> Result<()> {
-        const MAX_RETRIES: u8 = 5;
-        const BASE_DELAY: Duration = Duration::from_secs(1);
-
-        let mut retries = 0;
-
-        while retries < MAX_RETRIES {
-            if let Err(e) = self.connect().await {
-                retries += 1;
-                log::warn!("Failed to connect to daemon: {e}");
-                tokio::time::sleep(BASE_DELAY * u32::from(retries)).await;
-            } else {
-                return Ok(());
-            }
-        }
-
-        Err(anyhow!(
-            "Failed to connect to daemon on port {} after {} retries",
-            self.port,
-            MAX_RETRIES
-        ))
     }
 
     /// Start the Mpris server.
@@ -167,15 +97,12 @@ impl Subscriber {
     ) -> anyhow::Result<()> {
         let mut listener = Listener::new().await?;
 
-        let maybe_daemon = server.imp().daemon().await;
-        if let Some(daemon) = maybe_daemon.as_ref() {
-            daemon
-                .register_listener(Context::current(), listener.local_addr()?)
-                .await?;
-        } else {
-            return Err(anyhow!("Daemon not connected"));
-        }
-        drop(maybe_daemon);
+        server
+            .imp()
+            .daemon
+            .clone()
+            .register_listener(RegisterListenerRequest::new(listener.local_addr()?))
+            .await?;
 
         let mut ticker = tokio::time::interval(TICK_RATE);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -187,7 +114,7 @@ impl Subscriber {
             tokio::select! {
                 Ok(message) = listener.recv() => {
                     match self
-                        .handle_message(message, &mut state, || async { server.imp().daemon().await.clone() })
+                        .handle_message(message, &mut state, server.imp().daemon.clone())
                         .await?
                     {
                         MessageOutcomes::Nothing => continue,
@@ -222,15 +149,12 @@ impl Subscriber {
     /// # Errors
     ///
     /// Returns an error if the message cannot be handled.
-    pub async fn handle_message<D>(
+    pub async fn handle_message(
         &self,
         message: Message,
         state: &mut StateAudio,
-        get_daemon: D,
-    ) -> anyhow::Result<MessageOutcomes>
-    where
-        D: AsyncFnOnce() -> Option<MusicPlayerClient>,
-    {
+        daemon: MusicPlayerClient,
+    ) -> anyhow::Result<MessageOutcomes> {
         log::info!("Received event: {message:?}");
         match message {
             Message::Event(
@@ -257,18 +181,16 @@ impl Subscriber {
             }
             // generally speaking, a lot can change when a track is changed, therefore we update the entire internal state (even if we only emit the new metadata)
             Message::StateChange(StateChange::TrackChanged(_) | StateChange::QueueChanged) => {
-                let context = Context::current();
                 // we'll need to update the internal state with the new song (and it's duration info and such)
-                if let Some(daemon) = get_daemon().await.as_ref() {
-                    *state = daemon
-                        .state_audio(context)
-                        .await
-                        .context("Failed to get state from daemon")?
-                        .ok_or_else(|| anyhow!("Failed to get state from daemon"))?;
-                } else {
-                    state.current_song = None;
-                    state.runtime = None;
-                }
+                *state = daemon
+                    .clone()
+                    .state_audio(())
+                    .await
+                    .context("Failed to get state from daemon")?
+                    .into_inner()
+                    .state
+                    .ok_or_else(|| anyhow!("Failed to get state from daemon"))?
+                    .into();
 
                 let metadata = metadata_from_opt_song(state.current_song.as_ref());
                 Ok(MessageOutcomes::Properties(vec![Property::Metadata(
@@ -397,7 +319,7 @@ mod subscriber_tests {
         let state = &mut StateAudio::default();
 
         let actual = Subscriber
-            .handle_message(message, state, || async { Some(daemon) })
+            .handle_message(message, state, daemon.clone())
             .await
             .unwrap();
 

@@ -32,16 +32,14 @@ fn main() -> anyhow::Result<()> {
         .build()?;
 
     rt.block_on(async {
-        let client = mecomp_core::rpc::init_client(flags.port).await?;
-
-        let ctx = tarpc::context::current();
+        let client = mecomp_prost::init_client(flags.port).await?;
 
         let mut stdout_adapter = WriteAdapter(std::io::stdout());
         let mut stderr_adapter = WriteAdapter(std::io::stderr());
 
         if let Some(command) = flags.subcommand {
             command
-                .handle(ctx, client, &mut stdout_adapter, &mut stderr_adapter)
+                .handle(client, &mut stdout_adapter, &mut stderr_adapter)
                 .await?;
         } else {
             eprintln!("No subcommand provided");

@@ -1,0 +1,82 @@
+syntax = "proto2";
+
+package mecomp;
+
+import "apis/entities.proto";
+
+message LibraryAnalyzeRequest {
+	required bool overwrite = 1;
+}
+
+message InProgressResponse {
+	required bool in_progress = 1;
+}
+
+/// A brief representation of the library
+message LibraryBriefResponse {
+  repeated ArtistBrief artists = 1;
+  repeated AlbumBrief albums = 2;
+  repeated SongBrief songs = 3;
+  repeated PlaylistBrief playlists = 4;
+  repeated CollectionBrief collections = 5;
+  repeated DynamicPlaylist dynamic_playlists = 6;
+}
+
+/// A full representation of the library
+message LibraryFullResponse {
+  repeated Artist artists = 1;
+  repeated Album albums = 2;
+  repeated Song songs = 3;
+  repeated Playlist playlists = 4;
+  repeated Collection collections = 5;
+  repeated DynamicPlaylist dynamic_playlists = 6;
+}
+
+// Health information about the library
+message LibraryHealthResponse {
+  // The number of artists in the library
+  required uint64 artists = 1;
+  // The number of albums in the library
+  required uint64 albums = 2;
+  // The number of songs in the library
+  required uint64 songs = 3;
+  // The number of unanalyzed songs in the library
+  // Optional because the analysis feature may not be enabled for the daemon
+  optional uint64 unanalyzed_songs = 4;
+  // The number of playlists in the library
+  required uint64 playlists = 5;
+  // The number of collections in the library
+  required uint64 collections = 6;
+  // The number of dynamic playlists in the library
+  required uint64 dynamic_playlists = 7;
+  // The number of orphaned songs in the library
+  // This is the number of artists that have no songs, and no albums
+  required uint64 orphaned_artists = 8;
+  // The number of orphaned albums in the library
+  // This is the number of albums that have no songs
+  required uint64 orphaned_albums = 9;
+  // The number of orphaned playlists in the library
+  // This is the number of playlists that have no songs
+  required uint64 orphaned_playlists = 10;
+  // The number of orphaned collections in the library
+  // This is the number of collections that have no songs
+  required uint64 orphaned_collections = 11;
+  // TODO: implement counting of missing items
+  // // The number of missing artists in the library
+  // // This is the number of artists of songs/albums that are not in the library
+  // required uint64 missing_artists = 12;
+  // // The number of missing albums in the library
+  // // This is the number of albums of songs that are not in the library
+  // required uint64 missing_albums = 13;
+  // // The number of missing songs in the library
+  // // This is the number of songs that are not in the library
+  // required uint64 missing_songs = 14;
+  // // The number of missing playlists in the library
+  // // This is the number of playlists that are not in the library
+  // required uint64 missing_playlists = 15;
+  // // The number of missing collections in the library
+  // // This is the number of collections that are not in the library
+  // required uint64 missing_collections = 16;
+  // // The number of missing files
+  // required uint64 missing_files = 17;
+}

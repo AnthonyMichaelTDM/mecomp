@@ -3,10 +3,9 @@
 //! [org.mpris.MediaPlayer2.TrackList](https://specifications.freedesktop.org/mpris-spec/latest/Track_List_Interface.html)
 
 use mpris_server::{
-    zbus::{fdo, Error as ZbusError},
     Metadata, TrackId, TrackListInterface, Uri,
+    zbus::{Error as ZbusError, fdo},
 };
-use tarpc::context::Context;
 
 use crate::Mpris;
 
