@@ -216,7 +216,6 @@ async fn test_ping_command(#[future] client: MusicPlayerClient) {
     let command = Command::Ping;
 
     let stdin = &mut MockStdin;
-    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
@@ -234,7 +233,6 @@ async fn test_ping_command(#[future] client: MusicPlayerClient) {
 async fn test_stop_command(#[future] client: MusicPlayerClient) {
     let command = Command::Stop;
 
-    let stdin = &mut MockStdin;
     let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
