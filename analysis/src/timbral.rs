@@ -57,8 +57,8 @@ impl SpectralDesc {
      * The value range is between 0 and `sample_rate / 2`.
      */
     #[inline]
-    pub fn get_centroid(&mut self) -> Vec<Feature> {
-        vec![
+    pub fn get_centroid(&mut self) -> [Feature; 2] {
+        [
             self.normalize(Feature::from(mean(&self.values_centroid))),
             self.normalize(Feature::from(
                 arr1(&self.values_centroid)
@@ -82,8 +82,8 @@ impl SpectralDesc {
      * The value range is between 0 and `sample_rate / 2`
      */
     #[inline]
-    pub fn get_rolloff(&mut self) -> Vec<Feature> {
-        vec![
+    pub fn get_rolloff(&mut self) -> [Feature; 2] {
+        [
             self.normalize(Feature::from(mean(&self.values_rolloff))),
             self.normalize(Feature::from(
                 arr1(&self.values_rolloff)
@@ -110,12 +110,12 @@ impl SpectralDesc {
      * than the arithmetic mean.
      */
     #[inline]
-    pub fn get_flatness(&mut self) -> Vec<Feature> {
+    pub fn get_flatness(&mut self) -> [Feature; 2] {
         let max_value = 1.;
         let min_value = 0.;
         // Range is different from the other spectral algorithms, so normalizing
         // manually here.
-        vec![
+        [
             2. * (Feature::from(mean(&self.values_flatness)) - min_value) / (max_value - min_value)
                 - 1.,
             2. * (Feature::from(
