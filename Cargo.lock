@@ -2828,6 +2828,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "likely_stable"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d61f7017d8abea1fc23ff7f01a8147b2656dea3aeb24d519aab6e2177eaf671c"
+dependencies = [
+ "rustc_version",
+]
+
+[[package]]
 name = "linfa"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3105,8 +3114,10 @@ name = "mecomp-analysis"
 version = "0.5.9"
 dependencies = [
  "adler32",
+ "bitvec",
  "bliss-audio-aubio-rs",
  "criterion",
+ "likely_stable",
  "linfa",
  "linfa-clustering",
  "linfa-nn",

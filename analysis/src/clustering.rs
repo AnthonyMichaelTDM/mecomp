@@ -318,6 +318,7 @@ impl ClusteringHelper<NotInitialized> {
                             .log2()
                     })
                     .collect();
+                let w_kb_log = Array::from_vec(w_kb_log);
 
                 // calculate the within intra-cluster variation for the observed data
                 let pairwise_distances =
@@ -325,18 +326,13 @@ impl ClusteringHelper<NotInitialized> {
                 let w_k = calc_within_dispersion(labels.view(), k, pairwise_distances.view());
 
                 // finally, calculate the gap statistic
-                let w_kb_log_sum: f64 = w_kb_log.iter().sum();
+                let w_kb_log_sum: f64 = w_kb_log.sum();
                 // original formula: l = (1 / B) * sum_b(log(W_kb))
                 let l = b.recip() * w_kb_log_sum;
                 // original formula: gap_k = (1 / B) * sum_b(log(W_kb)) - log(W_k)
                 let gap_k = l - w_k.log2();
                 // original formula: sd_k = [(1 / B) * sum_b((log(W_kb) - l)^2)]^0.5
-                let standard_deviation = (b.recip()
-                    * w_kb_log
-                        .iter()
-                        .map(|w_kb_log| (w_kb_log - l).powi(2))
-                        .sum::<f64>())
-                .sqrt();
+                let standard_deviation = (b.recip() * (w_kb_log - l).pow2().sum()).sqrt();
                 // original formula: s_k = sd_k * (1 + 1 / B)^0.5
                 // calculate differently to minimize rounding errors
                 let s_k = standard_deviation * (1.0 + b.recip()).sqrt();

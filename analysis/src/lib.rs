@@ -20,6 +20,7 @@ pub mod utils;
 
 use std::{ops::Index, path::PathBuf, thread::ScopedJoinHandle};
 
+use likely_stable::LikelyResult;
 use misc::LoudnessDesc;
 use serde::{Deserialize, Serialize};
 use strum::{EnumCount, EnumIter, IntoEnumIterator};
@@ -220,7 +221,7 @@ impl Analysis {
             #[allow(clippy::type_complexity)]
             let child_timbral: ScopedJoinHandle<
                 '_,
-                AnalysisResult<(Vec<Feature>, Vec<Feature>, Vec<Feature>)>,
+                AnalysisResult<([Feature; 2], [Feature; 2], [Feature; 2])>,
             > = s.spawn(|| {
                 let mut spectral_desc = SpectralDesc::new(SAMPLE_RATE)?;
                 let windows = audio
@@ -281,7 +282,7 @@ impl Analysis {
             result.extend_from_slice(&chroma);
             let array: [Feature; NUMBER_FEATURES] = result
                 .try_into()
-                .map_err(|_| AnalysisError::InvalidFeaturesLen)?;
+                .map_err_unlikely(|_| AnalysisError::InvalidFeaturesLen)?;
             Ok(Self::new(array))
         })
     }

@@ -8,6 +8,7 @@ use crate::Feature;
 use super::errors::{AnalysisError, AnalysisResult};
 use super::utils::Normalize;
 use bliss_audio_aubio_rs::{OnsetMode, Tempo};
+use likely_stable::{LikelyResult, unlikely};
 use log::warn;
 use ndarray::arr1;
 use ndarray_stats::Quantile1dExt;
@@ -51,7 +52,7 @@ impl BPMDesc {
                 Self::HOP_SIZE,
                 sample_rate,
             )
-            .map_err(|e| {
+            .map_err_unlikely(|e| {
                 AnalysisError::AnalysisError(format!("error while loading aubio tempo object: {e}"))
             })?,
             bpms: Vec::new(),
@@ -61,7 +62,7 @@ impl BPMDesc {
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     #[inline]
     pub fn do_(&mut self, chunk: &[f32]) -> AnalysisResult<()> {
-        let result = self.aubio_obj.do_result(chunk).map_err(|e| {
+        let result = self.aubio_obj.do_result(chunk).map_err_unlikely(|e| {
             AnalysisError::AnalysisError(format!("aubio error while computing tempo {e}"))
         })?;
 
@@ -80,7 +81,7 @@ impl BPMDesc {
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     #[inline]
     pub fn get_value(&mut self) -> Feature {
-        if self.bpms.is_empty() {
+        if unlikely(self.bpms.is_empty()) {
             warn!("Set tempo value to zero because no beats were found.");
             return -1.;
         }

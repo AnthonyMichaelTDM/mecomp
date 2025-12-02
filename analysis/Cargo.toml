@@ -38,6 +38,8 @@ statrs = { version = "0.18.0", default-features = false }
 strum.workspace = true
 thiserror = { workspace = true }
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+likely_stable.workspace = true
+bitvec.workspace = true
 
 # if we're building on macos, we need to link against the system's fftw3
 # library, which is not available on linux
