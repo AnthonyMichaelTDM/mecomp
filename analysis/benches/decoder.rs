@@ -174,8 +174,8 @@ fn bench_different_resampling_techniques(c: &mut Criterion) {
                 FastFixedIn::new(resample_ratio, 1.0, PolynomialDegree::Cubic, CHUNK_SIZE, 1)
                     .unwrap();
             let mut resampled_frames = Vec::with_capacity(
-                (usize::try_from(total_duration.as_secs()).unwrap_or(usize::MAX) + 1)
-                    * SAMPLE_RATE as usize,
+                usize::try_from((total_duration.as_secs() + 1) * SAMPLE_RATE as u64)
+                    .unwrap_or(usize::MAX),
             );
 
             let delay = resampler.output_delay();
@@ -231,8 +231,8 @@ fn bench_different_resampling_techniques(c: &mut Criterion) {
                     .unwrap();
 
             let mut resampled_frames = Vec::with_capacity(
-                (usize::try_from(total_duration.as_secs()).unwrap_or(usize::MAX) + 1)
-                    * SAMPLE_RATE as usize,
+                usize::try_from((total_duration.as_secs() + 1) * SAMPLE_RATE as u64)
+                    .unwrap_or(usize::MAX),
             );
 
             let delay = resampler.output_delay();

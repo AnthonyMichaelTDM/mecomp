@@ -140,9 +140,12 @@ impl Iterator for SymphoniaSource {
         (
             self.buffer.samples().len(),
             self.total_duration.map(|dur| {
-                (usize::try_from(dur.as_secs()).unwrap_or(usize::MAX) + 1)
-                    * self.spec.rate as usize
-                    * self.spec.channels.count()
+                usize::try_from(
+                    (dur.as_secs() + 1)
+                        * u64::from(self.spec.rate)
+                        * self.spec.channels.count() as u64,
+                )
+                .unwrap_or(usize::MAX)
             }),
         )
     }
@@ -268,8 +271,8 @@ impl MecompDecoder {
         }
 
         let mut resampled_frames = Vec::with_capacity(
-            (usize::try_from(total_duration.as_secs()).unwrap_or(usize::MAX) + 1)
-                * SAMPLE_RATE as usize,
+            usize::try_from((total_duration.as_secs() + 1) * u64::from(SAMPLE_RATE))
+                .unwrap_or(usize::MAX),
         );
 
         let (pool, resampler) = self.resampler.pull(Self::generate_resampler).detach();
