@@ -1,3 +1,4 @@
+use likely_stable::{if_likely, unlikely};
 use log::warn;
 use ndarray::{Array, Array1, Array2, arr1, s};
 use rustfft::FftPlanner;
@@ -10,12 +11,11 @@ use crate::Feature;
 #[inline]
 pub fn reflect_pad(array: &[f32], pad: usize) -> Vec<f32> {
     debug_assert!(pad < array.len(), "Padding is too large");
-    let prefix = array[1..=pad].iter().rev().copied().collect::<Vec<f32>>();
+    let prefix = array[1..=pad].iter().rev().copied();
     let suffix = array[(array.len() - 2) - pad + 1..array.len() - 1]
         .iter()
         .rev()
-        .copied()
-        .collect::<Vec<f32>>();
+        .copied();
     let mut output = Vec::with_capacity(prefix.len() + array.len() + suffix.len());
 
     output.extend(prefix);
@@ -24,6 +24,7 @@ pub fn reflect_pad(array: &[f32], pad: usize) -> Vec<f32> {
     output
 }
 
+/// Compute the Short-Time Fourier Transform of a signal
 #[must_use]
 #[allow(clippy::missing_inline_in_public_items)]
 pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f64> {
@@ -56,12 +57,12 @@ pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f
         .zip(stft.rows_mut())
     {
         let mut signal = (arr1(window) * &hann_window).mapv(|x| Complex::new(x, 0.));
-        if let Some(s) = signal.as_slice_mut() {
-            fft.process(s);
+        if_likely! {let Some(_s) = signal.as_slice_mut() => {
+            fft.process(_s);
         } else {
             warn!("non-contiguous slice found for stft; expect slow performances.");
             fft.process(&mut signal.to_vec());
-        }
+        }}
 
         stft_col.assign(
             &signal
@@ -74,7 +75,7 @@ pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f
 
 #[allow(clippy::cast_precision_loss)]
 pub(crate) fn mean(input: &[f32]) -> f32 {
-    if input.is_empty() {
+    if unlikely(input.is_empty()) {
         return 0.;
     }
     input.iter().sum::<f32>() / input.len() as f32
@@ -92,7 +93,7 @@ pub(crate) trait Normalize {
 // Essentia algorithm
 // https://github.com/MTG/essentia/blob/master/src/algorithms/temporal/zerocrossingrate.cpp
 pub(crate) fn number_crossings(input: &[f32]) -> u32 {
-    if input.is_empty() {
+    if unlikely(input.is_empty()) {
         return 0;
     }
 
@@ -102,7 +103,7 @@ pub(crate) fn number_crossings(input: &[f32]) -> u32 {
 
     for &sample in input {
         let is_positive = sample > 0.;
-        if was_positive != is_positive {
+        if unlikely(was_positive != is_positive) {
             crossings += 1;
             was_positive = is_positive;
         }
@@ -120,7 +121,7 @@ pub(crate) fn number_crossings(input: &[f32]) -> u32 {
 #[allow(clippy::missing_inline_in_public_items)]
 pub fn geometric_mean(input: &[f32]) -> f32 {
     debug_assert_eq!(input.len() % 8, 0, "Input size must be a multiple of 8");
-    if input.is_empty() {
+    if unlikely(input.is_empty()) {
         return 0.;
     }
 
@@ -130,7 +131,7 @@ pub fn geometric_mean(input: &[f32]) -> f32 {
         let mut m = (f64::from(ch[0]) * f64::from(ch[1])) * (f64::from(ch[2]) * f64::from(ch[3]));
         m *= 3.273_390_607_896_142e150; // 2^500 : avoid underflows and denormals
         m *= (f64::from(ch[4]) * f64::from(ch[5])) * (f64::from(ch[6]) * f64::from(ch[7]));
-        if m == 0. {
+        if unlikely(m == 0.) {
             return 0.;
         }
         exponents += (m.to_bits() >> 52) as i32;
