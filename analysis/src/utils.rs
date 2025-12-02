@@ -51,14 +51,16 @@ pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(window_length);
 
+    #[allow(unused, reason = "it's not unused, but macro confuses poor clippy")]
     for (window, mut stft_col) in signal
         .windows(window_length)
         .step_by(hop_length)
         .zip(stft.rows_mut())
     {
         let mut signal = (arr1(window) * &hann_window).mapv(|x| Complex::new(x, 0.));
-        if_likely! {let Some(_s) = signal.as_slice_mut() => {
-            fft.process(_s);
+
+        if_likely! {let Some(s) = signal.as_slice_mut() => {
+            fft.process(s);
         } else {
             warn!("non-contiguous slice found for stft; expect slow performances.");
             fft.process(&mut signal.to_vec());
