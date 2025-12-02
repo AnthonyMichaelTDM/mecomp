@@ -11,7 +11,7 @@ mod mecomp {
     )]
 
     #[cfg(not(tarpaulin_include))]
-    include!("../out/mecomp.rs");
+    include!("../proto/mecomp.rs");
 }
 #[doc(hidden)]
 mod conversions;
