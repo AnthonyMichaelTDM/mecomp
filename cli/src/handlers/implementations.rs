@@ -646,34 +646,53 @@ impl CommandHandler for QueueCommand {
                 }
             }
             Self::Add { target, id } => {
-                let message: &str = match target {
-                    QueueAddTarget::Artist => client
-                        .queue_add(RecordId::new(artist::TABLE_NAME, id))
-                        .await
-                        .map(|_| "artist added to queue"),
-                    QueueAddTarget::Album => client
-                        .queue_add(RecordId::new(album::TABLE_NAME, id))
-                        .await
-                        .map(|_| "album added to queue"),
-                    QueueAddTarget::Song => client
-                        .queue_add(RecordId::new(song::TABLE_NAME, id))
-                        .await
-                        .map(|_| "song added to queue"),
-                    QueueAddTarget::Playlist => client
-                        .queue_add(RecordId::new(playlist::TABLE_NAME, id))
-                        .await
-                        .map(|_| "playlist added to queue"),
-                    QueueAddTarget::Collection => client
-                        .queue_add(RecordId::new(collection::TABLE_NAME, id))
-                        .await
-                        .map(|_| "collection added to queue"),
-                    QueueAddTarget::Dynamic => client
-                        .queue_add(RecordId::new(dynamic::TABLE_NAME, id))
-                        .await
-                        .map(|_| "dynamic added to queue"),
-                }?;
+                // If neither target nor id is provided, or if stdin is not a terminal,
+                // read RecordIds from stdin
+                let stdin = std::io::stdin();
+                if (target.is_none() && id.is_none()) || !stdin.is_terminal() {
+                    let ids: Vec<RecordId> =
+                        utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
+                            Ok(line) => Some(line),
+                            Err(e) => {
+                                writeln!(stderr, "Error reading from stdin: {e}").ok();
+                                None
+                            }
+                        }));
 
-                writeln!(stdout, "Daemon response:\n{message}")?;
+                    client.queue_add_list(RecordIdList { ids }).await?;
+                    writeln!(stdout, "Daemon response:\nitems added to queue")?;
+                } else if let (Some(target), Some(id)) = (target, id) {
+                    let message: &str = match target {
+                        QueueAddTarget::Artist => client
+                            .queue_add(RecordId::new(artist::TABLE_NAME, id))
+                            .await
+                            .map(|_| "artist added to queue"),
+                        QueueAddTarget::Album => client
+                            .queue_add(RecordId::new(album::TABLE_NAME, id))
+                            .await
+                            .map(|_| "album added to queue"),
+                        QueueAddTarget::Song => client
+                            .queue_add(RecordId::new(song::TABLE_NAME, id))
+                            .await
+                            .map(|_| "song added to queue"),
+                        QueueAddTarget::Playlist => client
+                            .queue_add(RecordId::new(playlist::TABLE_NAME, id))
+                            .await
+                            .map(|_| "playlist added to queue"),
+                        QueueAddTarget::Collection => client
+                            .queue_add(RecordId::new(collection::TABLE_NAME, id))
+                            .await
+                            .map(|_| "collection added to queue"),
+                        QueueAddTarget::Dynamic => client
+                            .queue_add(RecordId::new(dynamic::TABLE_NAME, id))
+                            .await
+                            .map(|_| "dynamic added to queue"),
+                    }?;
+
+                    writeln!(stdout, "Daemon response:\n{message}")?;
+                } else {
+                    bail!("Either provide both target and id, or pipe RecordIds via stdin");
+                }
             }
             Self::Remove { start, end } => {
                 client
@@ -866,31 +885,90 @@ impl CommandHandler for super::PlaylistAddCommand {
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
+        let stdin = std::io::stdin();
         let resp = match self {
-            Self::Artist { id, artist_id } => client
-                .playlist_add(PlaylistAddRequest::new(
-                    id,
-                    RecordId::new(artist::TABLE_NAME, artist_id),
-                ))
-                .await?
-                .map(|()| "artist added to playlist"),
-            Self::Album { id, album_id } => client
-                .playlist_add(PlaylistAddRequest::new(
-                    id,
-                    RecordId::new(album::TABLE_NAME, album_id),
-                ))
-                .await?
-                .map(|()| "album added to playlist"),
-            Self::Song { id, song_ids } => client
-                .playlist_add_list(PlaylistAddListRequest::new(
-                    id,
-                    song_ids
-                        .iter()
-                        .map(|song_id| RecordId::new(song::TABLE_NAME, song_id))
-                        .collect(),
-                ))
-                .await?
-                .map(|()| "songs added to playlist"),
+            Self::Artist { id, artist_id } => {
+                if !stdin.is_terminal() || artist_id.is_none() {
+                    // Read from stdin
+                    let list: Vec<RecordId> =
+                        utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
+                            Ok(line) => Some(line),
+                            Err(e) => {
+                                writeln!(stderr, "Error reading from stdin: {e}").ok();
+                                None
+                            }
+                        }));
+                    client
+                        .playlist_add_list(PlaylistAddListRequest::new(id, list))
+                        .await?
+                        .map(|()| "items added to playlist")
+                } else if let Some(artist_id) = artist_id {
+                    client
+                        .playlist_add(PlaylistAddRequest::new(
+                            id,
+                            RecordId::new(artist::TABLE_NAME, artist_id),
+                        ))
+                        .await?
+                        .map(|()| "artist added to playlist")
+                } else {
+                    bail!("Either provide an artist_id or pipe RecordIds via stdin")
+                }
+            }
+            Self::Album { id, album_id } => {
+                if !stdin.is_terminal() || album_id.is_none() {
+                    // Read from stdin
+                    let list: Vec<RecordId> =
+                        utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
+                            Ok(line) => Some(line),
+                            Err(e) => {
+                                writeln!(stderr, "Error reading from stdin: {e}").ok();
+                                None
+                            }
+                        }));
+                    client
+                        .playlist_add_list(PlaylistAddListRequest::new(id, list))
+                        .await?
+                        .map(|()| "items added to playlist")
+                } else if let Some(album_id) = album_id {
+                    client
+                        .playlist_add(PlaylistAddRequest::new(
+                            id,
+                            RecordId::new(album::TABLE_NAME, album_id),
+                        ))
+                        .await?
+                        .map(|()| "album added to playlist")
+                } else {
+                    bail!("Either provide an album_id or pipe RecordIds via stdin")
+                }
+            }
+            Self::Song { id, song_ids } => {
+                if !stdin.is_terminal() || song_ids.is_empty() {
+                    // Read from stdin
+                    let list: Vec<RecordId> =
+                        utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
+                            Ok(line) => Some(line),
+                            Err(e) => {
+                                writeln!(stderr, "Error reading from stdin: {e}").ok();
+                                None
+                            }
+                        }));
+                    client
+                        .playlist_add_list(PlaylistAddListRequest::new(id, list))
+                        .await?
+                        .map(|()| "items added to playlist")
+                } else {
+                    client
+                        .playlist_add_list(PlaylistAddListRequest::new(
+                            id,
+                            song_ids
+                                .iter()
+                                .map(|song_id| RecordId::new(song::TABLE_NAME, song_id))
+                                .collect(),
+                        ))
+                        .await?
+                        .map(|()| "songs added to playlist")
+                }
+            }
             Self::Pipe { id } => {
                 let stdin = std::io::stdin();
                 if stdin.is_terminal() {
@@ -1151,13 +1229,26 @@ impl CommandHandler for super::RadioCommand {
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
+        let stdin = std::io::stdin();
         match self {
             Self::Song { id, n } => {
+                let ids = if !stdin.is_terminal() || id.is_none() {
+                    // Read from stdin
+                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
+                        Ok(line) => Some(line),
+                        Err(e) => {
+                            writeln!(stderr, "Error reading from stdin: {e}").ok();
+                            None
+                        }
+                    }))
+                } else if let Some(id) = id {
+                    vec![RecordId::new(song::TABLE_NAME, id)]
+                } else {
+                    bail!("Either provide a song id or pipe RecordIds via stdin")
+                };
+                
                 let resp = client
-                    .radio_get_similar_ids(RadioSimilarRequest::new(
-                        vec![RecordId::new(song::TABLE_NAME, id)],
-                        *n,
-                    ))
+                    .radio_get_similar_ids(RadioSimilarRequest::new(ids, *n))
                     .await?
                     .into_inner()
                     .ids;
@@ -1165,11 +1256,23 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Artist { id, n } => {
+                let ids = if !stdin.is_terminal() || id.is_none() {
+                    // Read from stdin
+                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
+                        Ok(line) => Some(line),
+                        Err(e) => {
+                            writeln!(stderr, "Error reading from stdin: {e}").ok();
+                            None
+                        }
+                    }))
+                } else if let Some(id) = id {
+                    vec![RecordId::new(artist::TABLE_NAME, id)]
+                } else {
+                    bail!("Either provide an artist id or pipe RecordIds via stdin")
+                };
+                
                 let resp = client
-                    .radio_get_similar_ids(RadioSimilarRequest::new(
-                        vec![RecordId::new(artist::TABLE_NAME, id)],
-                        *n,
-                    ))
+                    .radio_get_similar_ids(RadioSimilarRequest::new(ids, *n))
                     .await?
                     .into_inner()
                     .ids;
@@ -1177,11 +1280,23 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Album { id, n } => {
+                let ids = if !stdin.is_terminal() || id.is_none() {
+                    // Read from stdin
+                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
+                        Ok(line) => Some(line),
+                        Err(e) => {
+                            writeln!(stderr, "Error reading from stdin: {e}").ok();
+                            None
+                        }
+                    }))
+                } else if let Some(id) = id {
+                    vec![RecordId::new(album::TABLE_NAME, id)]
+                } else {
+                    bail!("Either provide an album id or pipe RecordIds via stdin")
+                };
+                
                 let resp = client
-                    .radio_get_similar_ids(RadioSimilarRequest::new(
-                        vec![RecordId::new(album::TABLE_NAME, id)],
-                        *n,
-                    ))
+                    .radio_get_similar_ids(RadioSimilarRequest::new(ids, *n))
                     .await?
                     .into_inner()
                     .ids;
@@ -1189,11 +1304,23 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Playlist { id, n } => {
+                let ids = if !stdin.is_terminal() || id.is_none() {
+                    // Read from stdin
+                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
+                        Ok(line) => Some(line),
+                        Err(e) => {
+                            writeln!(stderr, "Error reading from stdin: {e}").ok();
+                            None
+                        }
+                    }))
+                } else if let Some(id) = id {
+                    vec![RecordId::new(playlist::TABLE_NAME, id)]
+                } else {
+                    bail!("Either provide a playlist id or pipe RecordIds via stdin")
+                };
+                
                 let resp = client
-                    .radio_get_similar_ids(RadioSimilarRequest::new(
-                        vec![RecordId::new(playlist::TABLE_NAME, id)],
-                        *n,
-                    ))
+                    .radio_get_similar_ids(RadioSimilarRequest::new(ids, *n))
                     .await?
                     .into_inner()
                     .ids;

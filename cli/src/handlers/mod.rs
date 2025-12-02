@@ -344,11 +344,13 @@ pub enum QueueCommand {
     /// Add to the queue
     Add {
         /// What to add (artist, album, song, playlist)
+        /// If not provided, reads RecordIds from stdin (pipe)
         #[clap(value_enum)]
-        target: QueueAddTarget,
+        target: Option<QueueAddTarget>,
         /// The id of the item
+        /// If not provided, reads RecordIds from stdin (pipe)
         #[clap(value_hint = ValueHint::Other)]
-        id: String,
+        id: Option<String>,
     },
     /// Remove a range of items from the queue
     Remove {
@@ -472,25 +474,25 @@ pub enum PlaylistAddCommand {
         /// The id of the playlist
         #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
-        /// The id of the artist
+        /// The id of the artist (if not provided, reads RecordIds from stdin)
         #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Artist)))]
-        artist_id: String,
+        artist_id: Option<String>,
     },
     /// Add an album to a playlist
     Album {
         /// The id of the playlist
         #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
-        /// The id of the album
+        /// The id of the album (if not provided, reads RecordIds from stdin)
         #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Album)))]
-        album_id: String,
+        album_id: Option<String>,
     },
     /// Add a song to a playlist
     Song {
         /// The id of the playlist
         #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
-        /// The ids of the song(s) to add
+        /// The ids of the song(s) to add (if not provided, reads RecordIds from stdin)
         #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Song)))]
         song_ids: Vec<String>,
     },
@@ -611,36 +613,36 @@ pub enum CollectionCommand {
 pub enum RadioCommand {
     /// get the 'n' most similar songs to the given song
     Song {
-        /// The id of the song
+        /// The id of the song (if not provided, reads RecordIds from stdin)
         #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Song)))]
-        id: String,
+        id: Option<String>,
         /// The number of songs to get
         #[clap(value_hint = ValueHint::Other)]
         n: u32,
     },
     /// get the 'n' most similar songs to the given artist
     Artist {
-        /// The id of the artist
+        /// The id of the artist (if not provided, reads RecordIds from stdin)
         #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Artist)))]
-        id: String,
+        id: Option<String>,
         /// The number of songs to get
         #[clap(value_hint = ValueHint::Other)]
         n: u32,
     },
     /// get the 'n' most similar songs to the given album
     Album {
-        /// The id of the album
+        /// The id of the album (if not provided, reads RecordIds from stdin)
         #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Album)))]
-        id: String,
+        id: Option<String>,
         /// The number of songs to get
         #[clap(value_hint = ValueHint::Other)]
         n: u32,
     },
     /// get the 'n' most similar songs to the given playlist
     Playlist {
-        /// The id of the playlist
+        /// The id of the playlist (if not provided, reads RecordIds from stdin)
         #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
-        id: String,
+        id: Option<String>,
         /// The number of songs to get
         #[clap(value_hint = ValueHint::Other)]
         n: u32,
