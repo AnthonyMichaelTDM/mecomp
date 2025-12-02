@@ -17,9 +17,14 @@ use mecomp_storage::db::schemas::dynamic::query::Query;
 pub trait CommandHandler {
     type Output;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         client: mecomp_prost::MusicPlayerClient,
+        stdin: &mut R,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output;
@@ -99,10 +104,25 @@ pub enum Command {
         #[clap(subcommand)]
         command: CollectionCommand,
     },
-    /// Radio control
+    /// Radio control - get similar songs based on a seed
+    /// 
+    /// Usage:
+    /// ```sh
+    /// # Direct usage with explicit type
+    /// mecomp-cli radio song <id> <n>
+    /// mecomp-cli radio artist <id> <n>
+    /// 
+    /// # Simplified usage with piped RecordIds
+    /// mecomp-cli search all "beatles" -q | mecomp-cli radio 5
+    /// ```
     Radio {
+        /// The number of similar songs to get (required if no subcommand provided)
+        #[clap(value_hint = ValueHint::Other)]
+        n: Option<u32>,
+        
+        /// Specific radio subcommand (song/artist/album/playlist)
         #[clap(subcommand)]
-        command: RadioCommand,
+        command: Option<RadioCommand>,
     },
 }
 

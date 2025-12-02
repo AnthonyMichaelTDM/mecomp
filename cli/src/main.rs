@@ -34,12 +34,13 @@ fn main() -> anyhow::Result<()> {
     rt.block_on(async {
         let client = mecomp_prost::init_client(flags.port).await?;
 
+        let mut stdin_adapter = std::io::stdin();
         let mut stdout_adapter = WriteAdapter(std::io::stdout());
         let mut stderr_adapter = WriteAdapter(std::io::stderr());
 
         if let Some(command) = flags.subcommand {
             command
-                .handle(client, &mut stdout_adapter, &mut stderr_adapter)
+                .handle(client, &mut stdin_adapter, &mut stdout_adapter, &mut stderr_adapter)
                 .await?;
         } else {
             eprintln!("No subcommand provided");

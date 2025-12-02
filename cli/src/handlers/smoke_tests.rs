@@ -22,6 +22,19 @@ use crate::handlers::{
     RepeatMode, SearchTarget, SeekCommand, StatusCommand, VolumeCommand, utils::WriteAdapter,
 };
 
+/// Mock stdin for tests - always appears as a terminal with no input
+struct MockStdin;
+
+impl crate::handlers::utils::StdinRead for MockStdin {
+    fn is_terminal(&self) -> bool {
+        true
+    }
+    
+    fn lines(&mut self) -> Box<dyn Iterator<Item = std::io::Result<String>> + '_> {
+        Box::new(std::iter::empty())
+    }
+}
+
 #[test]
 fn test_cli_args_parse() {
     let args = vec!["mecomp-cli", "--port", "6600"];
@@ -202,10 +215,12 @@ macro_rules! set_snapshot_suffix {
 async fn test_ping_command(#[future] client: MusicPlayerClient) {
     let command = Command::Ping;
 
+    let stdin = &mut MockStdin;
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -219,10 +234,12 @@ async fn test_ping_command(#[future] client: MusicPlayerClient) {
 async fn test_stop_command(#[future] client: MusicPlayerClient) {
     let command = Command::Stop;
 
+    let stdin = &mut MockStdin;
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -312,10 +329,11 @@ async fn test_library_command(
 ) {
     let command = Command::Library { command };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -332,10 +350,11 @@ async fn test_library_command(
 async fn test_status_command(#[future] client: MusicPlayerClient, #[case] command: StatusCommand) {
     let command = Command::Status { command };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -349,10 +368,11 @@ async fn test_status_command(#[future] client: MusicPlayerClient, #[case] comman
 async fn test_state_command(#[future] client: MusicPlayerClient) {
     let command = Command::State;
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -369,10 +389,11 @@ async fn test_state_command(#[future] client: MusicPlayerClient) {
 async fn test_current_command(#[future] client: MusicPlayerClient, #[case] target: CurrentTarget) {
     let command = Command::Current { target };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -389,10 +410,11 @@ async fn test_current_command(#[future] client: MusicPlayerClient, #[case] targe
 async fn test_rand_command(#[future] client: MusicPlayerClient, #[case] target: RandTarget) {
     let command = Command::Rand { target };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -419,10 +441,11 @@ async fn test_search_command(
         limit: 10,
     };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -458,10 +481,11 @@ async fn test_playback_command(
 ) {
     let command = Command::Playback { command };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -486,10 +510,11 @@ async fn test_playback_command(
 async fn test_queue_command(#[future] client: MusicPlayerClient, #[case] command: QueueCommand) {
     let command = Command::Queue { command };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -516,10 +541,11 @@ async fn test_playlist_command(
 ) {
     let command = Command::Playlist { command };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -537,10 +563,11 @@ async fn test_playlist_create(#[future] client: MusicPlayerClient) {
         },
     };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     let stdout = String::from_utf8(stdout.0.clone()).unwrap();
@@ -586,10 +613,11 @@ async fn test_dynamic_playlist_command(
 ) {
     let command = Command::Dynamic { command };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -608,10 +636,11 @@ async fn test_dynamic_playlist_create(#[future] client: MusicPlayerClient) {
         },
     };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     let stdout = String::from_utf8(stdout.0.clone()).unwrap();
@@ -635,10 +664,11 @@ async fn test_collection_command(
 ) {
     let command = Command::Collection { command };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");
@@ -659,10 +689,11 @@ async fn test_collection_freeze(#[future] client: MusicPlayerClient) {
         },
     };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     let stdout = String::from_utf8(stdout.0.clone()).unwrap();
@@ -678,12 +709,13 @@ async fn test_collection_freeze(#[future] client: MusicPlayerClient) {
 #[case( RadioCommand::Playlist { id: Some(item_id().to_string()), n: 1 } )]
 #[tokio::test]
 async fn test_radio_command(#[future] client: MusicPlayerClient, #[case] command: RadioCommand) {
-    let command = Command::Radio { command };
+    let command = Command::Radio { n: None, command: Some(command) };
 
+    let stdin = &mut MockStdin;
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());
 
-    let result = command.handle(client.await, stdout, stderr).await;
+    let result = command.handle(client.await, stdin, stdout, stderr).await;
     assert!(result.is_ok());
 
     set_snapshot_suffix!("stdout");

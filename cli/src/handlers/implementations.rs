@@ -1,7 +1,4 @@
-use std::{
-    io::{BufRead, IsTerminal},
-    time::Duration,
-};
+use std::time::Duration;
 
 use crate::handlers::{printing, utils};
 
@@ -33,9 +30,14 @@ impl CommandHandler for Command {
     type Output = anyhow::Result<()>;
 
     #[allow(clippy::too_many_lines)]
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
+        stdin: &mut R,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
@@ -53,8 +55,8 @@ impl CommandHandler for Command {
                 )?;
                 Ok(())
             }
-            Self::Library { command } => command.handle(client, stdout, stderr).await,
-            Self::Status { command } => command.handle(client, stdout, stderr).await,
+            Self::Library { command } => command.handle(client, stdin, stdout, stderr).await,
+            Self::Status { command } => command.handle(client, stdin, stdout, stderr).await,
             Self::State => {
                 if let Some(state) = client.state_audio(()).await?.into_inner().state {
                     Ok(writeln!(
@@ -192,12 +194,35 @@ impl CommandHandler for Command {
                 )?
             )?),
 
-            Self::Playback { command } => command.handle(client, stdout, stderr).await,
-            Self::Queue { command } => command.handle(client, stdout, stderr).await,
-            Self::Playlist { command } => command.handle(client, stdout, stderr).await,
-            Self::Dynamic { command } => command.handle(client, stdout, stderr).await,
-            Self::Collection { command } => command.handle(client, stdout, stderr).await,
-            Self::Radio { command } => command.handle(client, stdout, stderr).await,
+            Self::Playback { command } => command.handle(client, stdin, stdout, stderr).await,
+            Self::Queue { command } => command.handle(client, stdin, stdout, stderr).await,
+            Self::Playlist { command } => command.handle(client, stdin, stdout, stderr).await,
+            Self::Dynamic { command } => command.handle(client, stdin, stdout, stderr).await,
+            Self::Collection { command } => command.handle(client, stdin, stdout, stderr).await,
+            Self::Radio { n, command } => {
+                // If a subcommand is provided, use it
+                if let Some(cmd) = command {
+                    cmd.handle(client, stdin, stdout, stderr).await
+                } else if let Some(n) = n {
+                    // Simplified form: read RecordIds from stdin
+                    if stdin.is_terminal() {
+                        bail!("When using simplified radio form, pipe RecordIds via stdin or use a subcommand");
+                    }
+                    let list = utils::read_record_ids_from_stdin(stdin, stderr);
+                    if list.is_empty() {
+                        bail!("No RecordIds provided via stdin");
+                    }
+                    let resp = client
+                        .radio_get_similar_ids(RadioSimilarRequest::new(list, *n))
+                        .await?
+                        .into_inner()
+                        .ids;
+                    writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
+                    Ok(())
+                } else {
+                    bail!("Either provide 'n' for simplified form or use a subcommand (song/artist/album/playlist)");
+                }
+            }
         }
     }
 }
@@ -206,9 +231,14 @@ impl CommandHandler for LibraryCommand {
     type Output = anyhow::Result<()>;
 
     #[allow(clippy::too_many_lines)]
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
+        _: &mut R,
         stdout: &mut W1,
         _: &mut W2,
     ) -> Self::Output {
@@ -378,9 +408,14 @@ impl CommandHandler for LibraryCommand {
 impl CommandHandler for super::StatusCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
+        _: &mut R,
         stdout: &mut W1,
         _: &mut W2,
     ) -> Self::Output {
@@ -441,9 +476,14 @@ impl CommandHandler for super::StatusCommand {
 impl CommandHandler for super::PlaybackCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
+        stdin: &mut R,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
@@ -487,8 +527,8 @@ impl CommandHandler for super::PlaybackCommand {
                 writeln!(stdout, "Daemon response:\nprevious track started")?;
                 Ok(())
             }
-            Self::Seek { command } => command.handle(client, stdout, stderr).await,
-            Self::Volume { command } => command.handle(client, stdout, stderr).await,
+            Self::Seek { command } => command.handle(client, stdin, stdout, stderr).await,
+            Self::Volume { command } => command.handle(client, stdin, stdout, stderr).await,
             Self::Repeat { mode } => {
                 let mode: mecomp_core::state::RepeatMode = (*mode).into();
                 client
@@ -509,9 +549,14 @@ impl CommandHandler for super::PlaybackCommand {
 impl CommandHandler for SeekCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
+        _: &mut R,
         stdout: &mut W1,
         _: &mut W2,
     ) -> Self::Output {
@@ -554,9 +599,14 @@ impl CommandHandler for SeekCommand {
 impl CommandHandler for VolumeCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
+        _: &mut R,
         stdout: &mut W1,
         _: &mut W2,
     ) -> Self::Output {
@@ -600,9 +650,14 @@ impl CommandHandler for QueueCommand {
     type Output = anyhow::Result<()>;
 
     #[allow(clippy::too_many_lines)]
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
+        stdin: &mut R,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
@@ -648,8 +703,7 @@ impl CommandHandler for QueueCommand {
             Self::Add { target, id } => {
                 // If neither target nor id is provided, or if stdin is not a terminal,
                 // read RecordIds from stdin
-                let stdin = std::io::stdin();
-                if utils::should_read_from_stdin(&stdin, id) {
+                if utils::should_read_from_stdin(stdin, id) {
                     let ids = utils::read_record_ids_from_stdin(stdin, stderr);
                     client.queue_add_list(RecordIdList { ids }).await?;
                     writeln!(stdout, "Daemon response:\nitems added to queue")?;
@@ -703,22 +757,13 @@ impl CommandHandler for QueueCommand {
             }
             #[allow(deprecated)]
             Self::Pipe => {
-                let stdin = std::io::stdin();
                 if stdin.is_terminal() {
                     writeln!(
                         stdout,
                         "No input provided, this command is meant to be used with a pipe"
                     )?;
                 } else {
-                    let ids: Vec<RecordId> =
-                        utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                            Ok(line) => Some(line),
-                            Err(e) => {
-                                writeln!(stderr, "Error reading from stdin: {e}").ok();
-                                None
-                            }
-                        }));
-
+                    let ids = utils::read_record_ids_from_stdin(stdin, stderr);
                     client.queue_add_list(RecordIdList { ids }).await?;
                     writeln!(stdout, "Daemon response:\nitems added to queue")?;
                 }
@@ -732,9 +777,14 @@ impl CommandHandler for super::PlaylistCommand {
     type Output = anyhow::Result<()>;
 
     #[allow(clippy::too_many_lines)]
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
+        stdin: &mut R,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
@@ -823,7 +873,7 @@ impl CommandHandler for super::PlaylistCommand {
                 writeln!(stdout, "Daemon response:\nplaylist deleted")?;
                 Ok(())
             }
-            Self::Add { command } => command.handle(client, stdout, stderr).await,
+            Self::Add { command } => command.handle(client, stdin, stdout, stderr).await,
             Self::Remove { id, item_ids } => {
                 client
                     .playlist_remove_songs(PlaylistRemoveSongsRequest {
@@ -872,16 +922,20 @@ impl CommandHandler for super::PlaylistCommand {
 impl CommandHandler for super::PlaylistAddCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
+        stdin: &mut R,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
-        let stdin = std::io::stdin();
         let resp = match self {
             Self::Artist { id, artist_id } => {
-                if utils::should_read_from_stdin(&stdin, artist_id) {
+                if utils::should_read_from_stdin(stdin, artist_id) {
                     let list = utils::read_record_ids_from_stdin(stdin, stderr);
                     client
                         .playlist_add_list(PlaylistAddListRequest::new(id, list))
@@ -900,7 +954,7 @@ impl CommandHandler for super::PlaylistAddCommand {
                 }
             }
             Self::Album { id, album_id } => {
-                if utils::should_read_from_stdin(&stdin, album_id) {
+                if utils::should_read_from_stdin(stdin, album_id) {
                     let list = utils::read_record_ids_from_stdin(stdin, stderr);
                     client
                         .playlist_add_list(PlaylistAddListRequest::new(id, list))
@@ -919,39 +973,33 @@ impl CommandHandler for super::PlaylistAddCommand {
                 }
             }
             Self::Song { id, song_ids } => {
-                if !stdin.is_terminal() || song_ids.is_empty() {
-                    let list = utils::read_record_ids_from_stdin(stdin, stderr);
-                    client
-                        .playlist_add_list(PlaylistAddListRequest::new(id, list))
-                        .await?
-                        .map(|()| "items added to playlist")
+                // Collect song IDs from both CLI args and stdin
+                let mut list: Vec<RecordId> = song_ids
+                    .iter()
+                    .map(|song_id| RecordId::new(song::TABLE_NAME, song_id))
+                    .collect();
+                
+                // If stdin has data, read from it too
+                if !stdin.is_terminal() {
+                    let stdin_ids = utils::read_record_ids_from_stdin(stdin, stderr);
+                    list.extend(stdin_ids);
+                }
+                
+                if list.is_empty() {
+                    bail!("Provide song IDs via arguments or stdin")
                 } else {
                     client
-                        .playlist_add_list(PlaylistAddListRequest::new(
-                            id,
-                            song_ids
-                                .iter()
-                                .map(|song_id| RecordId::new(song::TABLE_NAME, song_id))
-                                .collect(),
-                        ))
+                        .playlist_add_list(PlaylistAddListRequest::new(id, list))
                         .await?
                         .map(|()| "songs added to playlist")
                 }
             }
             #[allow(deprecated)]
             Self::Pipe { id } => {
-                let stdin = std::io::stdin();
                 if stdin.is_terminal() {
                     bail!("No input provided, this command is meant to be used with a pipe");
                 }
-                let list: Vec<RecordId> =
-                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                        Ok(line) => Some(line),
-                        Err(e) => {
-                            writeln!(stderr, "Error reading from stdin: {e}").ok();
-                            None
-                        }
-                    }));
+                let list = utils::read_record_ids_from_stdin(stdin, stderr);
 
                 client
                     .playlist_add_list(PlaylistAddListRequest::new(id, list))
@@ -997,9 +1045,14 @@ impl CommandHandler for super::DynamicCommand {
     type Output = anyhow::Result<()>;
 
     #[allow(clippy::too_many_lines)]
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
+        _: &mut R,
         stdout: &mut W1,
         _: &mut W2,
     ) -> Self::Output {
@@ -1120,9 +1173,14 @@ impl CommandHandler for super::DynamicCommand {
 impl CommandHandler for super::CollectionCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
+        _: &mut R,
         stdout: &mut W1,
         _: &mut W2,
     ) -> Self::Output {
@@ -1193,16 +1251,20 @@ impl CommandHandler for super::CollectionCommand {
 impl CommandHandler for super::RadioCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        R: utils::StdinRead + Send,
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
+        stdin: &mut R,
         stdout: &mut W1,
         stderr: &mut W2,
     ) -> Self::Output {
-        let stdin = std::io::stdin();
         match self {
             Self::Song { id, n } => {
-                let ids = if utils::should_read_from_stdin(&stdin, id) {
+                let ids = if utils::should_read_from_stdin(stdin, id) {
                     utils::read_record_ids_from_stdin(stdin, stderr)
                 } else if let Some(id) = id {
                     vec![RecordId::new(song::TABLE_NAME, id)]
@@ -1219,7 +1281,7 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Artist { id, n } => {
-                let ids = if utils::should_read_from_stdin(&stdin, id) {
+                let ids = if utils::should_read_from_stdin(stdin, id) {
                     utils::read_record_ids_from_stdin(stdin, stderr)
                 } else if let Some(id) = id {
                     vec![RecordId::new(artist::TABLE_NAME, id)]
@@ -1236,7 +1298,7 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Album { id, n } => {
-                let ids = if utils::should_read_from_stdin(&stdin, id) {
+                let ids = if utils::should_read_from_stdin(stdin, id) {
                     utils::read_record_ids_from_stdin(stdin, stderr)
                 } else if let Some(id) = id {
                     vec![RecordId::new(album::TABLE_NAME, id)]
@@ -1253,7 +1315,7 @@ impl CommandHandler for super::RadioCommand {
                 Ok(())
             }
             Self::Playlist { id, n } => {
-                let ids = if utils::should_read_from_stdin(&stdin, id) {
+                let ids = if utils::should_read_from_stdin(stdin, id) {
                     utils::read_record_ids_from_stdin(stdin, stderr)
                 } else if let Some(id) = id {
                     vec![RecordId::new(playlist::TABLE_NAME, id)]
@@ -1271,18 +1333,10 @@ impl CommandHandler for super::RadioCommand {
             }
             #[allow(deprecated)]
             Self::Pipe { n } => {
-                let stdin = std::io::stdin();
                 if stdin.is_terminal() {
                     bail!("No input provided, this command is meant to be used with a pipe");
                 }
-                let list: Vec<RecordId> =
-                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                        Ok(line) => Some(line),
-                        Err(e) => {
-                            writeln!(stderr, "Error reading from stdin: {e}").ok();
-                            None
-                        }
-                    }));
+                let list = utils::read_record_ids_from_stdin(stdin, stderr);
 
                 let resp = client
                     .radio_get_similar_ids(RadioSimilarRequest::new(list, *n))

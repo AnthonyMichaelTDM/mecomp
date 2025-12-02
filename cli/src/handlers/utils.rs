@@ -3,6 +3,27 @@ use std::io::{self, BufRead, IsTerminal, Stdin};
 
 use mecomp_prost::RecordId;
 
+/// Trait for reading from stdin with terminal detection
+/// This trait allows for mocking stdin in tests
+pub trait StdinRead {
+    /// Check if the input is from a terminal
+    fn is_terminal(&self) -> bool;
+    
+    /// Lock and get lines iterator
+    fn lines(&mut self) -> Box<dyn Iterator<Item = io::Result<String>> + '_>;
+}
+
+/// Implementation for real stdin
+impl StdinRead for Stdin {
+    fn is_terminal(&self) -> bool {
+        IsTerminal::is_terminal(self)
+    }
+    
+    fn lines(&mut self) -> Box<dyn Iterator<Item = io::Result<String>> + '_> {
+        Box::new(self.lock().lines())
+    }
+}
+
 pub fn parse_from_lines<Lines, Out>(lines: Lines) -> Vec<Out>
 where
     Lines: Iterator<Item = String>,
@@ -21,16 +42,16 @@ where
 /// - stdin is not a terminal (data is being piped), OR
 /// - the optional parameter is None (user didn't provide an argument)
 /// This allows both explicit piping and implicit piping when the argument is omitted
-pub fn should_read_from_stdin<T>(stdin: &Stdin, optional_param: &Option<T>) -> bool {
+pub fn should_read_from_stdin<R: StdinRead, T>(stdin: &R, optional_param: &Option<T>) -> bool {
     !stdin.is_terminal() || optional_param.is_none()
 }
 
 /// Read RecordIds from stdin, filtering and handling errors
-pub fn read_record_ids_from_stdin<W: fmt::Write>(
-    stdin: Stdin,
+pub fn read_record_ids_from_stdin<R: StdinRead, W: fmt::Write>(
+    stdin: &mut R,
     stderr: &mut W,
 ) -> Vec<RecordId> {
-    parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
+    parse_from_lines(stdin.lines().filter_map(|l| match l {
         Ok(line) => Some(line),
         Err(e) => {
             writeln!(stderr, "Error reading from stdin: {e}").ok();
