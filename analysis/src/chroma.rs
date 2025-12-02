@@ -101,7 +101,7 @@ impl ChromaDesc {
 #[must_use]
 #[inline]
 pub fn chroma_interval_features(chroma: &Array2<f64>) -> Array1<f64> {
-    let chroma = normalize_feature_sequence(&chroma.mapv(|x| (x * 15.).exp()));
+    let chroma = normalize_feature_sequence(&(chroma * 15.).exp());
     let templates = arr2(&[
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -183,7 +183,7 @@ pub fn chroma_filter(
 
     let mut freq_bins = frequencies;
     hz_to_octs_inplace(&mut freq_bins, tuning, n_chroma);
-    freq_bins.mapv_inplace(|x| x * n_chroma_float);
+    freq_bins *= n_chroma_float;
     freq_bins[0] = 1.5f64.mul_add(-n_chroma_float, freq_bins[1]);
 
     let mut binwidth_bins = Array::ones(freq_bins.raw_dim());
@@ -198,9 +198,10 @@ pub fn chroma_filter(
     }
     d = -d + &freq_bins;
 
-    d.mapv_inplace(|x| 10f64.mul_add(n_chroma_float, x + n_chroma2) % n_chroma_float - n_chroma2);
+    d = d + n_chroma2 + 10. * n_chroma_float;
+    d = d % n_chroma_float - n_chroma2;
     d = d / binwidth_bins;
-    d.mapv_inplace(|x| (-0.5 * (2. * x) * (2. * x)).exp());
+    d = (-2. * d.pow2()).exp();
 
     let mut wts = d;
     // Normalize by computing the l2-norm over the columns
@@ -211,7 +212,8 @@ pub fn chroma_filter(
         }
     }
 
-    freq_bins.mapv_inplace(|x| (-0.5 * ((x / n_chroma_float - ctroct) / octwidth).powi(2)).exp());
+    // Apply Gaussian tuning curve
+    freq_bins = (-0.5 * ((freq_bins / n_chroma_float - ctroct) / octwidth).powi(2)).exp();
 
     wts *= &freq_bins;
 
@@ -382,12 +384,12 @@ pub fn chroma_stft(
         })?
         .to_owned();
 
-    for mut row in raw_chroma.columns_mut() {
-        let sum = row.sum(); // we know that our values are positive, so no need to use abs
-        if sum >= f64::MIN_POSITIVE {
-            row /= sum;
+    Zip::from(raw_chroma.columns_mut()).for_each(|mut row| {
+        let max = row.sum(); // we know that our values are positive, so no need to use abs
+        if max >= f64::MIN_POSITIVE {
+            row /= max;
         }
-    }
+    });
 
     Ok(raw_chroma)
 }
