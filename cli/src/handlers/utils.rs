@@ -16,8 +16,11 @@ where
     })
 }
 
-/// Check if we should read from stdin based on whether stdin is a terminal
-/// and whether the optional parameter is None
+/// Check if we should read from stdin
+/// Returns true if:
+/// - stdin is not a terminal (data is being piped), OR
+/// - the optional parameter is None (user didn't provide an argument)
+/// This allows both explicit piping and implicit piping when the argument is omitted
 pub fn should_read_from_stdin<T>(stdin: &Stdin, optional_param: &Option<T>) -> bool {
     !stdin.is_terminal() || optional_param.is_none()
 }
