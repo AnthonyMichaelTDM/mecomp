@@ -342,13 +342,16 @@ pub enum QueueCommand {
         quiet: bool,
     },
     /// Add to the queue
+    ///
+    /// When used with piped input (e.g., from search -q), omit both target and id.
+    /// Otherwise, provide both target and id to add a specific item.
     Add {
         /// What to add (artist, album, song, playlist)
-        /// If not provided, reads RecordIds from stdin (pipe)
+        /// Omit when piping RecordIds from stdin
         #[clap(value_enum)]
         target: Option<QueueAddTarget>,
         /// The id of the item
-        /// If not provided, reads RecordIds from stdin (pipe)
+        /// Omit when piping RecordIds from stdin
         #[clap(value_hint = ValueHint::Other)]
         id: Option<String>,
     },
