@@ -3114,8 +3114,10 @@ name = "mecomp-analysis"
 version = "0.5.9"
 dependencies = [
  "adler32",
+ "bitvec",
  "bliss-audio-aubio-rs",
  "criterion",
+ "likely_stable",
  "linfa",
  "linfa-clustering",
  "linfa-nn",

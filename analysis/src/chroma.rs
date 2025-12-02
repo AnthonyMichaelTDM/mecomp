@@ -7,6 +7,8 @@ use crate::Feature;
 
 use super::errors::{AnalysisError, AnalysisResult};
 use super::utils::{Normalize, hz_to_octs_inplace, stft};
+use bitvec::vec::BitVec;
+use likely_stable::{LikelyResult, likely, unlikely};
 use ndarray::{Array, Array1, Array2, Axis, Order, Zip, arr1, arr2, concatenate, s};
 use ndarray_stats::QuantileExt;
 use ndarray_stats::interpolate::Midpoint;
@@ -57,11 +59,11 @@ impl ChromaDesc {
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     #[inline]
     pub fn do_(&mut self, signal: &[f32]) -> AnalysisResult<()> {
-        let mut stft = stft(signal, Self::WINDOW_SIZE, 2205);
+        let stft = stft(signal, Self::WINDOW_SIZE, 2205);
         let tuning = estimate_tuning(self.sample_rate, &stft, Self::WINDOW_SIZE, 0.01, 12)?;
         let chroma = chroma_stft(
             self.sample_rate,
-            &mut stft,
+            &stft,
             Self::WINDOW_SIZE,
             self.n_chroma,
             tuning,
@@ -145,7 +147,7 @@ pub fn normalize_feature_sequence(feature: &Array2<f64>) -> Array2<f64> {
     let mut normalized_sequence = feature.to_owned();
     for mut column in normalized_sequence.columns_mut() {
         let sum: f64 = column.iter().copied().map(f64::abs).sum();
-        if sum >= 0.0001 {
+        if likely(sum >= 0.0001) {
             column /= sum;
         }
     }
@@ -185,10 +187,9 @@ pub fn chroma_filter(
     freq_bins[0] = 1.5f64.mul_add(-n_chroma_float, freq_bins[1]);
 
     let mut binwidth_bins = Array::ones(freq_bins.raw_dim());
-    binwidth_bins.slice_mut(s![0..freq_bins.len() - 1]).assign(
-        &(&freq_bins.slice(s![1..]) - &freq_bins.slice(s![..-1]))
-            .mapv(|x| if x <= 1. { 1. } else { x }),
-    );
+    binwidth_bins
+        .slice_mut(s![0..freq_bins.len() - 1])
+        .assign(&(&freq_bins.slice(s![1..]) - &freq_bins.slice(s![..-1])).mapv(|x| x.max(1.)));
 
     let mut d: Array2<f64> = Array::zeros((n_chroma as usize, (freq_bins).len()));
     for (idx, mut row) in d.rows_mut().into_iter().enumerate() {
@@ -204,11 +205,10 @@ pub fn chroma_filter(
     let mut wts = d;
     // Normalize by computing the l2-norm over the columns
     for mut col in wts.columns_mut() {
-        let mut sum = col.mapv(|x| x * x).sum().sqrt();
-        if sum < f64::MIN_POSITIVE {
-            sum = 1.;
+        let sum = col.pow2().sum().sqrt();
+        if sum >= f64::MIN_POSITIVE {
+            col /= sum;
         }
-        col /= sum;
     }
 
     freq_bins.mapv_inplace(|x| (-0.5 * ((x / n_chroma_float - ctroct) / octwidth).powi(2)).exp());
@@ -241,11 +241,10 @@ pub fn pip_track(
 
     let length = spectrum.len_of(Axis(0));
 
-    // TODO>1.0 Make this a bitvec when that won't mean depending on a crate
     let freq_mask = fft_freqs
         .iter()
         .map(|&f| (fmin <= f) && (f < fmax))
-        .collect::<Vec<bool>>();
+        .collect::<BitVec>();
 
     let ref_value = spectrum.map_axis(Axis(0), |x| {
         let first: f64 = *x.first().expect("empty spectrum axis");
@@ -253,21 +252,19 @@ pub fn pip_track(
         threshold * max
     });
 
+    // compute number of taken columns and beginning / end indices
+    let freq_mask_len = freq_mask.len();
+    let (taken_columns, beginning, end) = freq_mask.iter().enumerate().fold(
+        (0, freq_mask_len, 0),
+        |(taken, beginning, end), (i, b)| {
+            b.then(|| (taken + 1, beginning.min(i), end.max(i + 1)))
+                .unwrap_or((taken, beginning, end))
+        },
+    );
+
     // There will be at most taken_columns * length elements in pitches / mags
-    let taken_columns = freq_mask
-        .iter()
-        .fold(0, |acc, &x| if x { acc + 1 } else { acc });
     let mut pitches = Vec::with_capacity(taken_columns * length);
     let mut mags = Vec::with_capacity(taken_columns * length);
-
-    let beginning = freq_mask
-        .iter()
-        .position(|&b| b)
-        .ok_or_else(|| AnalysisError::AnalysisError(String::from("in chroma")))?;
-    let end = freq_mask
-        .iter()
-        .rposition(|&b| b)
-        .ok_or_else(|| AnalysisError::AnalysisError(String::from("in chroma")))?;
 
     let zipped = Zip::indexed(spectrum.slice(s![beginning..end - 3, ..]))
         .and(spectrum.slice(s![beginning + 1..end - 2, ..]))
@@ -278,7 +275,7 @@ pub fn pip_track(
     zipped.for_each(|(i, j), &before_elem, &elem, &after_elem| {
         if elem > ref_value[j] && after_elem <= elem && before_elem < elem {
             let avg = 0.5 * (after_elem - before_elem);
-            let mut shift = 2f64.mul_add(elem, -after_elem) - before_elem;
+            let mut shift = 2f64.mul_add(elem, -after_elem - before_elem);
             if shift.abs() < f64::MIN_POSITIVE {
                 shift += 1.;
             }
@@ -300,7 +297,7 @@ pub fn pitch_tuning(
     resolution: f64,
     bins_per_octave: u32,
 ) -> AnalysisResult<f64> {
-    if frequencies.is_empty() {
+    if unlikely(frequencies.is_empty()) {
         return Ok(0.0);
     }
     hz_to_octs_inplace(frequencies, 0.0, 12);
@@ -318,7 +315,7 @@ pub fn pitch_tuning(
     }
     let max_index = counts
         .argmax()
-        .map_err(|e| AnalysisError::AnalysisError(format!("in chroma: {e}")))?;
+        .map_err_unlikely(|e| AnalysisError::AnalysisError(format!("in chroma: {e}")))?;
 
     // Return the bin with the most reoccurring frequency.
     #[allow(clippy::cast_precision_loss)]
@@ -343,13 +340,13 @@ pub fn estimate_tuning(
         .map(|(x, y)| (n64(*x), n64(*y)))
         .unzip();
 
-    if pitch.is_empty() {
+    if unlikely(pitch.is_empty()) {
         return Ok(0.);
     }
 
     let threshold: N64 = Array::from(filtered_mag.clone())
         .quantile_axis_mut(Axis(0), n64(0.5), &Midpoint)
-        .map_err(|e| AnalysisError::AnalysisError(format!("in chroma: {e}")))?
+        .map_err_unlikely(|e| AnalysisError::AnalysisError(format!("in chroma: {e}")))?
         .into_scalar();
     let mut pitch = filtered_pitch
         .iter()
@@ -367,21 +364,20 @@ pub fn estimate_tuning(
 #[inline]
 pub fn chroma_stft(
     sample_rate: u32,
-    spectrum: &mut Array2<f64>, // shape: (window_length / 2 + 1, signal.len().div_ceil(hop_length))
+    spectrum: &Array2<f64>, // shape: (window_length / 2 + 1, signal.len().div_ceil(hop_length))
     n_fft: usize,
     n_chroma: u32,
     tuning: f64,
 ) -> AnalysisResult<Array2<f64>> {
-    spectrum.mapv_inplace(|x| x * x);
     let mut raw_chroma = chroma_filter(sample_rate, n_fft, n_chroma, tuning)?;
 
-    raw_chroma = raw_chroma.dot(spectrum);
+    raw_chroma = raw_chroma.dot(&spectrum.pow2());
 
     // We want to maximize cache locality, and are iterating over columns,
     // so let's make sure our array is in column-major order.
     raw_chroma = raw_chroma
         .to_shape((raw_chroma.dim(), Order::ColumnMajor))
-        .map_err(|_| {
+        .map_err_unlikely(|_| {
             AnalysisError::AnalysisError(String::from("in chroma: failed to reorder array"))
         })?
         .to_owned();
@@ -524,12 +520,12 @@ mod test {
             .decode(Path::new("data/s16_mono_22_5kHz.flac"))
             .unwrap()
             .samples;
-        let mut stft = stft(&signal, 8192, 2205);
+        let stft = stft(&signal, 8192, 2205);
 
         let file = File::open("data/chroma.npy").unwrap();
         let expected_chroma = Array2::<f64>::read_npy(file).unwrap();
 
-        let chroma = chroma_stft(22050, &mut stft, 8192, 12, -0.049_999_999_999_999_99).unwrap();
+        let chroma = chroma_stft(22050, &stft, 8192, 12, -0.049_999_999_999_999_99).unwrap();
 
         assert!(!chroma.is_empty() && !expected_chroma.is_empty());
 
