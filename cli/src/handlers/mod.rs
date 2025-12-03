@@ -463,7 +463,7 @@ pub enum PlaylistCommand {
         /// The id of the playlist
         #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::complete_things(CompletableTable::Playlist)))]
         id: String,
-        /// The id of the songs(s) to remove
+        /// The ids of the song(s) to remove (can also read from stdin)
         #[clap(value_hint = ValueHint::Other)]
         item_ids: Vec<String>,
     },

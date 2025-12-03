@@ -875,15 +875,27 @@ impl CommandHandler for super::PlaylistCommand {
             }
             Self::Add { command } => command.handle(client, stdin, stdout, stderr).await,
             Self::Remove { id, item_ids } => {
-                client
-                    .playlist_remove_songs(PlaylistRemoveSongsRequest {
-                        playlist_id: Ulid::new(id),
-                        song_ids: item_ids.iter().map(Ulid::new).collect(),
-                    })
-                    .await?;
-                writeln!(stdout, "Daemon response:\nsongs removed from playlist")?;
-
-                Ok(())
+                // Collect song IDs from both CLI args and stdin
+                let mut song_ids: Vec<Ulid> = item_ids.iter().map(Ulid::new).collect();
+                
+                // If stdin has data, read from it too
+                if !stdin.is_terminal() {
+                    let stdin_ids = utils::read_record_ids_from_stdin(stdin, stderr);
+                    song_ids.extend(stdin_ids.into_iter().map(|id| Ulid::new(&id.id)));
+                }
+                
+                if song_ids.is_empty() {
+                    bail!("Provide song IDs via arguments or stdin")
+                } else {
+                    client
+                        .playlist_remove_songs(PlaylistRemoveSongsRequest {
+                            playlist_id: Ulid::new(id),
+                            song_ids,
+                        })
+                        .await?;
+                    writeln!(stdout, "Daemon response:\nsongs removed from playlist")?;
+                    Ok(())
+                }
             }
             Self::Export { id, path } => {
                 client
