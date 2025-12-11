@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# if this is a release commit (message starts with "chore: release "), ensure that `./x.sh build` runs successfully
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+if echo "$COMMIT_MSG" | grep -qE '^chore: release '; then
+  echo "Release commit detected, running ./x.sh build to verify..."
+  ./x.sh build
+  if [ $? -ne 0 ]; then
+    echo "./x.sh build failed, aborting commit"
+    exit 1
+  fi
+fi
