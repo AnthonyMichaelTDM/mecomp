@@ -21,13 +21,13 @@ use mecomp_prost::{
     PlaylistImportRequest, PlaylistName, PlaylistRemoveSongsRequest, PlaylistRenameRequest,
     QueueRemoveRangeRequest, QueueSetIndexRequest, RadioSimilarRequest, RecordId, RecordIdList,
     SearchRequest, SearchResult, Ulid,
-    tonic::{Code, Response},
 };
 use mecomp_storage::db::schemas::{
     album, artist, collection,
     dynamic::{self, query::Compile},
     playlist, song,
 };
+use tonic::{Code, Response};
 
 impl CommandHandler for Command {
     type Output = anyhow::Result<()>;

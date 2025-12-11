@@ -3162,6 +3162,7 @@ dependencies = [
  "surrealdb",
  "tempfile",
  "tokio",
+ "tonic",
 ]
 
 [[package]]
@@ -3230,6 +3231,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-stream",
+ "tonic",
  "tracing",
  "walkdir",
 ]
@@ -3325,6 +3327,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-stream",
+ "tonic",
  "unicode-width 0.2.0",
 ]
 

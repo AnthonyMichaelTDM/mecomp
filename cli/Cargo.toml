@@ -30,7 +30,7 @@ clap = { workspace = true }
 clap_complete = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
-
+tonic = { workspace = true }
 
 # MECOMP dependencies
 mecomp-core.workspace = true

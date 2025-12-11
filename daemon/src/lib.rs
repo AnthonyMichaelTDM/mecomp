@@ -13,6 +13,7 @@ use surrealdb::{Surreal, engine::local::Db};
 use tokio::net::TcpListener;
 use tokio::runtime::Handle;
 use tokio_stream::wrappers::TcpListenerStream;
+use tonic::transport::Server;
 use tracing::Instrument;
 //-------------------------------------------------------------------------------- MECOMP libraries
 use mecomp_core::{
@@ -21,7 +22,7 @@ use mecomp_core::{
     logger::{init_logger, init_tracing},
     udp::{Message, Sender, StateChange},
 };
-use mecomp_prost::{MusicPlayerClient, TraceInterceptor, server::MusicPlayerServer, tonic};
+use mecomp_prost::{MusicPlayerClient, TraceInterceptor, server::MusicPlayerServer};
 use mecomp_storage::db::{init_database, set_database_path};
 
 pub mod controller;
@@ -237,7 +238,7 @@ async fn run_daemon(
 
     info!("Daemon is ready to handle requests");
 
-    tonic::transport::Server::builder()
+    Server::builder()
         .trace_fn(|r| tracing::trace_span!("grpc", "request" = %r.uri()))
         .add_service(svc)
         .serve_with_incoming_shutdown(incoming, shutdown_future)
@@ -293,7 +294,7 @@ pub async fn init_test_client_server(
             info!("Test server stopped");
         };
 
-        if let Err(e) = tonic::transport::Server::builder()
+        if let Err(e) = Server::builder()
             .add_service(svc)
             .serve_with_incoming_shutdown(incoming, shutdown_future)
             .await
@@ -325,7 +326,7 @@ mod test_client_tests {
     use mecomp_prost::{
         DynamicPlaylist, DynamicPlaylistChangeSet, DynamicPlaylistCreateRequest,
         DynamicPlaylistUpdateRequest, LibraryFull, Path, PlaylistExportRequest,
-        PlaylistImportRequest, PlaylistName, PlaylistRenameRequest, RecordIdList, tonic::Code,
+        PlaylistImportRequest, PlaylistName, PlaylistRenameRequest, RecordIdList,
     };
     use mecomp_storage::{
         db::schemas::{
@@ -339,6 +340,7 @@ mod test_client_tests {
 
     use pretty_assertions::{assert_eq, assert_str_eq};
     use rstest::{fixture, rstest};
+    use tonic::Code;
 
     #[fixture]
     async fn db() -> Arc<Surreal<Db>> {
