@@ -49,7 +49,10 @@ impl SymphoniaSource {
 
     fn init(mss: MediaSourceStream) -> symphonia::core::errors::Result<Option<Self>> {
         let hint = Hint::new();
-        let format_opts = FormatOptions::default();
+        let format_opts = FormatOptions {
+            enable_gapless: true,
+            ..Default::default()
+        };
         let metadata_opts = MetadataOptions::default();
         let mut probed_format = get_probe()
             .format(&hint, mss, &format_opts, &metadata_opts)?
@@ -465,8 +468,8 @@ mod tests {
             .unwrap();
         for (x, y) in analysis.as_vec().iter().zip(expected_analysis) {
             assert!(
-                0.01 > (x - y).abs(),
-                "Expected {x} to be within 0.01 of {y}, but it was not"
+                1e-5 > (x - y).abs(),
+                "Expected {x} to be within 1e-5 of {y}, but it was not"
             );
         }
     }
