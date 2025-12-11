@@ -55,7 +55,6 @@ anyhow = { workspace = true }
 clap = { workspace = true, optional = true }
 clap_complete = { workspace = true, optional = true }
 csv.workspace = true
-futures = { workspace = true }
 log = { workspace = true }
 notify = { workspace = true, optional = true }
 notify-debouncer-full = { workspace = true, optional = true }

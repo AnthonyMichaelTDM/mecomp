@@ -37,7 +37,7 @@ percent-encoding.workspace = true
 shellexpand.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 mecomp-prost.workspace = true
-futures.workspace = true
+futures = "0.3.31"
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]

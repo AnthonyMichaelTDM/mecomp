@@ -3212,7 +3212,6 @@ dependencies = [
  "clap_complete",
  "criterion",
  "csv",
- "futures",
  "lofty",
  "log",
  "mecomp-analysis",
