@@ -52,7 +52,7 @@ rodio = { workspace = true, optional = true }
 serde = { workspace = true }
 shellexpand = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true , features = ["net", "sync"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-opentelemetry = { workspace = true, optional = true }

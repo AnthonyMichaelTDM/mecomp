@@ -35,7 +35,7 @@ mecomp-storage = { workspace = true }
 mpris-server.workspace = true
 percent-encoding.workspace = true
 shellexpand.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 mecomp-prost.workspace = true
 futures.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }

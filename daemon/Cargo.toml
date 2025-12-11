@@ -62,7 +62,7 @@ notify-debouncer-full = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 surrealdb = { workspace = true }
-tokio = { workspace = true, features = ["signal"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
 tracing = { workspace = true }
 walkdir = { workspace = true }
 
