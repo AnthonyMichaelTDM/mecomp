@@ -75,6 +75,7 @@ build() {
 
 	finish
 	ls -al --color=always target/release/mecomp-daemon
+	ls -al --color=always target/release/mecomp-mpris
 	ls -al --color=always target/release/mecomp-cli
 	ls -al --color=always target/release/mecomp-tui
 }

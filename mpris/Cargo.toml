@@ -30,7 +30,7 @@ anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 log.workspace = true
-mecomp-core = { workspace = true }
+mecomp-core = { workspace = true, features = ["notifications"] }
 mecomp-storage = { workspace = true }
 mpris-server.workspace = true
 percent-encoding.workspace = true

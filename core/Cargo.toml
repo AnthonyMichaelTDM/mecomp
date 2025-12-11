@@ -20,7 +20,7 @@ name = "udp"
 harness = false
 
 [features]
-default = ["audio"]
+default = ["audio", "notifications"]
 analysis = ["dep:mecomp-analysis"] # needed so configs can configure clustering
 notifications = ["dep:ciborium", "dep:tokio", "dep:object-pool"]
 otel_tracing = [
