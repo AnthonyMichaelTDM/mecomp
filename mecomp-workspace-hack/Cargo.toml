@@ -30,13 +30,11 @@ ignored = [
     "event-listener",
     "event-listener-strategy",
     "fastrand",
-    "futures",
     "futures-channel",
     "futures-core",
     "futures-executor",
     "futures-io",
     "futures-lite",
-    "futures-sink",
     "futures-task",
     "futures-util",
     "hashbrown",
@@ -109,13 +107,11 @@ either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
 event-listener-strategy = { version = "0.5" }
 fastrand = { version = "2" }
-futures = { version = "0.3" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-lite = { version = "2" }
-futures-sink = { version = "0.3" }
 futures-task = { version = "0.3", default-features = false, features = ["std"] }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
 hashbrown = { version = "0.16", default-features = false, features = ["inline-more"] }
@@ -181,13 +177,11 @@ either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
 event-listener-strategy = { version = "0.5" }
 fastrand = { version = "2" }
-futures = { version = "0.3" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-lite = { version = "2" }
-futures-sink = { version = "0.3" }
 futures-task = { version = "0.3", default-features = false, features = ["std"] }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
 hashbrown = { version = "0.16", default-features = false, features = ["inline-more"] }
