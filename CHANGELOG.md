@@ -1,5 +1,19 @@
 # Mecomp Changelog
 
+## v0.6.0
+
+## v0.6.0 What's Changed
+* fix failing test and optimize display of song attributes by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/410
+* chore: update dependencies by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/411
+* feat: migrate from tarpc to tonic gRPC by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/414
+* chore(deps): bump surrealdb from 2.3.10 to 2.4.0 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/413
+* chore(deps): bump crate-ci/typos from 1.38.1 to 1.39.0 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/407
+* chore(deps): bump github/codeql-action from 4.30.8 to 4.31.2 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/408
+* chore: update cargo-dist version to 0.30.2 in configuration by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/417
+* perf(analysis): Branch prediction hints, and improved ndarray usage by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/416
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.5.9...v0.6.0
+
 ## v0.5.9
 
 ### v0.5.9 What's Changed
