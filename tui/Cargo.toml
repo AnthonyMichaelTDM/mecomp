@@ -46,8 +46,8 @@ unicode-width = "0.2.0"
 # MECOMP dependencies
 mecomp-core = { workspace = true, features = ["notifications"] }
 mecomp-storage = { workspace = true, features = ["serde"] }
-mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 mecomp-prost.workspace = true
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 # on windows, we need to use the `windows` crate of `crossterm`
 [target.'cfg(target_os = "windows")'.dependencies]

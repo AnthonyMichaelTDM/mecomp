@@ -11,4 +11,11 @@ if echo "$COMMIT_MSG" | grep -qE '^chore: release '; then
     echo "./x.sh build failed, aborting commit"
     exit 1
   fi
+
+  echo "Performing a publish dry-run to verify..."
+  ./x.sh publish
+  if [ $? -ne 0 ]; then
+    echo "./x.sh publish dry-run failed, aborting commit"
+    exit 1
+  fi
 fi

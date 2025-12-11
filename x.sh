@@ -29,6 +29,7 @@ help() {
 	echo "    c | clippy    lint all packages"
 	echo "    t | test      test all packages"
 	echo "    b | build     build all packages"
+	echo "    p | publish   publish all packages (dry-run)"
 	echo "    a | all       do all the above"
 	echo "    h | help      print help"
 }
@@ -80,11 +81,37 @@ build() {
 	ls -al --color=always target/release/mecomp-tui
 }
 
+publish() {
+	title "Removing workspace hack dependencies"
+	cargo hakari remove-deps -y
+	if [ $? -ne 0 ]; then
+		fail "Failed to remove workspace hack dependencies"
+	fi
+
+	title "Publishing packages (dry-run)"
+	cargo publish --dry-run --workspace --allow-dirty
+	if [ $? -ne 0 ]; then
+		title "Re-adding workspace hack dependencies"
+		cargo hakari manage-deps -y || fail "Publish dry-run failed, and failed to re-add workspace hack dependencies"
+		fail "Publish dry-run failed"
+	fi
+
+	# Re-add workspace hack dependencies
+	title "Re-adding workspace hack dependencies"
+	cargo hakari manage-deps -y
+	if [ $? -ne 0 ]; then
+		fail "Failed to re-add workspace hack dependencies"
+	fi
+
+	ok "Publish dry-run OK"
+}
+
 # Do everything.
 all() {
 	clippy
 	test
 	build
+	publish
 }
 
 # Subcommands.
@@ -93,5 +120,6 @@ case $1 in
 	'c'|'clippy') clippy;;
 	't'|'test') test;;
 	'b'|'build') build;;
+	'p'|'publish') publish;;
 	*) help;;
 esac

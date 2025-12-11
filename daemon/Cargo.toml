@@ -75,9 +75,9 @@ mecomp-core = { workspace = true, features = [
 mecomp-storage = { workspace = true, features = ["serde", "db", "analysis"] }
 mecomp-analysis = { workspace = true }
 one-or-many = { workspace = true }
-mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 mecomp-prost = { workspace = true }
 tokio-stream = { workspace = true }
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
 criterion.workspace = true

@@ -24,8 +24,8 @@ tonic-prost = "0.14.2"
 tracing.workspace = true
 
 mecomp-core = { workspace = true }
-mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 mecomp-storage.workspace = true
+mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 
 [build-dependencies]
