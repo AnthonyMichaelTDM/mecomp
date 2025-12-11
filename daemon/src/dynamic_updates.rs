@@ -5,7 +5,6 @@
 //! The `init_music_library_watcher`
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
-use futures::FutureExt;
 use log::{debug, error, info, trace, warn};
 use mecomp_storage::db::schemas::song::{Song, SongChangeSet, SongMetadata};
 #[cfg(target_os = "macos")]
@@ -70,50 +69,47 @@ pub fn init_music_library_watcher(
     let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
 
     // spawn the event handler in a new thread
-    tokio::task::spawn(
-        async move {
-            let handler = MusicLibEventHandler::new(
-                db,
-                artist_name_separator,
-                protected_artist_names,
-                genre_separator,
-            );
+    tokio::task::spawn(Box::pin(async move {
+        let handler = MusicLibEventHandler::new(
+            db,
+            artist_name_separator,
+            protected_artist_names,
+            genre_separator,
+        );
 
-            let mut stop = Box::pin(stop_rx);
+        let mut stop = Box::pin(stop_rx);
 
-            let lock = Arc::new(Mutex::new(()));
+        let lock = Arc::new(Mutex::new(()));
 
-            loop {
-                tokio::select! {
-                    _ = &mut stop => {
-                        info!("stop signal received, stopping watcher");
-                        break;
-                    }
-                    _ = interrupt.wait() => {
-                        info!("interrupt signal received, stopping watcher");
-                        break;
-                    }
-                    Some(result) = rx.recv() => {
-                        match result {
-                            Ok(events) => {
-                                for event in events {
-                                    if let Err(e) = handler.handle_event(event, lock.clone()).await {
-                                        error!("failed to handle event: {e:?}");
-                                    }
+        loop {
+            tokio::select! {
+                _ = &mut stop => {
+                    info!("stop signal received, stopping watcher");
+                    break;
+                }
+                _ = interrupt.wait() => {
+                    info!("interrupt signal received, stopping watcher");
+                    break;
+                }
+                Some(result) = rx.recv() => {
+                    match result {
+                        Ok(events) => {
+                            for event in events {
+                                if let Err(e) = handler.handle_event(event, lock.clone()).await {
+                                    error!("failed to handle event: {e:?}");
                                 }
                             }
-                            Err(errors) => {
-                                for error in errors {
-                                    error!("watch error: {error:?}");
-                                }
+                        }
+                        Err(errors) => {
+                            for error in errors {
+                                error!("watch error: {error:?}");
                             }
                         }
                     }
                 }
             }
         }
-        .boxed(),
-    );
+    }));
 
     // Select recommended watcher for debouncer.
     // Using a callback here, could also be a channel.

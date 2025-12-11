@@ -5,7 +5,7 @@
 use mecomp_prost::{
     DynamicPlaylistCreateRequest, DynamicPlaylistUpdateRequest, LibraryAnalyzeRequest,
     LibraryBriefResponse as LibraryBrief, MusicPlayerClient, PlaylistAddListRequest, PlaylistName,
-    PlaylistRemoveSongsRequest, PlaylistRenameRequest, tonic,
+    PlaylistRemoveSongsRequest, PlaylistRenameRequest,
 };
 use tokio::sync::{
     broadcast,

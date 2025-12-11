@@ -120,10 +120,9 @@ directories = "6.0.0"
 env_logger = { version = "0.11.8", features = [
     "color",
 ], default-features = false }
-futures = { version = "0.3.31", features = ["alloc"], default-features = false }
 # image = { version = "0.25.0" }
 likely_stable = "0.1.3"
-log = { version = "0.4.28", features = ["serde"] }
+log = { version = "0.4.29", features = ["serde"] }
 mpris-server = { version = "0.9.0" }
 notify-debouncer-full = { version = "0.6.0", default-features = false }
 notify = { version = "8.2.0", default-features = false, features = [
@@ -160,18 +159,14 @@ surrealdb = { version = "=2.4.0", features = [
     "kv-surrealkv",
 ], default-features = false }
 thiserror = { version = "2.0.17" }
-tokio = { version = "1.48.0", features = [
-    "macros",
-    "rt-multi-thread",
-    "sync",
-    "time",
-] }
+tokio = "1.48.0"
 tokio-stream = { version = "0.1.17" }
+tonic = { version = "0.14.2", default-features = false }
 walkdir = { version = "2.5.0" }
 
 # tracing libraries
-tracing = { version = "0.1.41" }
-tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+tracing = { version = "0.1.43" }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 tracing-opentelemetry = "0.32.0"
 opentelemetry = "0.31.0"
 opentelemetry_sdk = { version = "0.31.0", features = ["rt-tokio"] }
