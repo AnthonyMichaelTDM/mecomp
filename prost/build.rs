@@ -19,7 +19,7 @@ fn main() {
         .build_transport(true)
         .build_client(true)
         .build_server(true)
-        .out_dir("proto")
+        // .out_dir("proto")
         .emit_package(true)
         .emit_rerun_if_changed(true)
         .use_arc_self(true)

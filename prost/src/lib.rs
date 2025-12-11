@@ -11,7 +11,7 @@ mod mecomp {
     )]
 
     #[cfg(not(tarpaulin_include))]
-    include!("../proto/mecomp.rs");
+    tonic::include_proto!("mecomp");
 }
 #[doc(hidden)]
 mod conversions;
