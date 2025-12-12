@@ -1,5 +1,13 @@
 # Mecomp Changelog
 
+## v0.6.1
+
+### v0.6.1 What's Changed
+
+* fix(storage): clear analysis_to_song relations table during migration to prevent dangling relations by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/427
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.6.0...v0.6.1
+
 ## v0.6.0
 
 > [!Attention]
@@ -7,7 +15,7 @@
 > Clients interacting with the daemon must be updated to accommodate these changes.
 > For users, your song analysis data will be reset when the updated daemon starts for the first time. To regenerate your analysis features and restore radio and collection functionality, run `mecomp-cli analyze`.
 
-## v0.6.0 What's Changed
+### v0.6.0 What's Changed
 * fix failing test and optimize display of song attributes by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/410
 * chore: update dependencies by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/411
 * feat: migrate from tarpc to tonic gRPC by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/414
