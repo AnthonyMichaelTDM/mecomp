@@ -49,7 +49,10 @@ impl SymphoniaSource {
 
     fn init(mss: MediaSourceStream) -> symphonia::core::errors::Result<Option<Self>> {
         let hint = Hint::new();
-        let format_opts = FormatOptions::default();
+        let format_opts = FormatOptions {
+            enable_gapless: true,
+            ..Default::default()
+        };
         let metadata_opts = MetadataOptions::default();
         let mut probed_format = get_probe()
             .format(&hint, mss, &format_opts, &metadata_opts)?
@@ -439,20 +442,23 @@ mod tests {
             -0.879_074_8,
             -0.632_582_66,
             -0.725_895_9,
-            -0.775_738_,
+            -0.775_737_9,
             -0.814_672_6,
             0.271_672_6,
             0.257_790_57,
-            -0.356_619_36,
-            -0.635_786_53,
-            -0.295_936_82,
-            0.064_213_04,
-            0.218_524_58,
-            -0.581_239,
-            -0.946_683_5,
-            -0.948_115_3,
-            -0.982_094_5,
-            -0.959_689_74,
+            -0.342_925_13,
+            -0.628_034_23,
+            -0.280_950_96,
+            0.086_864_59,
+            0.244_460_82,
+            -0.572_325_7,
+            0.232_920_65,
+            0.199_811_46,
+            -0.585_944_06,
+            -0.067_842_96,
+            -0.060_007_63,
+            -0.584_857_17,
+            -0.078_803_78,
         ],
     );
 
@@ -465,8 +471,53 @@ mod tests {
             .unwrap();
         for (x, y) in analysis.as_vec().iter().zip(expected_analysis) {
             assert!(
-                0.01 > (x - y).abs(),
-                "Expected {x} to be within 0.01 of {y}, but it was not"
+                1e-5 > (x - y).abs(),
+                "Expected {x} to be within 1e-5 of {y}, but it was not"
+            );
+        }
+    }
+
+    const RESAMPLED_PATH_AND_EXPECTED_ANALYSIS: (&str, [f64; NUMBER_FEATURES]) = (
+        "data/s32_stereo_44_1_kHz.flac",
+        [
+            0.38463664,
+            -0.85172224,
+            -0.7607465,
+            -0.8857495,
+            -0.63906085,
+            -0.73908424,
+            -0.7890965,
+            -0.8191868,
+            0.33856833,
+            0.3246863,
+            -0.34292227,
+            -0.62803173,
+            -0.2809453,
+            0.08687115,
+            0.2444489,
+            -0.5723239,
+            0.23292565,
+            0.19979525,
+            -0.58593845,
+            -0.06783122,
+            -0.060014784,
+            -0.5848569,
+            -0.07879859,
+        ],
+    );
+
+    #[test]
+    fn test_analyze_resampled() {
+        let (path, expected_analysis) = RESAMPLED_PATH_AND_EXPECTED_ANALYSIS;
+        let analysis = Decoder::new()
+            .unwrap()
+            .analyze_path(Path::new(path))
+            .unwrap();
+
+        for (x, y) in analysis.as_vec().iter().zip(expected_analysis) {
+            assert!(
+                0.1 > (x - y).abs(),
+                "Expected {x} to be within 0.1 of {y}, but it was not"
             );
         }
     }

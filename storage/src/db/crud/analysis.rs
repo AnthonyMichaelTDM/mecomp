@@ -139,6 +139,15 @@ impl Analysis {
         Ok(db.delete(id).await?)
     }
 
+    /// Delete all analyses
+    #[instrument]
+    pub async fn delete_all<C: Connection>(db: &Surreal<C>) -> StorageResult<()> {
+        // explicitly do not deserialize the result since this function might be used
+        // in cases where the analysis table has malformed data
+        db.query(format!("DELETE {TABLE_NAME};")).await?;
+        Ok(())
+    }
+
     /// Find the `n` nearest neighbors to an analysis
     #[instrument]
     pub async fn nearest_neighbors<C: Connection>(
@@ -182,7 +191,7 @@ impl Analysis {
         #[allow(clippy::cast_precision_loss)]
         let num_analyses = analyses.len() as f64;
 
-        let avg_features = analyses.iter().fold(vec![0.; 20], |acc, analysis| {
+        let avg_features = analyses.iter().fold(vec![0.; 23], |acc, analysis| {
             acc.iter()
                 .zip(analysis.features.iter())
                 .map(|(a, b)| a + (b / num_analyses))
@@ -218,7 +227,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis
@@ -228,7 +237,7 @@ mod test {
         // if we try to create another analysis for the same song, we get Ok(None)
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [1.; 20],
+            features: [1.; 23],
         };
         let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
         assert_eq!(result, None);
@@ -245,7 +254,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis
@@ -268,7 +277,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis
@@ -291,7 +300,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // the song doesn't have an analysis yet
@@ -322,11 +331,11 @@ mod test {
 
         let analysis1 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis2 = Analysis {
             id: Analysis::generate_id(),
-            features: [1.; 20],
+            features: [1.; 23],
         };
 
         // create the analyses
@@ -355,7 +364,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis
@@ -380,11 +389,11 @@ mod test {
 
         let analysis1 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis2 = Analysis {
             id: Analysis::generate_id(),
-            features: [1.; 20],
+            features: [1.; 23],
         };
 
         // create the analyses
@@ -418,11 +427,11 @@ mod test {
 
         let analysis1 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis2 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis
@@ -453,7 +462,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis
@@ -476,6 +485,42 @@ mod test {
     }
 
     #[tokio::test]
+    async fn test_analysis_delete_all_when_malformed_data_is_present() -> Result<()> {
+        #[derive(Debug, serde::Serialize, serde::Deserialize)]
+        struct MalformedAnalysis {
+            id: AnalysisId,
+            features: [f32; 10],
+        }
+        let config = surrealdb::opt::Config::new().strict();
+        let db = Surreal::new::<surrealdb::engine::local::Mem>(config).await?;
+        db.query("DEFINE NAMESPACE IF NOT EXISTS test").await?;
+        db.use_ns("test").await?;
+        db.query("DEFINE DATABASE IF NOT EXISTS test").await?;
+        db.use_db("test").await?;
+        // create the analysis table without specifying the schema
+        db.query("DEFINE TABLE analysis").await?;
+
+        let analysis = MalformedAnalysis {
+            id: Analysis::generate_id(),
+            features: [0.; 10],
+        };
+        // insert a malformed analysis directly
+        let _: Option<MalformedAnalysis> = db.create(analysis.id.clone()).content(analysis).await?;
+        // register a vector index that expects 23-dimensional vectors
+        db.query(
+            "DEFINE INDEX analysis_features_vector_index ON analysis FIELDS features MTREE DIMENSION 23;",
+        )
+        .await?;
+
+        // delete all analyses
+        Analysis::delete_all(&db).await?;
+        // there should be no analyses left
+        let result = Analysis::read_all(&db).await?;
+        assert_eq!(result.len(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_nearest_neighbors() -> Result<()> {
         let db = init_test_database().await?;
 
@@ -488,15 +533,15 @@ mod test {
 
         let analysis1 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis2 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis3 = Analysis {
             id: Analysis::generate_id(),
-            features: [1.; 20],
+            features: [1.; 23],
         };
 
         // create the analyses
@@ -529,19 +574,19 @@ mod test {
 
         let analysis1 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis2 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis3 = Analysis {
             id: Analysis::generate_id(),
-            features: [1.; 20],
+            features: [1.; 23],
         };
         let analysis4 = Analysis {
             id: Analysis::generate_id(),
-            features: [1.; 20],
+            features: [1.; 23],
         };
 
         // create the analyses
@@ -620,7 +665,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis

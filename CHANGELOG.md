@@ -2,6 +2,11 @@
 
 ## v0.6.0
 
+> [!Attention]
+> This release introduces breaking changes to both the RPC interface and the internal audio analysis features.
+> Clients interacting with the daemon must be updated to accommodate these changes.
+> For users, your song analysis data will be reset when the updated daemon starts for the first time. To regenerate your analysis features and restore radio and collection functionality, run `mecomp-cli analyze`.
+
 ## v0.6.0 What's Changed
 * fix failing test and optimize display of song attributes by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/410
 * chore: update dependencies by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/411
@@ -11,6 +16,8 @@
 * chore(deps): bump github/codeql-action from 4.30.8 to 4.31.2 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/408
 * chore: update cargo-dist version to 0.30.2 in configuration by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/417
 * perf(analysis): Branch prediction hints, and improved ndarray usage by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/416
+* feat: add commit-msg hook to verify release builds by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/424
+* fix(general): build issues related to new release by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/425
 
 **Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.5.9...v0.6.0
 

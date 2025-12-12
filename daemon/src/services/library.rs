@@ -207,14 +207,9 @@ pub async fn analyze<C: Connection>(
 ) -> Result<(), Error> {
     if overwrite {
         // delete all the analyses
-        async {
-            for analysis in Analysis::read_all(db).await? {
-                Analysis::delete(db, analysis.id.clone()).await?;
-            }
-            <Result<(), Error>>::Ok(())
-        }
-        .instrument(tracing::info_span!("Deleting existing analyses"))
-        .await?;
+        Analysis::delete_all(db)
+            .instrument(tracing::info_span!("Deleting existing analyses"))
+            .await?;
     }
 
     // get all the songs that don't have an analysis

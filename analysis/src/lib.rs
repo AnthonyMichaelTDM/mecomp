@@ -58,28 +58,59 @@ pub const SAMPLE_RATE: u32 = 22050;
 ///
 /// Note that this should mostly be used for debugging / distance metric
 /// customization purposes.
-#[allow(missing_docs, clippy::module_name_repetitions)]
 pub enum AnalysisIndex {
+    /// The song's tempo.
     Tempo,
+    /// The song's zero-crossing rate.
     Zcr,
+    /// The mean of the song's spectral centroid.
     MeanSpectralCentroid,
+    /// The standard deviation of the song's spectral centroid.
     StdDeviationSpectralCentroid,
+    /// The mean of the song's spectral rolloff.
     MeanSpectralRolloff,
+    /// The standard deviation of the song's spectral rolloff.
     StdDeviationSpectralRolloff,
+    /// The mean of the song's spectral flatness.
     MeanSpectralFlatness,
+    /// The standard deviation of the song's spectral flatness.
     StdDeviationSpectralFlatness,
+    /// The mean of the song's loudness.
     MeanLoudness,
+    /// The standard deviation of the song's loudness.
     StdDeviationLoudness,
+    /// The proportion of pitch class set 1 (IC1) compared to the 6 other pitch class sets,
+    /// per this paper <https://speech.di.uoa.gr/ICMC-SMC-2014/images/VOL_2/1461.pdf>
     Chroma1,
+    /// The proportion of pitch class set 2 (IC2) compared to the 6 other pitch class sets,
+    /// per this paper <https://speech.di.uoa.gr/ICMC-SMC-2014/images/VOL_2/1461.pdf>
     Chroma2,
+    /// The proportion of pitch class set 3 (IC3) compared to the 6 other pitch class sets,
+    /// per this paper <https://speech.di.uoa.gr/ICMC-SMC-2014/images/VOL_2/1461.pdf>
     Chroma3,
+    /// The proportion of pitch class set 4 (IC4) compared to the 6 other pitch class sets,
+    /// per this paper <https://speech.di.uoa.gr/ICMC-SMC-2014/images/VOL_2/1461.pdf>
     Chroma4,
+    /// The proportion of pitch class set 5 (IC5) compared to the 6 other pitch class sets,
+    /// per this paper <https://speech.di.uoa.gr/ICMC-SMC-2014/images/VOL_2/1461.pdf>
     Chroma5,
+    /// The proportion of pitch class set 6 (IC6) compared to the 6 other pitch class sets,
+    /// per this paper <https://speech.di.uoa.gr/ICMC-SMC-2014/images/VOL_2/1461.pdf>
     Chroma6,
+    /// The proportion of major triads in the song, compared to the other triads.
     Chroma7,
+    /// The proportion of minor triads in the song, compared to the other triads.
     Chroma8,
+    /// The proportion of diminished triads in the song, compared to the other triads.
     Chroma9,
+    /// The proportion of augmented triads in the song, compared to the other triads.
     Chroma10,
+    /// The L2-norm of the IC1-6 (see above).
+    Chroma11,
+    /// The L2-norm of the IC7-10 (see above).
+    Chroma12,
+    /// The ratio of the L2-norm of IC7-10 and IC1-6 (proportion of triads vs dyads).
+    Chroma13,
 }
 
 /// The Type of individual features

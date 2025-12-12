@@ -473,10 +473,10 @@ where
 }
 
 #[inline]
-pub const fn arb_analysis_features() -> impl Fn() -> [f64; 20] {
+pub const fn arb_analysis_features() -> impl Fn() -> [f64; 23] {
     move || {
         let rng = &mut rand::thread_rng();
-        let mut features = [0.0; 20];
+        let mut features = [0.0; 23];
         for feature in &mut features {
             *feature = rng.gen_range(-1.0..1.0);
         }

@@ -33,13 +33,30 @@ pub struct ChromaDesc {
 }
 
 impl Normalize for ChromaDesc {
-    const MAX_VALUE: Feature = 0.12;
+    const MAX_VALUE: Feature = 1.0;
     const MIN_VALUE: Feature = 0.;
 }
 
 impl ChromaDesc {
     pub const WINDOW_SIZE: usize = 8192;
-
+    /// The theoretical maximum value for IC1-6 is each value at (1/2)².
+    /// The reason is that `extract_interval_features` computes the product of the
+    /// L1-normalized chroma vector (so all of its values are <= 1) by itself.
+    /// The maximum value of this is all coordinates to 1/2 (since dyads will
+    /// select three values). The maximum of this is then (1/2)², so the maximum of its
+    /// L2 norm is this sqrt(2 * (1/2)²) ~= 0.62. However, real-life simulations shown
+    /// that 0.25 is a good ceiling value (see tests).
+    pub const MAX_L2_INTERVAL: f64 = 0.25;
+    /// The theoretical maximum value for IC7-10 is each value at (1/3)³.
+    /// The reason is that `extract_interval_features` computes the product of the
+    /// L1-normalized chroma vector (so all of its values are <= 1) by itself.
+    /// The maximum value of this is all coordinates to 1/3 (since triads will
+    /// select three values). The maximum of this is then (1/3)³, so the maximum of its
+    /// L2 norm is this sqrt(4 * (1/3)³) ~= 0.074. However, real-life simulations shown
+    /// that 0.025 is a good ceiling value (see tests).
+    pub const MAX_L2_TRIAD: f64 = 0.025;
+    /// We are using atan2 to keep the ratio bounded.
+    pub const MAX_TRIAD_INTERVAL_RATIO: f64 = std::f64::consts::FRAC_PI_2;
     #[must_use]
     #[inline]
     pub fn new(sample_rate: u32, n_chroma: u32) -> Self {
@@ -84,10 +101,31 @@ impl ChromaDesc {
      */
     #[inline]
     pub fn get_value(&mut self) -> Vec<Feature> {
-        #[allow(clippy::cast_possible_truncation)]
-        chroma_interval_features(&self.values_chroma)
-            .mapv(|x| self.normalize(x as Feature))
-            .to_vec()
+        let mut raw_features = chroma_interval_features(&self.values_chroma);
+        let (mut interval_class, mut interval_class_mode) =
+            raw_features.view_mut().split_at(Axis(0), 6);
+        // Compute those two norms separately because the values for the IC1-6 and IC7-10 don't
+        // have the same range.
+        let l2_norm_interval_class = interval_class.dot(&interval_class).sqrt();
+        let l2_norm_interval_class_mode = interval_class_mode.dot(&interval_class_mode).sqrt();
+        if l2_norm_interval_class > 0. {
+            interval_class /= l2_norm_interval_class;
+        }
+        if l2_norm_interval_class_mode > 0. {
+            interval_class_mode /= l2_norm_interval_class_mode;
+        }
+        let mut features = raw_features.mapv_into_any(|x| self.normalize(x)).to_vec();
+
+        let normalized_l2_norm_interval_class =
+            (2. * (l2_norm_interval_class - 0.) / (Self::MAX_L2_INTERVAL - 0.) - 1.).min(1.);
+        features.push(normalized_l2_norm_interval_class);
+        let normalized_l2_norm_interval_class_mode =
+            (2. * (l2_norm_interval_class_mode - 0.) / (Self::MAX_L2_TRIAD - 0.) - 1.).min(1.);
+        features.push(normalized_l2_norm_interval_class_mode);
+        let angle = (20. * l2_norm_interval_class_mode).atan2(l2_norm_interval_class + 1e-12_f64);
+        let normalized_ratio = 2. * (angle - 0.) / (Self::MAX_TRIAD_INTERVAL_RATIO - 0.) - 1.;
+        features.push(normalized_ratio);
+        features
     }
 }
 
@@ -500,16 +538,16 @@ mod test {
         let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
         chroma_desc.do_(&song.samples).unwrap();
         let expected_values = [
-            -0.356_619_36,
-            -0.635_786_53,
-            -0.295_936_82,
-            0.064_213_04,
-            0.218_524_58,
-            -0.581_239,
-            -0.946_683_5,
-            -0.948_115_3,
-            -0.982_094_5,
-            -0.959_689_74,
+            -0.342_925_13,
+            -0.628_034_23,
+            -0.280_950_96,
+            0.086_864_59,
+            0.244_460_82,
+            -0.572_325_7,
+            0.232_920_65,
+            0.199_811_46,
+            -0.585_944_06,
+            -0.067_842_96,
         ];
         for (expected, actual) in expected_values.iter().zip(chroma_desc.get_value().iter()) {
             // original test wanted absolute error < 0.0000001
@@ -638,6 +676,108 @@ mod test {
                 0.000_000_001 > (expected - actual).abs(),
                 "{expected} !~= {actual}"
             );
+        }
+    }
+
+    #[rstest::rstest]
+    // High 6 should be a major triad, 7 minor, 8 diminished and 9 augmented.
+    #[case::major_triad("data/chroma/Cmaj.ogg", 6)]
+    #[case::major_triad("data/chroma/Dmaj.ogg", 6)]
+    #[case::minor_triad("data/chroma/Cmin.ogg", 7)]
+    #[case::diminished_triad("data/chroma/Cdim.ogg", 8)]
+    #[case::augmented_triad("data/chroma/Caug.ogg", 9)]
+    fn test_end_result_triads(
+        #[case] path: &str,
+        #[case] expected_dominant_chroma_feature_index: usize,
+    ) {
+        let song = Decoder::new().unwrap().decode(Path::new(path)).unwrap();
+        let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
+        chroma_desc.do_(&song.samples).unwrap();
+        let chroma_values = chroma_desc.get_value();
+
+        let mut indices: Vec<usize> = (0..chroma_values.len()).collect();
+        indices.sort_by(|&i, &j| chroma_values[j].partial_cmp(&chroma_values[i]).unwrap());
+        assert!(indices[0] == expected_dominant_chroma_feature_index);
+        for (i, v) in chroma_values.into_iter().enumerate() {
+            if i >= 6 && i <= 10 {
+                if i == expected_dominant_chroma_feature_index {
+                    assert!(v > 0.8);
+                } else {
+                    assert!(v < 0.0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_end_l2_norm_dyad() {
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/chroma/dyad_tritone_IC6.ogg"))
+            .unwrap();
+        let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
+        chroma_desc.do_(&song.samples).unwrap();
+        let chroma_values = chroma_desc.get_value();
+        assert!(chroma_values[10] > 0.9);
+    }
+
+    #[test]
+    fn test_end_l2_norm_mode() {
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/chroma/Cmaj_triads.ogg"))
+            .unwrap();
+        let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
+        chroma_desc.do_(&song.samples).unwrap();
+        let chroma_values = chroma_desc.get_value();
+        assert!(chroma_values[11] > 0.9);
+    }
+
+    #[test]
+    fn test_end_l2_norm_ratio() {
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/chroma/triad_aug_maximize_ratio.ogg"))
+            .unwrap();
+        let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
+        chroma_desc.do_(&song.samples).unwrap();
+        let chroma_values = chroma_desc.get_value();
+        assert!(chroma_values[12] > 0.7);
+    }
+
+    #[rstest::rstest]
+    // Test all 12 intervals.
+    #[case::minor_second("data/chroma/minor_second.ogg", 0)]
+    #[case::major_second("data/chroma/major_second.ogg", 1)]
+    #[case::minor_third("data/chroma/minor_third.ogg", 2)]
+    #[case::major_third("data/chroma/major_third.ogg", 3)]
+    #[case::perfect_fourth("data/chroma/perfect_fourth.ogg", 4)]
+    #[case::tritone("data/chroma/tritone.ogg", 5)]
+    #[case::perfect_fifth("data/chroma/perfect_fifth.ogg", 4)]
+    #[case::minor_sixth("data/chroma/minor_sixth.ogg", 3)]
+    #[case::major_sixth("data/chroma/major_sixth.ogg", 2)]
+    #[case::minor_seventh("data/chroma/minor_seventh.ogg", 1)]
+    #[case::major_seventh("data/chroma/major_seventh.ogg", 0)]
+    fn test_end_result_intervals(
+        #[case] path: &str,
+        #[case] expected_dominant_chroma_feature_index: usize,
+    ) {
+        let song = Decoder::new().unwrap().decode(Path::new(path)).unwrap();
+        let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
+        chroma_desc.do_(&song.samples).unwrap();
+        let chroma_values = chroma_desc.get_value();
+
+        let mut indices: Vec<usize> = (0..chroma_values.len()).collect();
+        indices.sort_by(|&i, &j| chroma_values[j].partial_cmp(&chroma_values[i]).unwrap());
+        assert_eq!(indices[0], expected_dominant_chroma_feature_index);
+        for (i, v) in chroma_values.into_iter().enumerate() {
+            if i < 6 {
+                if i == expected_dominant_chroma_feature_index {
+                    assert!(v > 0.9);
+                } else {
+                    assert!(v < 0.0);
+                }
+            }
         }
     }
 }
