@@ -21,10 +21,16 @@ pub fn table_macro_impl(input: TokenStream) -> syn::Result<TokenStream> {
 
     let (table_field_queries, index_queries) = parse_attributes(struct_fields, &table_name)?;
 
-    let table_query = format!("DEFINE TABLE {table_name} SCHEMAFULL;");
+    let table_query = format!("DEFINE TABLE IF NOT EXISTS {table_name} SCHEMAFULL;");
 
-    let table_field_queries = table_field_queries.iter().map(|q| quote! {.query(#q)});
-    let index_queries = index_queries.iter().map(|q| quote! {.query(#q)});
+    let migration_up_query = format!(
+        "{table_query}\n{}",
+        table_field_queries
+            .into_iter()
+            .chain(index_queries)
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
 
     // Build the output, possibly using the input
     let expanded = quote! {
@@ -32,26 +38,13 @@ pub fn table_macro_impl(input: TokenStream) -> syn::Result<TokenStream> {
         impl ::surrealqlx::traits::Table for #struct_name {
             const TABLE_NAME: &'static str = #table_name;
 
-            #[allow(manual_async_fn)]
-            fn init_table<C: ::surrealdb::Connection>(
-                db: &::surrealdb::Surreal<C>,
-            ) -> impl ::std::future::Future<Output = ::surrealdb::Result<()>> + Send {
-                async {
-                    let _ = db.query("BEGIN;")
-                        .query(#table_query)
-                        .query("COMMIT;")
-                        .query("BEGIN;")
-                        #(
-                            #table_field_queries
-                        )*
-                        .query("COMMIT;")
-                        .query("BEGIN;")
-                        #(
-                            #index_queries
-                        )*
-                        .query("COMMIT;").await?;
-                    Ok(())
-                }
+            fn migrations() -> Vec<::surrealqlx::migrations::M<'static>> {
+                vec![
+                    ::surrealqlx::migrations::M::up(
+                        #migration_up_query
+                    )
+                    .comment("Initial version"),
+                ]
             }
         }
     };
@@ -154,7 +147,9 @@ fn parse_attributes<'a>(
             ));
         }
 
-        table_field_queries.push(format!("DEFINE FIELD {field_name} ON {table_name}{extra};",));
+        table_field_queries.push(format!(
+            "DEFINE FIELD IF NOT EXISTS {field_name} ON {table_name}{extra};",
+        ));
 
         // next, we process the index attribute(s)
         let index_attrs = field
@@ -345,7 +340,7 @@ impl IndexAnnotation {
             );
 
             let query = format!(
-                "DEFINE INDEX {index_name} ON {table_name} FIELDS {field_name}{extra_fields}{extra};",
+                "DEFINE INDEX IF NOT EXISTS {index_name} ON {table_name} FIELDS {field_name}{extra_fields}{extra};",
                 extra_fields = compound_fields(",")
             );
 

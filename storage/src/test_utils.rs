@@ -40,7 +40,7 @@ pub const ARTIST_NAME_SEPARATOR: &str = ", ";
 /// This function will return an error if the database cannot be initialized.
 #[cfg(feature = "db")]
 #[allow(clippy::missing_inline_in_public_items)]
-pub async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
+pub async fn init_test_database() -> surrealqlx::Result<Surreal<Db>> {
     use crate::db::{
         queries::relations::define_relation_tables, schemas::dynamic::DynamicPlaylist,
     };
