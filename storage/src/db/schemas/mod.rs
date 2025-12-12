@@ -66,12 +66,19 @@ where
 }
 
 /// Implement a version of the `surrealdb` `RecordId` type that we can use when the `db` feature is not enabled.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RecordId {
     /// Table name
     pub tb: String,
     pub id: Id,
+}
+
+impl std::fmt::Debug for RecordId {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.tb, self.id)
+    }
 }
 
 impl std::fmt::Display for RecordId {
