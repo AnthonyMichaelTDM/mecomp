@@ -1,10 +1,14 @@
 [profile.default]
-slow-timeout = { period = "30s", terminate-after = 4 }
+slow-timeout = { period = "30s", terminate-after = 2 }
 fail-fast = false
 
 [[profile.default.overrides]]
 filter = "test(test_recluster)"
 retries = 2
+
+[[profile.default.overrides]]
+filter = "package(mecomp-core) and test(playback_tests)"
+retries = 1
 
 [profile.ci]
 # Do not cancel the test run on the first failure.

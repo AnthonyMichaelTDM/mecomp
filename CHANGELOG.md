@@ -18,6 +18,8 @@
 * perf(analysis): Branch prediction hints, and improved ndarray usage by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/416
 * feat: add commit-msg hook to verify release builds by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/424
 * fix(general): build issues related to new release by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/425
+* feat(surrealqlx): implement migration handling by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/427
+* feat(analysis): port over changes to chroma from bliss-rs by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/426
 
 **Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.5.9...v0.6.0
 

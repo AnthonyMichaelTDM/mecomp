@@ -2,6 +2,7 @@
 use super::Id;
 #[cfg(not(feature = "db"))]
 use super::RecordId;
+use mecomp_analysis::NUMBER_FEATURES;
 #[cfg(feature = "db")]
 use surrealdb::RecordId;
 #[cfg(feature = "db")]
@@ -22,7 +23,7 @@ pub struct Analysis {
     pub id: AnalysisId,
 
     /// The [`Song`]'s audio features.
-    pub features: [f64; 23],
+    pub features: [f64; NUMBER_FEATURES],
 }
 
 #[cfg(feature = "db")]
