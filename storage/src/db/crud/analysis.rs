@@ -144,7 +144,8 @@ impl Analysis {
     pub async fn delete_all<C: Connection>(db: &Surreal<C>) -> StorageResult<()> {
         // explicitly do not deserialize the result since this function might be used
         // in cases where the analysis table has malformed data
-        db.query(format!("DELETE {TABLE_NAME};")).await?;
+        db.query(format!("DELETE {TABLE_NAME};DELETE analysis_to_song;"))
+            .await?;
         Ok(())
     }
 
