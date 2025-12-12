@@ -1,6 +1,6 @@
 [package]
 name = "surrealqlx"
-version = "0.1.7"
+version = "0.2.0"
 edition.workspace = true
 authors.workspace = true
 description = "Some traits and macros to make it easier to work with surrealdb"
@@ -13,7 +13,6 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-test = false
 bench = false
 doctest = false
 
@@ -25,4 +24,12 @@ macros = ["surrealqlx-macros"]
 surrealdb.workspace = true
 surrealqlx-macros = { workspace = true, optional = true }
 mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
-# tracing.workspace = true
+sha256 = { version = "1.6.0", default-features = false }
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true

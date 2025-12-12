@@ -44,40 +44,36 @@ RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]
         }
     };
 
-    let output = stringify! {
+    let expected_migration = r"DEFINE TABLE IF NOT EXISTS album SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS id ON album TYPE record;
+DEFINE FIELD IF NOT EXISTS title ON album TYPE string;
+DEFINE FIELD IF NOT EXISTS artist_id ON album TYPE set<record> | record;
+DEFINE FIELD IF NOT EXISTS artist ON album TYPE set<string> | string;
+DEFINE FIELD IF NOT EXISTS release ON album TYPE option<int>;
+DEFINE FIELD IF NOT EXISTS runtime ON album TYPE any VALUE <future> {
+LET $songs = (SELECT runtime FROM $this.id->album_to_song->song);
+RETURN IF $songs IS NONE { 0s } ELSE { $songs.fold(0s, |$acc, $song| $acc + $song.runtime) };
+};
+DEFINE FIELD IF NOT EXISTS song_count ON album TYPE any VALUE <future> {
+LET $count = (SELECT count() FROM $this.id->album_to_song->song GROUP ALL);
+RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]).count };
+};
+DEFINE FIELD IF NOT EXISTS songs ON album TYPE set<record>;
+DEFINE FIELD IF NOT EXISTS discs ON album TYPE int;
+DEFINE FIELD IF NOT EXISTS genre ON album TYPE set<string> | string;
+DEFINE INDEX IF NOT EXISTS album_title_text_index ON album FIELDS title SEARCH ANALYZER custom_analyzer BM25;";
+    let output = quote! {
         impl ::surrealqlx::traits::Table for Album {
             const TABLE_NAME: &'static str = "album";
-            #[allow(manual_async_fn)]
-            fn init_table<C: ::surrealdb::Connection>(
-                db: &::surrealdb::Surreal<C>,
-            ) -> impl ::std::future::Future<Output = ::surrealdb::Result<()>> + Send {
-                async {
-                    let _ = db
-                        .query("BEGIN;")
-                        .query("DEFINE TABLE album SCHEMAFULL;")
-                        .query("COMMIT;")
-                        .query("BEGIN;")
-                        .query("DEFINE FIELD id ON album TYPE record;")
-                        .query("DEFINE FIELD title ON album TYPE string;")
-                        .query("DEFINE FIELD artist_id ON album TYPE set<record> | record;")
-                        .query("DEFINE FIELD artist ON album TYPE set<string> | string;")
-                        .query("DEFINE FIELD release ON album TYPE option<int>;")
-                        .query("DEFINE FIELD runtime ON album TYPE any VALUE <future> {\nLET $songs = (SELECT runtime FROM $this.id->album_to_song->song);\nRETURN IF $songs IS NONE { 0s } ELSE { $songs.fold(0s, |$acc, $song| $acc + $song.runtime) };\n};")
-                        .query("DEFINE FIELD song_count ON album TYPE any VALUE <future> {\nLET $count = (SELECT count() FROM $this.id->album_to_song->song GROUP ALL);\nRETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]).count };\n};")
-                        .query("DEFINE FIELD songs ON album TYPE set<record>;")
-                        .query("DEFINE FIELD discs ON album TYPE int;")
-                        .query("DEFINE FIELD genre ON album TYPE set<string> | string;")
-                        .query("COMMIT;")
-                        .query("BEGIN;")
-                        .query("DEFINE INDEX album_title_text_index ON album FIELDS title SEARCH ANALYZER custom_analyzer BM25;")
-                        .query("COMMIT;")
-                        .await?;
-                    Ok(())
-                }
+            fn migrations() -> Vec<::surrealqlx::migrations::M<'static>> {
+                vec![
+                    ::surrealqlx::migrations::M::up(#expected_migration)
+                    .comment("Initial version"),
+                ]
             }
         }
     };
-    let pretty_output = prettyplease::unparse(&syn::parse_file(output).unwrap());
+    let pretty_output = prettyplease::unparse(&syn::parse_file(&output.to_string()).unwrap());
 
     let expanded = table_macro_impl(input).unwrap();
     let pretty_expanded = prettyplease::unparse(&syn::parse_file(&expanded.to_string()).unwrap());
@@ -99,32 +95,22 @@ fn test_type_with_custom_query() {
         }
     };
 
-    let output = stringify! {
+    let expected_migration = r"DEFINE TABLE IF NOT EXISTS users SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS name ON users TYPE string;
+DEFINE FIELD IF NOT EXISTS age ON users TYPE int;
+DEFINE FIELD IF NOT EXISTS favorite_numbers ON users TYPE array<int>;";
+    let output = quote! {
         impl ::surrealqlx::traits::Table for User {
             const TABLE_NAME: &'static str = "users";
-            #[allow(manual_async_fn)]
-            fn init_table<C: ::surrealdb::Connection>(
-                db: &::surrealdb::Surreal<C>,
-            ) -> impl ::std::future::Future<Output = ::surrealdb::Result<()>> + Send {
-                async {
-                    let _ = db
-                        .query("BEGIN;")
-                        .query("DEFINE TABLE users SCHEMAFULL;")
-                        .query("COMMIT;")
-                        .query("BEGIN;")
-                        .query("DEFINE FIELD name ON users TYPE string;")
-                        .query("DEFINE FIELD age ON users TYPE int;")
-                        .query("DEFINE FIELD favorite_numbers ON users TYPE array<int>;")
-                        .query("COMMIT;")
-                        .query("BEGIN;")
-                        .query("COMMIT;")
-                        .await?;
-                    Ok(())
-                }
+            fn migrations() -> Vec<::surrealqlx::migrations::M<'static>> {
+                vec![
+                    ::surrealqlx::migrations::M::up(#expected_migration)
+                    .comment("Initial version"),
+                ]
             }
         }
     };
-    let pretty_output = prettyplease::unparse(&syn::parse_file(output).unwrap());
+    let pretty_output = prettyplease::unparse(&syn::parse_file(&output.to_string()).unwrap());
 
     let expanded = table_macro_impl(input).unwrap();
     let pretty_expanded = prettyplease::unparse(&syn::parse_file(&expanded.to_string()).unwrap());
@@ -146,32 +132,22 @@ fn test_basic() {
         }
     };
 
-    let output = stringify! {
+    let expected_migration = r"DEFINE TABLE IF NOT EXISTS users SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS name ON users TYPE string;
+DEFINE FIELD IF NOT EXISTS age ON users TYPE int;
+DEFINE FIELD IF NOT EXISTS favorite_numbers ON users TYPE array<int>;";
+    let output = quote! {
         impl ::surrealqlx::traits::Table for User {
             const TABLE_NAME: &'static str = "users";
-            #[allow(manual_async_fn)]
-            fn init_table<C: ::surrealdb::Connection>(
-                db: &::surrealdb::Surreal<C>,
-            ) -> impl ::std::future::Future<Output = ::surrealdb::Result<()>> + Send {
-                async {
-                    let _ = db
-                        .query("BEGIN;")
-                        .query("DEFINE TABLE users SCHEMAFULL;")
-                        .query("COMMIT;")
-                        .query("BEGIN;")
-                        .query("DEFINE FIELD name ON users TYPE string;")
-                        .query("DEFINE FIELD age ON users TYPE int;")
-                        .query("DEFINE FIELD favorite_numbers ON users TYPE array<int>;")
-                        .query("COMMIT;")
-                        .query("BEGIN;")
-                        .query("COMMIT;")
-                        .await?;
-                    Ok(())
-                }
-            }
+            fn migrations() -> Vec<::surrealqlx::migrations::M<'static>> {
+            vec![
+                ::surrealqlx::migrations::M::up(#expected_migration)
+                .comment("Initial version"),
+            ]
+         }
         }
     };
-    let pretty_output = prettyplease::unparse(&syn::parse_file(output).unwrap());
+    let pretty_output = prettyplease::unparse(&syn::parse_file(&output.to_string()).unwrap());
 
     let expanded = table_macro_impl(input).unwrap();
     let pretty_expanded = prettyplease::unparse(&syn::parse_file(&expanded.to_string()).unwrap());
@@ -211,56 +187,36 @@ fn test_index() {
         }
     };
 
-    let output = stringify! {
+    let expected_migration = r"DEFINE TABLE IF NOT EXISTS users SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS name ON users TYPE string;
+DEFINE FIELD IF NOT EXISTS age ON users TYPE int;
+DEFINE FIELD IF NOT EXISTS age2 ON users TYPE int;
+DEFINE FIELD IF NOT EXISTS favorite_numbers ON users TYPE array<int>;
+DEFINE FIELD IF NOT EXISTS favorite_numbers2 ON users TYPE array<int>;
+DEFINE FIELD IF NOT EXISTS text1 ON users TYPE string;
+DEFINE FIELD IF NOT EXISTS text2 ON users TYPE string;
+DEFINE FIELD IF NOT EXISTS text3 ON users TYPE string;
+DEFINE INDEX IF NOT EXISTS users_name_unique_index ON users FIELDS name UNIQUE;
+DEFINE INDEX IF NOT EXISTS users_age_normal_index ON users FIELDS age;
+DEFINE INDEX IF NOT EXISTS users_age2_age_normal_index ON users FIELDS age2,age;
+DEFINE INDEX IF NOT EXISTS users_favorite_numbers_vector_index ON users FIELDS favorite_numbers MTREE DIMENSION 7;
+DEFINE INDEX IF NOT EXISTS users_favorite_numbers2_vector_index ON users FIELDS favorite_numbers2 MTREE DIMENSION 7;
+DEFINE INDEX IF NOT EXISTS users_text1_text_index ON users FIELDS text1 SEARCH ANALYZER analyzer BM25;
+DEFINE INDEX IF NOT EXISTS users_text1_unique_index ON users FIELDS text1 UNIQUE;
+DEFINE INDEX IF NOT EXISTS users_text2_text1_text_index ON users FIELDS text2,text1 SEARCH ANALYZER analyzer BM25;
+DEFINE INDEX IF NOT EXISTS users_text3_text1_text2_text_index ON users FIELDS text3,text1,text2 SEARCH ANALYZER analyzer BM25;";
+    let output = quote! {
         impl ::surrealqlx::traits::Table for User {
             const TABLE_NAME: &'static str = "users";
-            #[allow(manual_async_fn)]
-            fn init_table<C: ::surrealdb::Connection>(
-                db: &::surrealdb::Surreal<C>,
-            ) -> impl ::std::future::Future<Output = ::surrealdb::Result<()>> + Send {
-                async {
-                    let _ = db
-                        .query("BEGIN;")
-                        .query("DEFINE TABLE users SCHEMAFULL;")
-                        .query("COMMIT;")
-                        .query("BEGIN;")
-                        .query("DEFINE FIELD name ON users TYPE string;")
-                        .query("DEFINE FIELD age ON users TYPE int;")
-                        .query("DEFINE FIELD age2 ON users TYPE int;")
-                        .query("DEFINE FIELD favorite_numbers ON users TYPE array<int>;")
-                        .query("DEFINE FIELD favorite_numbers2 ON users TYPE array<int>;")
-                        .query("DEFINE FIELD text1 ON users TYPE string;")
-                        .query("DEFINE FIELD text2 ON users TYPE string;")
-                        .query("DEFINE FIELD text3 ON users TYPE string;")
-                        .query("COMMIT;")
-                        .query("BEGIN;")
-                        .query("DEFINE INDEX users_name_unique_index ON users FIELDS name UNIQUE;")
-                        .query("DEFINE INDEX users_age_normal_index ON users FIELDS age;")
-                        .query("DEFINE INDEX users_age2_age_normal_index ON users FIELDS age2,age;")
-                        .query(
-                            "DEFINE INDEX users_favorite_numbers_vector_index ON users FIELDS favorite_numbers MTREE DIMENSION 7;",
-                        )
-                        .query(
-                            "DEFINE INDEX users_favorite_numbers2_vector_index ON users FIELDS favorite_numbers2 MTREE DIMENSION 7;",
-                        )
-                        .query(
-                            "DEFINE INDEX users_text1_text_index ON users FIELDS text1 SEARCH ANALYZER analyzer BM25;",
-                        )
-                        .query("DEFINE INDEX users_text1_unique_index ON users FIELDS text1 UNIQUE;")
-                        .query(
-                            "DEFINE INDEX users_text2_text1_text_index ON users FIELDS text2,text1 SEARCH ANALYZER analyzer BM25;",
-                        )
-                        .query(
-                            "DEFINE INDEX users_text3_text1_text2_text_index ON users FIELDS text3,text1,text2 SEARCH ANALYZER analyzer BM25;",
-                        )
-                        .query("COMMIT;")
-                        .await?;
-                    Ok(())
-                }
-            }
+            fn migrations() -> Vec<::surrealqlx::migrations::M<'static>> {
+            vec![
+                ::surrealqlx::migrations::M::up(#expected_migration)
+                .comment("Initial version"),
+            ]
+         }
         }
     };
-    let pretty_output = prettyplease::unparse(&syn::parse_file(output).unwrap());
+    let pretty_output = prettyplease::unparse(&syn::parse_file(&output.to_string()).unwrap());
 
     let expanded = table_macro_impl(input).unwrap();
     let pretty_expanded = prettyplease::unparse(&syn::parse_file(&expanded.to_string()).unwrap());
@@ -284,32 +240,22 @@ fn test_skip_some_fields() {
         }
     };
 
-    let output = stringify! {
+    let expected_migration = r"DEFINE TABLE IF NOT EXISTS users SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS name ON users TYPE string;
+DEFINE FIELD IF NOT EXISTS age ON users TYPE int;
+DEFINE FIELD IF NOT EXISTS favorite_numbers ON users TYPE array<int>;";
+    let output = quote! {
         impl ::surrealqlx::traits::Table for User {
             const TABLE_NAME: &'static str = "users";
-            #[allow(manual_async_fn)]
-            fn init_table<C: ::surrealdb::Connection>(
-                db: &::surrealdb::Surreal<C>,
-            ) -> impl ::std::future::Future<Output = ::surrealdb::Result<()>> + Send {
-                async {
-                    let _ = db
-                        .query("BEGIN;")
-                        .query("DEFINE TABLE users SCHEMAFULL;")
-                        .query("COMMIT;")
-                        .query("BEGIN;")
-                        .query("DEFINE FIELD name ON users TYPE string;")
-                        .query("DEFINE FIELD age ON users TYPE int;")
-                        .query("DEFINE FIELD favorite_numbers ON users TYPE array<int>;")
-                        .query("COMMIT;")
-                        .query("BEGIN;")
-                        .query("COMMIT;")
-                        .await?;
-                    Ok(())
-                }
-            }
+            fn migrations() -> Vec<::surrealqlx::migrations::M<'static>> {
+            vec![
+                ::surrealqlx::migrations::M::up(#expected_migration)
+                .comment("Initial version"),
+            ]
+         }
         }
     };
-    let pretty_output = prettyplease::unparse(&syn::parse_file(output).unwrap());
+    let pretty_output = prettyplease::unparse(&syn::parse_file(&output.to_string()).unwrap());
 
     let expanded = table_macro_impl(input).unwrap();
     let pretty_expanded = prettyplease::unparse(&syn::parse_file(&expanded.to_string()).unwrap());

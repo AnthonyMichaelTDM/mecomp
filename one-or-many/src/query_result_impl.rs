@@ -64,7 +64,7 @@ mod tests {
     /// # Errors
     ///
     /// This function will return an error if the database cannot be initialized.
-    async fn init_test_database() -> surrealdb::Result<Surreal<Db>> {
+    async fn init_test_database() -> surrealqlx::Result<Surreal<Db>> {
         let db = Surreal::new::<Mem>(()).await?;
         db.use_ns("test").use_db("test").await?;
 

@@ -43,7 +43,7 @@ pub fn set_database_path(path: std::path::PathBuf) -> Result<(), crate::errors::
 /// This function will return an error if the database cannot be initialized.
 #[cfg(feature = "db")]
 #[allow(clippy::missing_inline_in_public_items)]
-pub async fn init_database() -> surrealdb::Result<Surreal<Db>> {
+pub async fn init_database() -> surrealqlx::Result<Surreal<Db>> {
     let config = Config::new().strict();
     let db_path = DB_DIR
     .get().cloned()

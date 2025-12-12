@@ -5484,6 +5484,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha256"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f880fc8562bdeb709793f00eb42a2ad0e672c4f883bbe59122b926eca935c8f6"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "hex",
+ "sha2",
+]
+
+[[package]]
 name = "sharded-slab"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5918,16 +5930,23 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
+ "anyhow",
  "mecomp-workspace-hack",
+ "serde",
+ "serde_json",
+ "sha256",
  "surrealdb",
  "surrealqlx-macros",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
 name = "surrealqlx-macros"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "mecomp-workspace-hack",
  "surrealqlx-macros-impl",
@@ -5936,7 +5955,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx-macros-impl"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "mecomp-workspace-hack",
  "pretty_assertions",
