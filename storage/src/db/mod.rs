@@ -18,9 +18,6 @@ static TEMP_DB_DIR: once_cell::sync::Lazy<tempfile::TempDir> = once_cell::sync::
     tempfile::tempdir().expect("Failed to create temporary directory")
 });
 
-/// NOTE: if you change this, you must go through the schemas and update the index analyzer names
-pub const FULL_TEXT_SEARCH_ANALYZER_NAME: &str = "custom_analyzer";
-
 /// Set the path to the database.
 ///
 /// # Errors
@@ -44,6 +41,8 @@ pub fn set_database_path(path: std::path::PathBuf) -> Result<(), crate::errors::
 #[cfg(feature = "db")]
 #[allow(clippy::missing_inline_in_public_items)]
 pub async fn init_database() -> surrealqlx::Result<Surreal<Db>> {
+    use surrealqlx::surrql;
+
     let config = Config::new().strict();
     let db_path = DB_DIR
     .get().cloned()
@@ -54,9 +53,11 @@ pub async fn init_database() -> surrealqlx::Result<Surreal<Db>> {
     });
     let db = Surreal::new((db_path, config)).await?;
 
-    db.query("DEFINE NAMESPACE IF NOT EXISTS mecomp").await?;
+    db.query(surrql!("DEFINE NAMESPACE IF NOT EXISTS mecomp"))
+        .await?;
     db.use_ns("mecomp").await?;
-    db.query("DEFINE DATABASE IF NOT EXISTS music").await?;
+    db.query(surrql!("DEFINE DATABASE IF NOT EXISTS music"))
+        .await?;
     db.use_db("music").await?;
 
     register_custom_analyzer(&db).await?;
@@ -82,25 +83,22 @@ pub(crate) async fn register_custom_analyzer<C>(db: &Surreal<C>) -> surrealqlx::
 where
     C: surrealdb::Connection,
 {
-    use queries::define_analyzer;
-    use surrealdb::sql::Tokenizer;
-    use surrealqlx::migrations::{M, Migrations};
+    use surrealqlx::{
+        migrations::{M, Migrations},
+        surrql,
+    };
 
-    let analyzer_definition = define_analyzer(
-        FULL_TEXT_SEARCH_ANALYZER_NAME,
-        Some(Tokenizer::Class),
-        &[
-            "ascii",
-            "lowercase",
-            "edgengram(1, 10)",
-            "snowball(English)",
-        ],
+    // NOTE: if you change this, you must go through the schemas and update the index analyzer names
+    let analyzer_definition = surrql!(
+        "DEFINE ANALYZER IF NOT EXISTS custom_analyzer
+         TOKENIZERS class 
+         FILTERS ascii,lowercase,edgengram(1,10),snowball(English);"
     );
 
     let migrations = Migrations::new(
         "custom_analyzer",
         vec![
-            M::up(analyzer_definition.as_str()).down("REMOVE ANALYZER IF EXISTS custom_analyzer;"),
+            M::up(analyzer_definition).down(surrql!("REMOVE ANALYZER IF EXISTS custom_analyzer;")),
         ],
     );
 
@@ -158,6 +156,7 @@ mod minimal_reproduction {
     //! They exist to ensure that the issues are indeed fixed.
     use serde::{Deserialize, Serialize};
     use surrealdb::{RecordId, Surreal, engine::local::Mem, method::Stats};
+    use surrealqlx::surrql;
 
     use crate::db::queries::generic::{Count, count};
 
@@ -253,7 +252,7 @@ mod minimal_reproduction {
 
         let mut resp_new = db
             // new syntax
-            .query("SELECT count() FROM users GROUP ALL")
+            .query(surrql!("SELECT count() FROM users GROUP ALL"))
             .with_stats()
             .await
             .unwrap();
@@ -265,7 +264,7 @@ mod minimal_reproduction {
 
         let mut resp_old = db
             // old syntax
-            .query("RETURN array::len((SELECT * FROM users))")
+            .query(surrql!("RETURN array::len((SELECT * FROM users))"))
             .with_stats()
             .await
             .unwrap();
