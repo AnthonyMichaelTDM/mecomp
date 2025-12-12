@@ -11,7 +11,7 @@ mod mecomp {
     )]
 
     #[cfg(not(tarpaulin_include))]
-    include!("../proto/mecomp.rs");
+    tonic::include_proto!("mecomp");
 }
 #[doc(hidden)]
 mod conversions;
@@ -27,7 +27,6 @@ pub use conversions::convert_std_duration;
 pub use mecomp::music_player_client as client;
 pub use mecomp::music_player_server as server;
 pub use mecomp::*;
-pub use tonic;
 
 pub type LibraryBrief = mecomp::LibraryBriefResponse;
 pub type LibraryFull = mecomp::LibraryFullResponse;
