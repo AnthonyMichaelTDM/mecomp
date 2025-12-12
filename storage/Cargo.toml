@@ -35,7 +35,11 @@ once_cell = { workspace = true }
 one-or-many = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true, optional = true }
-surrealdb = { workspace = true, optional = true }
+surrealdb = { workspace = true, features = [
+    # "allocator",
+    "kv-mem",
+    "kv-surrealkv",
+], optional = true }
 surrealqlx = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
