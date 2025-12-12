@@ -105,6 +105,12 @@ pub enum AnalysisIndex {
     Chroma9,
     /// The proportion of augmented triads in the song, compared to the other triads.
     Chroma10,
+    /// The L2-norm of the IC1-6 (see above).
+    Chroma11,
+    /// The L2-norm of the IC7-10 (see above).
+    Chroma12,
+    /// The ratio of the L2-norm of IC7-10 and IC1-6 (proportion of triads vs dyads).
+    Chroma13,
 }
 
 /// The Type of individual features

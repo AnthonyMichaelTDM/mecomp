@@ -456,6 +456,9 @@ mod tests {
             0.199_811_46,
             -0.585_944_06,
             -0.067_842_96,
+            -0.060_007_63,
+            -0.584_857_17,
+            -0.078_803_78,
         ],
     );
 
@@ -470,6 +473,51 @@ mod tests {
             assert!(
                 1e-5 > (x - y).abs(),
                 "Expected {x} to be within 1e-5 of {y}, but it was not"
+            );
+        }
+    }
+
+    const RESAMPLED_PATH_AND_EXPECTED_ANALYSIS: (&str, [f64; NUMBER_FEATURES]) = (
+        "data/s32_stereo_44_1_kHz.flac",
+        [
+            0.38463664,
+            -0.85172224,
+            -0.7607465,
+            -0.8857495,
+            -0.63906085,
+            -0.73908424,
+            -0.7890965,
+            -0.8191868,
+            0.33856833,
+            0.3246863,
+            -0.34292227,
+            -0.62803173,
+            -0.2809453,
+            0.08687115,
+            0.2444489,
+            -0.5723239,
+            0.23292565,
+            0.19979525,
+            -0.58593845,
+            -0.06783122,
+            -0.060014784,
+            -0.5848569,
+            -0.07879859,
+        ],
+    );
+
+    #[test]
+    fn test_analyze_resampled() {
+        let (path, expected_analysis) = RESAMPLED_PATH_AND_EXPECTED_ANALYSIS;
+        let analysis = Decoder::new()
+            .unwrap()
+            .analyze_path(Path::new(path))
+            .unwrap();
+
+        for (x, y) in analysis.as_vec().iter().zip(expected_analysis) {
+            assert!(
+                0.1 > (x - y).abs(),
+                "Expected {x} to be within 0.1 of {y}, but it was not"
             );
         }
     }

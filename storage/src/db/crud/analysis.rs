@@ -182,7 +182,7 @@ impl Analysis {
         #[allow(clippy::cast_precision_loss)]
         let num_analyses = analyses.len() as f64;
 
-        let avg_features = analyses.iter().fold(vec![0.; 20], |acc, analysis| {
+        let avg_features = analyses.iter().fold(vec![0.; 23], |acc, analysis| {
             acc.iter()
                 .zip(analysis.features.iter())
                 .map(|(a, b)| a + (b / num_analyses))
@@ -218,7 +218,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis
@@ -228,7 +228,7 @@ mod test {
         // if we try to create another analysis for the same song, we get Ok(None)
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [1.; 20],
+            features: [1.; 23],
         };
         let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
         assert_eq!(result, None);
@@ -245,7 +245,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis
@@ -268,7 +268,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis
@@ -291,7 +291,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // the song doesn't have an analysis yet
@@ -322,11 +322,11 @@ mod test {
 
         let analysis1 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis2 = Analysis {
             id: Analysis::generate_id(),
-            features: [1.; 20],
+            features: [1.; 23],
         };
 
         // create the analyses
@@ -355,7 +355,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis
@@ -380,11 +380,11 @@ mod test {
 
         let analysis1 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis2 = Analysis {
             id: Analysis::generate_id(),
-            features: [1.; 20],
+            features: [1.; 23],
         };
 
         // create the analyses
@@ -418,11 +418,11 @@ mod test {
 
         let analysis1 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis2 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis
@@ -453,7 +453,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis
@@ -488,15 +488,15 @@ mod test {
 
         let analysis1 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis2 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis3 = Analysis {
             id: Analysis::generate_id(),
-            features: [1.; 20],
+            features: [1.; 23],
         };
 
         // create the analyses
@@ -529,19 +529,19 @@ mod test {
 
         let analysis1 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis2 = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
         let analysis3 = Analysis {
             id: Analysis::generate_id(),
-            features: [1.; 20],
+            features: [1.; 23],
         };
         let analysis4 = Analysis {
             id: Analysis::generate_id(),
-            features: [1.; 20],
+            features: [1.; 23],
         };
 
         // create the analyses
@@ -620,7 +620,7 @@ mod test {
 
         let analysis = Analysis {
             id: Analysis::generate_id(),
-            features: [0.; 20],
+            features: [0.; 23],
         };
 
         // create the analysis

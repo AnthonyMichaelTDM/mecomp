@@ -33,13 +33,30 @@ pub struct ChromaDesc {
 }
 
 impl Normalize for ChromaDesc {
-    const MAX_VALUE: Feature = 0.12;
+    const MAX_VALUE: Feature = 1.0;
     const MIN_VALUE: Feature = 0.;
 }
 
 impl ChromaDesc {
     pub const WINDOW_SIZE: usize = 8192;
-
+    /// The theoretical maximum value for IC1-6 is each value at (1/2)².
+    /// The reason is that `extract_interval_features` computes the product of the
+    /// L1-normalized chroma vector (so all of its values are <= 1) by itself.
+    /// The maximum value of this is all coordinates to 1/2 (since dyads will
+    /// select three values). The maximum of this is then (1/2)², so the maximum of its
+    /// L2 norm is this sqrt(2 * (1/2)²) ~= 0.62. However, real-life simulations shown
+    /// that 0.25 is a good ceiling value (see tests).
+    pub const MAX_L2_INTERVAL: f64 = 0.25;
+    /// The theoretical maximum value for IC7-10 is each value at (1/3)³.
+    /// The reason is that `extract_interval_features` computes the product of the
+    /// L1-normalized chroma vector (so all of its values are <= 1) by itself.
+    /// The maximum value of this is all coordinates to 1/3 (since triads will
+    /// select three values). The maximum of this is then (1/3)³, so the maximum of its
+    /// L2 norm is this sqrt(4 * (1/3)³) ~= 0.074. However, real-life simulations shown
+    /// that 0.025 is a good ceiling value (see tests).
+    pub const MAX_L2_TRIAD: f64 = 0.025;
+    /// We are using atan2 to keep the ratio bounded.
+    pub const MAX_TRIAD_INTERVAL_RATIO: f64 = std::f64::consts::FRAC_PI_2;
     #[must_use]
     #[inline]
     pub fn new(sample_rate: u32, n_chroma: u32) -> Self {
@@ -97,7 +114,18 @@ impl ChromaDesc {
         if l2_norm_interval_class_mode > 0. {
             interval_class_mode /= l2_norm_interval_class_mode;
         }
-        raw_features.mapv_into_any(|x| self.normalize(x)).to_vec()
+        let mut features = raw_features.mapv_into_any(|x| self.normalize(x)).to_vec();
+
+        let normalized_l2_norm_interval_class =
+            (2. * (l2_norm_interval_class - 0.) / (Self::MAX_L2_INTERVAL - 0.) - 1.).min(1.);
+        features.push(normalized_l2_norm_interval_class);
+        let normalized_l2_norm_interval_class_mode =
+            (2. * (l2_norm_interval_class_mode - 0.) / (Self::MAX_L2_TRIAD - 0.) - 1.).min(1.);
+        features.push(normalized_l2_norm_interval_class_mode);
+        let angle = (20. * l2_norm_interval_class_mode).atan2(l2_norm_interval_class + 1e-12_f64);
+        let normalized_ratio = 2. * (angle - 0.) / (Self::MAX_TRIAD_INTERVAL_RATIO - 0.) - 1.;
+        features.push(normalized_ratio);
+        features
     }
 }
 
@@ -679,6 +707,42 @@ mod test {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_end_l2_norm_dyad() {
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/chroma/dyad_tritone_IC6.ogg"))
+            .unwrap();
+        let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
+        chroma_desc.do_(&song.samples).unwrap();
+        let chroma_values = chroma_desc.get_value();
+        assert!(chroma_values[10] > 0.9);
+    }
+
+    #[test]
+    fn test_end_l2_norm_mode() {
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/chroma/Cmaj_triads.ogg"))
+            .unwrap();
+        let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
+        chroma_desc.do_(&song.samples).unwrap();
+        let chroma_values = chroma_desc.get_value();
+        assert!(chroma_values[11] > 0.9);
+    }
+
+    #[test]
+    fn test_end_l2_norm_ratio() {
+        let song = Decoder::new()
+            .unwrap()
+            .decode(Path::new("data/chroma/triad_aug_maximize_ratio.ogg"))
+            .unwrap();
+        let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
+        chroma_desc.do_(&song.samples).unwrap();
+        let chroma_values = chroma_desc.get_value();
+        assert!(chroma_values[12] > 0.7);
     }
 
     #[rstest::rstest]

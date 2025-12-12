@@ -2,6 +2,11 @@
 
 ## v0.6.0
 
+> [!Attention]
+> This release introduces breaking changes to both the RPC interface and the internal audio analysis features.
+> Clients interacting with the daemon must be updated to accommodate these changes.
+> For users, make sure to run `mecomp-cli analyze --overwrite` after updating to recompute the analysis features for songs in your library, or else features related to song analysis (namely, collections and radio) will not function correctly if at all.
+
 ## v0.6.0 What's Changed
 * fix failing test and optimize display of song attributes by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/410
 * chore: update dependencies by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/411
