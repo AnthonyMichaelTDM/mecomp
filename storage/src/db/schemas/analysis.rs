@@ -54,7 +54,11 @@ DELETE analysis;
 DEFINE INDEX OVERWRITE analysis_features_vector_index ON analysis FIELDS features MTREE DIMENSION 20;",
             ).comment("Update analysis features size from 20 to 23"),
             // v0.6.1 also clear the analysis_to_song relations table to ensure no dangling relations exist
-            M::up("DELETE analysis_to_song;").down("DELETE analysis_to_song;")
+            //
+            // The analysis_to_song relations table doesn't exist in most tests, so we need to check for its existence first.
+            // This isn't possible in SurrealDB <= 3.0, so we Define the table if it doesn't exist, then delete from it.
+            M::up("DEFINE TABLE IF NOT EXISTS analysis_to_song TYPE RELATION IN analysis OUT song ENFORCED;DELETE analysis_to_song;")
+                .down("DEFINE TABLE IF NOT EXISTS analysis_to_song TYPE RELATION IN analysis OUT song ENFORCED;DELETE analysis_to_song;")
                 .comment("Clear analysis_to_song relations to prevent dangling relations"),
         ]
     }
