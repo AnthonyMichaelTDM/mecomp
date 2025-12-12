@@ -1,6 +1,7 @@
 //! CRUD operations for dynamic playlists.
 
 use surrealdb::{Connection, Surreal};
+use surrealqlx::surrql;
 use tracing::instrument;
 
 use crate::{
@@ -42,9 +43,7 @@ impl DynamicPlaylist {
         name: String,
     ) -> StorageResult<Option<Self>> {
         Ok(db
-            .query(format!(
-                "SELECT * FROM {TABLE_NAME} WHERE name = $name LIMIT 1"
-            ))
+            .query(surrql!("SELECT * FROM dynamic WHERE name = $name LIMIT 1"))
             .bind(("name", name))
             .await?
             .take(0)?)

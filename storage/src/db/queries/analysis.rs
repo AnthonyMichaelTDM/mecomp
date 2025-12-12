@@ -1,10 +1,6 @@
 use crate::db::{queries::parse_query, schemas};
 use surrealdb::opt::IntoQuery;
-
-use super::{
-    generic::{read_related_in, read_related_out, relate},
-    relations::ANALYSIS_TO_SONG,
-};
+use surrealqlx::surrql;
 
 /// Query to relate an analysis to a song
 ///
@@ -28,8 +24,8 @@ use super::{
 /// ```
 #[must_use]
 #[inline]
-pub fn add_to_song() -> impl IntoQuery {
-    relate("id", "song", ANALYSIS_TO_SONG)
+pub const fn add_to_song() -> impl IntoQuery {
+    surrql!("RELATE $id->analysis_to_song->$song")
 }
 
 /// Query to read the analysis for a song
@@ -54,8 +50,8 @@ pub fn add_to_song() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_for_song() -> impl IntoQuery {
-    read_related_in("*", "song", ANALYSIS_TO_SONG)
+pub const fn read_for_song() -> impl IntoQuery {
+    surrql!("SELECT * FROM $song<-analysis_to_song.in")
 }
 
 /// Query to read the analyses for a list of songs
@@ -74,8 +70,8 @@ pub fn read_for_song() -> impl IntoQuery {
 ///
 #[must_use]
 #[inline]
-pub fn read_for_songs() -> impl IntoQuery {
-    "array::flatten($songs<-analysis_to_song<-analysis)"
+pub const fn read_for_songs() -> impl IntoQuery {
+    surrql!("array::flatten($songs<-analysis_to_song<-analysis)")
 }
 
 /// Query to read the song for an analysis
@@ -100,8 +96,8 @@ pub fn read_for_songs() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_song() -> impl IntoQuery {
-    read_related_out("*", "id", ANALYSIS_TO_SONG)
+pub const fn read_song() -> impl IntoQuery {
+    surrql!("SELECT * FROM $id->analysis_to_song.out")
 }
 
 /// Query to read the songs for a list of analyses
@@ -112,8 +108,8 @@ pub fn read_song() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_songs() -> impl IntoQuery {
-    "SELECT * FROM array::flatten($ids->analysis_to_song->song)"
+pub const fn read_songs() -> impl IntoQuery {
+    surrql!("SELECT * FROM array::flatten($ids->analysis_to_song->song)")
 }
 
 /// Query to find all the songs that don't have an analysis
@@ -139,11 +135,8 @@ pub fn read_songs() -> impl IntoQuery {
 #[allow(clippy::module_name_repetitions)]
 #[must_use]
 #[inline]
-pub fn read_songs_without_analysis() -> impl IntoQuery {
-    parse_query(format!(
-        "SELECT * FROM {} WHERE count(<-analysis_to_song.in) = 0",
-        schemas::song::TABLE_NAME
-    ))
+pub const fn read_songs_without_analysis() -> impl IntoQuery {
+    surrql!("SELECT * FROM song WHERE count(<-analysis_to_song.in) = 0")
 }
 
 /// Query to find the `n` nearest neighbors to a given analysis

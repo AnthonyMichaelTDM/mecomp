@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use log::warn;
 use surrealdb::{Connection, Surreal};
+use surrealqlx::surrql;
 use tracing::instrument;
 
 use crate::{
@@ -89,7 +90,7 @@ impl Album {
         limit: usize,
     ) -> StorageResult<Vec<AlbumBrief>> {
         Ok(db
-            .query(format!("SELECT {}, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM {TABLE_NAME} WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit", Self::BRIEF_FIELDS))
+            .query(surrql!("SELECT id,title,artist,release,discs,genre, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM album WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit"))
             .bind(("query", query.to_string()))
             .bind(("limit", limit))
             .await?
@@ -223,7 +224,9 @@ impl Album {
     #[instrument]
     pub async fn delete_orphaned<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
         Ok(db
-            .query("DELETE FROM album WHERE type::int(song_count) = 0 RETURN BEFORE")
+            .query(surrql!(
+                "DELETE FROM album WHERE type::int(song_count) = 0 RETURN BEFORE"
+            ))
             .await?
             .take(0)?)
     }

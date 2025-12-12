@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use log::info;
 use surrealdb::{Connection, Surreal};
+use surrealqlx::surrql;
 use tracing::instrument;
 
 #[cfg(feature = "analysis")]
@@ -66,10 +67,7 @@ impl Song {
 
     #[instrument]
     pub async fn read_all_brief<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<SongBrief>> {
-        Ok(db
-            .query(format!("SELECT {} FROM song;", Self::BRIEF_FIELDS))
-            .await?
-            .take(0)?)
+        Ok(db.select(TABLE_NAME).await?)
     }
 
     #[instrument]
@@ -94,10 +92,7 @@ impl Song {
         db: &Surreal<C>,
         limit: usize,
     ) -> StorageResult<Vec<SongBrief>> {
-        Ok(db
-            .query(read_rand(Self::BRIEF_FIELDS, TABLE_NAME, limit))
-            .await?
-            .take(0)?)
+        Ok(db.query(read_rand("*", TABLE_NAME, limit)).await?.take(0)?)
     }
 
     #[instrument]
@@ -155,7 +150,7 @@ impl Song {
         limit: usize,
     ) -> StorageResult<Vec<SongBrief>> {
         Ok(db
-            .query(format!("SELECT {}, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM {TABLE_NAME} WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit",Self::BRIEF_FIELDS))
+            .query(surrql!("SELECT *, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM song WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit"))
             .bind(("query", query.to_owned()))
             .bind(("limit", limit))
             .await?

@@ -1,6 +1,7 @@
 //! CRUD operations for the playlist table
 
 use surrealdb::{Connection, Surreal};
+use surrealqlx::surrql;
 use tracing::instrument;
 
 use crate::{
@@ -71,7 +72,10 @@ impl Playlist {
     pub async fn read_all_brief<C: Connection>(
         db: &Surreal<C>,
     ) -> StorageResult<Vec<PlaylistBrief>> {
-        Ok(db.query("SELECT id,name FROM playlist;").await?.take(0)?)
+        Ok(db
+            .query(surrql!("SELECT id,name FROM playlist;"))
+            .await?
+            .take(0)?)
     }
 
     #[instrument]
@@ -156,7 +160,9 @@ impl Playlist {
     /// An orphaned playlist is a playlist that has no songs in it
     pub async fn delete_orphaned<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
         Ok(db
-            .query("DELETE FROM playlist WHERE type::int(song_count) = 0 RETURN BEFORE")
+            .query(surrql!(
+                "DELETE FROM playlist WHERE type::int(song_count) = 0 RETURN BEFORE"
+            ))
             .await?
             .take(0)?)
     }

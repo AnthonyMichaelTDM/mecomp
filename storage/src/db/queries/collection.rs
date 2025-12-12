@@ -1,9 +1,5 @@
 use surrealdb::opt::IntoQuery;
-
-use super::{
-    generic::{read_related_out, relate, unrelate},
-    relations::COLLECTION_TO_SONG,
-};
+use surrealqlx::surrql;
 
 /// Query to relate a collection to its songs.
 ///
@@ -27,8 +23,8 @@ use super::{
 /// ```
 #[must_use]
 #[inline]
-pub fn add_songs() -> impl IntoQuery {
-    relate("id", "songs", COLLECTION_TO_SONG)
+pub const fn add_songs() -> impl IntoQuery {
+    surrql!("RELATE $id->collection_to_song->$songs")
 }
 
 /// Query to read the songs of a collection
@@ -53,8 +49,8 @@ pub fn add_songs() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_songs() -> impl IntoQuery {
-    read_related_out("*", "id", COLLECTION_TO_SONG)
+pub const fn read_songs() -> impl IntoQuery {
+    surrql!("SELECT * FROM $id->collection_to_song.out")
 }
 
 /// Query to remove songs from a collection
@@ -79,8 +75,8 @@ pub fn read_songs() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn remove_songs() -> impl IntoQuery {
-    unrelate("id", "songs", COLLECTION_TO_SONG)
+pub const fn remove_songs() -> impl IntoQuery {
+    surrql!("DELETE $id->collection_to_song WHERE out IN $songs")
 }
 
 #[cfg(test)]
