@@ -139,6 +139,15 @@ impl Analysis {
         Ok(db.delete(id).await?)
     }
 
+    /// Delete all analyses
+    #[instrument]
+    pub async fn delete_all<C: Connection>(db: &Surreal<C>) -> StorageResult<()> {
+        // explicitly do not deserialize the result since this function might be used
+        // in cases where the analysis table has malformed data
+        db.query(format!("DELETE {TABLE_NAME};")).await?;
+        Ok(())
+    }
+
     /// Find the `n` nearest neighbors to an analysis
     #[instrument]
     pub async fn nearest_neighbors<C: Connection>(
@@ -472,6 +481,42 @@ mod test {
         let result = Analysis::read_for_song(&db, song.id.clone()).await?;
         assert_eq!(result, None);
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_analysis_delete_all_when_malformed_data_is_present() -> Result<()> {
+        #[derive(Debug, serde::Serialize, serde::Deserialize)]
+        struct MalformedAnalysis {
+            id: AnalysisId,
+            features: [f32; 10],
+        }
+        let config = surrealdb::opt::Config::new().strict();
+        let db = Surreal::new::<surrealdb::engine::local::Mem>(config).await?;
+        db.query("DEFINE NAMESPACE IF NOT EXISTS test").await?;
+        db.use_ns("test").await?;
+        db.query("DEFINE DATABASE IF NOT EXISTS test").await?;
+        db.use_db("test").await?;
+        // create the analysis table without specifying the schema
+        db.query("DEFINE TABLE analysis").await?;
+
+        let analysis = MalformedAnalysis {
+            id: Analysis::generate_id(),
+            features: [0.; 10],
+        };
+        // insert a malformed analysis directly
+        let _: Option<MalformedAnalysis> = db.create(analysis.id.clone()).content(analysis).await?;
+        // register a vector index that expects 23-dimensional vectors
+        db.query(
+            "DEFINE INDEX analysis_features_vector_index ON analysis FIELDS features MTREE DIMENSION 23;",
+        )
+        .await?;
+
+        // delete all analyses
+        Analysis::delete_all(&db).await?;
+        // there should be no analyses left
+        let result = Analysis::read_all(&db).await?;
+        assert_eq!(result.len(), 0);
         Ok(())
     }
 
