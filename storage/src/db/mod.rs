@@ -78,14 +78,15 @@ pub async fn init_database() -> surrealqlx::Result<Surreal<Db>> {
 }
 
 #[cfg(feature = "db")]
-pub(crate) async fn register_custom_analyzer<C>(db: &Surreal<C>) -> surrealdb::Result<()>
+pub(crate) async fn register_custom_analyzer<C>(db: &Surreal<C>) -> surrealqlx::Result<()>
 where
     C: surrealdb::Connection,
 {
     use queries::define_analyzer;
     use surrealdb::sql::Tokenizer;
+    use surrealqlx::migrations::{M, Migrations};
 
-    db.query(define_analyzer(
+    let analyzer_definition = define_analyzer(
         FULL_TEXT_SEARCH_ANALYZER_NAME,
         Some(Tokenizer::Class),
         &[
@@ -94,8 +95,16 @@ where
             "edgengram(1, 10)",
             "snowball(English)",
         ],
-    ))
-    .await?;
+    );
+
+    let migrations = Migrations::new(
+        "custom_analyzer",
+        vec![
+            M::up(analyzer_definition.as_str()).down("REMOVE ANALYZER IF EXISTS custom_analyzer;"),
+        ],
+    );
+
+    migrations.to_latest(db).await?;
 
     Ok(())
 }
