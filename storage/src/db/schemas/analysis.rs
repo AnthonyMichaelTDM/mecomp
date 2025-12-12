@@ -53,6 +53,9 @@ DELETE analysis;
 -- Recreate the index with the old dimension size
 DEFINE INDEX OVERWRITE analysis_features_vector_index ON analysis FIELDS features MTREE DIMENSION 20;",
             ).comment("Update analysis features size from 20 to 23"),
+            // v0.6.1 also clear the analysis_to_song relations table to ensure no dangling relations exist
+            M::up("DELETE analysis_to_song;").down("DELETE analysis_to_song;")
+                .comment("Clear analysis_to_song relations to prevent dangling relations"),
         ]
     }
 }
