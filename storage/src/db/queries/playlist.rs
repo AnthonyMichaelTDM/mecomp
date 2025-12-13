@@ -75,7 +75,7 @@ pub const fn remove_songs() -> impl IntoQuery {
     surrql!("DELETE $id->playlist_to_song WHERE out IN $songs")
 }
 
-/// Query to read a playlist by its name
+/// Query to read a playlist by its name.
 ///
 /// Compiles to:
 /// ```sql, ignore
