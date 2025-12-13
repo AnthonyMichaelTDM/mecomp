@@ -672,13 +672,14 @@ async fn test_collection_freeze(#[future] client: MusicPlayerClient) {
 }
 
 #[rstest]
-#[case( RadioCommand::Album { id: item_id().to_string(), n: 1 } )]
-#[case( RadioCommand::Artist { id: item_id().to_string(), n: 1 } )]
-#[case( RadioCommand::Song { id: item_id().to_string(), n: 1 } )]
-#[case( RadioCommand::Playlist { id: item_id().to_string(), n: 1 } )]
+#[case( RadioCommand { items: vec![format!("song:{}", item_id().to_string())], n: 1 } )]
+#[case( RadioCommand { items: vec![format!("album:{}", item_id().to_string())], n: 1 } )]
+#[case( RadioCommand { items: vec![format!("artist:{}", item_id().to_string())], n: 1 } )]
+#[case( RadioCommand { items: vec![format!("playlist:{}", item_id().to_string())], n: 1 } )]
+#[case( RadioCommand { items: vec![format!("dynamic:{}", item_id().to_string())], n: 1 } )]
 #[tokio::test]
 async fn test_radio_command(#[future] client: MusicPlayerClient, #[case] command: RadioCommand) {
-    let command = Command::Radio { command };
+    let command = Command::Radio(command);
 
     let stdout = &mut WriteAdapter(Vec::new());
     let stderr = &mut WriteAdapter(Vec::new());

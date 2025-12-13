@@ -197,7 +197,7 @@ impl CommandHandler for Command {
             Self::Playlist { command } => command.handle(client, stdout, stderr).await,
             Self::Dynamic { command } => command.handle(client, stdout, stderr).await,
             Self::Collection { command } => command.handle(client, stdout, stderr).await,
-            Self::Radio { command } => command.handle(client, stdout, stderr).await,
+            Self::Radio(command) => command.handle(client, stdout, stderr).await,
         }
     }
 }
