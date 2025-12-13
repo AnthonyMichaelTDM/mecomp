@@ -91,7 +91,7 @@ where
     // NOTE: if you change this, you must go through the schemas and update the index analyzer names
     let analyzer_definition = surrql!(
         "DEFINE ANALYZER IF NOT EXISTS custom_analyzer
-         TOKENIZERS class 
+         TOKENIZERS class
          FILTERS ascii,lowercase,edgengram(1,10),snowball(English);"
     );
 
