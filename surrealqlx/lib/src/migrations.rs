@@ -31,27 +31,32 @@ pub enum Error {
         err: surrealdb::Error,
     },
     /// A `SurrealDB` error that occurred during a migration
-    #[error("error during migrations at statement {}/{number_of_statements} when migrating from v{current_version} to v{target_version} in scope {scope}: {err}", i + 1)]
-    SurrealdbErrorDuringMigration {
-        /// The scope of the migration
-        scope: &'static str,
-        /// The index of the statement that caused the error
-        i: usize,
-        /// The total number of statements in the transaction
-        number_of_statements: usize,
-        /// The current version before migration
-        current_version: usize,
-        /// The target version after migration
-        target_version: usize,
-        /// The underlying `SurrealDB` error
-        err: surrealdb::Error,
-    },
+    #[error("{} errors occured while executing migrations: [ {} ]", errs.len(), errs.iter().map(|e| format!("`{e}`")).collect::<Vec<_>>().join(", ") )]
+    MigrationExecutionErroors { errs: Vec<MigrationExecutionError> },
     #[error("Specified schema version error: {0}")]
     /// Error with the specified schema version
     SpecifiedSchemaVersion(SchemaVersionError),
     #[error("Migration definition error: {0}")]
     /// Something wrong with migration definitions
     MigrationDefinition(MigrationDefinitionError),
+}
+
+/// a `SurrealDB` error that occurred while running a migration
+#[derive(thiserror::Error, Debug)]
+#[error("error during migrations at statement {}/{number_of_statements} when migrating from v{current_version} to v{target_version} in scope {scope}: {err}", i + 1)]
+pub struct MigrationExecutionError {
+    /// The scope of the migration
+    scope: &'static str,
+    /// The index of the statement that caused the error
+    i: usize,
+    /// The total number of statements in the transaction
+    number_of_statements: usize,
+    /// The current version before migration
+    current_version: usize,
+    /// The target version after migration
+    target_version: usize,
+    /// The underlying `SurrealDB` error
+    err: surrealdb::Error,
 }
 
 /// Errors related to schema versions
@@ -421,24 +426,30 @@ impl<'a> Migrations<'a> {
 
         let mut response = queries.query("COMMIT;").await?;
         let number_of_statements = response.num_statements();
-        response.take_errors().into_iter().next().map_or_else(
-            || {
-                trace!("committed migration transaction");
-                Ok(())
-            },
-            |(i, err)| {
-                let err = Error::SurrealdbErrorDuringMigration {
-                    scope: self.scope,
-                    i,
-                    number_of_statements,
-                    current_version,
-                    target_version,
-                    err,
-                };
-                error!("{}", err.to_string());
-                Err(err)
-            },
-        )
+        let errors = response.take_errors();
+
+        if errors.is_empty() {
+            trace!("committed migration transaction");
+            return Ok(());
+        }
+
+        Err(Error::MigrationExecutionErroors {
+            errs: errors
+                .into_iter()
+                .map(|(i, err)| {
+                    let err = MigrationExecutionError {
+                        scope: self.scope,
+                        i,
+                        number_of_statements,
+                        current_version,
+                        target_version,
+                        err,
+                    };
+                    error!("{err}");
+                    err
+                })
+                .collect(),
+        })
     }
 
     /// Migrate downward. This is rolled back on error.
@@ -490,24 +501,30 @@ impl<'a> Migrations<'a> {
 
         let mut response = queries.query("COMMIT;").await?;
         let number_of_statements = response.num_statements();
-        response.take_errors().into_iter().next().map_or_else(
-            || {
-                trace!("committed migration transaction");
-                Ok(())
-            },
-            |(i, err)| {
-                let err = Error::SurrealdbErrorDuringMigration {
-                    scope: self.scope,
-                    i,
-                    number_of_statements,
-                    current_version,
-                    target_version,
-                    err,
-                };
-                error!("{}", err.to_string());
-                Err(err)
-            },
-        )
+        let errors = response.take_errors();
+
+        if errors.is_empty() {
+            trace!("committed migration transaction");
+            return Ok(());
+        }
+
+        Err(Error::MigrationExecutionErroors {
+            errs: errors
+                .into_iter()
+                .map(|(i, err)| {
+                    let err = MigrationExecutionError {
+                        scope: self.scope,
+                        i,
+                        number_of_statements,
+                        current_version,
+                        target_version,
+                        err,
+                    };
+                    error!("{err}");
+                    err
+                })
+                .collect(),
+        })
     }
 
     /// Maximum version defined in the migration set
@@ -884,5 +901,115 @@ mod tests {
         assert_eq!(query_result.len(), 3);
 
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_change_size_of_preexisting_vector_index() {
+        #[derive(Debug, Deserialize, PartialEq)]
+        struct Table1 {
+            numbers: Vec<f32>,
+        }
+
+        let db = surrealdb::engine::any::connect("mem://").await.unwrap();
+        db.use_ns("test").use_db("test").await.unwrap();
+
+        db.query(surrql!(
+            r"
+DEFINE TABLE table1 SCHEMAFULL;
+DEFINE FIELD numbers ON table1 TYPE array<float>;
+DEFINE INDEX vector_index1 ON table1 FIELDS numbers MTREE DIMENSION 2;
+INSERT INTO table1 {
+    numbers: [1.0, 2.0],
+};
+            "
+        ))
+        .await
+        .unwrap();
+
+        let elements: Vec<Table1> = db
+            .query("SELECT * FROM table1;")
+            .await
+            .unwrap()
+            .take(0)
+            .unwrap();
+
+        assert_eq!(
+            elements,
+            vec![Table1 {
+                numbers: vec![1.0, 2.0]
+            }]
+        );
+
+        // db.query(surrql!("DELETE table1;")).await.unwrap();
+        // // the record we created initially should be gone
+        // let elements: Vec<Table1> = db
+        //     .query("SELECT * FROM table1;")
+        //     .await
+        //     .unwrap()
+        //     .take(0)
+        //     .unwrap();
+        // assert!(
+        //     elements.is_empty(),
+        //     "table1 should be empty, but it contains: {elements:?}"
+        // );
+
+        let migrations = Migrations::new(
+            "table1",
+            vec![
+                // A migration that redefines the table and index as-is
+                M::up(surrql!(
+                    "
+DEFINE TABLE IF NOT EXISTS table1 SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS numbers ON table1 TYPE array<float>;
+DEFINE INDEX IF NOT EXISTS vector_index1 ON table1 FIELDS numbers MTREE DIMENSION 2;
+                "
+                ))
+                .comment("Initial Version"),
+                // a migration that clears the table
+                M::up(surrql!("DELETE table1;")),
+                // a migration that resizes the index
+                M::up(surrql!(
+                    "
+DEFINE INDEX OVERWRITE vector_index1 ON table1 FIELDS numbers MTREE DIMENSION 3;
+                "
+                )),
+            ],
+        );
+
+        let outcome = migrations.to_version(&db, 1).await;
+
+        assert!(
+            outcome.is_ok(),
+            "Expected Ok, but got an error: {}",
+            outcome.unwrap_err().to_string()
+        );
+
+        let outcome = migrations.to_version(&db, 2).await;
+
+        assert!(
+            outcome.is_ok(),
+            "Expected Ok, but got an error: {}",
+            outcome.unwrap_err().to_string()
+        );
+
+        let outcome = migrations.to_version(&db, 3).await;
+
+        assert!(
+            outcome.is_ok(),
+            "Expected Ok, but got an error: {}",
+            outcome.unwrap_err().to_string()
+        );
+
+        // the record we created initially should be gone
+        let elements: Vec<Table1> = db
+            .query("SELECT * FROM table1;")
+            .await
+            .unwrap()
+            .take(0)
+            .unwrap();
+        assert!(
+            elements.is_empty(),
+            "table1 should be empty, but it contains: {elements:?}"
+        );
     }
 }
