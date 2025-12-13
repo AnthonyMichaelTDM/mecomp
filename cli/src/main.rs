@@ -39,7 +39,12 @@ fn main() -> anyhow::Result<()> {
 
         if let Some(command) = flags.subcommand {
             command
-                .handle(client, &mut stdout_adapter, &mut stderr_adapter)
+                .handle(
+                    client,
+                    &mut stdout_adapter,
+                    &mut stderr_adapter,
+                    &std::io::stdin(),
+                )
                 .await?;
         } else {
             eprintln!("No subcommand provided");

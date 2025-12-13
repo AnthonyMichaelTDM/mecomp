@@ -9,19 +9,22 @@ mod smoke_tests;
 
 use std::{path::PathBuf, str::FromStr};
 
-use clap::{Subcommand, ValueEnum, ValueHint};
+use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use clap_complete::{ArgValueCandidates, ArgValueCompleter, PathCompleter};
 use complete::CompletableTable;
 use mecomp_storage::db::schemas::dynamic::query::Query;
 
+use crate::handlers::utils::StdIn;
+
 pub trait CommandHandler {
     type Output;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send, R: StdIn>(
         &self,
         client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
+        stdin: &R,
     ) -> Self::Output;
 }
 
@@ -339,13 +342,17 @@ pub enum QueueCommand {
         quiet: bool,
     },
     /// Add to the queue
+    ///
+    /// You can also pipe a list of ids to add to the queue
+    /// ex:
+    /// ```sh, ignore
+    /// mecomp-cli search all "the beatles" -q | mecomp-cli queue add
+    /// ```
+    /// This will add all the results of the search to the queue
     Add {
-        /// What to add (artist, album, song, playlist)
-        #[clap(value_enum)]
-        target: QueueAddTarget,
-        /// The id of the item
-        #[clap(value_hint = ValueHint::Other)]
-        id: String,
+        /// The ids of the items to add, should be fully-qualified ids of the form <TABLE>:<ID>
+        #[clap(value_hint = ValueHint::Other, add = ArgValueCompleter::new(complete::thing_completer))]
+        items: Vec<String>,
     },
     /// Remove a range of items from the queue
     Remove {
@@ -362,24 +369,6 @@ pub enum QueueCommand {
         #[clap(value_hint = ValueHint::Other)]
         index: u64,
     },
-    /// Add a list of items to the queue (from a pipe)
-    ///
-    /// ex:
-    /// ```sh, ignore
-    /// mecomp-cli search all "the beatles" -q | mecomp-cli queue pipe
-    /// ```
-    /// This will add all the results of the search to the queue
-    Pipe,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, ValueEnum)]
-pub enum QueueAddTarget {
-    Artist,
-    Album,
-    Song,
-    Playlist,
-    Collection,
-    Dynamic,
 }
 
 #[derive(Debug, Subcommand, PartialEq, Eq)]
@@ -423,10 +412,7 @@ pub enum PlaylistCommand {
         id: String,
     },
     /// Add to a playlist
-    Add {
-        #[clap(subcommand)]
-        command: PlaylistAddCommand,
-    },
+    Add(PlaylistAddCommand),
     /// Remove from a playlist
     Remove {
         /// The id of the playlist
@@ -462,47 +448,23 @@ pub enum PlaylistGetMethod {
     Name,
 }
 
-#[derive(Debug, Subcommand, PartialEq, Eq)]
-pub enum PlaylistAddCommand {
-    /// Add an artist to a playlist
-    Artist {
-        /// The id of the playlist
-        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::thing_candidates(CompletableTable::Playlist)))]
-        id: String,
-        /// The id of the artist
-        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::thing_candidates(CompletableTable::Artist)))]
-        artist_id: String,
-    },
-    /// Add an album to a playlist
-    Album {
-        /// The id of the playlist
-        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::thing_candidates(CompletableTable::Playlist)))]
-        id: String,
-        /// The id of the album
-        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::thing_candidates(CompletableTable::Album)))]
-        album_id: String,
-    },
-    /// Add a song to a playlist
-    Song {
-        /// The id of the playlist
-        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::thing_candidates(CompletableTable::Playlist)))]
-        id: String,
-        /// The ids of the song(s) to add
-        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::thing_candidates(CompletableTable::Song)))]
-        song_ids: Vec<String>,
-    },
-    /// Add a list of items to the playlist (from a pipe)
-    ///
-    /// ex:
-    /// ```sh, ignore
-    /// mecomp-cli search all "the beatles" -q | mecomp-cli playlist add pipe
-    /// ```
-    /// This will add all the results of the search to the playlist
-    Pipe {
-        /// The id of the playlist
-        #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::thing_candidates(CompletableTable::Playlist)))]
-        id: String,
-    },
+/// Commands for adding items to a playlist
+///
+/// you can add artists, albums, songs, or a list of items from a pipe
+///
+/// ex:
+/// ```sh, ignore
+/// mecomp-cli search all "the beatles" -q | mecomp-cli playlist add <PLAYLIST_ID>
+/// ```
+/// This will add all the results of the search to the playlist
+#[derive(Debug, Args, Clone, PartialEq, Eq)]
+pub struct PlaylistAddCommand {
+    /// The id of the playlist to add to
+    #[clap(value_hint = ValueHint::Other, add = ArgValueCandidates::new(complete::thing_candidates(CompletableTable::Playlist)))]
+    id: String,
+    /// The ids of the records to add, should be fully-qualified ids of the form <TABLE>:<ID>
+    #[clap(value_hint = ValueHint::Other, add = ArgValueCompleter::new(complete::thing_completer))]
+    items: Vec<String>,
 }
 
 #[derive(Debug, Subcommand, PartialEq, Eq)]

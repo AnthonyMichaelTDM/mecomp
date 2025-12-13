@@ -1,14 +1,13 @@
-use std::{
-    io::{BufRead, IsTerminal},
-    time::Duration,
-};
+use std::time::Duration;
 
-use crate::handlers::{printing, utils};
+use crate::handlers::{
+    printing,
+    utils::{self, StdIn},
+};
 
 use super::{
     Command, CommandHandler, CurrentTarget, LibraryCommand, LibraryGetCommand, LibraryListTarget,
-    PlaylistGetMethod, QueueAddTarget, QueueCommand, RandTarget, SearchTarget, SeekCommand,
-    VolumeCommand,
+    PlaylistGetMethod, QueueCommand, RandTarget, SearchTarget, SeekCommand, VolumeCommand,
 };
 
 use anyhow::bail;
@@ -17,27 +16,28 @@ use mecomp_prost::{
     CollectionFreezeRequest, DynamicPlaylist, DynamicPlaylistChangeSet,
     DynamicPlaylistCreateRequest, DynamicPlaylistUpdateRequest, LibraryAnalyzeRequest,
     PlaybackRepeatRequest, PlaybackSeekRequest, PlaybackSkipRequest, PlaybackVolumeAdjustRequest,
-    PlaybackVolumeSetRequest, PlaylistAddListRequest, PlaylistAddRequest, PlaylistExportRequest,
-    PlaylistImportRequest, PlaylistName, PlaylistRemoveSongsRequest, PlaylistRenameRequest,
-    QueueRemoveRangeRequest, QueueSetIndexRequest, RadioSimilarRequest, RecordId, RecordIdList,
-    SearchRequest, SearchResult, Ulid,
+    PlaybackVolumeSetRequest, PlaylistAddListRequest, PlaylistExportRequest, PlaylistImportRequest,
+    PlaylistName, PlaylistRemoveSongsRequest, PlaylistRenameRequest, QueueRemoveRangeRequest,
+    QueueSetIndexRequest, RadioSimilarRequest, RecordId, RecordIdList, SearchRequest, SearchResult,
+    Ulid,
 };
-use mecomp_storage::db::schemas::{
-    album, artist, collection,
-    dynamic::{self, query::Compile},
-    playlist, song,
-};
+use mecomp_storage::db::schemas::dynamic::query::Compile;
 use tonic::{Code, Response};
 
 impl CommandHandler for Command {
     type Output = anyhow::Result<()>;
 
     #[allow(clippy::too_many_lines)]
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<
+        W1: std::fmt::Write + Send,
+        W2: std::fmt::Write + Send,
+        R: utils::StdIn + Send,
+    >(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
+        stdin: &R,
     ) -> Self::Output {
         match self {
             Self::Ping => {
@@ -53,8 +53,8 @@ impl CommandHandler for Command {
                 )?;
                 Ok(())
             }
-            Self::Library { command } => command.handle(client, stdout, stderr).await,
-            Self::Status { command } => command.handle(client, stdout, stderr).await,
+            Self::Library { command } => command.handle(client, stdout, stderr, stdin).await,
+            Self::Status { command } => command.handle(client, stdout, stderr, stdin).await,
             Self::State => {
                 if let Some(state) = client.state_audio(()).await?.into_inner().state {
                     Ok(writeln!(
@@ -192,12 +192,12 @@ impl CommandHandler for Command {
                 )?
             )?),
 
-            Self::Playback { command } => command.handle(client, stdout, stderr).await,
-            Self::Queue { command } => command.handle(client, stdout, stderr).await,
-            Self::Playlist { command } => command.handle(client, stdout, stderr).await,
-            Self::Dynamic { command } => command.handle(client, stdout, stderr).await,
-            Self::Collection { command } => command.handle(client, stdout, stderr).await,
-            Self::Radio(command) => command.handle(client, stdout, stderr).await,
+            Self::Playback { command } => command.handle(client, stdout, stderr, stdin).await,
+            Self::Queue { command } => command.handle(client, stdout, stderr, stdin).await,
+            Self::Playlist { command } => command.handle(client, stdout, stderr, stdin).await,
+            Self::Dynamic { command } => command.handle(client, stdout, stderr, stdin).await,
+            Self::Collection { command } => command.handle(client, stdout, stderr, stdin).await,
+            Self::Radio(command) => command.handle(client, stdout, stderr, stdin).await,
         }
     }
 }
@@ -206,11 +206,12 @@ impl CommandHandler for LibraryCommand {
     type Output = anyhow::Result<()>;
 
     #[allow(clippy::too_many_lines)]
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send, R: StdIn>(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         _: &mut W2,
+        _: &R,
     ) -> Self::Output {
         match self {
             Self::Rescan => {
@@ -378,11 +379,12 @@ impl CommandHandler for LibraryCommand {
 impl CommandHandler for super::StatusCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send, R: StdIn>(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         _: &mut W2,
+        _: &R,
     ) -> Self::Output {
         match self {
             Self::Rescan => {
@@ -441,11 +443,12 @@ impl CommandHandler for super::StatusCommand {
 impl CommandHandler for super::PlaybackCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send, R: StdIn>(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
+        stdin: &R,
     ) -> Self::Output {
         match self {
             Self::Toggle => {
@@ -487,8 +490,8 @@ impl CommandHandler for super::PlaybackCommand {
                 writeln!(stdout, "Daemon response:\nprevious track started")?;
                 Ok(())
             }
-            Self::Seek { command } => command.handle(client, stdout, stderr).await,
-            Self::Volume { command } => command.handle(client, stdout, stderr).await,
+            Self::Seek { command } => command.handle(client, stdout, stderr, stdin).await,
+            Self::Volume { command } => command.handle(client, stdout, stderr, stdin).await,
             Self::Repeat { mode } => {
                 let mode: mecomp_core::state::RepeatMode = (*mode).into();
                 client
@@ -509,11 +512,12 @@ impl CommandHandler for super::PlaybackCommand {
 impl CommandHandler for SeekCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send, R: StdIn>(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         _: &mut W2,
+        _: &R,
     ) -> Self::Output {
         match self {
             Self::Forward { amount } => {
@@ -554,11 +558,12 @@ impl CommandHandler for SeekCommand {
 impl CommandHandler for VolumeCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send, R: StdIn>(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         _: &mut W2,
+        _: &R,
     ) -> Self::Output {
         match self {
             Self::Set { volume } => {
@@ -600,11 +605,12 @@ impl CommandHandler for QueueCommand {
     type Output = anyhow::Result<()>;
 
     #[allow(clippy::too_many_lines)]
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send, R: StdIn>(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
+        stdin: &R,
     ) -> Self::Output {
         match self {
             Self::Clear => {
@@ -645,35 +651,39 @@ impl CommandHandler for QueueCommand {
                     writeln!(stdout, "Daemon response:\nNo queue available")?;
                 }
             }
-            Self::Add { target, id } => {
-                let message: &str = match target {
-                    QueueAddTarget::Artist => client
-                        .queue_add(RecordId::new(artist::TABLE_NAME, id))
-                        .await
-                        .map(|_| "artist added to queue"),
-                    QueueAddTarget::Album => client
-                        .queue_add(RecordId::new(album::TABLE_NAME, id))
-                        .await
-                        .map(|_| "album added to queue"),
-                    QueueAddTarget::Song => client
-                        .queue_add(RecordId::new(song::TABLE_NAME, id))
-                        .await
-                        .map(|_| "song added to queue"),
-                    QueueAddTarget::Playlist => client
-                        .queue_add(RecordId::new(playlist::TABLE_NAME, id))
-                        .await
-                        .map(|_| "playlist added to queue"),
-                    QueueAddTarget::Collection => client
-                        .queue_add(RecordId::new(collection::TABLE_NAME, id))
-                        .await
-                        .map(|_| "collection added to queue"),
-                    QueueAddTarget::Dynamic => client
-                        .queue_add(RecordId::new(dynamic::TABLE_NAME, id))
-                        .await
-                        .map(|_| "dynamic added to queue"),
-                }?;
+            Self::Add { items } => {
+                let Ok(ids) = items
+                    .iter()
+                    .map(|id| id.parse())
+                    .collect::<Result<Vec<RecordId>, _>>()
+                else {
+                    bail!("One or more provided IDs are invalid");
+                };
 
-                writeln!(stdout, "Daemon response:\n{message}")?;
+                // are we in a pipe?
+                let list = if stdin.is_terminal() && ids.is_empty() {
+                    bail!("No input provided, nothing to add to queue");
+                } else if !stdin.is_terminal() {
+                    let from_pipe: Vec<RecordId> =
+                        utils::parse_from_lines(stdin.lines().filter_map(|l| match l {
+                            Ok(line) => Some(line),
+                            Err(e) => {
+                                writeln!(stderr, "Error reading from stdin: {e}").ok();
+                                None
+                            }
+                        }));
+                    let mut all_ids = ids;
+                    all_ids.extend(from_pipe);
+                    if all_ids.is_empty() {
+                        bail!("No input provided, nothing to add to queue");
+                    }
+                    all_ids
+                } else {
+                    ids
+                };
+
+                client.queue_add_list(RecordIdList { ids: list }).await?;
+                writeln!(stdout, "Daemon response:\nitems added to queue")?;
             }
             Self::Remove { start, end } => {
                 client
@@ -690,27 +700,6 @@ impl CommandHandler for QueueCommand {
                     "Daemon response:\ncurrent song set to index {index}"
                 )?;
             }
-            Self::Pipe => {
-                let stdin = std::io::stdin();
-                if stdin.is_terminal() {
-                    writeln!(
-                        stdout,
-                        "No input provided, this command is meant to be used with a pipe"
-                    )?;
-                } else {
-                    let ids: Vec<RecordId> =
-                        utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                            Ok(line) => Some(line),
-                            Err(e) => {
-                                writeln!(stderr, "Error reading from stdin: {e}").ok();
-                                None
-                            }
-                        }));
-
-                    client.queue_add_list(RecordIdList { ids }).await?;
-                    writeln!(stdout, "Daemon response:\nitems added to queue")?;
-                }
-            }
         }
         Ok(())
     }
@@ -720,11 +709,12 @@ impl CommandHandler for super::PlaylistCommand {
     type Output = anyhow::Result<()>;
 
     #[allow(clippy::too_many_lines)]
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send, R: StdIn>(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
+        stdin: &R,
     ) -> Self::Output {
         match self {
             Self::List => {
@@ -811,7 +801,7 @@ impl CommandHandler for super::PlaylistCommand {
                 writeln!(stdout, "Daemon response:\nplaylist deleted")?;
                 Ok(())
             }
-            Self::Add { command } => command.handle(client, stdout, stderr).await,
+            Self::Add(command) => command.handle(client, stdout, stderr, stdin).await,
             Self::Remove { id, item_ids } => {
                 client
                     .playlist_remove_songs(PlaylistRemoveSongsRequest {
@@ -860,59 +850,49 @@ impl CommandHandler for super::PlaylistCommand {
 impl CommandHandler for super::PlaylistAddCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send, R: StdIn>(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
+        stdin: &R,
     ) -> Self::Output {
-        let resp = match self {
-            Self::Artist { id, artist_id } => client
-                .playlist_add(PlaylistAddRequest::new(
-                    id,
-                    RecordId::new(artist::TABLE_NAME, artist_id),
-                ))
-                .await?
-                .map(|()| "artist added to playlist"),
-            Self::Album { id, album_id } => client
-                .playlist_add(PlaylistAddRequest::new(
-                    id,
-                    RecordId::new(album::TABLE_NAME, album_id),
-                ))
-                .await?
-                .map(|()| "album added to playlist"),
-            Self::Song { id, song_ids } => client
-                .playlist_add_list(PlaylistAddListRequest::new(
-                    id,
-                    song_ids
-                        .iter()
-                        .map(|song_id| RecordId::new(song::TABLE_NAME, song_id))
-                        .collect(),
-                ))
-                .await?
-                .map(|()| "songs added to playlist"),
-            Self::Pipe { id } => {
-                let stdin = std::io::stdin();
-                if stdin.is_terminal() {
-                    bail!("No input provided, this command is meant to be used with a pipe");
-                }
-                let list: Vec<RecordId> =
-                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                        Ok(line) => Some(line),
-                        Err(e) => {
-                            writeln!(stderr, "Error reading from stdin: {e}").ok();
-                            None
-                        }
-                    }));
+        let Ok(ids) = self
+            .items
+            .iter()
+            .map(|id| id.parse())
+            .collect::<Result<Vec<RecordId>, _>>()
+        else {
+            bail!("One or more provided IDs are invalid");
+        };
 
-                client
-                    .playlist_add_list(PlaylistAddListRequest::new(id, list))
-                    .await?
-                    .map(|()| "items added to playlist")
+        // are we in a pipe?
+        let list = if stdin.is_terminal() && ids.is_empty() {
+            bail!("No input provided, can't add nothing to the playlist");
+        } else if !stdin.is_terminal() {
+            let from_pipe: Vec<RecordId> =
+                utils::parse_from_lines(stdin.lines().filter_map(|l| match l {
+                    Ok(line) => Some(line),
+                    Err(e) => {
+                        writeln!(stderr, "Error reading from stdin: {e}").ok();
+                        None
+                    }
+                }));
+            let mut all_ids = ids;
+            all_ids.extend(from_pipe);
+            if all_ids.is_empty() {
+                bail!("No input provided, add nothing to the playlist");
             }
-        }
-        .into_inner();
-        writeln!(stdout, "Daemon response:\n{resp:?}")?;
+            all_ids
+        } else {
+            ids
+        };
+
+        client
+            .playlist_add_list(PlaylistAddListRequest::new(self.id.clone(), list))
+            .await?;
+
+        writeln!(stdout, "Daemon response:\nitems added to playlist")?;
         Ok(())
     }
 }
@@ -949,11 +929,12 @@ impl CommandHandler for super::DynamicCommand {
     type Output = anyhow::Result<()>;
 
     #[allow(clippy::too_many_lines)]
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send, R: StdIn>(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         _: &mut W2,
+        _: &R,
     ) -> Self::Output {
         match self {
             Self::List => {
@@ -1072,11 +1053,12 @@ impl CommandHandler for super::DynamicCommand {
 impl CommandHandler for super::CollectionCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send, R: StdIn>(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         _: &mut W2,
+        _: &R,
     ) -> Self::Output {
         match self {
             Self::List => {
@@ -1145,83 +1127,50 @@ impl CommandHandler for super::CollectionCommand {
 impl CommandHandler for super::RadioCommand {
     type Output = anyhow::Result<()>;
 
-    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send>(
+    async fn handle<W1: std::fmt::Write + Send, W2: std::fmt::Write + Send, R: StdIn>(
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
         stderr: &mut W2,
+        stdin: &R,
     ) -> Self::Output {
-        match self {
-            Self::Song { id, n } => {
-                let resp = client
-                    .radio_get_similar_ids(RadioSimilarRequest::new(
-                        vec![RecordId::new(song::TABLE_NAME, id)],
-                        *n,
-                    ))
-                    .await?
-                    .into_inner()
-                    .ids;
-                writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
-                Ok(())
-            }
-            Self::Artist { id, n } => {
-                let resp = client
-                    .radio_get_similar_ids(RadioSimilarRequest::new(
-                        vec![RecordId::new(artist::TABLE_NAME, id)],
-                        *n,
-                    ))
-                    .await?
-                    .into_inner()
-                    .ids;
-                writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
-                Ok(())
-            }
-            Self::Album { id, n } => {
-                let resp = client
-                    .radio_get_similar_ids(RadioSimilarRequest::new(
-                        vec![RecordId::new(album::TABLE_NAME, id)],
-                        *n,
-                    ))
-                    .await?
-                    .into_inner()
-                    .ids;
-                writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
-                Ok(())
-            }
-            Self::Playlist { id, n } => {
-                let resp = client
-                    .radio_get_similar_ids(RadioSimilarRequest::new(
-                        vec![RecordId::new(playlist::TABLE_NAME, id)],
-                        *n,
-                    ))
-                    .await?
-                    .into_inner()
-                    .ids;
-                writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
-                Ok(())
-            }
-            Self::Pipe { n } => {
-                let stdin = std::io::stdin();
-                if stdin.is_terminal() {
-                    bail!("No input provided, this command is meant to be used with a pipe");
-                }
-                let list: Vec<RecordId> =
-                    utils::parse_from_lines(stdin.lock().lines().filter_map(|l| match l {
-                        Ok(line) => Some(line),
-                        Err(e) => {
-                            writeln!(stderr, "Error reading from stdin: {e}").ok();
-                            None
-                        }
-                    }));
+        let Ok(ids) = self
+            .items
+            .iter()
+            .map(|id| id.parse())
+            .collect::<Result<Vec<RecordId>, _>>()
+        else {
+            bail!("One or more provided IDs are invalid");
+        };
 
-                let resp = client
-                    .radio_get_similar_ids(RadioSimilarRequest::new(list, *n))
-                    .await?
-                    .into_inner()
-                    .ids;
-                writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
-                Ok(())
+        // are we in a pipe?
+        let list = if stdin.is_terminal() && ids.is_empty() {
+            bail!("No input provided, can't create a radio from nothing");
+        } else if !stdin.is_terminal() {
+            let from_pipe: Vec<RecordId> =
+                utils::parse_from_lines(stdin.lines().filter_map(|l| match l {
+                    Ok(line) => Some(line),
+                    Err(e) => {
+                        writeln!(stderr, "Error reading from stdin: {e}").ok();
+                        None
+                    }
+                }));
+            let mut all_ids = ids;
+            all_ids.extend(from_pipe);
+            if all_ids.is_empty() {
+                bail!("No input provided, can't create a radio from nothing");
             }
-        }
+            all_ids
+        } else {
+            ids
+        };
+
+        let resp = client
+            .radio_get_similar_ids(RadioSimilarRequest::new(list, self.n))
+            .await?
+            .into_inner()
+            .ids;
+        writeln!(stdout, "Daemon response:\n{}", printing::thing_list(&resp)?)?;
+        Ok(())
     }
 }
