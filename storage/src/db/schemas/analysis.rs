@@ -42,18 +42,8 @@ DEFINE INDEX IF NOT EXISTS analysis_features_vector_index ON analysis FIELDS fea
             )
             .comment("Initial version"),
             // v0.6.0 changed the size of the features array from 20 to 23
-            M::up(surrql!("
--- Clear the existing analyses since they have the wrong feature size
-DELETE analysis;
--- Recreate the index with the new dimension size
-DEFINE INDEX OVERWRITE analysis_features_vector_index ON analysis FIELDS features MTREE DIMENSION 23;")
-            )
-            .down(surrql!(r"
--- Clear the existing analyses since they have the wrong feature size
-DELETE analysis;
--- Recreate the index with the old dimension size
-DEFINE INDEX OVERWRITE analysis_features_vector_index ON analysis FIELDS features MTREE DIMENSION 20;")
-            )
+            M::up(surrql!("DELETE analysis;")).comment("Clear the existing analyses"),
+            M::up(surrql!("DEFINE INDEX OVERWRITE analysis_features_vector_index ON analysis FIELDS features MTREE DIMENSION 23;"))
             .comment("Update analysis features size from 20 to 23"),
             // v0.6.1 also clear the analysis_to_song relations table to ensure no dangling relations exist
             //
