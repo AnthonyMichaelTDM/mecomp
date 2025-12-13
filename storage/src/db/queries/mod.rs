@@ -1,5 +1,3 @@
-use surrealdb::sql::Tokenizer;
-
 pub mod album;
 #[cfg(feature = "analysis")]
 pub mod analysis;
@@ -9,20 +7,6 @@ pub mod generic;
 pub mod playlist;
 pub mod relations;
 pub mod song;
-
-/// NOTE: for some reason, having more than one tokenizer causes the parser to fail, so we're just not going to support that for now
-#[must_use]
-#[inline]
-pub fn define_analyzer(name: &str, tokenizer: Option<Tokenizer>, filters: &[&str]) -> String {
-    let tokenizer_string = tokenizer.map_or_else(String::new, |t| format!(" TOKENIZERS {t}"));
-
-    let filter_string = filters.is_empty().then(String::new).unwrap_or_else(|| {
-        let filters = filters.join(",");
-        format!(" FILTERS {filters}")
-    });
-
-    format!("DEFINE ANALYZER IF NOT EXISTS {name}{tokenizer_string}{filter_string}")
-}
 
 /// Parse a query (string) into a `surrealdb::sql::Query`
 ///
@@ -51,60 +35,4 @@ pub fn validate_query(query: impl surrealdb::opt::IntoQuery, expected: &str) {
         "Expected query compiled to an empty list of statements: \"{expected}\""
     );
     assert_eq!(compiled_query, compiled_expected);
-}
-
-#[cfg(test)]
-mod tests {
-    use rstest::rstest;
-
-    use super::*;
-
-    #[rstest]
-    #[case::basic(
-        "test",
-        Some(Tokenizer::Class),
-        vec!["snowball(English)"],
-        "DEFINE ANALYZER IF NOT EXISTS test TOKENIZERS class FILTERS snowball(English);"
-    )]
-    #[case::no_tokenizers(
-        "test",
-        None,
-        vec!["snowball(English)"],
-        "DEFINE ANALYZER IF NOT EXISTS test FILTERS snowball(English);"
-    )]
-    #[case::no_filters(
-        "test",
-        Some(Tokenizer::Class),
-        vec![],
-        "DEFINE ANALYZER IF NOT EXISTS test TOKENIZERS class;"
-    )]
-    #[case::no_tokenizers_or_filters("test", None, vec![], "DEFINE ANALYZER IF NOT EXISTS test;")]
-    // #[case::multiple_tokenizers(
-    //     "test",
-    //     vec![Tokenizer::Class, Tokenizer::Punct],
-    //     vec!["snowball(english)"],
-    //     "DEFINE ANALYZER IF NOT EXISTS test TOKENIZERS class,simple FILTERS snowball(english);"
-    // )]
-    #[case::multiple_filters(
-        "test",
-        Some(Tokenizer::Class),
-        vec!["snowball(English)", "lowercase"],
-        "DEFINE ANALYZER IF NOT EXISTS test TOKENIZERS class FILTERS snowball(English),lowercase;"
-    )]
-    // #[case::multiple_tokenizers_and_filters(
-    //     "test",
-    //     vec![Tokenizer::Class, Tokenizer::Punct],
-    //     vec!["snowball(english)", "lowercase"],
-    //     "DEFINE ANALYZER IF NOT EXISTS test TOKENIZERS class,simple FILTERS snowball(english),lowercase;"
-    // )]
-    fn test_define_analyzer(
-        #[case] name: &str,
-        #[case] tokenizer: Option<Tokenizer>,
-        #[case] filters: Vec<&str>,
-        #[case] expected: &str,
-    ) {
-        let statement = parse_query(define_analyzer(name, tokenizer, &filters));
-
-        validate_query(statement, expected);
-    }
 }

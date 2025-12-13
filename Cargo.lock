@@ -3344,13 +3344,11 @@ dependencies = [
  "cc",
  "clap",
  "clap_builder",
- "concurrent-queue",
  "criterion",
  "crossbeam-utils",
  "either",
  "event-listener",
  "event-listener-strategy",
- "fastrand",
  "futures-channel",
  "futures-core",
  "futures-executor",
@@ -3369,7 +3367,6 @@ dependencies = [
  "num-complex 0.4.6",
  "num-integer",
  "num-traits",
- "phf_shared",
  "proc-macro2",
  "prost",
  "quote",
@@ -3385,6 +3382,8 @@ dependencies = [
  "serde_json",
  "smallvec",
  "string_cache",
+ "surrealdb",
+ "surrealdb-core",
  "symphonia",
  "symphonia-bundle-mp3",
  "symphonia-core",
@@ -5930,7 +5929,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "mecomp-workspace-hack",
@@ -5946,7 +5945,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx-macros"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "mecomp-workspace-hack",
  "surrealqlx-macros-impl",
@@ -5955,7 +5954,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx-macros-impl"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "mecomp-workspace-hack",
  "pretty_assertions",
@@ -5963,6 +5962,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rstest",
+ "surrealdb",
  "syn 2.0.111",
 ]
 

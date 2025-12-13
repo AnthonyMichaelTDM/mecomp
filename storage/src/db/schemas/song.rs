@@ -85,9 +85,6 @@ pub struct Song {
 }
 
 impl Song {
-    pub const BRIEF_FIELDS: &'static str =
-        "id,title,artist,album_artist,album,genre,runtime,track,disc,release_year,path";
-
     #[must_use]
     #[inline]
     pub fn generate_id() -> SongId {

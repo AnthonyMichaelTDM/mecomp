@@ -1,12 +1,5 @@
 use surrealdb::opt::IntoQuery;
-
-use crate::db::schemas;
-
-use super::{
-    generic::read_related_in,
-    parse_query,
-    relations::{ALBUM_TO_SONG, ARTIST_TO_SONG, COLLECTION_TO_SONG, PLAYLIST_TO_SONG},
-};
+use surrealqlx::surrql;
 
 /// Query to read a song by its path
 ///
@@ -30,11 +23,8 @@ use super::{
 /// ```
 #[must_use]
 #[inline]
-pub fn read_song_by_path() -> impl IntoQuery {
-    parse_query(format!(
-        "SELECT * FROM {} WHERE path = $path LIMIT 1",
-        schemas::song::TABLE_NAME
-    ))
+pub const fn read_song_by_path() -> impl IntoQuery {
+    surrql!("SELECT * FROM song WHERE path = $path LIMIT 1")
 }
 
 /// query to read the album of a song
@@ -59,8 +49,8 @@ pub fn read_song_by_path() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_album() -> impl IntoQuery {
-    read_related_in("*", "id", ALBUM_TO_SONG)
+pub const fn read_album() -> impl IntoQuery {
+    surrql!("SELECT * FROM $id<-album_to_song.in")
 }
 
 /// Query to read the artist of a song
@@ -85,8 +75,8 @@ pub fn read_album() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_artist() -> impl IntoQuery {
-    read_related_in("*", "id", ARTIST_TO_SONG)
+pub const fn read_artist() -> impl IntoQuery {
+    surrql!("SELECT * FROM $id<-artist_to_song.in")
 }
 
 /// Query to read the album artist of a song
@@ -112,7 +102,7 @@ pub fn read_artist() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub const fn read_album_artist() -> impl IntoQuery {
-    "SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in"
+    surrql!("SELECT * FROM $id<-album_to_song<-album<-artist_to_album.in")
 }
 
 /// Query to read the playlists a song is in
@@ -138,8 +128,8 @@ pub const fn read_album_artist() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_playlists() -> impl IntoQuery {
-    read_related_in("*", "id", PLAYLIST_TO_SONG)
+pub const fn read_playlists() -> impl IntoQuery {
+    surrql!("SELECT * FROM $id<-playlist_to_song.in")
 }
 
 /// Query to read the collections a song is in
@@ -165,8 +155,8 @@ pub fn read_playlists() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_collections() -> impl IntoQuery {
-    read_related_in("*", "id", COLLECTION_TO_SONG)
+pub const fn read_collections() -> impl IntoQuery {
+    surrql!("SELECT * FROM $id<-collection_to_song.in")
 }
 
 #[cfg(test)]

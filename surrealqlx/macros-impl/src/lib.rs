@@ -5,6 +5,9 @@ use syn::{Data, DeriveInput, ExprAssign, ExprLit, parse::Parse, punctuated::Punc
 #[cfg(test)]
 mod tests;
 
+mod surrql;
+pub use surrql::surrql_macro_impl;
+
 /// Implementation of the Table derive macro
 ///
 /// # Errors

@@ -1,11 +1,5 @@
-use crate::db::{queries::parse_query, schemas};
-
 use surrealdb::opt::IntoQuery;
-
-use super::{
-    generic::{read_related_out, relate, unrelate},
-    relations::{ARTIST_TO_ALBUM, ARTIST_TO_SONG},
-};
+use surrealqlx::surrql;
 
 /// Query to read an artist by their name.
 ///
@@ -28,11 +22,8 @@ use super::{
 /// );
 /// ```
 #[must_use]
-pub fn read_by_name() -> impl IntoQuery {
-    parse_query(format!(
-        "SELECT * FROM {} WHERE name = $name LIMIT 1",
-        schemas::artist::TABLE_NAME
-    ))
+pub const fn read_by_name() -> impl IntoQuery {
+    surrql!("SELECT * FROM artist WHERE name = $name LIMIT 1")
 }
 
 /// Query to read a artists by their names.
@@ -56,11 +47,8 @@ pub fn read_by_name() -> impl IntoQuery {
 /// );
 /// ```
 #[must_use]
-pub fn read_by_names() -> impl IntoQuery {
-    parse_query(format!(
-        "SELECT * FROM {} WHERE name IN $names",
-        schemas::artist::TABLE_NAME
-    ))
+pub const fn read_by_names() -> impl IntoQuery {
+    surrql!("SELECT * FROM artist WHERE name IN $names")
 }
 
 /// Query to read the albums by an artist.
@@ -85,8 +73,8 @@ pub fn read_by_names() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_albums() -> impl IntoQuery {
-    read_related_out("*", "id", ARTIST_TO_ALBUM)
+pub const fn read_albums() -> impl IntoQuery {
+    surrql!("SELECT * FROM $id->artist_to_album.out")
 }
 
 /// Query to relate an artist to an album.
@@ -111,8 +99,8 @@ pub fn read_albums() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn add_album() -> impl IntoQuery {
-    relate("id", "album", ARTIST_TO_ALBUM)
+pub const fn add_album() -> impl IntoQuery {
+    surrql!("RELATE $id->artist_to_album->$album")
 }
 
 /// Query to relate artists to an album.
@@ -137,8 +125,8 @@ pub fn add_album() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn add_album_to_artists() -> impl IntoQuery {
-    relate("ids", "album", ARTIST_TO_ALBUM)
+pub const fn add_album_to_artists() -> impl IntoQuery {
+    surrql!("RELATE $ids->artist_to_album->$album")
 }
 
 /// Query to relate an artists to songs.
@@ -163,8 +151,8 @@ pub fn add_album_to_artists() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn add_songs() -> impl IntoQuery {
-    relate("id", "songs", ARTIST_TO_SONG)
+pub const fn add_songs() -> impl IntoQuery {
+    surrql!("RELATE $id->artist_to_song->$songs")
 }
 
 /// Query to remove songs from an artist.
@@ -189,8 +177,8 @@ pub fn add_songs() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn remove_songs() -> impl IntoQuery {
-    unrelate("artist", "songs", ARTIST_TO_SONG)
+pub const fn remove_songs() -> impl IntoQuery {
+    surrql!("DELETE $artist->artist_to_song WHERE out IN $songs")
 }
 
 /// Query to read all the songs associated with an artist.
@@ -216,7 +204,9 @@ pub fn remove_songs() -> impl IntoQuery {
 #[must_use]
 #[inline]
 pub const fn read_songs() -> impl IntoQuery {
-    "SELECT * FROM array::union($artist->artist_to_song.out, $artist->artist_to_album->album->album_to_song.out)"
+    surrql!(
+        "SELECT * FROM array::union($artist->artist_to_song.out, $artist->artist_to_album->album->album_to_song.out)"
+    )
 }
 
 #[cfg(test)]

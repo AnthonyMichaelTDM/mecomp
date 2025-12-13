@@ -10,6 +10,7 @@ use std::{
 };
 
 use surrealdb::{Connection, Surreal};
+use surrealqlx_macros::surrql;
 use tracing::{debug, error, info, trace, warn};
 
 /// A typedef of the result returned by many methods.
@@ -317,15 +318,14 @@ impl<'a> Migrations<'a> {
         info!("Ensuring _migrations table");
 
         db.query(
-            r"
+            surrql!("
     DEFINE TABLE IF NOT EXISTS _migrations SCHEMAFULL;
     DEFINE FIELD IF NOT EXISTS scope                      ON _migrations TYPE string;
     DEFINE FIELD IF NOT EXISTS version                    ON _migrations TYPE number;
     DEFINE FIELD IF NOT EXISTS comment                    ON _migrations TYPE string;
     DEFINE FIELD IF NOT EXISTS checksum                   ON _migrations TYPE string;
     DEFINE FIELD IF NOT EXISTS installed_on               ON _migrations TYPE datetime;
-    DEFINE INDEX IF NOT EXISTS _migrations_version_idx    ON TABLE _migrations COLUMNS scope, version UNIQUE;
-            ",
+    DEFINE INDEX IF NOT EXISTS _migrations_version_idx    ON TABLE _migrations COLUMNS scope, version UNIQUE;"),
         )
         .await.and_then(surrealdb::Response::check).map_err(|e| Error::from(("while ensuring _migrations table exists", e)))?;
 

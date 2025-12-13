@@ -1,12 +1,5 @@
 use surrealdb::opt::IntoQuery;
-
-use crate::db::schemas;
-
-use super::{
-    generic::{read_related_out, unrelate},
-    parse_query,
-    relations::PLAYLIST_TO_SONG,
-};
+use surrealqlx::surrql;
 
 /// Query to relate a playlist to its songs.
 ///
@@ -23,9 +16,11 @@ use super::{
 /// - `$id->playlist_to_song.out` retrieves the current related songs.
 #[must_use]
 #[inline]
-pub fn add_songs() -> impl IntoQuery {
+pub const fn add_songs() -> impl IntoQuery {
     // only songs that aren't already related to the playlist should be added
-    "RELATE $id->playlist_to_song->(array::complement(array::distinct($songs), $id->playlist_to_song.out))"
+    surrql!(
+        "RELATE $id->playlist_to_song->(array::complement(array::distinct($songs), $id->playlist_to_song.out))"
+    )
 }
 
 /// Query to read the songs of a playlist
@@ -50,8 +45,8 @@ pub fn add_songs() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_songs() -> impl IntoQuery {
-    read_related_out("*", "id", PLAYLIST_TO_SONG)
+pub const fn read_songs() -> impl IntoQuery {
+    surrql!("SELECT * FROM $id->playlist_to_song.out")
 }
 
 /// Query to remove songs from a playlist
@@ -76,8 +71,8 @@ pub fn read_songs() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn remove_songs() -> impl IntoQuery {
-    unrelate("id", "songs", PLAYLIST_TO_SONG)
+pub const fn remove_songs() -> impl IntoQuery {
+    surrql!("DELETE $id->playlist_to_song WHERE out IN $songs")
 }
 
 /// Query to read a playlist by its name.
@@ -102,11 +97,8 @@ pub fn remove_songs() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub fn read_by_name() -> impl IntoQuery {
-    parse_query(format!(
-        "SELECT * FROM {} WHERE name = $name LIMIT 1",
-        schemas::playlist::TABLE_NAME
-    ))
+pub const fn read_by_name() -> impl IntoQuery {
+    surrql!("SELECT * FROM playlist WHERE name = $name LIMIT 1")
 }
 
 #[cfg(test)]

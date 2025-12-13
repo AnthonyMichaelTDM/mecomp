@@ -2,6 +2,7 @@
 use std::time::Duration;
 
 use surrealdb::{Connection, Surreal};
+use surrealqlx::surrql;
 use tracing::instrument;
 
 use crate::{
@@ -36,7 +37,10 @@ impl Collection {
     pub async fn read_all_brief<C: Connection>(
         db: &Surreal<C>,
     ) -> StorageResult<Vec<CollectionBrief>> {
-        Ok(db.query("SELECT id,name FROM collection;").await?.take(0)?)
+        Ok(db
+            .query(surrql!("SELECT id,name FROM collection;"))
+            .await?
+            .take(0)?)
     }
 
     #[instrument]
@@ -117,7 +121,9 @@ impl Collection {
     /// An orphaned collection is a collection that has no songs in it
     pub async fn delete_orphaned<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<Self>> {
         Ok(db
-            .query("DELETE FROM collection WHERE type::int(song_count) = 0 RETURN BEFORE")
+            .query(surrql!(
+                "DELETE FROM collection WHERE type::int(song_count) = 0 RETURN BEFORE"
+            ))
             .await?
             .take(0)?)
     }

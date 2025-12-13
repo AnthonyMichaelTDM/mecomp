@@ -23,13 +23,11 @@ ignored = [
     "castaway",
     "clap",
     "clap_builder",
-    "concurrent-queue",
     "criterion",
     "crossbeam-utils",
     "either",
     "event-listener",
     "event-listener-strategy",
-    "fastrand",
     "futures-channel",
     "futures-core",
     "futures-executor",
@@ -48,7 +46,6 @@ ignored = [
     "num-complex",
     "num-integer",
     "num-traits",
-    "phf_shared",
     "proc-macro2",
     "prost",
     "quote",
@@ -64,6 +61,8 @@ ignored = [
     "serde_json",
     "smallvec",
     "string_cache",
+    "surrealdb",
+    "surrealdb-core",
     "symphonia",
     "symphonia-bundle-mp3",
     "symphonia-core",
@@ -100,13 +99,11 @@ bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
-concurrent-queue = { version = "2" }
 criterion = { version = "0.7", features = ["async_tokio", "html_reports"] }
 crossbeam-utils = { version = "0.8" }
 either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
 event-listener-strategy = { version = "0.5" }
-fastrand = { version = "2" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
@@ -125,7 +122,6 @@ num-bigint = { version = "0.4", default-features = false, features = ["std"] }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
-phf_shared = { version = "0.11", features = ["unicase"] }
 proc-macro2 = { version = "1" }
 prost = { version = "0.14" }
 quote = { version = "1" }
@@ -141,6 +137,8 @@ serde_core = { version = "1", features = ["alloc", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
+surrealdb = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
+surrealdb-core = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 symphonia = { version = "0.5", default-features = false, features = ["all-codecs", "all-formats", "opt-simd"] }
 symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = ["mp1", "mp2", "mp3"] }
 symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
@@ -170,13 +168,11 @@ castaway = { version = "0.2" }
 cc = { version = "1", default-features = false, features = ["parallel"] }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
-concurrent-queue = { version = "2" }
 criterion = { version = "0.7", features = ["async_tokio", "html_reports"] }
 crossbeam-utils = { version = "0.8" }
 either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
 event-listener-strategy = { version = "0.5" }
-fastrand = { version = "2" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
@@ -195,7 +191,6 @@ num-bigint = { version = "0.4", default-features = false, features = ["std"] }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
-phf_shared = { version = "0.11", features = ["unicase"] }
 proc-macro2 = { version = "1" }
 prost = { version = "0.14" }
 quote = { version = "1" }
@@ -211,6 +206,8 @@ serde_core = { version = "1", features = ["alloc", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
+surrealdb = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
+surrealdb-core = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 symphonia = { version = "0.5", default-features = false, features = ["all-codecs", "all-formats", "opt-simd"] }
 symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = ["mp1", "mp2", "mp3"] }
 symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
