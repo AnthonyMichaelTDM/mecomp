@@ -31,7 +31,7 @@ pub enum Error {
         err: surrealdb::Error,
     },
     /// A `SurrealDB` error that occurred during a migration
-    #[error("{} errors occured while executing migrations: [ {} ]", errs.len(), errs.iter().map(|e| format!("`{e}`")).collect::<Vec<_>>().join(", ") )]
+    #[error("{} errors occurred while executing migrations: [ {} ]", errs.len(), errs.iter().map(|e| format!("`{e}`")).collect::<Vec<_>>().join(", ") )]
     MigrationExecutionErroors { errs: Vec<MigrationExecutionError> },
     #[error("Specified schema version error: {0}")]
     /// Error with the specified schema version
