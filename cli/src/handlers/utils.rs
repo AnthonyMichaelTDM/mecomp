@@ -1,5 +1,5 @@
 use core::fmt;
-use std::io;
+use std::io::{self, BufRead, IsTerminal};
 
 pub fn parse_from_lines<Lines, Out>(lines: Lines) -> Vec<Out>
 where
@@ -26,5 +26,19 @@ where
 
     fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> Result<(), fmt::Error> {
         self.0.write_fmt(args).map_err(|_| fmt::Error)
+    }
+}
+
+pub trait StdIn: Send + Sync {
+    fn is_terminal(&self) -> bool;
+    fn lines(&self) -> impl Iterator<Item = io::Result<String>>;
+}
+
+impl StdIn for io::Stdin {
+    fn is_terminal(&self) -> bool {
+        self.lock().is_terminal()
+    }
+    fn lines(&self) -> impl Iterator<Item = io::Result<String>> {
+        io::BufReader::new(self.lock()).lines()
     }
 }
