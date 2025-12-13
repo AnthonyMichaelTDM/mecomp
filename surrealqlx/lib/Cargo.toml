@@ -29,7 +29,8 @@ tracing.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
 
 [dev-dependencies]
+anyhow.workspace = true
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-anyhow.workspace = true
+surrealdb = { workspace = true, features = ["kv-mem"] }
