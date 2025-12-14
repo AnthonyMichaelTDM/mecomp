@@ -663,27 +663,7 @@ impl CommandHandler for QueueCommand {
                     bail!("One or more provided IDs are invalid");
                 };
 
-                // are we in a pipe?
-                let list = if stdin.is_terminal() && ids.is_empty() {
-                    bail!("No input provided, nothing to add to queue");
-                } else if !stdin.is_terminal() {
-                    let from_pipe: Vec<RecordId> =
-                        utils::parse_from_lines(stdin.lines().filter_map(|l| match l {
-                            Ok(line) => Some(line),
-                            Err(e) => {
-                                writeln!(stderr, "Error reading from stdin: {e}").ok();
-                                None
-                            }
-                        }));
-                    let mut all_ids = ids;
-                    all_ids.extend(from_pipe);
-                    if all_ids.is_empty() {
-                        bail!("No input provided, nothing to add to queue");
-                    }
-                    all_ids
-                } else {
-                    ids
-                };
+                let list = utils::extend_from_stdin(ids, stdin, stderr)?;
 
                 client.queue_add_list(RecordIdList { ids: list }).await?;
                 writeln!(stdout, "Daemon response:\nitems added to queue")?;
@@ -869,27 +849,7 @@ impl CommandHandler for super::PlaylistAddCommand {
             bail!("One or more provided IDs are invalid");
         };
 
-        // are we in a pipe?
-        let list = if stdin.is_terminal() && ids.is_empty() {
-            bail!("No input provided, can't add nothing to the playlist");
-        } else if !stdin.is_terminal() {
-            let from_pipe: Vec<RecordId> =
-                utils::parse_from_lines(stdin.lines().filter_map(|l| match l {
-                    Ok(line) => Some(line),
-                    Err(e) => {
-                        writeln!(stderr, "Error reading from stdin: {e}").ok();
-                        None
-                    }
-                }));
-            let mut all_ids = ids;
-            all_ids.extend(from_pipe);
-            if all_ids.is_empty() {
-                bail!("No input provided, can't add nothing to the playlist");
-            }
-            all_ids
-        } else {
-            ids
-        };
+        let list = utils::extend_from_stdin(ids, stdin, stderr)?;
 
         client
             .playlist_add_list(PlaylistAddListRequest::new(self.id.clone(), list))
@@ -1146,27 +1106,7 @@ impl CommandHandler for super::RadioCommand {
             bail!("One or more provided IDs are invalid");
         };
 
-        // are we in a pipe?
-        let list = if stdin.is_terminal() && ids.is_empty() {
-            bail!("No input provided, can't create a radio from nothing");
-        } else if !stdin.is_terminal() {
-            let from_pipe: Vec<RecordId> =
-                utils::parse_from_lines(stdin.lines().filter_map(|l| match l {
-                    Ok(line) => Some(line),
-                    Err(e) => {
-                        writeln!(stderr, "Error reading from stdin: {e}").ok();
-                        None
-                    }
-                }));
-            let mut all_ids = ids;
-            all_ids.extend(from_pipe);
-            if all_ids.is_empty() {
-                bail!("No input provided, can't create a radio from nothing");
-            }
-            all_ids
-        } else {
-            ids
-        };
+        let list = utils::extend_from_stdin(ids, stdin, stderr)?;
 
         let resp = client
             .radio_get_similar_ids(RadioSimilarRequest::new(list, self.n))

@@ -14,6 +14,45 @@ where
     })
 }
 
+/// Extends the given list of items with items parsed from stdin iff stdin is not a terminal.
+///
+/// invalid lines are skipped with an error message to stderr.
+///
+/// # Errors
+///
+/// Errors if there is an error reading from stdin, or if the final list of items would be empty.
+pub fn extend_from_stdin<Out: std::str::FromStr>(
+    mut items: Vec<Out>,
+    stdin: &impl StdIn,
+    stderr: &mut impl std::fmt::Write,
+) -> Result<Vec<Out>, io::Error> {
+    // are we in a pipe?
+    if stdin.is_terminal() && items.is_empty() {
+        Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "no input provided",
+        ))
+    } else if !stdin.is_terminal() {
+        let from_pipe: Vec<Out> = parse_from_lines(stdin.lines().filter_map(|l| match l {
+            Ok(line) => Some(line),
+            Err(e) => {
+                writeln!(stderr, "Error reading from stdin: {e}").ok();
+                None
+            }
+        }));
+        items.extend(from_pipe);
+        if items.is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "no input provided",
+            ));
+        }
+        Ok(items)
+    } else {
+        Ok(items)
+    }
+}
+
 pub struct WriteAdapter<W>(pub W);
 
 impl<W> fmt::Write for WriteAdapter<W>
