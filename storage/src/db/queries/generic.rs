@@ -212,7 +212,14 @@ pub const fn read_many() -> impl IntoQuery {
 }
 
 /// Query to read `n` items from the given `table` at random
+///
+/// Compiles to:
+/// ```sql, ignore
+/// SELECT type::fields($fields) FROM type::table($table) ORDER BY RAND() LIMIT type::int($n)
+/// ```
 #[must_use]
-pub fn read_rand(selection: &'static str, table: &'static str, n: usize) -> impl IntoQuery {
-    format!("SELECT {selection} FROM {table} ORDER BY RAND() LIMIT {n}")
+pub const fn read_rand() -> impl IntoQuery {
+    surrql!(
+        "SELECT type::fields($fields) FROM type::table($table) ORDER BY RAND() LIMIT type::int($n)"
+    )
 }

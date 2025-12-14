@@ -38,7 +38,11 @@ impl Collection {
         db: &Surreal<C>,
     ) -> StorageResult<Vec<CollectionBrief>> {
         Ok(db
-            .query(surrql!("SELECT id,name FROM collection;"))
+            .query(surrql!(
+                "SELECT type::fields($fields) FROM type::table($table)"
+            ))
+            .bind(("fields", Self::BRIEF_FIELDS))
+            .bind(("table", TABLE_NAME))
             .await?
             .take(0)?)
     }

@@ -73,7 +73,11 @@ impl Playlist {
         db: &Surreal<C>,
     ) -> StorageResult<Vec<PlaylistBrief>> {
         Ok(db
-            .query(surrql!("SELECT id,name FROM playlist;"))
+            .query(surrql!(
+                "SELECT type::fields($fields) FROM type::table($table)"
+            ))
+            .bind(("fields", Self::BRIEF_FIELDS))
+            .bind(("table", TABLE_NAME))
             .await?
             .take(0)?)
     }

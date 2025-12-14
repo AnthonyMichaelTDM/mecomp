@@ -102,7 +102,11 @@ impl Artist {
     #[instrument]
     pub async fn read_all_brief<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<ArtistBrief>> {
         Ok(db
-            .query(format!("SELECT {} FROM artist;", Self::BRIEF_FIELDS))
+            .query(surrql!(
+                "SELECT type::fields($fields) FROM type::table($table)"
+            ))
+            .bind(("fields", Self::BRIEF_FIELDS))
+            .bind(("table", TABLE_NAME))
             .await?
             .take(0)?)
     }
@@ -138,7 +142,10 @@ impl Artist {
         limit: usize,
     ) -> StorageResult<Vec<ArtistBrief>> {
         Ok(db
-            .query(read_rand(Self::BRIEF_FIELDS, TABLE_NAME, limit))
+            .query(read_rand())
+            .bind(("fields", Self::BRIEF_FIELDS))
+            .bind(("table", TABLE_NAME))
+            .bind(("limit", limit))
             .await?
             .take(0)?)
     }
@@ -150,7 +157,8 @@ impl Artist {
         limit: usize,
     ) -> StorageResult<Vec<ArtistBrief>> {
         Ok(db
-            .query(surrql!("SELECT id,name,relevance FROM artist WHERE name @@ $query ORDER BY relevance DESC LIMIT $limit"))
+            .query(surrql!("SELECT type::fields($fields),relevance FROM artist WHERE name @@ $query ORDER BY relevance DESC LIMIT $limit"))
+            .bind(("fields", Self::BRIEF_FIELDS))
             .bind(("query", query.to_string()))
             .bind(("limit", limit))
             .await?

@@ -76,7 +76,8 @@ RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]
 }
 
 impl Album {
-    pub const BRIEF_FIELDS: &'static str = "id,title,artist,release,discs,genre";
+    pub const BRIEF_FIELDS: &'static [&'static str] =
+        &["id", "title", "artist", "release", "discs", "genre"];
     #[must_use]
     #[inline]
     pub fn generate_id() -> AlbumId {
