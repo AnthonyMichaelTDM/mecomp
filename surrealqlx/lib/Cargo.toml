@@ -25,7 +25,7 @@ surrealdb.workspace = true
 surrealqlx-macros = { workspace = true, optional = true }
 sha256 = { version = "1.6.0", default-features = false }
 thiserror.workspace = true
-tracing.workspace = true
+log.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
 
 [dev-dependencies]

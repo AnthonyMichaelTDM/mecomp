@@ -79,7 +79,10 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
         // Support frontend names without *mecomp*.
         _ => unsafe {
             // SAFETY: This is safe because this code runs before we start spawning threads.
-            std::env::set_var("RUST_LOG", format!("off,mecomp={filter}"));
+            std::env::set_var(
+                "RUST_LOG",
+                format!("off,mecomp={filter},surrealqlx={filter}"),
+            );
         },
     }
 
@@ -218,7 +221,7 @@ pub fn init_tracing() -> impl tracing::Subscriber {
     #[cfg(not(feature = "verbose_tracing"))]
     #[allow(unused_variables)]
     let filter = tracing_subscriber::EnvFilter::builder()
-        .parse("off,mecomp=trace")
+        .parse("off,mecomp=trace,surrealqlx=trace")
         .unwrap();
     #[cfg(feature = "verbose_tracing")]
     #[allow(unused_variables)]
