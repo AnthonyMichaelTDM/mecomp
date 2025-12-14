@@ -194,7 +194,8 @@ mod minimal_reproduction {
 
         let cnt: Option<Count> = db
             // new syntax
-            .query(count("users"))
+            .query(count())
+            .bind(("table", "users"))
             .await
             .unwrap()
             .take(0)
