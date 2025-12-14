@@ -280,14 +280,14 @@ impl<T> From<Option<Box<T>>> for OneOrMany<T> {
 impl<T> From<Option<Vec<T>>> for OneOrMany<T> {
     #[inline]
     fn from(t: Option<Vec<T>>) -> Self {
-        t.map_or_else(|| Self::None, Into::into)
+        t.map_or(Self::None, Into::into)
     }
 }
 
 impl<T> From<Option<Self>> for OneOrMany<T> {
     #[inline]
     fn from(t: Option<Self>) -> Self {
-        t.map_or_else(|| Self::None, |t| t)
+        t.unwrap_or(Self::None)
     }
 }
 
