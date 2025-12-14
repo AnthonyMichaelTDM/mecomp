@@ -5932,6 +5932,7 @@ name = "surrealqlx"
 version = "0.2.1"
 dependencies = [
  "anyhow",
+ "log",
  "mecomp-workspace-hack",
  "serde",
  "serde_json",
@@ -5940,7 +5941,6 @@ dependencies = [
  "surrealqlx-macros",
  "thiserror 2.0.17",
  "tokio",
- "tracing",
 ]
 
 [[package]]

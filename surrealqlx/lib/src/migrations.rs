@@ -9,9 +9,9 @@ use std::{
     num::NonZeroUsize,
 };
 
+use log::{debug, error, info, warn};
 use surrealdb::{Connection, Surreal};
 use surrealqlx_macros::surrql;
-use tracing::{debug, error, info, trace, warn};
 
 /// A typedef of the result returned by many methods.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -224,13 +224,16 @@ impl<'a> Migrations<'a> {
         let v_max = self.max_schema_version();
         match v_max {
             SchemaVersion::NoneSet => {
-                warn!("No migration defined");
+                warn!("({}) No migration defined", self.scope);
                 Err(Error::MigrationDefinition(
                     MigrationDefinitionError::NoMigrationsDefined,
                 ))
             }
             SchemaVersion::Inside(v) => {
-                info!("some migrations defined (version: {v}), try to migrate");
+                debug!(
+                    "({}) some migrations defined (version: {v}), try to migrate",
+                    self.scope
+                );
                 self.goto(db, v_max.into()).await
             }
             SchemaVersion::Outside(_) => unreachable!(),
@@ -320,7 +323,7 @@ impl<'a> Migrations<'a> {
     }
 
     async fn ensure_migrations_table<C: Connection>(&self, db: &Surreal<C>) -> Result<()> {
-        info!("Ensuring _migrations table");
+        debug!("Ensuring _migrations table");
 
         db.query(
             surrql!("
@@ -334,7 +337,7 @@ impl<'a> Migrations<'a> {
         )
         .await.and_then(surrealdb::Response::check).map_err(|e| Error::from(("while ensuring _migrations table exists", e)))?;
 
-        info!("_migrations table defined");
+        debug!("_migrations table defined");
 
         Ok(())
     }
@@ -357,25 +360,32 @@ impl<'a> Migrations<'a> {
                     ));
                 }
                 info!(
-                    "rollback to older version requested, target_db_version: {}, current_version: {}",
-                    target_db_version, current_version
+                    "({}) rollback to older version requested, target_db_version: {}, current_version: {}",
+                    self.scope, target_db_version, current_version
                 );
                 self.goto_down(db, current_version, target_db_version).await
             }
             Ordering::Equal => {
-                info!("no migration to run, db already up to date");
+                info!(
+                    "({}) no migration to run, db already up to date",
+                    self.scope
+                );
                 return Ok(()); // return directly, so the migration message is not printed
             }
             Ordering::Greater => {
                 info!(
-                    "some migrations to run, target: {target_db_version}, current: {current_version}"
+                    "({}) some migrations to run, target: {target_db_version}, current: {current_version}",
+                    self.scope
                 );
                 self.goto_up(db, current_version, target_db_version).await
             }
         };
 
         if res.is_ok() {
-            info!("Database migrated to version {}", target_db_version);
+            info!(
+                "({}) Database migrated to version {}",
+                self.scope, target_db_version
+            );
         }
 
         res
@@ -393,63 +403,60 @@ impl<'a> Migrations<'a> {
         debug_assert!(current_version <= target_version);
         debug_assert!(target_version <= self.ms.len());
 
-        trace!("start migration");
-
-        let mut queries = db.query("BEGIN;");
-
         for v in current_version..target_version {
             let m = &self.ms[v];
-            info!("Running: v{} {}", v + 1, m.comment.unwrap_or_default());
+            info!(
+                "({}) Running: v{} {}",
+                self.scope,
+                v + 1,
+                m.comment.unwrap_or_default()
+            );
             debug!("{}", m.up);
 
+            let mut queries = db.query("BEGIN;");
             queries = queries
                 .query(m.up)
-                .query(format!(
+                .query(surrql!(
                     r"
-                INSERT INTO _migrations {{
+                INSERT INTO _migrations {
                     scope: $scope,
-                    version: $version_{v},
-                    comment: $comment_{v},
-                    checksum: $checksum_{v},
+                    version: $version,
+                    comment: $comment,
+                    checksum: $checksum,
                     installed_on: time::now()
-                }};
-                "
+                };"
                 ))
                 .bind(("scope", self.scope))
-                .bind((format!("version_{v}"), v + 1))
-                .bind((
-                    format!("comment_{v}"),
-                    m.comment.unwrap_or_default().to_owned(),
-                ))
-                .bind((format!("checksum_{v}"), m.checksum()));
+                .bind(("version", v + 1))
+                .bind(("comment", m.comment.unwrap_or_default().to_owned()))
+                .bind(("checksum", m.checksum()));
+
+            let mut response = queries.query("COMMIT;").await?;
+            let number_of_statements = response.num_statements();
+            let errors = response.take_errors();
+
+            if !errors.is_empty() {
+                return Err(Error::MigrationExecutionErroors {
+                    errs: errors
+                        .into_iter()
+                        .map(|(i, err)| {
+                            let err = MigrationExecutionError {
+                                scope: self.scope,
+                                i,
+                                number_of_statements,
+                                current_version,
+                                target_version,
+                                err,
+                            };
+                            error!("{err}");
+                            err
+                        })
+                        .collect(),
+                });
+            }
         }
 
-        let mut response = queries.query("COMMIT;").await?;
-        let number_of_statements = response.num_statements();
-        let errors = response.take_errors();
-
-        if errors.is_empty() {
-            trace!("committed migration transaction");
-            return Ok(());
-        }
-
-        Err(Error::MigrationExecutionErroors {
-            errs: errors
-                .into_iter()
-                .map(|(i, err)| {
-                    let err = MigrationExecutionError {
-                        scope: self.scope,
-                        i,
-                        number_of_statements,
-                        current_version,
-                        target_version,
-                        err,
-                    };
-                    error!("{err}");
-                    err
-                })
-                .collect(),
-        })
+        Ok(())
     }
 
     /// Migrate downward. This is rolled back on error.
@@ -472,59 +479,62 @@ impl<'a> Migrations<'a> {
             .take(current_version - target_version)
             .find(|(_, m)| m.down.is_none())
         {
-            warn!("Cannot revert: {bad_m:?}");
+            warn!("({}) Cannot revert: {bad_m:?}", self.scope);
             return Err(Error::MigrationDefinition(
                 MigrationDefinitionError::DownNotDefined { migration_index: i },
             ));
         }
 
-        trace!("start migration transaction");
-
-        let mut queries = db.query("BEGIN;");
-
         for v in (target_version..current_version).rev() {
             let m = &self.ms[v];
+
+            let mut queries = db.query("BEGIN;");
+
             if let Some(down) = m.down {
-                info!("Running: v{} {}", v + 1, m.comment.unwrap_or_default());
+                info!(
+                    "({}) Running: v{} {}",
+                    self.scope,
+                    v + 1,
+                    m.comment.unwrap_or_default()
+                );
 
                 queries = queries
                     .query(down)
-                    .query(format!(
-                        r"DELETE _migrations WHERE scope=$scope AND version=$version_{v};"
+                    .query(surrql!(
+                        "DELETE _migrations WHERE scope=$scope AND version=$version;"
                     ))
                     .bind(("scope", self.scope))
-                    .bind((format!("version_{v}"), v + 1));
+                    .bind(("version", v + 1));
             } else {
                 unreachable!();
             }
+
+            let mut response = queries.query("COMMIT;").await?;
+            let number_of_statements = response.num_statements();
+            let errors = response.take_errors();
+
+            if !errors.is_empty() {
+                return Err(Error::MigrationExecutionErroors {
+                    errs: errors
+                        .into_iter()
+                        .map(|(i, err)| {
+                            let err = MigrationExecutionError {
+                                scope: self.scope,
+                                i,
+                                number_of_statements,
+                                current_version,
+                                target_version,
+                                err,
+                            };
+                            error!("{err}");
+                            err
+                        })
+                        .collect(),
+                });
+            }
         }
 
-        let mut response = queries.query("COMMIT;").await?;
-        let number_of_statements = response.num_statements();
-        let errors = response.take_errors();
-
-        if errors.is_empty() {
-            trace!("committed migration transaction");
-            return Ok(());
-        }
-
-        Err(Error::MigrationExecutionErroors {
-            errs: errors
-                .into_iter()
-                .map(|(i, err)| {
-                    let err = MigrationExecutionError {
-                        scope: self.scope,
-                        i,
-                        number_of_statements,
-                        current_version,
-                        target_version,
-                        err,
-                    };
-                    error!("{err}");
-                    err
-                })
-                .collect(),
-        })
+        Ok(())
     }
 
     /// Maximum version defined in the migration set
@@ -544,9 +554,9 @@ async fn get_current_version<C: Connection>(
     scope: &'static str,
 ) -> Result<usize, surrealdb::Error> {
     let mut result = db
-        .query(
-            r"SELECT version FROM _migrations WHERE scope = $scope ORDER BY version DESC LIMIT 1",
-        )
+        .query(surrql!(
+            "SELECT version FROM _migrations WHERE scope = $scope ORDER BY version DESC LIMIT 1"
+        ))
         .bind(("scope", scope))
         .await?
         .check()?;
