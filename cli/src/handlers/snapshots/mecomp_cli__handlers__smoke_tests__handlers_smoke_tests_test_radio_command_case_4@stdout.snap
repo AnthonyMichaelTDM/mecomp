@@ -3,3 +3,4 @@ source: cli/src/handlers/smoke_tests.rs
 expression: "String::from_utf8(stdout.0.clone()).unwrap()"
 ---
 Daemon response:
+	song:03J1K5B6RJ84WJXCWYJ5WNE12E

@@ -1,6 +1,8 @@
 //! This module provides functionality for generating completion candidates for
 //! things like the import/export commands in the CLI.
 
+use std::ffi::OsStr;
+
 use clap::builder::StyledStr;
 use clap_complete::CompletionCandidate;
 use mecomp_prost::MusicPlayerClient;
@@ -11,14 +13,61 @@ pub enum CompletableTable {
     Album,
     Song,
     Playlist,
-    DynamicPlaylist,
+    Dynamic,
     Collection,
+}
+
+/// The argument should be a fully-qualified record ID, e.g. "song:abcd-1234-efgh-5678".
+///
+/// The table is inferred from the prefix before the colon.
+/// The completion candidates will include all valid *tables* if the prefix is
+/// missing or incomplete, but if the prefix is valid then the candidates will be records from that table.
+pub fn thing_completer(current: &OsStr) -> Vec<CompletionCandidate> {
+    let input = current.to_string_lossy();
+
+    // Check if the input contains a colon to separate table and ID
+    if let Some(colon_pos) = input.find(':') {
+        let table_str = &input[..colon_pos];
+        let id_prefix = &input[colon_pos + 1..];
+
+        // Determine the table
+        let table = match table_str {
+            "song" => CompletableTable::Song,
+            "album" => CompletableTable::Album,
+            "artist" => CompletableTable::Artist,
+            "playlist" => CompletableTable::Playlist,
+            "dynamic" => CompletableTable::Dynamic,
+            "collection" => CompletableTable::Collection,
+            _ => return vec![], // Unknown table, return no candidates
+        };
+
+        // Get candidates from the specified table
+        let candidates_fn = thing_candidates(table);
+        let candidates = candidates_fn();
+
+        // Filter candidates based on the ID prefix
+        candidates
+            .into_iter()
+            .filter(|candidate| {
+                candidate
+                    .get_value()
+                    .to_string_lossy()
+                    .starts_with(id_prefix)
+            })
+            .collect()
+    } else {
+        // No colon found, suggest table names
+        get_tables()
+            .into_iter()
+            .map(|(name, help)| CompletionCandidate::new(name).help(Some(help)))
+            .collect()
+    }
 }
 
 /// Generate completion candidates for items in the database,
 /// Given the table name, returns a function that can be used to get completion candidates
 /// from that table.
-pub fn complete_things(table: CompletableTable) -> impl Fn() -> Vec<CompletionCandidate> {
+pub fn thing_candidates(table: CompletableTable) -> impl Fn() -> Vec<CompletionCandidate> {
     move || {
         // needs to be a multi-threaded runtime or else it will hang when trying to connect
         // to the daemon
@@ -38,9 +87,7 @@ pub fn complete_things(table: CompletableTable) -> impl Fn() -> Vec<CompletionCa
             CompletableTable::Album => get_album_candidates(&handle, &mut client),
             CompletableTable::Artist => get_artist_candidates(&handle, &mut client),
             CompletableTable::Playlist => get_playlist_candidates(&handle, &mut client),
-            CompletableTable::DynamicPlaylist => {
-                get_dynamic_playlist_candidates(&handle, &mut client)
-            }
+            CompletableTable::Dynamic => get_dynamic_playlist_candidates(&handle, &mut client),
             CompletableTable::Collection => get_collection_candidates(&handle, &mut client),
         };
         drop(g); // Exit the Tokio runtime context
@@ -50,6 +97,20 @@ pub fn complete_things(table: CompletableTable) -> impl Fn() -> Vec<CompletionCa
             .map(|(id, help)| CompletionCandidate::new(id).help(Some(help)))
             .collect::<Vec<_>>()
     }
+}
+
+fn get_tables() -> Vec<(String, StyledStr)> {
+    vec![
+        ("song".to_string(), StyledStr::from("A song")),
+        ("album".to_string(), StyledStr::from("An album")),
+        ("artist".to_string(), StyledStr::from("An artist")),
+        ("playlist".to_string(), StyledStr::from("A playlist")),
+        (
+            "dynamic_playlist".to_string(),
+            StyledStr::from("A dynamic playlist"),
+        ),
+        ("collection".to_string(), StyledStr::from("A collection")),
+    ]
 }
 
 fn get_song_candidates(
@@ -67,7 +128,7 @@ fn get_song_candidates(
         .into_iter()
         .map(|song| {
             (
-                song.id.id,
+                song.id.to_string(),
                 StyledStr::from(format!(
                     "\"{}\" (by: {:?}, album: {})",
                     song.title, song.artists, song.album
@@ -92,7 +153,7 @@ fn get_album_candidates(
         .into_iter()
         .map(|album| {
             (
-                album.id.id,
+                album.id.to_string(),
                 StyledStr::from(format!("\"{}\" (by: {:?})", album.title, album.artists)),
             )
         })
@@ -114,7 +175,7 @@ fn get_artist_candidates(
         .into_iter()
         .map(|artist| {
             (
-                artist.id.id,
+                artist.id.to_string(),
                 StyledStr::from(format!("\"{}\"", artist.name)),
             )
         })
@@ -158,7 +219,7 @@ fn get_dynamic_playlist_candidates(
         .into_iter()
         .map(|playlist| {
             (
-                playlist.id.id,
+                playlist.id.to_string(),
                 StyledStr::from(format!("\"{}\" ({})", playlist.name, playlist.query)),
             )
         })
@@ -180,7 +241,7 @@ fn get_collection_candidates(
         .into_iter()
         .map(|collection| {
             (
-                collection.id.id,
+                collection.id.to_string(),
                 StyledStr::from(format!("\"{}\"", collection.name)),
             )
         })

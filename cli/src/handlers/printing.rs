@@ -75,12 +75,17 @@ pub fn indexed_song_list(prefix: &str, songs: &[SongBrief]) -> Result<String, st
 
 pub fn song_list(
     prefix: &str,
-    songs: &[SongBrief],
+    mut songs: Vec<SongBrief>,
     quiet: bool,
+    sort: bool,
 ) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
+
+    if sort {
+        songs.sort_by_key(|s| s.id.to_string());
+    }
 
     if quiet {
         for song in songs {
@@ -101,12 +106,17 @@ pub fn song_list(
 
 pub fn album_list(
     prefix: &str,
-    albums: &[AlbumBrief],
+    mut albums: Vec<AlbumBrief>,
     quiet: bool,
+    sort: bool,
 ) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
+
+    if sort {
+        albums.sort_by_key(|a| a.id.to_string());
+    }
 
     if quiet {
         for album in albums {
@@ -127,13 +137,17 @@ pub fn album_list(
 
 pub fn artist_list(
     prefix: &str,
-    artists: &[ArtistBrief],
+    mut artists: Vec<ArtistBrief>,
     quiet: bool,
+    sort: bool,
 ) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
 
+    if sort {
+        artists.sort_by_key(|a| a.id.to_string());
+    }
     if quiet {
         for artist in artists {
             writeln!(output, "\t{}", artist.id)?;
@@ -147,10 +161,15 @@ pub fn artist_list(
     Ok(output)
 }
 
-pub fn playlist_list(prefix: &str, playlists: &[Playlist]) -> Result<String, std::fmt::Error> {
+pub fn playlist_list(
+    prefix: &str,
+    mut playlists: Vec<Playlist>,
+) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
+
+    playlists.sort_by_key(|p| p.id.to_string());
 
     for playlist in playlists {
         writeln!(
@@ -168,11 +187,13 @@ pub fn playlist_list(prefix: &str, playlists: &[Playlist]) -> Result<String, std
 
 pub fn dynamic_playlist_list(
     prefix: &str,
-    playlists: &[mecomp_prost::DynamicPlaylist],
+    mut playlists: Vec<mecomp_prost::DynamicPlaylist>,
 ) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
+
+    playlists.sort_by_key(|p| p.id.to_string());
 
     for playlist in playlists {
         writeln!(
@@ -187,11 +208,13 @@ pub fn dynamic_playlist_list(
 
 pub fn collection_list(
     prefix: &str,
-    collections: &[mecomp_prost::Collection],
+    mut collections: Vec<mecomp_prost::Collection>,
 ) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
 
     writeln!(output, "{prefix}:")?;
+
+    collections.sort_by_key(|c| c.id.to_string());
 
     for collection in collections {
         writeln!(

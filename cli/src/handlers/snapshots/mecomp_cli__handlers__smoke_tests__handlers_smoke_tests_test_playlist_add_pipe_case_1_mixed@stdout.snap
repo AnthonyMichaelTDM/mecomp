@@ -3,6 +3,8 @@ source: cli/src/handlers/smoke_tests.rs
 expression: "String::from_utf8(stdout.0.clone()).unwrap()"
 ---
 Daemon response:
+items added to playlist
+Daemon response:
 Songs:
 	song:01J1K5B6RJ84WJXCWYJ5WNE12E: "Test Song" (by: ["Test Artist"], album: Test Album)
 	song:03J1K5B6RJ84WJXCWYJ5WNE12E: "Another Song" (by: ["Test Artist"], album: Test Album)

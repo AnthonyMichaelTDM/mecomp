@@ -17,10 +17,10 @@ Some(
             2021,
         ),
         runtime: Duration {
-            seconds: 180,
+            seconds: 380,
             nanos: 0,
         },
-        song_count: 1,
+        song_count: 2,
         discs: 1,
         genres: [
             "Test Genre",

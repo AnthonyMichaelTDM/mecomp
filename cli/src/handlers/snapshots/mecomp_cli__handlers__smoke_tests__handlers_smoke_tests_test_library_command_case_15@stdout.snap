@@ -5,3 +5,4 @@ expression: "String::from_utf8(stdout.0.clone()).unwrap()"
 Daemon response:
 Playlists:
 	playlist:01J1K5B6RJ84WJXCWYJ5WNE12E: "Test Playlist" (1 songs, 180s)
+	playlist:03J1K5B6RJ84WJXCWYJ5WNE12E: "Another Playlist" (0 songs, 0ns)
