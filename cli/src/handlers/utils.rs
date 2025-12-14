@@ -6,12 +6,7 @@ where
     Lines: Iterator<Item = String>,
     Out: std::str::FromStr,
 {
-    lines.fold(Vec::new(), |mut acc, line| {
-        if let Ok(thing) = line.parse() {
-            acc.push(thing);
-        }
-        acc
-    })
+    lines.filter_map(|line| line.parse().ok()).collect()
 }
 
 /// Extends the given list of items with items parsed from stdin iff stdin is not a terminal.
