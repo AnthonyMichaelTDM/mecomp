@@ -131,9 +131,9 @@ impl CommandHandler for Command {
                 writeln!(
                     stdout,
                     "Daemon response:\n{}\n{}\n{}",
-                    printing::song_list("Songs", &songs, *quiet)?,
-                    printing::album_list("Albums", &albums, *quiet)?,
-                    printing::artist_list("Artists", &artists, *quiet)?
+                    printing::song_list("Songs", songs, *quiet, false)?,
+                    printing::album_list("Albums", albums, *quiet, false)?,
+                    printing::artist_list("Artists", artists, *quiet, false)?
                 )?;
                 Ok(())
             }
@@ -147,12 +147,13 @@ impl CommandHandler for Command {
                 "Daemon response:\n{}",
                 printing::artist_list(
                     "Artists",
-                    &client
+                    client
                         .search_artist(SearchRequest::new(query, *limit))
                         .await?
                         .into_inner()
                         .artists,
-                    *quiet
+                    *quiet,
+                    false
                 )?
             )?),
             Self::Search {
@@ -165,12 +166,13 @@ impl CommandHandler for Command {
                 "Daemon response:\n{}",
                 printing::album_list(
                     "Albums",
-                    &client
+                    client
                         .search_album(SearchRequest::new(query, *limit))
                         .await?
                         .into_inner()
                         .albums,
-                    *quiet
+                    *quiet,
+                    false
                 )?
             )?),
             Self::Search {
@@ -183,12 +185,13 @@ impl CommandHandler for Command {
                 "Daemon response:\n{}",
                 printing::song_list(
                     "Songs",
-                    &client
+                    client
                         .search_song(SearchRequest::new(query, *limit))
                         .await?
                         .into_inner()
                         .songs,
-                    *quiet
+                    *quiet,
+                    false
                 )?
             )?),
 
@@ -265,7 +268,7 @@ impl CommandHandler for LibraryCommand {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
-                            printing::artist_list("Artists", &resp, *quiet)?
+                            printing::artist_list("Artists", resp, *quiet, true)?
                         )?;
                     }
                     LibraryListTarget::Albums => {
@@ -273,7 +276,7 @@ impl CommandHandler for LibraryCommand {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
-                            printing::album_list("Albums", &resp, *quiet)?
+                            printing::album_list("Albums", resp, *quiet, true)?
                         )?;
                     }
                     LibraryListTarget::Songs => {
@@ -281,7 +284,7 @@ impl CommandHandler for LibraryCommand {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
-                            printing::song_list("Songs", &resp, false)?
+                            printing::song_list("Songs", resp, *quiet, true)?
                         )?;
                     }
                     LibraryListTarget::Playlists => {
@@ -289,7 +292,7 @@ impl CommandHandler for LibraryCommand {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
-                            printing::playlist_list("Playlists", &resp)?
+                            printing::playlist_list("Playlists", resp)?
                         )?;
                     }
                     LibraryListTarget::DynamicPlaylists => {
@@ -301,7 +304,7 @@ impl CommandHandler for LibraryCommand {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
-                            printing::dynamic_playlist_list("Dynamic Playlists", &resp)?
+                            printing::dynamic_playlist_list("Dynamic Playlists", resp)?
                         )?;
                     }
                     LibraryListTarget::Collections => {
@@ -313,7 +316,7 @@ impl CommandHandler for LibraryCommand {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
-                            printing::collection_list("Collections", &resp)?
+                            printing::collection_list("Collections", resp)?
                         )?;
                     }
                 }
@@ -645,7 +648,7 @@ impl CommandHandler for QueueCommand {
                     writeln!(
                         stdout,
                         "Daemon response:\n{}",
-                        printing::song_list("Queue", &songs, true)?
+                        printing::song_list("Queue", songs, true, false)?
                     )?;
                 } else {
                     writeln!(stdout, "Daemon response:\nNo queue available")?;
@@ -722,7 +725,7 @@ impl CommandHandler for super::PlaylistCommand {
                 writeln!(
                     stdout,
                     "Daemon response:\n{}",
-                    printing::playlist_list("Playlists", &resp)?
+                    printing::playlist_list("Playlists", resp)?
                 )?;
                 Ok(())
             }
@@ -785,7 +788,7 @@ impl CommandHandler for super::PlaylistCommand {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
-                            printing::song_list("Songs", &songs, false)?
+                            printing::song_list("Songs", songs, false, true)?
                         )?;
                     }
                     Err(e) if e.code() == Code::NotFound => {
@@ -881,7 +884,7 @@ impl CommandHandler for super::PlaylistAddCommand {
             let mut all_ids = ids;
             all_ids.extend(from_pipe);
             if all_ids.is_empty() {
-                bail!("No input provided, add nothing to the playlist");
+                bail!("No input provided, can't add nothing to the playlist");
             }
             all_ids
         } else {
@@ -946,7 +949,7 @@ impl CommandHandler for super::DynamicCommand {
                 writeln!(
                     stdout,
                     "Daemon response:\n{}",
-                    printing::dynamic_playlist_list("Dynamic Playlists", &resp)?
+                    printing::dynamic_playlist_list("Dynamic Playlists", resp)?
                 )?;
                 Ok(())
             }
@@ -969,7 +972,7 @@ impl CommandHandler for super::DynamicCommand {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
-                            printing::song_list("Songs", &songs, false)?
+                            printing::song_list("Songs", songs, false, true)?
                         )?;
                     }
                     Err(e) if e.code() == Code::NotFound => {
@@ -1042,7 +1045,7 @@ impl CommandHandler for super::DynamicCommand {
                 writeln!(
                     stdout,
                     "Daemon response:\n{}",
-                    printing::dynamic_playlist_list("Dynamic Playlists", &resp)?
+                    printing::dynamic_playlist_list("Dynamic Playlists", resp)?
                 )?;
                 Ok(())
             }
@@ -1070,7 +1073,7 @@ impl CommandHandler for super::CollectionCommand {
                 writeln!(
                     stdout,
                     "Daemon response:\n{}",
-                    printing::collection_list("Collections", &resp)?
+                    printing::collection_list("Collections", resp)?
                 )?;
                 Ok(())
             }
@@ -1093,7 +1096,7 @@ impl CommandHandler for super::CollectionCommand {
                         writeln!(
                             stdout,
                             "Daemon response:\n{}",
-                            printing::song_list("Songs", &songs, false)?
+                            printing::song_list("Songs", songs, false, true)?
                         )?;
                     }
                     Err(e) if e.code() == Code::NotFound => {
