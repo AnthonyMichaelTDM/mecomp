@@ -147,6 +147,20 @@ pub struct SongBrief {
 }
 
 impl Song {
+    pub const BRIEF_FIELDS: &'static [&'static str] = &[
+        "id",
+        "title",
+        "artist",
+        "album_artist",
+        "album",
+        "genre",
+        "runtime",
+        "track",
+        "disc",
+        "release_year",
+        "path",
+    ];
+
     #[inline]
     #[must_use]
     pub fn brief(self) -> SongBrief {

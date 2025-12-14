@@ -58,7 +58,7 @@ RETURN IF $count IS NONE { 0 } ELSE IF $count.len() == 0 { 0 } ELSE { ($count[0]
 }
 
 impl Collection {
-    pub const BRIEF_FIELDS: &'static str = "id,name";
+    pub const BRIEF_FIELDS: &'static [&'static str] = &["id", "name"];
 
     #[must_use]
     #[inline]

@@ -22,9 +22,9 @@ impl Count {
     /// Returns an error if the query fails or if the result cannot be deserialized.
     pub async fn count<C: surrealdb::Connection>(
         db: &surrealdb::Surreal<C>,
-        table: &str,
+        table: &'static str,
     ) -> Result<u64, Error> {
-        let result: Option<Self> = db.query(count(table)).await?.take(0)?;
+        let result: Option<Self> = db.query(count()).bind(("table", table)).await?.take(0)?;
         Ok(result.map_or_else(
             || {
                 log::warn!("When counting entries in table {table}, no count was returned",);
@@ -82,30 +82,19 @@ impl Count {
 ///
 /// Compiles to:
 /// ```sql, ignore
-/// SELECT count() FROM table GROUP ALL
+/// SELECT count() FROM type::table($table) GROUP ALL
 /// ```
 ///
 /// # Example
 ///
 /// ```ignore
-/// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::generic::count;
-/// use surrealdb::opt::IntoQuery;
-///
-/// // Example: count the number of songs in the database
-/// let statement = count("song");
-/// assert_eq!(
-///     statement.into_query().unwrap(),
-///     "SELECT count() FROM song GROUP ALL".into_query().unwrap()
-/// );
+/// // count the number of artists in the database
+/// db.query(count()).bind(("table", "artist")).await?;
 /// ```
 #[must_use]
-pub fn count<Table: AsRef<str>>(table: Table) -> impl IntoQuery {
-    fn count_statement(table: &str) -> impl IntoQuery + use<> {
-        parse_query(format!("SELECT count() FROM {table} GROUP ALL"))
-    }
-
-    count_statement(table.as_ref())
+pub const fn count() -> impl IntoQuery {
+    surrql!("SELECT count() FROM type::table($table) GROUP ALL")
 }
 
 /// Query to count the number of items in a table that are not included in a relation.
@@ -118,7 +107,6 @@ pub fn count<Table: AsRef<str>>(table: Table) -> impl IntoQuery {
 /// # Example
 ///
 /// ```ignore
-/// # use pretty_assertions::assert_eq;
 /// use mecomp_storage::db::crud::queries::generic::count_orphaned;
 /// use surrealdb::opt::IntoQuery;
 ///
@@ -211,8 +199,15 @@ pub const fn read_many() -> impl IntoQuery {
     surrql!("SELECT * FROM $ids")
 }
 
-/// Query to read `n` items from the given `table` at random
+/// Query to read `limit` items from the given `table` at random
+///
+/// Compiles to:
+/// ```sql, ignore
+/// SELECT type::fields($fields) FROM type::table($table) ORDER BY RAND() LIMIT type::int($limit)
+/// ```
 #[must_use]
-pub fn read_rand(selection: &'static str, table: &'static str, n: usize) -> impl IntoQuery {
-    format!("SELECT {selection} FROM {table} ORDER BY RAND() LIMIT {n}")
+pub const fn read_rand() -> impl IntoQuery {
+    surrql!(
+        "SELECT type::fields($fields) FROM type::table($table) ORDER BY RAND() LIMIT type::int($limit)"
+    )
 }

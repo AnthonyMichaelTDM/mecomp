@@ -67,7 +67,14 @@ impl Song {
 
     #[instrument]
     pub async fn read_all_brief<C: Connection>(db: &Surreal<C>) -> StorageResult<Vec<SongBrief>> {
-        Ok(db.select(TABLE_NAME).await?)
+        Ok(db
+            .query(surrql!(
+                "SELECT type::fields($fields) FROM type::table($table)"
+            ))
+            .bind(("fields", Self::BRIEF_FIELDS))
+            .bind(("table", TABLE_NAME))
+            .await?
+            .take(0)?)
     }
 
     #[instrument]
@@ -92,7 +99,13 @@ impl Song {
         db: &Surreal<C>,
         limit: usize,
     ) -> StorageResult<Vec<SongBrief>> {
-        Ok(db.query(read_rand("*", TABLE_NAME, limit)).await?.take(0)?)
+        Ok(db
+            .query(read_rand())
+            .bind(("fields", Self::BRIEF_FIELDS))
+            .bind(("table", TABLE_NAME))
+            .bind(("limit", limit))
+            .await?
+            .take(0)?)
     }
 
     #[instrument]
@@ -150,7 +163,8 @@ impl Song {
         limit: usize,
     ) -> StorageResult<Vec<SongBrief>> {
         Ok(db
-            .query(surrql!("SELECT *, search::score(0) * 2 + search::score(1) * 1 AS relevance FROM song WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit"))
+            .query(surrql!("SELECT type::fields($fields), search::score(0) * 2 + search::score(1) * 1 AS relevance FROM song WHERE title @0@ $query OR artist @1@ $query ORDER BY relevance DESC LIMIT $limit"))
+            .bind(("fields", Self::BRIEF_FIELDS))
             .bind(("query", query.to_owned()))
             .bind(("limit", limit))
             .await?

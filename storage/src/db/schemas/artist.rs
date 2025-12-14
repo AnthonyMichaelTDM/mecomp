@@ -81,7 +81,7 @@ RETURN $count;
 }
 
 impl Artist {
-    pub const BRIEF_FIELDS: &'static str = "id,name";
+    pub const BRIEF_FIELDS: &'static [&'static str] = &["id", "name"];
 
     #[must_use]
     #[inline]
