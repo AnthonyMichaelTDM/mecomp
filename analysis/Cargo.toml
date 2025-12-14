@@ -9,6 +9,7 @@ keywords.workspace = true
 categories.workspace = true
 readme = "README.md"
 license.workspace = true
+exclude = ["data/"]
 
 [features]
 default = []

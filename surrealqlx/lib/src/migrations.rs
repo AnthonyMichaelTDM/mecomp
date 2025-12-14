@@ -940,19 +940,6 @@ INSERT INTO table1 {
             }]
         );
 
-        // db.query(surrql!("DELETE table1;")).await.unwrap();
-        // // the record we created initially should be gone
-        // let elements: Vec<Table1> = db
-        //     .query("SELECT * FROM table1;")
-        //     .await
-        //     .unwrap()
-        //     .take(0)
-        //     .unwrap();
-        // assert!(
-        //     elements.is_empty(),
-        //     "table1 should be empty, but it contains: {elements:?}"
-        // );
-
         let migrations = Migrations::new(
             "table1",
             vec![
@@ -969,9 +956,7 @@ DEFINE INDEX IF NOT EXISTS vector_index1 ON table1 FIELDS numbers MTREE DIMENSIO
                 M::up(surrql!("DELETE table1;")),
                 // a migration that resizes the index
                 M::up(surrql!(
-                    "
-DEFINE INDEX OVERWRITE vector_index1 ON table1 FIELDS numbers MTREE DIMENSION 3;
-                "
+                    "DEFINE INDEX OVERWRITE vector_index1 ON table1 FIELDS numbers MTREE DIMENSION 3;"
                 )),
             ],
         );

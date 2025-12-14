@@ -1,5 +1,16 @@
 # Mecomp Changelog
 
+## v0.6.2
+
+### v0.6.2 What's Changed
+* fix(storage/tests): analysis migration by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/429
+* Update surrql! macro documentation with practical usage examples by @Copilot in https://github.com/AnthonyMichaelTDM/mecomp/pull/431
+* feat: surrql macro for compile-time query validation by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/430
+* fix analysis migrations and improve error reporting by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/432
+* feat(cli): make pipe commands implicit, and simplify interface by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/433
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.6.1...v0.6.2
+
 ## v0.6.1
 
 ### v0.6.1 What's Changed
