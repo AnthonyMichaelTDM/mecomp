@@ -6,15 +6,15 @@ Daemon response:
 LibraryHealthResponse {
     artists: 1,
     albums: 1,
-    songs: 1,
+    songs: 2,
     unanalyzed_songs: Some(
         0,
     ),
-    playlists: 1,
+    playlists: 2,
     collections: 1,
     dynamic_playlists: 1,
     orphaned_artists: 0,
     orphaned_albums: 0,
-    orphaned_playlists: 0,
+    orphaned_playlists: 1,
     orphaned_collections: 0,
 }

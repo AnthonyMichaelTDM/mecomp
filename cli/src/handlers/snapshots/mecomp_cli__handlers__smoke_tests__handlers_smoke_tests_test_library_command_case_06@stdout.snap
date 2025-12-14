@@ -64,6 +64,37 @@ LibraryBriefResponse {
             ),
             path: "test.mp3",
         },
+        SongBrief {
+            id: RecordId {
+                tb: "song",
+                id: "03J1K5B6RJ84WJXCWYJ5WNE12E",
+            },
+            title: "Another Song",
+            artists: [
+                "Test Artist",
+            ],
+            album_artists: [
+                "Test Artist",
+            ],
+            album: "Test Album",
+            genres: [
+                "Test Genre",
+            ],
+            runtime: Duration {
+                seconds: 200,
+                nanos: 0,
+            },
+            track: Some(
+                0,
+            ),
+            disc: Some(
+                0,
+            ),
+            release_year: Some(
+                2020,
+            ),
+            path: "another.flac",
+        },
     ],
     playlists: [
         PlaylistBrief {
@@ -72,6 +103,13 @@ LibraryBriefResponse {
                 id: "01J1K5B6RJ84WJXCWYJ5WNE12E",
             },
             name: "Test Playlist",
+        },
+        PlaylistBrief {
+            id: RecordId {
+                tb: "playlist",
+                id: "03J1K5B6RJ84WJXCWYJ5WNE12E",
+            },
+            name: "Another Playlist",
         },
     ],
     collections: [

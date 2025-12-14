@@ -11,10 +11,10 @@ Some(
         },
         name: "Test Artist",
         runtime: Duration {
-            seconds: 180,
+            seconds: 380,
             nanos: 0,
         },
         album_count: 1,
-        song_count: 1,
+        song_count: 2,
     },
 )

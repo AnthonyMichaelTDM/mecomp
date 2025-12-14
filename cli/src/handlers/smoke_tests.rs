@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use clap::Parser;
 use mecomp_core::{audio::AudioKernelSender, config::Settings};
@@ -11,6 +11,7 @@ use mecomp_storage::{
     },
     test_utils::{arb_analysis_features, init_test_database},
 };
+use pretty_assertions::assert_str_eq;
 use rstest::{fixture, rstest};
 use surrealdb::{RecordId, Surreal, engine::local::Db};
 use tempfile::tempdir;
@@ -88,22 +89,29 @@ fn test_cli_args_parse_query() {
 pub const fn item_id() -> &'static str {
     "01J1K5B6RJ84WJXCWYJ5WNE12E"
 }
+/// another id used for some items in this fake library, used to avoid conflicts
+pub const fn other_item_id() -> &'static str {
+    "03J1K5B6RJ84WJXCWYJ5WNE12E"
+}
 
 /// Create a test database with a simple state
 async fn db_with_state() -> Arc<Surreal<Db>> {
     let db = Arc::new(init_test_database().await.unwrap());
 
     let album_id = RecordId::from_table_key("album", item_id());
-    let analysis_id = RecordId::from_table_key("analysis", item_id());
+    let analysis_id1 = RecordId::from_table_key("analysis", item_id());
+    let analysis_id2 = RecordId::from_table_key("analysis", other_item_id());
     let artist_id = RecordId::from_table_key("artist", item_id());
     let collection_id = RecordId::from_table_key("collection", item_id());
-    let playlist_id = RecordId::from_table_key("playlist", item_id());
-    let song_id = RecordId::from_table_key("song", item_id());
+    let playlist_id1 = RecordId::from_table_key("playlist", item_id());
+    let playlist_id2 = RecordId::from_table_key("playlist", other_item_id());
+    let song_id1 = RecordId::from_table_key("song", item_id());
+    let song_id2 = RecordId::from_table_key("song", other_item_id());
     let dynamic_id = RecordId::from_table_key("dynamic", item_id());
 
     // create a song, artist, album, collection, and playlist
     let song = Song {
-        id: song_id.clone(),
+        id: song_id1.clone(),
         title: "Test Song".into(),
         artist: "Test Artist".to_string().into(),
         album_artist: "Test Artist".to_string().into(),
@@ -116,8 +124,26 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
         extension: "mp3".into(),
         path: "test.mp3".into(),
     };
-    let analysis = Analysis {
-        id: analysis_id.clone(),
+    let song2 = Song {
+        id: song_id2.clone(),
+        title: "Another Song".into(),
+        artist: "Test Artist".to_string().into(),
+        album_artist: "Test Artist".to_string().into(),
+        album: "Test Album".into(),
+        genre: "Test Genre".to_string().into(),
+        runtime: std::time::Duration::from_secs(200),
+        track: Some(0),
+        disc: Some(0),
+        release_year: Some(2020),
+        extension: "flac".into(),
+        path: "another.flac".into(),
+    };
+    let analysis1 = Analysis {
+        id: analysis_id1.clone(),
+        features: arb_analysis_features()(),
+    };
+    let analysis2 = Analysis {
+        id: analysis_id2.clone(),
         features: arb_analysis_features()(),
     };
     let artist = Artist {
@@ -143,11 +169,17 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
         runtime: song.runtime,
         song_count: 1,
     };
-    let playlist = Playlist {
-        id: playlist_id.clone(),
+    let playlist1 = Playlist {
+        id: playlist_id1.clone(),
         name: "Test Playlist".into(),
         runtime: song.runtime,
         song_count: 1,
+    };
+    let playlist2 = Playlist {
+        id: playlist_id2.clone(),
+        name: "Another Playlist".into(),
+        runtime: Duration::from_secs(0),
+        song_count: 0,
     };
     let dynamic = DynamicPlaylist {
         id: dynamic_id.clone(),
@@ -157,29 +189,42 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
 
     // insert the items into the database
     Song::create(&db, song).await.unwrap();
-    Analysis::create(&db, song_id.clone(), analysis)
+    Song::create(&db, song2).await.unwrap();
+    Analysis::create(&db, song_id1.clone(), analysis1)
+        .await
+        .unwrap();
+    Analysis::create(&db, song_id2.clone(), analysis2)
         .await
         .unwrap();
     Artist::create(&db, artist).await.unwrap();
     Album::create(&db, album).await.unwrap();
     Collection::create(&db, collection).await.unwrap();
-    Playlist::create(&db, playlist).await.unwrap();
+    Playlist::create(&db, playlist1).await.unwrap();
+    Playlist::create(&db, playlist2).await.unwrap();
     DynamicPlaylist::create(&db, dynamic).await.unwrap();
 
     // add relationships between the items
-    Album::add_songs(&db, album_id.clone(), vec![song_id.clone()])
-        .await
-        .unwrap();
+    Album::add_songs(
+        &db,
+        album_id.clone(),
+        vec![song_id1.clone(), song_id2.clone()],
+    )
+    .await
+    .unwrap();
     Artist::add_album(&db, artist_id.clone(), album_id)
         .await
         .unwrap();
-    Artist::add_songs(&db, artist_id.clone(), vec![song_id.clone()])
+    Artist::add_songs(
+        &db,
+        artist_id.clone(),
+        vec![song_id1.clone(), song_id2.clone()],
+    )
+    .await
+    .unwrap();
+    Collection::add_songs(&db, collection_id, vec![song_id1.clone()])
         .await
         .unwrap();
-    Collection::add_songs(&db, collection_id, vec![song_id.clone()])
-        .await
-        .unwrap();
-    Playlist::add_songs(&db, playlist_id, vec![song_id.clone()])
+    Playlist::add_songs(&db, playlist_id1, vec![song_id1.clone()])
         .await
         .unwrap();
 
@@ -424,6 +469,15 @@ async fn test_rand_command(#[future] client: MusicPlayerClient, #[case] target: 
     let result = command.handle(client.await, stdout, stderr, stdin).await;
     assert!(result.is_ok());
 
+    if target == RandTarget::Song {
+        // songs are random, so we can't snapshot test them reliably.
+        // we can at least make sure the output is non-empty
+        assert!(!stdout.0.is_empty());
+        set_snapshot_suffix!("stderr");
+        insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
+        return;
+    }
+
     set_snapshot_suffix!("stdout");
     insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
     set_snapshot_suffix!("stderr");
@@ -531,6 +585,54 @@ async fn test_queue_command(#[future] client: MusicPlayerClient, #[case] command
 }
 
 #[rstest]
+#[case::mixed(QueueCommand::Add {items: vec![format!("song:{}", item_id())] }, vec![format!("song:{}", other_item_id())])]
+#[case::args_only(QueueCommand::Add {items: vec![format!("song:{}", item_id())] }, vec![])]
+#[case::pipe_only(QueueCommand::Add {items: vec![] }, vec![format!("song:{}", item_id())])]
+/// invalid record ids that are piped in get ignored
+#[case::pipe_invalid(QueueCommand::Add {items: vec![] }, vec![format!("song:{}", other_item_id()), "invalid:id".to_string()])]
+#[tokio::test]
+async fn test_queue_add_pipe(
+    #[future] client: MusicPlayerClient,
+    #[case] command: QueueCommand,
+    #[case] pipe_lines: Vec<String>,
+) {
+    let command = Command::Queue { command };
+
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+    let stdin = &StdInMock::new(pipe_lines, false);
+
+    let result = command.handle(client.await, stdout, stderr, stdin).await;
+    assert!(result.is_ok());
+
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_queue_add_invalid(#[future] client: MusicPlayerClient) {
+    let command = Command::Queue {
+        command: QueueCommand::Add {
+            items: vec![format!("invalid:{}", item_id())],
+        },
+    };
+
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+    let stdin = &StdInMock::new(vec![], false);
+
+    let result = command.handle(client.await, stdout, stderr, stdin).await;
+    assert!(result.is_err());
+    assert_str_eq!(
+        result.unwrap_err().to_string(),
+        "One or more provided IDs are invalid"
+    );
+}
+
+#[rstest]
 #[case(PlaylistCommand::Add (PlaylistAddCommand { id: item_id().to_string(), items: vec![format!("song:{}", item_id())] } ))]
 #[case(PlaylistCommand::Add (PlaylistAddCommand { id: item_id().to_string(), items: vec![format!("album:{}", item_id())] } ))]
 #[case(PlaylistCommand::Add (PlaylistAddCommand { id: item_id().to_string(), items: vec![format!("artist:{}", item_id())] } ))]
@@ -541,6 +643,7 @@ async fn test_queue_command(#[future] client: MusicPlayerClient, #[case] command
 #[case(PlaylistCommand::Update { id: item_id().to_string(), name: "Updated Test Playlist".to_string() })]
 #[case(PlaylistCommand::Songs { id: item_id().to_string() })]
 #[case(PlaylistCommand::Delete { id: item_id().to_string() })]
+#[case(PlaylistCommand::Add (PlaylistAddCommand { id: item_id().to_string(), items: vec![format!("song:{}", other_item_id()), format!("song:{}", item_id())] } ))]
 #[tokio::test]
 async fn test_playlist_command(
     #[future] client: MusicPlayerClient,
@@ -559,6 +662,95 @@ async fn test_playlist_command(
     insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
     set_snapshot_suffix!("stderr");
     insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
+}
+
+#[rstest]
+#[case::mixed(PlaylistAddCommand { id: item_id().to_string(), items: vec![format!("album:{}", item_id())] }, vec![format!("song:{}", other_item_id())])]
+#[case::args_only(PlaylistAddCommand { id: other_item_id().to_string(), items: vec![format!("song:{}", item_id())] }, vec![])]
+#[case::pipe_only(PlaylistAddCommand { id: other_item_id().to_string(), items: vec![] }, vec![format!("song:{}", item_id())])]
+/// invalid record ids that are piped in get ignored
+#[case::pipe_invalid(PlaylistAddCommand { id: other_item_id().to_string(), items: vec![] }, vec![format!("song:{}", other_item_id()), "invalid:id".to_string()])]
+#[tokio::test]
+async fn test_playlist_add_pipe(
+    #[future] client: MusicPlayerClient,
+    #[case] command: PlaylistAddCommand,
+    #[case] pipe_lines: Vec<String>,
+) {
+    let playlist_id = command.id.clone();
+    let command = Command::Playlist {
+        command: PlaylistCommand::Add(command),
+    };
+
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+    let stdin = &StdInMock::new(pipe_lines, false);
+
+    let client = client.await;
+    let result = command.handle(client.clone(), stdout, stderr, stdin).await;
+    assert!(result.is_ok());
+
+    // also get the songs in the playlist after adding to verify they were added correctly
+    let get_command = Command::Playlist {
+        command: PlaylistCommand::Songs { id: playlist_id },
+    };
+    let result = get_command
+        .handle(client, stdout, stderr, &StdInMock::new(vec![], true))
+        .await;
+    assert!(result.is_ok());
+
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), String::from_utf8(stdout.0.clone()).unwrap());
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), String::from_utf8(stderr.0.clone()).unwrap());
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_playlist_add_invalid(#[future] client: MusicPlayerClient) {
+    let command = Command::Playlist {
+        command: PlaylistCommand::Add(PlaylistAddCommand {
+            id: item_id().to_string(),
+            items: vec![format!("invalid:{}", item_id())],
+        }),
+    };
+
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+    let stdin = &StdInMock::new(vec![], false);
+
+    let result = command.handle(client.await, stdout, stderr, stdin).await;
+    assert!(result.is_err());
+    assert_str_eq!(
+        result.unwrap_err().to_string(),
+        "One or more provided IDs are invalid"
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_playlist_add_empty(#[future] client: MusicPlayerClient) {
+    let command = Command::Playlist {
+        command: PlaylistCommand::Add(PlaylistAddCommand {
+            id: item_id().to_string(),
+            items: vec![],
+        }),
+    };
+
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+    let stdin = &StdInMock::new(vec![], false);
+
+    let client = client.await;
+
+    let result = command.handle(client.clone(), stdout, stderr, stdin).await;
+    assert!(result.is_err());
+    assert_str_eq!(result.unwrap_err().to_string(), "no input provided");
+
+    let stdin = &StdInMock::new(vec![], true);
+
+    let result = command.handle(client, stdout, stderr, stdin).await;
+    assert!(result.is_err());
+    assert_str_eq!(result.unwrap_err().to_string(), "no input provided");
 }
 
 #[rstest]
@@ -710,11 +902,13 @@ async fn test_collection_freeze(#[future] client: MusicPlayerClient) {
 }
 
 #[rstest]
-#[case( RadioCommand { items: vec![format!("song:{}", item_id().to_string())], n: 1 } )]
-#[case( RadioCommand { items: vec![format!("album:{}", item_id().to_string())], n: 1 } )]
-#[case( RadioCommand { items: vec![format!("artist:{}", item_id().to_string())], n: 1 } )]
-#[case( RadioCommand { items: vec![format!("playlist:{}", item_id().to_string())], n: 1 } )]
-#[case( RadioCommand { items: vec![format!("dynamic:{}", item_id().to_string())], n: 1 } )]
+#[case( RadioCommand { items: vec![format!("song:{}", item_id())], n: 1 } )]
+#[case( RadioCommand { items: vec![format!("album:{}", item_id())], n: 1 } )]
+#[case( RadioCommand { items: vec![format!("artist:{}", item_id())], n: 1 } )]
+#[case( RadioCommand { items: vec![format!("playlist:{}", item_id())], n: 1 } )]
+#[case( RadioCommand { items: vec![format!("dynamic:{}", item_id())], n: 1 } )]
+#[case( RadioCommand { items: vec![format!("playlist:{}", item_id()), format!("song:{}", item_id())], n: 1 } )]
+#[case( RadioCommand { items: vec![format!("song:{}", other_item_id())], n: 1 } )]
 #[tokio::test]
 async fn test_radio_command(#[future] client: MusicPlayerClient, #[case] command: RadioCommand) {
     let command = Command::Radio(command);
