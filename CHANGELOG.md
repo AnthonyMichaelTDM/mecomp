@@ -1,5 +1,12 @@
 # Mecomp Changelog
 
+## v0.6.4
+
+### v0.6.4 What's Changed
+* fix: library_brief not able to generate due to missing field by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/435
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.6.3...v0.6.4
+
 ## v0.6.3
 
 ### v0.6.3 What's Changed

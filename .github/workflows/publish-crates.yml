@@ -32,7 +32,7 @@ jobs:
       - name: Setup cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: ${{ runner.os }}-cd-${{ hashFiles('**/Cargo.lock') }}
+          shared-key: ${{ runner.os }}-publish-crates
 
       - name: Install cargo-hakari
         uses: taiki-e/install-action@v2.62.29
@@ -85,7 +85,7 @@ jobs:
       - name: Setup cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: ${{ runner.os }}-cd-${{ hashFiles('**/Cargo.lock') }}
+          shared-key: ${{ runner.os }}-publish-crates
 
       - name: Install cargo-hakari
         uses: taiki-e/install-action@v2.62.29
