@@ -8,8 +8,10 @@ use std::path::Path;
 
 static MODEL_BYTES: &[u8] = include_bytes!("../models/audio_embedding_model.onnx");
 
+/// The size of the embedding produced by the audio embedding model, onnx wants this to be i64.
 const EMBEDDING_SIZE: i64 = 32;
-pub const DIM_EMBEDDING: usize = EMBEDDING_SIZE as usize;
+/// The size of the embedding produced by the audio embedding model as a usize.
+pub const DIM_EMBEDDING: usize = 32;
 
 #[derive(Default, PartialEq, Clone, Copy)]
 pub struct Embedding(pub [f32; DIM_EMBEDDING]);
@@ -17,6 +19,7 @@ pub struct Embedding(pub [f32; DIM_EMBEDDING]);
 impl Embedding {
     /// Get the length of the embedding vector.
     #[inline]
+    #[must_use]
     pub const fn len(&self) -> usize {
         self.0.len()
     }
@@ -25,19 +28,22 @@ impl Embedding {
     ///
     /// Should always return false since embeddings have a fixed size.
     #[inline]
+    #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     /// Get a reference to the embedding as a slice.
     #[inline]
+    #[must_use]
     pub const fn as_slice(&self) -> &[f32] {
         &self.0
     }
 
     /// Get a mutable reference to the embedding as a slice.
     #[inline]
-    pub fn as_mut_slice(&mut self) -> &mut [f32] {
+    #[must_use]
+    pub const fn as_mut_slice(&mut self) -> &mut [f32] {
         &mut self.0
     }
 }

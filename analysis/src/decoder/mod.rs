@@ -25,7 +25,7 @@ pub use mecomp::{MecompDecoder, SymphoniaSource};
 /// and a f32le layout.
 /// Once it is implemented, several functions
 /// to perform analysis from path(s) are available, such as
-/// [`song_from_path`](Decoder::song_from_path) and
+/// [`analyze_paths_with_cores`](Decoder::analyze_paths_with_cores) and
 /// [`analyze_paths`](Decoder::analyze_paths).
 #[allow(clippy::module_name_repetitions)]
 pub trait Decoder {
