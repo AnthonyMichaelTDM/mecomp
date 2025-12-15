@@ -84,5 +84,9 @@ name = "descriptors"
 harness = false
 
 [[bench]]
+name = "embeddings"
+harness = false
+
+[[bench]]
 name = "utils"
 harness = false
