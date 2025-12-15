@@ -178,34 +178,51 @@ impl Analysis {
         db: &Surreal<C>,
         ids: Vec<AnalysisId>,
         n: u32,
+        // whether to use feature-based or embedding-based analysis
+        use_embeddings: bool,
     ) -> StorageResult<Vec<Self>> {
         if ids.is_empty() || n == 0 {
             return Ok(vec![]);
         }
 
-        // find the average "features" of the given analyses
+        // find the average "features" / "embeddings" of the given analyses
         let analyses: Vec<Self> = db
             .query(read_many())
             .bind(("ids", ids.clone()))
             .await?
             .take(0)?;
 
-        #[allow(clippy::cast_precision_loss)]
-        let num_analyses = analyses.len() as f64;
+        let query = db
+            .query(nearest_neighbors_to_many(n, use_embeddings))
+            .bind(("ids", ids));
 
-        let avg_features = analyses.iter().fold(vec![0.; 23], |acc, analysis| {
-            acc.iter()
-                .zip(analysis.features.iter())
-                .map(|(a, b)| a + (b / num_analyses))
-                .collect::<Vec<_>>()
-        });
+        let query = if use_embeddings {
+            #[allow(clippy::cast_precision_loss)]
+            let num_analyses = analyses.len() as f32;
 
-        Ok(db
-            .query(nearest_neighbors_to_many(n))
-            .bind(("ids", ids))
-            .bind(("target", avg_features))
-            .await?
-            .take(0)?)
+            let avg_embedding = analyses.iter().fold(vec![0.; 32], |acc, analysis| {
+                acc.iter()
+                    .zip(analysis.embedding.iter())
+                    .map(|(a, b)| a + (b / num_analyses))
+                    .collect::<Vec<_>>()
+            });
+
+            query.bind(("target", avg_embedding))
+        } else {
+            #[allow(clippy::cast_precision_loss)]
+            let num_analyses = analyses.len() as f64;
+
+            let avg_features = analyses.iter().fold(vec![0.; 23], |acc, analysis| {
+                acc.iter()
+                    .zip(analysis.features.iter())
+                    .map(|(a, b)| a + (b / num_analyses))
+                    .collect::<Vec<_>>()
+            });
+
+            query.bind(("target", avg_features))
+        };
+
+        Ok(query.await?.take(0)?)
     }
 }
 
@@ -219,6 +236,22 @@ mod test {
 
     use anyhow::Result;
     use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    fn analysis_zeroes() -> Analysis {
+        Analysis {
+            id: Analysis::generate_id(),
+            features: [0.; 23],
+            embedding: [0.; 32],
+        }
+    }
+    fn analysis_ones() -> Analysis {
+        Analysis {
+            id: Analysis::generate_id(),
+            features: [1.; 23],
+            embedding: [1.; 32],
+        }
+    }
 
     #[tokio::test]
     async fn test_create() -> Result<()> {
@@ -227,20 +260,15 @@ mod test {
         let song =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        let analysis = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
+        let analysis = analysis_zeroes();
 
         // create the analysis
         let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
         assert_eq!(result, Some(analysis.clone()));
 
         // if we try to create another analysis for the same song, we get Ok(None)
-        let analysis = Analysis {
-            id: Analysis::generate_id(),
-            features: [1.; 23],
-        };
+        let analysis = analysis_ones();
+
         let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
         assert_eq!(result, None);
 
@@ -257,6 +285,7 @@ mod test {
         let analysis = Analysis {
             id: Analysis::generate_id(),
             features: [0.; 23],
+            embedding: [0.; 32],
         };
 
         // create the analysis
@@ -277,10 +306,7 @@ mod test {
         let song =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        let analysis = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
+        let analysis = analysis_zeroes();
 
         // create the analysis
         let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
@@ -300,10 +326,7 @@ mod test {
         let song =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        let analysis = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
+        let analysis = analysis_zeroes();
 
         // the song doesn't have an analysis yet
         let result = Analysis::read_for_song(&db, song.id.clone()).await?;
@@ -331,14 +354,8 @@ mod test {
         let song3 =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        let analysis1 = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
-        let analysis2 = Analysis {
-            id: Analysis::generate_id(),
-            features: [1.; 23],
-        };
+        let analysis1 = analysis_zeroes();
+        let analysis2 = analysis_ones();
 
         // create the analyses
         let result = Analysis::create(&db, song1.id.clone(), analysis1.clone()).await?;
@@ -364,10 +381,7 @@ mod test {
         let song =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        let analysis = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
+        let analysis = analysis_zeroes();
 
         // create the analysis
         let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
@@ -389,14 +403,8 @@ mod test {
         let song2 =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        let analysis1 = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
-        let analysis2 = Analysis {
-            id: Analysis::generate_id(),
-            features: [1.; 23],
-        };
+        let analysis1 = analysis_zeroes();
+        let analysis2 = analysis_ones();
 
         // create the analyses
         let result = Analysis::create(&db, song1.id.clone(), analysis1.clone()).await?;
@@ -427,14 +435,8 @@ mod test {
         assert!(result.contains(&song1));
         assert!(result.contains(&song2));
 
-        let analysis1 = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
-        let analysis2 = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
+        let analysis1 = analysis_zeroes();
+        let analysis2 = analysis_ones();
 
         // create the analysis
         let result = Analysis::create(&db, song1.id.clone(), analysis1.clone()).await?;
@@ -462,10 +464,7 @@ mod test {
         let song =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        let analysis = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
+        let analysis = analysis_zeroes();
 
         // create the analysis
         let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
@@ -533,18 +532,9 @@ mod test {
         let song3 =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        let analysis1 = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
-        let analysis2 = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
-        let analysis3 = Analysis {
-            id: Analysis::generate_id(),
-            features: [1.; 23],
-        };
+        let analysis1 = analysis_zeroes();
+        let analysis2 = analysis_zeroes();
+        let analysis3 = analysis_ones();
 
         // create the analyses
         let result1 = Analysis::create(&db, song1.id.clone(), analysis1.clone()).await?;
@@ -561,8 +551,11 @@ mod test {
         Ok(())
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn test_nearest_neighbors_to_many() -> Result<()> {
+    async fn test_nearest_neighbors_to_many(
+        #[values(false, true)] use_embeddings: bool,
+    ) -> Result<()> {
         let db = init_test_database().await?;
 
         let song1 =
@@ -574,22 +567,10 @@ mod test {
         let song4 =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        let analysis1 = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
-        let analysis2 = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
-        let analysis3 = Analysis {
-            id: Analysis::generate_id(),
-            features: [1.; 23],
-        };
-        let analysis4 = Analysis {
-            id: Analysis::generate_id(),
-            features: [1.; 23],
-        };
+        let analysis1 = analysis_zeroes();
+        let analysis2 = analysis_zeroes();
+        let analysis3 = analysis_ones();
+        let analysis4 = analysis_ones();
 
         // create the analyses
         let result1 = Analysis::create(&db, song1.id.clone(), analysis1.clone()).await?;
@@ -607,6 +588,7 @@ mod test {
             &db,
             vec![analysis1.id.clone(), analysis2.id.clone()],
             0,
+            use_embeddings,
         )
         .await?;
         assert_eq!(result.len(), 0);
@@ -615,6 +597,7 @@ mod test {
             &db,
             vec![analysis1.id.clone(), analysis2.id.clone()],
             1,
+            use_embeddings,
         )
         .await?;
         assert_eq!(result.len(), 1);
@@ -624,6 +607,7 @@ mod test {
             &db,
             vec![analysis1.id.clone(), analysis2.id.clone()],
             2,
+            use_embeddings,
         )
         .await?;
         assert_eq!(result.len(), 2);
@@ -634,6 +618,7 @@ mod test {
             &db,
             vec![analysis1.id.clone(), analysis2.id.clone()],
             3,
+            use_embeddings,
         )
         .await?;
         assert_eq!(result.len(), 2);
@@ -645,6 +630,7 @@ mod test {
             &db,
             vec![analysis3.id.clone(), analysis4.id.clone()],
             3,
+            use_embeddings,
         )
         .await?;
         assert_eq!(result.len(), 2);
@@ -652,7 +638,7 @@ mod test {
         assert_eq!(result[1], analysis2);
 
         // if we pass an empty list, we should get an empty list
-        let result = Analysis::nearest_neighbors_to_many(&db, vec![], 3).await?;
+        let result = Analysis::nearest_neighbors_to_many(&db, vec![], 3, use_embeddings).await?;
         assert_eq!(result.len(), 0);
 
         Ok(())
@@ -665,10 +651,7 @@ mod test {
         let song =
             create_song_with_overrides(&db, arb_song_case()(), SongChangeSet::default()).await?;
 
-        let analysis = Analysis {
-            id: Analysis::generate_id(),
-            features: [0.; 23],
-        };
+        let analysis = analysis_zeroes();
 
         // create the analysis
         let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;

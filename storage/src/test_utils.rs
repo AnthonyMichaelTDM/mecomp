@@ -484,6 +484,18 @@ pub const fn arb_analysis_features() -> impl Fn() -> [f64; 23] {
     }
 }
 
+#[inline]
+pub const fn arb_analysis_embedding() -> impl Fn() -> [f32; mecomp_analysis::DIM_EMBEDDING] {
+    move || {
+        let rng = &mut rand::thread_rng();
+        let mut embedding = [0.0; mecomp_analysis::DIM_EMBEDDING];
+        for value in &mut embedding {
+            *value = rng.gen_range(-1.0..1.0);
+        }
+        embedding
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
