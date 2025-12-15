@@ -18,6 +18,9 @@ pub struct Settings {
     /// General Daemon Settings
     #[serde(default)]
     pub daemon: DaemonSettings,
+    /// Settings for song analysis
+    #[serde(default)]
+    pub analysis: AnalysisSettings,
     /// Parameters for the reclustering algorithm.
     #[serde(default)]
     pub reclustering: ReclusterSettings,
@@ -211,6 +214,37 @@ impl Default for DaemonSettings {
             log_level: default_log_level(),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum AnalysisKind {
+    #[default]
+    Features,
+    Embeddings,
+}
+
+#[derive(Clone, Debug, Deserialize, Default, PartialEq, Eq)]
+pub struct AnalysisSettings {
+    /// The kind of analysis to perform, either "features" or "embeddings".
+    /// "features" will compute traditional audio features (tempo, key, etc.)
+    /// "embeddings" will compute neural audio embeddings using a pre-trained model.
+    /// Default is "features".
+    ///
+    /// Note that regardless of this setting, both features and embeddings will be computed during analysis.
+    /// This only determines the kind used for clustering, radio, and other such tasks
+    #[serde(default)]
+    pub kind: AnalysisKind,
+    /// If using "embeddings" analysis kind, you can optionally override the model path here.
+    /// Requirements:
+    /// - The model must be in the ONNX format with opset version 16 or higher.
+    /// - The model should expect mono audio samples at a sample rate of 22,050 Hz.
+    /// - The input tensor must be name "audio" and have shape [1, N] where N a dynamic length corresponding to the number of audio samples in the song.
+    /// - The output tensor must be name "embedding" and have shape [1, 32] corresponding to a 32-dimensional embedding vector.
+    ///
+    /// If unset, empty, or a non-existent/invalid path, the built-in model (which is bundled into the daemon binary) will be used.
+    #[serde(default)]
+    pub model_path: Option<PathBuf>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Default, PartialEq, Eq)]
@@ -443,6 +477,7 @@ gauge_unfilled = "BLACK"
                 conflict_resolution: MetadataConflictResolution::Overwrite,
                 log_level: log::LevelFilter::Debug,
             },
+            analysis: AnalysisSettings::default(),
             reclustering: ReclusterSettings {
                 gap_statistic_reference_datasets: 50,
                 max_clusters: 24,
@@ -508,6 +543,7 @@ radio_count = 21
                 conflict_resolution: MetadataConflictResolution::Overwrite,
                 log_level: log::LevelFilter::Debug,
             },
+            analysis: AnalysisSettings::default(),
             reclustering: ReclusterSettings {
                 gap_statistic_reference_datasets: 50,
                 max_clusters: 24,
@@ -562,6 +598,7 @@ radio_count = 21
                 conflict_resolution: MetadataConflictResolution::Overwrite,
                 log_level: log::LevelFilter::Debug,
             },
+            analysis: AnalysisSettings::default(),
             reclustering: ReclusterSettings {
                 gap_statistic_reference_datasets: 50,
                 max_clusters: 24,
