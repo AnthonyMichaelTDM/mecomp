@@ -9,6 +9,38 @@ use std::path::Path;
 static MODEL_BYTES: &[u8] = include_bytes!("../models/audio_embedding_model.onnx");
 
 const EMBEDDING_SIZE: i64 = 32;
+pub const DIM_EMBEDDING: usize = EMBEDDING_SIZE as usize;
+
+#[derive(Default, PartialEq, Clone, Copy)]
+pub struct Embedding(pub [f32; DIM_EMBEDDING]);
+
+impl Embedding {
+    /// Get the length of the embedding vector.
+    #[inline]
+    pub const fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Check if the embedding is empty.
+    ///
+    /// Should always return false since embeddings have a fixed size.
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Get a reference to the embedding as a slice.
+    #[inline]
+    pub const fn as_slice(&self) -> &[f32] {
+        &self.0
+    }
+
+    /// Get a mutable reference to the embedding as a slice.
+    #[inline]
+    pub fn as_mut_slice(&mut self) -> &mut [f32] {
+        &mut self.0
+    }
+}
 
 /// Struct representing an audio embedding model loaded from an ONNX file.
 pub struct AudioEmbeddingModel {
@@ -52,7 +84,7 @@ impl AudioEmbeddingModel {
     /// * the model inference fails,
     /// * the output is missing or has an unexpected shape (should be named "embedding" and have shape `[1, 32]`).
     #[inline]
-    pub fn embed(&mut self, audio: &ResampledAudio) -> ort::Result<Vec<f32>> {
+    pub fn embed(&mut self, audio: &ResampledAudio) -> ort::Result<Embedding> {
         // Create input with batch dimension
         let inputs = ort::inputs! {
             "audio" => TensorRef::from_array_view(([1,audio.samples.len()], &*audio.samples))?,
@@ -71,7 +103,11 @@ impl AudioEmbeddingModel {
             )));
         }
 
-        Ok(embedding.to_vec())
+        let sized_embedding: [f32; DIM_EMBEDDING] = embedding
+            .try_into()
+            .map_err(|_| ort::Error::new("Failed to convert embedding to fixed-size array"))?;
+
+        Ok(Embedding(sized_embedding))
     }
 
     /// Compute embedding from raw audio samples (f32, mono, 22050 Hz),
@@ -84,7 +120,7 @@ impl AudioEmbeddingModel {
     /// * the model inference fails,
     /// * the output is missing or has an unexpected shape (should be named "embedding" and have shape `[1, 32]`).
     #[inline]
-    pub async fn embed_async(&mut self, audio: &ResampledAudio) -> ort::Result<Vec<f32>> {
+    pub async fn embed_async(&mut self, audio: &ResampledAudio) -> ort::Result<Embedding> {
         // Create input with batch dimension
         let inputs = ort::inputs! {
             "audio" => TensorRef::from_array_view(([1,audio.samples.len()], &*audio.samples))?,
@@ -104,7 +140,11 @@ impl AudioEmbeddingModel {
             )));
         }
 
-        Ok(embedding.to_vec())
+        let sized_embedding: [f32; DIM_EMBEDDING] = embedding
+            .try_into()
+            .map_err(|_| ort::Error::new("Failed to convert embedding to fixed-size array"))?;
+
+        Ok(Embedding(sized_embedding))
     }
 }
 
@@ -126,6 +166,6 @@ mod tests {
         let mut model =
             AudioEmbeddingModel::load_default().expect("Failed to load embedding model");
         let embedding = model.embed(&audio).expect("Failed to compute embedding");
-        assert_eq!(embedding.len(), 32);
+        assert_eq!(embedding.len(), DIM_EMBEDDING);
     }
 }
