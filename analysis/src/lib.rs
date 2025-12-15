@@ -24,7 +24,6 @@ use std::{ops::Index, path::PathBuf, thread::ScopedJoinHandle};
 
 use likely_stable::LikelyResult;
 use misc::LoudnessDesc;
-use serde::{Deserialize, Serialize};
 use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
 use chroma::ChromaDesc;
@@ -120,7 +119,7 @@ pub type Feature = f64;
 /// The number of features used in `Analysis`
 pub const NUMBER_FEATURES: usize = AnalysisIndex::COUNT;
 
-#[derive(Default, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Clone, Copy)]
 /// Object holding the results of the song's analysis.
 ///
 /// Only use it if you want to have an in-depth look of what is

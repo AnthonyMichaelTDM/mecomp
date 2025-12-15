@@ -3186,7 +3186,6 @@ dependencies = [
  "rstest",
  "rubato",
  "rustfft",
- "serde",
  "statrs",
  "strum",
  "symphonia",
