@@ -30,10 +30,12 @@ use errors::{AnalysisError, AnalysisResult};
 use temporal::BPMDesc;
 use timbral::{SpectralDesc, ZeroCrossingRateDesc};
 
+pub use crate::embeddings::DIM_EMBEDDING;
+
 /// The resampled audio data used for analysis.
 ///
 /// Must be in mono (1 channel), with a sample rate of 22050 Hz.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ResampledAudio {
     pub path: PathBuf,
     pub samples: Vec<f32>,
