@@ -12,7 +12,6 @@
 pub mod chroma;
 pub mod clustering;
 pub mod decoder;
-#[cfg(feature = "model")]
 pub mod embeddings;
 pub mod errors;
 pub mod misc;

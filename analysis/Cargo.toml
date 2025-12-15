@@ -12,10 +12,8 @@ license.workspace = true
 exclude = ["data/"]
 
 [features]
-default = ["model"]
+default = []
 # plot_gap = ["dep:plotters"]
-model = ["ort"]
-ort = ["dep:ort"]
 
 [dependencies]
 bliss-audio-aubio-rs = { version = "0.2.4", features = ["static"] }
@@ -42,7 +40,13 @@ thiserror = { workspace = true }
 likely_stable.workspace = true
 bitvec.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
-ort = { version = "2.0.0-rc.10", features = ["copy-dylibs", "download-binaries", "std", "tracing", "webgpu"], optional = true, default-features = false }
+ort = { version = "2.0.0-rc.10", features = [
+    "copy-dylibs",
+    "download-binaries",
+    "std",
+    "tracing",
+    "webgpu",
+], default-features = false }
 
 # if we're building on macos, we need to link against the system's fftw3
 # library, which is not available on linux

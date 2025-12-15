@@ -18,7 +18,6 @@ pub enum AnalysisError {
     IndeterminantDuration,
     #[error("Too many or too little features were provided at the end of the analysis")]
     InvalidFeaturesLen,
-    #[cfg(feature = "model")]
     #[error("Embedding Error: {0}")]
     EmbeddingError(#[from] ort::Error),
 }
