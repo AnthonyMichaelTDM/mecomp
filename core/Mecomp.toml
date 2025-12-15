@@ -62,12 +62,15 @@ log_level = "info"
 ## Note that regardless of this setting, both features and embeddings will be computed during analysis.
 ## This only determines the kind used for clustering, radio, and other such tasks
 kind = "features"
+## Whether to use WebGPU for accelerating the embedding model inference.
+## Default is false, but if you have a compatible GPU, enabling this can significantly speed up analysis.
+use_wgpu = false
 ## If using "embeddings" analysis kind, you can optionally override the model path here.
 ## Requirements:
 ## - The model must be in the ONNX format with opset version 16 or higher.
 ## - The model should expect mono audio samples at a sample rate of 22,050 Hz.
-## - The input tensor must be name "audio" and have shape [1, N] where N a dynamic length corresponding to the number of audio samples in the song.
-## - The output tensor must be name "embedding" and have shape [1, 32] corresponding to a 32-dimensional embedding vector.
+## - The input tensor must be name "audio" and have shape [B, N] where N a dynamic length corresponding to the number of audio samples in the song, and B is the batch size.
+## - The output tensor must be name "embedding" and have shape [B, 32] corresponding to a 32-dimensional embedding vector. B is the batch size.
 ## 
 ## If unset, empty, or a non-existent/invalid path, the built-in model (which is bundled into the daemon binary) will be used.
 model_path = ""

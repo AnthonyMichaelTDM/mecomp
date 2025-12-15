@@ -6,14 +6,16 @@ use std::{hint::black_box, path::Path};
 fn bench_load_embeddings_model(c: &mut Criterion) {
     c.bench_function("embeddings.rs: AudioEmbeddingModel::load_default", |b| {
         b.iter(|| {
-            let _ = black_box(AudioEmbeddingModel::load_default().unwrap());
+            let _ = black_box(AudioEmbeddingModel::load_default(false).unwrap());
         });
     });
 
     c.bench_function("embeddings.rs: AudioEmbeddingModel::load_from_onnx", |b| {
         let model_path = Path::new("models/audio_embedding_model.onnx");
         b.iter(|| {
-            let _ = black_box(AudioEmbeddingModel::load_from_onnx(black_box(&model_path)).unwrap());
+            let _ = black_box(
+                AudioEmbeddingModel::load_from_onnx(black_box(&model_path), false).unwrap(),
+            );
         });
     });
 }
@@ -30,19 +32,39 @@ fn bench_generate_embeddings(c: &mut Criterion) {
 
     let batch_of_samples = vec![samples.clone(); 20];
 
-    let mut model = AudioEmbeddingModel::load_default().unwrap();
+    let mut model = AudioEmbeddingModel::load_default(false).unwrap();
 
-    c.bench_function("embeddings.rs: AudioEmbeddingModel::embed", |b| {
+    c.bench_function("embeddings.rs: AudioEmbeddingModel::embed cpu", |b| {
         b.iter(|| {
             let _ = black_box(model.embed(black_box(&samples)).unwrap());
         });
     });
 
-    c.bench_function("embeddings.rs: AudioEmbeddingModel::embed_batch", |b| {
+    c.bench_function("embeddings.rs: AudioEmbeddingModel::embed_batch cpu", |b| {
         b.iter(|| {
             let _ = black_box(model.embed_batch(black_box(&batch_of_samples)).unwrap());
         });
     });
+
+    let mut model_wgpu = AudioEmbeddingModel::load_default(true).unwrap();
+
+    c.bench_function("embeddings.rs: AudioEmbeddingModel::embed wgpu", |b| {
+        b.iter(|| {
+            let _ = black_box(model_wgpu.embed(black_box(&samples)).unwrap());
+        });
+    });
+    c.bench_function(
+        "embeddings.rs: AudioEmbeddingModel::embed_batch wgpu",
+        |b| {
+            b.iter(|| {
+                let _ = black_box(
+                    model_wgpu
+                        .embed_batch(black_box(&batch_of_samples))
+                        .unwrap(),
+                );
+            });
+        },
+    );
 }
 
 criterion_group!(

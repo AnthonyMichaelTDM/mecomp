@@ -3,6 +3,9 @@
 
 use crate::ResampledAudio;
 use ort::{
+    execution_providers::{
+        CPUExecutionProvider, ExecutionProviderDispatch, WebGPUExecutionProvider,
+    },
     session::{Session, builder::GraphOptimizationLevel},
     value::{Tensor, TensorRef},
 };
@@ -64,12 +67,22 @@ pub struct AudioEmbeddingModel {
     session: ort::session::Session,
 }
 
-fn session_builder() -> ort::Result<ort::session::builder::SessionBuilder> {
-    // let wgpu_backend = ort::execution_providers::WebGPUExecutionProvider::WebGPUExecutionProvider::default().build();
+fn session_builder(wgpu: bool) -> ort::Result<ort::session::builder::SessionBuilder> {
+    let wgpu_backend = WebGPUExecutionProvider::default().build();
+    let cpu_backend = CPUExecutionProvider::default()
+        .with_arena_allocator(true)
+        .build();
+
+    let exec_providers: &[ExecutionProviderDispatch] = if wgpu {
+        &[wgpu_backend, cpu_backend]
+    } else {
+        &[cpu_backend]
+    };
+
     let builder = Session::builder()?
         .with_memory_pattern(false)?
         .with_optimization_level(GraphOptimizationLevel::Level3)?
-        // .with_execution_providers([wgpu_backend])?
+        .with_execution_providers(exec_providers)?
         .with_device_allocator_for_initializers()?;
 
     Ok(builder)
@@ -81,8 +94,8 @@ impl AudioEmbeddingModel {
     /// # Errors
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
-    pub fn load_default() -> ort::Result<Self> {
-        let session = session_builder()?.commit_from_memory(MODEL_BYTES)?;
+    pub fn load_default(wgpu: bool) -> ort::Result<Self> {
+        let session = session_builder(wgpu)?.commit_from_memory(MODEL_BYTES)?;
 
         Ok(Self { session })
     }
@@ -92,8 +105,8 @@ impl AudioEmbeddingModel {
     /// # Errors
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
-    pub fn load_from_onnx<P: AsRef<Path>>(path: P) -> ort::Result<Self> {
-        let session = session_builder()?.commit_from_file(path)?;
+    pub fn load_from_onnx<P: AsRef<Path>>(path: P, wgpu: bool) -> ort::Result<Self> {
+        let session = session_builder(wgpu)?.commit_from_file(path)?;
 
         Ok(Self { session })
     }
@@ -218,7 +231,7 @@ mod tests {
             .expect("Failed to decode test audio");
 
         let mut model =
-            AudioEmbeddingModel::load_default().expect("Failed to load embedding model");
+            AudioEmbeddingModel::load_default(false).expect("Failed to load embedding model");
         let embedding = model.embed(&audio).expect("Failed to compute embedding");
         assert_eq!(embedding.len(), DIM_EMBEDDING);
     }
@@ -233,7 +246,7 @@ mod tests {
         let audios = vec![audio.clone(); 4];
 
         let mut model =
-            AudioEmbeddingModel::load_default().expect("Failed to load embedding model");
+            AudioEmbeddingModel::load_default(true).expect("Failed to load embedding model");
         let embeddings = model
             .embed_batch(&audios)
             .expect("Failed to compute batch embeddings");
@@ -264,7 +277,7 @@ mod tests {
         let audios = vec![audio1.clone(), audio2.clone()];
 
         let mut model =
-            AudioEmbeddingModel::load_default().expect("Failed to load embedding model");
+            AudioEmbeddingModel::load_default(false).expect("Failed to load embedding model");
         let embeddings = model
             .embed_batch(&audios)
             .expect("Failed to compute batch embeddings");
