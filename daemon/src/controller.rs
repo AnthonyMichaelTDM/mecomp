@@ -1523,7 +1523,7 @@ impl MusicPlayerTrait for MusicPlayer {
         let RadioSimilarRequest { record_ids, limit } = request.into_inner();
         let things = record_ids.into_iter().map(Into::into).collect();
         info!("Getting the {limit} most similar songs to: {things:?}");
-        let songs = services::radio::get_similar(&self.db, things, limit)
+        let songs = services::radio::get_similar(&self.db, things, limit, &self.settings.analysis)
             .await
             .inspect_err(|e| warn!("Error in radio_get_similar: {e}"))
             .map_err(|e| tonic::Status::internal(e.to_string()))?
@@ -1541,7 +1541,7 @@ impl MusicPlayerTrait for MusicPlayer {
         let RadioSimilarRequest { record_ids, limit } = request.into_inner();
         let things = record_ids.into_iter().map(Into::into).collect();
         info!("Getting the {limit} most similar songs to: {things:?}");
-        let ids = services::radio::get_similar(&self.db, things, limit)
+        let ids = services::radio::get_similar(&self.db, things, limit, &self.settings.analysis)
             .await
             .inspect_err(|e| warn!("Error in radio_get_similar_songs: {e}"))
             .map_err(|e| tonic::Status::internal(e.to_string()))?
