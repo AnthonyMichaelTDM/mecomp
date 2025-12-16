@@ -26,7 +26,7 @@ pub struct Analysis {
     pub features: [f64; NUMBER_FEATURES],
 
     /// The [`Song`]'s embedding vector.
-    pub embedding: [f32; mecomp_analysis::DIM_EMBEDDING],
+    pub embedding: [f64; mecomp_analysis::DIM_EMBEDDING],
 }
 
 #[cfg(feature = "db")]

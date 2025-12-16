@@ -274,6 +274,8 @@ pub async fn analyze<C: Connection>(
                     continue;
                 }
             };
+            // convert the embeddings to f64 for storage
+            let embedding: [f64; mecomp_analysis::DIM_EMBEDDING] = embedding.map(f64::from);
 
             // handle errors in analysis generation
             let features = match maybe_analysis {
@@ -590,9 +592,8 @@ mod tests {
     use mecomp_core::config::{ClusterAlgorithm, ProjectionMethod};
     use mecomp_storage::db::schemas::song::{SongChangeSet, SongMetadata};
     use mecomp_storage::test_utils::{
-        ARTIST_NAME_SEPARATOR, SongCase, arb_analysis_embedding, arb_analysis_features,
-        arb_song_case, arb_vec, create_song_metadata, create_song_with_overrides,
-        init_test_database,
+        ARTIST_NAME_SEPARATOR, SongCase, arb_f64_array, arb_song_case, arb_vec,
+        create_song_metadata, create_song_with_overrides, init_test_database,
     };
     use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
@@ -956,8 +957,8 @@ mod tests {
                 song.id.clone(),
                 Analysis {
                     id: Analysis::generate_id(),
-                    features: arb_analysis_features()(),
-                    embedding: arb_analysis_embedding()(),
+                    features: arb_f64_array()(),
+                    embedding: arb_f64_array()(),
                 },
             )
             .await

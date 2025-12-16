@@ -196,10 +196,10 @@ impl Analysis {
             .query(nearest_neighbors_to_many(n, use_embeddings))
             .bind(("ids", ids));
 
-        let query = if use_embeddings {
-            #[allow(clippy::cast_precision_loss)]
-            let num_analyses = analyses.len() as f32;
+        #[allow(clippy::cast_precision_loss)]
+        let num_analyses = analyses.len() as f64;
 
+        let query = if use_embeddings {
             let avg_embedding = analyses.iter().fold(vec![0.; 32], |acc, analysis| {
                 acc.iter()
                     .zip(analysis.embedding.iter())
@@ -209,9 +209,6 @@ impl Analysis {
 
             query.bind(("target", avg_embedding))
         } else {
-            #[allow(clippy::cast_precision_loss)]
-            let num_analyses = analyses.len() as f64;
-
             let avg_features = analyses.iter().fold(vec![0.; 23], |acc, analysis| {
                 acc.iter()
                     .zip(analysis.features.iter())

@@ -473,26 +473,14 @@ where
 }
 
 #[inline]
-pub const fn arb_analysis_features() -> impl Fn() -> [f64; 23] {
+pub const fn arb_f64_array<const N: usize>() -> impl Fn() -> [f64; N] {
     move || {
         let rng = &mut rand::thread_rng();
-        let mut features = [0.0; 23];
+        let mut features = [0.0; N];
         for feature in &mut features {
             *feature = rng.gen_range(-1.0..1.0);
         }
         features
-    }
-}
-
-#[inline]
-pub const fn arb_analysis_embedding() -> impl Fn() -> [f32; mecomp_analysis::DIM_EMBEDDING] {
-    move || {
-        let rng = &mut rand::thread_rng();
-        let mut embedding = [0.0; mecomp_analysis::DIM_EMBEDDING];
-        for value in &mut embedding {
-            *value = rng.gen_range(-1.0..1.0);
-        }
-        embedding
     }
 }
 
