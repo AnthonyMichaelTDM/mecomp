@@ -2,6 +2,7 @@
 use std::{fs::File, path::PathBuf, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use log::{debug, error, info, warn};
+use mecomp_analysis::embeddings::ModelConfig;
 use surrealdb::{Surreal, engine::local::Db};
 use tokio::sync::Mutex;
 use tonic::{Code, Request, Response};
@@ -212,11 +213,21 @@ impl MusicPlayerTrait for MusicPlayer {
 
         let span = tracing::Span::current();
 
+        let config = ModelConfig {
+            path: self.settings.analysis.model_path.clone(),
+        };
+
         tokio::task::spawn(
             async move {
                 let _guard = self.library_analyze_lock.lock().await;
-                match services::library::analyze(&self.db, self.interrupt.resubscribe(), overwrite)
-                    .await
+                match services::library::analyze(
+                    &self.db,
+                    self.interrupt.resubscribe(),
+                    overwrite,
+                    &self.settings.analysis,
+                    config,
+                )
+                .await
                 {
                     Ok(()) => info!("Library analysis complete"),
                     Err(e) => error!("Error in library_analyze: {e}"),

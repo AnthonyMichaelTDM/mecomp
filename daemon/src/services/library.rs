@@ -8,8 +8,9 @@ use log::{debug, error, info, warn};
 use mecomp_analysis::{
     clustering::{ClusteringHelper, KOptimal, NotInitialized},
     decoder::{Decoder, MecompDecoder},
+    embeddings::ModelConfig,
 };
-use mecomp_core::config::ReclusterSettings;
+use mecomp_core::config::{AnalysisSettings, ReclusterSettings};
 use mecomp_prost::{LibraryBrief, LibraryFull, LibraryHealth};
 use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
@@ -204,6 +205,8 @@ pub async fn analyze<C: Connection>(
     db: &Surreal<C>,
     mut interrupt: InterruptReceiver,
     overwrite: bool,
+    settings: &AnalysisSettings,
+    config: ModelConfig,
 ) -> Result<(), Error> {
     if overwrite {
         // delete all the analyses
@@ -230,44 +233,61 @@ pub async fn analyze<C: Connection>(
     };
 
     // analyze the songs in batches, this is a blocking operation
-    let handle = tokio::task::spawn_blocking(move || decoder.analyze_paths_with_callback(keys, tx));
+    let num_threads = settings.num_threads;
+    let handle = tokio::task::spawn_blocking(move || {
+        if let Some(num) = num_threads {
+            decoder.process_songs_with_cores(&keys, tx, num, config.clone())
+        } else {
+            decoder.process_songs(&keys, tx, config.clone())
+        }
+    });
     let abort = handle.abort_handle();
 
     async {
-        for (song_path, maybe_analysis) in rx {
+        for (song_path, maybe_analysis, maybe_embedding) in rx {
             if interrupt.is_stopped() {
                 info!("Analysis interrupted");
                 break;
             }
 
             let displayable_path = song_path.display();
-
             let Some(song_id) = paths.get(&song_path) else {
                 error!("No song id found for path: {displayable_path}");
                 continue;
             };
 
-            match maybe_analysis {
-                Ok(analysis) => Analysis::create(
-                    db,
-                    song_id.clone(),
-                    Analysis {
-                        id: Analysis::generate_id(),
-                        features: *analysis.inner(),
-                    },
-                )
-                .await?
-                .map_or_else(
-                    || {
-                        warn!(
-                        "Error analyzing {displayable_path}: song either wasn't found or already has an analysis"
-                    );
-                    },
-                    |_| info!("Analyzed {displayable_path}"),
-                ),
+            // handle errors in embedding generation
+            let embedding = match maybe_embedding {
+                Ok(embedding) => *embedding.inner(),
                 Err(e) => {
-                    error!("Error analyzing {displayable_path}: {e}");
+                    error!("Error generating embedding for {displayable_path}: {e}");
+                    continue;
                 }
+            };
+
+            // handle errors in analysis generation
+            let features = match maybe_analysis {
+                Ok(analysis) => *analysis.inner(),
+                Err(e) => {
+                    error!("Error generating analysis for {displayable_path}: {e}");
+                    continue;
+                }
+            };
+
+            if let Err(e) = Analysis::create(
+                db,
+                song_id.clone(),
+                Analysis {
+                    id: Analysis::generate_id(),
+                    features,
+                    embedding,
+                },
+            )
+            .await
+            {
+                error!("Error saving analysis for {displayable_path}: {e}");
+            } else {
+                info!("Analyzed {displayable_path}");
             }
         }
 
@@ -560,8 +580,9 @@ mod tests {
     use mecomp_core::config::{ClusterAlgorithm, ProjectionMethod};
     use mecomp_storage::db::schemas::song::{SongChangeSet, SongMetadata};
     use mecomp_storage::test_utils::{
-        ARTIST_NAME_SEPARATOR, SongCase, arb_analysis_features, arb_song_case, arb_vec,
-        create_song_metadata, create_song_with_overrides, init_test_database,
+        ARTIST_NAME_SEPARATOR, SongCase, arb_analysis_embedding, arb_analysis_features,
+        arb_song_case, arb_vec, create_song_metadata, create_song_with_overrides,
+        init_test_database,
     };
     use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
@@ -818,6 +839,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db = init_test_database().await.unwrap();
         let interrupt = InterruptReceiver::dummy();
+        let config = mecomp_analysis::embeddings::ModelConfig::default();
+        let settings = AnalysisSettings::default();
 
         // load some songs into the database
         let song_cases = arb_vec(&arb_song_case(), 10..=15)();
@@ -844,7 +867,9 @@ mod tests {
         );
 
         // analyze the library
-        analyze(&db, interrupt, true).await.unwrap();
+        analyze(&db, interrupt, true, &settings, config)
+            .await
+            .unwrap();
 
         // check that all the songs have analyses
         assert_eq!(
@@ -896,6 +921,7 @@ mod tests {
             algorithm: ClusterAlgorithm::GMM,
             projection_method,
         };
+        let analysis_settings = AnalysisSettings::default();
 
         // load some songs into the database
         let song_cases = arb_vec(&arb_song_case(), 32..=32)();
@@ -921,6 +947,7 @@ mod tests {
                 Analysis {
                     id: Analysis::generate_id(),
                     features: arb_analysis_features()(),
+                    embedding: arb_analysis_embedding()(),
                 },
             )
             .await
@@ -928,9 +955,14 @@ mod tests {
         }
 
         // recluster the library
-        recluster(&db, settings, InterruptReceiver::dummy())
-            .await
-            .unwrap();
+        recluster(
+            &db,
+            settings,
+            &analysis_settings,
+            InterruptReceiver::dummy(),
+        )
+        .await
+        .unwrap();
 
         // check that there are collections
         let collections = Collection::read_all(&db).await.unwrap();
