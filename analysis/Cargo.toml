@@ -41,11 +41,11 @@ likely_stable.workspace = true
 bitvec.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 ort = { version = "2.0.0-rc.10", features = [
-    "copy-dylibs",
+    # "copy-dylibs",
     "download-binaries",
     "std",
-    "tracing",
-    "webgpu",
+    # "tracing",
+    # "webgpu",
 ], default-features = false }
 
 # if we're building on macos, we need to link against the system's fftw3

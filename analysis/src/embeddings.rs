@@ -4,9 +4,6 @@
 use crate::ResampledAudio;
 use log::warn;
 use ort::{
-    execution_providers::{
-        CPUExecutionProvider, ExecutionProviderDispatch, WebGPUExecutionProvider,
-    },
     session::{Session, builder::GraphOptimizationLevel},
     value::TensorRef,
 };
@@ -64,7 +61,6 @@ impl Embedding {
 
 #[derive(Debug, Clone, Default)]
 pub struct ModelConfig {
-    pub wgpu: bool,
     pub path: Option<PathBuf>,
 }
 
@@ -74,23 +70,10 @@ pub struct AudioEmbeddingModel {
     session: ort::session::Session,
 }
 
-fn session_builder(wgpu: bool) -> ort::Result<ort::session::builder::SessionBuilder> {
-    let wgpu_backend = WebGPUExecutionProvider::default().build();
-    let cpu_backend = CPUExecutionProvider::default()
-        .with_arena_allocator(true)
-        .build();
-
-    let exec_providers: &[ExecutionProviderDispatch] = if wgpu {
-        &[wgpu_backend, cpu_backend]
-    } else {
-        &[cpu_backend]
-    };
-
+fn session_builder() -> ort::Result<ort::session::builder::SessionBuilder> {
     let builder = Session::builder()?
         .with_memory_pattern(false)?
-        .with_optimization_level(GraphOptimizationLevel::Level3)?
-        .with_execution_providers(exec_providers)?
-        .with_device_allocator_for_initializers()?;
+        .with_optimization_level(GraphOptimizationLevel::Level3)?;
 
     Ok(builder)
 }
@@ -101,8 +84,8 @@ impl AudioEmbeddingModel {
     /// # Errors
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
-    pub fn load_default(wgpu: bool) -> ort::Result<Self> {
-        let session = session_builder(wgpu)?.commit_from_memory(MODEL_BYTES)?;
+    pub fn load_default() -> ort::Result<Self> {
+        let session = session_builder()?.commit_from_memory(MODEL_BYTES)?;
 
         Ok(Self { session })
     }
@@ -112,8 +95,8 @@ impl AudioEmbeddingModel {
     /// # Errors
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
-    pub fn load_from_onnx<P: AsRef<Path>>(path: P, wgpu: bool) -> ort::Result<Self> {
-        let session = session_builder(wgpu)?.commit_from_file(&path)?;
+    pub fn load_from_onnx<P: AsRef<Path>>(path: P) -> ort::Result<Self> {
+        let session = session_builder()?.commit_from_file(&path)?;
 
         Ok(Self { session })
     }
@@ -127,13 +110,13 @@ impl AudioEmbeddingModel {
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
     pub fn load(config: &ModelConfig) -> ort::Result<Self> {
-        match &config.path {
-            Some(path) => Self::load_from_onnx(path, config.wgpu).or_else(|e| {
+        config.path.as_ref().map_or_else(Self::load_default, |path|{
+            Self::load_from_onnx(path).or_else(|e| {
                 warn!("failed to load embeddings model from specified path: {e}, falling back to default model.");
-                Self::load_default(config.wgpu)
-            }),
-            None => Self::load_default(config.wgpu),
-        }
+                Self::load_default()
+            })
+
+        })
     }
 
     /// Compute embedding from raw audio samples (f32, mono, 22050 Hz),
@@ -149,7 +132,7 @@ impl AudioEmbeddingModel {
     pub fn embed(&mut self, audio: &ResampledAudio) -> ort::Result<Embedding> {
         // Create input with batch dimension
         let inputs = ort::inputs! {
-            "audio" => TensorRef::from_array_view(([1, audio.samples.len()], &*audio.samples))?,
+            "audio" => TensorRef::from_array_view(([1, audio.samples.len()], audio.samples.as_slice()))?,
         };
 
         // Run inference
@@ -191,7 +174,7 @@ impl AudioEmbeddingModel {
 
         // Prepare input tensor with zero-padding
         let mut input_data = vec![0f32; batch_size * max_len];
-        for (i, audio) in audios.into_iter().enumerate() {
+        for (i, audio) in audios.iter().enumerate() {
             input_data[i * max_len..i * max_len + audio.samples.len()]
                 .copy_from_slice(&audio.samples);
         }
@@ -205,6 +188,7 @@ impl AudioEmbeddingModel {
 
         // Extract embeddings
         let (shape, embedding_tensor) = outputs["embedding"].try_extract_tensor::<f32>()?;
+        #[allow(clippy::cast_possible_wrap)]
         let expected_shape = &[batch_size as i64, EMBEDDING_SIZE];
         if shape.iter().as_slice() != expected_shape {
             return Err(ort::Error::new(format!(
@@ -242,7 +226,7 @@ mod tests {
             .expect("Failed to decode test audio");
 
         let mut model =
-            AudioEmbeddingModel::load_default(false).expect("Failed to load embedding model");
+            AudioEmbeddingModel::load_default().expect("Failed to load embedding model");
         let embedding = model.embed(&audio).expect("Failed to compute embedding");
         assert_eq!(embedding.len(), DIM_EMBEDDING);
     }
@@ -257,7 +241,7 @@ mod tests {
         let audios = vec![audio.clone(); 4];
 
         let mut model =
-            AudioEmbeddingModel::load_default(true).expect("Failed to load embedding model");
+            AudioEmbeddingModel::load_default().expect("Failed to load embedding model");
         let embeddings = model
             .embed_batch(&audios)
             .expect("Failed to compute batch embeddings");
@@ -288,7 +272,7 @@ mod tests {
         let audios = vec![audio1.clone(), audio2.clone()];
 
         let mut model =
-            AudioEmbeddingModel::load_default(false).expect("Failed to load embedding model");
+            AudioEmbeddingModel::load_default().expect("Failed to load embedding model");
         let embeddings = model
             .embed_batch(&audios)
             .expect("Failed to compute batch embeddings");

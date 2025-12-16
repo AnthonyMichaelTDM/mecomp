@@ -34,7 +34,7 @@ pub async fn get_similar<C: Connection>(
         .collect();
 
     // whether to use feature-based or embedding-based analysis
-    let use_embeddings = matches!(settings.kind, mecomp_core::config::AnalysisKind::Embeddings);
+    let use_embeddings = matches!(settings.kind, mecomp_core::config::AnalysisKind::Embedding);
 
     let analyses = Analysis::read_for_songs(db, songs).await?;
     let neighbors = Analysis::nearest_neighbors_to_many(db, analyses, n, use_embeddings).await?;

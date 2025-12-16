@@ -7,7 +7,7 @@ use config::{Config, ConfigError, Environment, File};
 use one_or_many::OneOrMany;
 use serde::Deserialize;
 
-use std::{path::PathBuf, str::FromStr};
+use std::{num::NonZeroUsize, path::PathBuf, str::FromStr};
 
 use mecomp_storage::util::MetadataConflictResolution;
 
@@ -221,35 +221,50 @@ impl Default for DaemonSettings {
 pub enum AnalysisKind {
     #[default]
     Features,
-    Embeddings,
+    Embedding,
 }
 
-#[derive(Clone, Debug, Deserialize, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct AnalysisSettings {
-    /// The kind of analysis to perform, either "features" or "embeddings".
+    /// The kind of analysis to perform, either "features" or "embedding".
     /// "features" will compute traditional audio features (tempo, key, etc.)
-    /// "embeddings" will compute neural audio embeddings using a pre-trained model.
+    /// "embedding" will compute neural audio embedding using a pre-trained model.
     /// Default is "features".
     ///
-    /// Note that regardless of this setting, both features and embeddings will be computed during analysis.
+    /// Note that regardless of this setting, both features and embedding will be computed during analysis.
     /// This only determines the kind used for clustering, radio, and other such tasks
     #[serde(default)]
     pub kind: AnalysisKind,
-    /// Whether to use WebGPU for accelerating the embedding model inference.
-    /// Default is false, but if you have a compatible GPU, enabling this can significantly speed up analysis.
+    /// The number of threads to use for analysis.
+    /// Default is the number of logical CPUs on the system.
+    ///
+    /// Note that:
+    /// - increasing this number may increase memory usage significantly during analysis.
+    /// - setting this number to more than the number of logical CPUs will have no effect (saturates at number of logical CPUs).
+    /// - leave this unset to use the default.
     #[serde(default)]
-    pub use_wgpu: bool,
-
-    /// If using "embeddings" analysis kind, you can optionally override the model path here.
+    pub num_threads: Option<NonZeroUsize>,
+    /// If using "embedding" analysis kind, you can optionally override the model path here.
     /// Requirements:
     /// - The model must be in the ONNX format with opset version 16 or higher.
     /// - The model should expect mono audio samples at a sample rate of 22,050 Hz.
     /// - The input tensor must be name "audio" and have shape [B, N] where N a dynamic length corresponding to the number of audio samples in the song, and B is the batch size.
     /// - The output tensor must be name "embedding" and have shape [B, 32] corresponding to a 32-dimensional embedding vector. B is the batch size.
     ///
-    /// If unset, empty, or a non-existent/invalid path, the built-in model (which is bundled into the daemon binary) will be used.
+    /// If unset, or a non-existent/invalid path, the built-in model (which is bundled into the daemon binary) will be used.
     #[serde(default)]
     pub model_path: Option<PathBuf>,
+}
+
+impl Default for AnalysisSettings {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            kind: AnalysisKind::default(),
+            num_threads: None,
+            model_path: None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Default, PartialEq, Eq)]
