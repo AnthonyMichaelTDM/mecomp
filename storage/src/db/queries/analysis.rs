@@ -189,7 +189,7 @@ pub fn nearest_neighbors(n: u32) -> impl IntoQuery {
 /// let statement = nearest_neighbors_to_many(5, true);
 /// assert_eq!(
 ///     statement.into_query().unwrap(),
-///     "SELECT * FROM analysis WHERE id NOT IN $ids AND embeddings <|5|> $target".into_query().unwrap()
+///     "SELECT * FROM analysis WHERE id NOT IN $ids AND embedding <|5|> $target".into_query().unwrap()
 /// );
 /// ```
 #[must_use]
@@ -199,7 +199,7 @@ pub fn nearest_neighbors_to_many(n: u32, use_embeddings: bool) -> impl IntoQuery
         "SELECT * FROM {} WHERE id NOT IN $ids AND {} <|{n}|> $target",
         schemas::analysis::TABLE_NAME,
         if use_embeddings {
-            "embeddings"
+            "embedding"
         } else {
             "features"
         }
@@ -238,7 +238,7 @@ mod query_validation_tests {
     )]
     #[case::nearest_neighbors_to_many(
         nearest_neighbors_to_many(5, true),
-        "SELECT * FROM analysis WHERE id NOT IN $ids AND embeddings <|5|> $target"
+        "SELECT * FROM analysis WHERE id NOT IN $ids AND embedding <|5|> $target"
     )]
     fn test_queries(#[case] query: impl IntoQuery, #[case] expected: &str) {
         validate_query(query, expected);
