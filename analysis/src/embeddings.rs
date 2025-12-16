@@ -4,6 +4,7 @@
 use crate::ResampledAudio;
 use log::warn;
 use ort::{
+    execution_providers::CPUExecutionProvider,
     session::{Session, builder::GraphOptimizationLevel},
     value::TensorRef,
 };
@@ -71,7 +72,14 @@ pub struct AudioEmbeddingModel {
 }
 
 fn session_builder() -> ort::Result<ort::session::builder::SessionBuilder> {
+    // Disable the CPU memory arena to prevent memory accumulation when processing
+    // variable-length audio inputs. The arena allocator grows to accommodate the
+    // largest input seen but never shrinks, which causes memory to accumulate
+    // when processing many songs of varying lengths.
     let builder = Session::builder()?
+        .with_execution_providers([CPUExecutionProvider::default()
+            .with_arena_allocator(false)
+            .build()])?
         .with_memory_pattern(false)?
         .with_optimization_level(GraphOptimizationLevel::Level3)?;
 

@@ -74,7 +74,7 @@ fn bench_process_songs(c: &mut Criterion) {
                 || {
                     let decoder = Decoder::new().unwrap();
                     let config = ModelConfig::default();
-                    let (tx, rx) = std::sync::mpsc::channel();
+                    let (tx, rx) = std::sync::mpsc::sync_channel(16);
                     (decoder, config, tx, rx)
                 },
                 |(decoder, config, tx, rx)| {

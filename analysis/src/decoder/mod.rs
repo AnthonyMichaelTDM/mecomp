@@ -6,12 +6,12 @@ use std::{
     marker::Send,
     num::NonZeroUsize,
     path::{Path, PathBuf},
-    sync::mpsc::{self, SendError},
+    sync::mpsc::{self, SendError, SyncSender},
     thread,
 };
 
 use log::{debug, error, trace};
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     Analysis, ResampledAudio,
@@ -24,7 +24,7 @@ mod mecomp;
 pub use mecomp::{MecompDecoder, SymphoniaSource};
 
 pub type ProcessingCallback =
-    mpsc::Sender<(PathBuf, AnalysisResult<Analysis>, AnalysisResult<Embedding>)>;
+    SyncSender<(PathBuf, AnalysisResult<Analysis>, AnalysisResult<Embedding>)>;
 
 /// Trait used to implement your own decoder.
 ///
@@ -252,60 +252,62 @@ pub trait Decoder {
             .unwrap();
 
         pool.install(|| {
-            // decode all the audio files in parallel.
-            // As chunks of `batch_size` songs are decoded, embed them and analyze them in parallel.
-            paths
-                .par_iter()
-                .map(|path| (self.decode(path), path.clone()))
-                .filter_map(|(res, path)| {
-                    let audio = res
-                        .inspect_err(|e| error!("Error decoding {}: {e}", path.display()))
-                        .ok()?;
+            // Process songs in parallel, but each song is fully processed (decode -> analyze -> embed -> send)
+            // before the thread moves to the next song. This prevents memory accumulation from
+            // buffering decoded audio across multiple pipeline stages.
+            paths.into_par_iter().try_for_each(|path| {
+                let thread_name = thread::current().name().unwrap_or("unknown").to_string();
 
-                    let thread_name = thread::current().name().unwrap_or("unknown").to_string();
-                    trace!("Decoded {} in thread {thread_name}", path.display());
+                // Decode the audio file
+                let audio = match self.decode(path) {
+                    Ok(audio) => {
+                        trace!("Decoded {} in thread {thread_name}", path.display());
+                        audio
+                    }
+                    Err(e) => {
+                        error!("Error decoding {}: {e}", path.display());
+                        return Ok(()); // Skip this file, continue with others
+                    }
+                };
 
-                    Some((audio, path))
-                })
-                .map(|(audio, path)| {
-                    let analysis = Analysis::from_samples(&audio);
+                // Analyze the audio
+                let analysis = Analysis::from_samples(&audio);
+                trace!("Analyzed {} in thread {thread_name}", path.display());
 
-                    let thread_name = thread::current().name().unwrap_or("unknown").to_string();
-                    trace!("Analyzed {} in thread {thread_name}", path.display());
+                // Generate embedding
+                let embedding = MODEL.try_with(|model_cell| {
+                    let mut model_ref = model_cell.borrow_mut();
+                    if model_ref.is_none() {
+                        debug!("Loading embedding model in thread {thread_name}");
+                        *model_ref = Some(AudioEmbeddingModel::load(&model_config)?);
+                    }
+                    trace!(
+                        "Generating embeddings for {} in thread {thread_name}",
+                        path.display()
+                    );
+                    model_ref
+                        .as_mut()
+                        .unwrap()
+                        .embed(&audio)
+                        .map_err(AnalysisError::from)
+                });
 
-                    (audio, analysis, path)
-                })
-                .map(|(audio, analysis, path)| {
-                    let gen_embedding = || {
-                        // Each thread has its own model instance
-                        MODEL.try_with(|model_cell| {
-                            let thread_name =
-                                thread::current().name().unwrap_or("unknown").to_string();
+                // Flatten the Result<Result<...>> and convert to AnalysisResult
+                let embedding = match embedding {
+                    Ok(Ok(e)) => Ok(e),
+                    Ok(Err(e)) => Err(e),
+                    Err(e) => Err(AnalysisError::AccessError(e)),
+                };
 
-                            let mut model_ref = model_cell.borrow_mut();
-                            if model_ref.is_none() {
-                                debug!("Loading embedding model in thread {thread_name}");
-                                *model_ref = Some(AudioEmbeddingModel::load(&model_config)?);
-                            }
-                            trace!(
-                                "Generating embeddings for {} in thread {thread_name}",
-                                path.display()
-                            );
-                            model_ref
-                                .as_mut()
-                                .unwrap()
-                                .embed(&audio)
-                                .map_err(AnalysisError::from)
-                        })?
-                    };
+                // Drop the audio samples before sending to free memory immediately
+                drop(audio);
 
-                    (gen_embedding(), analysis, path)
-                })
-                .try_for_each(|(embedding, analysis, path)| {
-                    callback
-                        .send((path, analysis, embedding))
-                        .map_err(|_| AnalysisError::SendError)
-                })
+                // Send the results - the bounded channel will apply backpressure
+                // if the consumer is slow, preventing unbounded memory growth
+                callback
+                    .send((path.clone(), analysis, embedding))
+                    .map_err(|_| AnalysisError::SendError)
+            })
         })
     }
 

@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    num::NonZeroUsize,
     path::PathBuf,
     time::Duration,
 };
@@ -225,7 +226,16 @@ pub async fn analyze<C: Connection>(
 
     let keys = paths.keys().cloned().collect::<Vec<_>>();
 
-    let (tx, rx) = std::sync::mpsc::channel();
+    // Use a bounded channel to apply backpressure on the producer.
+    // This prevents unbounded memory growth when analysis is faster than database writes.
+    // The buffer size is set to 2x the number of threads to allow some buffering
+    // while still limiting memory usage.
+    const ONE: NonZeroUsize = NonZeroUsize::new(1).unwrap();
+    let channel_buffer_size = 2 * settings
+        .num_threads
+        .unwrap_or_else(|| std::thread::available_parallelism().unwrap_or(ONE))
+        .get();
+    let (tx, rx) = std::sync::mpsc::sync_channel(channel_buffer_size);
 
     let Ok(decoder) = MecompDecoder::new() else {
         error!("Error creating decoder");
