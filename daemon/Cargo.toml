@@ -49,6 +49,12 @@ cli = [
 # flame = ["mecomp-core/flame"]
 dynamic_updates = ["dep:notify-debouncer-full", "dep:notify"]
 
+# Hardware acceleration for ONNX model inference (opt-in, requires additional setup)
+cuda = ["mecomp-analysis/cuda"] # NVIDIA CUDA (requires CUDA 12 + cuDNN 9.x)
+tensorrt = [ # NVIDIA TensorRT (requires TensorRT + CUDA)
+    "mecomp-analysis/tensorrt",
+]
+
 [dependencies]
 # shared dependencies
 anyhow = { workspace = true }
@@ -73,7 +79,7 @@ mecomp-core = { workspace = true, features = [
     "analysis",
 ] }
 mecomp-storage = { workspace = true, features = ["serde", "db", "analysis"] }
-mecomp-analysis = { workspace = true }
+mecomp-analysis.workspace = true
 one-or-many = { workspace = true }
 mecomp-prost = { workspace = true }
 tokio-stream = { workspace = true }

@@ -10,6 +10,16 @@ use ort::{
 };
 use std::path::{Path, PathBuf};
 
+// Conditionally import execution providers based on enabled features/platform
+#[cfg(feature = "cuda")]
+use ort::execution_providers::CUDAExecutionProvider;
+#[cfg(target_os = "macos")]
+use ort::execution_providers::CoreMLExecutionProvider;
+#[cfg(target_os = "windows")]
+use ort::execution_providers::DirectMLExecutionProvider;
+#[cfg(feature = "tensorrt")]
+use ort::execution_providers::TensorRTExecutionProvider;
+
 static MODEL_BYTES: &[u8] = include_bytes!("../models/audio_embedding_model.onnx");
 
 /// The size of the embedding produced by the audio embedding model, onnx wants this to be i64.
@@ -71,15 +81,61 @@ pub struct AudioEmbeddingModel {
     session: ort::session::Session,
 }
 
-fn session_builder() -> ort::Result<ort::session::builder::SessionBuilder> {
+/// Build a list of execution providers in priority order based on available features/platform.
+/// Providers are tried in order; if one fails to register, the next is attempted.
+/// CPU is always the final fallback.
+fn build_execution_providers() -> Vec<ort::execution_providers::ExecutionProviderDispatch> {
+    let mut providers = Vec::new();
+
+    // GPU providers (feature-gated, require user to have appropriate drivers)
+    #[cfg(feature = "tensorrt")]
+    {
+        providers.push(TensorRTExecutionProvider::default().build());
+        log::info!("TensorRT execution provider enabled");
+    }
+
+    #[cfg(feature = "cuda")]
+    {
+        providers.push(CUDAExecutionProvider::default().build());
+        log::info!("CUDA execution provider enabled");
+    }
+
+    // Platform-specific zero-dependency providers
+    #[cfg(target_os = "windows")]
+    {
+        providers.push(DirectMLExecutionProvider::default().build());
+        log::info!("DirectML execution provider enabled (Windows)");
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        providers.push(
+            CoreMLExecutionProvider::default()
+                .with_subgraphs(true) // Enable CoreML on subgraphs for better coverage
+                .build(),
+        );
+        log::info!("CoreML execution provider enabled (macOS)");
+    }
+
+    // CPU is always the final fallback
     // Disable the CPU memory arena to prevent memory accumulation when processing
     // variable-length audio inputs. The arena allocator grows to accommodate the
     // largest input seen but never shrinks, which causes memory to accumulate
     // when processing many songs of varying lengths.
-    let builder = Session::builder()?
-        .with_execution_providers([CPUExecutionProvider::default()
+    providers.push(
+        CPUExecutionProvider::default()
             .with_arena_allocator(false)
-            .build()])?
+            .build(),
+    );
+
+    providers
+}
+
+fn session_builder() -> ort::Result<ort::session::builder::SessionBuilder> {
+    let providers = build_execution_providers();
+
+    let builder = Session::builder()?
+        .with_execution_providers(providers)?
         .with_memory_pattern(false)?
         .with_optimization_level(GraphOptimizationLevel::Level3)?;
 
