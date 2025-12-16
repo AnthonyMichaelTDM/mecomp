@@ -25,12 +25,12 @@ fn bench_generate_embeddings(c: &mut Criterion) {
 
     let samples = Decoder::new().unwrap().decode(&path).unwrap();
     // only use the first 20% of the samples so the bandwidth of the benchmarks is the same
-    let samples = mecomp_analysis::ResampledAudio {
+    let batch_samples = mecomp_analysis::ResampledAudio {
         samples: samples.samples[..samples.samples.len() / 5].to_vec(),
-        path: samples.path,
+        path: samples.path.clone(),
     };
 
-    let batch_of_samples = vec![samples.clone(); 20];
+    let batch_of_samples = vec![batch_samples.clone(); 5];
 
     let mut model = AudioEmbeddingModel::load_default(false).unwrap();
 
@@ -67,9 +67,16 @@ fn bench_generate_embeddings(c: &mut Criterion) {
     );
 }
 
+
+criterion_group!(load_benches, bench_load_embeddings_model);
+criterion_group!(
+    name = inference_benches;
+    config = Criterion::default().sample_size(10);
+    targets = bench_generate_embeddings
+);
 criterion_group!(
     benches,
     bench_load_embeddings_model,
     bench_generate_embeddings
 );
-criterion_main!(benches);
+criterion_main!(load_benches, inference_benches);

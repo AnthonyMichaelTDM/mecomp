@@ -147,19 +147,13 @@ impl AudioEmbeddingModel {
     /// * the output is missing or has an unexpected shape (should be named "embedding" and have shape `[1, 32]`).
     #[inline]
     pub fn embed(&mut self, audio: &ResampledAudio) -> ort::Result<Embedding> {
-        // Create input
-        let ort_value = TensorRef::from_array_view(([1, audio.samples.len()], &*audio.samples))?;
-
-        let mut binding = self.session.create_binding()?;
-        binding.bind_input("audio", &ort_value)?;
-        binding.bind_output(
-            "embedding",
-            Tensor::<f32>::new(&ort::memory::Allocator::default(), [1, DIM_EMBEDDING])?,
-        )?;
-        binding.synchronize_inputs()?;
+        // Create input with batch dimension
+        let inputs = ort::inputs! {
+            "audio" => TensorRef::from_array_view(([1, audio.samples.len()], &*audio.samples))?,
+        };
 
         // Run inference
-        let outputs = self.session.run_binding(&binding)?;
+        let outputs = self.session.run(inputs)?;
 
         // Extract embedding
         let (shape, embedding) = outputs["embedding"].try_extract_tensor::<f32>()?;
@@ -202,20 +196,12 @@ impl AudioEmbeddingModel {
                 .copy_from_slice(&audio.samples);
         }
 
-        let ort_value = TensorRef::from_array_view(([batch_size, max_len], &*input_data))?;
-        let mut binding = self.session.create_binding()?;
-        binding.bind_input("audio", &ort_value)?;
-        binding.bind_output(
-            "embedding",
-            Tensor::<f32>::new(
-                &ort::memory::Allocator::default(),
-                [batch_size, DIM_EMBEDDING],
-            )?,
-        )?;
-        binding.synchronize_inputs()?;
+        let input = ort::inputs! {
+            "audio" => TensorRef::from_array_view(([batch_size, max_len], &*input_data))?,
+        };
 
         // Run inference
-        let outputs = self.session.run_binding(&binding)?;
+        let outputs = self.session.run(input)?;
 
         // Extract embeddings
         let (shape, embedding_tensor) = outputs["embedding"].try_extract_tensor::<f32>()?;
