@@ -37,7 +37,7 @@ jobs:
       - name: Setup cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: ${{ runner.os }}-cargo-tarpaulin-${{ hashFiles('**/Cargo.lock') }}
+          shared-key: ${{ runner.os }}-cargo-tarpaulin
 
       - name: install cargo-tarpaulin
         uses: taiki-e/install-action@v2.62.29
