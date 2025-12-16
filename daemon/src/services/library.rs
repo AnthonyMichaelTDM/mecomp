@@ -263,7 +263,7 @@ pub async fn analyze<C: Connection>(
                         "Error analyzing {displayable_path}: song either wasn't found or already has an analysis"
                     );
                     },
-                    |_| debug!("Analyzed {displayable_path}"),
+                    |_| info!("Analyzed {displayable_path}"),
                 ),
                 Err(e) => {
                     error!("Error analyzing {displayable_path}: {e}");
