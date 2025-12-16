@@ -1,5 +1,6 @@
 //! CRUD operations for the analysis table
 
+use mecomp_analysis::{DIM_EMBEDDING, NUMBER_FEATURES};
 use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
 use surrealqlx::surrql;
@@ -200,21 +201,25 @@ impl Analysis {
         let num_analyses = analyses.len() as f64;
 
         let query = if use_embeddings {
-            let avg_embedding = analyses.iter().fold(vec![0.; 32], |acc, analysis| {
-                acc.iter()
-                    .zip(analysis.embedding.iter())
-                    .map(|(a, b)| a + (b / num_analyses))
-                    .collect::<Vec<_>>()
-            });
+            let avg_embedding = analyses
+                .iter()
+                .fold(vec![0.; DIM_EMBEDDING], |acc, analysis| {
+                    acc.iter()
+                        .zip(analysis.embedding.iter())
+                        .map(|(a, b)| a + (b / num_analyses))
+                        .collect::<Vec<_>>()
+                });
 
             query.bind(("target", avg_embedding))
         } else {
-            let avg_features = analyses.iter().fold(vec![0.; 23], |acc, analysis| {
-                acc.iter()
-                    .zip(analysis.features.iter())
-                    .map(|(a, b)| a + (b / num_analyses))
-                    .collect::<Vec<_>>()
-            });
+            let avg_features = analyses
+                .iter()
+                .fold(vec![0.; NUMBER_FEATURES], |acc, analysis| {
+                    acc.iter()
+                        .zip(analysis.features.iter())
+                        .map(|(a, b)| a + (b / num_analyses))
+                        .collect::<Vec<_>>()
+                });
 
             query.bind(("target", avg_features))
         };

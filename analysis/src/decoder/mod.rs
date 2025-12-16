@@ -219,7 +219,7 @@ pub trait Decoder {
     /// for each batch processed.
     ///
     /// # Errors
-    ////
+    ///
     /// Errors if the `callback` channel is closed.
     #[inline]
     fn process_songs_with_cores(
@@ -321,7 +321,7 @@ pub trait Decoder {
     /// for each batch processed.
     ///
     /// # Errors
-    //// Errors if the `callback` channel is closed.
+    /// Errors if the `callback` channel is closed.
     #[inline]
     fn process_songs(
         &self,

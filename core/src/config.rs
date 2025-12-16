@@ -244,7 +244,7 @@ pub struct AnalysisSettings {
     /// - leave this unset to use the default.
     #[serde(default)]
     pub num_threads: Option<NonZeroUsize>,
-    /// If using "embedding" analysis kind, you can optionally override the model path here.
+    /// You can optionally override the model used for generating audio embeddings.
     /// Requirements:
     /// - The model must be in the ONNX format with opset version 16 or higher.
     /// - The model should expect mono audio samples at a sample rate of 22,050 Hz.

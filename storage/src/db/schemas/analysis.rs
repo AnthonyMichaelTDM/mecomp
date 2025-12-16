@@ -61,6 +61,8 @@ DEFINE INDEX IF NOT EXISTS analysis_features_vector_index ON analysis FIELDS fea
             M::up(surrql!("DEFINE FIELD IF NOT EXISTS embedding ON analysis TYPE array<float>;"))
                 .down(surrql!("REMOVE FIELD embedding ON analysis;"))
                 .comment("Add embedding field to analysis table"),
+            // NOTE: The hardcoded value 32 below must match `mecomp_analysis::DIM_EMBEDDING`.  
+            // If the embedding dimension changes, create a new migration to update the index accordingly.
             M::up(surrql!("DEFINE INDEX IF NOT EXISTS analysis_embeddings_vector_index ON analysis FIELDS embedding MTREE DIMENSION 32;"))
                 .down(surrql!("REMOVE INDEX analysis_embeddings_vector_index ON analysis;"))
                 .comment("Define analysis embeddings index after adding embedding field"),

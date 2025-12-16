@@ -236,7 +236,7 @@ mod query_validation_tests {
         nearest_neighbors_to_many(5, false),
         "SELECT * FROM analysis WHERE id NOT IN $ids AND features <|5|> $target"
     )]
-    #[case::nearest_neighbors_to_many(
+    #[case::nearest_neighbors_to_many_use_embeddings(
         nearest_neighbors_to_many(5, true),
         "SELECT * FROM analysis WHERE id NOT IN $ids AND embedding <|5|> $target"
     )]

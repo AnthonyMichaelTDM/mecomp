@@ -70,7 +70,7 @@ kind = "features"
 ## - setting this number to more than the number of logical CPUs will have no effect (saturates at number of logical CPUs).
 ## - leave this unset to use the default.
 # num_threads = 8
-## If using "embedding" analysis kind, you can optionally override the model path here.
+## You can optionally override the model used for generating audio embeddings.
 ## Requirements:
 ## - The model must be in the ONNX format with opset version 16 or higher.
 ## - The model should expect mono audio samples at a sample rate of 22,050 Hz.
