@@ -20,6 +20,10 @@ pub enum AnalysisError {
     InvalidFeaturesLen,
     #[error("Embedding Error: {0}")]
     EmbeddingError(#[from] ort::Error),
+    #[error("Send Error")]
+    SendError,
+    #[error("Access Error when accessing thread-local model: {0}")]
+    AccessError(#[from] std::thread::AccessError),
 }
 
 pub type AnalysisResult<T> = Result<T, AnalysisError>;

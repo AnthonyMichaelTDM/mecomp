@@ -1,6 +1,7 @@
 #![allow(clippy::missing_inline_in_public_items)]
 
 use std::{
+    cell::RefCell,
     clone::Clone,
     marker::Send,
     num::NonZeroUsize,
@@ -9,14 +10,21 @@ use std::{
     thread,
 };
 
-use log::info;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use log::{debug, error, trace};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
-use crate::{Analysis, ResampledAudio, errors::AnalysisResult};
+use crate::{
+    Analysis, ResampledAudio,
+    embeddings::{AudioEmbeddingModel, Embedding},
+    errors::{AnalysisError, AnalysisResult},
+};
 
 mod mecomp;
 #[allow(clippy::module_name_repetitions)]
 pub use mecomp::{MecompDecoder, SymphoniaSource};
+
+pub type ProcessingCallback =
+    mpsc::Sender<(PathBuf, AnalysisResult<Analysis>, AnalysisResult<Embedding>)>;
 
 /// Trait used to implement your own decoder.
 ///
@@ -199,5 +207,130 @@ pub trait Decoder {
                 self.analyze_path_with_callback(path, callback.clone())
             })
         })
+    }
+
+    /// Process raw audio samples in `audios`, and yield the `Analysis` and `Embedding` objects
+    /// through the provided `callback` channel.
+    /// Parallelizes the process across `number_cores` CPU cores.
+    ///
+    /// You can cancel the job by dropping the `callback` channel.
+    ///
+    /// Note: A new [`AudioEmbeddingModel`](crate::embeddings::AudioEmbeddingModel) session will be created
+    /// for each batch processed.
+    ///
+    /// # Errors
+    ////
+    /// Errors if the `callback` channel is closed.
+    #[inline]
+    fn process_songs_with_cores(
+        &self,
+        paths: &[PathBuf],
+        callback: ProcessingCallback,
+        number_cores: NonZeroUsize,
+        model_config: crate::embeddings::ModelConfig,
+    ) -> AnalysisResult<()>
+    where
+        Self: Sync + Send,
+    {
+        let mut cores = thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
+        if cores > number_cores {
+            cores = number_cores;
+        }
+
+        if paths.is_empty() {
+            return Ok(());
+        }
+
+        thread_local! {
+            static MODEL: RefCell<Option<AudioEmbeddingModel>> = const { RefCell::new(None) };
+        }
+
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(cores.get())
+            .thread_name(|idx| format!("Analyzer {idx}"))
+            .build()
+            .unwrap();
+
+        pool.install(|| {
+            // decode all the audio files in parallel.
+            // As chunks of `batch_size` songs are decoded, embed them and analyze them in parallel.
+            paths
+                .par_iter()
+                .map(|path| (self.decode(path), path.clone()))
+                .filter_map(|(res, path)| {
+                    let audio = res
+                        .inspect_err(|e| error!("Error decoding {}: {e}", path.display()))
+                        .ok()?;
+
+                    let thread_name = thread::current().name().unwrap_or("unknown").to_string();
+                    trace!("Decoded {} in thread {thread_name}", path.display());
+
+                    Some((audio, path))
+                })
+                .map(|(audio, path)| {
+                    let analysis = Analysis::from_samples(&audio);
+
+                    let thread_name = thread::current().name().unwrap_or("unknown").to_string();
+                    trace!("Analyzed {} in thread {thread_name}", path.display());
+
+                    (audio, analysis, path)
+                })
+                .map(|(audio, analysis, path)| {
+                    let gen_embedding = || {
+                        // Each thread has its own model instance
+                        MODEL.try_with(|model_cell| {
+                            let thread_name =
+                                thread::current().name().unwrap_or("unknown").to_string();
+
+                            let mut model_ref = model_cell.borrow_mut();
+                            if model_ref.is_none() {
+                                debug!("Loading embedding model in thread {thread_name}");
+                                *model_ref = Some(AudioEmbeddingModel::load(&model_config)?);
+                            }
+                            trace!(
+                                "Generating embeddings for {} in thread {thread_name}",
+                                path.display()
+                            );
+                            model_ref
+                                .as_mut()
+                                .unwrap()
+                                .embed(&audio)
+                                .map_err(AnalysisError::from)
+                        })?
+                    };
+
+                    (gen_embedding(), analysis, path)
+                })
+                .try_for_each(|(embedding, analysis, path)| {
+                    callback
+                        .send((path, analysis, embedding))
+                        .map_err(|_| AnalysisError::SendError)
+                })
+        })
+    }
+
+    /// Process raw audio samples in `audios`, and yield the `Analysis` and `Embedding` objects
+    /// through the provided `callback` channel.
+    /// Parallelizes the process across all available CPU cores.
+    ///
+    /// You can cancel the job by dropping the `callback` channel.
+    ///
+    /// Note: A new [`AudioEmbeddingModel`](crate::embeddings::AudioEmbeddingModel) session will be created
+    /// for each batch processed.
+    ///
+    /// # Errors
+    //// Errors if the `callback` channel is closed.
+    #[inline]
+    fn process_songs(
+        &self,
+        paths: &[PathBuf],
+        callback: ProcessingCallback,
+        model_config: crate::embeddings::ModelConfig,
+    ) -> AnalysisResult<()>
+    where
+        Self: Sync + Send,
+    {
+        let cores = thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
+        self.process_songs_with_cores(paths, callback, cores, model_config)
     }
 }
