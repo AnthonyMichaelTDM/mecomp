@@ -7,11 +7,11 @@ use std::{
 
 use log::{debug, error, info, warn};
 use mecomp_analysis::{
-    clustering::{ClusteringHelper, KOptimal, NotInitialized},
+    clustering::{ClusteringHelper, KOptimal},
     decoder::{Decoder, MecompDecoder},
     embeddings::ModelConfig,
 };
-use mecomp_core::config::{AnalysisSettings, ReclusterSettings};
+use mecomp_core::config::{AnalysisKind, AnalysisSettings, ReclusterSettings};
 use mecomp_prost::{LibraryBrief, LibraryFull, LibraryHealth};
 use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
@@ -344,6 +344,7 @@ pub async fn analyze<C: Connection>(
 pub async fn recluster<C: Connection>(
     db: &Surreal<C>,
     settings: ReclusterSettings,
+    analysis_settings: &AnalysisSettings,
     mut interrupt: InterruptReceiver,
 ) -> Result<(), Error> {
     // collect all the analyses
@@ -354,15 +355,23 @@ pub async fn recluster<C: Connection>(
         return Ok(());
     }
 
-    let analysis_array = samples
-        .iter()
-        .map(|a| a.features)
-        .collect::<Vec<_>>()
-        .into();
+    let analysis_array = if matches!(analysis_settings.kind, AnalysisKind::Features) {
+        samples
+            .iter()
+            .map(|analysis| analysis.features)
+            .collect::<Vec<_>>()
+            .into()
+    } else {
+        samples
+            .iter()
+            .map(|analysis| analysis.embedding)
+            .collect::<Vec<_>>()
+            .into()
+    };
 
     // use clustering algorithm to cluster the analyses
     let clustering = move || {
-        let model: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
+        let Ok(model) = ClusteringHelper::new(
             analysis_array,
             settings.max_clusters,
             KOptimal::GapStatistic {
@@ -370,20 +379,17 @@ pub async fn recluster<C: Connection>(
             },
             settings.algorithm.into(),
             settings.projection_method.into(),
-        ) {
-            Err(e) => {
-                error!("There was an error creating the clustering helper: {e}",);
-                return None;
-            }
-            Ok(kmeans) => kmeans,
+        )
+        .inspect_err(|e| error!("There was an error creating the clustering helper: {e}")) else {
+            return None;
         };
 
-        let model = match model.initialize() {
-            Err(e) => {
-                error!("There was an error initializing the clustering helper: {e}",);
-                return None;
-            }
-            Ok(kmeans) => kmeans.cluster(),
+        let Ok(model) = model
+            .initialize()
+            .inspect_err(|e| error!("There was an error initializing the clustering helper: {e}"))
+            .map(ClusteringHelper::cluster)
+        else {
+            return None;
         };
 
         Some(model)
@@ -432,17 +438,15 @@ pub async fn recluster<C: Connection>(
 
         // create the collections
         for (i, cluster) in clusters.iter().filter(|c| !c.is_empty()).enumerate() {
-            let collection = Collection::create(
-                db,
-                Collection {
-                    id: Collection::generate_id(),
-                    name: format!("Collection {i}"),
-                    runtime: Duration::default(),
-                    song_count: Default::default(),
-                },
-            )
-            .await?
-            .ok_or(Error::NotCreated)?;
+            let collection = Collection {
+                id: Collection::generate_id(),
+                name: format!("Collection {i}"),
+                runtime: Duration::default(),
+                song_count: Default::default(),
+            };
+            let collection = Collection::create(db, collection)
+                .await?
+                .ok_or(Error::NotCreated)?;
 
             let mut songs = Vec::with_capacity(cluster.len());
 

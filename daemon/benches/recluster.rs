@@ -29,6 +29,7 @@ fn benchmark_recluster(c: &mut Criterion) {
         algorithm: ClusterAlgorithm::GMM,
         projection_method: ProjectionMethod::TSne,
     };
+    let analysis_settings = mecomp_core::config::AnalysisSettings::default();
 
     // load some songs into the database
     let song_cases = arb_vec(&arb_song_case(), 150..=150)();
@@ -74,7 +75,9 @@ fn benchmark_recluster(c: &mut Criterion) {
             },
             async |setup| {
                 let (db, interrupt) = setup.await;
-                recluster(&db, settings, interrupt).await.unwrap();
+                recluster(&db, settings, &analysis_settings, interrupt)
+                    .await
+                    .unwrap();
             },
         );
     });
@@ -93,7 +96,9 @@ fn benchmark_recluster(c: &mut Criterion) {
             },
             async |setup| {
                 let (db, interrupt) = setup.await;
-                recluster(&db, settings, interrupt).await.unwrap();
+                recluster(&db, settings, &analysis_settings, interrupt)
+                    .await
+                    .unwrap();
             },
         );
     });

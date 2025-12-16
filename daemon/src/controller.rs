@@ -272,6 +272,7 @@ impl MusicPlayerTrait for MusicPlayer {
                 match services::library::recluster(
                     &self.db,
                     self.settings.reclustering,
+                    &self.settings.analysis,
                     self.interrupt.resubscribe(),
                 )
                 .await
