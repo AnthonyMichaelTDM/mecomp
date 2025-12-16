@@ -2,14 +2,15 @@
 //! but specifically designed for use with the model in `models/audio_embedding_model.onnx`.
 
 use crate::ResampledAudio;
+use log::warn;
 use ort::{
     execution_providers::{
         CPUExecutionProvider, ExecutionProviderDispatch, WebGPUExecutionProvider,
     },
     session::{Session, builder::GraphOptimizationLevel},
-    value::{Tensor, TensorRef},
+    value::TensorRef,
 };
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 static MODEL_BYTES: &[u8] = include_bytes!("../models/audio_embedding_model.onnx");
 
@@ -61,6 +62,12 @@ impl Embedding {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct ModelConfig {
+    pub wgpu: bool,
+    pub path: Option<PathBuf>,
+}
+
 /// Struct representing an audio embedding model loaded from an ONNX file.
 #[derive(Debug)]
 pub struct AudioEmbeddingModel {
@@ -106,9 +113,27 @@ impl AudioEmbeddingModel {
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
     pub fn load_from_onnx<P: AsRef<Path>>(path: P, wgpu: bool) -> ort::Result<Self> {
-        let session = session_builder(wgpu)?.commit_from_file(path)?;
+        let session = session_builder(wgpu)?.commit_from_file(&path)?;
 
         Ok(Self { session })
+    }
+
+    /// Load the an audio embedding model with the specified configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The configuration for how the model should be loaded.
+    /// # Errors
+    /// Fails if the model cannot be loaded for some reason.
+    #[inline]
+    pub fn load(config: &ModelConfig) -> ort::Result<Self> {
+        match &config.path {
+            Some(path) => Self::load_from_onnx(path, config.wgpu).or_else(|e| {
+                warn!("failed to load embeddings model from specified path: {e}, falling back to default model.");
+                Self::load_default(config.wgpu)
+            }),
+            None => Self::load_default(config.wgpu),
+        }
     }
 
     /// Compute embedding from raw audio samples (f32, mono, 22050 Hz),
