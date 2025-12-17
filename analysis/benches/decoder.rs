@@ -320,9 +320,15 @@ fn bench_mecomp_decoder_analyze_paths(c: &mut Criterion) {
 
     group.bench_function("current default", |b| {
         b.iter_with_setup(
-            || Decoder::new().unwrap(),
-            |decoder| {
-                decoder.analyze_paths(black_box(&paths));
+            || {
+                let decoder = Decoder::new().unwrap();
+                let (tx, rx) = std::sync::mpsc::channel();
+                (decoder, tx, rx)
+            },
+            |(decoder, tx, rx)| {
+                decoder.analyze_paths(black_box(&paths), tx).unwrap();
+
+                for _ in rx {}
             },
         );
     });
@@ -334,27 +340,50 @@ fn bench_mecomp_decoder_analyze_paths(c: &mut Criterion) {
 
     group.bench_function("full parallelism", |b| {
         b.iter_with_setup(
-            || Decoder::new().unwrap(),
-            |decoder| {
-                decoder.analyze_paths_with_cores(black_box(&paths), full);
+            || {
+                let decoder = Decoder::new().unwrap();
+                let (tx, rx) = std::sync::mpsc::channel();
+                (decoder, tx, rx)
+            },
+            |(decoder, tx, rx)| {
+                decoder
+                    .analyze_paths_with_cores(black_box(&paths), full, tx)
+                    .unwrap();
+
+                // drain the channel
+                for _ in rx {}
             },
         );
     });
 
     group.bench_function("half parallelism", |b| {
         b.iter_with_setup(
-            || Decoder::new().unwrap(),
-            |decoder| {
-                decoder.analyze_paths_with_cores(black_box(&paths), half);
+            || {
+                let decoder = Decoder::new().unwrap();
+                let (tx, rx) = std::sync::mpsc::channel();
+                (decoder, tx, rx)
+            },
+            |(decoder, tx, rx)| {
+                decoder
+                    .analyze_paths_with_cores(black_box(&paths), half, tx)
+                    .unwrap();
+                for _ in rx {}
             },
         );
     });
 
     group.bench_function("quarter parallelism", |b| {
         b.iter_with_setup(
-            || Decoder::new().unwrap(),
-            |decoder| {
-                decoder.analyze_paths_with_cores(black_box(&paths), quarter);
+            || {
+                let decoder = Decoder::new().unwrap();
+                let (tx, rx) = std::sync::mpsc::channel();
+                (decoder, tx, rx)
+            },
+            |(decoder, tx, rx)| {
+                decoder
+                    .analyze_paths_with_cores(black_box(&paths), quarter, tx)
+                    .unwrap();
+                for _ in rx {}
             },
         );
     });

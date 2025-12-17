@@ -370,7 +370,7 @@ mod tests {
     use adler32::RollingAdler32;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use std::{collections::HashMap, path::Path};
+    use std::{collections::HashMap, path::Path, sync::mpsc};
 
     fn verify_decoding_output(path: &Path, expected_hash: u32) {
         let decoder = Decoder::new().unwrap();
@@ -547,7 +547,10 @@ mod tests {
         // ensure we *can* analyze these without errors
         let decoder = Decoder::new().unwrap();
         let mut count = 0;
-        for (path, analysis) in decoder.analyze_paths(&paths) {
+        let expected = paths.len();
+        let (tx, rx) = mpsc::channel();
+        let handle = std::thread::spawn(move || decoder.analyze_paths(&paths, tx));
+        for (path, analysis) in rx {
             count += 1;
             assert!(analysis.is_ok(), "Failed to analyze {path:?}: {analysis:?}",);
             assert_eq!(
@@ -556,11 +559,14 @@ mod tests {
                 "Analyzed the same path twice: {path:?}"
             );
         }
-        assert_eq!(count, paths.len());
+
+        assert_eq!(count, expected);
         assert!(
             analyzed_paths.values().all(|&v| v),
             "Not all paths were analyzed: {analyzed_paths:?}"
         );
+
+        handle.join().unwrap().unwrap();
     }
 
     #[test]
