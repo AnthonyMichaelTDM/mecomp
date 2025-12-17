@@ -82,9 +82,9 @@ pub trait Decoder {
     /// through the provided [callback channel](`mpsc::Sender`).
     ///
     /// This function is blocking, so it should be called in a separate thread
-    /// from where the [receiver](`mpsc::Reciever`) is consumed.
+    /// from where the [receiver](`mpsc::Receiver`) is consumed.
     ///
-    /// You can cancel the job by dropping the `callback` channel's [receiver](`mpsc::Reciever`).
+    /// You can cancel the job by dropping the `callback` channel's [receiver](`mpsc::Receiver`).
     ///
     /// see [`Decoder::analyze_path`] for more details on how the analyses are generated.
     ///
@@ -135,9 +135,9 @@ pub trait Decoder {
     /// through the provided [callback channel](`mpsc::Sender`).
     ///
     /// This function is blocking, so it should be called in a separate thread
-    /// from where the [receiver](`mpsc::Reciever`) is consumed.
+    /// from where the [receiver](`mpsc::Receiver`) is consumed.
     ///
-    /// You can cancel the job by dropping the `callback` channel's [receiver](`mpsc::Reciever`).
+    /// You can cancel the job by dropping the `callback` channel's [receiver](`mpsc::Receiver`).
     ///
     /// See also: [`Decoder::analyze_paths`]
     ///
