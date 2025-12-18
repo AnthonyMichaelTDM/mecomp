@@ -3,25 +3,26 @@
 use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_core::format_duration;
-use mecomp_prost::PlaylistBrief;
+use mecomp_prost::{PlaylistBrief, SongBrief};
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
-    style::{Style, Stylize},
+    layout::{Constraint, Direction, Layout, Margin, Position, Rect},
+    style::Style,
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
+    widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::{Action, LibraryAction, PopupAction, ViewAction},
+    state::action::{Action, LibraryAction, ViewAction},
     ui::{
         AppState,
-        colors::{BORDER_FOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL, border_color},
-        components::{Component, ComponentRender, RenderProps, content_view::ActiveView},
+        colors::{BORDER_FOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, border_color},
+        components::{
+            Component, ComponentRender, RenderProps,
+            content_view::{ActiveView, views::generic::SortableItemView},
+        },
         widgets::{
             input_box::{self, InputBox},
-            popups::PopupType,
             tree::{CheckTree, state::CheckTreeState},
         },
     },
@@ -29,326 +30,13 @@ use crate::{
 
 use super::{
     PlaylistViewProps,
-    checktree_utils::{
-        construct_add_to_playlist_action, construct_add_to_queue_action,
-        construct_start_radio_action, create_playlist_tree_leaf, create_song_tree_leaf,
-    },
+    checktree_utils::create_playlist_tree_leaf,
     sort_mode::{NameSort, SongSort},
     traits::SortMode,
 };
 
 #[allow(clippy::module_name_repetitions)]
-pub struct PlaylistView {
-    /// Action Sender
-    pub action_tx: UnboundedSender<Action>,
-    /// Mapped Props from state
-    pub props: Option<PlaylistViewProps>,
-    /// tree state
-    tree_state: Mutex<CheckTreeState<String>>,
-    /// sort mode
-    sort_mode: SongSort,
-}
-
-impl Component for PlaylistView {
-    fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self
-    where
-        Self: Sized,
-    {
-        Self {
-            action_tx,
-            props: state.additional_view_data.playlist.clone(),
-            tree_state: Mutex::new(CheckTreeState::default()),
-            sort_mode: SongSort::default(),
-        }
-    }
-
-    fn move_with_state(self, state: &AppState) -> Self
-    where
-        Self: Sized,
-    {
-        if let Some(props) = &state.additional_view_data.playlist {
-            let mut props = props.clone();
-            self.sort_mode.sort_items(&mut props.songs);
-
-            Self {
-                props: Some(props),
-                tree_state: Mutex::new(CheckTreeState::default()),
-                ..self
-            }
-        } else {
-            self
-        }
-    }
-
-    fn name(&self) -> &'static str {
-        "Playlist View"
-    }
-
-    #[allow(clippy::too_many_lines)]
-    fn handle_key_event(&mut self, key: KeyEvent) {
-        match key.code {
-            // arrow keys
-            KeyCode::PageUp => {
-                self.tree_state.lock().unwrap().select_relative(|current| {
-                    let first = self
-                        .props
-                        .as_ref()
-                        .map_or(0, |p| p.songs.len().saturating_sub(1));
-                    current.map_or(first, |c| c.saturating_sub(10))
-                });
-            }
-            KeyCode::Up => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            KeyCode::PageDown => {
-                self.tree_state
-                    .lock()
-                    .unwrap()
-                    .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
-            }
-            KeyCode::Down => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            KeyCode::Left => {
-                self.tree_state.lock().unwrap().key_left();
-            }
-            KeyCode::Right => {
-                self.tree_state.lock().unwrap().key_right();
-            }
-            KeyCode::Char(' ') => {
-                self.tree_state.lock().unwrap().key_space();
-            }
-            // Change sort mode
-            KeyCode::Char('s') => {
-                self.sort_mode = self.sort_mode.next();
-                if let Some(props) = &mut self.props {
-                    self.sort_mode.sort_items(&mut props.songs);
-                    self.tree_state.lock().unwrap().scroll_selected_into_view();
-                }
-            }
-            KeyCode::Char('S') => {
-                self.sort_mode = self.sort_mode.prev();
-                if let Some(props) = &mut self.props {
-                    self.sort_mode.sort_items(&mut props.songs);
-                    self.tree_state.lock().unwrap().scroll_selected_into_view();
-                }
-            }
-            // Enter key opens selected view
-            KeyCode::Enter => {
-                if self.tree_state.lock().unwrap().toggle_selected() {
-                    let selected_things = self.tree_state.lock().unwrap().get_selected_thing();
-                    if let Some(thing) = selected_things {
-                        self.action_tx
-                            .send(Action::ActiveView(ViewAction::Set(thing.into())))
-                            .unwrap();
-                    }
-                }
-            }
-            // if there are checked items, add them to the queue, otherwise send the whole playlist to the queue
-            KeyCode::Char('q') => {
-                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
-                if let Some(action) = construct_add_to_queue_action(
-                    checked_things,
-                    self.props.as_ref().map(|p| &p.id),
-                ) {
-                    self.action_tx.send(action).unwrap();
-                }
-            }
-            // if there are checked items, start radio from checked items, otherwise start radio from the playlist
-            KeyCode::Char('r') => {
-                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
-                if let Some(action) =
-                    construct_start_radio_action(checked_things, self.props.as_ref().map(|p| &p.id))
-                {
-                    self.action_tx.send(action).unwrap();
-                }
-            }
-            // if there are checked items, add them to the playlist, otherwise add the whole playlist to the playlist
-            KeyCode::Char('p') => {
-                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
-                if let Some(action) = construct_add_to_playlist_action(
-                    checked_things,
-                    self.props.as_ref().map(|p| &p.id),
-                ) {
-                    self.action_tx.send(action).unwrap();
-                }
-            }
-            // if there are checked items, remove them from the playlist, otherwise remove the whole playlist
-            KeyCode::Char('d') => {
-                let things = self.tree_state.lock().unwrap().get_checked_things();
-                if let Some(action) = self.props.as_ref().and_then(|props| {
-                    let id = props.id.ulid();
-                    if things.is_empty() {
-                        self.tree_state
-                            .lock()
-                            .unwrap()
-                            .get_selected_thing()
-                            .map(|thing| LibraryAction::RemoveSongsFromPlaylist(id, vec![thing]))
-                    } else {
-                        Some(LibraryAction::RemoveSongsFromPlaylist(id, things))
-                    }
-                }) {
-                    self.action_tx.send(Action::Library(action)).unwrap();
-                }
-            }
-            // edit the playlist name
-            KeyCode::Char('e') => {
-                if let Some(props) = &self.props {
-                    self.action_tx
-                        .send(Action::Popup(PopupAction::Open(PopupType::PlaylistEditor(
-                            props.playlist.clone().into(),
-                        ))))
-                        .unwrap();
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        // adjust the area to account for the border
-        let area = area.inner(Margin::new(1, 1));
-        let [_, content_area] = split_area(area);
-        let content_area = content_area.inner(Margin::new(0, 1));
-
-        let result = self
-            .tree_state
-            .lock()
-            .unwrap()
-            .handle_mouse_event(mouse, content_area, false);
-        if let Some(action) = result {
-            self.action_tx.send(action).unwrap();
-        }
-    }
-}
-
-fn split_area(area: Rect) -> [Rect; 2] {
-    let [info_area, content_area] = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(4)])
-        .areas(area);
-
-    [info_area, content_area]
-}
-
-impl ComponentRender<RenderProps> for PlaylistView {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
-        let border_style = Style::default().fg(border_color(props.is_focused).into());
-
-        let area = if let Some(state) = &self.props {
-            let border = Block::bordered()
-                .title_top(Line::from(vec![
-                    Span::styled("Playlist View".to_string(), Style::default().bold()),
-                    Span::raw(" sorted by: "),
-                    Span::styled(self.sort_mode.to_string(), Style::default().italic()),
-                ]))
-                .title_bottom(" \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check")
-                .border_style(border_style);
-            frame.render_widget(&border, props.area);
-            let content_area = border.inner(props.area);
-
-            // split content area to make room for playlist info
-            let [info_area, content_area] = split_area(content_area);
-
-            // render the playlist info
-            let duration = state
-                .playlist
-                .runtime
-                .normalized()
-                .try_into()
-                .unwrap_or_default();
-            frame.render_widget(
-                Paragraph::new(vec![
-                    Line::from(Span::styled(&state.playlist.name, Style::default().bold())),
-                    Line::from(vec![
-                        Span::raw("Songs: "),
-                        Span::styled(
-                            state.playlist.song_count.to_string(),
-                            Style::default().italic(),
-                        ),
-                        Span::raw("  Duration: "),
-                        Span::styled(format_duration(&duration), Style::default().italic()),
-                    ]),
-                ])
-                .alignment(Alignment::Center),
-                info_area,
-            );
-
-            // draw an additional border around the content area to display additional instructions
-            let border = Block::default()
-                .borders(Borders::TOP | Borders::BOTTOM)
-                .title_top("q: add to queue | r: start radio | p: add to playlist")
-                .title_bottom("s/S: sort | d: remove selected | e: edit")
-                .border_style(border_style);
-            frame.render_widget(&border, content_area);
-            let content_area = border.inner(content_area);
-
-            // draw an additional border around the content area to indicate whether operations will be performed on the entire item, or just the checked items
-            let border = Block::default()
-                .borders(Borders::TOP)
-                .title_top(Line::from(vec![
-                    Span::raw("Performing operations on "),
-                    Span::raw(
-                        if self
-                            .tree_state
-                            .lock()
-                            .unwrap()
-                            .get_checked_things()
-                            .is_empty()
-                        {
-                            "entire playlist"
-                        } else {
-                            "checked items"
-                        },
-                    )
-                    .fg(*TEXT_HIGHLIGHT),
-                ]))
-                .italic()
-                .border_style(border_style);
-            frame.render_widget(&border, content_area);
-            border.inner(content_area)
-        } else {
-            let border = Block::bordered()
-                .title_top("Playlist View")
-                .border_style(border_style);
-            frame.render_widget(&border, props.area);
-            border.inner(props.area)
-        };
-
-        RenderProps { area, ..props }
-    }
-
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
-        let Some(state) = &self.props else {
-            let text = "No active playlist";
-
-            frame.render_widget(
-                Line::from(text)
-                    .style(Style::default().fg((*TEXT_NORMAL).into()))
-                    .alignment(Alignment::Center),
-                props.area,
-            );
-            return;
-        };
-
-        // create list to hold playlist songs
-        let items = state
-            .songs
-            .iter()
-            .map(create_song_tree_leaf)
-            .collect::<Vec<_>>();
-
-        // render the playlist songs
-        frame.render_stateful_widget(
-            CheckTree::new(&items)
-                .unwrap()
-                .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
-                .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
-            props.area,
-            &mut self.tree_state.lock().unwrap(),
-        );
-    }
-}
+pub type PlaylistView = SortableItemView<PlaylistViewProps, SongSort, SongBrief>;
 
 pub struct LibraryPlaylistsView {
     /// Action Sender
@@ -707,7 +395,7 @@ mod item_view_tests {
     fn test_new() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let state = state_with_everything();
-        let view = PlaylistView::new(&state, tx);
+        let view = PlaylistView::new(&state, tx).item_view;
 
         assert_eq!(view.name(), "Playlist View");
         assert_eq!(
@@ -721,7 +409,9 @@ mod item_view_tests {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let state = AppState::default();
         let new_state = state_with_everything();
-        let view = PlaylistView::new(&state, tx).move_with_state(&new_state);
+        let view = PlaylistView::new(&state, tx)
+            .move_with_state(&new_state)
+            .item_view;
 
         assert_eq!(
             view.props,

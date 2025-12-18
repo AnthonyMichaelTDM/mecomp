@@ -5,13 +5,12 @@
 use std::sync::Mutex;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
-use mecomp_core::format_duration;
-use mecomp_prost::CollectionBrief;
+use mecomp_prost::{CollectionBrief, SongBrief};
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
-    style::{Style, Stylize},
+    layout::{Margin, Rect},
+    style::Style,
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation},
+    widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
 };
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -19,305 +18,24 @@ use crate::{
     state::action::{Action, ViewAction},
     ui::{
         AppState,
-        colors::{TEXT_HIGHLIGHT, TEXT_NORMAL, border_color},
-        components::{Component, ComponentRender, RenderProps, content_view::ActiveView},
+        colors::{TEXT_HIGHLIGHT, border_color},
+        components::{
+            Component, ComponentRender, RenderProps,
+            content_view::{ActiveView, views::generic::SortableItemView},
+        },
         widgets::tree::{CheckTree, state::CheckTreeState},
     },
 };
 
 use super::{
     CollectionViewProps,
-    checktree_utils::{
-        construct_add_to_playlist_action, construct_add_to_queue_action,
-        create_collection_tree_leaf, create_song_tree_leaf,
-    },
+    checktree_utils::create_collection_tree_leaf,
     sort_mode::{NameSort, SongSort},
     traits::SortMode,
 };
 
 #[allow(clippy::module_name_repetitions)]
-pub struct CollectionView {
-    /// Action Sender
-    pub action_tx: UnboundedSender<Action>,
-    /// Mapped Props from state
-    pub props: Option<CollectionViewProps>,
-    /// tree state
-    tree_state: Mutex<CheckTreeState<String>>,
-    /// sort mode
-    sort_mode: SongSort,
-}
-
-impl Component for CollectionView {
-    fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self
-    where
-        Self: Sized,
-    {
-        Self {
-            action_tx,
-            props: state.additional_view_data.collection.clone(),
-            tree_state: Mutex::new(CheckTreeState::default()),
-            sort_mode: SongSort::default(),
-        }
-    }
-
-    fn move_with_state(self, state: &AppState) -> Self
-    where
-        Self: Sized,
-    {
-        if let Some(props) = &state.additional_view_data.collection {
-            let mut props = props.clone();
-            self.sort_mode.sort_items(&mut props.songs);
-
-            Self {
-                props: Some(props),
-                tree_state: Mutex::new(CheckTreeState::default()),
-                ..self
-            }
-        } else {
-            self
-        }
-    }
-
-    fn name(&self) -> &'static str {
-        "Collection View"
-    }
-
-    fn handle_key_event(&mut self, key: KeyEvent) {
-        match key.code {
-            // arrow keys
-            KeyCode::PageUp => {
-                self.tree_state.lock().unwrap().select_relative(|current| {
-                    let first = self
-                        .props
-                        .as_ref()
-                        .map_or(0, |p| p.songs.len().saturating_sub(1));
-                    current.map_or(first, |c| c.saturating_sub(10))
-                });
-            }
-            KeyCode::Up => {
-                self.tree_state.lock().unwrap().key_up();
-            }
-            KeyCode::PageDown => {
-                self.tree_state
-                    .lock()
-                    .unwrap()
-                    .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
-            }
-            KeyCode::Down => {
-                self.tree_state.lock().unwrap().key_down();
-            }
-            KeyCode::Left => {
-                self.tree_state.lock().unwrap().key_left();
-            }
-            KeyCode::Right => {
-                self.tree_state.lock().unwrap().key_right();
-            }
-            KeyCode::Char(' ') => {
-                self.tree_state.lock().unwrap().key_space();
-            }
-            // Change sort mode
-            KeyCode::Char('s') => {
-                self.sort_mode = self.sort_mode.next();
-                if let Some(props) = &mut self.props {
-                    self.sort_mode.sort_items(&mut props.songs);
-                    self.tree_state.lock().unwrap().scroll_selected_into_view();
-                }
-            }
-            KeyCode::Char('S') => {
-                self.sort_mode = self.sort_mode.prev();
-                if let Some(props) = &mut self.props {
-                    self.sort_mode.sort_items(&mut props.songs);
-                    self.tree_state.lock().unwrap().scroll_selected_into_view();
-                }
-            }
-            // Enter key opens selected view
-            KeyCode::Enter => {
-                if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things = self.tree_state.lock().unwrap().get_selected_thing();
-
-                    if let Some(thing) = things {
-                        self.action_tx
-                            .send(Action::ActiveView(ViewAction::Set(thing.into())))
-                            .unwrap();
-                    }
-                }
-            }
-            // if there are checked items, add them to the queue, otherwise send the whole collection to the queue
-            KeyCode::Char('q') => {
-                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
-                if let Some(action) = construct_add_to_queue_action(
-                    checked_things,
-                    self.props.as_ref().map(|p| &p.id),
-                ) {
-                    self.action_tx.send(action).unwrap();
-                }
-            }
-            // if there are checked items, add them to the playlist, otherwise send the whole collection to the playlist
-            KeyCode::Char('p') => {
-                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
-                if let Some(action) = construct_add_to_playlist_action(
-                    checked_things,
-                    self.props.as_ref().map(|p| &p.id),
-                ) {
-                    self.action_tx.send(action).unwrap();
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        // adjust the area to account for the border
-        let area = area.inner(Margin::new(1, 1));
-        let [_, content_area] = split_area(area);
-        let content_area = content_area.inner(Margin::new(0, 1));
-
-        let result = self
-            .tree_state
-            .lock()
-            .unwrap()
-            .handle_mouse_event(mouse, content_area, false);
-        if let Some(action) = result {
-            self.action_tx.send(action).unwrap();
-        }
-    }
-}
-
-fn split_area(area: Rect) -> [Rect; 2] {
-    let [info_area, content_area] = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(2), Constraint::Min(4)])
-        .areas(area);
-
-    [info_area, content_area]
-}
-
-impl ComponentRender<RenderProps> for CollectionView {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
-        let border_style = Style::default().fg(border_color(props.is_focused).into());
-
-        let area = if let Some(state) = &self.props {
-            let border = Block::bordered()
-                .title_top(Line::from(vec![
-                    Span::styled("Collection View".to_string(), Style::default().bold()),
-                    Span::raw(" sorted by: "),
-                    Span::styled(self.sort_mode.to_string(), Style::default().italic()),
-                ]))
-                .title_bottom(" \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check")
-                .border_style(border_style);
-            frame.render_widget(&border, props.area);
-            let content_area = border.inner(props.area);
-
-            // split content area to make room for the collection info
-            let [info_area, content_area] = split_area(content_area);
-
-            // render the collection info
-            frame.render_widget(
-                Paragraph::new(vec![
-                    Line::from(Span::styled(
-                        &state.collection.name,
-                        Style::default().bold(),
-                    )),
-                    Line::from(vec![
-                        Span::raw("Songs: "),
-                        Span::styled(
-                            state.collection.song_count.to_string(),
-                            Style::default().italic(),
-                        ),
-                        Span::raw("  Duration: "),
-                        Span::styled(
-                            format_duration(
-                                &state
-                                    .collection
-                                    .runtime
-                                    .normalized()
-                                    .try_into()
-                                    .unwrap_or_default(),
-                            ),
-                            Style::default().italic(),
-                        ),
-                    ]),
-                ])
-                .alignment(Alignment::Center),
-                info_area,
-            );
-
-            // draw an additional border around the content area to display additionally instructions
-            let border = Block::new()
-                .borders(Borders::TOP | Borders::BOTTOM)
-                .title_top("q: add to queue | p: add to playlist")
-                .title_bottom("s/S: change sort")
-                .border_style(border_style);
-            frame.render_widget(&border, content_area);
-            let content_area = border.inner(content_area);
-
-            // draw an additional border around the content area to indicate whether operations will be performed on the entire item, or just the checked items
-            let border = Block::default()
-                .borders(Borders::TOP)
-                .title_top(Line::from(vec![
-                    Span::raw("Performing operations on "),
-                    Span::raw(
-                        if self
-                            .tree_state
-                            .lock()
-                            .unwrap()
-                            .get_checked_things()
-                            .is_empty()
-                        {
-                            "entire collection"
-                        } else {
-                            "checked items"
-                        },
-                    )
-                    .fg(*TEXT_HIGHLIGHT),
-                ]))
-                .italic()
-                .border_style(border_style);
-            frame.render_widget(&border, content_area);
-            border.inner(content_area)
-        } else {
-            let border = Block::bordered()
-                .title_top("Collection View")
-                .border_style(border_style);
-            frame.render_widget(&border, props.area);
-            border.inner(props.area)
-        };
-
-        RenderProps { area, ..props }
-    }
-
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
-        if let Some(state) = &self.props {
-            // create list to hold collection songs
-            let items = state
-                .songs
-                .iter()
-                .map(create_song_tree_leaf)
-                .collect::<Vec<_>>();
-
-            // render the collections songs
-            frame.render_stateful_widget(
-                CheckTree::new(&items)
-                    .unwrap()
-                    .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
-                    .experimental_scrollbar(Some(Scrollbar::new(
-                        ScrollbarOrientation::VerticalRight,
-                    ))),
-                props.area,
-                &mut self.tree_state.lock().unwrap(),
-            );
-        } else {
-            let text = "No active collection";
-
-            frame.render_widget(
-                Line::from(text)
-                    .style(Style::default().fg((*TEXT_NORMAL).into()))
-                    .alignment(Alignment::Center),
-                props.area,
-            );
-        }
-    }
-}
+pub type CollectionView = SortableItemView<CollectionViewProps, SongSort, SongBrief>;
 
 pub struct LibraryCollectionsView {
     /// Action Sender
@@ -563,7 +281,7 @@ mod item_view_tests {
     fn test_new() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let state = state_with_everything();
-        let view = CollectionView::new(&state, tx);
+        let view = CollectionView::new(&state, tx).item_view;
 
         assert_eq!(view.name(), "Collection View");
         assert_eq!(
@@ -577,7 +295,9 @@ mod item_view_tests {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let state = AppState::default();
         let new_state = state_with_everything();
-        let view = CollectionView::new(&state, tx).move_with_state(&new_state);
+        let view = CollectionView::new(&state, tx)
+            .move_with_state(&new_state)
+            .item_view;
 
         assert_eq!(
             view.props,
@@ -629,7 +349,7 @@ mod item_view_tests {
             "│                       Collection 0                       │",
             "│              Songs: 1  Duration: 00:03:00.00             │",
             "│                                                          │",
-            "│q: add to queue | p: add to playlist──────────────────────│",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire collection────────────────│",
             "│☐ Test Song Test Artist                                   │",
             "│s/S: change sort──────────────────────────────────────────│",
@@ -658,7 +378,7 @@ mod item_view_tests {
             "│                       Collection 0                       │",
             "│              Songs: 1  Duration: 00:03:00.00             │",
             "│                                                          │",
-            "│q: add to queue | p: add to playlist──────────────────────│",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire collection────────────────│",
             "│☐ Test Song Test Artist                                   │",
             "│s/S: change sort──────────────────────────────────────────│",
@@ -681,7 +401,7 @@ mod item_view_tests {
             "│                       Collection 0                       │",
             "│              Songs: 1  Duration: 00:03:00.00             │",
             "│                                                          │",
-            "│q: add to queue | p: add to playlist──────────────────────│",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on checked items────────────────────│",
             "│☑ Test Song Test Artist                                   │",
             "│s/S: change sort──────────────────────────────────────────│",
@@ -791,7 +511,7 @@ mod item_view_tests {
             "│                       Collection 0                       │",
             "│              Songs: 1  Duration: 00:03:00.00             │",
             "│                                                          │",
-            "│q: add to queue | p: add to playlist──────────────────────│",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire collection────────────────│",
             "│☐ Test Song Test Artist                                   │",
             "│s/S: change sort──────────────────────────────────────────│",
@@ -819,7 +539,7 @@ mod item_view_tests {
             "│                       Collection 0                       │",
             "│              Songs: 1  Duration: 00:03:00.00             │",
             "│                                                          │",
-            "│q: add to queue | p: add to playlist──────────────────────│",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on checked items────────────────────│",
             "│☑ Test Song Test Artist                                   │",
             "│s/S: change sort──────────────────────────────────────────│",
@@ -842,7 +562,7 @@ mod item_view_tests {
             "│                       Collection 0                       │",
             "│              Songs: 1  Duration: 00:03:00.00             │",
             "│                                                          │",
-            "│q: add to queue | p: add to playlist──────────────────────│",
+            "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire collection────────────────│",
             "│☐ Test Song Test Artist                                   │",
             "│s/S: change sort──────────────────────────────────────────│",
