@@ -19,7 +19,7 @@ prost = "0.14.1"
 prost-types = { version = "0.14.1" }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["time"] }
-tonic = { workspace = true, features = ["codegen", "transport"] }
+tonic = { workspace = true }
 tonic-prost = "0.14.2"
 tracing.workspace = true
 

@@ -34,19 +34,18 @@ clap.workspace = true
 clap_complete.workspace = true
 crossterm = { version = "0.29.0", features = [
     "bracketed-paste",
-    "derive-more",
     "event-stream",
 ], default-features = false }
 ratatui = { version = "0.29.0" }
 # log.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
 tonic.workspace = true
-tokio-stream = "0.1.17"
+tokio-stream.workspace = true
 unicode-width = "0.2.0"
 
 # MECOMP dependencies
 mecomp-core = { workspace = true, features = ["notifications"] }
-mecomp-storage = { workspace = true, features = ["serde"] }
+mecomp-storage = { workspace = true }
 mecomp-prost.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
@@ -54,7 +53,6 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 [target.'cfg(target_os = "windows")'.dependencies]
 crossterm = { version = "0.29.0", features = [
     "bracketed-paste",
-    "derive-more",
     "windows",
     "event-stream",
 ], default-features = false }

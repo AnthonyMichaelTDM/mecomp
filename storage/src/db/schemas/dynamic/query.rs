@@ -30,8 +30,6 @@
 
 use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
-
 /// Contexts where the query can be used.
 ///
 /// Used to enable queries to compile differently based on the context, for example when we compile it to store in the database we want to be able to parse it back into a Query,
@@ -54,7 +52,8 @@ pub struct Query {
     pub root: Clause,
 }
 
-impl Serialize for Query {
+#[cfg(feature = "serde")]
+impl serde::Serialize for Query {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -64,7 +63,8 @@ impl Serialize for Query {
     }
 }
 
-impl<'de> Deserialize<'de> for Query {
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Query {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

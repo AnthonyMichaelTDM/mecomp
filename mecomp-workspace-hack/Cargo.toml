@@ -16,14 +16,12 @@ edition = "2021"
 [package.metadata.cargo-machete]
 ignored = [
     "anstream",
-    "anyhow",
     "approx",
     "bitflags",
     "bytes",
     "castaway",
     "clap",
     "clap_builder",
-    "criterion",
     "crossbeam-utils",
     "either",
     "event-listener",
@@ -64,9 +62,7 @@ ignored = [
     "surrealdb",
     "surrealdb-core",
     "symphonia",
-    "symphonia-bundle-mp3",
     "symphonia-core",
-    "symphonia-format-riff",
     "syn",
     "sync_wrapper",
     "tokio",
@@ -74,7 +70,6 @@ ignored = [
     "tokio-util",
     "toml_datetime",
     "toml_parser",
-    "tonic",
     "tracing-core",
     "ulid",
     "uuid",
@@ -92,14 +87,12 @@ doc = false
 ### BEGIN HAKARI SECTION
 [dependencies]
 anstream = { version = "0.6" }
-anyhow = { version = "1" }
 approx = { version = "0.5" }
 bitflags = { version = "2", default-features = false, features = ["std"] }
 bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
-criterion = { version = "0.7", features = ["async_tokio", "html_reports"] }
 crossbeam-utils = { version = "0.8" }
 either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
@@ -116,7 +109,7 @@ indexmap = { version = "2", features = ["serde"] }
 itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
-log = { version = "0.4", default-features = false, features = ["serde", "std"] }
+log = { version = "0.4", default-features = false, features = ["std"] }
 memchr = { version = "2" }
 num-bigint = { version = "0.4", default-features = false, features = ["std"] }
 num-complex = { version = "0.4" }
@@ -140,9 +133,7 @@ string_cache = { version = "0.8" }
 surrealdb = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 surrealdb-core = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 symphonia = { version = "0.5", default-features = false, features = ["all-codecs", "all-formats", "opt-simd"] }
-symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = ["mp1", "mp2", "mp3"] }
 symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
-symphonia-format-riff = { version = "0.5", default-features = false, features = ["aiff", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
@@ -150,7 +141,6 @@ tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io"] }
 toml_datetime = { version = "0.7", features = ["serde"] }
 toml_parser = { version = "1" }
-tonic = { version = "0.14" }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
@@ -160,7 +150,6 @@ zerocopy = { version = "0.8", default-features = false, features = ["derive", "s
 
 [build-dependencies]
 anstream = { version = "0.6" }
-anyhow = { version = "1" }
 approx = { version = "0.5" }
 bitflags = { version = "2", default-features = false, features = ["std"] }
 bytes = { version = "1", features = ["serde"] }
@@ -168,7 +157,6 @@ castaway = { version = "0.2" }
 cc = { version = "1", default-features = false, features = ["parallel"] }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
-criterion = { version = "0.7", features = ["async_tokio", "html_reports"] }
 crossbeam-utils = { version = "0.8" }
 either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
@@ -185,7 +173,7 @@ indexmap = { version = "2", features = ["serde"] }
 itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
 itertools-a6292c17cd707f01 = { package = "itertools", version = "0.11" }
 lalrpop-util = { version = "0.20", features = ["lexer"] }
-log = { version = "0.4", default-features = false, features = ["serde", "std"] }
+log = { version = "0.4", default-features = false, features = ["std"] }
 memchr = { version = "2" }
 num-bigint = { version = "0.4", default-features = false, features = ["std"] }
 num-complex = { version = "0.4" }
@@ -209,9 +197,7 @@ string_cache = { version = "0.8" }
 surrealdb = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 surrealdb-core = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 symphonia = { version = "0.5", default-features = false, features = ["all-codecs", "all-formats", "opt-simd"] }
-symphonia-bundle-mp3 = { version = "0.5", default-features = false, features = ["mp1", "mp2", "mp3"] }
 symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
-symphonia-format-riff = { version = "0.5", default-features = false, features = ["aiff", "wav"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
@@ -219,7 +205,6 @@ tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io"] }
 toml_datetime = { version = "0.7", features = ["serde"] }
 toml_parser = { version = "1" }
-tonic = { version = "0.14" }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }

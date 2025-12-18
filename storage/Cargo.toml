@@ -62,7 +62,7 @@ tempfile = { workspace = true }
 tokio = { workspace = true }
 rstest = { workspace = true }
 rstest_reuse = { workspace = true }
-criterion = { workspace = true, features = ["async_tokio"] }
+criterion = { workspace = true }
 
 [lib]
 bench = false

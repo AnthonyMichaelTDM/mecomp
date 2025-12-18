@@ -68,7 +68,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 surrealdb = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
-tonic = { workspace = true, features = ["router", "transport"] }
+tonic = { workspace = true }
 tracing = { workspace = true }
 walkdir = { workspace = true }
 

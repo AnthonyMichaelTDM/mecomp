@@ -84,6 +84,7 @@ pub struct AudioEmbeddingModel {
 /// Build a list of execution providers in priority order based on available features/platform.
 /// Providers are tried in order; if one fails to register, the next is attempted.
 /// CPU is always the final fallback.
+#[allow(clippy::vec_init_then_push)]
 fn build_execution_providers() -> Vec<ort::execution_providers::ExecutionProviderDispatch> {
     let mut providers = Vec::new();
 
