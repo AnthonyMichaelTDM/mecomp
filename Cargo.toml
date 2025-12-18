@@ -185,7 +185,7 @@ pretty_assertions = "1.4.1"
 rstest = "0.26.1"
 rstest_reuse = { version = "0.7.0" }
 tempfile = { version = "3.23.0" }
-criterion = { version = "0.7.0", features = ["html_reports"] }
+criterion = { version = "0.8.1", features = ["html_reports"] }
 
 # [lints.rust]
 # warnings = "deny"

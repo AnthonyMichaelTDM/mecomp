@@ -99,7 +99,7 @@ bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
-criterion = { version = "0.7", features = ["async_tokio", "html_reports"] }
+criterion = { version = "0.8", features = ["async_tokio", "html_reports"] }
 crossbeam-utils = { version = "0.8" }
 either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
@@ -168,7 +168,7 @@ castaway = { version = "0.2" }
 cc = { version = "1", default-features = false, features = ["parallel"] }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
-criterion = { version = "0.7", features = ["async_tokio", "html_reports"] }
+criterion = { version = "0.8", features = ["async_tokio", "html_reports"] }
 crossbeam-utils = { version = "0.8" }
 either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
