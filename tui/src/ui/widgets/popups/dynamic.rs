@@ -178,16 +178,13 @@ impl Popup for DynamicPlaylistEditor {
 }
 
 fn split_area(area: Rect, name_height: u16, query_height: u16) -> [Rect; 2] {
-    let [name_area, query_area] = *Layout::default()
+    let [name_area, query_area] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(name_height),
             Constraint::Length(query_height),
         ])
-        .split(area)
-    else {
-        panic!("Failed to split area.");
-    };
+        .areas(area);
 
     [name_area, query_area]
 }

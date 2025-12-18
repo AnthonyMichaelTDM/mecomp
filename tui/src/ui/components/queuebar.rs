@@ -182,20 +182,14 @@ impl Component for QueueBar {
 }
 
 fn split_area(area: Rect) -> [Rect; 3] {
-    let [info_area, content_area, instructions_area] = *Layout::default()
+    let [info_area, content_area, instructions_area] = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Length(2),
-                Constraint::Min(0),
-                Constraint::Length(3),
-            ]
-            .as_ref(),
-        )
-        .split(area)
-    else {
-        panic!("Failed to split queue bar area")
-    };
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Min(0),
+            Constraint::Length(3),
+        ])
+        .areas(area);
     [info_area, content_area, instructions_area]
 }
 

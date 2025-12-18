@@ -6,7 +6,7 @@ use crossterm::event::{KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_prost::SearchResult;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
-    style::{Style, Stylize},
+    style::Style,
     text::Line,
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
 };
@@ -237,13 +237,10 @@ impl Component for SearchView {
 }
 
 fn split_area(area: Rect) -> [Rect; 2] {
-    let [search_bar_area, content_area] = *Layout::default()
+    let [search_bar_area, content_area] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(4)].as_ref())
-        .split(area)
-    else {
-        panic!("Failed to split search view area");
-    };
+        .areas(area);
     [search_bar_area, content_area]
 }
 

@@ -36,7 +36,7 @@ crossterm = { version = "0.29.0", features = [
     "bracketed-paste",
     "event-stream",
 ], default-features = false }
-ratatui = { version = "0.29.0" }
+ratatui = { version = "0.30.0-beta.0" }
 # log.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
 tonic.workspace = true

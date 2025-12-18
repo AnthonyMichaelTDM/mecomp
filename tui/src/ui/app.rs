@@ -7,7 +7,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Margin, Position, Rect},
-    style::{Style, Stylize},
+    style::Style,
     text::Span,
     widgets::Block,
 };
@@ -248,15 +248,12 @@ struct Areas {
 }
 
 fn split_area(area: Rect) -> Areas {
-    let [main_views, control_panel] = *Layout::default()
+    let [main_views, control_panel] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(10), Constraint::Length(4)].as_ref())
-        .split(area)
-    else {
-        panic!("Failed to split frame into areas")
-    };
+        .areas(area);
 
-    let [sidebar, content_view, queuebar] = *Layout::default()
+    let [sidebar, content_view, queuebar] = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(
             [
@@ -266,10 +263,7 @@ fn split_area(area: Rect) -> Areas {
             ]
             .as_ref(),
         )
-        .split(main_views)
-    else {
-        panic!("Failed to split main views area")
-    };
+        .areas(main_views);
 
     Areas {
         control_panel,

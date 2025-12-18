@@ -184,13 +184,10 @@ impl Component for CollectionView {
 }
 
 fn split_area(area: Rect) -> [Rect; 2] {
-    let [info_area, content_area] = *Layout::default()
+    let [info_area, content_area] = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(4)])
-        .split(area)
-    else {
-        panic!("Failed to split collection view area")
-    };
+        .constraints([Constraint::Length(2), Constraint::Min(4)])
+        .areas(area);
 
     [info_area, content_area]
 }

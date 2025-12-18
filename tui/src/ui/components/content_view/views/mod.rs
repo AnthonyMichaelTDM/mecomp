@@ -8,7 +8,7 @@ use mecomp_prost::{
 };
 use ratatui::{
     layout::Alignment,
-    style::{Style, Stylize},
+    style::Style,
     text::{Line, Span},
     widgets::{Paragraph, Widget},
 };
@@ -334,7 +334,7 @@ pub mod checktree_utils {
     };
     use ratatui::{
         layout::Position,
-        style::{Style, Stylize},
+        style::Style,
         text::{Line, Span, Text},
     };
 

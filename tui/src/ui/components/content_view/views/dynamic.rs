@@ -241,13 +241,10 @@ impl Component for DynamicView {
 }
 
 fn split_area(area: Rect) -> [Rect; 2] {
-    let [info_area, content_area] = *Layout::default()
+    let [info_area, content_area] = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(4), Constraint::Min(4)])
-        .split(area)
-    else {
-        panic!("Failed to split dynamic playlist view area")
-    };
+        .constraints([Constraint::Length(3), Constraint::Min(4)])
+        .areas(area);
 
     [info_area, content_area]
 }
@@ -955,7 +952,7 @@ mod item_view_tests {
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
                 column: 2,
-                row: 7,
+                row: 6,
                 modifiers: KeyModifiers::empty(),
             },
             area,
@@ -970,7 +967,7 @@ mod item_view_tests {
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
                 column: 2,
-                row: 7,
+                row: 6,
                 modifiers: KeyModifiers::CONTROL,
             },
             area,
@@ -1028,10 +1025,10 @@ mod item_view_tests {
             "│                       Test Dynamic                       │",
             "│              Songs: 1  Duration: 00:03:00.00             │",
             "│                    title = \"Test Song\"                   │",
-            "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire dynamic playlist──────────│",
             "│☐ Test Song Test Artist                                   │",
+            "│                                                          │",
             "│s/S: sort | e: edit───────────────────────────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
@@ -1059,10 +1056,10 @@ mod item_view_tests {
             "│                       Test Dynamic                       │",
             "│              Songs: 1  Duration: 00:03:00.00             │",
             "│                    title = \"Test Song\"                   │",
-            "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire dynamic playlist──────────│",
             "│☐ Test Song Test Artist                                   │",
+            "│                                                          │",
             "│s/S: sort | e: edit───────────────────────────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);
@@ -1082,10 +1079,10 @@ mod item_view_tests {
             "│                       Test Dynamic                       │",
             "│              Songs: 1  Duration: 00:03:00.00             │",
             "│                    title = \"Test Song\"                   │",
-            "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on checked items────────────────────│",
             "│☑ Test Song Test Artist                                   │",
+            "│                                                          │",
             "│s/S: sort | e: edit───────────────────────────────────────│",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | ␣ Check───────────────────┘",
         ]);

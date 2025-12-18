@@ -6,7 +6,7 @@ use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_prost::ArtistBrief;
 use ratatui::{
     layout::{Margin, Rect},
-    style::{Style, Stylize},
+    style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
 };
