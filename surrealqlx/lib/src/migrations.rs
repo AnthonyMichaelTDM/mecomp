@@ -411,7 +411,7 @@ impl<'a> Migrations<'a> {
                 v + 1,
                 m.comment.unwrap_or_default()
             );
-            debug!("{}", m.up);
+            trace!("{}", m.up);
 
             let mut queries = db.query("BEGIN;");
             queries = queries
