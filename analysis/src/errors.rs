@@ -18,6 +18,12 @@ pub enum AnalysisError {
     IndeterminantDuration,
     #[error("Too many or too little features were provided at the end of the analysis")]
     InvalidFeaturesLen,
+    #[error("Embedding Error: {0}")]
+    EmbeddingError(#[from] ort::Error),
+    #[error("Send Error")]
+    SendError,
+    #[error("Access Error when accessing thread-local model: {0}")]
+    AccessError(#[from] std::thread::AccessError),
 }
 
 pub type AnalysisResult<T> = Result<T, AnalysisError>;

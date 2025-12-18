@@ -12,6 +12,7 @@
 pub mod chroma;
 pub mod clustering;
 pub mod decoder;
+pub mod embeddings;
 pub mod errors;
 pub mod misc;
 pub mod temporal;
@@ -22,7 +23,6 @@ use std::{ops::Index, path::PathBuf, thread::ScopedJoinHandle};
 
 use likely_stable::LikelyResult;
 use misc::LoudnessDesc;
-use serde::{Deserialize, Serialize};
 use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
 use chroma::ChromaDesc;
@@ -30,10 +30,12 @@ use errors::{AnalysisError, AnalysisResult};
 use temporal::BPMDesc;
 use timbral::{SpectralDesc, ZeroCrossingRateDesc};
 
+pub use crate::embeddings::DIM_EMBEDDING;
+
 /// The resampled audio data used for analysis.
 ///
 /// Must be in mono (1 channel), with a sample rate of 22050 Hz.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ResampledAudio {
     pub path: PathBuf,
     pub samples: Vec<f32>,
@@ -118,7 +120,7 @@ pub type Feature = f64;
 /// The number of features used in `Analysis`
 pub const NUMBER_FEATURES: usize = AnalysisIndex::COUNT;
 
-#[derive(Default, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Clone, Copy)]
 /// Object holding the results of the song's analysis.
 ///
 /// Only use it if you want to have an in-depth look of what is

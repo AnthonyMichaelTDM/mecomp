@@ -1,15 +1,17 @@
 use std::{
     collections::{HashMap, HashSet},
+    num::NonZeroUsize,
     path::PathBuf,
     time::Duration,
 };
 
 use log::{debug, error, info, warn};
 use mecomp_analysis::{
-    clustering::{ClusteringHelper, KOptimal, NotInitialized},
+    clustering::{ClusteringHelper, KOptimal},
     decoder::{Decoder, MecompDecoder},
+    embeddings::ModelConfig,
 };
-use mecomp_core::config::ReclusterSettings;
+use mecomp_core::config::{AnalysisKind, AnalysisSettings, ReclusterSettings};
 use mecomp_prost::{LibraryBrief, LibraryFull, LibraryHealth};
 use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
@@ -204,6 +206,8 @@ pub async fn analyze<C: Connection>(
     db: &Surreal<C>,
     mut interrupt: InterruptReceiver,
     overwrite: bool,
+    settings: &AnalysisSettings,
+    config: ModelConfig,
 ) -> Result<(), Error> {
     if overwrite {
         // delete all the analyses
@@ -222,7 +226,16 @@ pub async fn analyze<C: Connection>(
 
     let keys = paths.keys().cloned().collect::<Vec<_>>();
 
-    let (tx, rx) = std::sync::mpsc::channel();
+    // Use a bounded channel to apply backpressure on the producer.
+    // This prevents unbounded memory growth when analysis is faster than database writes.
+    // The buffer size is set to 2x the number of threads to allow some buffering
+    // while still limiting memory usage.
+    const ONE: NonZeroUsize = NonZeroUsize::new(1).unwrap();
+    let channel_buffer_size = 2 * settings
+        .num_threads
+        .unwrap_or_else(|| std::thread::available_parallelism().unwrap_or(ONE))
+        .get();
+    let (tx, rx) = std::sync::mpsc::sync_channel(channel_buffer_size);
 
     let Ok(decoder) = MecompDecoder::new() else {
         error!("Error creating decoder");
@@ -230,44 +243,63 @@ pub async fn analyze<C: Connection>(
     };
 
     // analyze the songs in batches, this is a blocking operation
-    let handle = tokio::task::spawn_blocking(move || decoder.analyze_paths_with_callback(keys, tx));
+    let num_threads = settings.num_threads;
+    let handle = tokio::task::spawn_blocking(move || {
+        if let Some(num) = num_threads {
+            decoder.process_songs_with_cores(&keys, tx, num, config.clone())
+        } else {
+            decoder.process_songs(&keys, tx, config.clone())
+        }
+    });
     let abort = handle.abort_handle();
 
     async {
-        for (song_path, maybe_analysis) in rx {
+        for (song_path, maybe_analysis, maybe_embedding) in rx {
             if interrupt.is_stopped() {
                 info!("Analysis interrupted");
                 break;
             }
 
             let displayable_path = song_path.display();
-
             let Some(song_id) = paths.get(&song_path) else {
                 error!("No song id found for path: {displayable_path}");
                 continue;
             };
 
-            match maybe_analysis {
-                Ok(analysis) => Analysis::create(
-                    db,
-                    song_id.clone(),
-                    Analysis {
-                        id: Analysis::generate_id(),
-                        features: *analysis.inner(),
-                    },
-                )
-                .await?
-                .map_or_else(
-                    || {
-                        warn!(
-                        "Error analyzing {displayable_path}: song either wasn't found or already has an analysis"
-                    );
-                    },
-                    |_| debug!("Analyzed {displayable_path}"),
-                ),
+            // handle errors in embedding generation
+            let embedding = match maybe_embedding {
+                Ok(embedding) => *embedding.inner(),
                 Err(e) => {
-                    error!("Error analyzing {displayable_path}: {e}");
+                    error!("Error generating embedding for {displayable_path}: {e}");
+                    continue;
                 }
+            };
+            // convert the embeddings to f64 for storage
+            let embedding: [f64; mecomp_analysis::DIM_EMBEDDING] = embedding.map(f64::from);
+
+            // handle errors in analysis generation
+            let features = match maybe_analysis {
+                Ok(analysis) => *analysis.inner(),
+                Err(e) => {
+                    error!("Error generating analysis for {displayable_path}: {e}");
+                    continue;
+                }
+            };
+
+            if let Err(e) = Analysis::create(
+                db,
+                song_id.clone(),
+                Analysis {
+                    id: Analysis::generate_id(),
+                    features,
+                    embedding,
+                },
+            )
+            .await
+            {
+                error!("Error saving analysis for {displayable_path}: {e}");
+            } else {
+                info!("Analyzed {displayable_path}");
             }
         }
 
@@ -312,6 +344,7 @@ pub async fn analyze<C: Connection>(
 pub async fn recluster<C: Connection>(
     db: &Surreal<C>,
     settings: ReclusterSettings,
+    analysis_settings: &AnalysisSettings,
     mut interrupt: InterruptReceiver,
 ) -> Result<(), Error> {
     // collect all the analyses
@@ -322,15 +355,23 @@ pub async fn recluster<C: Connection>(
         return Ok(());
     }
 
-    let analysis_array = samples
-        .iter()
-        .map(|a| a.features)
-        .collect::<Vec<_>>()
-        .into();
+    let analysis_array = if matches!(analysis_settings.kind, AnalysisKind::Features) {
+        samples
+            .iter()
+            .map(|analysis| analysis.features)
+            .collect::<Vec<_>>()
+            .into()
+    } else {
+        samples
+            .iter()
+            .map(|analysis| analysis.embedding)
+            .collect::<Vec<_>>()
+            .into()
+    };
 
     // use clustering algorithm to cluster the analyses
     let clustering = move || {
-        let model: ClusteringHelper<NotInitialized> = match ClusteringHelper::new(
+        let Ok(model) = ClusteringHelper::new(
             analysis_array,
             settings.max_clusters,
             KOptimal::GapStatistic {
@@ -338,20 +379,17 @@ pub async fn recluster<C: Connection>(
             },
             settings.algorithm.into(),
             settings.projection_method.into(),
-        ) {
-            Err(e) => {
-                error!("There was an error creating the clustering helper: {e}",);
-                return None;
-            }
-            Ok(kmeans) => kmeans,
+        )
+        .inspect_err(|e| error!("There was an error creating the clustering helper: {e}")) else {
+            return None;
         };
 
-        let model = match model.initialize() {
-            Err(e) => {
-                error!("There was an error initializing the clustering helper: {e}",);
-                return None;
-            }
-            Ok(kmeans) => kmeans.cluster(),
+        let Ok(model) = model
+            .initialize()
+            .inspect_err(|e| error!("There was an error initializing the clustering helper: {e}"))
+            .map(ClusteringHelper::cluster)
+        else {
+            return None;
         };
 
         Some(model)
@@ -400,17 +438,15 @@ pub async fn recluster<C: Connection>(
 
         // create the collections
         for (i, cluster) in clusters.iter().filter(|c| !c.is_empty()).enumerate() {
-            let collection = Collection::create(
-                db,
-                Collection {
-                    id: Collection::generate_id(),
-                    name: format!("Collection {i}"),
-                    runtime: Duration::default(),
-                    song_count: Default::default(),
-                },
-            )
-            .await?
-            .ok_or(Error::NotCreated)?;
+            let collection = Collection {
+                id: Collection::generate_id(),
+                name: format!("Collection {i}"),
+                runtime: Duration::default(),
+                song_count: Default::default(),
+            };
+            let collection = Collection::create(db, collection)
+                .await?
+                .ok_or(Error::NotCreated)?;
 
             let mut songs = Vec::with_capacity(cluster.len());
 
@@ -560,7 +596,7 @@ mod tests {
     use mecomp_core::config::{ClusterAlgorithm, ProjectionMethod};
     use mecomp_storage::db::schemas::song::{SongChangeSet, SongMetadata};
     use mecomp_storage::test_utils::{
-        ARTIST_NAME_SEPARATOR, SongCase, arb_analysis_features, arb_song_case, arb_vec,
+        ARTIST_NAME_SEPARATOR, SongCase, arb_f64_array, arb_song_case, arb_vec,
         create_song_metadata, create_song_with_overrides, init_test_database,
     };
     use one_or_many::OneOrMany;
@@ -818,6 +854,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db = init_test_database().await.unwrap();
         let interrupt = InterruptReceiver::dummy();
+        let config = mecomp_analysis::embeddings::ModelConfig::default();
+        let settings = AnalysisSettings::default();
 
         // load some songs into the database
         let song_cases = arb_vec(&arb_song_case(), 10..=15)();
@@ -844,7 +882,9 @@ mod tests {
         );
 
         // analyze the library
-        analyze(&db, interrupt, true).await.unwrap();
+        analyze(&db, interrupt, true, &settings, config)
+            .await
+            .unwrap();
 
         // check that all the songs have analyses
         assert_eq!(
@@ -896,6 +936,7 @@ mod tests {
             algorithm: ClusterAlgorithm::GMM,
             projection_method,
         };
+        let analysis_settings = AnalysisSettings::default();
 
         // load some songs into the database
         let song_cases = arb_vec(&arb_song_case(), 32..=32)();
@@ -920,7 +961,8 @@ mod tests {
                 song.id.clone(),
                 Analysis {
                     id: Analysis::generate_id(),
-                    features: arb_analysis_features()(),
+                    features: arb_f64_array()(),
+                    embedding: arb_f64_array()(),
                 },
             )
             .await
@@ -928,9 +970,14 @@ mod tests {
         }
 
         // recluster the library
-        recluster(&db, settings, InterruptReceiver::dummy())
-            .await
-            .unwrap();
+        recluster(
+            &db,
+            settings,
+            &analysis_settings,
+            InterruptReceiver::dummy(),
+        )
+        .await
+        .unwrap();
 
         // check that there are collections
         let collections = Collection::read_all(&db).await.unwrap();

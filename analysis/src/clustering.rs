@@ -22,37 +22,9 @@ use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterato
 use statrs::statistics::Statistics;
 
 use crate::{
-    Analysis, Feature, NUMBER_FEATURES,
+    DIM_EMBEDDING, Feature, NUMBER_FEATURES,
     errors::{ClusteringError, ProjectionError},
 };
-
-pub struct AnalysisArray(pub(crate) Array2<Feature>);
-
-impl From<Vec<Analysis>> for AnalysisArray {
-    #[inline]
-    fn from(data: Vec<Analysis>) -> Self {
-        let shape = (data.len(), NUMBER_FEATURES);
-        debug_assert_eq!(shape, (data.len(), data[0].inner().len()));
-
-        Self(
-            Array2::from_shape_vec(shape, data.into_iter().flat_map(|a| *a.inner()).collect())
-                .expect("Failed to convert to array, shape mismatch"),
-        )
-    }
-}
-
-impl From<Vec<[Feature; NUMBER_FEATURES]>> for AnalysisArray {
-    #[inline]
-    fn from(data: Vec<[Feature; NUMBER_FEATURES]>) -> Self {
-        let shape = (data.len(), NUMBER_FEATURES);
-        debug_assert_eq!(shape, (data.len(), data[0].len()));
-
-        Self(
-            Array2::from_shape_vec(shape, data.into_iter().flatten().collect())
-                .expect("Failed to convert to array, shape mismatch"),
-        )
-    }
-}
 
 pub type FitDataset = Dataset<Feature, (), Dim<[usize; 1]>>;
 
@@ -115,41 +87,41 @@ impl ProjectionMethod {
     ///
     /// Will return an error if there was an error projecting the data into a lower-dimensional space
     #[inline]
-    pub fn project(self, samples: AnalysisArray) -> Result<Array2<Feature>, ProjectionError> {
+    pub fn project(self, samples: Array2<Feature>) -> Result<Array2<Feature>, ProjectionError> {
         let result = match self {
             Self::TSne => {
-                let nrecords = samples.0.nrows();
+                let nrecords = samples.nrows();
                 // first use the t-SNE algorithm to project the data into a lower-dimensional space
                 debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using t-SNE");
                 #[allow(clippy::cast_precision_loss)]
                 let mut embeddings = TSneParams::embedding_size(EMBEDDING_SIZE)
-                    .perplexity(f64::max(samples.0.nrows() as f64 / 20., 5.))
+                    .perplexity(f64::max(samples.nrows() as f64 / 20., 5.))
                     .approx_threshold(0.5)
-                    .transform(samples.0)?;
+                    .transform(samples)?;
                 debug_assert_eq!(embeddings.shape(), &[nrecords, EMBEDDING_SIZE]);
 
                 // normalize the embeddings so each dimension is between -1 and 1
                 debug!("Normalizing embeddings");
-                normalize_embeddings_inplace::<EMBEDDING_SIZE>(&mut embeddings);
+                normalize_embeddings_inplace(&mut embeddings);
                 embeddings
             }
             Self::Pca => {
-                let nrecords = samples.0.nrows();
+                let nrecords = samples.nrows();
                 // use the PCA algorithm to project the data into a lower-dimensional space
                 debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using PCA");
-                let data = Dataset::from(samples.0);
+                let data = Dataset::from(samples);
                 let pca: Pca<f64> = Pca::params(EMBEDDING_SIZE).whiten(true).fit(&data)?;
                 let mut embeddings = pca.predict(&data);
                 debug_assert_eq!(embeddings.shape(), &[nrecords, EMBEDDING_SIZE]);
 
                 // normalize the embeddings so each dimension is between -1 and 1
                 debug!("Normalizing embeddings");
-                normalize_embeddings_inplace::<EMBEDDING_SIZE>(&mut embeddings);
+                normalize_embeddings_inplace(&mut embeddings);
                 embeddings
             }
             Self::None => {
                 debug!("Using original data as embeddings");
-                samples.0
+                samples
             }
         };
         debug!("Embeddings shape: {:?}", result.shape());
@@ -159,8 +131,8 @@ impl ProjectionMethod {
 
 // Normalize the embeddings to between 0.0 and 1.0, in-place.
 // Pass the embedding size as an argument to enable more compiler optimizations
-fn normalize_embeddings_inplace<const SIZE: usize>(embeddings: &mut Array2<f64>) {
-    for i in 0..SIZE {
+fn normalize_embeddings_inplace(embeddings: &mut Array2<f64>) {
+    for i in 0..embeddings.ncols() {
         let min = embeddings.column(i).min();
         let max = embeddings.column(i).max();
         let range = max - min;
@@ -173,7 +145,11 @@ fn normalize_embeddings_inplace<const SIZE: usize>(embeddings: &mut Array2<f64>)
 // log the number of features
 /// Dimensionality that the T-SNE and PCA projection methods aim to project the data into.
 const EMBEDDING_SIZE: usize = {
-    let log2 = usize::ilog2(NUMBER_FEATURES) as usize;
+    let log2 = usize::ilog2(if DIM_EMBEDDING < NUMBER_FEATURES {
+        NUMBER_FEATURES
+    } else {
+        DIM_EMBEDDING
+    }) as usize;
     if log2 < 2 { 2 } else { log2 }
 };
 
@@ -215,13 +191,13 @@ impl ClusteringHelper<EntryPoint> {
     /// Will return an error if there was an error projecting the data into a lower-dimensional space
     #[allow(clippy::missing_inline_in_public_items)]
     pub fn new(
-        samples: AnalysisArray,
+        samples: Array2<Feature>,
         k_max: usize,
         optimizer: KOptimal,
         clustering_method: ClusteringMethod,
         projection_method: ProjectionMethod,
     ) -> Result<ClusteringHelper<NotInitialized>, ClusteringError> {
-        if samples.0.nrows() <= 15 {
+        if samples.nrows() <= 15 {
             return Err(ClusteringError::SmallLibrary);
         }
 
@@ -366,24 +342,6 @@ impl ClusteringHelper<NotInitialized> {
     fn get_optimal_k_davies_bouldin(&self) -> Result<usize, ClusteringError> {
         todo!();
     }
-}
-
-/// Convert a vector of Analyses into a 2D array
-///
-/// # Panics
-///
-/// Will panic if the shape of the data does not match the number of features, should never happen
-#[must_use]
-#[inline]
-pub fn convert_to_array(data: Vec<Analysis>) -> AnalysisArray {
-    // Convert vector to Array
-    let shape = (data.len(), NUMBER_FEATURES);
-    debug_assert_eq!(NUMBER_FEATURES, data[0].inner().len());
-
-    AnalysisArray(
-        Array2::from_shape_vec(shape, data.into_iter().flat_map(|a| *a.inner()).collect())
-            .expect("Failed to convert to array, shape mismatch"),
-    )
 }
 
 /// Generate B reference data sets with a random uniform distribution
@@ -611,45 +569,6 @@ mod tests {
     }
 
     #[test]
-    fn test_convert_to_vec() {
-        let data = vec![
-            Analysis::new([1.0; NUMBER_FEATURES]),
-            Analysis::new([2.0; NUMBER_FEATURES]),
-            Analysis::new([3.0; NUMBER_FEATURES]),
-        ];
-
-        let array = convert_to_array(data);
-
-        assert_eq!(array.0.shape(), &[3, NUMBER_FEATURES]);
-        assert!(
-            f64::EPSILON > (array.0[[0, 0]] - 1.0).abs(),
-            "{} != 1.0",
-            array.0[[0, 0]]
-        );
-        assert!(
-            f64::EPSILON > (array.0[[1, 0]] - 2.0).abs(),
-            "{} != 2.0",
-            array.0[[1, 0]]
-        );
-        assert!(
-            f64::EPSILON > (array.0[[2, 0]] - 3.0).abs(),
-            "{} != 3.0",
-            array.0[[2, 0]]
-        );
-
-        // check that axis iteration works how we expect
-        // axis 0
-        let mut iter = array.0.axis_iter(Axis(0));
-        assert_eq!(iter.next().unwrap().to_vec(), vec![1.0; NUMBER_FEATURES]);
-        assert_eq!(iter.next().unwrap().to_vec(), vec![2.0; NUMBER_FEATURES]);
-        assert_eq!(iter.next().unwrap().to_vec(), vec![3.0; NUMBER_FEATURES]);
-        // axis 1
-        for column in array.0.axis_iter(Axis(1)) {
-            assert_eq!(column.to_vec(), vec![1.0, 2.0, 3.0]);
-        }
-    }
-
-    #[test]
     fn test_calc_within_dispersion() {
         let labels = arr1(&[0, 1, 0, 1]);
         let pairwise_distances = arr1(&[1.0, 2.0]);
@@ -671,8 +590,7 @@ mod tests {
         // the data has no real "principle components" and PCA will not work as expected since almost all the eigenvalues
         // with fall below the cutoff
         let mut samples = Array2::random((100, NUMBER_FEATURES), StandardNormal);
-        normalize_embeddings_inplace::<NUMBER_FEATURES>(&mut samples);
-        let samples = AnalysisArray(samples);
+        normalize_embeddings_inplace(&mut samples);
 
         let result = projection_method.project(samples).unwrap();
 

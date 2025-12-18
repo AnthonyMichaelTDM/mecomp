@@ -15,6 +15,17 @@ exclude = ["data/"]
 default = []
 # plot_gap = ["dep:plotters"]
 
+# Hardware acceleration features for ONNX inference (opt-in, requires additional setup)
+# These require the user to have the appropriate drivers/libraries installed
+cuda = [ # NVIDIA CUDA (requires CUDA 12 + cuDNN 9.x)
+    "ort/cuda",
+    "ort/copy-dylibs",
+]
+tensorrt = [ # NVIDIA TensorRT (requires TensorRT + CUDA)
+    "ort/tensorrt",
+    "ort/copy-dylibs",
+]
+
 [dependencies]
 bliss-audio-aubio-rs = { version = "0.2.4", features = ["static"] }
 linfa = "0.8.0"
@@ -34,7 +45,6 @@ rayon = "1.11.0"
 rubato = { workspace = true }
 symphonia = { workspace = true }
 rustfft = { version = "6.4.1" }
-serde = { workspace = true }
 statrs = { version = "0.18.0", default-features = false }
 strum.workspace = true
 thiserror = { workspace = true }
@@ -42,10 +52,29 @@ likely_stable.workspace = true
 bitvec.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
+# Platform-specific zero-dependency hardware acceleration for ONNX inference
+## MacOS: CoreML built-in on macOS 11+
+[target.'cfg(target_os = "macos")'.dependencies.ort]
+version = "2.0.0-rc.10"
+default-features = false
+features = ["std", "download-binaries", "coreml"]
+## Windows: DirectML ships with Windows 10+, no extra dependencies needed
+[target.'cfg(target_os = "windows")'.dependencies.ort]
+version = "2.0.0-rc.10"
+default-features = false
+features = ["std", "download-binaries", "directml", "copy-dylibs"]
+## Linux and other platforms: CPU only by default (CUDA/TensorRT available via features)
+[target.'cfg(not(any(target_os = "macos", target_os = "windows")))'.dependencies.ort]
+version = "2.0.0-rc.10"
+default-features = false
+features = ["std", "download-binaries"]
+
+
 # if we're building on macos, we need to link against the system's fftw3
 # library, which is not available on linux
-[target.'cfg(target_os = "macos")'.dependencies]
-bliss-audio-aubio-rs = { version = "0.2.4", features = ["static", "bindgen"] }
+[target.'cfg(target_os = "macos")'.dependencies.bliss-audio-aubio-rs]
+version = "0.2.4"
+features = ["static", "bindgen"]
 
 [dev-dependencies]
 ndarray-npy = { version = "0.9.1", default-features = false }
@@ -75,6 +104,10 @@ harness = false
 
 [[bench]]
 name = "descriptors"
+harness = false
+
+[[bench]]
+name = "embeddings"
 harness = false
 
 [[bench]]

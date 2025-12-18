@@ -2,6 +2,7 @@
 use std::{fs::File, path::PathBuf, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use log::{debug, error, info, warn};
+use mecomp_analysis::embeddings::ModelConfig;
 use surrealdb::{Surreal, engine::local::Db};
 use tokio::sync::Mutex;
 use tonic::{Code, Request, Response};
@@ -212,11 +213,21 @@ impl MusicPlayerTrait for MusicPlayer {
 
         let span = tracing::Span::current();
 
+        let config = ModelConfig {
+            path: self.settings.analysis.model_path.clone(),
+        };
+
         tokio::task::spawn(
             async move {
                 let _guard = self.library_analyze_lock.lock().await;
-                match services::library::analyze(&self.db, self.interrupt.resubscribe(), overwrite)
-                    .await
+                match services::library::analyze(
+                    &self.db,
+                    self.interrupt.resubscribe(),
+                    overwrite,
+                    &self.settings.analysis,
+                    config,
+                )
+                .await
                 {
                     Ok(()) => info!("Library analysis complete"),
                     Err(e) => error!("Error in library_analyze: {e}"),
@@ -261,6 +272,7 @@ impl MusicPlayerTrait for MusicPlayer {
                 match services::library::recluster(
                     &self.db,
                     self.settings.reclustering,
+                    &self.settings.analysis,
                     self.interrupt.resubscribe(),
                 )
                 .await
@@ -1523,7 +1535,7 @@ impl MusicPlayerTrait for MusicPlayer {
         let RadioSimilarRequest { record_ids, limit } = request.into_inner();
         let things = record_ids.into_iter().map(Into::into).collect();
         info!("Getting the {limit} most similar songs to: {things:?}");
-        let songs = services::radio::get_similar(&self.db, things, limit)
+        let songs = services::radio::get_similar(&self.db, things, limit, &self.settings.analysis)
             .await
             .inspect_err(|e| warn!("Error in radio_get_similar: {e}"))
             .map_err(|e| tonic::Status::internal(e.to_string()))?
@@ -1541,7 +1553,7 @@ impl MusicPlayerTrait for MusicPlayer {
         let RadioSimilarRequest { record_ids, limit } = request.into_inner();
         let things = record_ids.into_iter().map(Into::into).collect();
         info!("Getting the {limit} most similar songs to: {things:?}");
-        let ids = services::radio::get_similar(&self.db, things, limit)
+        let ids = services::radio::get_similar(&self.db, things, limit, &self.settings.analysis)
             .await
             .inspect_err(|e| warn!("Error in radio_get_similar_songs: {e}"))
             .map_err(|e| tonic::Status::internal(e.to_string()))?

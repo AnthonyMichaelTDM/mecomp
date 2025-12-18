@@ -9,7 +9,7 @@ use std::{
     num::NonZeroUsize,
 };
 
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use surrealdb::{Connection, Surreal};
 use surrealqlx_macros::surrql;
 
@@ -323,7 +323,7 @@ impl<'a> Migrations<'a> {
     }
 
     async fn ensure_migrations_table<C: Connection>(&self, db: &Surreal<C>) -> Result<()> {
-        debug!("Ensuring _migrations table");
+        trace!("Ensuring _migrations table");
 
         db.query(
             surrql!("
@@ -337,7 +337,7 @@ impl<'a> Migrations<'a> {
         )
         .await.and_then(surrealdb::Response::check).map_err(|e| Error::from(("while ensuring _migrations table exists", e)))?;
 
-        debug!("_migrations table defined");
+        trace!("_migrations table defined");
 
         Ok(())
     }

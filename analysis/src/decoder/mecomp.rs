@@ -364,13 +364,13 @@ impl Decoder for MecompDecoder {
 
 #[cfg(test)]
 mod tests {
-    use crate::NUMBER_FEATURES;
+    use crate::{NUMBER_FEATURES, embeddings::ModelConfig};
 
     use super::{Decoder as DecoderTrait, MecompDecoder as Decoder};
     use adler32::RollingAdler32;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use std::path::Path;
+    use std::{collections::HashMap, path::Path, sync::mpsc};
 
     fn verify_decoding_output(path: &Path, expected_hash: u32) {
         let decoder = Decoder::new().unwrap();
@@ -520,5 +520,101 @@ mod tests {
                 "Expected {x} to be within 0.1 of {y}, but it was not"
             );
         }
+    }
+
+    #[test]
+    fn test_analyze_paths() {
+        // get the paths to every music file in the "data" directory
+        let paths = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("data")
+            .read_dir()
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|p| {
+                p.is_file()
+                    && (p.extension().unwrap() == "wav"
+                        || p.extension().unwrap() == "flac"
+                        || p.extension().unwrap() == "mp3")
+            })
+            .collect::<Vec<_>>();
+
+        // track which paths we analyzed
+        let mut analyzed_paths = HashMap::new();
+        for path in &paths {
+            analyzed_paths.insert(path.clone(), false);
+        }
+
+        // ensure we *can* analyze these without errors
+        let decoder = Decoder::new().unwrap();
+        let mut count = 0;
+        let expected = paths.len();
+        let (tx, rx) = mpsc::channel();
+        let handle = std::thread::spawn(move || decoder.analyze_paths(&paths, tx));
+        for (path, analysis) in rx {
+            count += 1;
+            assert!(analysis.is_ok(), "Failed to analyze {path:?}: {analysis:?}",);
+            assert_eq!(
+                analyzed_paths.insert(path.clone(), true),
+                Some(false),
+                "Analyzed the same path twice: {path:?}"
+            );
+        }
+
+        assert_eq!(count, expected);
+        assert!(
+            analyzed_paths.values().all(|&v| v),
+            "Not all paths were analyzed: {analyzed_paths:?}"
+        );
+
+        handle.join().unwrap().unwrap();
+    }
+
+    #[test]
+    fn test_process_paths() {
+        // get the paths to every music file in the "data" directory
+        let paths = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("data")
+            .read_dir()
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|p| {
+                p.is_file()
+                    && (p.extension().unwrap() == "wav"
+                        || p.extension().unwrap() == "flac"
+                        || p.extension().unwrap() == "mp3")
+            })
+            .collect::<Vec<_>>();
+
+        // track which paths we analyzed
+        let mut analyzed_paths = HashMap::new();
+        for path in &paths {
+            analyzed_paths.insert(path.clone(), false);
+        }
+
+        // ensure we *can* analyze these without errors
+        let decoder = Decoder::new().unwrap();
+        let model_config = ModelConfig::default();
+        let (tx, rx) = std::sync::mpsc::sync_channel(4);
+
+        // spawn a thread to process the songs
+        let paths_clone = paths.clone();
+        std::thread::spawn(move || decoder.process_songs(&paths_clone, tx, model_config));
+
+        let mut count = 0;
+        for (path, analysis, embedding) in rx {
+            count += 1;
+            assert!(analysis.is_ok(), "Failed to analyze {path:?}: {analysis:?}");
+            assert!(embedding.is_ok(), "Failed to embed {path:?}: {embedding:?}");
+            assert_eq!(
+                analyzed_paths.insert(path.clone(), true),
+                Some(false),
+                "Analyzed the same path twice: {path:?}"
+            );
+        }
+        assert_eq!(count, paths.len());
+        assert!(
+            analyzed_paths.values().all(|&v| v),
+            "Not all paths were analyzed: {analyzed_paths:?}"
+        );
     }
 }

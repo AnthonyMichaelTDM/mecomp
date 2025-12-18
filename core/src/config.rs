@@ -7,7 +7,7 @@ use config::{Config, ConfigError, Environment, File};
 use one_or_many::OneOrMany;
 use serde::Deserialize;
 
-use std::{path::PathBuf, str::FromStr};
+use std::{num::NonZeroUsize, path::PathBuf, str::FromStr};
 
 use mecomp_storage::util::MetadataConflictResolution;
 
@@ -18,6 +18,9 @@ pub struct Settings {
     /// General Daemon Settings
     #[serde(default)]
     pub daemon: DaemonSettings,
+    /// Settings for song analysis
+    #[serde(default)]
+    pub analysis: AnalysisSettings,
     /// Parameters for the reclustering algorithm.
     #[serde(default)]
     pub reclustering: ReclusterSettings,
@@ -209,6 +212,57 @@ impl Default for DaemonSettings {
             genre_separator: None,
             conflict_resolution: MetadataConflictResolution::Overwrite,
             log_level: default_log_level(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum AnalysisKind {
+    #[default]
+    Features,
+    Embedding,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct AnalysisSettings {
+    /// The kind of analysis to perform, either "features" or "embedding".
+    /// "features" will compute traditional audio features (tempo, key, etc.)
+    /// "embedding" will compute neural audio embedding using a pre-trained model.
+    /// Default is "features".
+    ///
+    /// Note that regardless of this setting, both features and embedding will be computed during analysis.
+    /// This only determines the kind used for clustering, radio, and other such tasks
+    #[serde(default)]
+    pub kind: AnalysisKind,
+    /// The number of threads to use for analysis.
+    /// Default is the number of logical CPUs on the system.
+    ///
+    /// Note that:
+    /// - increasing this number may increase memory usage significantly during analysis.
+    /// - setting this number to more than the number of logical CPUs will have no effect (saturates at number of logical CPUs).
+    /// - leave this unset to use the default.
+    #[serde(default)]
+    pub num_threads: Option<NonZeroUsize>,
+    /// You can optionally override the model used for generating audio embeddings.
+    /// Requirements:
+    /// - The model must be in the ONNX format with opset version 16 or higher.
+    /// - The model should expect mono audio samples at a sample rate of 22,050 Hz.
+    /// - The input tensor must be name "audio" and have shape [B, N] where N a dynamic length corresponding to the number of audio samples in the song, and B is the batch size.
+    /// - The output tensor must be name "embedding" and have shape [B, 32] corresponding to a 32-dimensional embedding vector. B is the batch size.
+    ///
+    /// If unset, or a non-existent/invalid path, the built-in model (which is bundled into the daemon binary) will be used.
+    #[serde(default)]
+    pub model_path: Option<PathBuf>,
+}
+
+impl Default for AnalysisSettings {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            kind: AnalysisKind::default(),
+            num_threads: None,
+            model_path: None,
         }
     }
 }
@@ -443,6 +497,7 @@ gauge_unfilled = "BLACK"
                 conflict_resolution: MetadataConflictResolution::Overwrite,
                 log_level: log::LevelFilter::Debug,
             },
+            analysis: AnalysisSettings::default(),
             reclustering: ReclusterSettings {
                 gap_statistic_reference_datasets: 50,
                 max_clusters: 24,
@@ -508,6 +563,7 @@ radio_count = 21
                 conflict_resolution: MetadataConflictResolution::Overwrite,
                 log_level: log::LevelFilter::Debug,
             },
+            analysis: AnalysisSettings::default(),
             reclustering: ReclusterSettings {
                 gap_statistic_reference_datasets: 50,
                 max_clusters: 24,
@@ -562,6 +618,7 @@ radio_count = 21
                 conflict_resolution: MetadataConflictResolution::Overwrite,
                 log_level: log::LevelFilter::Debug,
             },
+            analysis: AnalysisSettings::default(),
             reclustering: ReclusterSettings {
                 gap_statistic_reference_datasets: 50,
                 max_clusters: 24,

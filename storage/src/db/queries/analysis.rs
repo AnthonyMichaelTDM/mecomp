@@ -181,18 +181,28 @@ pub fn nearest_neighbors(n: u32) -> impl IntoQuery {
 /// use mecomp_storage::db::crud::queries::analysis::nearest_neighbors_to_many;
 /// use surrealdb::opt::IntoQuery;
 ///
-/// let statement = nearest_neighbors_to_many(5);
+/// let statement = nearest_neighbors_to_many(5, false);
 /// assert_eq!(
 ///     statement.into_query().unwrap(),
 ///     "SELECT * FROM analysis WHERE id NOT IN $ids AND features <|5|> $target".into_query().unwrap()
 /// );
+/// let statement = nearest_neighbors_to_many(5, true);
+/// assert_eq!(
+///     statement.into_query().unwrap(),
+///     "SELECT * FROM analysis WHERE id NOT IN $ids AND embedding <|5|> $target".into_query().unwrap()
+/// );
 /// ```
 #[must_use]
 #[inline]
-pub fn nearest_neighbors_to_many(n: u32) -> impl IntoQuery {
+pub fn nearest_neighbors_to_many(n: u32, use_embeddings: bool) -> impl IntoQuery {
     parse_query(format!(
-        "SELECT * FROM {} WHERE id NOT IN $ids AND features <|{n}|> $target",
-        schemas::analysis::TABLE_NAME
+        "SELECT * FROM {} WHERE id NOT IN $ids AND {} <|{n}|> $target",
+        schemas::analysis::TABLE_NAME,
+        if use_embeddings {
+            "embedding"
+        } else {
+            "features"
+        }
     ))
 }
 
@@ -223,8 +233,12 @@ mod query_validation_tests {
         "SELECT * FROM analysis WHERE id IS NOT $id AND features <|5|> $target"
     )]
     #[case::nearest_neighbors_to_many(
-        nearest_neighbors_to_many(5),
+        nearest_neighbors_to_many(5, false),
         "SELECT * FROM analysis WHERE id NOT IN $ids AND features <|5|> $target"
+    )]
+    #[case::nearest_neighbors_to_many_use_embeddings(
+        nearest_neighbors_to_many(5, true),
+        "SELECT * FROM analysis WHERE id NOT IN $ids AND embedding <|5|> $target"
     )]
     fn test_queries(#[case] query: impl IntoQuery, #[case] expected: &str) {
         validate_query(query, expected);

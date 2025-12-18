@@ -24,6 +24,9 @@ pub struct Analysis {
 
     /// The [`Song`]'s audio features.
     pub features: [f64; NUMBER_FEATURES],
+
+    /// The [`Song`]'s embedding vector.
+    pub embedding: [f64; mecomp_analysis::DIM_EMBEDDING],
 }
 
 #[cfg(feature = "db")]
@@ -52,6 +55,17 @@ DEFINE INDEX IF NOT EXISTS analysis_features_vector_index ON analysis FIELDS fea
             M::up(surrql!("DEFINE TABLE IF NOT EXISTS analysis_to_song TYPE RELATION IN analysis OUT song ENFORCED;DELETE analysis_to_song;"))
                 .down(surrql!("DEFINE TABLE IF NOT EXISTS analysis_to_song TYPE RELATION IN analysis OUT song ENFORCED;DELETE analysis_to_song;"))
                 .comment("Clear analysis_to_song relations to prevent dangling relations"),
+            // v0.7.0 added the embedding field
+            M::up(surrql!("DELETE analysis;DELETE analysis_to_song;"))
+                .comment("Clear existing analyses so we can modify indexes properly"),
+            M::up(surrql!("DEFINE FIELD IF NOT EXISTS embedding ON analysis TYPE array<float>;"))
+                .down(surrql!("REMOVE FIELD embedding ON analysis;"))
+                .comment("Add embedding field to analysis table"),
+            // NOTE: The hardcoded value 32 below must match `mecomp_analysis::DIM_EMBEDDING`.  
+            // If the embedding dimension changes, create a new migration to update the index accordingly.
+            M::up(surrql!("DEFINE INDEX IF NOT EXISTS analysis_embeddings_vector_index ON analysis FIELDS embedding MTREE DIMENSION 32;"))
+                .down(surrql!("REMOVE INDEX analysis_embeddings_vector_index ON analysis;"))
+                .comment("Define analysis embeddings index after adding embedding field"),
         ]
     }
 }

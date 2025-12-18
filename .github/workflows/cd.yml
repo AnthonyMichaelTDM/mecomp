@@ -89,7 +89,7 @@ jobs:
       - name: Setup cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          shared-key: ${{ runner.os }}-cargo-cd
 
       - name: Build binary (Linux)
         shell: bash

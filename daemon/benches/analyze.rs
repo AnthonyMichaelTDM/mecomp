@@ -3,6 +3,8 @@
 use std::num::NonZeroUsize;
 
 use criterion::{Criterion, criterion_group, criterion_main};
+use mecomp_analysis::embeddings::ModelConfig;
+use mecomp_core::config::AnalysisSettings;
 use mecomp_daemon::{services::library::analyze, termination::InterruptReceiver};
 use mecomp_storage::{
     db::schemas::song::Song,
@@ -12,6 +14,7 @@ use tokio::runtime::Runtime;
 
 fn benchmark_analyze(c: &mut Criterion) {
     let tempdir = tempfile::tempdir().unwrap();
+    let settings = AnalysisSettings::default();
 
     // we want to test how this works when all threads are being utilized, so we need a lot of songs
     let num_songs = std::thread::available_parallelism().map_or(1, NonZeroUsize::get) * 2;
@@ -29,7 +32,7 @@ fn benchmark_analyze(c: &mut Criterion) {
             || {
                 let songs = songs.clone();
                 let handle = tokio::runtime::Handle::current();
-                std::thread::spawn(move || {
+                let db = std::thread::spawn(move || {
                     handle.block_on(async move {
                         let db = init_test_database().await.unwrap();
 
@@ -39,12 +42,14 @@ fn benchmark_analyze(c: &mut Criterion) {
 
                         db
                     })
-                })
-                .join()
-                .unwrap()
+                });
+
+                let config = ModelConfig::default();
+
+                (db.join().unwrap(), config)
             },
-            async |db| {
-                analyze(&db, InterruptReceiver::dummy(), false)
+            async |(db, config)| {
+                analyze(&db, InterruptReceiver::dummy(), false, &settings, config)
                     .await
                     .unwrap();
             },
