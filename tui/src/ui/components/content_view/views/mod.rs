@@ -1,20 +1,27 @@
 pub mod dynamic;
 use std::time::Duration;
 
+use crossterm::event::{KeyCode, KeyEvent};
 use mecomp_core::format_duration;
 use mecomp_prost::RecordId;
 use mecomp_prost::{
     Album, AlbumBrief, Artist, ArtistBrief, Collection, DynamicPlaylist, Playlist, Song, SongBrief,
 };
+use ratatui::widgets::{Scrollbar, ScrollbarOrientation};
 use ratatui::{
     layout::Alignment,
-    style::{Style, Stylize},
+    style::Style,
     text::{Line, Span},
     widgets::{Paragraph, Widget},
 };
+use tokio::sync::mpsc::UnboundedSender;
 use traits::ItemViewProps;
 
+use crate::state::action::{Action, LibraryAction, PopupAction};
+use crate::ui::components::content_view::views::traits::{SortMode, SortableViewProps};
+use crate::ui::widgets::popups::PopupType;
 use crate::ui::widgets::tree::item::CheckTreeItem;
+use crate::ui::widgets::tree::state::CheckTreeState;
 
 pub mod album;
 pub mod artist;
@@ -196,6 +203,86 @@ pub struct CollectionViewProps {
     pub songs: Vec<SongBrief>,
 }
 
+impl ItemViewProps for CollectionViewProps {
+    fn id(&self) -> &RecordId {
+        &self.id
+    }
+
+    fn retrieve(view_data: &ViewData) -> Option<Self> {
+        view_data.collection.clone()
+    }
+
+    fn title() -> &'static str {
+        "Collection View"
+    }
+
+    fn name() -> &'static str
+    where
+        Self: Sized,
+    {
+        "collection"
+    }
+
+    fn none_checked_string() -> &'static str
+    where
+        Self: Sized,
+    {
+        "entire collection"
+    }
+
+    fn info_widget(&self) -> impl Widget {
+        let duration = self
+            .collection
+            .runtime
+            .normalized()
+            .try_into()
+            .unwrap_or_default();
+
+        Paragraph::new(vec![
+            Line::from(Span::styled(&self.collection.name, Style::default().bold())),
+            Line::from(vec![
+                Span::raw("Songs: "),
+                Span::styled(
+                    self.collection.song_count.to_string(),
+                    Style::default().italic(),
+                ),
+                Span::raw("  Duration: "),
+                Span::styled(format_duration(&duration), Style::default().italic()),
+            ]),
+        ])
+        .alignment(Alignment::Center)
+    }
+
+    fn tree_items(&self) -> Result<Vec<CheckTreeItem<'_, String>>, std::io::Error> {
+        let items = self
+            .songs
+            .iter()
+            .map(checktree_utils::create_song_tree_leaf)
+            .collect::<Vec<_>>();
+        Ok(items)
+    }
+
+    fn extra_footer() -> Option<&'static str>
+    where
+        Self: Sized,
+    {
+        Some("s/S: change sort")
+    }
+
+    fn scrollbar() -> Option<ratatui::widgets::Scrollbar<'static>>
+    where
+        Self: Sized,
+    {
+        Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))
+    }
+}
+
+impl SortableViewProps<SongBrief> for CollectionViewProps {
+    fn sort_items(&mut self, sort_mode: &impl SortMode<SongBrief>) {
+        sort_mode.sort_items(&mut self.songs);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DynamicPlaylistViewProps {
     pub id: RecordId,
@@ -203,11 +290,231 @@ pub struct DynamicPlaylistViewProps {
     pub songs: Vec<SongBrief>,
 }
 
+impl ItemViewProps for DynamicPlaylistViewProps {
+    fn id(&self) -> &RecordId {
+        &self.id
+    }
+
+    fn retrieve(view_data: &ViewData) -> Option<Self> {
+        view_data.dynamic_playlist.clone()
+    }
+
+    fn title() -> &'static str {
+        "Dynamic Playlist View"
+    }
+
+    fn name() -> &'static str
+    where
+        Self: Sized,
+    {
+        "dynamic playlist"
+    }
+
+    fn none_checked_string() -> &'static str
+    where
+        Self: Sized,
+    {
+        "entire dynamic playlist"
+    }
+
+    fn info_widget(&self) -> impl Widget {
+        Paragraph::new(vec![
+            Line::from(Span::styled(
+                &self.dynamic_playlist.name,
+                Style::default().bold(),
+            )),
+            Line::from(vec![
+                Span::raw("Songs: "),
+                Span::styled(self.songs.len().to_string(), Style::default().italic()),
+                Span::raw("  Duration: "),
+                Span::styled(
+                    format_duration(
+                        &self
+                            .songs
+                            .iter()
+                            .map(|s| {
+                                TryInto::<Duration>::try_into(s.runtime.normalized())
+                                    .unwrap_or_default()
+                            })
+                            .sum(),
+                    ),
+                    Style::default().italic(),
+                ),
+            ]),
+            Line::from(Span::styled(
+                self.dynamic_playlist.query.clone(),
+                Style::default().italic(),
+            )),
+        ])
+        .alignment(Alignment::Center)
+    }
+
+    fn tree_items(&self) -> Result<Vec<CheckTreeItem<'_, String>>, std::io::Error> {
+        let items = self
+            .songs
+            .iter()
+            .map(checktree_utils::create_song_tree_leaf)
+            .collect::<Vec<_>>();
+        Ok(items)
+    }
+
+    fn extra_footer() -> Option<&'static str>
+    where
+        Self: Sized,
+    {
+        Some("s/S: sort | e: edit")
+    }
+
+    fn handle_extra_key_events(
+        &mut self,
+        key: KeyEvent,
+        action_tx: UnboundedSender<Action>,
+        _: &mut CheckTreeState<String>,
+    ) {
+        // "e" key to edit the name/query of the dynamic playlist
+        if matches!(key.code, KeyCode::Char('e')) {
+            action_tx
+                .send(Action::Popup(PopupAction::Open(
+                    PopupType::DynamicPlaylistEditor(self.dynamic_playlist.clone()),
+                )))
+                .unwrap();
+        }
+    }
+
+    fn scrollbar() -> Option<Scrollbar<'static>>
+    where
+        Self: Sized,
+    {
+        Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))
+    }
+}
+
+impl SortableViewProps<SongBrief> for DynamicPlaylistViewProps {
+    fn sort_items(&mut self, sort_mode: &impl SortMode<SongBrief>) {
+        sort_mode.sort_items(&mut self.songs);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlaylistViewProps {
     pub id: RecordId,
     pub playlist: Playlist,
     pub songs: Vec<SongBrief>,
+}
+
+impl ItemViewProps for PlaylistViewProps {
+    fn id(&self) -> &RecordId {
+        &self.id
+    }
+
+    fn retrieve(view_data: &ViewData) -> Option<Self> {
+        view_data.playlist.clone()
+    }
+
+    fn title() -> &'static str {
+        "Playlist View"
+    }
+
+    fn name() -> &'static str
+    where
+        Self: Sized,
+    {
+        "playlist"
+    }
+
+    fn none_checked_string() -> &'static str
+    where
+        Self: Sized,
+    {
+        "entire playlist"
+    }
+
+    fn info_widget(&self) -> impl Widget {
+        let duration = self
+            .playlist
+            .runtime
+            .normalized()
+            .try_into()
+            .unwrap_or_default();
+
+        Paragraph::new(vec![
+            Line::from(Span::styled(&self.playlist.name, Style::default().bold())),
+            Line::from(vec![
+                Span::raw("Songs: "),
+                Span::styled(
+                    self.playlist.song_count.to_string(),
+                    Style::default().italic(),
+                ),
+                Span::raw("  Duration: "),
+                Span::styled(format_duration(&duration), Style::default().italic()),
+            ]),
+        ])
+        .alignment(Alignment::Center)
+    }
+
+    fn tree_items(&self) -> Result<Vec<CheckTreeItem<'_, String>>, std::io::Error> {
+        let items = self
+            .songs
+            .iter()
+            .map(checktree_utils::create_song_tree_leaf)
+            .collect::<Vec<_>>();
+        Ok(items)
+    }
+
+    fn extra_footer() -> Option<&'static str>
+    where
+        Self: Sized,
+    {
+        Some("s/S: sort | d: remove selected | e: edit")
+    }
+
+    fn handle_extra_key_events(
+        &mut self,
+        key: KeyEvent,
+        action_tx: UnboundedSender<Action>,
+        tree_state: &mut CheckTreeState<String>,
+    ) {
+        match key.code {
+            // if there are checked items, remove them from the playlist, otherwise remove the whole playlist
+            KeyCode::Char('d') => {
+                let checked_things = tree_state.get_checked_things();
+                let id = self.id.ulid();
+
+                let to_remove = if checked_things.is_empty() {
+                    tree_state.get_selected_thing().map(|thing| vec![thing])
+                } else {
+                    Some(checked_things)
+                };
+
+                if let Some(targets) = to_remove {
+                    let action = LibraryAction::RemoveSongsFromPlaylist(id, targets);
+                    action_tx.send(Action::Library(action)).unwrap();
+                }
+            }
+            // edit the playlist name
+            KeyCode::Char('e') => {
+                action_tx
+                    .send(Action::Popup(PopupAction::Open(PopupType::PlaylistEditor(
+                        self.playlist.clone().into(),
+                    ))))
+                    .unwrap();
+            }
+            _ => {}
+        }
+    }
+
+    fn scrollbar() -> Option<Scrollbar<'static>>
+    where
+        Self: Sized,
+    {
+        Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))
+    }
+}
+
+impl SortableViewProps<SongBrief> for PlaylistViewProps {
+    fn sort_items(&mut self, sort_mode: &impl SortMode<SongBrief>) {
+        sort_mode.sort_items(&mut self.songs);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -334,7 +641,7 @@ pub mod checktree_utils {
     };
     use ratatui::{
         layout::Position,
-        style::{Style, Stylize},
+        style::Style,
         text::{Line, Span, Text},
     };
 

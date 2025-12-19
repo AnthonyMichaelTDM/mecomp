@@ -273,30 +273,24 @@ struct Areas {
 }
 
 fn split_area(area: Rect) -> Areas {
-    let [song_info, playback_info_area, instructions] = *Layout::default()
+    let [song_info, playback_info_area, instructions] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Fill(1),
-            Constraint::Fill(1),
-            Constraint::Fill(1),
+            Constraint::Min(1), // song info
+            Constraint::Min(1), // playback info
+            Constraint::Min(1), // instructions
         ])
-        .split(area)
-    else {
-        panic!("Failed to split frame into areas");
-    };
+        .areas(area);
 
     // middle (song progress, volume, and paused/playing indicator)
-    let [play_pause, song_progress, volume] = *Layout::default()
+    let [play_pause, song_progress, volume] = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Min(20),  // play/pause indicator
-            Constraint::Max(300), // song progress
-            Constraint::Min(20),  // volume indicator
+            Constraint::Min(10),        // play/pause indicator
+            Constraint::Percentage(80), // song progress
+            Constraint::Min(20),        // volume indicator
         ])
-        .split(playback_info_area)
-    else {
-        panic!("Failed to split frame into areas");
-    };
+        .areas(playback_info_area);
 
     Areas {
         song_info,

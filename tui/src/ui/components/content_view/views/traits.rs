@@ -2,7 +2,7 @@ use super::ViewData;
 use mecomp_prost::RecordId;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    widgets::Widget,
+    widgets::{Scrollbar, Widget},
 };
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -37,13 +37,10 @@ pub trait ItemViewProps {
 
     #[must_use]
     fn split_area(area: Rect) -> [Rect; 2] {
-        let [info_area, content_area] = *Layout::default()
+        let [info_area, content_area] = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(3), Constraint::Min(4)])
-            .split(area)
-        else {
-            panic!("Failed to split album view area")
-        };
+            .areas(area);
 
         [info_area, content_area]
     }
@@ -56,32 +53,42 @@ pub trait ItemViewProps {
     ///
     /// Returns an error if the tree items cannot be created, e.g. duplicate ids
     fn tree_items(&self) -> Result<Vec<CheckTreeItem<'_, String>>, std::io::Error>;
-}
 
-pub trait SortableView {
-    fn next_sort(&mut self);
+    /// Handle any extra key events specific to this view
+    #[inline]
+    fn handle_extra_key_events(
+        &mut self,
+        _: crossterm::event::KeyEvent,
+        _: UnboundedSender<Action>,
+        _: &mut CheckTreeState<String>,
+    ) {
+    }
 
-    fn prev_sort(&mut self);
-
-    fn sort_songs(&mut self);
-
+    /// Optionally define an additional footer to give instructions for the extra key events
     #[must_use]
-    fn footer() -> &'static str
+    fn extra_footer() -> Option<&'static str>
     where
         Self: Sized,
     {
-        "s/S: change sort"
+        None
     }
 
-    fn handle_extra_key_event(
-        &mut self,
-        key: crossterm::event::KeyEvent,
-        action_tx: UnboundedSender<Action>,
-        tree_state: &mut CheckTreeState<String>,
-    );
+    /// Optionally use a scrollbar when rendering the tree
+    #[must_use]
+    fn scrollbar() -> Option<Scrollbar<'static>>
+    where
+        Self: Sized,
+    {
+        None
+    }
 }
 
-pub trait SortMode<T> {
+pub trait SortableViewProps<Item> {
+    /// This exists essentially because the generic `SortableItemView` doesn't actually know what its items are, per se
+    fn sort_items(&mut self, sort_mode: &impl SortMode<Item>);
+}
+
+pub trait SortMode<T>: ToString + Default {
     #[must_use]
     fn next(&self) -> Self;
     #[must_use]

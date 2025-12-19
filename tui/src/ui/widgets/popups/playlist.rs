@@ -15,7 +15,7 @@ use mecomp_prost::{RecordId, Ulid};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Margin, Position, Rect},
-    style::{Style, Stylize},
+    style::Style,
     text::Line,
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
 };
@@ -93,29 +93,23 @@ impl Popup for PlaylistSelector {
     }
 
     fn area(&self, terminal_area: Rect) -> Rect {
-        let [_, horizontal_area, _] = *Layout::default()
+        let layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
                 Constraint::Percentage(50),
                 Constraint::Min(31),
                 Constraint::Percentage(19),
-            ])
-            .split(terminal_area)
-        else {
-            panic!("Failed to split horizontal area");
-        };
+            ]);
+        let [_, horizontal_area, _] = terminal_area.layout(&layout);
 
-        let [_, area, _] = *Layout::default()
+        let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Max(10),
                 Constraint::Min(10),
                 Constraint::Max(10),
-            ])
-            .split(horizontal_area)
-        else {
-            panic!("Failed to split vertical area");
-        };
+            ]);
+        let [_, area, _] = horizontal_area.layout(&layout);
         area
     }
 
@@ -252,13 +246,10 @@ impl Popup for PlaylistSelector {
 }
 
 fn split_area(area: Rect) -> [Rect; 2] {
-    let [input_box_area, content_area] = *Layout::default()
+    let [input_box_area, content_area] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(4)])
-        .split(area)
-    else {
-        panic!("Failed to split playlist selector area");
-    };
+        .areas(area);
     [input_box_area, content_area]
 }
 
@@ -455,7 +446,7 @@ mod selector_tests {
     use pretty_assertions::assert_eq;
     use ratatui::{
         buffer::Buffer,
-        style::{Color, Style},
+        style::{Color, Style, Stylize},
         text::Span,
     };
     use rstest::{fixture, rstest};

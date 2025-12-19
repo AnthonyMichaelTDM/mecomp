@@ -14,7 +14,10 @@ use crate::{
     ui::{
         AppState,
         colors::{TEXT_HIGHLIGHT, TEXT_NORMAL, border_color},
-        components::{Component, ComponentRender, RenderProps},
+        components::{
+            Component, ComponentRender, RenderProps,
+            content_view::views::traits::{SortMode, SortableViewProps},
+        },
         widgets::tree::{CheckTree, state::CheckTreeState},
     },
 };
@@ -133,7 +136,15 @@ where
                     self.action_tx.send(action).unwrap();
                 }
             }
-            _ => {}
+            _ => {
+                if let Some(props) = &mut self.props {
+                    props.handle_extra_key_events(
+                        key,
+                        self.action_tx.clone(),
+                        &mut self.tree_state.lock().unwrap(),
+                    );
+                }
+            }
         }
     }
 
@@ -141,9 +152,10 @@ where
         // adjust the area to account for the border
         let area = area.inner(Margin::new(1, 1));
         let [_, content_area] = Props::split_area(area);
+        let footer = u16::from(Props::extra_footer().is_some());
         let content_area = Rect {
             y: content_area.y + 2,
-            height: content_area.height - 2,
+            height: content_area.height - 2 - footer,
             ..content_area
         };
 
@@ -243,9 +255,173 @@ where
         frame.render_stateful_widget(
             CheckTree::new(&items)
                 .unwrap()
-                .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold()),
+                .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
+                .experimental_scrollbar(Props::scrollbar()),
             props.area,
             &mut self.tree_state.lock().unwrap(),
         );
+    }
+}
+
+/// Wraps an [`ItemView`] with sorting functionality
+///
+/// Defines additional key handling for changing sort modes,
+///
+/// Overrides rendering since we need to display the current sort mode in the border
+#[derive(Debug)]
+pub struct SortableItemView<Props, Mode, Item> {
+    pub item_view: ItemView<Props>,
+    pub sort_mode: Mode,
+    _item: std::marker::PhantomData<Item>,
+}
+
+impl<Props, Mode, Item> Component for SortableItemView<Props, Mode, Item>
+where
+    Props: ItemViewProps + SortableViewProps<Item>,
+    Mode: SortMode<Item>,
+{
+    fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self
+    where
+        Self: Sized,
+    {
+        let item_view = ItemView::new(state, action_tx);
+        let sort_mode = Mode::default();
+        Self {
+            item_view,
+            sort_mode,
+            _item: std::marker::PhantomData,
+        }
+    }
+
+    fn move_with_state(self, state: &AppState) -> Self
+    where
+        Self: Sized,
+    {
+        let mut item_view = self.item_view.move_with_state(state);
+
+        if let Some(props) = &mut item_view.props {
+            props.sort_items(&self.sort_mode);
+        }
+
+        Self { item_view, ..self }
+    }
+
+    fn name(&self) -> &str {
+        self.item_view.name()
+    }
+
+    fn handle_key_event(&mut self, key: KeyEvent) {
+        match key.code {
+            // Change sort mode
+            crossterm::event::KeyCode::Char('s') => {
+                self.sort_mode = self.sort_mode.next();
+                if let Some(props) = &mut self.item_view.props {
+                    props.sort_items(&self.sort_mode);
+                    self.item_view
+                        .tree_state
+                        .lock()
+                        .unwrap()
+                        .scroll_selected_into_view();
+                }
+            }
+            crossterm::event::KeyCode::Char('S') => {
+                self.sort_mode = self.sort_mode.prev();
+                if let Some(props) = &mut self.item_view.props {
+                    props.sort_items(&self.sort_mode);
+                    self.item_view
+                        .tree_state
+                        .lock()
+                        .unwrap()
+                        .scroll_selected_into_view();
+                }
+            }
+            _ => self.item_view.handle_key_event(key),
+        }
+    }
+
+    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+        self.item_view.handle_mouse_event(mouse, area);
+    }
+}
+
+impl<Props, Mode, Item> ComponentRender<RenderProps> for SortableItemView<Props, Mode, Item>
+where
+    Props: ItemViewProps + SortableViewProps<Item>,
+    Mode: SortMode<Item>,
+{
+    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
+        let border_style = Style::default().fg(border_color(props.is_focused).into());
+
+        // draw borders and get area for content
+        let area = if let Some(state) = &self.item_view.props {
+            let border = Block::bordered()
+                .title_top(Line::from(vec![
+                    Span::styled(Props::title(), Style::default().bold()),
+                    Span::raw(" sorted by: "),
+                    Span::styled(self.sort_mode.to_string(), Style::default().italic()),
+                ]))
+                .title_bottom(" \u{23CE} : Open | ←/↑/↓/→: Navigate | \u{2423} Check")
+                .border_style(border_style);
+            let content_area = border.inner(props.area);
+            frame.render_widget(border, props.area);
+
+            // split area to make room for item info
+            let [info_area, content_area] = Props::split_area(content_area);
+
+            // render item info
+            frame.render_widget(state.info_widget(), info_area);
+
+            // draw an additional border around the content area to display additional instructions
+            let border = Block::default()
+                .title_top("q: add to queue | r: start radio | p: add to playlist")
+                .border_style(border_style);
+            let border = if let Some(extra_footer) = Props::extra_footer() {
+                border
+                    .borders(Borders::TOP | Borders::BOTTOM)
+                    .title_bottom(extra_footer)
+            } else {
+                border.border_style(border_style)
+            };
+            frame.render_widget(&border, content_area);
+            let content_area = border.inner(content_area);
+
+            // draw an additional border around the content area to indicate whether operations will be performed on the entire item, or just the checked items
+            let border = Block::default()
+                .borders(Borders::TOP)
+                .title_top(Line::from(vec![
+                    Span::raw("Performing operations on "),
+                    Span::raw(
+                        if self
+                            .item_view
+                            .tree_state
+                            .lock()
+                            .unwrap()
+                            .get_checked_things()
+                            .is_empty()
+                        {
+                            Props::none_checked_string()
+                        } else {
+                            "checked items"
+                        },
+                    )
+                    .fg(*TEXT_HIGHLIGHT),
+                ]))
+                .italic()
+                .border_style(border_style);
+            frame.render_widget(&border, content_area);
+            border.inner(content_area)
+        } else {
+            let border = Block::bordered()
+                .title_top(Props::title())
+                .border_style(border_style);
+            frame.render_widget(&border, props.area);
+            border.inner(props.area)
+        };
+
+        RenderProps { area, ..props }
+    }
+
+    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
+        self.item_view.render_content(frame, props);
     }
 }
