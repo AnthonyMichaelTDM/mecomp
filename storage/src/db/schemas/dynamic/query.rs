@@ -206,7 +206,7 @@ impl LeafClause {
 pub enum Value {
     String(String),
     Int(i64),
-    Set(Vec<Value>),
+    Set(Vec<Self>),
     Field(Field),
 }
 

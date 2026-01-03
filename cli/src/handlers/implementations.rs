@@ -797,6 +797,21 @@ impl CommandHandler for super::PlaylistCommand {
                 Ok(())
             }
             Self::Export { id, path } => {
+                // `canonicalize` fails if the path doesn't already exist, which is an expected situation.
+                // Therefore if canonicalization fails we try creating the file and canonicalizing again.
+                // We only error out if both attempts fail
+                let path = match path.canonicalize().or_else(|_| {
+                    // "open" the file, creating it if it doesn't exist
+                    let _ = std::fs::File::open(path)?;
+                    path.canonicalize()
+                }) {
+                    Ok(path) => path,
+                    Err(e) => {
+                        writeln!(stderr, "Failed to canonicalize {}: {e}", path.display())?;
+                        path.clone()
+                    }
+                };
+
                 client
                     .playlist_export(PlaylistExportRequest {
                         playlist_id: Ulid::new(id),
@@ -811,6 +826,11 @@ impl CommandHandler for super::PlaylistCommand {
                 Ok(())
             }
             Self::Import { path, name } => {
+                // `canonicalize` fails if the path doesn't already exist, which in this case is an error.
+                let path = path.canonicalize().inspect_err(|e| {
+                    let _ = writeln!(stderr, "Failed to canonicalize {}: {e}", path.display());
+                })?;
+
                 let resp: RecordId = client
                     .playlist_import(PlaylistImportRequest {
                         path: format!("{}", path.display()),
@@ -896,7 +916,7 @@ impl CommandHandler for super::DynamicCommand {
         &self,
         mut client: mecomp_prost::MusicPlayerClient,
         stdout: &mut W1,
-        _: &mut W2,
+        stderr: &mut W2,
         _: &R,
     ) -> Self::Output {
         match self {
@@ -986,8 +1006,22 @@ impl CommandHandler for super::DynamicCommand {
                 Ok(())
             }
             Self::Export { path } => {
+                // `canonicalize` fails if the path doesn't already exist, which is an expected situation.
+                // Therefore if canonicalization fails we try creating the file and canonicalizing again.
+                // We only error out if both attempts fail
+                let path = match path.canonicalize().or_else(|_| {
+                    // "open" the file, creating it if it doesn't exist
+                    let _ = std::fs::File::open(path)?;
+                    path.canonicalize()
+                }) {
+                    Ok(path) => path,
+                    Err(e) => {
+                        writeln!(stderr, "Failed to canonicalize {}: {e}", path.display())?;
+                        path.clone()
+                    }
+                };
                 client
-                    .dynamic_playlist_export(mecomp_prost::Path::new(path))
+                    .dynamic_playlist_export(mecomp_prost::Path::new(&path))
                     .await?;
                 writeln!(
                     stdout,
@@ -997,8 +1031,12 @@ impl CommandHandler for super::DynamicCommand {
                 Ok(())
             }
             Self::Import { path } => {
+                // `canonicalize` fails if the path doesn't already exist, which in this case is an error.
+                let path = path.canonicalize().inspect_err(|e| {
+                    let _ = writeln!(stderr, "Failed to canonicalize {}: {e}", path.display());
+                })?;
                 let resp: Vec<DynamicPlaylist> = client
-                    .dynamic_playlist_import(mecomp_prost::Path::new(path))
+                    .dynamic_playlist_import(mecomp_prost::Path::new(&path))
                     .await?
                     .into_inner()
                     .playlists;
