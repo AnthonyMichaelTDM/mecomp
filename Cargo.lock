@@ -3213,7 +3213,7 @@ dependencies = [
  "rubato",
  "rustfft",
  "statrs",
- "strum 0.26.3",
+ "strum 0.27.2",
  "symphonia",
  "thiserror 2.0.17",
 ]
