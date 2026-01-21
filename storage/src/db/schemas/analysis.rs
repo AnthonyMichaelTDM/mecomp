@@ -1,5 +1,4 @@
 #![allow(clippy::module_name_repetitions)]
-use core::f32;
 
 use super::Id;
 #[cfg(not(feature = "db"))]
