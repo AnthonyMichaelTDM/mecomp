@@ -242,7 +242,7 @@ impl MecompDecoder {
                 let mut result = vec![0f32; len];
                 let scale = SQRT_2 * 0.5;
 
-                // process 8 sterio pairs (16 floats) at a time for better SIMD utilization
+                // process 8 stereo pairs (16 floats) at a time for better SIMD utilization
                 let (src_chunks, src_remainder) = source.as_chunks::<16>();
                 let (dest_chunks, dest_remainder) = result.as_chunks_mut::<8>();
 
