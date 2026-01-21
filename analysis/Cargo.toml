@@ -28,11 +28,11 @@ tensorrt = [ # NVIDIA TensorRT (requires TensorRT + CUDA)
 
 [dependencies]
 bliss-audio-aubio-rs = { version = "0.2.4", features = ["static"] }
-linfa = "0.8.0"
-linfa-clustering = "0.8.0"
-linfa-reduction = "0.8.0"
-linfa-tsne = "0.8.0"
-linfa-nn = "0.8.0"
+linfa = "0.8.1"
+linfa-clustering = "0.8.1"
+linfa-reduction = "0.8.1"
+linfa-tsne = "0.8.1"
+linfa-nn = "0.8.1"
 log = { workspace = true }
 ndarray = "0.16.1"
 ndarray-rand = "0.15.0"
@@ -54,19 +54,19 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 # Platform-specific zero-dependency hardware acceleration for ONNX inference
 ## MacOS: CoreML built-in on macOS 11+
 [target.'cfg(target_os = "macos")'.dependencies.ort]
-version = "2.0.0-rc.10"
+version = "2.0.0-rc.11"
 default-features = false
-features = ["std", "download-binaries", "coreml"]
+features = ["std", "download-binaries", "coreml", "tls-rustls"]
 ## Windows: DirectML ships with Windows 10+, no extra dependencies needed
 [target.'cfg(target_os = "windows")'.dependencies.ort]
-version = "2.0.0-rc.10"
+version = "2.0.0-rc.11"
 default-features = false
-features = ["std", "download-binaries", "directml", "copy-dylibs"]
+features = ["std", "download-binaries", "directml", "copy-dylibs", "tls-rustls"]
 ## Linux and other platforms: CPU only by default (CUDA/TensorRT available via features)
 [target.'cfg(not(any(target_os = "macos", target_os = "windows")))'.dependencies.ort]
-version = "2.0.0-rc.10"
+version = "2.0.0-rc.11"
 default-features = false
-features = ["std", "download-binaries"]
+features = ["std", "download-binaries", "tls-rustls"]
 
 
 # if we're building on macos, we need to link against the system's fftw3

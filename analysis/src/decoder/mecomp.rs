@@ -285,21 +285,25 @@ impl MecompDecoder {
         &self,
         mut samples: Vec<f32>,
         sample_rate: u32,
-        total_duration: Duration,
     ) -> Result<Vec<f32>, AnalysisError> {
         if sample_rate == SAMPLE_RATE {
             samples.shrink_to_fit();
             return Ok(samples);
         }
 
+        let resample_ratio = f64::from(SAMPLE_RATE) / f64::from(sample_rate);
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            clippy::cast_precision_loss
+        )]
         let mut resampled_frames = Vec::with_capacity(
-            usize::try_from((total_duration.as_secs() + 1) * u64::from(SAMPLE_RATE))
-                .unwrap_or(usize::MAX),
+            (samples.len() as f64 * resample_ratio) as usize + SAMPLE_RATE as usize, // add an extra second as a buffer
         );
 
         let (pool, resampler) = self.resampler.pull(Self::generate_resampler).detach();
         let mut resampler = resampler?;
-        resampler.set_resample_ratio(f64::from(SAMPLE_RATE) / f64::from(sample_rate), false)?;
+        resampler.set_resample_ratio(resample_ratio, false)?;
 
         let delay = resampler.output_delay();
 
@@ -362,17 +366,13 @@ impl Decoder for MecompDecoder {
 
         // Convert the audio source into a mono channel
         let sample_rate = source.spec.rate;
-        let Some(total_duration) = source.total_duration else {
-            return Err(AnalysisError::IndeterminantDuration);
-        };
         let num_channels = source.channels();
 
         let mono_sample_array =
             Self::into_mono_samples(source.into_iter().collect(), num_channels)?;
 
         // then we need to resample the audio source into 22050 Hz
-        let resampled_array =
-            self.resample_mono_samples(mono_sample_array, sample_rate, total_duration)?;
+        let resampled_array = self.resample_mono_samples(mono_sample_array, sample_rate)?;
 
         Ok(ResampledAudio {
             path: path.to_owned(),
