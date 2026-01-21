@@ -96,7 +96,7 @@ mod subscriber_tests {
             album::Album, analysis::Analysis, artist::Artist, collection::Collection,
             playlist::Playlist, song::Song,
         },
-        test_utils::{arb_f64_array, init_test_database},
+        test_utils::{arb_feature_array, init_test_database},
     };
     use rstest::{fixture, rstest};
     use surrealdb::{RecordId, Surreal, engine::local::Db};
@@ -133,8 +133,8 @@ mod subscriber_tests {
         };
         let analysis = Analysis {
             id: analysis_id.clone(),
-            features: arb_f64_array()(),
-            embedding: arb_f64_array()(),
+            features: arb_feature_array()(),
+            embedding: arb_feature_array()(),
         };
         let artist = Artist {
             id: artist_id.clone(),

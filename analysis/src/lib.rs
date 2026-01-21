@@ -116,7 +116,7 @@ pub enum AnalysisIndex {
 }
 
 /// The Type of individual features
-pub type Feature = f64;
+pub type Feature = f32;
 /// The number of features used in `Analysis`
 pub const NUMBER_FEATURES: usize = AnalysisIndex::COUNT;
 

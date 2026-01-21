@@ -13,7 +13,8 @@ use mecomp_storage::{
         song::Song,
     },
     test_utils::{
-        SongCase, arb_f64_array, arb_song_case, arb_vec, create_song_metadata, init_test_database,
+        SongCase, arb_feature_array, arb_song_case, arb_vec, create_song_metadata,
+        init_test_database,
     },
 };
 use tokio::runtime::Runtime;
@@ -57,8 +58,8 @@ fn benchmark_recluster(c: &mut Criterion) {
             song.id.clone(),
             Analysis {
                 id: Analysis::generate_id(),
-                features: arb_f64_array()(),
-                embedding: arb_f64_array()(),
+                features: arb_feature_array()(),
+                embedding: arb_feature_array()(),
             },
         ))
         .unwrap();

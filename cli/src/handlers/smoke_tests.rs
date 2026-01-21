@@ -9,7 +9,7 @@ use mecomp_storage::{
         album::Album, analysis::Analysis, artist::Artist, collection::Collection,
         dynamic::DynamicPlaylist, playlist::Playlist, song::Song,
     },
-    test_utils::{arb_f64_array, init_test_database},
+    test_utils::{arb_feature_array, init_test_database},
 };
 use pretty_assertions::assert_str_eq;
 use rstest::{fixture, rstest};
@@ -140,13 +140,13 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
     };
     let analysis1 = Analysis {
         id: analysis_id1.clone(),
-        features: arb_f64_array()(),
-        embedding: arb_f64_array()(),
+        features: arb_feature_array()(),
+        embedding: arb_feature_array()(),
     };
     let analysis2 = Analysis {
         id: analysis_id2.clone(),
-        features: arb_f64_array()(),
-        embedding: arb_f64_array()(),
+        features: arb_feature_array()(),
+        embedding: arb_feature_array()(),
     };
     let artist = Artist {
         id: artist_id.clone(),

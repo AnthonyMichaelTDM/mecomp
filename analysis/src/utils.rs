@@ -27,7 +27,7 @@ pub fn reflect_pad(array: &[f32], pad: usize) -> Vec<f32> {
 /// Compute the Short-Time Fourier Transform of a signal
 #[must_use]
 #[allow(clippy::missing_inline_in_public_items)]
-pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f64> {
+pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f32> {
     debug_assert!(
         window_length.is_multiple_of(2),
         "Window length must be even"
@@ -70,7 +70,7 @@ pub fn stft(signal: &[f32], window_length: usize, hop_length: usize) -> Array2<f
         stft_col.assign(
             &signal
                 .slice(s![..=half_window_length])
-                .mapv(|x| f64::from(x.re.hypot(x.im))),
+                .mapv(|x| x.re.hypot(x.im)),
         );
     }
     stft.permuted_axes((1, 0))
@@ -150,14 +150,15 @@ pub fn geometric_mean(input: &[f32]) -> f32 {
 }
 
 pub(crate) fn hz_to_octs_inplace(
-    frequencies: &mut Array1<f64>,
-    tuning: f64,
+    frequencies: &mut Array1<f32>,
+    tuning: f32,
     bins_per_octave: u32,
-) -> &mut Array1<f64> {
-    let a440 = 440.0 * (tuning / f64::from(bins_per_octave)).exp2();
+) -> &mut Array1<f32> {
+    #[allow(clippy::cast_precision_loss)]
+    let a440 = 440.0 * (tuning / bins_per_octave as f32).exp2();
 
     *frequencies /= a440 / 16.;
-    frequencies.mapv_inplace(f64::log2);
+    frequencies.mapv_inplace(f32::log2);
     frequencies
 }
 
@@ -493,7 +494,7 @@ mod tests {
     #[test]
     fn test_compute_stft() {
         let file = File::open("data/librosa-stft.npy").unwrap();
-        let expected_stft = Array2::<f32>::read_npy(file).unwrap().mapv(f64::from);
+        let expected_stft = Array2::<f32>::read_npy(file).unwrap();
 
         let song = Decoder::new()
             .unwrap()

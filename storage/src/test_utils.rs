@@ -473,7 +473,7 @@ where
 }
 
 #[inline]
-pub const fn arb_f64_array<const N: usize>() -> impl Fn() -> [f64; N] {
+pub const fn arb_feature_array<const N: usize>() -> impl Fn() -> [f32; N] {
     move || {
         let rng = &mut rand::thread_rng();
         let mut features = [0.0; N];

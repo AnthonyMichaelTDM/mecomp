@@ -433,7 +433,7 @@ mod tests {
         );
     }
 
-    const PATH_AND_EXPECTED_ANALYSIS: (&str, [f64; NUMBER_FEATURES]) = (
+    const PATH_AND_EXPECTED_ANALYSIS: (&str, [f32; NUMBER_FEATURES]) = (
         "data/s16_mono_22_5kHz.flac",
         [
             0.384_638_9,
@@ -477,7 +477,7 @@ mod tests {
         }
     }
 
-    const RESAMPLED_PATH_AND_EXPECTED_ANALYSIS: (&str, [f64; NUMBER_FEATURES]) = (
+    const RESAMPLED_PATH_AND_EXPECTED_ANALYSIS: (&str, [f32; NUMBER_FEATURES]) = (
         "data/s32_stereo_44_1_kHz.flac",
         [
             0.38463664,

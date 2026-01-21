@@ -198,7 +198,7 @@ impl Analysis {
             .bind(("ids", ids));
 
         #[allow(clippy::cast_precision_loss)]
-        let num_analyses = analyses.len() as f64;
+        let num_analyses = analyses.len() as f32;
 
         let query = if use_embeddings {
             let avg_embedding = analyses
