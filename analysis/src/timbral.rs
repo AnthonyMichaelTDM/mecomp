@@ -60,12 +60,12 @@ impl SpectralDesc {
     #[inline]
     pub fn get_centroid(&mut self) -> [Feature; 2] {
         [
-            self.normalize(Feature::from(mean(&self.values_centroid))),
-            self.normalize(Feature::from(
+            self.normalize(mean(&self.values_centroid)),
+            self.normalize(
                 arr1(&self.values_centroid)
                     .std_axis(Axis(0), 0.)
                     .into_scalar(),
-            )),
+            ),
         ]
     }
 
@@ -85,12 +85,12 @@ impl SpectralDesc {
     #[inline]
     pub fn get_rolloff(&mut self) -> [Feature; 2] {
         [
-            self.normalize(Feature::from(mean(&self.values_rolloff))),
-            self.normalize(Feature::from(
+            self.normalize(mean(&self.values_rolloff)),
+            self.normalize(
                 arr1(&self.values_rolloff)
                     .std_axis(Axis(0), 0.)
                     .into_scalar(),
-            )),
+            ),
         ]
     }
 
@@ -117,13 +117,11 @@ impl SpectralDesc {
         // Range is different from the other spectral algorithms, so normalizing
         // manually here.
         [
-            2. * (Feature::from(mean(&self.values_flatness)) - min_value) / (max_value - min_value)
-                - 1.,
-            2. * (Feature::from(
-                arr1(&self.values_flatness)
-                    .std_axis(Axis(0), 0.)
-                    .into_scalar(),
-            ) - min_value)
+            2. * (mean(&self.values_flatness) - min_value) / (max_value - min_value) - 1.,
+            2. * (arr1(&self.values_flatness)
+                .std_axis(Axis(0), 0.)
+                .into_scalar()
+                - min_value)
                 / (max_value - min_value)
                 - 1.,
         ]
@@ -262,7 +260,7 @@ impl ZeroCrossingRateDesc {
     #[allow(clippy::cast_precision_loss)]
     #[inline]
     pub fn get_value(&mut self) -> Feature {
-        self.normalize(Feature::from(self.crossings_sum) / self.samples_checked as Feature)
+        self.normalize(self.crossings_sum as Feature / self.samples_checked as Feature)
     }
 }
 
@@ -283,7 +281,7 @@ mod tests {
         let chunk = vec![0.; 1024];
         zcr_desc.do_(&chunk);
         let value = zcr_desc.get_value();
-        assert!(f64::EPSILON > (-1. - value).abs(), "{value} !~= -1");
+        assert!(f32::EPSILON > (-1. - value).abs(), "{value} !~= -1");
 
         let one_chunk = [-1., 1.];
         let chunks = std::iter::repeat_n(one_chunk.iter(), 512)

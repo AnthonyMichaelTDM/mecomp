@@ -1,4 +1,5 @@
 #![allow(clippy::module_name_repetitions)]
+
 use super::Id;
 #[cfg(not(feature = "db"))]
 use super::RecordId;
@@ -23,10 +24,10 @@ pub struct Analysis {
     pub id: AnalysisId,
 
     /// The [`Song`]'s audio features.
-    pub features: [f64; NUMBER_FEATURES],
+    pub features: [f32; NUMBER_FEATURES],
 
     /// The [`Song`]'s embedding vector.
-    pub embedding: [f64; mecomp_analysis::DIM_EMBEDDING],
+    pub embedding: [f32; mecomp_analysis::DIM_EMBEDDING],
 }
 
 #[cfg(feature = "db")]

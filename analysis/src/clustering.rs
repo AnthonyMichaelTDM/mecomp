@@ -17,9 +17,10 @@ use linfa_tsne::TSneParams;
 use log::{debug, info};
 use ndarray::{Array, Array1, Array2, ArrayView1, ArrayView2, Axis, Dim};
 use ndarray_rand::RandomExt;
+use ndarray_stats::QuantileExt;
 use rand::distributions::Uniform;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use statrs::statistics::Statistics;
+// use statrs::statistics::Statistics;
 
 use crate::{
     DIM_EMBEDDING, Feature, NUMBER_FEATURES,
@@ -95,7 +96,7 @@ impl ProjectionMethod {
                 debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using t-SNE");
                 #[allow(clippy::cast_precision_loss)]
                 let mut embeddings = TSneParams::embedding_size(EMBEDDING_SIZE)
-                    .perplexity(f64::max(samples.nrows() as f64 / 20., 5.))
+                    .perplexity(Feature::max(samples.nrows() as Feature / 20., 5.))
                     .approx_threshold(0.5)
                     .transform(samples)?;
                 debug_assert_eq!(embeddings.shape(), &[nrecords, EMBEDDING_SIZE]);
@@ -109,9 +110,11 @@ impl ProjectionMethod {
                 let nrecords = samples.nrows();
                 // use the PCA algorithm to project the data into a lower-dimensional space
                 debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using PCA");
-                let data = Dataset::from(samples);
+                // linfa_reduction::pca::PCA only works for f64, see: https://github.com/rust-ml/linfa/issues/232
+                let data = Dataset::from(samples.mapv(f64::from));
                 let pca: Pca<f64> = Pca::params(EMBEDDING_SIZE).whiten(true).fit(&data)?;
-                let mut embeddings = pca.predict(&data);
+                #[allow(clippy::cast_possible_truncation)]
+                let mut embeddings = pca.predict(&data).mapv(|f| f as Feature);
                 debug_assert_eq!(embeddings.shape(), &[nrecords, EMBEDDING_SIZE]);
 
                 // normalize the embeddings so each dimension is between -1 and 1
@@ -131,10 +134,10 @@ impl ProjectionMethod {
 
 // Normalize the embeddings to between 0.0 and 1.0, in-place.
 // Pass the embedding size as an argument to enable more compiler optimizations
-fn normalize_embeddings_inplace(embeddings: &mut Array2<f64>) {
+fn normalize_embeddings_inplace(embeddings: &mut Array2<Feature>) {
     for i in 0..embeddings.ncols() {
-        let min = embeddings.column(i).min();
-        let max = embeddings.column(i).max();
+        let min = embeddings.column(i).min().copied().unwrap_or_default();
+        let max = embeddings.column(i).max().copied().unwrap_or_default();
         let range = max - min;
         embeddings
             .column_mut(i)
@@ -264,7 +267,8 @@ impl ClusteringHelper<NotInitialized> {
         let reference_datasets =
             generate_reference_datasets(embedding_dataset.records().view(), b as usize);
 
-        let b = f64::from(b);
+        #[allow(clippy::cast_precision_loss)]
+        let b = b as Feature;
 
         let results = (1..=self.state.k_max)
             // for each k, cluster the data into k clusters
@@ -302,7 +306,7 @@ impl ClusteringHelper<NotInitialized> {
                 let w_k = calc_within_dispersion(labels.view(), k, pairwise_distances.view());
 
                 // finally, calculate the gap statistic
-                let w_kb_log_sum: f64 = w_kb_log.sum();
+                let w_kb_log_sum: Feature = w_kb_log.sum();
                 // original formula: l = (1 / B) * sum_b(log(W_kb))
                 let l = b.recip() * w_kb_log_sum;
                 // original formula: gap_k = (1 / B) * sum_b(log(W_kb)) - log(W_k)
@@ -376,7 +380,15 @@ fn generate_reference_datasets(samples: ArrayView2<'_, Feature>, b: usize) -> Ve
 fn generate_ref_single(samples: ArrayView2<'_, Feature>) -> Array2<Feature> {
     let feature_distributions = samples
         .axis_iter(Axis(1))
-        .map(|feature| Array::random(feature.dim(), Uniform::new(feature.min(), feature.max())))
+        .map(|feature| {
+            Array::random(
+                feature.dim(),
+                Uniform::new(
+                    feature.min().copied().unwrap_or_default(),
+                    feature.max().copied().unwrap_or_default(),
+                ),
+            )
+        })
         .collect::<Vec<_>>();
     let feature_dists_views = feature_distributions
         .iter()
@@ -404,10 +416,11 @@ fn calc_within_dispersion(
         counts
     });
     // then, we calculate the within intra-cluster variation
+    #[allow(clippy::cast_precision_loss)]
     counts
         .iter()
         .zip(pairwise_distances.iter())
-        .map(|(&count, distance)| (2.0 * f64::from(count)).recip() * distance)
+        .map(|(&count, distance)| (2.0 * count as Feature).recip() * distance)
         .sum()
 }
 
@@ -542,12 +555,12 @@ mod tests {
         let pairwise_distances = calc_pairwise_distances(samples.view(), 2, labels.view());
 
         assert!(
-            f64::EPSILON > (pairwise_distances[0] - 0.0).abs(),
+            f32::EPSILON > (pairwise_distances[0] - 0.0).abs(),
             "{} != 0.0",
             pairwise_distances[0]
         );
         assert!(
-            f64::EPSILON > (pairwise_distances[1] - 0.0).abs(),
+            f32::EPSILON > (pairwise_distances[1] - 0.0).abs(),
             "{} != 0.0",
             pairwise_distances[1]
         );
@@ -557,12 +570,12 @@ mod tests {
         let pairwise_distances = calc_pairwise_distances(samples.view(), 2, labels.view());
 
         assert!(
-            f64::EPSILON > (pairwise_distances[0] - 2.0).abs(),
+            f32::EPSILON > (pairwise_distances[0] - 2.0).abs(),
             "{} != 2.0",
             pairwise_distances[0]
         );
         assert!(
-            f64::EPSILON > (pairwise_distances[1] - 2.0).abs(),
+            f32::EPSILON > (pairwise_distances[1] - 2.0).abs(),
             "{} != 2.0",
             pairwise_distances[1]
         );
@@ -575,7 +588,7 @@ mod tests {
         let result = calc_within_dispersion(labels.view(), 2, pairwise_distances.view());
 
         // `W_k = \sum_{r=1}^{k} \frac{D_r}{2*n_r}` = 1/4 * 1.0 + 1/4 * 2.0 = 0.25 + 0.5 = 0.75
-        assert!(f64::EPSILON > (result - 0.75).abs(), "{result} != 0.75");
+        assert!(f32::EPSILON > (result - 0.75).abs(), "{result} != 0.75");
     }
 
     #[rstest]
@@ -599,14 +612,14 @@ mod tests {
 
         // ensure the data is normalized
         for i in 0..expected_embedding_size {
-            let min = result.column(i).min();
-            let max = result.column(i).max();
+            let min = result.column(i).min().copied().unwrap_or_default();
+            let max = result.column(i).max().copied().unwrap_or_default();
             assert!(
-                f64::EPSILON > (min + 1.0).abs(),
+                f32::EPSILON > (min + 1.0).abs(),
                 "Min value of column {i} is not -1.0: {min}",
             );
             assert!(
-                f64::EPSILON > (max - 1.0).abs(),
+                f32::EPSILON > (max - 1.0).abs(),
                 "Max value of column {i} is not 1.0: {max}",
             );
         }

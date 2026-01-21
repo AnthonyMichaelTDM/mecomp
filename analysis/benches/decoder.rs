@@ -112,19 +112,44 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
         b.iter_with_setup(
             || samples.clone(),
             |source| {
-                {
-                    let mut mono_sample_array = Vec::with_capacity(
-                        (total_duration.as_secs() as usize + 1) * sample_rate as usize,
-                    );
-                    let mut iter = source.into_iter().peekable();
-                    while iter.peek().is_some() {
-                        let sum = iter.by_ref().take(num_channels).sum::<f32>();
-                        mono_sample_array.push(sum / (num_channels as f32));
-                    }
-                };
-                black_box(());
+                let mut mono_sample_array = Vec::with_capacity(
+                    (total_duration.as_secs() as usize + 1) * sample_rate as usize,
+                );
+                let mut iter = source.into_iter().peekable();
+                while iter.peek().is_some() {
+                    let sum = iter.by_ref().take(num_channels).sum::<f32>();
+                    mono_sample_array.push(sum / (num_channels as f32));
+                }
             },
         );
+    });
+
+    group.bench_function("explicit vectorization", |b| {
+        b.iter_with_setup(
+            || samples.clone(),
+            |source| {
+                let len = source.len() / 2;
+                let mut result = vec![0f32; len];
+                let scale = SQRT_2 * 0.5;
+
+                // process 8 stereo pairs (16 floats) at a time for better SIMD utilization
+                let (src_chunks, src_remainder) = source.as_chunks::<16>();
+                let (dest_main, dest_remainder) = result.split_at_mut(src_chunks.len() * 8);
+                let dest_chunks = dest_main.chunks_exact_mut(8);
+
+                for (src, dest) in src_chunks.iter().zip(dest_chunks) {
+                    // compiler should auto-vectorize this
+                    for i in 0..8 {
+                        dest[i] = (src[2 * i] + src[2 * i + 1]) * scale;
+                    }
+                }
+
+                // process the remainder
+                for (i, chunk) in src_remainder.chunks_exact(2).enumerate() {
+                    dest_remainder[i] = (chunk[0] + chunk[1]) * scale;
+                }
+            },
+        )
     });
 
     group.finish();

@@ -237,10 +237,29 @@ impl MecompDecoder {
             // mono
             1 => Ok(source),
             // stereo
-            2 => Ok(source
-                .chunks_exact(2)
-                .map(|chunk| (chunk[0] + chunk[1]) * SQRT_2 / 2.)
-                .collect()),
+            2 => {
+                let len = source.len() / 2;
+                let mut result = vec![0f32; len];
+                let scale = SQRT_2 * 0.5;
+
+                // process 8 stereo pairs (16 floats) at a time for better SIMD utilization
+                let (src_chunks, src_remainder) = source.as_chunks::<16>();
+                let (dest_chunks, dest_remainder) = result.as_chunks_mut::<8>();
+
+                for (src, dest) in src_chunks.iter().zip(dest_chunks) {
+                    // compiler should auto-vectorize this
+                    for i in 0..8 {
+                        dest[i] = (src[2 * i] + src[2 * i + 1]) * scale;
+                    }
+                }
+
+                // process the remainder
+                for (i, chunk) in src_remainder.chunks_exact(2).enumerate() {
+                    dest_remainder[i] = (chunk[0] + chunk[1]) * scale;
+                }
+
+                Ok(result)
+            }
             // 2.1 or 5.1 surround
             _ => {
                 log::warn!(
@@ -433,7 +452,7 @@ mod tests {
         );
     }
 
-    const PATH_AND_EXPECTED_ANALYSIS: (&str, [f64; NUMBER_FEATURES]) = (
+    const PATH_AND_EXPECTED_ANALYSIS: (&str, [f32; NUMBER_FEATURES]) = (
         "data/s16_mono_22_5kHz.flac",
         [
             0.384_638_9,
@@ -477,7 +496,7 @@ mod tests {
         }
     }
 
-    const RESAMPLED_PATH_AND_EXPECTED_ANALYSIS: (&str, [f64; NUMBER_FEATURES]) = (
+    const RESAMPLED_PATH_AND_EXPECTED_ANALYSIS: (&str, [f32; NUMBER_FEATURES]) = (
         "data/s32_stereo_44_1_kHz.flac",
         [
             0.38463664,

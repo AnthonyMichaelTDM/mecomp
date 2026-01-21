@@ -154,7 +154,7 @@ mod tests {
         let silence_chunk = vec![0.; 1024];
         tempo_desc.do_(&silence_chunk).unwrap();
         let value = tempo_desc.get_value();
-        assert!(f64::EPSILON > (-1. - value).abs(), "{value} !~= -1");
+        assert!(f32::EPSILON > (-1. - value).abs(), "{value} !~= -1");
 
         let mut tempo_desc = BPMDesc::new(22050).unwrap();
         // The highest value I could obtain was with these params, even though

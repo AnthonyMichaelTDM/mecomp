@@ -1661,7 +1661,11 @@ mod tests {
             ));
             tokio::time::sleep(Duration::from_millis(500)).await;
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.queue_position, None);
+            assert_eq!(
+                state.queue_position, None,
+                "Song did not end as expected, queue position: {:?}. runtime info: {:?}",
+                state.queue_position, state.runtime,
+            );
             assert_eq!(state.status, Status::Stopped);
 
             sender.send(AudioCommand::Exit);

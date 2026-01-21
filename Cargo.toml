@@ -73,7 +73,6 @@ linfa-nn.opt-level = 3
 ndarray.opt-level = 3
 ndarray-rand.opt-level = 3
 ndarray-stats.opt-level = 3
-statrs.opt-level = 3
 rustfft.opt-level = 3
 # Set audio libraries to optimize for speed in tests
 symphonia.opt-level = 3

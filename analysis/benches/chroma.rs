@@ -14,7 +14,7 @@ use mecomp_analysis::chroma::{
 
 fn bench_estimate_tuning(c: &mut Criterion) {
     let file = File::open("data/spectrum-chroma.npy").unwrap();
-    let arr = Array2::<f64>::read_npy(file).unwrap();
+    let arr = Array2::<f64>::read_npy(file).unwrap().mapv(|x| x as f32);
 
     c.bench_function("mecomp-analysis: chroma.rs: estimate_tuning", |b| {
         b.iter(|| {
@@ -32,23 +32,18 @@ fn bench_estimate_tuning(c: &mut Criterion) {
 
 fn bench_pitch_tuning(c: &mut Criterion) {
     let file = File::open("data/pitch-tuning.npy").unwrap();
-    let pitch = Array1::<f64>::read_npy(file).unwrap();
+    let pitch = Array1::<f64>::read_npy(file).unwrap().mapv(|x| x as f32);
 
     c.bench_function("mecomp-analysis: chroma.rs: pitch_tuning", |b| {
         b.iter(|| {
-            pitch_tuning(
-                black_box(&mut pitch.to_owned()),
-                black_box(0.05),
-                black_box(12),
-            )
-            .unwrap();
+            pitch_tuning(black_box(pitch.to_owned()), black_box(0.05), black_box(12)).unwrap();
         });
     });
 }
 
 fn bench_pip_track(c: &mut Criterion) {
     let file = File::open("data/spectrum-chroma.npy").unwrap();
-    let spectrum = Array2::<f64>::read_npy(file).unwrap();
+    let spectrum = Array2::<f64>::read_npy(file).unwrap().mapv(|x| x as f32);
 
     c.bench_function("mecomp-analysis: chroma.rs: pip_track", |b| {
         b.iter(|| {
