@@ -167,7 +167,6 @@ fn bench_different_resampling_techniques(c: &mut Criterion) {
     );
     let source = SymphoniaSource::new(mss).unwrap();
     let sample_rate = source.sample_rate();
-    let total_duration = source.total_duration().unwrap();
     let channels = source.channels();
     assert!(sample_rate == 44100);
     assert!(channels == 2);
@@ -198,11 +197,11 @@ fn bench_different_resampling_techniques(c: &mut Criterion) {
             let mut resampler =
                 FastFixedIn::new(resample_ratio, 1.0, PolynomialDegree::Cubic, CHUNK_SIZE, 1)
                     .unwrap();
-            let mut resampled_frames = Vec::with_capacity(
-                usize::try_from((total_duration.as_secs() + 1) * SAMPLE_RATE as u64)
-                    .unwrap_or(usize::MAX),
-            );
 
+            let resample_ratio = f64::from(SAMPLE_RATE) / f64::from(sample_rate);
+            let mut resampled_frames = Vec::with_capacity(
+                (samples.len() as f64 * resample_ratio) as usize + SAMPLE_RATE as usize, // add an extra second as a buffer
+            );
             let delay = resampler.output_delay();
 
             let new_length = samples.len() * SAMPLE_RATE as usize / sample_rate as usize;
@@ -255,11 +254,10 @@ fn bench_different_resampling_techniques(c: &mut Criterion) {
                 FftFixedIn::new(sample_rate as usize, SAMPLE_RATE as usize, CHUNK_SIZE, 4, 1)
                     .unwrap();
 
+            let resample_ratio = f64::from(SAMPLE_RATE) / f64::from(sample_rate);
             let mut resampled_frames = Vec::with_capacity(
-                usize::try_from((total_duration.as_secs() + 1) * SAMPLE_RATE as u64)
-                    .unwrap_or(usize::MAX),
+                (samples.len() as f64 * resample_ratio) as usize + SAMPLE_RATE as usize, // add an extra second as a buffer
             );
-
             let delay = resampler.output_delay();
 
             let new_length = samples.len() * SAMPLE_RATE as usize / sample_rate as usize;

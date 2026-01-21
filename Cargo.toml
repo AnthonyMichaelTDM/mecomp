@@ -101,7 +101,7 @@ lto = "thin"
 anyhow = { version = "1.0.100" }
 bitvec = "1"
 lofty = { version = "0.22.4" }
-clap = { version = "4.5.53", default-features = false, features = [
+clap = { version = "4.5.54", default-features = false, features = [
     "color",
     "derive",
     "error-context",
@@ -110,7 +110,7 @@ clap = { version = "4.5.53", default-features = false, features = [
     "suggestions",
     "usage",
 ] }
-clap_complete = { version = "4.5.61", features = ["unstable-dynamic"] }
+clap_complete = { version = "4.5.65", features = ["unstable-dynamic"] }
 ciborium = { version = "0.2.2" }
 config = { version = "0.15.19", default-features = false, features = ["toml"] }
 console-subscriber = { version = "0.5.0" }
@@ -140,20 +140,20 @@ symphonia = { version = "0.5.5", default-features = false, features = [
     "opt-simd",
 ] }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = { version = "1.0.145" }
+serde_json = { version = "1.0.149" }
 shellexpand = "3.1.1"
-strum = { version = "0.26.3", features = ["derive"] }
-surrealdb = { version = "=2.4.0", default-features = false }
-thiserror = { version = "2.0.17" }
-tokio = "1.48.0"
-tokio-stream = { version = "0.1.17" }
+strum = { version = "0.27.2", features = ["derive"] }
+surrealdb = { version = "=2.4.1", default-features = false }
+thiserror = { version = "2.0.18" }
+tokio = "1.49.0"
+tokio-stream = { version = "0.1.18" }
 tonic = "0.14.2"
 walkdir = { version = "2.5.0" }
 
 # tracing libraries
-tracing = { version = "0.1.43" }
+tracing = { version = "0.1.44" }
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
-tracing-opentelemetry = "0.32.0"
+tracing-opentelemetry = "0.32.1"
 opentelemetry = "0.31.0"
 opentelemetry_sdk = { version = "0.31.0", features = ["rt-tokio"] }
 opentelemetry-otlp = { version = "0.31.0", features = ["grpc-tonic"] }
@@ -174,7 +174,7 @@ one-or-many = { path = "one-or-many", version = "=0.4.2", default-features = fal
 pretty_assertions = "1.4.1"
 rstest = "0.26.1"
 rstest_reuse = { version = "0.7.0" }
-tempfile = { version = "3.23.0" }
+tempfile = { version = "3.24.0" }
 criterion = { version = "0.8.1", features = ["async_tokio", "html_reports"] }
 
 # [lints.rust]

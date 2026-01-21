@@ -19,6 +19,6 @@ test = false
 bench = false
 
 [dependencies]
-syn = { version = "2.0.111", default-features = false }
+syn = { version = "2.0.114", default-features = false }
 surrealqlx-macros-impl.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }

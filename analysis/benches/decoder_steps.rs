@@ -117,15 +117,13 @@ fn bench_decoder_steps_resample(c: &mut Criterion) {
                 .unwrap();
                 let sample_rate = source.sample_rate();
                 let channels = source.channels();
-                let total_duration = source.total_duration().unwrap();
                 let samples: Vec<f32> =
                     Decoder::into_mono_samples(source.collect(), channels).unwrap();
                 b.iter_with_setup(
                     || (samples.clone(), sample_rate, Decoder::new().unwrap()),
                     |(samples, sample_rate, decoder)| {
-                        let resampled_samples = decoder
-                            .resample_mono_samples(samples, sample_rate, total_duration)
-                            .unwrap();
+                        let resampled_samples =
+                            decoder.resample_mono_samples(samples, sample_rate).unwrap();
 
                         black_box(resampled_samples);
                     },
@@ -175,7 +173,6 @@ criterion_group!(
     bench_decoder_steps_symphonia_source,
     bench_decoder_steps_downmix,
     bench_decoder_steps_resample,
-    bench_decoder_end2end
 );
 criterion_group!(
     name = e2e;

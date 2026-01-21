@@ -39,7 +39,7 @@ mecomp-prost.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 [dev-dependencies]
-insta = { version = "1.44.1", default-features = false }
+insta = { version = "1.46.1", default-features = false }
 pretty_assertions = { workspace = true }
 mecomp-core = { workspace = true, features = ["mock_playback"] }
 mecomp-storage = { workspace = true, features = [

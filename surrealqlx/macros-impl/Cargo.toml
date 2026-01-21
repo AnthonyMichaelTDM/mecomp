@@ -14,13 +14,13 @@ license.workspace = true
 bench = false
 
 [dependencies]
-proc-macro2 = "1.0.101"
-quote = "1.0.42"
+proc-macro2 = "1.0.105"
+quote = "1.0.43"
 surrealdb.workspace = true
-syn = { version = "2.0.111", features = ["parsing", "derive", "full"] }
+syn = { version = "2.0.114", features = ["parsing", "derive", "full"] }
 mecomp-workspace-hack = { version = "0.1", path = "../../mecomp-workspace-hack" }
 
 [dev-dependencies]
 pretty_assertions.workspace = true
-prettyplease = "0.2.29"
+prettyplease = "0.2.37"
 rstest.workspace = true
