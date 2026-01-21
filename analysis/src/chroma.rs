@@ -9,7 +9,7 @@ use super::errors::{AnalysisError, AnalysisResult};
 use super::utils::{Normalize, hz_to_octs_inplace, stft};
 use bitvec::vec::BitVec;
 use likely_stable::{LikelyResult, likely, unlikely};
-use ndarray::{Array, Array1, Array2, Axis, Order, Zip, arr1, arr2, concatenate, s};
+use ndarray::{Array, Array1, Array2, Axis, Order, Zip, arr2, concatenate, s};
 use ndarray_stats::QuantileExt;
 use ndarray_stats::interpolate::Midpoint;
 use noisy_float::prelude::*;
@@ -162,19 +162,28 @@ pub fn chroma_interval_features(chroma: &Array2<f32>) -> Array1<f32> {
 #[inline]
 pub fn extract_interval_features(chroma: &Array2<f32>, templates: &Array2<i32>) -> Array2<f32> {
     let mut f_intervals: Array2<f32> = Array::zeros((chroma.shape()[1], templates.shape()[1]));
+    let n_chroma = chroma.shape()[0]; // should be 12
+
     for (template, mut f_interval) in templates
         .axis_iter(Axis(1))
         .zip(f_intervals.axis_iter_mut(Axis(1)))
     {
-        for shift in 0..12 {
-            let mut vec: Vec<i32> = template.to_vec();
-            vec.rotate_right(shift);
-            let rolled = arr1(&vec);
-            let power = Zip::from(chroma.t())
-                .and_broadcast(&rolled)
-                .map_collect(|&f, &s| f.powi(s))
-                .map_axis_mut(Axis(1), |x| x.product());
-            f_interval += &power;
+        // precompute which indices in the template are 1
+        let active_indices = template
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &v)| if v == 1 { Some(i) } else { None })
+            .collect::<Vec<usize>>();
+
+        for shift in 0..n_chroma {
+            // For each column in chroma, compute the product of values at shifted active indices
+            for (col_idx, col) in chroma.columns().into_iter().enumerate() {
+                let product: f32 = active_indices
+                    .iter()
+                    .map(|&idx| col[(idx + shift) % n_chroma])
+                    .product();
+                f_interval[col_idx] += product;
+            }
         }
     }
     f_intervals.t().to_owned()
@@ -215,8 +224,9 @@ pub fn chroma_filter(
     let ctroct = 5.0;
     let octwidth = 2.;
     #[allow(clippy::cast_precision_loss)]
+    let n_chroma2 = (n_chroma >> 1) as f32;
+    #[allow(clippy::cast_precision_loss)]
     let n_chroma_float = n_chroma as f32;
-    let n_chroma2 = (n_chroma_float / 2.0).round();
 
     #[allow(clippy::cast_precision_loss)]
     let frequencies = Array::linspace(0., sample_rate as f32, n_fft + 1);
