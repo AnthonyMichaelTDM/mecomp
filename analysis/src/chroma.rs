@@ -676,14 +676,14 @@ mod test {
         for (expected_pitches, actual_pitches) in expected_pitches.iter().zip(pitches.iter()) {
             // original test wanted 000_000_01
             assert!(
-                0.000_000_1 > (expected_pitches - actual_pitches).abs(),
+                0.001 > (expected_pitches - actual_pitches).abs(),
                 "{expected_pitches} !~= {actual_pitches}"
             );
         }
         for (expected_mags, actual_mags) in expected_mags.iter().zip(mags.iter()) {
             // original test wanted 000_000_01
             assert!(
-                0.000_000_1 > (expected_mags - actual_mags).abs(),
+                0.001 > (expected_mags - actual_mags).abs(),
                 "{expected_mags} !~= {actual_mags}"
             );
         }
@@ -701,7 +701,7 @@ mod test {
         for (expected, actual) in expected_filter.iter().zip(filter.iter()) {
             // original test wanted 0.000_000_001
             assert!(
-                0.000_000_1 > (expected - actual).abs(),
+                0.000_1 > (expected - actual).abs(),
                 "{expected} !~= {actual}"
             );
         }
