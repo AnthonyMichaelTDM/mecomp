@@ -2,7 +2,7 @@
 
 ## v0.7.0
 
-This release introduces a new way of generating feature vectors: a pre-trained audio embedding model is embedded into the Mecomp deamon, and through a configuration option users can choose to use their own embedding model as well (so long as it follows the same input/output specifications).
+This release introduces a new way of generating feature vectors: a pre-trained audio embedding model is embedded into the Mecomp daemon, and through a configuration option users can choose to use their own embedding model as well (so long as it follows the same input/output specifications).
 
 This new method enabled better feature representations for songs, which in turn improves the quality of generated radios and dynamic playlists.
 Currently, the included model suffers from a small training set, but future versions may include a better trained model.
