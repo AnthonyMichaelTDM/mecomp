@@ -29,6 +29,9 @@ use super::utils::{Normalize, geometric_mean, mean, number_crossings};
  * All descriptors are currently summarized by their mean only.
  */
 pub struct SpectralDesc {
+    // reusable fft buffer
+    fftgrain: Vec<f32>,
+
     phase_vocoder: PVoc,
     sample_rate: u32,
 
@@ -133,6 +136,8 @@ impl SpectralDesc {
     #[inline]
     pub fn new(sample_rate: u32) -> AnalysisResult<Self> {
         Ok(Self {
+            fftgrain: vec![0.0; Self::WINDOW_SIZE],
+
             centroid_aubio_desc: SpecDesc::new(SpecShape::Centroid, Self::WINDOW_SIZE)
                 .map_err_unlikely(|e| {
                     AnalysisError::AnalysisError(format!(
@@ -165,16 +170,15 @@ impl SpectralDesc {
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     #[allow(clippy::missing_inline_in_public_items)]
     pub fn do_(&mut self, chunk: &[f32]) -> AnalysisResult<()> {
-        let mut fftgrain: Vec<f32> = vec![0.0; Self::WINDOW_SIZE];
         self.phase_vocoder
-            .do_(chunk, fftgrain.as_mut_slice())
+            .do_(chunk, self.fftgrain.as_mut_slice())
             .map_err_unlikely(|e| {
                 AnalysisError::AnalysisError(format!("error while processing aubio pv object: {e}"))
             })?;
 
         let bin = self
             .centroid_aubio_desc
-            .do_result(fftgrain.as_slice())
+            .do_result(self.fftgrain.as_slice())
             .map_err_unlikely(|e| {
                 AnalysisError::AnalysisError(format!(
                     "error while processing aubio centroid object: {e}",
@@ -187,7 +191,7 @@ impl SpectralDesc {
 
         let mut bin = self
             .rolloff_aubio_desc
-            .do_result(fftgrain.as_slice())
+            .do_result(self.fftgrain.as_slice())
             .map_err_unlikely(|e| {
                 AnalysisError::AnalysisError(format!(
                     "error while processing aubio rolloff object: {e}",
@@ -205,13 +209,14 @@ impl SpectralDesc {
         let freq = bin_to_freq(bin, self.sample_rate as f32, Self::WINDOW_SIZE as f32);
         self.values_rolloff.push(freq);
 
-        let cvec: CVec<'_> = fftgrain.as_slice().into();
-        let geo_mean = geometric_mean(cvec.norm());
+        let cvec: CVec<'_> = self.fftgrain.as_slice().into();
+        let norm = cvec.norm();
+        let geo_mean = geometric_mean(norm);
         if unlikely(geo_mean == 0.0) {
             self.values_flatness.push(0.0);
             return Ok(());
         }
-        let flatness = geo_mean / mean(cvec.norm());
+        let flatness = geo_mean / mean(norm);
         self.values_flatness.push(flatness);
         Ok(())
     }
