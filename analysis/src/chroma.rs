@@ -245,12 +245,16 @@ pub fn chroma_filter(
         #[allow(clippy::cast_precision_loss)]
         row.fill(idx as f32);
     }
-    d = -d + &freq_bins;
 
-    d = d + n_chroma2 + 10. * n_chroma_float;
-    d = d % n_chroma_float - n_chroma2;
-    d = d / binwidth_bins;
-    d = (-2. * d.pow2()).exp();
+    d.zip_mut_with(&freq_bins, |d_elem, &fb| {
+        let x = -*d_elem + fb;
+        let x = n_chroma_float.mul_add(10., x + n_chroma2);
+        *d_elem = x % n_chroma_float - n_chroma2;
+    });
+    d.zip_mut_with(&binwidth_bins, |d_elem, &bb| {
+        let x = *d_elem / bb;
+        *d_elem = (-2. * x * x).exp();
+    });
 
     let mut wts = d;
     // Normalize by computing the l2-norm over the columns
