@@ -160,32 +160,40 @@ pub fn chroma_interval_features(chroma: &Array2<f32>) -> Array1<f32> {
 #[must_use]
 #[inline]
 pub fn extract_interval_features(chroma: &Array2<f32>, templates: &Array2<i32>) -> Array2<f32> {
-    let mut f_intervals: Array2<f32> = Array::zeros((chroma.shape()[1], templates.shape()[1]));
+    let n_templates = templates.shape()[1];
     let n_chroma = chroma.shape()[0]; // should be 12
+    let n_cols = chroma.shape()[1];
 
-    for (template, mut f_interval) in templates
+    let chroma_t = chroma.t();
+    let mut f_intervals: Array2<f32> = Array::zeros((n_templates, n_cols));
+
+    // precompute active indices for all templates
+    let active_indices: Vec<Vec<usize>> = templates
         .axis_iter(Axis(1))
-        .zip(f_intervals.axis_iter_mut(Axis(1)))
-    {
-        // precompute which indices in the template are 1
-        let active_indices = template
-            .iter()
-            .enumerate()
-            .filter_map(|(i, &v)| if v == 1 { Some(i) } else { None })
-            .collect::<Vec<usize>>();
+        .map(|t| {
+            t.iter()
+                .enumerate()
+                .filter_map(|(i, &v)| (v == 1).then_some(i))
+                .collect()
+        })
+        .collect();
 
-        for shift in 0..n_chroma {
-            // For each column in chroma, compute the product of values at shifted active indices
-            for (col_idx, col) in chroma.columns().into_iter().enumerate() {
-                let product: f32 = active_indices
-                    .iter()
-                    .map(|&idx| col[(idx + shift) % n_chroma])
-                    .product();
-                f_interval[col_idx] += product;
-            }
+    // For each column in chroma, compute the product of values at shifted active indices
+    for (col_idx, col) in chroma_t.rows().into_iter().enumerate() {
+        for (tmpl_idx, indices) in active_indices.iter().enumerate() {
+            let sum = (0..n_chroma)
+                .map(|shift| {
+                    indices
+                        .iter()
+                        .map(|&idx| col[(idx + shift) % n_chroma])
+                        .product::<f32>()
+                })
+                .sum();
+            f_intervals[(tmpl_idx, col_idx)] = sum;
         }
     }
-    f_intervals.t().to_owned()
+
+    f_intervals
 }
 
 #[inline]
@@ -294,7 +302,7 @@ pub fn pip_track(
 
     let fft_freqs = Array::linspace(0., sample_rate_float / 2., 1 + n_fft / 2);
 
-    let length = spectrum.len_of(Axis(0));
+    let length = spectrum.shape()[1];
 
     let freq_mask = fft_freqs
         .iter()
