@@ -237,7 +237,7 @@ impl Normalize for SpectralDesc {
  */
 #[derive(Default, Clone)]
 pub struct ZeroCrossingRateDesc {
-    crossings_sum: u32,
+    crossings_sum: usize,
     samples_checked: usize,
 }
 

@@ -95,24 +95,15 @@ pub(crate) trait Normalize {
 
 // Essentia algorithm
 // https://github.com/MTG/essentia/blob/master/src/algorithms/temporal/zerocrossingrate.cpp
-pub(crate) fn number_crossings(input: &[f32]) -> u32 {
+pub(crate) fn number_crossings(input: &[f32]) -> usize {
     if unlikely(input.is_empty()) {
         return 0;
     }
 
-    let mut crossings = 0;
-
-    let mut was_positive = input[0] > 0.;
-
-    for &sample in input {
-        let is_positive = sample > 0.;
-        if unlikely(was_positive != is_positive) {
-            crossings += 1;
-            was_positive = is_positive;
-        }
-    }
-
-    crossings
+    input
+        .windows(2)
+        .filter(|w| (w[0] > 0.) != (w[1] > 0.))
+        .count()
 }
 
 /// Only works for input of size 256 (or at least of size a multiple
