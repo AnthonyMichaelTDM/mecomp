@@ -134,8 +134,7 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
 
                 // process 8 stereo pairs (16 floats) at a time for better SIMD utilization
                 let (src_chunks, src_remainder) = source.as_chunks::<16>();
-                let (dest_main, dest_remainder) = result.split_at_mut(src_chunks.len() * 8);
-                let dest_chunks = dest_main.chunks_exact_mut(8);
+                let (dest_chunks, dest_remainder) = result.as_chunks_mut::<8>();
 
                 for (src, dest) in src_chunks.iter().zip(dest_chunks) {
                     // compiler should auto-vectorize this

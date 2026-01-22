@@ -231,7 +231,7 @@ impl Analysis {
     /// This function will panic it cannot join the threads.
     #[allow(clippy::missing_inline_in_public_items)]
     pub fn from_samples(audio: &ResampledAudio) -> AnalysisResult<Self> {
-        let largest_window = vec![
+        let largest_window = [
             BPMDesc::WINDOW_SIZE,
             ChromaDesc::WINDOW_SIZE,
             SpectralDesc::WINDOW_SIZE,

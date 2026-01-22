@@ -11,7 +11,6 @@ use bitvec::vec::BitVec;
 use likely_stable::{LikelyResult, likely, unlikely};
 use ndarray::{Array, Array1, Array2, Axis, Order, Zip, arr2, concatenate, s};
 use ndarray_stats::QuantileExt;
-use ndarray_stats::interpolate::Midpoint;
 use noisy_float::prelude::*;
 
 /**
@@ -161,32 +160,40 @@ pub fn chroma_interval_features(chroma: &Array2<f32>) -> Array1<f32> {
 #[must_use]
 #[inline]
 pub fn extract_interval_features(chroma: &Array2<f32>, templates: &Array2<i32>) -> Array2<f32> {
-    let mut f_intervals: Array2<f32> = Array::zeros((chroma.shape()[1], templates.shape()[1]));
+    let n_templates = templates.shape()[1];
     let n_chroma = chroma.shape()[0]; // should be 12
+    let n_cols = chroma.shape()[1];
 
-    for (template, mut f_interval) in templates
+    let chroma_t = chroma.t();
+    let mut f_intervals: Array2<f32> = Array::zeros((n_templates, n_cols));
+
+    // precompute active indices for all templates
+    let active_indices: Vec<Vec<usize>> = templates
         .axis_iter(Axis(1))
-        .zip(f_intervals.axis_iter_mut(Axis(1)))
-    {
-        // precompute which indices in the template are 1
-        let active_indices = template
-            .iter()
-            .enumerate()
-            .filter_map(|(i, &v)| if v == 1 { Some(i) } else { None })
-            .collect::<Vec<usize>>();
+        .map(|t| {
+            t.iter()
+                .enumerate()
+                .filter_map(|(i, &v)| (v == 1).then_some(i))
+                .collect()
+        })
+        .collect();
 
-        for shift in 0..n_chroma {
-            // For each column in chroma, compute the product of values at shifted active indices
-            for (col_idx, col) in chroma.columns().into_iter().enumerate() {
-                let product: f32 = active_indices
-                    .iter()
-                    .map(|&idx| col[(idx + shift) % n_chroma])
-                    .product();
-                f_interval[col_idx] += product;
-            }
+    // For each column in chroma, compute the product of values at shifted active indices
+    for (col_idx, col) in chroma_t.rows().into_iter().enumerate() {
+        for (tmpl_idx, indices) in active_indices.iter().enumerate() {
+            let sum = (0..n_chroma)
+                .map(|shift| {
+                    indices
+                        .iter()
+                        .map(|&idx| col[(idx + shift) % n_chroma])
+                        .product::<f32>()
+                })
+                .sum();
+            f_intervals[(tmpl_idx, col_idx)] = sum;
         }
     }
-    f_intervals.t().to_owned()
+
+    f_intervals
 }
 
 #[inline]
@@ -245,12 +252,16 @@ pub fn chroma_filter(
         #[allow(clippy::cast_precision_loss)]
         row.fill(idx as f32);
     }
-    d = -d + &freq_bins;
 
-    d = d + n_chroma2 + 10. * n_chroma_float;
-    d = d % n_chroma_float - n_chroma2;
-    d = d / binwidth_bins;
-    d = (-2. * d.pow2()).exp();
+    d.zip_mut_with(&freq_bins, |d_elem, &fb| {
+        let x = -*d_elem + fb;
+        let x = n_chroma_float.mul_add(10., x + n_chroma2);
+        *d_elem = x % n_chroma_float - n_chroma2;
+    });
+    d.zip_mut_with(&binwidth_bins, |d_elem, &bb| {
+        let x = *d_elem / bb;
+        *d_elem = (-2. * x * x).exp();
+    });
 
     let mut wts = d;
     // Normalize by computing the l2-norm over the columns
@@ -291,7 +302,7 @@ pub fn pip_track(
 
     let fft_freqs = Array::linspace(0., sample_rate_float / 2., 1 + n_fft / 2);
 
-    let length = spectrum.len_of(Axis(0));
+    let length = spectrum.shape()[1];
 
     let freq_mask = fft_freqs
         .iter()
@@ -403,10 +414,12 @@ pub fn estimate_tuning(
         .map(|(x, y)| (n32(*x), n32(*y)))
         .unzip();
 
-    let threshold: N32 = Array::from(filtered_mag.clone())
-        .quantile_axis_mut(Axis(0), n64(0.5), &Midpoint)
-        .map_err_unlikely(|e| AnalysisError::AnalysisError(format!("in chroma: {e}")))?
-        .into_scalar();
+    let mut mag_copy = filtered_mag.clone();
+    let mid = mag_copy.len() / 2;
+    let threshold = *mag_copy
+        .select_nth_unstable_by(mid, |a, b| a.partial_cmp(b).unwrap())
+        .1;
+
     let pitch = filtered_pitch
         .iter()
         .zip(&filtered_mag)
