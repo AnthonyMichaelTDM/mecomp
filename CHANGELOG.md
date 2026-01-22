@@ -1,5 +1,27 @@
 # Mecomp Changelog
 
+## v0.7.0
+
+This release introduces a new way of generating feature vectors: a pre-trained audio embedding model is embedded into the Mecomp deamon, and through a configuration option users can choose to use their own embedding model as well (so long as it follows the same input/output specifications).
+
+This new method enabled better feature representations for songs, which in turn improves the quality of generated radios and dynamic playlists.
+Currently, the included model suffers from a small training set, but future versions may include a better trained model.
+
+Hardware acceleration is available, but must be enabled at compile time through the `cuda` or `tensorrt` feature flag.
+
+See https://github.com/AnthonyMichaelTDM/mecomp-nextgen-analysis for more details about the model and its training.
+
+### v0.7.0 What's Changed
+
+* feat(embeddings): incorporate audio embeddings as alternative to features by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/438
+* feat(tui): refactor TUI collection and (dynamic) playlist views by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/439
+* fix(cli): canonicalize paths before sending to daemon by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/442
+* feat: use f32 instead of f64 for analysis by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/445
+* feat: update dependencies by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/446
+* perf(analysis): various optimizations (~20% improvement) by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/448
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.6.4...v0.7.0
+
 ## v0.6.4
 
 ### v0.6.4 What's Changed
