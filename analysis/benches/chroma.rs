@@ -76,6 +76,22 @@ fn bench_normalize_feature_sequence(c: &mut Criterion) {
             });
         },
     );
+
+    let array = arr2(&[
+        [0.1, 0.3, 0.4, 0.2, 0.5, 0.6, 0.7, 0.8, 0.9, 0.15],
+        [1.1, 0.53, 1.01, 0.22, 0.45, 0.67, 0.78, 0.89, 0.91, 0.12],
+        [0.11, 0.33, 0.44, 0.25, 0.56, 0.68, 0.79, 0.81, 0.92, 0.14],
+        [1.12, 0.54, 1.02, 0.23, 0.46, 0.69, 0.77, 0.88, 0.93, 0.13],
+    ]);
+
+    c.bench_function(
+        "mecomp-analysis: chroma.rs: normalize_feature_sequence (larger array)",
+        |b| {
+            b.iter(|| {
+                normalize_feature_sequence(black_box(&array));
+            });
+        },
+    );
 }
 
 fn bench_chroma_stft(c: &mut Criterion) {
