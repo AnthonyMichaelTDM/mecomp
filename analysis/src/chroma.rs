@@ -11,7 +11,6 @@ use bitvec::vec::BitVec;
 use likely_stable::{LikelyResult, likely, unlikely};
 use ndarray::{Array, Array1, Array2, Axis, Order, Zip, arr2, concatenate, s};
 use ndarray_stats::QuantileExt;
-use ndarray_stats::interpolate::Midpoint;
 use noisy_float::prelude::*;
 
 /**
@@ -407,10 +406,12 @@ pub fn estimate_tuning(
         .map(|(x, y)| (n32(*x), n32(*y)))
         .unzip();
 
-    let threshold: N32 = Array::from(filtered_mag.clone())
-        .quantile_axis_mut(Axis(0), n64(0.5), &Midpoint)
-        .map_err_unlikely(|e| AnalysisError::AnalysisError(format!("in chroma: {e}")))?
-        .into_scalar();
+    let mut mag_copy = filtered_mag.clone();
+    let mid = mag_copy.len() / 2;
+    let threshold = *mag_copy
+        .select_nth_unstable_by(mid, |a, b| a.partial_cmp(b).unwrap())
+        .1;
+
     let pitch = filtered_pitch
         .iter()
         .zip(&filtered_mag)
