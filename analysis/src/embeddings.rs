@@ -15,6 +15,8 @@ use std::path::{Path, PathBuf};
 use ort::execution_providers::CUDAExecutionProvider;
 #[cfg(target_os = "macos")]
 use ort::execution_providers::CoreMLExecutionProvider;
+#[cfg(target_os = "windows")]
+use ort::execution_providers::DirectMLExecutionProvider;
 #[cfg(feature = "tensorrt")]
 use ort::execution_providers::TensorRTExecutionProvider;
 
@@ -100,6 +102,12 @@ fn build_execution_providers() -> Vec<ort::execution_providers::ExecutionProvide
     }
 
     // Platform-specific zero-dependency providers
+    #[cfg(target_os = "windows")]
+    {
+        providers.push(DirectMLExecutionProvider::default().build());
+        log::info!("DirectML execution provider enabled (Windows)");
+    }
+
     #[cfg(target_os = "macos")]
     {
         providers.push(
