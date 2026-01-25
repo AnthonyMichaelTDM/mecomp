@@ -139,11 +139,6 @@ jobs:
         run: |
           cargo-hakari remove-deps -y || cargo generate-lockfile --offline
           git status
-      - name: "Setup MSVC Developer Environment"
-        uses: "ilammy/msvc-dev-cmd@v1"
-        if: "runner.os == 'Windows'"
-        with:
-          "arch": "x64"
       - uses: swatinem/rust-cache@v2
         with:
           key: ${{ join(matrix.targets, '-') }}
