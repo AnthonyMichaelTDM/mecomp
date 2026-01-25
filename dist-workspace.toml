@@ -25,6 +25,8 @@ pr-run-mode = "upload" # "skip" | "plan" | "upload"
 github-attestations = true
 # Additional steps to run when building release binaries
 github-build-setup = "../dist/remove-workspace-hack.yml"
+# Dynamically link the C runtime on Windows builds
+msvc-crt-static = false
 
 [dist.github-custom-runners]
 x86_64-pc-windows-msvc = "windows-latest"
