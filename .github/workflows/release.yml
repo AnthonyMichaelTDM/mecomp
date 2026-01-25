@@ -139,10 +139,6 @@ jobs:
         run: |
           cargo-hakari remove-deps -y || cargo generate-lockfile --offline
           git status
-      - uses: swatinem/rust-cache@v2
-        with:
-          key: ${{ join(matrix.targets, '-') }}
-          cache-provider: ${{ matrix.cache_provider }}
       - name: Install dist
         run: ${{ matrix.install_dist.run }}
       # Get the dist-manifest

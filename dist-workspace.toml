@@ -20,7 +20,7 @@ install-path = "CARGO_HOME"
 # Whether to install an updater program
 install-updater = true
 # This setting determines to what extent we run your Release CI on pull-requests
-pr-run-mode = "upload" # "skip" | "plan" | "upload"
+pr-run-mode = "plan" # "skip" | "plan" | "upload"
 # Whether to enable GitHub Attestations
 github-attestations = true
 # Additional steps to run when building release binaries
