@@ -6,8 +6,3 @@
   run: |
     cargo-hakari remove-deps -y || cargo generate-lockfile --offline
     git status
-- name: Setup MSVC Developer Environment
-  if: runner.os == 'Windows'
-  uses: ilammy/msvc-dev-cmd@v1
-  with:
-    arch: x64
