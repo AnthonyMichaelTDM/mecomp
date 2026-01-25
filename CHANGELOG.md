@@ -19,6 +19,7 @@ See https://github.com/AnthonyMichaelTDM/mecomp-nextgen-analysis for more detail
 * feat: use f32 instead of f64 for analysis by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/445
 * feat: update dependencies by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/446
 * perf(analysis): various optimizations (~20% improvement) by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/448
+* fix: windows release builds by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/449
 
 **Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.6.4...v0.7.0
 
