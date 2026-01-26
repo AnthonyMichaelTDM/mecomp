@@ -87,7 +87,7 @@ impl Collection {
         song_ids: Vec<SongId>,
     ) -> StorageResult<()> {
         db.query(add_songs())
-            .bind(("id", id.clone()))
+            .bind(("id", id))
             .bind(("songs", song_ids))
             .await?;
         Ok(())
@@ -113,7 +113,7 @@ impl Collection {
         song_ids: Vec<SongId>,
     ) -> StorageResult<()> {
         db.query(remove_songs())
-            .bind(("id", id.clone()))
+            .bind(("id", id))
             .bind(("songs", song_ids))
             .await?;
         Ok(())
@@ -153,14 +153,14 @@ impl Collection {
         .ok_or(Error::NotFound)?;
 
         // get the songs in the collection
-        let songs = Self::read_songs(db, id.clone()).await?;
+        let songs = Self::read_songs(db, id).await?;
         let song_ids = songs.into_iter().map(|song| song.id).collect::<Vec<_>>();
 
         // add the songs to the playlist
         Playlist::add_songs(db, playlist.id.clone(), song_ids).await?;
 
         // get the playlist
-        let playlist = Playlist::read(db, playlist.id.clone())
+        let playlist = Playlist::read(db, playlist.id)
             .await?
             .ok_or(Error::NotFound)?;
 

@@ -64,19 +64,19 @@ pub const fn read_by_name_and_album_artist() -> impl IntoQuery {
 ///
 /// ```ignore
 /// # use pretty_assertions::assert_eq;
-/// use mecomp_storage::db::crud::queries::album::add_songs;
+/// use mecomp_storage::db::crud::queries::album::add_song;
 /// use surrealdb::opt::IntoQuery;
 ///
-/// let statement = add_songs();
+/// let statement = add_song();
 /// assert_eq!(
 ///     statement.into_query().unwrap(),
-///     "RELATE $album->album_to_song->$songs".into_query().unwrap()
+///     "RELATE $album->album_to_song->$song".into_query().unwrap()
 /// );
 /// ```
 #[must_use]
 #[inline]
-pub const fn add_songs() -> impl IntoQuery {
-    surrql!("RELATE $album->album_to_song->$songs")
+pub const fn add_song() -> impl IntoQuery {
+    surrql!("RELATE $album->album_to_song->$song")
 }
 
 /// Query to read the songs of an album
@@ -111,25 +111,25 @@ pub const fn read_songs() -> impl IntoQuery {
 /// Compiles to:
 ///
 /// ```sql, ignore
-/// DELETE $album->album_to_song WHERE out IN $songs
+/// DELETE $album->album_to_song WHERE out == $song
 /// ```
 ///
 /// # Example
 ///
 /// ```ignore
 /// # use pretty_assertions::assert_eq;
-/// use mecomp_storage::db::crud::queries::album::remove_songs;
+/// use mecomp_storage::db::crud::queries::album::remove_song;
 /// use surrealdb::opt::IntoQuery;
 ///
-/// let statement = remove_songs();
+/// let statement = remove_song();
 /// assert_eq!(
 ///     statement.into_query().unwrap(),
-///     "DELETE $album->album_to_song WHERE out IN $songs".into_query().unwrap()
+///     "DELETE $album->album_to_song WHERE out == $song".into_query().unwrap()
 /// );
 #[must_use]
 #[inline]
-pub const fn remove_songs() -> impl IntoQuery {
-    surrql!("DELETE $album->album_to_song WHERE out IN $songs")
+pub const fn remove_song() -> impl IntoQuery {
+    surrql!("DELETE $album->album_to_song WHERE out == $song")
 }
 
 /// Query to read the artist of an album
@@ -171,9 +171,9 @@ mod query_validation_tests {
         read_by_name_and_album_artist(),
         "SELECT * FROM album WHERE title=$title AND artist=$artist"
     )]
-    #[case::add_songs(add_songs(), "RELATE $album->album_to_song->$songs")]
+    #[case::add_song(add_song(), "RELATE $album->album_to_song->$song")]
     #[case::read_songs(read_songs(), "SELECT * FROM $album->album_to_song.out")]
-    #[case::remove_songs(remove_songs(), "DELETE $album->album_to_song WHERE out IN $songs")]
+    #[case::remove_song(remove_song(), "DELETE $album->album_to_song WHERE out == $song")]
     #[case::read_artist(read_artist(), "SELECT * FROM $id<-artist_to_album.in")]
     fn test_queries(#[case] query: impl IntoQuery, #[case] expected: &str) {
         validate_query(query, expected);

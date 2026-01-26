@@ -216,7 +216,7 @@ impl Song {
 
             // remove song from the old album, if it existed
             if let Some(old_album) = old_album {
-                Album::remove_songs(db, old_album.id.clone(), vec![id.clone()]).await?;
+                Album::remove_song(db, old_album.id.clone(), id.clone()).await?;
                 if old_album.song_count <= 1 {
                     // if the album is left without any songs, delete it
                     info!(
@@ -229,7 +229,7 @@ impl Song {
 
             // remove the album from the old album artist(s)
             for artist in Self::read_album_artist(db, id.clone()).await? {
-                Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await?;
+                Artist::remove_song(db, artist.id.clone(), id.clone()).await?;
                 if artist.song_count <= 1 {
                     // if the artist is left without any songs, delete it
                     info!("Deleting orphaned artist: {} ({})", artist.id, artist.name);
@@ -238,7 +238,7 @@ impl Song {
             }
 
             // add song to the new album
-            Album::add_songs(db, new_album.id, vec![id.clone()]).await?;
+            Album::add_song(db, new_album.id, id.clone()).await?;
         }
 
         if let Some(artist) = &changes.artist {
@@ -248,7 +248,7 @@ impl Song {
 
             // remove song from the old artists
             for artist in old_artist {
-                Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await?;
+                Artist::remove_song(db, artist.id.clone(), id.clone()).await?;
                 if artist.song_count <= 1 {
                     // if the artist is left without any songs, delete it
                     info!("Deleting orphaned artist: {} ({})", artist.id, artist.name);
@@ -257,7 +257,7 @@ impl Song {
             }
             // add song to the new artists
             for artist in new_artist {
-                Artist::add_songs(db, artist.id, vec![id.clone()]).await?;
+                Artist::add_song(db, artist.id, id.clone()).await?;
             }
         }
 
@@ -297,21 +297,21 @@ impl Song {
             Collection::remove_songs(db, collection.id.clone(), vec![id.clone()]).await?;
         }
         if let Some(album) = Self::read_album(db, id.clone()).await? {
-            Album::remove_songs(db, album.id.clone(), vec![id.clone()]).await?;
+            Album::remove_song(db, album.id.clone(), id.clone()).await?;
             if album.song_count <= 1 {
                 info!("Deleting orphaned album: {} ({})", album.id, album.title);
                 Album::delete(db, album.id).await?;
             }
         }
         for artist in Self::read_album_artist(db, id.clone()).await? {
-            Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await?;
+            Artist::remove_song(db, artist.id.clone(), id.clone()).await?;
             if artist.song_count <= 1 {
                 info!("Deleting orphaned artist: {} ({})", artist.id, artist.name);
                 Artist::delete(db, artist.id).await?;
             }
         }
         for artist in Self::read_artist(db, id.clone()).await? {
-            Artist::remove_songs(db, artist.id.clone(), vec![id.clone()]).await?;
+            Artist::remove_song(db, artist.id.clone(), id.clone()).await?;
             if artist.song_count <= 1 {
                 // if I'm the only song, delete the artist
                 info!("Deleting orphaned artist: {} ({})", artist.id, artist.name);
@@ -387,11 +387,11 @@ impl Song {
 
         // add the song to the artists, if it's not already there (which it won't be)
         for artist in &artists {
-            Artist::add_songs(db, artist.id.clone(), vec![song_id.clone()]).await?;
+            Artist::add_song(db, artist.id.clone(), song_id.clone()).await?;
         }
 
         // add the song to the album, if it's not already there (which it won't be)
-        Album::add_songs(db, album.id.clone(), vec![song_id.clone()]).await?;
+        Album::add_song(db, album.id.clone(), song_id.clone()).await?;
 
         Ok(song)
     }
@@ -462,14 +462,14 @@ impl Song {
             // add song to artists
             for artist_name in song.artist.as_slice() {
                 if let Some(artist_id) = artist_map.get(artist_name) {
-                    Artist::add_songs(db, artist_id.clone(), vec![song.id.clone()]).await?;
+                    Artist::add_song(db, artist_id.clone(), song.id.clone()).await?;
                 }
             }
 
             // add song to album
             let album_key = (song.album.clone(), song.album_artist.clone());
             if let Some(album_id) = album_map.get(&album_key) {
-                Album::add_songs(db, album_id.clone(), vec![song.id.clone()]).await?;
+                Album::add_song(db, album_id.clone(), song.id.clone()).await?;
             }
         }
 
@@ -608,7 +608,7 @@ mod test {
             Album::read_or_create_by_name_and_album_artist(&db, &song.album, song.album_artist)
                 .await?
                 .ok_or_else(|| anyhow!("Album not found/created"))?;
-        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        Album::add_song(&db, album.id.clone(), song.id.clone()).await?;
         let album = Album::read(&db, album.id)
             .await?
             .ok_or_else(|| anyhow!("Album not found"))?;
@@ -625,7 +625,7 @@ mod test {
         let artist = Artist::read_or_create_by_name(&db, song.artist.clone().first().unwrap())
             .await?
             .ok_or_else(|| anyhow!("Artist not found/created"))?;
-        Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
+        Artist::add_song(&db, artist.id.clone(), song.id.clone()).await?;
         let artist = Artist::read(&db, artist.id)
             .await?
             .ok_or_else(|| anyhow!("Artist not found"))?;
@@ -649,7 +649,7 @@ mod test {
         )
         .await?
         .ok_or_else(|| anyhow!("Album not found/created"))?;
-        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        Album::add_song(&db, album.id.clone(), song.id.clone()).await?;
         let mut artist = Artist::read_or_create_by_names(&db, song.album_artist.clone()).await?;
         artist.sort_by(|a, b| a.id.cmp(&b.id));
 
@@ -1029,7 +1029,7 @@ mod test {
         .await
         .unwrap()
         .unwrap();
-        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()])
+        Album::add_song(&db, album.id.clone(), song.id.clone())
             .await
             .unwrap();
         let artists = Artist::read_or_create_by_names(&db, song.artist.clone())
@@ -1037,7 +1037,7 @@ mod test {
             .unwrap();
         assert!(!artists.is_empty());
         for artist in artists {
-            Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()])
+            Artist::add_song(&db, artist.id.clone(), song.id.clone())
                 .await
                 .unwrap();
         }
@@ -1083,7 +1083,7 @@ mod test {
         )
         .await?
         .ok_or_else(|| anyhow!("Album not found/created"))?;
-        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        Album::add_song(&db, album.id.clone(), song.id.clone()).await?;
 
         let deleted = Song::delete(&db, song.id.clone()).await?;
         assert_eq!(deleted, Some(song.clone()));
@@ -1104,7 +1104,7 @@ mod test {
         let artist = Artist::read_or_create_by_name(&db, song.artist.clone().first().unwrap())
             .await?
             .ok_or_else(|| anyhow!("Artist not found/created"))?;
-        Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
+        Artist::add_song(&db, artist.id.clone(), song.id.clone()).await?;
 
         let deleted = Song::delete(&db, song.id.clone()).await?;
         assert_eq!(deleted, Some(song.clone()));

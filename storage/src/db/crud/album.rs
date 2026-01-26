@@ -13,8 +13,8 @@ use crate::{
     db::{
         queries::{
             album::{
-                add_songs, read_artist, read_by_name, read_by_name_and_album_artist, read_songs,
-                remove_songs,
+                add_song, read_artist, read_by_name, read_by_name_and_album_artist, read_songs,
+                remove_song,
             },
             generic::read_rand,
         },
@@ -251,14 +251,14 @@ impl Album {
     }
 
     #[instrument()]
-    pub async fn add_songs<C: Connection>(
+    pub async fn add_song<C: Connection>(
         db: &Surreal<C>,
         id: AlbumId,
-        song_ids: Vec<SongId>,
+        song_id: SongId,
     ) -> StorageResult<()> {
-        db.query(add_songs())
-            .bind(("album", id.clone()))
-            .bind(("songs", song_ids))
+        db.query(add_song())
+            .bind(("album", id))
+            .bind(("song", song_id))
             .await?;
 
         Ok(())
@@ -273,19 +273,15 @@ impl Album {
     }
 
     #[instrument()]
-    /// Remove songs from an album
-    ///
-    /// # Returns
-    ///
-    /// * `bool` - True if the album has no songs left in it
-    pub async fn remove_songs<C: Connection>(
+    /// Remove a song from an album
+    pub async fn remove_song<C: Connection>(
         db: &Surreal<C>,
         id: AlbumId,
-        song_ids: Vec<SongId>,
+        song_id: SongId,
     ) -> StorageResult<()> {
-        db.query(remove_songs())
-            .bind(("album", id.clone()))
-            .bind(("songs", song_ids))
+        db.query(remove_song())
+            .bind(("album", id))
+            .bind(("song", song_id))
             .await?;
         Ok(())
     }
@@ -652,7 +648,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
-        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        Album::add_song(&db, album.id.clone(), song.id.clone()).await?;
 
         let read = Album::read(&db, album.id.clone())
             .await?
@@ -689,7 +685,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
-        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        Album::add_song(&db, album.id.clone(), song.id.clone()).await?;
 
         let read = Album::read_songs(&db, album.id.clone()).await?;
         assert_eq!(read.len(), 1);
@@ -724,12 +720,12 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
-        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        Album::add_song(&db, album.id.clone(), song.id.clone()).await?;
         let read = Album::read_songs(&db, album.id.clone()).await?;
         assert_eq!(read.len(), 1);
         assert_eq!(read[0], song);
 
-        Album::remove_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        Album::remove_song(&db, album.id.clone(), song.id.clone()).await?;
         let read = Album::read_songs(&db, album.id.clone()).await?;
         assert_eq!(read.len(), 0);
         Ok(())

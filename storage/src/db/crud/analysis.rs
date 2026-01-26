@@ -113,11 +113,7 @@ impl Analysis {
         db: &Surreal<C>,
         ids: Vec<AnalysisId>,
     ) -> StorageResult<OneOrMany<Song>> {
-        Ok(db
-            .query(read_songs())
-            .bind(("ids", ids.clone()))
-            .await?
-            .take(0)?)
+        Ok(db.query(read_songs()).bind(("ids", ids)).await?.take(0)?)
     }
 
     /// Get all the songs that don't have an analysis

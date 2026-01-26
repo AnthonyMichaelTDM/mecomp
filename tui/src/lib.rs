@@ -177,13 +177,13 @@ mod subscriber_tests {
         Playlist::create(&db, playlist).await.unwrap();
 
         // add relationships between the items
-        Album::add_songs(&db, album_id.clone(), vec![song_id.clone()])
+        Album::add_song(&db, album_id.clone(), song_id.clone())
             .await
             .unwrap();
         Artist::add_album(&db, artist_id.clone(), album_id)
             .await
             .unwrap();
-        Artist::add_songs(&db, artist_id.clone(), vec![song_id.clone()])
+        Artist::add_song(&db, artist_id.clone(), song_id.clone())
             .await
             .unwrap();
         Collection::add_songs(&db, collection_id, vec![song_id.clone()])

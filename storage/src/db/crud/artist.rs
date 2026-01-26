@@ -12,8 +12,8 @@ use crate::{
     db::{
         queries::{
             artist::{
-                add_album, add_album_to_artists, add_songs, read_albums, read_by_name,
-                read_by_names, read_songs, remove_songs,
+                add_album, add_album_to_artists, add_song, read_albums, read_by_name,
+                read_by_names, read_songs, remove_song,
             },
             generic::{read_many, read_rand},
         },
@@ -113,7 +113,7 @@ impl Artist {
             let created = Self::create_many(db, missing).await?;
 
             for artist in created {
-                result.insert(artist.name.clone(), artist.id);
+                result.insert(artist.name, artist.id);
             }
         }
 
@@ -252,7 +252,7 @@ impl Artist {
             .query(add_album())
             // relate this artist to the songs in the album
             // .query("RELATE $id->artist_to_song->(SELECT ->album_to_song<-album FROM $album)")
-            .bind(("id", id.clone()))
+            .bind(("id", id))
             .bind(("album", album_id))
             .await?;
         Ok(())
@@ -267,41 +267,37 @@ impl Artist {
         db
             // relate this artist to the album
             .query(add_album_to_artists())
-            .bind(("ids", ids.clone()))
+            .bind(("ids", ids))
             .bind(("album", album_id))
             .await?;
         Ok(())
     }
 
     #[instrument]
-    pub async fn add_songs<C: Connection>(
+    pub async fn add_song<C: Connection>(
         db: &Surreal<C>,
         id: ArtistId,
-        songs: Vec<SongId>,
+        song: SongId,
     ) -> StorageResult<()> {
         db
-            // relate this artist to these songs
-            .query(add_songs())
-            .bind(("id", id.clone()))
-            .bind(("songs", songs))
+            // relate this artist to this song
+            .query(add_song())
+            .bind(("id", id))
+            .bind(("song", song))
             .await?;
         Ok(())
     }
 
     #[instrument]
-    /// removes songs from an artist's list of songs
-    ///
-    /// # Returns
-    ///
-    /// * `bool` - whether the artist should be removed or not (if it has no songs or albums, it should be removed)
-    pub async fn remove_songs<C: Connection>(
+    /// removes a song from an artist's list of songs
+    pub async fn remove_song<C: Connection>(
         db: &Surreal<C>,
         id: ArtistId,
-        song_ids: Vec<SongId>,
+        song_id: SongId,
     ) -> StorageResult<()> {
-        db.query(remove_songs())
-            .bind(("artist", id.clone()))
-            .bind(("songs", song_ids))
+        db.query(remove_song())
+            .bind(("artist", id))
+            .bind(("song", song_id))
             .await?;
         Ok(())
     }
@@ -662,7 +658,7 @@ mod tests {
             let _ = Song::create(&db, song.clone())
                 .await?
                 .ok_or_else(|| anyhow!("Failed to create song"))?;
-            Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+            Album::add_song(&db, album.id.clone(), song.id.clone()).await?;
         }
 
         Artist::add_album(&db, artist.id.clone(), album.id.clone()).await?;
@@ -712,7 +708,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
-        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        Album::add_song(&db, album.id.clone(), song.id.clone()).await?;
         Artist::add_album(&db, artist.id.clone(), album.id.clone()).await?;
 
         let read = Artist::read(&db, artist.id.clone())
@@ -770,14 +766,14 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
-        Album::add_songs(&db, album.id.clone(), vec![song.id.clone()]).await?;
+        Album::add_song(&db, album.id.clone(), song.id.clone()).await?;
         Artist::add_album_to_artists(
             &db,
             vec![artist.id.clone(), artist2.id.clone()],
             album.id.clone(),
         )
         .await?;
-        Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
+        Artist::add_song(&db, artist.id.clone(), song.id.clone()).await?;
 
         let read = Artist::read_many(&db, vec![artist.id.clone(), artist2.id.clone()]).await?;
 
@@ -816,7 +812,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
-        Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
+        Artist::add_song(&db, artist.id.clone(), song.id.clone()).await?;
 
         let read = Artist::read(&db, artist.id.clone())
             .await?
@@ -854,14 +850,14 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
-        Artist::add_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
+        Artist::add_song(&db, artist.id.clone(), song.id.clone()).await?;
         let read = Artist::read(&db, artist.id.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
         assert_eq!(read.song_count, 1);
         assert_eq!(read.runtime, song.runtime);
 
-        Artist::remove_songs(&db, artist.id.clone(), vec![song.id.clone()]).await?;
+        Artist::remove_song(&db, artist.id.clone(), song.id.clone()).await?;
         let read = Artist::read(&db, artist.id.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
@@ -947,19 +943,15 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
-        Album::add_songs(
-            &db,
-            album.id.clone(),
-            vec![song1.id.clone(), song3.id.clone()],
-        )
-        .await?;
+        for song in [&song1, &song3] {
+            Album::add_song(&db, album.id.clone(), song.id.clone()).await?;
+        }
+
         Artist::add_album(&db, artist.id.clone(), album.id.clone()).await?;
-        Artist::add_songs(
-            &db,
-            artist.id.clone(),
-            vec![song2.id.clone(), song3.id.clone()],
-        )
-        .await?;
+
+        for song in [&song2, &song3] {
+            Artist::add_song(&db, artist.id.clone(), song.id.clone()).await?;
+        }
 
         let mut read = Artist::read_songs(&db, artist.id.clone()).await?;
 
