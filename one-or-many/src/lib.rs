@@ -398,6 +398,29 @@ where
     }
 }
 
+// implement Hash
+impl<T> std::hash::Hash for OneOrMany<T>
+where
+    T: std::hash::Hash,
+{
+    #[inline]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Self::One(t) => {
+                1u8.hash(state);
+                t.hash(state);
+            }
+            Self::Many(t) => {
+                2u8.hash(state);
+                t.hash(state);
+            }
+            Self::None => {
+                0u8.hash(state);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
