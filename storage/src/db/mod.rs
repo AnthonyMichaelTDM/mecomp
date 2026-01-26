@@ -43,7 +43,7 @@ pub fn set_database_path(path: std::path::PathBuf) -> Result<(), crate::errors::
 pub async fn init_database() -> surrealqlx::Result<Surreal<Db>> {
     use surrealqlx::surrql;
 
-    let config = Config::new().strict();
+    // Get the database path, or use a temporary directory if not set
     let db_path = DB_DIR
     .get().cloned()
     .unwrap_or_else(|| {
@@ -51,6 +51,15 @@ pub async fn init_database() -> surrealqlx::Result<Surreal<Db>> {
         TEMP_DB_DIR.path()
         .to_path_buf()
     });
+
+    let temp_dir = db_path.join("temp");
+    let temp_dir = if temp_dir.exists() {
+        Some(temp_dir)
+    } else {
+        // if we can't create the temp directory, just don't use one
+        std::fs::create_dir_all(&temp_dir).ok().and(Some(temp_dir))
+    };
+    let config = Config::new().strict().temporary_directory(temp_dir);
     let db = Surreal::new((db_path, config)).await?;
 
     db.query(surrql!("DEFINE NAMESPACE IF NOT EXISTS mecomp"))
