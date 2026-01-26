@@ -1,5 +1,8 @@
 //! CRUD operations for the album table
-use std::time::Duration;
+use std::{
+    collections::{HashMap, HashSet},
+    time::Duration,
+};
 
 use log::warn;
 use surrealdb::{Connection, Surreal};
@@ -32,6 +35,14 @@ impl Album {
         album: Self,
     ) -> StorageResult<Option<Self>> {
         Ok(db.create(album.id.clone()).content(album).await?)
+    }
+
+    #[instrument()]
+    pub async fn create_many<C: Connection>(
+        db: &Surreal<C>,
+        albums: Vec<Self>,
+    ) -> StorageResult<Vec<Self>> {
+        Ok(db.insert(TABLE_NAME).content(albums).await?)
     }
 
     #[instrument()]
@@ -144,22 +155,21 @@ impl Album {
         if let Ok(Some(album)) =
             Self::read_by_name_and_album_artist(db, title, album_artists.clone()).await
         {
-            Ok(Some(album))
-        } else if let Some(album) = Self::create(
-            db,
-            Self {
-                id: Self::generate_id(),
-                title: title.into(),
-                artist: album_artists.clone(),
-                runtime: Duration::from_secs(0),
-                release: None,
-                song_count: 0,
-                discs: 1,
-                genre: OneOrMany::None,
-            },
-        )
-        .await?
-        {
+            return Ok(Some(album));
+        }
+
+        let album = Self {
+            id: Self::generate_id(),
+            title: title.into(),
+            artist: album_artists.clone(),
+            runtime: Duration::from_secs(0),
+            release: None,
+            song_count: 0,
+            discs: 1,
+            genre: OneOrMany::None,
+        };
+
+        if let Some(album) = Self::create(db, album).await? {
             // we created a new album made by some artists, so we need to update those artists
             Artist::add_album_to_artists(
                 db,
@@ -176,6 +186,68 @@ impl Album {
             warn!("Failed to create album {title}");
             Ok(None)
         }
+    }
+
+    /// Read or create multiple albums by their names and artists in bulk.
+    /// This is much more efficient than calling `read_or_create_by_name_and_album_artist` repeatedly.
+    ///
+    /// Returns a `HashMap` mapping `(title, album_artist)` tuples to their corresponding `Album`s.
+    #[instrument()]
+    pub async fn bulk_read_or_create_by_name_and_album_artist<C: Connection>(
+        db: &Surreal<C>,
+        albums: HashSet<(String, OneOrMany<String>)>,
+    ) -> StorageResult<HashMap<(String, OneOrMany<String>), AlbumId>> {
+        // figure out which albums already exist
+        let existing: Vec<Self> = db
+            .query(surrql!(
+                "SELECT * FROM album WHERE [title, artist] IN $album_tuples"
+            ))
+            .bind(("album_tuples", albums.clone()))
+            .await?
+            .take(0)?;
+
+        let mut result: HashMap<(String, OneOrMany<String>), AlbumId> = existing
+            .into_iter()
+            .map(|a| ((a.title, a.artist), a.id))
+            .collect();
+
+        // find which albums are missing
+        let missing: Vec<Self> = albums
+            .into_iter()
+            .filter(|key| !result.contains_key(key))
+            .map(|(title, artist)| Self {
+                id: Self::generate_id(),
+                title,
+                artist,
+                release: None,
+                runtime: Duration::from_secs(0),
+                song_count: 0,
+                discs: 1,
+                genre: OneOrMany::None,
+            })
+            .collect();
+
+        // create missing albums in bulk
+        if !missing.is_empty() {
+            let created_albums = Self::create_many(db, missing).await?;
+            for album in created_albums {
+                // add album to its artists
+                Artist::add_album_to_artists(
+                    db,
+                    Artist::read_or_create_by_names(db, album.artist.clone())
+                        .await?
+                        .into_iter()
+                        .map(|a| a.id)
+                        .collect::<Vec<_>>(),
+                    album.id.clone(),
+                )
+                .await?;
+
+                result.insert((album.title.clone(), album.artist.clone()), album.id);
+            }
+        }
+
+        Ok(result)
     }
 
     #[instrument()]
@@ -479,6 +551,54 @@ mod tests {
         assert_eq!(read.song_count, album.song_count);
         assert_eq!(read.discs, album.discs);
         assert_eq!(read.genre, album.genre);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_bulk_read_or_create_by_name_and_album_artist() -> Result<()> {
+        let db = init_test_database().await?;
+
+        Album::read_or_create_by_name_and_album_artist(&db, "0", vec!["0".to_string()].into())
+            .await?;
+        Album::read_or_create_by_name_and_album_artist(&db, "0", vec!["1".to_string()].into())
+            .await?;
+        Album::read_or_create_by_name_and_album_artist(&db, "1", vec!["0".to_string()].into())
+            .await?;
+        // one of them already exists
+        Album::read_or_create_by_name_and_album_artist(&db, "1", vec!["1".to_string()].into())
+            .await?;
+
+        let read: Vec<Album> = db
+            .query(surrql!(
+                "SELECT * FROM album WHERE [title, artist] IN $album_tuples"
+            ))
+            .bind(("album_tuples", vec![("1".to_string(), "1".to_string())]))
+            .await?
+            .take(0)?;
+        assert_eq!(read.len(), 1);
+
+        let albums = vec![
+            ("1".to_string(), vec!["1".to_string()].into()),
+            ("2".to_string(), vec!["2".to_string()].into()),
+            ("3".to_string(), vec!["3".to_string()].into()),
+        ]
+        .into_iter()
+        .collect();
+
+        let result = Album::bulk_read_or_create_by_name_and_album_artist(&db, albums).await?;
+
+        assert_eq!(result.len(), 3);
+        for ((title, artist), album_id) in result {
+            assert!(title == "1" || title == "2" || title == "3");
+            assert_eq!(artist, OneOrMany::One(Box::new(title.clone())).into());
+            let read = Album::read(&db, album_id.clone()).await?;
+            assert!(read.is_some());
+            let read = Album::read_artist(&db, album_id).await?;
+            assert!(read.is_one());
+            let read = read.get(0).map(|a| a.name.clone());
+            assert_eq!(read, Some(title));
+        }
 
         Ok(())
     }

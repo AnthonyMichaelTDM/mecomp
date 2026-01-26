@@ -1,5 +1,8 @@
 //! CRUD operations for the artist table
-use std::time::Duration;
+use std::{
+    collections::{HashMap, HashSet},
+    time::Duration,
+};
 
 use surrealdb::{Connection, Surreal};
 use surrealqlx::surrql;
@@ -34,6 +37,14 @@ impl Artist {
     }
 
     #[instrument]
+    pub async fn create_many<C: Connection>(
+        db: &Surreal<C>,
+        artists: Vec<Self>,
+    ) -> StorageResult<Vec<Self>> {
+        Ok(db.insert(TABLE_NAME).content(artists).await?)
+    }
+
+    #[instrument]
     pub async fn read_or_create_by_name<C: Connection>(
         db: &Surreal<C>,
         name: &str,
@@ -41,17 +52,14 @@ impl Artist {
         if let Ok(Some(artist)) = Self::read_by_name(db, name).await {
             Ok(Some(artist))
         } else {
-            Self::create(
-                db,
-                Self {
-                    id: Self::generate_id(),
-                    name: name.into(),
-                    song_count: 0,
-                    album_count: 0,
-                    runtime: Duration::from_secs(0),
-                },
-            )
-            .await
+            let artist = Self {
+                id: Self::generate_id(),
+                name: name.into(),
+                song_count: 0,
+                album_count: 0,
+                runtime: Duration::from_secs(0),
+            };
+            Self::create(db, artist).await
         }
     }
 
@@ -62,11 +70,54 @@ impl Artist {
     ) -> StorageResult<Vec<Self>> {
         let mut artists = Vec::with_capacity(names.len());
         for name in &names {
-            if let Some(id) = Self::read_or_create_by_name(db, name).await? {
-                artists.push(id);
+            if let Some(artist) = Self::read_or_create_by_name(db, name).await? {
+                artists.push(artist);
             }
         }
         Ok(artists)
+    }
+
+    /// Read or create multiple artists by their names in bulk.
+    /// This is much more efficient than calling `read_or_create_by_name` repeatedly.
+    ///
+    /// Returns a `HashMap` mapping artist names to Artist objects.
+    #[instrument]
+    pub async fn bulk_read_or_create_by_names<C: Connection>(
+        db: &Surreal<C>,
+        names: HashSet<String>,
+    ) -> StorageResult<HashMap<String, ArtistId>> {
+        // Query which artists already exist
+        let existing: Vec<Self> = db
+            .query(surrql!("SELECT * FROM artist WHERE name IN $names"))
+            .bind(("names", names.clone()))
+            .await?
+            .take(0)?;
+
+        let mut result: HashMap<String, ArtistId> =
+            existing.into_iter().map(|a| (a.name, a.id)).collect();
+
+        // Find missing artists
+        let missing: Vec<Self> = names
+            .into_iter()
+            .filter(|name| !result.contains_key(name))
+            .map(|name| Self {
+                id: Self::generate_id(),
+                name,
+                song_count: 0,
+                album_count: 0,
+                runtime: Duration::from_secs(0),
+            })
+            .collect();
+
+        if !missing.is_empty() {
+            let created = Self::create_many(db, missing).await?;
+
+            for artist in created {
+                result.insert(artist.name.clone(), artist.id);
+            }
+        }
+
+        Ok(result)
     }
 
     #[instrument]
