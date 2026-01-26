@@ -58,107 +58,194 @@ pub async fn rescan<C: Connection>(
     genre_separator: Option<&str>,
     conflict_resolution_mode: MetadataConflictResolution,
 ) -> Result<(), Error> {
-    // get all the songs in the current library
-    let songs = Song::read_all(db).await?;
-    let mut paths_to_skip = HashSet::new(); // use a hashset because hashing is faster than linear search, especially for large libraries
-
     // for each song, check if the file still exists
-    async {
-        for song in songs {
-            let path = song.path.clone();
-            if !path.exists() { // remove the song from the library
-                warn!("Song {} no longer exists, deleting", path.to_string_lossy());
-                Song::delete(db, song.id).await?;
-                continue;
-            }
-
-            debug!("loading metadata for {}", path.to_string_lossy());
-            // check if the metadata of the file is the same as the metadata in the database
-            match SongMetadata::load_from_path(path.clone(), artist_name_separator,protected_artist_names, genre_separator) {
-                // if we have metadata and the metadata is different from the song's metadata, and ...
-                Ok(metadata) if metadata != SongMetadata::from(&song) => {
-                    let log_postfix = if conflict_resolution_mode == MetadataConflictResolution::Skip {
-                        "but conflict resolution mode is \"skip\", so we do nothing"
-                    } else {
-                        "resolving conflict"
-                    };
-                    info!(
-                        "{} has conflicting metadata with index, {log_postfix}",
-                        path.display(),
-                    );
-
-                    match conflict_resolution_mode {
-                        // ... we are in "overwrite" mode, update the song's metadata
-                        MetadataConflictResolution::Overwrite => {
-                            // if the file has been modified, update the song's metadata
-                            Song::update(db, song.id.clone(), metadata.merge_with_song(&song)).await?;
-                        }
-                        // ... we are in "skip" mode, do nothing
-                        MetadataConflictResolution::Skip => {}
-                    }
-                }
-                // if we have an error, delete the song from the library
-                Err(e) => {
-                    warn!(
-                        "Error reading metadata for {}: {e}",
-                        path.display()
-                    );
-                    info!("assuming the file isn't a song or doesn't exist anymore, removing from library");
-                    Song::delete(db, song.id).await?;
-                }
-                // if the metadata is the same, do nothing
-                _ => {}
-            }
-
-            // now, add the path to the list of paths to skip so that we don't index the song again
-            paths_to_skip.insert(path);
-        }
-
-        <Result<(), Error>>::Ok(())
-    }.instrument(tracing::info_span!("Checking library for missing or outdated songs")).await?;
-
-    // now, index all the songs in the library that haven't been indexed yet
-    let mut visited_paths = paths_to_skip;
-
-    debug!("Indexing paths: {paths:?}");
-    async {
-        for path in paths
-            .iter()
-            .filter_map(|p| {
-                p.canonicalize()
-                    .inspect_err(|e| warn!("Error canonicalizing path: {e}"))
-                    .ok()
-            })
-            .flat_map(|x| WalkDir::new(x).into_iter())
-            .filter_map(|x| x.inspect_err(|e| warn!("Error reading path: {e}")).ok())
-            .filter_map(|x| x.file_type().is_file().then_some(x))
-        {
-            if !visited_paths.insert(path.path().to_owned()) {
-                continue;
-            }
-
-            let displayable_path = path.path().display();
-
-            // if the file is a song, add it to the library
-            match SongMetadata::load_from_path(
-                path.path().to_owned(),
-                artist_name_separator,
-                protected_artist_names,
-                genre_separator,
-            ) {
-                Ok(metadata) => Song::try_load_into_db(db, metadata).await.map_or_else(
-                    |e| warn!("Error indexing {displayable_path}: {e}"),
-                    |_| debug!("Indexed {displayable_path}"),
-                ),
-                Err(e) => warn!("Error reading metadata for {displayable_path}: {e}"),
-            }
-        }
-
-        <Result<(), Error>>::Ok(())
-    }
-    .instrument(tracing::info_span!("Indexing new songs"))
+    let mut visited_paths = check_library(
+        db,
+        artist_name_separator,
+        protected_artist_names,
+        genre_separator,
+        conflict_resolution_mode,
+    )
     .await?;
 
+    // now, index all the songs in the library that haven't been indexed yet
+    index_new_songs(
+        db,
+        paths,
+        &mut visited_paths,
+        artist_name_separator,
+        protected_artist_names,
+        genre_separator,
+    )
+    .await?;
+
+    // find and delete any remaining orphaned albums and artists
+    delete_orphans(db).await?;
+
+    info!("Library rescan complete");
+    info!("Library health: {:?}", health(db).await?);
+
+    Ok(())
+}
+
+/// Check library for missing or updated songs.
+///
+/// # Returns
+///
+/// A set of paths already present in the library, which should be skipped during indexing.
+///
+/// # Errors
+///
+/// This function will return an error if there is an error reading from the database.
+#[instrument]
+async fn check_library<C: Connection>(
+    db: &Surreal<C>,
+    artist_name_separator: &OneOrMany<String>,
+    protected_artist_names: &OneOrMany<String>,
+    genre_separator: Option<&str>,
+    conflict_resolution_mode: MetadataConflictResolution,
+) -> Result<HashSet<PathBuf>, Error> {
+    // use a hashset because hashing is faster than linear search, especially for large libraries
+    // though a trie could be even faster
+    let mut paths_to_skip = HashSet::new();
+
+    let songs = Song::read_all(db).await?;
+    for song in songs {
+        let path = &song.path;
+        if !path.exists() {
+            // remove the song from the library
+            warn!("Song {} no longer exists, deleting", path.display());
+            Song::delete(db, song.id).await?;
+            continue;
+        }
+
+        debug!("loading metadata for {}", path.display());
+        // check if the metadata of the file is the same as the metadata in the database
+        match SongMetadata::load_from_path(
+            path.clone(),
+            artist_name_separator,
+            protected_artist_names,
+            genre_separator,
+        ) {
+            // if we have metadata and the metadata is different from the song's metadata, and ...
+            Ok(metadata) if metadata != SongMetadata::from(&song) => {
+                let log_postfix = if conflict_resolution_mode == MetadataConflictResolution::Skip {
+                    "but conflict resolution mode is \"skip\", so we do nothing"
+                } else {
+                    "resolving conflict"
+                };
+                info!(
+                    "{} has conflicting metadata with index, {log_postfix}",
+                    path.display(),
+                );
+
+                match conflict_resolution_mode {
+                    // ... we are in "overwrite" mode, update the song's metadata
+                    MetadataConflictResolution::Overwrite => {
+                        // if the file has been modified, update the song's metadata
+                        Song::update(db, song.id.clone(), metadata.merge_with_song(&song)).await?;
+                    }
+                    // ... we are in "skip" mode, do nothing
+                    MetadataConflictResolution::Skip => {}
+                }
+            }
+            // if we have an error, delete the song from the library
+            Err(e) => {
+                warn!("Error reading metadata for {}: {e}", path.display());
+                info!(
+                    "assuming the file isn't a song or doesn't exist anymore, removing from library"
+                );
+                Song::delete(db, song.id).await?;
+            }
+            // if the metadata is the same, do nothing
+            _ => {}
+        }
+
+        // now, add the path to the list of paths to skip so that we don't index the song again
+        paths_to_skip.insert(path.clone());
+    }
+
+    Ok(paths_to_skip)
+}
+
+/// Index all new songs in the given paths.
+///
+/// This expects to be passed as input, the output of `check_library`
+///
+/// # Errors
+///
+/// This function will return an error if there is an error reading from the database.
+#[instrument]
+async fn index_new_songs<C: Connection>(
+    db: &Surreal<C>,
+    paths: &[PathBuf],
+    visited_paths: &mut HashSet<PathBuf>,
+    artist_name_separator: &OneOrMany<String>,
+    protected_artist_names: &OneOrMany<String>,
+    genre_separator: Option<&str>,
+) -> Result<(), Error> {
+    debug!("Indexing paths: {paths:?}");
+
+    const BATCH_SIZE: usize = 100;
+    let mut metadata_batch = Vec::with_capacity(BATCH_SIZE);
+    let mut processed_count = 0;
+
+    for path in paths
+        .iter()
+        .filter_map(|p| {
+            p.canonicalize()
+                .inspect_err(|e| warn!("Error canonicalizing path: {e}"))
+                .ok()
+        })
+        .flat_map(|x| WalkDir::new(x).into_iter())
+        .filter_map(|x| x.inspect_err(|e| warn!("Error reading path: {e}")).ok())
+        .filter_map(|x| x.file_type().is_file().then_some(x))
+        .filter(|path| visited_paths.insert(path.path().to_owned()))
+    {
+        // Load metadata from file
+        match SongMetadata::load_from_path(
+            path.path().to_path_buf(),
+            artist_name_separator,
+            protected_artist_names,
+            genre_separator,
+        ) {
+            Ok(metadata) => {
+                metadata_batch.push(metadata);
+
+                // Process batch when full
+                if metadata_batch.len() >= BATCH_SIZE {
+                    match Song::bulk_load_into_db(db, &metadata_batch).await {
+                        Ok(songs) => {
+                            processed_count += songs.len();
+                            info!("Indexed batch: {processed_count} songs total");
+                        }
+                        Err(e) => error!("Error indexing batch: {e}"),
+                    }
+                    metadata_batch.clear();
+                }
+            }
+            Err(e) => warn!("Error reading metadata for {}: {e}", path.path().display()),
+        }
+    }
+
+    // Process remaining songs in partial batch
+    if !metadata_batch.is_empty() {
+        match Song::bulk_load_into_db(db, &metadata_batch).await {
+            Ok(songs) => {
+                processed_count += songs.len();
+                info!("Indexed final batch: {processed_count} songs total");
+            }
+            Err(e) => error!("Error indexing final batch: {e}"),
+        }
+    }
+
+    info!("Finished indexing {processed_count} new songs");
+
+    Ok(())
+}
+
+/// Clean up orphaned items in the library.
+async fn delete_orphans<C: Connection>(db: &Surreal<C>) -> Result<(), Error> {
     // find and delete any remaining orphaned albums and artists
     macro_rules! delete_orphans {
         ($model:ident, $db:expr) => {
@@ -178,9 +265,6 @@ pub async fn rescan<C: Connection>(
     delete_orphans!(Artist, db);
     delete_orphans!(Collection, db);
     delete_orphans!(Playlist, db);
-
-    info!("Library rescan complete");
-    info!("Library health: {:?}", health(db).await?);
 
     Ok(())
 }
