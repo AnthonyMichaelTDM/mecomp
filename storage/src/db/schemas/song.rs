@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use super::Id;
 #[cfg(not(feature = "db"))]
 use super::RecordId;
-use lofty::{file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
+use lofty::{config::ParseOptions, file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
 use std::time::Duration;
 #[cfg(feature = "db")]
 use surrealdb::RecordId;
@@ -325,8 +325,10 @@ impl SongMetadata {
         let path = path.canonicalize()?;
 
         // get metadata from the file
+        let options = ParseOptions::new().read_cover_art(false);
         let tagged_file = Probe::open(&path)
             .map_err(SongIOError::LoftyError)?
+            .options(options)
             .read()
             .map_err(SongIOError::LoftyError)?;
         let properties = tagged_file.properties();
