@@ -48,6 +48,7 @@ cli = [
 # otel_tracing = ["mecomp-core/otel_tracing"]
 # flame = ["mecomp-core/flame"]
 dynamic_updates = ["dep:notify-debouncer-full", "dep:notify"]
+dhat-heap = ["dep:dhat"] # Enable heap profiling with dhat-rs
 
 # Hardware acceleration for ONNX model inference (opt-in, requires additional setup)
 cuda = ["mecomp-analysis/cuda"] # NVIDIA CUDA (requires CUDA 12 + cuDNN 9.x)
@@ -61,6 +62,7 @@ anyhow = { workspace = true }
 clap = { workspace = true, optional = true }
 clap_complete = { workspace = true, optional = true }
 csv.workspace = true
+dhat = { version = "0.3", optional = true }
 log = { workspace = true }
 notify = { workspace = true, optional = true }
 notify-debouncer-full = { workspace = true, optional = true }

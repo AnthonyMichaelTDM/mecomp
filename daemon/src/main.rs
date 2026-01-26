@@ -4,6 +4,10 @@
 
 use std::path::PathBuf;
 
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
+
 use clap::{
     CommandFactory, Parser,
     builder::{PossibleValuesParser, TypedValueParser},
@@ -48,6 +52,9 @@ struct Flags {
 }
 
 fn main() -> anyhow::Result<()> {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
+
     clap_complete::CompleteEnv::with_factory(Flags::command).complete();
 
     let flags = Flags::try_parse()?;
