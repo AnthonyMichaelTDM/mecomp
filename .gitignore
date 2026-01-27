@@ -8,3 +8,4 @@ perf.data
 perf.data.old
 flamegraph.svg
 /dist
+dhat-heap*.json

@@ -140,10 +140,10 @@ pub const fn add_album_to_artists() -> impl IntoQuery {
 ///
 /// ```ignore
 /// # use pretty_assertions::assert_eq;
-/// use mecomp_storage::db::crud::queries::artist::add_songs;
+/// use mecomp_storage::db::crud::queries::artist::add_song;
 /// use surrealdb::opt::IntoQuery;
 ///
-/// let statement = add_songs();
+/// let statement = add_song();
 /// assert_eq!(
 ///     statement.into_query().unwrap(),
 ///     "RELATE $id->artist_to_song->$songs".into_query().unwrap()
@@ -151,34 +151,34 @@ pub const fn add_album_to_artists() -> impl IntoQuery {
 /// ```
 #[must_use]
 #[inline]
-pub const fn add_songs() -> impl IntoQuery {
-    surrql!("RELATE $id->artist_to_song->$songs")
+pub const fn add_song() -> impl IntoQuery {
+    surrql!("RELATE $id->artist_to_song->$song")
 }
 
 /// Query to remove songs from an artist.
 ///
 /// Compiles to:
 /// ```sql, ignore
-/// DELETE $artist->artist_to_song WHERE out IN $songs
+/// DELETE $artist->artist_to_song WHERE out == $song
 /// ```
 ///
 /// # Example
 ///
 /// ```ignore
 /// # use pretty_assertions::assert_eq;
-/// use mecomp_storage::db::crud::queries::artist::remove_songs;    
+/// use mecomp_storage::db::crud::queries::artist::remove_song;
 /// use surrealdb::opt::IntoQuery;
 ///
-/// let statement = remove_songs();
+/// let statement = remove_song();
 /// assert_eq!(
 ///     statement.into_query().unwrap(),
-///     "DELETE $artist->artist_to_song WHERE out IN $songs".into_query().unwrap()
+///     "DELETE $artist->artist_to_song WHERE out == $song".into_query().unwrap()
 /// );
 /// ```
 #[must_use]
 #[inline]
-pub const fn remove_songs() -> impl IntoQuery {
-    surrql!("DELETE $artist->artist_to_song WHERE out IN $songs")
+pub const fn remove_song() -> impl IntoQuery {
+    surrql!("DELETE $artist->artist_to_song WHERE out == $song")
 }
 
 /// Query to read all the songs associated with an artist.
@@ -223,8 +223,8 @@ mod query_validation_tests {
     #[case::read_albums(read_albums(), "SELECT * FROM $id->artist_to_album.out")]
     #[case::add_album(add_album(), "RELATE $id->artist_to_album->$album")]
     #[case::add_album_to_artists(add_album_to_artists(), "RELATE $ids->artist_to_album->$album")]
-    #[case::add_songs(add_songs(), "RELATE $id->artist_to_song->$songs")]
-    #[case::remove_songs(remove_songs(), "DELETE $artist->artist_to_song WHERE out IN $songs")]
+    #[case::add_song(add_song(), "RELATE $id->artist_to_song->$song")]
+    #[case::remove_song(remove_song(), "DELETE $artist->artist_to_song WHERE out == $song")]
     #[case::read_songs(
         read_songs(),
         "SELECT * FROM array::union($artist->artist_to_song.out, $artist->artist_to_album->album->album_to_song.out)"
