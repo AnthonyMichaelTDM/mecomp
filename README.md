@@ -113,10 +113,10 @@ Then, you'll have to tell the daemon to start scanning and analysing your music 
 ./mecomp-cli status rescan
 
 # once the daemon has finished scanning your music collection, you can tell it to start analysing your music collection
-./mecomp-cli library analyse
+./mecomp-cli library analyze
 # again, wait for the daemon to finish analysing your music collection, it will tell you in the logs when it's done,
 # and you can check the status by running
-./mecomp-cli status analyse
+./mecomp-cli status analyze
 
 # once the daemon has finished analysing your music collection, you can tell it to start clustering your music collection
 ./mecomp-cli library recluster
