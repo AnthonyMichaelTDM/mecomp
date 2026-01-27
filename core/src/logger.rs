@@ -11,8 +11,7 @@ use opentelemetry_otlp::WithExportConfig as _;
 use opentelemetry_sdk::Resource;
 #[cfg(feature = "otel_tracing")]
 use tracing_subscriber::Layer as _;
-#[cfg(any(feature = "otel_tracing", feature = "flame", feature = "tokio_console"))]
-use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::layer::SubscriberExt;
 
 use crate::format_duration;
 
@@ -218,13 +217,11 @@ pub fn init_tracing() -> impl tracing::Subscriber {
     #[cfg(feature = "flame")]
     let subscriber = subscriber.with(flame_layer);
 
-    #[cfg(not(feature = "verbose_tracing"))]
-    #[allow(unused_variables)]
+    #[cfg(all(not(feature = "verbose_tracing"), feature = "otel_tracing"))]
     let filter = tracing_subscriber::EnvFilter::builder()
         .parse("off,mecomp=trace,surrealqlx=trace")
         .unwrap();
-    #[cfg(feature = "verbose_tracing")]
-    #[allow(unused_variables)]
+    #[cfg(all(feature = "verbose_tracing", feature = "otel_tracing"))]
     let filter = tracing_subscriber::EnvFilter::new("trace")
         .add_directive("hyper=off".parse().unwrap())
         .add_directive("opentelemetry=off".parse().unwrap())
@@ -265,6 +262,10 @@ pub fn init_tracing() -> impl tracing::Subscriber {
         .spawn();
     #[cfg(feature = "tokio_console")]
     let subscriber = subscriber.with(console_layer);
+
+    // if no tracing features are enabled, we should add a default filter that ignores all traces
+    #[cfg(not(any(feature = "otel_tracing", feature = "flame", feature = "tokio_console")))]
+    let subscriber = subscriber.with(tracing_subscriber::filter::LevelFilter::OFF);
 
     subscriber
 }
