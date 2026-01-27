@@ -10,7 +10,7 @@
 //! - The Davies-Bouldin index [wikipedia](https://en.wikipedia.org/wiki/Davies%E2%80%93Bouldin_index)
 
 use linfa::prelude::*;
-use linfa_clustering::{GaussianMixtureModel, KMeans};
+use linfa_clustering::{GaussianMixtureModel, GmmError, KMeans};
 use linfa_nn::distance::{Distance, L2Dist};
 use linfa_reduction::Pca;
 use linfa_tsne::TSneParams;
@@ -20,7 +20,6 @@ use ndarray_rand::RandomExt;
 use ndarray_stats::QuantileExt;
 use rand::distributions::Uniform;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-// use statrs::statistics::Statistics;
 
 use crate::{
     DIM_EMBEDDING, Feature, NUMBER_FEATURES,
@@ -28,6 +27,8 @@ use crate::{
 };
 
 pub type FitDataset = Dataset<Feature, (), Dim<[usize; 1]>>;
+
+pub type ClusteringResult<T> = Result<T, ClusteringError>;
 
 #[derive(Clone, Copy, Debug)]
 #[allow(clippy::module_name_repetitions)]
@@ -38,23 +39,20 @@ pub enum ClusteringMethod {
 
 impl ClusteringMethod {
     /// Fit the clustering method to the dataset and get the Labels
-    #[must_use]
-    fn fit(self, k: usize, data: &FitDataset) -> Array1<usize> {
+    fn fit(self, k: usize, data: &FitDataset) -> ClusteringResult<Array1<usize>> {
         match self {
             Self::KMeans => {
                 let model = KMeans::params(k)
                     // .max_n_iterations(MAX_ITERATIONS)
-                    .fit(data)
-                    .unwrap();
-                model.predict(data.records())
+                    .fit(data)?;
+                Ok(model.predict(data.records()))
             }
             Self::GaussianMixtureModel => {
                 let model = GaussianMixtureModel::params(k)
                     .init_method(linfa_clustering::GmmInitMethod::KMeans)
                     .n_runs(10)
-                    .fit(data)
-                    .unwrap();
-                model.predict(data.records())
+                    .fit(data)?;
+                Ok(model.predict(data.records()))
             }
         }
     }
@@ -270,65 +268,58 @@ impl ClusteringHelper<NotInitialized> {
         #[allow(clippy::cast_precision_loss)]
         let b = b as Feature;
 
-        let results = (1..=self.state.k_max)
-            // for each k, cluster the data into k clusters
-            .map(|k| {
-                debug!("Fitting k-means to embeddings with k={k}");
-                let labels = self.state.clustering_method.fit(k, &embedding_dataset);
-                (k, labels)
-            })
-            // for each k, calculate the gap statistic, and the standard deviation of the statistics
-            .map(|(k, labels)| {
-                // calculate the within intra-cluster variation for the reference data sets
-                debug!(
-                    "Calculating within intra-cluster variation for reference data sets with k={k}"
-                );
-                let w_kb_log: Vec<_> = reference_datasets
-                    .par_iter()
-                    .map(|ref_data| {
-                        // cluster the reference data into k clusters
-                        let ref_labels = self.state.clustering_method.fit(k, ref_data);
-                        // calculate the within intra-cluster variation for the reference data
-                        let ref_pairwise_distances = calc_pairwise_distances(
-                            ref_data.records().view(),
-                            k,
-                            ref_labels.view(),
-                        );
-                        calc_within_dispersion(ref_labels.view(), k, ref_pairwise_distances.view())
-                            .log2()
-                    })
-                    .collect();
-                let w_kb_log = Array::from_vec(w_kb_log);
-
-                // calculate the within intra-cluster variation for the observed data
-                let pairwise_distances =
-                    calc_pairwise_distances(self.state.embeddings.view(), k, labels.view());
-                let w_k = calc_within_dispersion(labels.view(), k, pairwise_distances.view());
-
-                // finally, calculate the gap statistic
-                let w_kb_log_sum: Feature = w_kb_log.sum();
-                // original formula: l = (1 / B) * sum_b(log(W_kb))
-                let l = b.recip() * w_kb_log_sum;
-                // original formula: gap_k = (1 / B) * sum_b(log(W_kb)) - log(W_k)
-                let gap_k = l - w_k.log2();
-                // original formula: sd_k = [(1 / B) * sum_b((log(W_kb) - l)^2)]^0.5
-                let standard_deviation = (b.recip() * (w_kb_log - l).pow2().sum()).sqrt();
-                // original formula: s_k = sd_k * (1 + 1 / B)^0.5
-                // calculate differently to minimize rounding errors
-                let s_k = standard_deviation * (1.0 + b.recip()).sqrt();
-
-                (k, gap_k, s_k)
-            });
-
-        // // plot the gap_k (whisker with s_k) w.r.t. k
-        // #[cfg(feature = "plot_gap")]
-        // plot_gap_statistic(results.clone().collect::<Vec<_>>());
-
-        // finally, consume the results iterator until we find the optimal k
+        // track the best k until we get an optimal one
         let (mut optimal_k, mut gap_k_minus_one) = (None, None);
-        for (k, gap_k, s_k) in results {
-            info!("k: {k}, gap_k: {gap_k}, s_k: {s_k}");
 
+        for k in 1..=self.state.k_max {
+            // for each k, cluster the data into k clusters
+            info!("Fitting k-means to embeddings with k={k}");
+            let labels = self.state.clustering_method.fit(k, &embedding_dataset)?;
+
+            // for each k, calculate the gap statistic, and the standard deviation of the statistics
+            // 1. calculate the within intra-cluster variation for the reference data sets
+            debug!("Calculating within intra-cluster variation for reference data sets with k={k}");
+            let w_kb_log = reference_datasets
+                .par_iter()
+                .map(|ref_data| {
+                    // cluster the reference data into k clusters
+                    let ref_labels = self.state.clustering_method.fit(k, ref_data)?;
+                    // calculate the within intra-cluster variation for the reference data
+                    let ref_pairwise_distances =
+                        calc_pairwise_distances(ref_data.records().view(), k, ref_labels.view());
+                    let dispersion =
+                        calc_within_dispersion(ref_labels.view(), k, ref_pairwise_distances.view())
+                            .log2();
+                    Ok(dispersion)
+                })
+                .collect::<ClusteringResult<Vec<_>>>();
+            let w_kb_log = match w_kb_log {
+                Ok(w_kb_log) => Array::from_vec(w_kb_log),
+                Err(ClusteringError::Gmm(GmmError::EmptyCluster(e))) => {
+                    log::warn!("Library is not large enough to cluster with k={k}: {e}");
+                    break;
+                }
+                Err(e) => return Err(e),
+            };
+            // 2. calculate the within intra-cluster variation for the observed data
+            let pairwise_distances =
+                calc_pairwise_distances(self.state.embeddings.view(), k, labels.view());
+            let w_k = calc_within_dispersion(labels.view(), k, pairwise_distances.view());
+
+            // 3. finally, calculate the gap statistic
+            let w_kb_log_sum: Feature = w_kb_log.sum();
+            // original formula: l = (1 / B) * sum_b(log(W_kb))
+            let l = b.recip() * w_kb_log_sum;
+            // original formula: gap_k = (1 / B) * sum_b(log(W_kb)) - log(W_k)
+            let gap_k = l - w_k.log2();
+            // original formula: sd_k = [(1 / B) * sum_b((log(W_kb) - l)^2)]^0.5
+            let standard_deviation = (b.recip() * (w_kb_log - l).pow2().sum()).sqrt();
+            // original formula: s_k = sd_k * (1 + 1 / B)^0.5
+            // calculate differently to minimize rounding errors
+            let s_k = standard_deviation * (1.0 + b.recip()).sqrt();
+
+            // finally, update the optimal k if needed
+            info!("k: {k}, gap_k: {gap_k}, s_k: {s_k}");
             if let Some(gap_k_minus_one) = gap_k_minus_one
                 && gap_k_minus_one >= gap_k - s_k
             {
@@ -476,9 +467,8 @@ impl ClusteringHelper<Initialized> {
     /// # Errors
     ///
     /// Will return an error if the clustering fails
-    #[must_use]
     #[inline]
-    pub fn cluster(self) -> ClusteringHelper<Finished> {
+    pub fn cluster(self) -> ClusteringResult<ClusteringHelper<Finished>> {
         let Initialized {
             clustering_method,
             embeddings,
@@ -486,11 +476,11 @@ impl ClusteringHelper<Initialized> {
         } = self.state;
 
         let embedding_dataset = Dataset::from(embeddings);
-        let labels = clustering_method.fit(k, &embedding_dataset);
+        let labels = clustering_method.fit(k, &embedding_dataset)?;
 
-        ClusteringHelper {
+        Ok(ClusteringHelper {
             state: Finished { labels, k },
-        }
+        })
     }
 }
 

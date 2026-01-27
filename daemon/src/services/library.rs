@@ -466,7 +466,7 @@ pub async fn recluster<C: Connection>(
             return None;
         };
 
-        let Ok(model) = model
+        let Ok(Ok(model)) = model
             .initialize()
             .inspect_err(|e| error!("There was an error initializing the clustering helper: {e}"))
             .map(ClusteringHelper::cluster)

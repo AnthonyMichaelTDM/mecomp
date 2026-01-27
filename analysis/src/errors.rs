@@ -30,6 +30,10 @@ pub type AnalysisResult<T> = Result<T, AnalysisError>;
 
 #[derive(Error, Debug)]
 pub enum ClusteringError {
+    #[error("Error during GMM clustering: {0}")]
+    Gmm(#[from] linfa_clustering::GmmError),
+    #[error("Error during KMeans clustering: {0}")]
+    KMeans(#[from] linfa_clustering::KMeansError),
     #[error("Library too small to cluster")]
     SmallLibrary,
     #[error("Optimal k could not be found below k={0}")]
