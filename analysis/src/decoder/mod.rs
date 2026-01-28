@@ -1,7 +1,6 @@
 #![allow(clippy::missing_inline_in_public_items)]
 
 use std::{
-    cell::RefCell,
     clone::Clone,
     marker::Send,
     num::NonZeroUsize,
@@ -209,10 +208,6 @@ pub trait Decoder {
             return Ok(());
         }
 
-        thread_local! {
-            static MODEL: RefCell<Option<AudioEmbeddingModel>> = const { RefCell::new(None) };
-        }
-
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(cores.get())
             .thread_name(|idx| format!("Analyzer {idx}"))
@@ -223,59 +218,50 @@ pub trait Decoder {
             // Process songs in parallel, but each song is fully processed (decode -> analyze -> embed -> send)
             // before the thread moves to the next song. This prevents memory accumulation from
             // buffering decoded audio across multiple pipeline stages.
-            paths.into_par_iter().try_for_each(|path| {
-                let thread_name = thread::current().name().unwrap_or("unknown").to_string();
+            paths.into_par_iter().try_for_each_init(
+                || AudioEmbeddingModel::load(&model_config),
+                |model_load_result, path| {
+                    let thread_name = thread::current().name().unwrap_or("unknown").to_string();
 
-                // Decode the audio file
-                let audio = match self.decode(path) {
-                    Ok(audio) => {
-                        trace!("Decoded {} in thread {thread_name}", path.display());
-                        audio
-                    }
-                    Err(e) => {
-                        error!("Error decoding {}: {e}", path.display());
-                        return Ok(()); // Skip this file, continue with others
-                    }
-                };
+                    // Decode the audio file
+                    let audio = match self.decode(path) {
+                        Ok(audio) => {
+                            trace!("Decoded {} in thread {thread_name}", path.display());
+                            audio
+                        }
+                        Err(e) => {
+                            error!("Error decoding {}: {e}", path.display());
+                            return Ok(()); // Skip this file, continue with others
+                        }
+                    };
 
-                // Analyze the audio
-                let analysis = Analysis::from_samples(&audio);
-                trace!("Analyzed {} in thread {thread_name}", path.display());
+                    // Analyze the audio
+                    let analysis = Analysis::from_samples(&audio);
+                    trace!("Analyzed {} in thread {thread_name}", path.display());
 
-                // Generate embedding
-                let embedding = MODEL.try_with(|model_cell| {
-                    let mut model_ref = model_cell.borrow_mut();
-                    if model_ref.is_none() {
-                        debug!("Loading embedding model in thread {thread_name}");
-                        *model_ref = Some(AudioEmbeddingModel::load(&model_config)?);
-                    }
+                    // Generate embedding
+                    let embedding = match model_load_result {
+                        Ok(model) => model.embed(&audio).map_err(AnalysisError::from),
+                        Err(e) => Err(AnalysisError::ModelLoadError {
+                            code: e.code(),
+                            msg: e.to_string(),
+                        }),
+                    };
                     trace!(
-                        "Generating embeddings for {} in thread {thread_name}",
+                        "Generated embeddings for {} in thread {thread_name}",
                         path.display()
                     );
-                    model_ref
-                        .as_mut()
-                        .unwrap()
-                        .embed(&audio)
-                        .map_err(AnalysisError::from)
-                });
 
-                // Flatten the Result<Result<...>> and convert to AnalysisResult
-                let embedding = match embedding {
-                    Ok(Ok(e)) => Ok(e),
-                    Ok(Err(e)) => Err(e),
-                    Err(e) => Err(AnalysisError::AccessError(e)),
-                };
+                    // Drop the audio samples before sending to free memory immediately
+                    drop(audio);
 
-                // Drop the audio samples before sending to free memory immediately
-                drop(audio);
-
-                // Send the results - the bounded channel will apply backpressure
-                // if the consumer is slow, preventing unbounded memory growth
-                callback
-                    .send((path.clone(), analysis, embedding))
-                    .map_err(|_| AnalysisError::SendError)
-            })
+                    // Send the results - the bounded channel will apply backpressure
+                    // if the consumer is slow, preventing unbounded memory growth
+                    callback
+                        .send((path.clone(), analysis, embedding))
+                        .map_err(|_| AnalysisError::SendError)
+                },
+            )
         })
     }
 
