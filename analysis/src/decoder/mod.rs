@@ -235,21 +235,28 @@ pub trait Decoder {
                         }
                     };
 
-                    // Analyze the audio
-                    let analysis = Analysis::from_samples(&audio);
-                    trace!("Analyzed {} in thread {thread_name}", path.display());
-
-                    // Generate embedding
-                    let embedding = match model_load_result {
-                        Ok(model) => model.embed(&audio).map_err(AnalysisError::from),
-                        Err(e) => Err(AnalysisError::ModelLoadError {
-                            code: e.code(),
-                            msg: e.to_string(),
-                        }),
-                    };
-                    trace!(
-                        "Generated embeddings for {} in thread {thread_name}",
-                        path.display()
+                    let (analysis, embedding) = pool.join(
+                        || {
+                            // Analyze the audio
+                            let analysis = Analysis::from_samples(&audio);
+                            trace!("Analyzed {} in thread {thread_name}", path.display());
+                            analysis
+                        },
+                        || {
+                            // Generate embedding
+                            let embedding = match model_load_result {
+                                Ok(model) => model.embed(&audio).map_err(AnalysisError::from),
+                                Err(e) => Err(AnalysisError::ModelLoadError {
+                                    code: e.code(),
+                                    msg: e.to_string(),
+                                }),
+                            };
+                            trace!(
+                                "Generated embeddings for {} in thread {thread_name}",
+                                path.display()
+                            );
+                            embedding
+                        },
                     );
 
                     // Drop the audio samples before sending to free memory immediately

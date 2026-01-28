@@ -304,8 +304,8 @@ pub async fn analyze<C: Connection>(
     let songs_to_analyze: Vec<Song> = Analysis::read_songs_without_analysis(db).await?;
     // crate a hashmap mapping paths to song ids
     let paths = songs_to_analyze
-        .iter()
-        .map(|song| (song.path.clone(), song.id.clone()))
+        .into_iter()
+        .map(|song| (song.path, song.id))
         .collect::<HashMap<_, _>>();
 
     let keys = paths.keys().cloned().collect::<Vec<_>>();

@@ -19,7 +19,7 @@ pub mod temporal;
 pub mod timbral;
 pub mod utils;
 
-use std::{ops::Index, path::PathBuf, thread::ScopedJoinHandle};
+use std::{ops::Index, path::PathBuf};
 
 use likely_stable::LikelyResult;
 use misc::LoudnessDesc;
@@ -245,14 +245,15 @@ impl Analysis {
         }
 
         std::thread::scope(|s| -> AnalysisResult<Self> {
-            let child_chroma: ScopedJoinHandle<'_, AnalysisResult<Vec<Feature>>> = s.spawn(|| {
-                let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
-                chroma_desc.do_(&audio.samples)?;
-                Ok(chroma_desc.get_value())
-            });
+            let child_chroma: std::thread::ScopedJoinHandle<'_, AnalysisResult<Vec<Feature>>> = s
+                .spawn(|| {
+                    let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
+                    chroma_desc.do_(&audio.samples)?;
+                    Ok(chroma_desc.get_value())
+                });
 
             #[allow(clippy::type_complexity)]
-            let child_timbral: ScopedJoinHandle<
+            let child_timbral: std::thread::ScopedJoinHandle<
                 '_,
                 AnalysisResult<([Feature; 2], [Feature; 2], [Feature; 2])>,
             > = s.spawn(|| {
@@ -271,9 +272,9 @@ impl Analysis {
             });
 
             // we do BPM, ZCR, and Loudness at the same time since they are so much faster than the others
-            let child_temp_zcr_loudness: ScopedJoinHandle<
+            let child_temp_zcr_loudness: std::thread::ScopedJoinHandle<
                 '_,
-                AnalysisResult<(Feature, Feature, Vec<Feature>)>,
+                AnalysisResult<(Feature, Feature, [Feature; 2])>,
             > = s.spawn(|| {
                 // BPM
                 let mut tempo_desc = BPMDesc::new(SAMPLE_RATE)?;
