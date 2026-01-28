@@ -339,6 +339,8 @@ impl ClusteringHelper<NotInitialized> {
     }
 }
 
+const MAX_REF_DATASET_SAMPLES: usize = 2000;
+
 /// Generate B reference data sets with a random uniform distribution
 ///
 /// (excerpt from reference paper)
@@ -363,6 +365,19 @@ impl ClusteringHelper<NotInitialized> {
 /// the ordering of features is important, meaning that we can't
 /// rotate the data anyway.
 fn generate_reference_datasets(samples: ArrayView2<'_, Feature>, b: usize) -> Vec<FitDataset> {
+    if samples.nrows() < MAX_REF_DATASET_SAMPLES {
+        // for small datasets, we use all samples
+        return (0..b)
+            .into_par_iter()
+            .map(|_| Dataset::from(generate_ref_single(samples.view())))
+            .collect();
+    }
+
+    // for large datasets, we randomly sample 2000 samples to speed up the reference data generation
+    let mut rng = rand::thread_rng();
+    let indices = rand::seq::index::sample(&mut rng, samples.nrows(), MAX_REF_DATASET_SAMPLES);
+    let samples = samples.select(Axis(0), &indices.into_vec());
+
     (0..b)
         .into_par_iter()
         .map(|_| Dataset::from(generate_ref_single(samples.view())))
@@ -372,13 +387,13 @@ fn generate_ref_single(samples: ArrayView2<'_, Feature>) -> Array2<Feature> {
     let feature_distributions = samples
         .axis_iter(Axis(1))
         .map(|feature| {
-            Array::random(
-                feature.dim(),
-                Uniform::new(
-                    feature.min().copied().unwrap_or_default(),
-                    feature.max().copied().unwrap_or_default(),
-                ),
-            )
+            let min = feature.min().copied().unwrap_or_default();
+            let max = feature.max().copied().unwrap_or_default();
+            if min >= max {
+                // if all values are the same, we just create a data set with that same value
+                return Array::from_elem(feature.dim(), min);
+            }
+            Array::random(feature.dim(), Uniform::new(min, max))
         })
         .collect::<Vec<_>>();
     let feature_dists_views = feature_distributions
