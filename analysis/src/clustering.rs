@@ -50,8 +50,10 @@ impl ClusteringMethod {
             Self::GaussianMixtureModel => {
                 let model = GaussianMixtureModel::params(k)
                     .init_method(linfa_clustering::GmmInitMethod::KMeans)
+                    .reg_covariance(1e-3)
                     .n_runs(10)
-                    .fit(data)?;
+                    .fit(data)
+                    .inspect_err(|e| debug!("GMM fitting failed with k={k}: {e:?}"))?;
                 Ok(model.predict(data.records()))
             }
         }
@@ -387,8 +389,8 @@ fn generate_ref_single(samples: ArrayView2<'_, Feature>) -> Array2<Feature> {
     let feature_distributions = samples
         .axis_iter(Axis(1))
         .map(|feature| {
-            let min = feature.min().copied().unwrap_or_default();
-            let max = feature.max().copied().unwrap_or_default();
+            let min = *feature.min_skipnan();
+            let max = *feature.max_skipnan();
             if min >= max {
                 // if all values are the same, we just create a data set with that same value
                 return Array::from_elem(feature.dim(), min);
