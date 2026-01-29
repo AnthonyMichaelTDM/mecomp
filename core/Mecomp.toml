@@ -97,9 +97,10 @@ max_clusters = 24
 ## Either "kmeans" or "gmm".
 algorithm = "gmm"
 ## The projection method to preprocess the data with before clustering.
-## Either "tsne", "pca" (not implemented yet), or "none".
-## Default is "none".
-projection_method = "tsne"
+## Either "tsne", "pca", or "none".
+## PCA works better with KMeans than it does with GMM
+## Default is "tsne"
+projection_method = "none"
 
 # Settings for the TUI
 [tui]
