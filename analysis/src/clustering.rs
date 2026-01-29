@@ -50,10 +50,10 @@ impl ClusteringMethod {
             Self::GaussianMixtureModel => {
                 let model = GaussianMixtureModel::params(k)
                     .init_method(linfa_clustering::GmmInitMethod::KMeans)
-                    .reg_covariance(1e-3)
+                    .reg_covariance(5e-3)
                     .n_runs(10)
                     .fit(data)
-                    .inspect_err(|e| debug!("GMM fitting failed with k={k}: {e:?}"))?;
+                    .inspect_err(|e| debug!("GMM fitting failed with k={k}: {e:?}, if this continues try using KMeans instead"))?;
                 Ok(model.predict(data.records()))
             }
         }
@@ -89,16 +89,31 @@ impl ProjectionMethod {
     /// Will return an error if there was an error projecting the data into a lower-dimensional space
     #[inline]
     pub fn project(self, samples: Array2<Feature>) -> Result<Array2<Feature>, ProjectionError> {
+        let nrecords = samples.nrows();
+        let ncols = samples.ncols();
         let result = match self {
             Self::TSne => {
-                let nrecords = samples.nrows();
-                // first use the t-SNE algorithm to project the data into a lower-dimensional space
-                debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using t-SNE");
+                // first, preprocess the data with PCA into a intermediate dimensionality
+                // to speed up t-SNE
+                let intermediate_dim = ncols.midpoint(EMBEDDING_SIZE).midpoint(EMBEDDING_SIZE);
+                debug!(
+                    "Preprocessing data with PCA to speed up t-SNE ({ncols} -> {intermediate_dim})"
+                );
+                let data = Dataset::from(samples.mapv(f64::from));
+                let pca: Pca<f64> = Pca::params(intermediate_dim).fit(&data)?;
+                #[allow(clippy::cast_possible_truncation)]
+                let pca_samples = pca.predict(&data).mapv(|f| f as Feature);
+
+                // then use the t-SNE algorithm to project the data into a lower-dimensional space
+                debug!(
+                    "Generating embeddings (size: {intermediate_dim} -> {EMBEDDING_SIZE}) using t-SNE"
+                );
                 #[allow(clippy::cast_precision_loss)]
                 let mut embeddings = TSneParams::embedding_size(EMBEDDING_SIZE)
-                    .perplexity(Feature::max(samples.nrows() as Feature / 20., 5.))
+                    .perplexity(f32::max(nrecords as f32 / 20., 5.))
                     .approx_threshold(0.5)
-                    .transform(samples)?;
+                    .max_iter(1000)
+                    .transform(pca_samples)?;
                 debug_assert_eq!(embeddings.shape(), &[nrecords, EMBEDDING_SIZE]);
 
                 // normalize the embeddings so each dimension is between -1 and 1
@@ -107,9 +122,8 @@ impl ProjectionMethod {
                 embeddings
             }
             Self::Pca => {
-                let nrecords = samples.nrows();
                 // use the PCA algorithm to project the data into a lower-dimensional space
-                debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using PCA");
+                debug!("Generating embeddings (size: {ncols} -> {EMBEDDING_SIZE}) using PCA");
                 // linfa_reduction::pca::PCA only works for f64, see: https://github.com/rust-ml/linfa/issues/232
                 let data = Dataset::from(samples.mapv(f64::from));
                 let pca: Pca<f64> = Pca::params(EMBEDDING_SIZE).whiten(true).fit(&data)?;
@@ -146,7 +160,9 @@ fn normalize_embeddings_inplace(embeddings: &mut Array2<Feature>) {
 }
 
 // log the number of features
-/// Dimensionality that the T-SNE and PCA projection methods aim to project the data into.
+/// Baseline dimensionality that the T-SNE and PCA projection methods aim to project the data into.
+/// T-SNE does a two stage projection, first into `(NUMBER_FEATURES + EMBEDDING_SIZE) / 2` dimensions using PCA, then into `EMBEDDING_SIZE` dimensions using T-SNE.
+/// PCA directly projects the data into `EMBEDDING_SIZE` dimensions.
 const EMBEDDING_SIZE: usize = {
     let log2 = usize::ilog2(if DIM_EMBEDDING < NUMBER_FEATURES {
         NUMBER_FEATURES
