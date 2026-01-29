@@ -304,8 +304,8 @@ pub async fn analyze<C: Connection>(
     let songs_to_analyze: Vec<Song> = Analysis::read_songs_without_analysis(db).await?;
     // crate a hashmap mapping paths to song ids
     let paths = songs_to_analyze
-        .iter()
-        .map(|song| (song.path.clone(), song.id.clone()))
+        .into_iter()
+        .map(|song| (song.path, song.id))
         .collect::<HashMap<_, _>>();
 
     let keys = paths.keys().cloned().collect::<Vec<_>>();
@@ -466,7 +466,7 @@ pub async fn recluster<C: Connection>(
             return None;
         };
 
-        let Ok(model) = model
+        let Ok(Ok(model)) = model
             .initialize()
             .inspect_err(|e| error!("There was an error initializing the clustering helper: {e}"))
             .map(ClusteringHelper::cluster)
@@ -516,10 +516,11 @@ pub async fn recluster<C: Connection>(
 
     // get the clusters from the clustering
     async {
-        let clusters = model.extract_analysis_clusters(samples);
+        let analysis_ids = samples.into_iter().map(|a| a.id).collect();
+        let clusters = model.extract_analysis_clusters(analysis_ids);
 
         // create the collections
-        for (i, cluster) in clusters.iter().filter(|c| !c.is_empty()).enumerate() {
+        for (i, cluster) in clusters.into_iter().filter(|c| !c.is_empty()).enumerate() {
             let collection = Collection {
                 id: Collection::generate_id(),
                 name: format!("Collection {i}"),
@@ -530,14 +531,11 @@ pub async fn recluster<C: Connection>(
                 .await?
                 .ok_or(Error::NotCreated)?;
 
-            let mut songs = Vec::with_capacity(cluster.len());
-
             async {
-                for analysis in cluster {
-                    songs.push(Analysis::read_song(db, analysis.id.clone()).await?.id);
-                }
+                let songs = Analysis::read_songs(db, cluster).await?;
+                let song_ids = songs.into_iter().map(|s| s.id).collect::<Vec<_>>();
 
-                Collection::add_songs(db, collection.id.clone(), songs).await?;
+                Collection::add_songs(db, collection.id.clone(), song_ids).await?;
 
                 <Result<(), Error>>::Ok(())
             }

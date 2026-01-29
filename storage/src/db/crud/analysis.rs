@@ -1,7 +1,6 @@
 //! CRUD operations for the analysis table
 
 use mecomp_analysis::{DIM_EMBEDDING, NUMBER_FEATURES};
-use one_or_many::OneOrMany;
 use surrealdb::{Connection, Surreal};
 use surrealqlx::surrql;
 use tracing::instrument;
@@ -112,7 +111,7 @@ impl Analysis {
     pub async fn read_songs<C: Connection>(
         db: &Surreal<C>,
         ids: Vec<AnalysisId>,
-    ) -> StorageResult<OneOrMany<Song>> {
+    ) -> StorageResult<Vec<Song>> {
         Ok(db.query(read_songs()).bind(("ids", ids)).await?.take(0)?)
     }
 
@@ -413,7 +412,7 @@ mod test {
         // read the songs for the analyses
         let result =
             Analysis::read_songs(&db, vec![analysis1.id.clone(), analysis2.id.clone()]).await?;
-        assert_eq!(result, OneOrMany::Many(vec![song1, song2]));
+        assert_eq!(result, vec![song1, song2]);
 
         Ok(())
     }
