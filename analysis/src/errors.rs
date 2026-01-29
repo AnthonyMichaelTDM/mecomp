@@ -20,8 +20,6 @@ pub enum AnalysisError {
     InvalidFeaturesLen,
     #[error("Embedding Error: {0}")]
     EmbeddingError(#[from] ort::Error),
-    #[error("Error loading model: {msg} (code: {code:?})")]
-    ModelLoadError { code: ort::ErrorCode, msg: String },
     #[error("Send Error")]
     SendError,
 }

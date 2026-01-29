@@ -1,6 +1,7 @@
 #![allow(clippy::missing_inline_in_public_items)]
 
 use std::{
+    cell::RefCell,
     clone::Clone,
     marker::Send,
     num::NonZeroUsize,
@@ -183,7 +184,7 @@ pub trait Decoder {
     /// You can cancel the job by dropping the `callback` channel.
     ///
     /// Note: A new [`AudioEmbeddingModel`](crate::embeddings::AudioEmbeddingModel) session will be created
-    /// for each batch processed.
+    /// for each thread.
     ///
     /// # Errors
     ///
@@ -208,9 +209,18 @@ pub trait Decoder {
             return Ok(());
         }
 
+        thread_local! {
+            static MODEL: RefCell<Option<AudioEmbeddingModel>> = const { RefCell::new(None) };
+        }
+
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(cores.get())
             .thread_name(|idx| format!("Analyzer {idx}"))
+            .exit_handler(|thread_id| {
+                // Clean up thread-local model to free memory
+                debug!("Cleaning up model in thread Analyzer {thread_id}");
+                let _ = MODEL.take();
+            })
             .build()
             .unwrap();
 
@@ -218,57 +228,56 @@ pub trait Decoder {
             // Process songs in parallel, but each song is fully processed (decode -> analyze -> embed -> send)
             // before the thread moves to the next song. This prevents memory accumulation from
             // buffering decoded audio across multiple pipeline stages.
-            paths.into_par_iter().try_for_each_init(
-                || AudioEmbeddingModel::load(&model_config),
-                |model_load_result, path| {
-                    let thread_name = thread::current().name().unwrap_or("unknown").to_string();
+            paths.into_par_iter().try_for_each(|path| {
+                let thread_name = thread::current().name().unwrap_or("unknown").to_string();
 
-                    // Decode the audio file
-                    let audio = match self.decode(path) {
-                        Ok(audio) => {
-                            trace!("Decoded {} in thread {thread_name}", path.display());
-                            audio
-                        }
-                        Err(e) => {
-                            error!("Error decoding {}: {e}", path.display());
-                            return Ok(()); // Skip this file, continue with others
-                        }
-                    };
+                // Decode the audio file
+                let audio = match self.decode(path) {
+                    Ok(audio) => {
+                        trace!("Decoded {} in thread {thread_name}", path.display());
+                        audio
+                    }
+                    Err(e) => {
+                        error!("Error decoding {}: {e}", path.display());
+                        return Ok(()); // Skip this file, continue with others
+                    }
+                };
 
-                    let (analysis, embedding) = pool.join(
-                        || {
-                            // Analyze the audio
-                            let analysis = Analysis::from_samples(&audio);
-                            trace!("Analyzed {} in thread {thread_name}", path.display());
-                            analysis
-                        },
-                        || {
-                            // Generate embedding
-                            let embedding = match model_load_result {
-                                Ok(model) => model.embed(&audio).map_err(AnalysisError::from),
-                                Err(e) => Err(AnalysisError::ModelLoadError {
-                                    code: e.code(),
-                                    msg: e.to_string(),
-                                }),
-                            };
-                            trace!(
-                                "Generated embeddings for {} in thread {thread_name}",
-                                path.display()
-                            );
-                            embedding
-                        },
-                    );
+                let (analysis, embedding) = pool.join(
+                    || {
+                        // Analyze the audio
+                        let analysis = Analysis::from_samples(&audio);
+                        trace!("Analyzed {} in thread {thread_name}", path.display());
+                        analysis
+                    },
+                    || {
+                        // Load or get the model for this thread, then generate the embedding
+                        let embedding = MODEL.with(|model_cell| {
+                            let mut model_ref = model_cell.borrow_mut();
+                            if model_ref.is_none() {
+                                debug!("Loading model in thread {thread_name}");
+                                *model_ref = Some(AudioEmbeddingModel::load(&model_config)?);
+                            }
+                            let model = model_ref.as_mut().unwrap();
+                            model.embed(&audio).map_err(AnalysisError::from)
+                        });
+                        trace!(
+                            "Generated embeddings for {} in thread {thread_name}",
+                            path.display()
+                        );
+                        embedding
+                    },
+                );
 
-                    // Drop the audio samples before sending to free memory immediately
-                    drop(audio);
+                // Drop the audio samples before sending to free memory immediately
+                drop(audio);
 
-                    // Send the results - the bounded channel will apply backpressure
-                    // if the consumer is slow, preventing unbounded memory growth
-                    callback
-                        .send((path.clone(), analysis, embedding))
-                        .map_err(|_| AnalysisError::SendError)
-                },
-            )
+                // Send the results - the bounded channel will apply backpressure
+                // if the consumer is slow, preventing unbounded memory growth
+                callback
+                    .send((path.clone(), analysis, embedding))
+                    .map_err(|_| AnalysisError::SendError)
+            })
         })
     }
 
@@ -279,7 +288,7 @@ pub trait Decoder {
     /// You can cancel the job by dropping the `callback` channel.
     ///
     /// Note: A new [`AudioEmbeddingModel`](crate::embeddings::AudioEmbeddingModel) session will be created
-    /// for each batch processed.
+    /// for each thread.
     ///
     /// # Errors
     /// Errors if the `callback` channel is closed.

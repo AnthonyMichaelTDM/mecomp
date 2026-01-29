@@ -180,7 +180,6 @@ impl AudioEmbeddingModel {
                 warn!("failed to load embeddings model from specified path: {e}, falling back to default model.");
                 Self::load_default()
             })
-
         })
     }
 
@@ -193,7 +192,7 @@ impl AudioEmbeddingModel {
     /// * the audio cannot be converted into a tensor,
     /// * the model inference fails,
     /// * the output is missing or has an unexpected shape (should be named "embedding" and have shape `[1, 32]`).
-    #[inline]
+    #[allow(clippy::missing_inline_in_public_items)]
     pub fn embed(&mut self, audio: &ResampledAudio) -> ort::Result<Embedding> {
         // Create input with batch dimension
         let inputs = ort::inputs! {
@@ -231,7 +230,7 @@ impl AudioEmbeddingModel {
     /// * the audio cannot be converted into a tensor,
     /// * the model inference fails,
     /// * the output is missing or has an unexpected shape (should be named "embedding" and have shape `[batch_size, 32]`).
-    #[inline]
+    #[allow(clippy::missing_inline_in_public_items)]
     pub fn embed_batch(&mut self, audios: &[ResampledAudio]) -> ort::Result<Vec<Embedding>> {
         let max_len = audios.iter().map(|a| a.samples.len()).max().unwrap_or(0);
 
