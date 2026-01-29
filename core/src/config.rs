@@ -289,8 +289,8 @@ impl From<ClusterAlgorithm> for mecomp_analysis::clustering::ClusteringMethod {
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ProjectionMethod {
-    #[default]
     None,
+    #[default]
     TSne,
     Pca,
 }
@@ -328,7 +328,8 @@ pub struct ReclusterSettings {
     pub algorithm: ClusterAlgorithm,
     /// The projection method to preprocess the data with before clustering.
     /// Either "tsne", "pca", or "none".
-    /// Default is "none".
+    /// PCA works better with KMeans than it does with GMM
+    /// Default is "tsne".
     #[serde(default)]
     pub projection_method: ProjectionMethod,
 }
