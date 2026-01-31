@@ -5,7 +5,7 @@
 ## The port to listen on for RPC requests. (default: 6600, the default port for MPD)
 rpc_port = 6600
 ## The root paths of the music library.
-library_paths = ["~/Music"]
+library_paths = ["~/Music/"]
 ## Separators for artist names in song metadata.
 ## For example, "Foo, Bar, Baz" would be split into ["Foo", "Bar", "Baz"]. if the separator is ", ".
 ## If the separator is not found, the entire string is considered as a single artist.
@@ -100,7 +100,7 @@ algorithm = "gmm"
 ## Either "tsne", "pca", or "none".
 ## PCA works better with KMeans than it does with GMM
 ## Default is "tsne"
-projection_method = "none"
+projection_method = "tsne"
 
 # Settings for the TUI
 [tui]
