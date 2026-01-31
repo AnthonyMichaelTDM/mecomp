@@ -42,7 +42,7 @@ impl LoudnessDesc {
     }
 
     #[inline]
-    pub fn get_value(&mut self) -> Vec<Feature> {
+    pub fn get_value(&mut self) -> [Feature; 2] {
         const MIN_VALUE: f32 = 1e-9;
 
         // Make sure the dB don't go less than -90dB
@@ -51,7 +51,7 @@ impl LoudnessDesc {
             .into_scalar()
             .max(MIN_VALUE);
         let mean_value = mean(&self.values).max(MIN_VALUE);
-        vec![
+        [
             self.normalize(10.0 * mean_value.log10()),
             self.normalize(10.0 * std_value.log10()),
         ]

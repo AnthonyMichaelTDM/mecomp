@@ -212,11 +212,14 @@ impl SpectralDesc {
         let cvec: CVec<'_> = self.fftgrain.as_slice().into();
         let norm = cvec.norm();
         let geo_mean = geometric_mean(norm);
-        if unlikely(geo_mean == 0.0) {
+        let arithmetic_mean = mean(norm);
+
+        // Avoid NaN from division by zero (silent audio or both means are zero)
+        if unlikely(geo_mean == 0.0 || arithmetic_mean == 0.0) {
             self.values_flatness.push(0.0);
             return Ok(());
         }
-        let flatness = geo_mean / mean(norm);
+        let flatness = geo_mean / arithmetic_mean;
         self.values_flatness.push(flatness);
         Ok(())
     }

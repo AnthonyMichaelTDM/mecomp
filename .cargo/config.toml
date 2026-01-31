@@ -8,6 +8,6 @@ rustflags = [
     # tokio console
     "--cfg", "tokio_unstable",
     # for profiling
-    # "-C",
-    # "symbol-mangling-version=v0",
+    "-C",
+    "symbol-mangling-version=v0",
 ]

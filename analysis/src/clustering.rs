@@ -10,7 +10,7 @@
 //! - The Davies-Bouldin index [wikipedia](https://en.wikipedia.org/wiki/Davies%E2%80%93Bouldin_index)
 
 use linfa::prelude::*;
-use linfa_clustering::{GaussianMixtureModel, KMeans};
+use linfa_clustering::{GaussianMixtureModel, GmmError, KMeans};
 use linfa_nn::distance::{Distance, L2Dist};
 use linfa_reduction::Pca;
 use linfa_tsne::TSneParams;
@@ -20,7 +20,6 @@ use ndarray_rand::RandomExt;
 use ndarray_stats::QuantileExt;
 use rand::distributions::Uniform;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-// use statrs::statistics::Statistics;
 
 use crate::{
     DIM_EMBEDDING, Feature, NUMBER_FEATURES,
@@ -28,6 +27,8 @@ use crate::{
 };
 
 pub type FitDataset = Dataset<Feature, (), Dim<[usize; 1]>>;
+
+pub type ClusteringResult<T> = Result<T, ClusteringError>;
 
 #[derive(Clone, Copy, Debug)]
 #[allow(clippy::module_name_repetitions)]
@@ -38,23 +39,22 @@ pub enum ClusteringMethod {
 
 impl ClusteringMethod {
     /// Fit the clustering method to the dataset and get the Labels
-    #[must_use]
-    fn fit(self, k: usize, data: &FitDataset) -> Array1<usize> {
+    fn fit(self, k: usize, data: &FitDataset) -> ClusteringResult<Array1<usize>> {
         match self {
             Self::KMeans => {
                 let model = KMeans::params(k)
                     // .max_n_iterations(MAX_ITERATIONS)
-                    .fit(data)
-                    .unwrap();
-                model.predict(data.records())
+                    .fit(data)?;
+                Ok(model.predict(data.records()))
             }
             Self::GaussianMixtureModel => {
                 let model = GaussianMixtureModel::params(k)
                     .init_method(linfa_clustering::GmmInitMethod::KMeans)
+                    .reg_covariance(5e-3)
                     .n_runs(10)
                     .fit(data)
-                    .unwrap();
-                model.predict(data.records())
+                    .inspect_err(|e| debug!("GMM fitting failed with k={k}: {e:?}, if this continues try using KMeans instead"))?;
+                Ok(model.predict(data.records()))
             }
         }
     }
@@ -89,16 +89,31 @@ impl ProjectionMethod {
     /// Will return an error if there was an error projecting the data into a lower-dimensional space
     #[inline]
     pub fn project(self, samples: Array2<Feature>) -> Result<Array2<Feature>, ProjectionError> {
+        let nrecords = samples.nrows();
+        let ncols = samples.ncols();
         let result = match self {
             Self::TSne => {
-                let nrecords = samples.nrows();
-                // first use the t-SNE algorithm to project the data into a lower-dimensional space
-                debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using t-SNE");
+                // first, preprocess the data with PCA into a intermediate dimensionality
+                // to speed up t-SNE
+                let intermediate_dim = ncols.midpoint(EMBEDDING_SIZE).midpoint(EMBEDDING_SIZE);
+                debug!(
+                    "Preprocessing data with PCA to speed up t-SNE ({ncols} -> {intermediate_dim})"
+                );
+                let data = Dataset::from(samples.mapv(f64::from));
+                let pca: Pca<f64> = Pca::params(intermediate_dim).fit(&data)?;
+                #[allow(clippy::cast_possible_truncation)]
+                let pca_samples = pca.predict(&data).mapv(|f| f as Feature);
+
+                // then use the t-SNE algorithm to project the data into a lower-dimensional space
+                debug!(
+                    "Generating embeddings (size: {intermediate_dim} -> {EMBEDDING_SIZE}) using t-SNE"
+                );
                 #[allow(clippy::cast_precision_loss)]
                 let mut embeddings = TSneParams::embedding_size(EMBEDDING_SIZE)
-                    .perplexity(Feature::max(samples.nrows() as Feature / 20., 5.))
+                    .perplexity(f32::max(nrecords as f32 / 20., 5.))
                     .approx_threshold(0.5)
-                    .transform(samples)?;
+                    .max_iter(1000)
+                    .transform(pca_samples)?;
                 debug_assert_eq!(embeddings.shape(), &[nrecords, EMBEDDING_SIZE]);
 
                 // normalize the embeddings so each dimension is between -1 and 1
@@ -107,9 +122,8 @@ impl ProjectionMethod {
                 embeddings
             }
             Self::Pca => {
-                let nrecords = samples.nrows();
                 // use the PCA algorithm to project the data into a lower-dimensional space
-                debug!("Generating embeddings (size: {EMBEDDING_SIZE}) using PCA");
+                debug!("Generating embeddings (size: {ncols} -> {EMBEDDING_SIZE}) using PCA");
                 // linfa_reduction::pca::PCA only works for f64, see: https://github.com/rust-ml/linfa/issues/232
                 let data = Dataset::from(samples.mapv(f64::from));
                 let pca: Pca<f64> = Pca::params(EMBEDDING_SIZE).whiten(true).fit(&data)?;
@@ -136,8 +150,8 @@ impl ProjectionMethod {
 // Pass the embedding size as an argument to enable more compiler optimizations
 fn normalize_embeddings_inplace(embeddings: &mut Array2<Feature>) {
     for i in 0..embeddings.ncols() {
-        let min = embeddings.column(i).min().copied().unwrap_or_default();
-        let max = embeddings.column(i).max().copied().unwrap_or_default();
+        let min = *embeddings.column(i).min_skipnan();
+        let max = *embeddings.column(i).max_skipnan();
         let range = max - min;
         embeddings
             .column_mut(i)
@@ -146,7 +160,9 @@ fn normalize_embeddings_inplace(embeddings: &mut Array2<Feature>) {
 }
 
 // log the number of features
-/// Dimensionality that the T-SNE and PCA projection methods aim to project the data into.
+/// Baseline dimensionality that the T-SNE and PCA projection methods aim to project the data into.
+/// T-SNE does a two stage projection, first into `(NUMBER_FEATURES + EMBEDDING_SIZE) / 2` dimensions using PCA, then into `EMBEDDING_SIZE` dimensions using T-SNE.
+/// PCA directly projects the data into `EMBEDDING_SIZE` dimensions.
 const EMBEDDING_SIZE: usize = {
     let log2 = usize::ilog2(if DIM_EMBEDDING < NUMBER_FEATURES {
         NUMBER_FEATURES
@@ -270,65 +286,56 @@ impl ClusteringHelper<NotInitialized> {
         #[allow(clippy::cast_precision_loss)]
         let b = b as Feature;
 
-        let results = (1..=self.state.k_max)
-            // for each k, cluster the data into k clusters
-            .map(|k| {
-                debug!("Fitting k-means to embeddings with k={k}");
-                let labels = self.state.clustering_method.fit(k, &embedding_dataset);
-                (k, labels)
-            })
-            // for each k, calculate the gap statistic, and the standard deviation of the statistics
-            .map(|(k, labels)| {
-                // calculate the within intra-cluster variation for the reference data sets
-                debug!(
-                    "Calculating within intra-cluster variation for reference data sets with k={k}"
-                );
-                let w_kb_log: Vec<_> = reference_datasets
-                    .par_iter()
-                    .map(|ref_data| {
-                        // cluster the reference data into k clusters
-                        let ref_labels = self.state.clustering_method.fit(k, ref_data);
-                        // calculate the within intra-cluster variation for the reference data
-                        let ref_pairwise_distances = calc_pairwise_distances(
-                            ref_data.records().view(),
-                            k,
-                            ref_labels.view(),
-                        );
-                        calc_within_dispersion(ref_labels.view(), k, ref_pairwise_distances.view())
-                            .log2()
-                    })
-                    .collect();
-                let w_kb_log = Array::from_vec(w_kb_log);
-
-                // calculate the within intra-cluster variation for the observed data
-                let pairwise_distances =
-                    calc_pairwise_distances(self.state.embeddings.view(), k, labels.view());
-                let w_k = calc_within_dispersion(labels.view(), k, pairwise_distances.view());
-
-                // finally, calculate the gap statistic
-                let w_kb_log_sum: Feature = w_kb_log.sum();
-                // original formula: l = (1 / B) * sum_b(log(W_kb))
-                let l = b.recip() * w_kb_log_sum;
-                // original formula: gap_k = (1 / B) * sum_b(log(W_kb)) - log(W_k)
-                let gap_k = l - w_k.log2();
-                // original formula: sd_k = [(1 / B) * sum_b((log(W_kb) - l)^2)]^0.5
-                let standard_deviation = (b.recip() * (w_kb_log - l).pow2().sum()).sqrt();
-                // original formula: s_k = sd_k * (1 + 1 / B)^0.5
-                // calculate differently to minimize rounding errors
-                let s_k = standard_deviation * (1.0 + b.recip()).sqrt();
-
-                (k, gap_k, s_k)
-            });
-
-        // // plot the gap_k (whisker with s_k) w.r.t. k
-        // #[cfg(feature = "plot_gap")]
-        // plot_gap_statistic(results.clone().collect::<Vec<_>>());
-
-        // finally, consume the results iterator until we find the optimal k
+        // track the best k until we get an optimal one
         let (mut optimal_k, mut gap_k_minus_one) = (None, None);
-        for (k, gap_k, s_k) in results {
-            info!("k: {k}, gap_k: {gap_k}, s_k: {s_k}");
 
+        for k in 1..=self.state.k_max {
+            // for each k, cluster the data into k clusters
+            info!("Fitting k-means to embeddings with k={k}");
+            let labels = self.state.clustering_method.fit(k, &embedding_dataset)?;
+
+            // for each k, calculate the gap statistic, and the standard deviation of the statistics
+            // 1. calculate the within intra-cluster variation for the reference data sets
+            debug!("Calculating within intra-cluster variation for reference data sets with k={k}");
+            let w_kb_log = reference_datasets
+                .par_iter()
+                .map(|ref_data| {
+                    // cluster the reference data into k clusters
+                    let ref_labels = self.state.clustering_method.fit(k, ref_data)?;
+                    // calculate the within intra-cluster variation for the reference data
+                    let ref_dispersion =
+                        calc_centroid_dispersion(ref_data.records().view(), k, ref_labels.view());
+                    let dispersion = calc_within_dispersion(ref_dispersion.view()).log2();
+                    Ok(dispersion)
+                })
+                .collect::<ClusteringResult<Vec<_>>>();
+            let w_kb_log = match w_kb_log {
+                Ok(w_kb_log) => Array::from_vec(w_kb_log),
+                Err(ClusteringError::Gmm(GmmError::EmptyCluster(e))) => {
+                    log::warn!("Library is not large enough to cluster with k={k}: {e}");
+                    break;
+                }
+                Err(e) => return Err(e),
+            };
+            // 2. calculate the within intra-cluster variation for the observed data
+            let centroid_dispersion =
+                calc_centroid_dispersion(self.state.embeddings.view(), k, labels.view());
+            let w_k = calc_within_dispersion(centroid_dispersion.view());
+
+            // 3. finally, calculate the gap statistic
+            let w_kb_log_sum: Feature = w_kb_log.sum();
+            // original formula: l = (1 / B) * sum_b(log(W_kb))
+            let l = b.recip() * w_kb_log_sum;
+            // original formula: gap_k = (1 / B) * sum_b(log(W_kb)) - log(W_k)
+            let gap_k = l - w_k.log2();
+            // original formula: sd_k = [(1 / B) * sum_b((log(W_kb) - l)^2)]^0.5
+            let standard_deviation = (b.recip() * (w_kb_log - l).pow2().sum()).sqrt();
+            // original formula: s_k = sd_k * (1 + 1 / B)^0.5
+            // calculate differently to minimize rounding errors
+            let s_k = standard_deviation * (1.0 + b.recip()).sqrt();
+
+            // finally, update the optimal k if needed
+            info!("k: {k}, gap_k: {gap_k}, s_k: {s_k}");
             if let Some(gap_k_minus_one) = gap_k_minus_one
                 && gap_k_minus_one >= gap_k - s_k
             {
@@ -347,6 +354,8 @@ impl ClusteringHelper<NotInitialized> {
         todo!();
     }
 }
+
+const MAX_REF_DATASET_SAMPLES: usize = 2000;
 
 /// Generate B reference data sets with a random uniform distribution
 ///
@@ -372,6 +381,19 @@ impl ClusteringHelper<NotInitialized> {
 /// the ordering of features is important, meaning that we can't
 /// rotate the data anyway.
 fn generate_reference_datasets(samples: ArrayView2<'_, Feature>, b: usize) -> Vec<FitDataset> {
+    if samples.nrows() < MAX_REF_DATASET_SAMPLES {
+        // for small datasets, we use all samples
+        return (0..b)
+            .into_par_iter()
+            .map(|_| Dataset::from(generate_ref_single(samples.view())))
+            .collect();
+    }
+
+    // for large datasets, we randomly sample 2000 samples to speed up the reference data generation
+    let mut rng = rand::thread_rng();
+    let indices = rand::seq::index::sample(&mut rng, samples.nrows(), MAX_REF_DATASET_SAMPLES);
+    let samples = samples.select(Axis(0), &indices.into_vec());
+
     (0..b)
         .into_par_iter()
         .map(|_| Dataset::from(generate_ref_single(samples.view())))
@@ -381,13 +403,13 @@ fn generate_ref_single(samples: ArrayView2<'_, Feature>) -> Array2<Feature> {
     let feature_distributions = samples
         .axis_iter(Axis(1))
         .map(|feature| {
-            Array::random(
-                feature.dim(),
-                Uniform::new(
-                    feature.min().copied().unwrap_or_default(),
-                    feature.max().copied().unwrap_or_default(),
-                ),
-            )
+            let min = *feature.min_skipnan();
+            let max = *feature.max_skipnan();
+            if min >= max {
+                // if all values are the same, we just create a data set with that same value
+                return Array::from_elem(feature.dim(), min);
+            }
+            Array::random(feature.dim(), Uniform::new(min, max))
         })
         .collect::<Vec<_>>();
     let feature_dists_views = feature_distributions
@@ -403,34 +425,22 @@ fn generate_ref_single(samples: ArrayView2<'_, Feature>) -> Array2<Feature> {
 /// Calculate `W_k`, the within intra-cluster variation for the given clustering
 ///
 /// `W_k = \sum_{r=1}^{k} \frac{D_r}{2*n_r}`
-fn calc_within_dispersion(
-    labels: ArrayView1<'_, usize>,
-    k: usize,
-    pairwise_distances: ArrayView1<'_, Feature>,
-) -> Feature {
-    debug_assert_eq!(k, labels.iter().max().unwrap() + 1);
-
-    // we first need to convert our list of labels into a list of the number of samples in each cluster
-    let counts = labels.iter().fold(vec![0u32; k], |mut counts, &label| {
-        counts[label] += 1;
-        counts
-    });
-    // then, we calculate the within intra-cluster variation
-    #[allow(clippy::cast_precision_loss)]
-    counts
-        .iter()
-        .zip(pairwise_distances.iter())
-        .map(|(&count, distance)| (2.0 * count as Feature).recip() * distance)
-        .sum()
+///
+/// # Arguments
+///
+/// - `pairwise_distances`: The `D_r / (2*n_r)` array, the sum of the pairwise distances in cluster r, for all clusters in the given clustering
+fn calc_within_dispersion(pairwise_distances: ArrayView1<'_, Feature>) -> Feature {
+    pairwise_distances.sum()
 }
 
-/// Calculate the `D_r` array, the sum of the pairwise distances in cluster r, for all clusters in the given clustering
+/// Calculate the `D_r / (2*n_r)` array, the sum of the pairwise distances in cluster r, for all clusters in the given clustering
 ///
 /// # Arguments
 ///
 /// - `samples`: The samples in the dataset
 /// - `k`: The number of clusters
 /// - `labels`: The cluster labels for each sample
+#[allow(unused)]
 fn calc_pairwise_distances(
     samples: ArrayView2<'_, Feature>,
     k: usize,
@@ -451,10 +461,11 @@ fn calc_pairwise_distances(
     let mut distances = Array1::zeros(k);
     let mut clusters = vec![Vec::new(); k];
     // build clusters
-    for (sample, label) in samples.outer_iter().zip(labels.iter()) {
-        clusters[*label].push(sample);
+    for (sample, &label) in samples.outer_iter().zip(labels.iter()) {
+        clusters[label].push(sample);
     }
     // calculate pairwise dist. within each cluster
+    #[allow(clippy::cast_precision_loss)]
     for (k, cluster) in clusters.iter().enumerate() {
         let mut pairwise_dists = 0.;
         for i in 0..cluster.len() - 1 {
@@ -464,9 +475,69 @@ fn calc_pairwise_distances(
                 pairwise_dists += L2Dist.distance(a, b);
             }
         }
-        distances[k] += pairwise_dists + pairwise_dists;
+        distances[k] += pairwise_dists / cluster.len() as Feature; // (pairwise dists + pairwise_dists) / (2*n_r) = pairwise_dists / n_r
     }
     distances
+}
+
+/// Calculate within-cluster dispersion using cluster centroids, normalized by number of samples in each cluster.
+///
+/// This is an O(n) approximation of the sum of pairwise distances within each cluster, divided by half number of samples in each cluster.
+/// Effectively, this calculates `D_r / (2 * n_r)` for each cluster `r`.
+///
+/// You can then use it to approximate `W_k` (within intra-cluster variation, defined in the paper as `W_k = \sum_{r=1}^{k} \frac{D_r}{2*n_r}`)
+/// by simply summing the returned dispersions .
+///
+/// # Arguments
+///
+/// - `samples`: The samples in the dataset
+/// - `k`: The number of clusters
+/// - `labels`: The cluster labels for each sample
+///
+/// # Returns
+///
+/// Array of dispersions (`D_r / (2 * n_r)`) for each cluster
+fn calc_centroid_dispersion(
+    samples: ArrayView2<'_, Feature>,
+    k: usize,
+    labels: ArrayView1<'_, usize>,
+) -> Array1<Feature> {
+    debug_assert_eq!(
+        samples.nrows(),
+        labels.len(),
+        "Samples and labels must have the same length"
+    );
+    debug_assert_eq!(
+        k,
+        labels.iter().max().unwrap() + 1,
+        "Labels must be in the range 0..k"
+    );
+
+    let mut dispersions = Array1::zeros(k);
+    let mut centroids = Array2::zeros((k, samples.ncols()));
+    let mut counts = vec![0usize; k];
+
+    // Calculate centroids
+    for (sample, &label) in samples.outer_iter().zip(labels.iter()) {
+        centroids.row_mut(label).scaled_add(1.0, &sample);
+        counts[label] += 1;
+    }
+
+    // Normalize centroids by count
+    for (i, &count) in counts.iter().enumerate() {
+        if count > 0 {
+            #[allow(clippy::cast_precision_loss)]
+            centroids.row_mut(i).mapv_inplace(|v| v / count as Feature);
+        }
+    }
+
+    // Calculate sum of squared distances to centroid
+    for (sample, &label) in samples.outer_iter().zip(labels.iter()) {
+        let dist = L2Dist.distance(sample, centroids.row(label));
+        dispersions[label] += dist; // this should technically be dist^2, but dist is closer to pairwise distances
+    }
+
+    dispersions
 }
 
 /// Functions available for Initialized state
@@ -476,9 +547,8 @@ impl ClusteringHelper<Initialized> {
     /// # Errors
     ///
     /// Will return an error if the clustering fails
-    #[must_use]
     #[inline]
-    pub fn cluster(self) -> ClusteringHelper<Finished> {
+    pub fn cluster(self) -> ClusteringResult<ClusteringHelper<Finished>> {
         let Initialized {
             clustering_method,
             embeddings,
@@ -486,11 +556,11 @@ impl ClusteringHelper<Initialized> {
         } = self.state;
 
         let embedding_dataset = Dataset::from(embeddings);
-        let labels = clustering_method.fit(k, &embedding_dataset);
+        let labels = clustering_method.fit(k, &embedding_dataset)?;
 
-        ClusteringHelper {
+        Ok(ClusteringHelper {
             state: Finished { labels, k },
-        }
+        })
     }
 }
 
@@ -570,12 +640,12 @@ mod tests {
         let pairwise_distances = calc_pairwise_distances(samples.view(), 2, labels.view());
 
         assert!(
-            f32::EPSILON > (pairwise_distances[0] - 2.0).abs(),
+            f32::EPSILON > (pairwise_distances[0] - 2.0 / 4.0).abs(),
             "{} != 2.0",
             pairwise_distances[0]
         );
         assert!(
-            f32::EPSILON > (pairwise_distances[1] - 2.0).abs(),
+            f32::EPSILON > (pairwise_distances[1] - 2.0 / 4.0).abs(),
             "{} != 2.0",
             pairwise_distances[1]
         );
@@ -583,9 +653,9 @@ mod tests {
 
     #[test]
     fn test_calc_within_dispersion() {
-        let labels = arr1(&[0, 1, 0, 1]);
-        let pairwise_distances = arr1(&[1.0, 2.0]);
-        let result = calc_within_dispersion(labels.view(), 2, pairwise_distances.view());
+        // let labels = arr1(&[0, 1, 0, 1]);
+        let pairwise_distances = arr1(&[1.0 / 4.0, 2.0 / 4.0]); // D_1 / (2*n_1) = 1.0 / 4, D_2 / (2*n_2) = 2.0 / 4
+        let result = calc_within_dispersion(pairwise_distances.view());
 
         // `W_k = \sum_{r=1}^{k} \frac{D_r}{2*n_r}` = 1/4 * 1.0 + 1/4 * 2.0 = 0.25 + 0.5 = 0.75
         assert!(f32::EPSILON > (result - 0.75).abs(), "{result} != 0.75");
@@ -623,6 +693,159 @@ mod tests {
                 "Max value of column {i} is not 1.0: {max}",
             );
         }
+    }
+
+    #[test]
+    fn test_centroid_dispersion_identical_points() {
+        // Test case: All points in a cluster are identical (dispersion should be 0)
+        let samples = arr2(&[[1.0, 1.0], [1.0, 1.0], [2.0, 2.0], [2.0, 2.0]]);
+        let labels = arr1(&[0, 0, 1, 1]);
+
+        let dispersion = calc_centroid_dispersion(samples.view(), 2, labels.view());
+
+        // Both clusters have identical points, so dispersion should be near 0
+        assert!(
+            f32::EPSILON > dispersion[0].abs(),
+            "Cluster 0 dispersion should be ~0, got {}",
+            dispersion[0]
+        );
+        assert!(
+            f32::EPSILON > dispersion[1].abs(),
+            "Cluster 1 dispersion should be ~0, got {}",
+            dispersion[1]
+        );
+    }
+
+    #[test]
+    fn test_centroid_dispersion_known_values() {
+        // Test case: Points at known distances from centroid
+        // Cluster 0: points at [0,0], [2,0], [0,2], [2,2] - centroid at [1,1]
+        // Each point is sqrt(2) from centroid, squared = 2
+        // Total dispersion = 4 * 2 = 8
+        let samples = arr2(&[
+            [0.0, 0.0],
+            [2.0, 0.0],
+            [0.0, 2.0],
+            [2.0, 2.0],
+            [10.0, 10.0], // Cluster 1: single point
+        ]);
+        let labels = arr1(&[0, 0, 0, 0, 1]);
+
+        let dispersion = calc_centroid_dispersion(samples.view(), 2, labels.view());
+
+        // Cluster 0: 4 points, each sqrt(2) from [1,1],
+        // Dispersion = 4 * sqrt(2)
+        let expected = 4.0 * 2.0_f32.sqrt();
+        assert!(
+            (dispersion[0] - expected).abs() < 0.001,
+            "Cluster 0 dispersion should be ~{}, got {}",
+            expected,
+            dispersion[0]
+        );
+
+        // Cluster 1: single point, dispersion = 0
+        assert!(
+            dispersion[1].abs() < f32::EPSILON,
+            "Cluster 1 dispersion should be ~0, got {}",
+            dispersion[1]
+        );
+    }
+
+    #[test]
+    fn test_centroid_dispersion_matches_shape() {
+        // Test that dispersion output has correct shape
+        let samples = Array2::random((100, 10), StandardNormal);
+        let labels = Array1::from_vec((0..100).map(|i| i % 5).collect());
+
+        let dispersion = calc_centroid_dispersion(samples.view(), 5, labels.view());
+
+        assert_eq!(dispersion.len(), 5, "Should have dispersion for 5 clusters");
+        assert!(
+            dispersion.iter().all(|&d| d >= 0.0),
+            "All dispersions should be non-negative"
+        );
+    }
+
+    #[test]
+    fn test_centroid_vs_pairwise_relative_ordering() {
+        // Test that centroid-based and pairwise methods produce similar relative orderings
+        // This is crucial for gap statistic, which compares relative values
+
+        // Create 3 clusters with varying tightness
+        let mut samples = Array2::zeros((60, 2));
+        let mut labels = Array1::zeros(60);
+
+        // Tight cluster 0: points clustered around [0, 0]
+        for i in 0..20 {
+            samples[[i, 0]] = (i as f32 * 0.1) - 1.0;
+            samples[[i, 1]] = (i as f32 * 0.1) - 1.0;
+            labels[i] = 0;
+        }
+
+        // Medium cluster 1: points clustered around [5, 5]
+        for i in 20..40 {
+            samples[[i, 0]] = ((i - 20) as f32 * 0.3) + 4.0;
+            samples[[i, 1]] = ((i - 20) as f32 * 0.3) + 4.0;
+            labels[i] = 1;
+        }
+
+        // Loose cluster 2: points spread around [10, 10]
+        for i in 40..60 {
+            samples[[i, 0]] = ((i - 40) as f32 * 0.5) + 8.0;
+            samples[[i, 1]] = ((i - 40) as f32 * 0.5) + 8.0;
+            labels[i] = 2;
+        }
+
+        let pairwise = calc_pairwise_distances(samples.view(), 3, labels.view());
+        let centroid = calc_centroid_dispersion(samples.view(), 3, labels.view());
+
+        // Both methods should agree on relative ordering: tight < medium < loose
+        // Cluster 0 (tight) should have smallest dispersion
+        assert!(
+            pairwise[0] < pairwise[1] && pairwise[1] < pairwise[2],
+            "Pairwise ordering incorrect: {:?}",
+            pairwise
+        );
+        assert!(
+            centroid[0] < centroid[1] && centroid[1] < centroid[2],
+            "Centroid ordering incorrect: {:?}",
+            centroid
+        );
+
+        // The key requirement for gap statistic is that relative ordering is preserved
+        // The absolute values will differ significantly:
+        // - Pairwise: sums all n(n-1) pairs of distances
+        // - Centroid: sums n squared distances to centroid, scaled by 2
+        //
+        // Because centroid uses squared distances, the spread ratios will differ by roughly
+        // the square of the distance ratio. This is expected and doesn't affect gap statistic
+        // since we only care about relative ordering (already verified above).
+        //
+        // Both should show significant spread (not all clusters equally dispersed)
+        let pairwise_spread = pairwise.max_skipnan() / pairwise.min_skipnan();
+        let centroid_spread = centroid.max_skipnan() / centroid.min_skipnan();
+
+        assert!(
+            pairwise_spread > 2.0 && centroid_spread > 2.0,
+            "Both methods should show significant dispersion variation: pairwise={}, centroid={}",
+            pairwise_spread,
+            centroid_spread
+        );
+    }
+
+    #[test]
+    fn test_centroid_dispersion_with_empty_cluster() {
+        // Edge case: what if a cluster is empty? (shouldn't happen but good to test)
+        let samples = arr2(&[[1.0, 1.0], [2.0, 2.0]]);
+        let labels = arr1(&[0, 2]); // Skip cluster 1
+
+        let dispersion = calc_centroid_dispersion(samples.view(), 3, labels.view());
+
+        // Clusters 0 and 2 should have dispersion 0 (single points)
+        assert!(dispersion[0].abs() < f32::EPSILON);
+        assert!(dispersion[2].abs() < f32::EPSILON);
+        // Cluster 1 should have dispersion 0 (empty)
+        assert!(dispersion[1].abs() < f32::EPSILON);
     }
 }
 

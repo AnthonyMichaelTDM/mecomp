@@ -19,7 +19,7 @@ pub mod temporal;
 pub mod timbral;
 pub mod utils;
 
-use std::{ops::Index, path::PathBuf, thread::ScopedJoinHandle};
+use std::{ops::Index, path::PathBuf};
 
 use likely_stable::LikelyResult;
 use misc::LoudnessDesc;
@@ -221,102 +221,92 @@ impl Analysis {
     /// It will compute all the features from the audio samples.
     /// You can get a `ResampledAudio` object by using a `Decoder` to decode an audio file.
     ///
+    /// This is meant to be run within a rayon thread pool, as it uses rayon to parallelize
+    ///
     /// # Errors
     ///
     /// This function will return an error if the samples are empty or too short.
     /// Or if there is an error during the analysis.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic it cannot join the threads.
     #[allow(clippy::missing_inline_in_public_items)]
     pub fn from_samples(audio: &ResampledAudio) -> AnalysisResult<Self> {
-        let largest_window = [
-            BPMDesc::WINDOW_SIZE,
-            ChromaDesc::WINDOW_SIZE,
-            SpectralDesc::WINDOW_SIZE,
-            LoudnessDesc::WINDOW_SIZE,
-        ]
-        .into_iter()
-        .max()
-        .unwrap();
+        let largest_window = BPMDesc::WINDOW_SIZE
+            .max(ChromaDesc::WINDOW_SIZE)
+            .max(SpectralDesc::WINDOW_SIZE)
+            .max(LoudnessDesc::WINDOW_SIZE);
+
         if audio.samples.len() < largest_window {
             return Err(AnalysisError::EmptySamples);
         }
 
-        std::thread::scope(|s| -> AnalysisResult<Self> {
-            let child_chroma: ScopedJoinHandle<'_, AnalysisResult<Vec<Feature>>> = s.spawn(|| {
+        // jobs are split in a way that should make it so that each branch takes roughly the same amount of time
+        let (chroma, (spectral, tempo_zcr_loudness)) = rayon::join(
+            || -> AnalysisResult<_> {
                 let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
                 chroma_desc.do_(&audio.samples)?;
                 Ok(chroma_desc.get_value())
-            });
+            },
+            || {
+                rayon::join(
+                    || -> AnalysisResult<_> {
+                        let mut spectral_desc = SpectralDesc::new(SAMPLE_RATE)?;
+                        let windows = audio
+                            .samples
+                            .windows(SpectralDesc::WINDOW_SIZE)
+                            .step_by(SpectralDesc::HOP_SIZE);
 
-            #[allow(clippy::type_complexity)]
-            let child_timbral: ScopedJoinHandle<
-                '_,
-                AnalysisResult<([Feature; 2], [Feature; 2], [Feature; 2])>,
-            > = s.spawn(|| {
-                let mut spectral_desc = SpectralDesc::new(SAMPLE_RATE)?;
-                let windows = audio
-                    .samples
-                    .windows(SpectralDesc::WINDOW_SIZE)
-                    .step_by(SpectralDesc::HOP_SIZE);
-                for window in windows {
-                    spectral_desc.do_(window)?;
-                }
-                let centroid = spectral_desc.get_centroid();
-                let rolloff = spectral_desc.get_rolloff();
-                let flatness = spectral_desc.get_flatness();
-                Ok((centroid, rolloff, flatness))
-            });
+                        for window in windows {
+                            spectral_desc.do_(window)?;
+                        }
+                        let centroid = spectral_desc.get_centroid();
+                        let rolloff = spectral_desc.get_rolloff();
+                        let flatness = spectral_desc.get_flatness();
+                        Ok((centroid, rolloff, flatness))
+                    },
+                    || -> AnalysisResult<_> {
+                        // BPM
+                        let mut tempo_desc = BPMDesc::new(SAMPLE_RATE)?;
+                        let windows = audio
+                            .samples
+                            .windows(BPMDesc::WINDOW_SIZE)
+                            .step_by(BPMDesc::HOP_SIZE);
+                        for window in windows {
+                            tempo_desc.do_(window)?;
+                        }
+                        let tempo = tempo_desc.get_value();
 
-            // we do BPM, ZCR, and Loudness at the same time since they are so much faster than the others
-            let child_temp_zcr_loudness: ScopedJoinHandle<
-                '_,
-                AnalysisResult<(Feature, Feature, Vec<Feature>)>,
-            > = s.spawn(|| {
-                // BPM
-                let mut tempo_desc = BPMDesc::new(SAMPLE_RATE)?;
-                let windows = audio
-                    .samples
-                    .windows(BPMDesc::WINDOW_SIZE)
-                    .step_by(BPMDesc::HOP_SIZE);
-                for window in windows {
-                    tempo_desc.do_(window)?;
-                }
-                let tempo = tempo_desc.get_value();
+                        // ZCR
+                        let mut zcr_desc = ZeroCrossingRateDesc::default();
+                        zcr_desc.do_(&audio.samples);
+                        let zcr = zcr_desc.get_value();
 
-                // ZCR
-                let mut zcr_desc = ZeroCrossingRateDesc::default();
-                zcr_desc.do_(&audio.samples);
-                let zcr = zcr_desc.get_value();
+                        // Loudness
+                        let mut loudness_desc = LoudnessDesc::default();
+                        let windows = audio.samples.chunks(LoudnessDesc::WINDOW_SIZE);
+                        for window in windows {
+                            loudness_desc.do_(window);
+                        }
+                        let loudness = loudness_desc.get_value();
 
-                // Loudness
-                let mut loudness_desc = LoudnessDesc::default();
-                let windows = audio.samples.chunks(LoudnessDesc::WINDOW_SIZE);
-                for window in windows {
-                    loudness_desc.do_(window);
-                }
-                let loudness = loudness_desc.get_value();
+                        Ok((tempo, zcr, loudness))
+                    },
+                )
+            },
+        );
 
-                Ok((tempo, zcr, loudness))
-            });
+        let chroma = chroma?;
+        let (centroid, rolloff, flatness) = spectral?;
+        let (tempo, zcr, loudness) = tempo_zcr_loudness?;
 
-            // Non-streaming approach for that one
-            let chroma = child_chroma.join().unwrap()?;
-            let (centroid, rolloff, flatness) = child_timbral.join().unwrap()?;
-            let (tempo, zcr, loudness) = child_temp_zcr_loudness.join().unwrap()?;
+        let mut result = vec![tempo, zcr];
+        result.extend_from_slice(&centroid);
+        result.extend_from_slice(&rolloff);
+        result.extend_from_slice(&flatness);
+        result.extend_from_slice(&loudness);
+        result.extend_from_slice(&chroma);
+        let array: [Feature; NUMBER_FEATURES] = result
+            .try_into()
+            .map_err_unlikely(|_| AnalysisError::InvalidFeaturesLen)?;
 
-            let mut result = vec![tempo, zcr];
-            result.extend_from_slice(&centroid);
-            result.extend_from_slice(&rolloff);
-            result.extend_from_slice(&flatness);
-            result.extend_from_slice(&loudness);
-            result.extend_from_slice(&chroma);
-            let array: [Feature; NUMBER_FEATURES] = result
-                .try_into()
-                .map_err_unlikely(|_| AnalysisError::InvalidFeaturesLen)?;
-            Ok(Self::new(array))
-        })
+        Ok(Self::new(array))
     }
 }
