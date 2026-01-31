@@ -289,8 +289,8 @@ impl From<ClusterAlgorithm> for mecomp_analysis::clustering::ClusteringMethod {
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ProjectionMethod {
-    #[default]
     None,
+    #[default]
     TSne,
     Pca,
 }
@@ -328,7 +328,8 @@ pub struct ReclusterSettings {
     pub algorithm: ClusterAlgorithm,
     /// The projection method to preprocess the data with before clustering.
     /// Either "tsne", "pca", or "none".
-    /// Default is "none".
+    /// PCA works better with `KMeans` than it does with `GMM`
+    /// Default is "tsne".
     #[serde(default)]
     pub projection_method: ProjectionMethod,
 }
@@ -338,10 +339,7 @@ const fn default_gap_statistic_reference_datasets() -> u32 {
 }
 
 const fn default_max_clusters() -> usize {
-    #[cfg(debug_assertions)]
-    return 16;
-    #[cfg(not(debug_assertions))]
-    return 24;
+    24
 }
 
 impl Default for ReclusterSettings {
@@ -502,7 +500,7 @@ gauge_unfilled = "BLACK"
                 gap_statistic_reference_datasets: 50,
                 max_clusters: 24,
                 algorithm: ClusterAlgorithm::GMM,
-                projection_method: ProjectionMethod::None,
+                projection_method: ProjectionMethod::TSne,
             },
             tui: TuiSettings {
                 radio_count: 21,
@@ -568,7 +566,7 @@ radio_count = 21
                 gap_statistic_reference_datasets: 50,
                 max_clusters: 24,
                 algorithm: ClusterAlgorithm::GMM,
-                projection_method: ProjectionMethod::None,
+                projection_method: ProjectionMethod::TSne,
             },
             tui: TuiSettings {
                 radio_count: 21,
@@ -623,7 +621,7 @@ radio_count = 21
                 gap_statistic_reference_datasets: 50,
                 max_clusters: 24,
                 algorithm: ClusterAlgorithm::GMM,
-                projection_method: ProjectionMethod::None,
+                projection_method: ProjectionMethod::TSne,
             },
             tui: TuiSettings {
                 radio_count: 21,
