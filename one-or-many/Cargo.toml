@@ -1,6 +1,6 @@
 [package]
 name = "one-or-many"
-version = "0.4.3"
+version = "0.4.4"
 edition.workspace = true
 authors.workspace = true
 description = "Utility container for working with data that can either be null, a single value, or a list of values."

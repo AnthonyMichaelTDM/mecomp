@@ -3192,7 +3192,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-analysis"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "adler32",
  "bitvec",
@@ -3226,7 +3226,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-cli"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -3247,7 +3247,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-core"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "anyhow",
  "ciborium",
@@ -3286,7 +3286,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-daemon"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -3319,7 +3319,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-mpris"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -3344,7 +3344,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-prost"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "log",
  "mecomp-core",
@@ -3362,7 +3362,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-storage"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "anyhow",
  "criterion",
@@ -3390,7 +3390,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-tui"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -4082,7 +4082,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "one-or-many"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "anyhow",
  "mecomp-workspace-hack",
