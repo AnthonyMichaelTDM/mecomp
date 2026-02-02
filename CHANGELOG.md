@@ -1,5 +1,20 @@
 # Mecomp Changelog
 
+## v0.7.1
+
+This release focuses on performance improvements and some minor fixes.
+The performance of both the rescanning process and reclustering have been improved substantially, especially for large libraries.
+
+### v0.7.1 What's Changed
+
+* chore: fix typo in readme by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/452
+* perf(rescan): reduce memory overhead with batch loading by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/451
+* feat: update default config by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/454
+* perf(recluster): improve recluster runtime performance on large libraryies by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/453
+
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.7.0...v0.7.1
+
 ## v0.7.0
 
 This release introduces a new way of generating feature vectors: a pre-trained audio embedding model is embedded into the Mecomp daemon, and through a configuration option users can choose to use their own embedding model as well (so long as it follows the same input/output specifications).
