@@ -1,4 +1,4 @@
-//! Implementation of a search bar
+//! Implementation of a search bar input box component
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseEvent};
 use ratatui::{
@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct InputBox {
     /// Current value of the input box
     text: String,
@@ -111,11 +111,7 @@ impl InputBox {
 
 impl Component for InputBox {
     fn new(_state: &AppState, _action_tx: UnboundedSender<Action>) -> Self {
-        Self {
-            //
-            text: String::new(),
-            cursor_position: 0,
-        }
+        Self::default()
     }
 
     fn move_with_state(self, _state: &AppState) -> Self
@@ -243,10 +239,7 @@ mod tests {
 
     #[test]
     fn test_input_box() {
-        let mut input_box = InputBox {
-            text: String::new(),
-            cursor_position: 0,
-        };
+        let mut input_box = InputBox::default();
 
         input_box.enter_char('a');
         assert_eq!(input_box.text, "a");
@@ -289,10 +282,7 @@ mod tests {
 
     #[test]
     fn test_entering_non_ascii_char() {
-        let mut input_box = InputBox {
-            text: String::new(),
-            cursor_position: 0,
-        };
+        let mut input_box = InputBox::default();
 
         input_box.enter_char('a');
         assert_eq!(input_box.text, "a");
@@ -313,18 +303,13 @@ mod tests {
 
     #[test]
     fn test_input_box_clamp_cursor() {
-        let input_box = InputBox {
-            text: String::new(),
-            cursor_position: 0,
-        };
+        let input_box = InputBox::default();
 
         assert_eq!(input_box.clamp_cursor(0), 0);
         assert_eq!(input_box.clamp_cursor(1), 0);
 
-        let input_box = InputBox {
-            text: "abc".to_string(),
-            cursor_position: 3,
-        };
+        let mut input_box = InputBox::default();
+        input_box.set_text("abc");
 
         assert_eq!(input_box.clamp_cursor(3), 3);
         assert_eq!(input_box.clamp_cursor(4), 3);
@@ -332,27 +317,19 @@ mod tests {
 
     #[test]
     fn test_input_box_is_empty() {
-        let input_box = InputBox {
-            text: String::new(),
-            cursor_position: 0,
-        };
-
+        let input_box = InputBox::default();
         assert!(input_box.is_empty());
 
-        let input_box = InputBox {
-            text: "abc".to_string(),
-            cursor_position: 3,
-        };
+        let mut input_box = InputBox::default();
+        input_box.set_text("abc");
 
         assert!(!input_box.is_empty());
     }
 
     #[test]
     fn test_input_box_text() {
-        let input_box = InputBox {
-            text: "abc".to_string(),
-            cursor_position: 3,
-        };
+        let mut input_box = InputBox::default();
+        input_box.set_text("abc");
 
         assert_eq!(input_box.text(), "abc");
     }
@@ -428,11 +405,7 @@ mod tests {
         use ratatui::{buffer::Buffer, text::Line};
 
         let (mut terminal, _) = setup_test_terminal(view_width, 1);
-        let mut input_box = InputBox {
-            text: String::new(),
-            cursor_position: 0,
-            text_length: 0,
-        };
+        let mut input_box = InputBox::default();
         input_box.set_text(new_text);
 
         let props = RenderProps {
