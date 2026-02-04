@@ -55,7 +55,7 @@ impl QueryBuilder {
     }
 
     #[must_use]
-    pub fn text(&self) -> &str {
+    pub const fn text(&self) -> &str {
         self.inner.text()
     }
 

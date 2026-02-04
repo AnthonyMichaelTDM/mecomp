@@ -27,9 +27,8 @@ pub struct InputBox {
 
 impl InputBox {
     #[must_use]
-    #[allow(clippy::missing_const_for_fn)] // TODO: make this const
-    pub fn text(&self) -> &str {
-        &self.text
+    pub const fn text(&self) -> &str {
+        self.text.as_str()
     }
 
     pub fn set_text(&mut self, new_text: &str) {
