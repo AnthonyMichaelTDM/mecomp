@@ -201,7 +201,17 @@ impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
     }
 
     fn render_content(&self, frame: &mut Frame<'_>, props: RenderProps<'a>) {
-        let input = Paragraph::new(self.text.as_str()).style(Style::default().fg(props.text_color));
+        #[allow(clippy::cast_possible_truncation)]
+        let horizontal_scroll = if self.cursor_position > props.area.width as usize {
+            self.cursor_position as u16 - props.area.width
+        } else {
+            0
+        };
+
+        let input = Paragraph::new(self.text.as_str())
+            .style(Style::default().fg(props.text_color))
+            .scroll((0, horizontal_scroll));
+
         frame.render_widget(input, props.area);
 
         // Cursor is hidden by default, so we need to make it visible if the input box is selected
@@ -212,7 +222,10 @@ impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
             frame.set_cursor_position(
                 // Draw the cursor at the current position in the input field.
                 // This position is can be controlled via the left and right arrow key
-                (props.area.x + self.cursor_position as u16, props.area.y),
+                (
+                    props.area.x + self.cursor_position as u16 - horizontal_scroll,
+                    props.area.y,
+                ),
             );
         }
     }
@@ -220,7 +233,7 @@ impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::setup_test_terminal;
+    use crate::test_utils::{assert_buffer_eq, setup_test_terminal};
 
     use super::*;
     use anyhow::Result;
@@ -372,10 +385,11 @@ mod tests {
             Line::raw(String::from("│Hello, World!") + &" ".repeat((width - 15).into()) + "│")
         } else {
             Line::raw(
-                "│Hello, World!"
-                    .chars()
-                    .take((width - 1).into())
-                    .collect::<String>()
+                String::from("│")
+                    + &"Hello, World!"
+                        .chars()
+                        .skip(input_box.text.len() - (width - 2) as usize)
+                        .collect::<String>()
                     + "│",
             )
         };
@@ -399,6 +413,41 @@ mod tests {
 
         assert_eq!(buffer, expected);
 
+        Ok(())
+    }
+
+    #[rstest]
+    #[case::fits("Hello", 10, "Hello     ")]
+    #[case::exact_fit("Hello, World!", 13, "Hello, World!")]
+    #[case::too_small("Hello, World!", 6, "World!")]
+    fn test_keeps_cursor_visible_right(
+        #[case] new_text: &str,
+        #[case] view_width: u16,
+        #[case] expected_visible_text: &str,
+    ) -> Result<()> {
+        use ratatui::{buffer::Buffer, text::Line};
+
+        let (mut terminal, _) = setup_test_terminal(view_width, 1);
+        let mut input_box = InputBox {
+            text: String::new(),
+            cursor_position: 0,
+            text_length: 0,
+        };
+        input_box.set_text(new_text);
+
+        let props = RenderProps {
+            border: Block::new(),
+            area: Rect::new(0, 0, view_width, 1),
+            text_color: Color::Reset,
+            show_cursor: true,
+        };
+        let buffer = terminal
+            .draw(|frame| input_box.render(frame, props))?
+            .buffer
+            .clone();
+        let line = Line::raw(expected_visible_text.to_string());
+        let expected = Buffer::with_lines(std::iter::once(line));
+        assert_buffer_eq(&buffer, &expected);
         Ok(())
     }
 }
