@@ -1,4 +1,6 @@
 //! Implementation of a search bar input box component
+//!
+//! TODO: clicking to move cursor does not account for scrolling
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseEvent};
 use ratatui::{
@@ -8,6 +10,7 @@ use ratatui::{
     widgets::{Block, Paragraph},
 };
 use tokio::sync::mpsc::UnboundedSender;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::{
     state::action::Action,
@@ -21,8 +24,17 @@ use crate::{
 pub struct InputBox {
     /// Current value of the input box
     text: String,
-    /// Position of cursor in the editor area.
+    /// Position of cursor in the text.
+    /// This is in *characters*, not bytes.
     cursor_position: usize,
+    /// length of the text in characters
+    text_length: usize,
+    /// Position of the cursor in the editor area
+    /// This is in *columns*, not bytes or characters.
+    cursor_column: usize,
+    /// Width of the text in columns
+    /// This is in *columns*, not bytes or characters.
+    text_width: usize,
 }
 
 impl InputBox {
@@ -33,11 +45,17 @@ impl InputBox {
 
     pub fn set_text(&mut self, new_text: &str) {
         self.text = String::from(new_text);
-        self.cursor_position = self.text.len();
+        self.text_length = self.text.chars().count();
+        self.cursor_position = self.text_length;
+        self.text_width = UnicodeWidthStr::width(new_text);
+        self.cursor_column = self.text_width;
     }
 
     pub fn reset(&mut self) {
         self.cursor_position = 0;
+        self.text_length = 0;
+        self.cursor_column = 0;
+        self.text_width = 0;
         self.text.clear();
     }
 
@@ -47,13 +65,25 @@ impl InputBox {
     }
 
     fn move_cursor_left(&mut self) {
-        let cursor_moved_left = self.cursor_position.saturating_sub(1);
-        self.cursor_position = self.clamp_cursor(cursor_moved_left);
+        self.cursor_position = self.cursor_position.saturating_sub(1).min(self.text_length);
+        self.cursor_column = self
+            .text
+            .chars()
+            .take(self.cursor_position)
+            .map(|c| UnicodeWidthChar::width(c).unwrap_or_default())
+            .sum::<usize>()
+            .min(self.text_width);
     }
 
     fn move_cursor_right(&mut self) {
-        let cursor_moved_right = self.cursor_position.saturating_add(1);
-        self.cursor_position = self.clamp_cursor(cursor_moved_right);
+        self.cursor_position = self.cursor_position.saturating_add(1).min(self.text_length);
+        self.cursor_column = self
+            .text
+            .chars()
+            .take(self.cursor_position)
+            .map(|c| UnicodeWidthChar::width(c).unwrap_or_default())
+            .sum::<usize>()
+            .min(self.text_width);
     }
 
     fn enter_char(&mut self, new_char: char) {
@@ -67,6 +97,8 @@ impl InputBox {
             .sum();
 
         self.text.insert(cursor_byte_index, new_char);
+        self.text_length += 1;
+        self.text_width += UnicodeWidthChar::width(new_char).unwrap_or_default();
 
         self.move_cursor_right();
     }
@@ -92,20 +124,27 @@ impl InputBox {
         // Put all characters together except the selected one.
         // By leaving the selected one out, it is forgotten and therefore deleted.
         self.text = before_char_to_delete.chain(after_char_to_delete).collect();
+        self.text_length = self.text_length.saturating_sub(1);
+        self.text_width = UnicodeWidthStr::width(self.text.as_str());
         self.move_cursor_left();
     }
 
     // delete the character under the cursor (delete)
     fn delete_next_char(&mut self) {
         // same procedure as with `self.delete_char()`, but we don't need to
-        // descrement the cursor position
+        // decrement the cursor position
         let before_cursor = self.text.chars().take(self.cursor_position);
-        let after_cursor = self.text.chars().skip(self.cursor_position + 1);
-        self.text = before_cursor.chain(after_cursor).collect();
-    }
+        let mut rest = self.text.chars().skip(self.cursor_position);
+        let target = rest.next();
+        let after_cursor = rest;
 
-    fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
-        new_cursor_pos.clamp(0, self.text.len())
+        self.text = before_cursor.chain(after_cursor).collect();
+        self.text_length = self.text_length.saturating_sub(1);
+        if let Some(c) = target {
+            self.text_width = self
+                .text_width
+                .saturating_sub(UnicodeWidthChar::width(c).unwrap_or_default());
+        }
     }
 }
 
@@ -150,7 +189,7 @@ impl Component for InputBox {
                 self.cursor_position = 0;
             }
             KeyCode::End => {
-                self.cursor_position = self.text.len();
+                self.cursor_position = UnicodeWidthStr::width(self.text());
             }
             _ => {}
         }
@@ -173,7 +212,7 @@ impl Component for InputBox {
             // NOTE: this assumes that the border is 1 character wide, which may not necessarily be true
             let mouse_x = mouse_position.x.saturating_sub(area.x + 1) as usize;
 
-            self.cursor_position = self.clamp_cursor(mouse_x);
+            self.cursor_position = mouse_x.min(self.text_length);
         }
     }
 }
@@ -198,8 +237,8 @@ impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
 
     fn render_content(&self, frame: &mut Frame<'_>, props: RenderProps<'a>) {
         #[allow(clippy::cast_possible_truncation)]
-        let horizontal_scroll = if self.cursor_position > props.area.width as usize {
-            self.cursor_position as u16 - props.area.width
+        let horizontal_scroll = if self.cursor_column > props.area.width as usize {
+            self.cursor_column as u16 - props.area.width
         } else {
             0
         };
@@ -219,7 +258,7 @@ impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
                 // Draw the cursor at the current position in the input field.
                 // This position is can be controlled via the left and right arrow key
                 (
-                    props.area.x + self.cursor_position as u16 - horizontal_scroll,
+                    props.area.x + self.cursor_column as u16 - horizontal_scroll,
                     props.area.y,
                 ),
             );
@@ -287,32 +326,70 @@ mod tests {
         input_box.enter_char('a');
         assert_eq!(input_box.text, "a");
         assert_eq!(input_box.cursor_position, 1);
+        assert_eq!(input_box.text_length, 1);
+        assert_eq!(input_box.cursor_column, 1);
+        assert_eq!(input_box.text_width, 1);
 
         input_box.enter_char('m');
         assert_eq!(input_box.text, "am");
         assert_eq!(input_box.cursor_position, 2);
+        assert_eq!(input_box.text_length, 2);
+        assert_eq!(input_box.cursor_column, 2);
+        assert_eq!(input_box.text_width, 2);
 
         input_box.enter_char('é');
         assert_eq!(input_box.text, "amé");
         assert_eq!(input_box.cursor_position, 3);
+        assert_eq!(input_box.text_length, 3);
+        assert_eq!(input_box.cursor_column, 3);
+        assert_eq!(input_box.text_width, 3);
 
         input_box.enter_char('l');
         assert_eq!(input_box.text, "amél");
         assert_eq!(input_box.cursor_position, 4);
+        assert_eq!(input_box.text_length, 4);
+        assert_eq!(input_box.cursor_column, 4);
+        assert_eq!(input_box.text_width, 4);
     }
 
     #[test]
-    fn test_input_box_clamp_cursor() {
-        let input_box = InputBox::default();
-
-        assert_eq!(input_box.clamp_cursor(0), 0);
-        assert_eq!(input_box.clamp_cursor(1), 0);
-
+    fn test_entering_wide_characters() {
         let mut input_box = InputBox::default();
-        input_box.set_text("abc");
 
-        assert_eq!(input_box.clamp_cursor(3), 3);
-        assert_eq!(input_box.clamp_cursor(4), 3);
+        input_box.enter_char('こ');
+        assert_eq!(input_box.text, "こ");
+        assert_eq!(input_box.cursor_position, 1);
+        assert_eq!(input_box.text_length, 1);
+        assert_eq!(input_box.cursor_column, 2);
+        assert_eq!(input_box.text_width, 2);
+
+        input_box.enter_char('ん');
+        assert_eq!(input_box.text, "こん");
+        assert_eq!(input_box.cursor_position, 2);
+        assert_eq!(input_box.text_length, 2);
+        assert_eq!(input_box.cursor_column, 4);
+        assert_eq!(input_box.text_width, 4);
+
+        input_box.enter_char('に');
+        assert_eq!(input_box.text, "こんに");
+        assert_eq!(input_box.cursor_position, 3);
+        assert_eq!(input_box.text_length, 3);
+        assert_eq!(input_box.cursor_column, 6);
+        assert_eq!(input_box.text_width, 6);
+
+        input_box.enter_char('ち');
+        assert_eq!(input_box.text, "こんにち");
+        assert_eq!(input_box.cursor_position, 4);
+        assert_eq!(input_box.text_length, 4);
+        assert_eq!(input_box.cursor_column, 8);
+        assert_eq!(input_box.text_width, 8);
+
+        input_box.enter_char('は');
+        assert_eq!(input_box.text, "こんにちは");
+        assert_eq!(input_box.cursor_position, 5);
+        assert_eq!(input_box.text_length, 5);
+        assert_eq!(input_box.cursor_column, 10);
+        assert_eq!(input_box.text_width, 10);
     }
 
     #[test]
@@ -397,6 +474,7 @@ mod tests {
     #[case::fits("Hello", 10, "Hello     ")]
     #[case::exact_fit("Hello, World!", 13, "Hello, World!")]
     #[case::too_small("Hello, World!", 6, "World!")]
+    #[case::too_small_wide("こんにちは世界", 10, "にちは世界")]
     fn test_keeps_cursor_visible_right(
         #[case] new_text: &str,
         #[case] view_width: u16,
