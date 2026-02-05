@@ -94,7 +94,7 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send {
     ///
     /// It draws a border with the given title and instructions and
     /// renders the component implementing popup.
-    fn render_popup(&self, frame: &mut ratatui::Frame<'_>) {
+    fn render_popup(&mut self, frame: &mut ratatui::Frame<'_>) {
         let area = self.area(frame.area());
 
         // clear the popup area

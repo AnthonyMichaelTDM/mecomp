@@ -1,7 +1,4 @@
 //! implementation the search view
-
-use std::{cell::RefCell, sync::Mutex};
-
 use crossterm::event::{KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_prost::SearchResult;
 use ratatui::{
@@ -37,9 +34,9 @@ pub struct SearchView {
     /// Mapped Props from state
     pub props: Props,
     /// tree state
-    tree_state: Mutex<CheckTreeState<String>>,
+    tree_state: CheckTreeState<String>,
     /// Search Bar
-    search_bar: RefCell<InputBoxState>,
+    search_bar: InputBoxState,
     /// Is the search bar focused
     search_bar_focused: bool,
 }
@@ -66,9 +63,9 @@ impl Component for SearchView {
     {
         let props = Props::from(state);
         Self {
-            search_bar: RefCell::new(InputBoxState::new()),
+            search_bar: InputBoxState::new(),
             search_bar_focused: true,
-            tree_state: Mutex::new(CheckTreeState::default()),
+            tree_state: CheckTreeState::default(),
             action_tx,
             props,
         }
@@ -80,7 +77,7 @@ impl Component for SearchView {
     {
         Self {
             props: Props::from(state),
-            tree_state: Mutex::new(CheckTreeState::default()),
+            tree_state: CheckTreeState::default(),
             ..self
         }
     }
@@ -93,42 +90,39 @@ impl Component for SearchView {
         match key.code {
             // arrow keys
             KeyCode::PageUp => {
-                self.tree_state.lock().unwrap().select_relative(|current| {
+                self.tree_state.select_relative(|current| {
                     let first = self.props.search_results.len().saturating_sub(1);
                     current.map_or(first, |c| c.saturating_sub(10))
                 });
             }
             KeyCode::Up => {
-                self.tree_state.lock().unwrap().key_up();
+                self.tree_state.key_up();
             }
             KeyCode::PageDown => {
                 self.tree_state
-                    .lock()
-                    .unwrap()
                     .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
             }
             KeyCode::Down => {
-                self.tree_state.lock().unwrap().key_down();
+                self.tree_state.key_down();
             }
             KeyCode::Left if !self.search_bar_focused => {
-                self.tree_state.lock().unwrap().key_left();
+                self.tree_state.key_left();
             }
             KeyCode::Right if !self.search_bar_focused => {
-                self.tree_state.lock().unwrap().key_right();
+                self.tree_state.key_right();
             }
             KeyCode::Char(' ') if !self.search_bar_focused => {
-                self.tree_state.lock().unwrap().key_space();
+                self.tree_state.key_space();
             }
             // when searchbar focused, enter key will search
             KeyCode::Enter if self.search_bar_focused => {
                 self.search_bar_focused = false;
-                self.tree_state.lock().unwrap().reset();
-                let search_bar = self.search_bar.get_mut();
-                if !search_bar.is_empty() {
+                self.tree_state.reset();
+                if !self.search_bar.is_empty() {
                     self.action_tx
-                        .send(Action::Search(search_bar.text().to_string()))
+                        .send(Action::Search(self.search_bar.text().to_string()))
                         .unwrap();
-                    search_bar.clear();
+                    self.search_bar.clear();
                 }
             }
             KeyCode::Char('/') if !self.search_bar_focused => {
@@ -136,8 +130,8 @@ impl Component for SearchView {
             }
             // when searchbar unfocused, enter key will open the selected node
             KeyCode::Enter if !self.search_bar_focused => {
-                if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things = self.tree_state.lock().unwrap().get_selected_thing();
+                if self.tree_state.toggle_selected() {
+                    let things = self.tree_state.get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -148,7 +142,7 @@ impl Component for SearchView {
             }
             // when search bar unfocused, and there are checked items, "q" will send the checked items to the queue
             KeyCode::Char('q') if !self.search_bar_focused => {
-                let things = self.tree_state.lock().unwrap().get_checked_things();
+                let things = self.tree_state.get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
@@ -157,7 +151,7 @@ impl Component for SearchView {
             }
             // when search bar unfocused, and there are checked items, "r" will start a radio with the checked items
             KeyCode::Char('r') if !self.search_bar_focused => {
-                let things = self.tree_state.lock().unwrap().get_checked_things();
+                let things = self.tree_state.get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::ActiveView(ViewAction::Set(ActiveView::Radio(
@@ -168,7 +162,7 @@ impl Component for SearchView {
             }
             // when search bar unfocused, and there are checked items, "p" will send the checked items to the playlist
             KeyCode::Char('p') if !self.search_bar_focused => {
-                let things = self.tree_state.lock().unwrap().get_checked_things();
+                let things = self.tree_state.get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
@@ -180,7 +174,7 @@ impl Component for SearchView {
 
             // defer to the search bar, if it is focused
             _ if self.search_bar_focused => {
-                self.search_bar.get_mut().handle_key_event(key);
+                self.search_bar.handle_key_event(key);
             }
             _ => {}
         }
@@ -198,9 +192,7 @@ impl Component for SearchView {
         match (self.search_bar_focused, kind) {
             // defer to the search bar if mouse event belongs to it
             (true, _) if search_bar_area.contains(mouse_position) => {
-                self.search_bar
-                    .get_mut()
-                    .handle_mouse_event(mouse, search_bar_area);
+                self.search_bar.handle_mouse_event(mouse, search_bar_area);
             }
             // if the search bar is focused and mouse is clicked outside of it, unfocus the search bar
             (true, MouseEventKind::Down(MouseButton::Left))
@@ -224,11 +216,9 @@ impl Component for SearchView {
                     height: content_area.height.saturating_sub(2),
                 };
 
-                let result =
-                    self.tree_state
-                        .lock()
-                        .unwrap()
-                        .handle_mouse_event(mouse, content_area, false);
+                let result = self
+                    .tree_state
+                    .handle_mouse_event(mouse, content_area, false);
                 if let Some(action) = result {
                     self.action_tx.send(action).unwrap();
                 }
@@ -247,7 +237,7 @@ fn split_area(area: Rect) -> [Rect; 2] {
 }
 
 impl ComponentRender<RenderProps> for SearchView {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style =
             Style::default().fg(border_color(props.is_focused && !self.search_bar_focused).into());
 
@@ -267,14 +257,9 @@ impl ComponentRender<RenderProps> for SearchView {
                         .fg(border_color(self.search_bar_focused && props.is_focused).into()),
                 ),
             );
-        frame.render_stateful_widget(
-            search_bar,
-            search_bar_area,
-            &mut self.search_bar.borrow_mut(),
-        );
+        frame.render_stateful_widget(search_bar, search_bar_area, &mut self.search_bar);
         if self.search_bar_focused {
-            let position =
-                search_bar_area + self.search_bar.borrow().cursor_offset() + Offset::new(1, 1);
+            let position = search_bar_area + self.search_bar.cursor_offset() + Offset::new(1, 1);
             frame.set_cursor_position(position);
         }
 
@@ -303,13 +288,7 @@ impl ComponentRender<RenderProps> for SearchView {
         };
 
         // if there are checked items, put an additional border around the content area to display additional instructions
-        let area = if self
-            .tree_state
-            .lock()
-            .unwrap()
-            .get_checked_things()
-            .is_empty()
-        {
+        let area = if self.tree_state.get_checked_things().is_empty() {
             area
         } else {
             let border = Block::default()
@@ -323,7 +302,7 @@ impl ComponentRender<RenderProps> for SearchView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         // if there are no search results, render a message
         if self.props.search_results.is_empty() {
             frame.render_widget(
@@ -348,7 +327,7 @@ impl ComponentRender<RenderProps> for SearchView {
                 .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             props.area,
-            &mut self.tree_state.lock().unwrap(),
+            &mut self.tree_state,
         );
     }
 }
@@ -369,7 +348,7 @@ mod tests {
     #[test]
     fn test_render_search_focused() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
+        let mut view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
             active_view: ActiveView::Search,
             ..state_with_everything()
         });
@@ -401,7 +380,7 @@ mod tests {
     #[test]
     fn test_render_empty() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
+        let mut view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
             active_view: ActiveView::Search,
             search: SearchResult::default(),
             ..state_with_everything()

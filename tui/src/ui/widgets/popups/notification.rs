@@ -26,11 +26,11 @@ impl<'a> Notification<'a> {
 }
 
 impl ComponentRender<Rect> for Notification<'_> {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, area: Rect) -> Rect {
+    fn render_border(&mut self, frame: &mut ratatui::Frame<'_>, area: Rect) -> Rect {
         self.render_popup_border(frame, area)
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, area: Rect) {
+    fn render_content(&mut self, frame: &mut ratatui::Frame<'_>, area: Rect) {
         frame.render_widget::<Text<'_>>(self.line.clone(), area);
     }
 }
@@ -97,7 +97,8 @@ mod tests {
     #[test]
     fn test_notification_render() -> Result<()> {
         let (mut terminal, _) = setup_test_terminal(20, 3);
-        let notification = Notification::new(Text::from("Hello, World!"), unbounded_channel().0);
+        let mut notification =
+            Notification::new(Text::from("Hello, World!"), unbounded_channel().0);
         let buffer = terminal
             .draw(|frame| notification.render_popup(frame))?
             .buffer
@@ -119,7 +120,8 @@ mod tests {
     #[test]
     fn test_notification_render_small_terminal() -> Result<()> {
         let (mut terminal, _) = setup_test_terminal(18, 2);
-        let notification = Notification::new(Text::from("Hello, World!"), unbounded_channel().0);
+        let mut notification =
+            Notification::new(Text::from("Hello, World!"), unbounded_channel().0);
         let buffer = terminal
             .draw(|frame| notification.render_popup(frame))?
             .buffer
@@ -136,7 +138,8 @@ mod tests {
     #[test]
     fn test_notification_render_multiline() -> Result<()> {
         let (mut terminal, _) = setup_test_terminal(20, 5);
-        let notification = Notification::new(Text::from("Hello,\nWorld!"), unbounded_channel().0);
+        let mut notification =
+            Notification::new(Text::from("Hello,\nWorld!"), unbounded_channel().0);
         let buffer = terminal
             .draw(|frame| notification.render_popup(frame))?
             .buffer

@@ -7,9 +7,6 @@
 //! The user can create a new playlist by typing a name in the input box and pressing the enter key.
 //!
 //! The user can cancel the popup by pressing the escape key.
-
-use std::cell::RefCell;
-
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_prost::{RecordId, Ulid};
 use ratatui::{
@@ -52,9 +49,9 @@ pub struct PlaylistSelector {
     /// Mapped Props from state
     props: Props,
     /// tree state
-    tree_state: RefCell<CheckTreeState<String>>,
+    tree_state: CheckTreeState<String>,
     /// Playlist Name Input Box
-    input_box: RefCell<InputBoxState>,
+    input_box: InputBoxState,
     /// Is the input box visible
     input_box_visible: bool,
     /// The items to add to the playlist
@@ -65,11 +62,11 @@ impl PlaylistSelector {
     #[must_use]
     pub fn new(state: &AppState, action_tx: UnboundedSender<Action>, items: Vec<RecordId>) -> Self {
         Self {
-            input_box: RefCell::new(InputBoxState::new()),
+            input_box: InputBoxState::new(),
             input_box_visible: false,
             action_tx,
             props: Props::from(state),
-            tree_state: RefCell::new(CheckTreeState::default()),
+            tree_state: CheckTreeState::default(),
             items,
         }
     }
@@ -126,7 +123,7 @@ impl Popup for PlaylistSelector {
                 // if the user presses Enter, we try to create a new playlist with the given name
                 // and add the items to that playlist
                 KeyCode::Enter => {
-                    let name = self.input_box.borrow().text().to_string();
+                    let name = self.input_box.text().to_string();
                     if !name.is_empty() {
                         // create the playlist and add the items,
                         self.action_tx
@@ -143,43 +140,42 @@ impl Popup for PlaylistSelector {
                     self.input_box_visible = false;
                 }
                 // defer to the input box
-                _ => self.input_box.borrow_mut().handle_key_event(key),
+                _ => self.input_box.handle_key_event(key),
             }
         } else {
             match key.code {
                 // if the user presses the "n" key, we show the input box
                 KeyCode::Char('n') => {
                     self.input_box_visible = true;
-                    self.input_box.borrow_mut().clear();
+                    self.input_box.clear();
                 }
                 // arrow keys
                 KeyCode::PageUp => {
-                    self.tree_state.borrow_mut().select_relative(|current| {
+                    self.tree_state.select_relative(|current| {
                         current.map_or(self.props.playlists.len() - 1, |c| c.saturating_sub(10))
                     });
                 }
                 KeyCode::Up => {
-                    self.tree_state.borrow_mut().key_up();
+                    self.tree_state.key_up();
                 }
                 KeyCode::PageDown => {
                     self.tree_state
-                        .borrow_mut()
                         .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
                 }
                 KeyCode::Down => {
-                    self.tree_state.borrow_mut().key_down();
+                    self.tree_state.key_down();
                 }
                 KeyCode::Left => {
-                    self.tree_state.borrow_mut().key_left();
+                    self.tree_state.key_left();
                 }
                 KeyCode::Right => {
-                    self.tree_state.borrow_mut().key_right();
+                    self.tree_state.key_right();
                 }
                 // Enter key adds the items to the selected playlist
                 // and closes the popup
                 KeyCode::Enter => {
-                    if self.tree_state.borrow_mut().toggle_selected() {
-                        let things = self.tree_state.borrow_mut().get_selected_thing();
+                    if self.tree_state.toggle_selected() {
+                        let things = self.tree_state.get_selected_thing();
 
                         if let Some(thing) = things {
                             // add the items to the selected playlist
@@ -216,9 +212,7 @@ impl Popup for PlaylistSelector {
         if self.input_box_visible {
             let [input_box_area, content_area] = split_area(area);
             if input_box_area.contains(mouse_position) {
-                self.input_box
-                    .borrow_mut()
-                    .handle_mouse_event(mouse, input_box_area);
+                self.input_box.handle_mouse_event(mouse, input_box_area);
             } else if content_area.contains(mouse_position)
                 && kind == MouseEventKind::Down(MouseButton::Left)
             {
@@ -234,13 +228,13 @@ impl Popup for PlaylistSelector {
 
         match kind {
             MouseEventKind::Down(MouseButton::Left) => {
-                self.tree_state.borrow_mut().mouse_click(mouse_position);
+                self.tree_state.mouse_click(mouse_position);
             }
             MouseEventKind::ScrollDown => {
-                self.tree_state.borrow_mut().key_down();
+                self.tree_state.key_down();
             }
             MouseEventKind::ScrollUp => {
-                self.tree_state.borrow_mut().key_up();
+                self.tree_state.key_up();
             }
             _ => {}
         }
@@ -256,7 +250,7 @@ fn split_area(area: Rect) -> [Rect; 2] {
 }
 
 impl ComponentRender<Rect> for PlaylistSelector {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, area: Rect) -> Rect {
+    fn render_border(&mut self, frame: &mut ratatui::Frame<'_>, area: Rect) -> Rect {
         let area = self.render_popup_border(frame, area);
 
         let content_area = if self.input_box_visible {
@@ -271,14 +265,9 @@ impl ComponentRender<Rect> for PlaylistSelector {
                         .border_style(Style::default().fg((*BORDER_FOCUSED).into())),
                 )
                 .text_color((*TEXT_HIGHLIGHT_ALT).into());
-            frame.render_stateful_widget(
-                input_box,
-                input_box_area,
-                &mut self.input_box.borrow_mut(),
-            );
+            frame.render_stateful_widget(input_box, input_box_area, &mut self.input_box);
             if self.input_box_visible {
-                let position =
-                    input_box_area + self.input_box.borrow().cursor_offset() + Offset::new(1, 1);
+                let position = input_box_area + self.input_box.cursor_offset() + Offset::new(1, 1);
                 frame.set_cursor_position(position);
             }
 
@@ -300,7 +289,7 @@ impl ComponentRender<Rect> for PlaylistSelector {
         border.inner(content_area)
     }
 
-    fn render_content(&self, frame: &mut Frame<'_>, area: Rect) {
+    fn render_content(&mut self, frame: &mut Frame<'_>, area: Rect) {
         // create a tree for the playlists
         let playlists = self
             .props
@@ -319,7 +308,7 @@ impl ComponentRender<Rect> for PlaylistSelector {
                 .node_checked_symbol("▪ ")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             area,
-            &mut self.tree_state.borrow_mut(),
+            &mut self.tree_state,
         );
     }
 }
@@ -328,7 +317,7 @@ impl ComponentRender<Rect> for PlaylistSelector {
 pub struct PlaylistEditor {
     action_tx: UnboundedSender<Action>,
     playlist_id: Ulid,
-    input_box: RefCell<InputBoxState>,
+    input_box: InputBoxState,
 }
 
 impl PlaylistEditor {
@@ -340,7 +329,7 @@ impl PlaylistEditor {
         Self {
             action_tx,
             playlist_id,
-            input_box: RefCell::new(input_box),
+            input_box,
         }
     }
 }
@@ -359,7 +348,6 @@ impl Popup for PlaylistEditor {
         let height = 5;
         let width = u16::try_from(
             self.input_box
-                .borrow()
                 .text()
                 .len()
                 .max(self.instructions().width())
@@ -380,7 +368,7 @@ impl Popup for PlaylistEditor {
     fn inner_handle_key_event(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Enter => {
-                let name = self.input_box.borrow().text().to_string();
+                let name = self.input_box.text().to_string();
                 if name.is_empty() {
                     return;
                 }
@@ -395,7 +383,7 @@ impl Popup for PlaylistEditor {
                     )))
                     .unwrap();
             }
-            _ => self.input_box.borrow_mut().handle_key_event(key),
+            _ => self.input_box.handle_key_event(key),
         }
     }
 
@@ -406,7 +394,7 @@ impl Popup for PlaylistEditor {
         let mouse_position = Position::new(column, row);
 
         if area.contains(mouse_position) {
-            self.input_box.borrow_mut().handle_mouse_event(mouse, area);
+            self.input_box.handle_mouse_event(mouse, area);
         } else if kind == MouseEventKind::Down(MouseButton::Left) {
             self.action_tx
                 .send(Action::Popup(PopupAction::Close))
@@ -416,11 +404,11 @@ impl Popup for PlaylistEditor {
 }
 
 impl ComponentRender<Rect> for PlaylistEditor {
-    fn render_border(&self, frame: &mut Frame<'_>, area: Rect) -> Rect {
+    fn render_border(&mut self, frame: &mut Frame<'_>, area: Rect) -> Rect {
         self.render_popup_border(frame, area)
     }
 
-    fn render_content(&self, frame: &mut Frame<'_>, area: Rect) {
+    fn render_content(&mut self, frame: &mut Frame<'_>, area: Rect) {
         let input_box = InputBox::new()
             .border(
                 Block::bordered()
@@ -428,7 +416,7 @@ impl ComponentRender<Rect> for PlaylistEditor {
                     .border_style(Style::default().fg((*BORDER_FOCUSED).into())),
             )
             .text_color((*TEXT_HIGHLIGHT_ALT).into());
-        frame.render_stateful_widget(input_box, area, &mut self.input_box.borrow_mut());
+        frame.render_stateful_widget(input_box, area, &mut self.input_box);
     }
 }
 
@@ -505,7 +493,7 @@ mod selector_tests {
         let (mut terminal, _) = setup_test_terminal(31, 10);
         let action_tx = tokio::sync::mpsc::unbounded_channel().0;
         let items = vec![];
-        let popup = PlaylistSelector::new(&state, action_tx, items);
+        let mut popup = PlaylistSelector::new(&state, action_tx, items);
         let buffer = terminal
             .draw(|frame| popup.render_popup(frame))?
             .buffer
@@ -679,7 +667,7 @@ mod editor_tests {
     fn test_playlist_editor_render(playlist: PlaylistBrief) -> Result<()> {
         let (mut terminal, _) = setup_test_terminal(20, 5);
         let action_tx = tokio::sync::mpsc::unbounded_channel().0;
-        let editor = PlaylistEditor::new(action_tx, playlist.id.ulid(), &playlist.name);
+        let mut editor = PlaylistEditor::new(action_tx, playlist.id.ulid(), &playlist.name);
         let buffer = terminal
             .draw(|frame| editor.render_popup(frame))?
             .buffer
@@ -704,11 +692,11 @@ mod editor_tests {
 
         // Test typing
         editor.inner_handle_key_event(KeyEvent::from(KeyCode::Char('a')));
-        assert_eq!(editor.input_box.borrow().text(), "Test Playlista");
+        assert_eq!(editor.input_box.text(), "Test Playlista");
 
         // Test enter with name
         editor.inner_handle_key_event(KeyEvent::from(KeyCode::Enter));
-        assert_eq!(editor.input_box.borrow().text(), "Test Playlista");
+        assert_eq!(editor.input_box.text(), "Test Playlista");
         assert_eq!(
             action_rx.blocking_recv(),
             Some(Action::Popup(PopupAction::Close))
@@ -723,11 +711,11 @@ mod editor_tests {
 
         // Test backspace
         editor.inner_handle_key_event(KeyEvent::from(KeyCode::Backspace));
-        assert_eq!(editor.input_box.borrow().text(), "Test Playlist");
+        assert_eq!(editor.input_box.text(), "Test Playlist");
 
         // Test enter with empty name
-        editor.input_box.borrow_mut().set_text("");
+        editor.input_box.set_text("");
         editor.inner_handle_key_event(KeyEvent::from(KeyCode::Enter));
-        assert_eq!(editor.input_box.borrow().text(), "");
+        assert_eq!(editor.input_box.text(), "");
     }
 }
