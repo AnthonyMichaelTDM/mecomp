@@ -294,7 +294,7 @@ mod tests {
     use rstest::rstest;
 
     #[test]
-    fn test_input_box() {
+    fn test_enter_delete() {
         let mut input_box = InputBox::default();
 
         input_box.enter_char('a');
@@ -337,7 +337,7 @@ mod tests {
     }
 
     #[test]
-    fn test_entering_non_ascii_char() {
+    fn test_enter_delete_non_ascii_char() {
         let mut input_box = InputBox::default();
 
         input_box.enter_char('a');
@@ -345,32 +345,46 @@ mod tests {
         assert_eq!(input_box.cursor_position, 1);
         assert_eq!(input_box.text_length, 1);
         assert_eq!(input_box.cursor_column, 1);
-        assert_eq!(input_box.text_width, 1);
+        assert_eq!(input_box.prefix_text_widths.last(), 1);
 
         input_box.enter_char('m');
         assert_eq!(input_box.text, "am");
         assert_eq!(input_box.cursor_position, 2);
         assert_eq!(input_box.text_length, 2);
         assert_eq!(input_box.cursor_column, 2);
-        assert_eq!(input_box.text_width, 2);
+        assert_eq!(input_box.prefix_text_widths.last(), 2);
 
         input_box.enter_char('é');
         assert_eq!(input_box.text, "amé");
         assert_eq!(input_box.cursor_position, 3);
         assert_eq!(input_box.text_length, 3);
         assert_eq!(input_box.cursor_column, 3);
-        assert_eq!(input_box.text_width, 3);
+        assert_eq!(input_box.prefix_text_widths.last(), 3);
 
         input_box.enter_char('l');
         assert_eq!(input_box.text, "amél");
         assert_eq!(input_box.cursor_position, 4);
         assert_eq!(input_box.text_length, 4);
         assert_eq!(input_box.cursor_column, 4);
-        assert_eq!(input_box.text_width, 4);
+        assert_eq!(input_box.prefix_text_widths.last(), 4);
+
+        input_box.delete_char();
+        assert_eq!(input_box.text, "amé");
+        assert_eq!(input_box.cursor_position, 3);
+        assert_eq!(input_box.text_length, 3);
+        assert_eq!(input_box.cursor_column, 3);
+        assert_eq!(input_box.prefix_text_widths.last(), 3);
+
+        input_box.delete_char();
+        assert_eq!(input_box.text, "am");
+        assert_eq!(input_box.cursor_position, 2);
+        assert_eq!(input_box.text_length, 2);
+        assert_eq!(input_box.cursor_column, 2);
+        assert_eq!(input_box.prefix_text_widths.last(), 2);
     }
 
     #[test]
-    fn test_entering_wide_characters() {
+    fn test_enter_delete_wide_characters() {
         let mut input_box = InputBox::default();
 
         input_box.enter_char('こ');
@@ -378,35 +392,164 @@ mod tests {
         assert_eq!(input_box.cursor_position, 1);
         assert_eq!(input_box.text_length, 1);
         assert_eq!(input_box.cursor_column, 2);
-        assert_eq!(input_box.text_width, 2);
+        assert_eq!(input_box.prefix_text_widths.last(), 2);
 
         input_box.enter_char('ん');
         assert_eq!(input_box.text, "こん");
         assert_eq!(input_box.cursor_position, 2);
         assert_eq!(input_box.text_length, 2);
         assert_eq!(input_box.cursor_column, 4);
-        assert_eq!(input_box.text_width, 4);
+        assert_eq!(input_box.prefix_text_widths.last(), 4);
 
         input_box.enter_char('に');
         assert_eq!(input_box.text, "こんに");
         assert_eq!(input_box.cursor_position, 3);
         assert_eq!(input_box.text_length, 3);
         assert_eq!(input_box.cursor_column, 6);
-        assert_eq!(input_box.text_width, 6);
+        assert_eq!(input_box.prefix_text_widths.last(), 6);
 
         input_box.enter_char('ち');
         assert_eq!(input_box.text, "こんにち");
         assert_eq!(input_box.cursor_position, 4);
         assert_eq!(input_box.text_length, 4);
         assert_eq!(input_box.cursor_column, 8);
-        assert_eq!(input_box.text_width, 8);
+        assert_eq!(input_box.prefix_text_widths.last(), 8);
 
         input_box.enter_char('は');
         assert_eq!(input_box.text, "こんにちは");
         assert_eq!(input_box.cursor_position, 5);
         assert_eq!(input_box.text_length, 5);
         assert_eq!(input_box.cursor_column, 10);
-        assert_eq!(input_box.text_width, 10);
+        assert_eq!(input_box.prefix_text_widths.last(), 10);
+
+        input_box.delete_char();
+        assert_eq!(input_box.text, "こんにち");
+        assert_eq!(input_box.cursor_position, 4);
+        assert_eq!(input_box.text_length, 4);
+        assert_eq!(input_box.cursor_column, 8);
+        assert_eq!(input_box.prefix_text_widths.last(), 8);
+
+        input_box.delete_char();
+        assert_eq!(input_box.text, "こんに");
+        assert_eq!(input_box.cursor_position, 3);
+        assert_eq!(input_box.text_length, 3);
+        assert_eq!(input_box.cursor_column, 6);
+        assert_eq!(input_box.prefix_text_widths.last(), 6);
+    }
+
+    #[test]
+    fn test_move_left_right() {
+        let mut input_box = InputBox::default();
+
+        // string with:
+        // - normal ascii
+        // - accented character (1 column)
+        // - wide character (2 columns)
+        // - zero-width character
+        input_box.set_text("héこ👨\u{200B}");
+        assert_eq!(input_box.text, "héこ👨​");
+        assert_eq!(input_box.cursor_position, 5);
+        assert_eq!(input_box.text_length, 5);
+        assert_eq!(input_box.cursor_column, 6);
+        assert_eq!(input_box.prefix_text_widths.last(), 6);
+
+        input_box.move_cursor_left();
+        assert_eq!(input_box.cursor_position, 4);
+        assert_eq!(input_box.cursor_column, 6);
+
+        input_box.move_cursor_left();
+        assert_eq!(input_box.cursor_position, 3);
+        assert_eq!(input_box.cursor_column, 4);
+        input_box.move_cursor_left();
+        assert_eq!(input_box.cursor_position, 2);
+        assert_eq!(input_box.cursor_column, 2);
+        input_box.move_cursor_left();
+        assert_eq!(input_box.cursor_position, 1);
+        assert_eq!(input_box.cursor_column, 1);
+        input_box.move_cursor_left();
+        assert_eq!(input_box.cursor_position, 0);
+        assert_eq!(input_box.cursor_column, 0);
+        input_box.move_cursor_left();
+        assert_eq!(input_box.cursor_position, 0);
+        assert_eq!(input_box.cursor_column, 0);
+        input_box.move_cursor_right();
+        assert_eq!(input_box.cursor_position, 1);
+        assert_eq!(input_box.cursor_column, 1);
+        input_box.move_cursor_right();
+        assert_eq!(input_box.cursor_position, 2);
+        assert_eq!(input_box.cursor_column, 2);
+        input_box.move_cursor_right();
+        assert_eq!(input_box.cursor_position, 3);
+        assert_eq!(input_box.cursor_column, 4);
+        input_box.move_cursor_right();
+        assert_eq!(input_box.cursor_position, 4);
+        assert_eq!(input_box.cursor_column, 6);
+        input_box.move_cursor_right();
+        assert_eq!(input_box.cursor_position, 5);
+        assert_eq!(input_box.cursor_column, 6);
+        input_box.move_cursor_right();
+        assert_eq!(input_box.cursor_position, 5);
+        assert_eq!(input_box.cursor_column, 6);
+    }
+
+    #[test]
+    fn test_enter_delete_middle() {
+        let mut input_box = InputBox::default();
+
+        input_box.set_text("ace");
+        assert_eq!(input_box.text, "ace");
+        assert_eq!(input_box.cursor_position, 3);
+
+        input_box.move_cursor_left();
+        input_box.enter_char('Ü');
+        assert_eq!(input_box.text, "acÜe");
+        assert_eq!(input_box.cursor_position, 3);
+        assert_eq!(input_box.cursor_column, 3);
+        assert_eq!(input_box.text_length, 4);
+        assert_eq!(input_box.prefix_text_widths.last(), 4);
+
+        input_box.move_cursor_left();
+        input_box.move_cursor_left();
+        input_box.enter_char('X');
+        assert_eq!(input_box.text, "aXcÜe");
+        assert_eq!(input_box.cursor_position, 2);
+        assert_eq!(input_box.cursor_column, 2);
+        assert_eq!(input_box.text_length, 5);
+        assert_eq!(input_box.prefix_text_widths.last(), 5);
+
+        // add two wide characters
+        input_box.enter_char('こ');
+        input_box.enter_char('い');
+        assert_eq!(input_box.text, "aXこいcÜe");
+        assert_eq!(input_box.cursor_position, 4);
+        assert_eq!(input_box.cursor_column, 6);
+        assert_eq!(input_box.text_length, 7);
+        assert_eq!(input_box.prefix_text_widths.last(), 9);
+
+        input_box.move_cursor_left();
+        input_box.delete_char();
+        assert_eq!(input_box.text, "aXいcÜe");
+        assert_eq!(input_box.cursor_position, 2);
+        assert_eq!(input_box.cursor_column, 2);
+        assert_eq!(input_box.text_length, 6);
+        assert_eq!(input_box.prefix_text_widths.last(), 7);
+
+        input_box.delete_next_char();
+        assert_eq!(input_box.text, "aXcÜe");
+        assert_eq!(input_box.cursor_position, 2);
+        assert_eq!(input_box.text_length, 5);
+        assert_eq!(input_box.prefix_text_widths.last(), 5);
+
+        input_box.delete_char();
+        assert_eq!(input_box.text, "acÜe");
+        assert_eq!(input_box.cursor_position, 1);
+        assert_eq!(input_box.text_length, 4);
+        assert_eq!(input_box.prefix_text_widths.last(), 4);
+
+        input_box.move_cursor_right();
+        input_box.delete_next_char();
+        assert_eq!(input_box.text, "ace");
+        assert_eq!(input_box.cursor_position, 2);
     }
 
     #[test]
