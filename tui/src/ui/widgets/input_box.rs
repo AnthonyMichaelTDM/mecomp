@@ -1,6 +1,10 @@
 //! Implementation of a search bar input box component
 //!
 //! TODO: clicking to move cursor does not account for scrolling
+//!
+//! TODO: scrolling is naive, only scrolls when cursor is at the end, and scrolls back when it isn't.
+//!       this means that if a user moves all the way to the end, then back a little bit, the end
+//!       doesn't necessarily stay visible.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseEvent};
 use ratatui::{
