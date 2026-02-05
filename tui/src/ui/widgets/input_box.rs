@@ -1,41 +1,36 @@
-//! Implementation of a search bar input box component
-//!
-//! TODO: scrolling is naive, only scrolls when cursor is at the end, and scrolls back when it isn't.
-//!       this means that if a user moves all the way to the end, then back a little bit, the end
-//!       doesn't necessarily stay visible.
+//! Implementation of a search bar input box widget
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseEvent};
 use ratatui::{
-    Frame,
-    layout::{Position, Rect},
-    style::Style,
-    widgets::{Block, Paragraph},
+    buffer::Buffer,
+    layout::{Offset, Position, Rect},
+    style::{Color, Style},
+    widgets::{Block, Paragraph, StatefulWidget, Widget},
 };
-use tokio::sync::mpsc::UnboundedSender;
 use unicode_width::UnicodeWidthChar;
 
-use crate::{
-    state::action::Action,
-    ui::{
-        AppState,
-        components::{Component, ComponentRender},
-    },
-};
-
+/// State for the input box widget containing all mutable data
 #[derive(Debug, Default)]
-pub struct InputBox {
+pub struct InputBoxState {
     /// Current value of the input box
     text: String,
-    /// Position of cursor in the text.
+    /// Index of cursor in the text.
     /// This is in *characters*, not bytes.
     cursor_position: usize,
     /// length of the text in characters
     text_length: usize,
     /// prefix sum array of the text width in columns
     ps_columns: util::PrefixSumVec,
+    /// The offset of where the cursor is in the currently displayed area
+    cursor_offset: u16,
 }
 
-impl InputBox {
+impl InputBoxState {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     #[must_use]
     pub const fn text(&self) -> &str {
         self.text.as_str()
@@ -52,7 +47,7 @@ impl InputBox {
         }
     }
 
-    pub fn reset(&mut self) {
+    pub fn clear(&mut self) {
         self.text.clear();
         self.cursor_position = 0;
         self.text_length = 0;
@@ -64,12 +59,37 @@ impl InputBox {
         self.text.is_empty()
     }
 
-    fn move_cursor_left(&mut self) {
-        self.cursor_position = self.cursor_position.saturating_sub(1).min(self.text_length);
+    const fn move_cursor_left(&mut self) {
+        let mut min = self.cursor_position.saturating_sub(1);
+        if min > self.text_length {
+            min = self.text_length;
+        }
+        self.cursor_position = min;
     }
 
-    fn move_cursor_right(&mut self) {
-        self.cursor_position = self.cursor_position.saturating_add(1).min(self.text_length);
+    const fn move_cursor_right(&mut self) {
+        let mut min = self.cursor_position.saturating_add(1);
+        if min > self.text_length {
+            min = self.text_length;
+        }
+        self.cursor_position = min;
+    }
+
+    const fn move_cursor_to_start(&mut self) {
+        self.cursor_position = 0;
+    }
+
+    const fn move_cursor_to_end(&mut self) {
+        self.cursor_position = self.text_length;
+    }
+
+    const fn update_cursor_offset(&mut self, new_offset: u16) {
+        self.cursor_offset = new_offset;
+    }
+
+    #[must_use]
+    pub const fn cursor_offset(&self) -> Offset {
+        Offset::new(self.cursor_offset as i32, 0)
     }
 
     fn enter_char(&mut self, new_char: char) {
@@ -168,25 +188,8 @@ impl InputBox {
 
         left
     }
-}
 
-impl Component for InputBox {
-    fn new(_state: &AppState, _action_tx: UnboundedSender<Action>) -> Self {
-        Self::default()
-    }
-
-    fn move_with_state(self, _state: &AppState) -> Self
-    where
-        Self: Sized,
-    {
-        self
-    }
-
-    fn name(&self) -> &'static str {
-        "Input Box"
-    }
-
-    fn handle_key_event(&mut self, key: KeyEvent) {
+    pub fn handle_key_event(&mut self, key: KeyEvent) {
         if key.kind != KeyEventKind::Press {
             return;
         }
@@ -208,10 +211,10 @@ impl Component for InputBox {
                 self.move_cursor_right();
             }
             KeyCode::Home => {
-                self.cursor_position = 0;
+                self.move_cursor_to_start();
             }
             KeyCode::End => {
-                self.cursor_position = self.text_length;
+                self.move_cursor_to_end();
             }
             _ => {}
         }
@@ -220,7 +223,7 @@ impl Component for InputBox {
     /// Handle mouse events
     ///
     /// moves the cursor to the clicked position
-    fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+    pub fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
         let MouseEvent {
             kind, column, row, ..
         } = mouse;
@@ -249,48 +252,64 @@ impl Component for InputBox {
     }
 }
 
+/// Input box widget for text input
+///
+/// This is a stateful widget - use with `InputBoxState` to maintain the input state.
 #[derive(Debug, Clone)]
-pub struct RenderProps<'a> {
-    pub border: Block<'a>,
-    pub area: Rect,
-    pub text_color: ratatui::style::Color,
-    pub show_cursor: bool,
+pub struct InputBox<'a> {
+    border: Option<Block<'a>>,
+    text_color: Color,
 }
 
-impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
-    fn render_border(&self, frame: &mut Frame<'_>, props: RenderProps<'a>) -> RenderProps<'a> {
-        let view_area = props.border.inner(props.area);
-        frame.render_widget(&props.border, props.area);
-        RenderProps {
-            area: view_area,
-            ..props
+impl<'a> InputBox<'a> {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            border: None,
+            text_color: Color::Reset,
         }
     }
 
-    fn render_content(&self, frame: &mut Frame<'_>, props: RenderProps<'a>) {
-        let cursor_column = self.ps_columns.get(self.cursor_position);
-        let horizontal_scroll = self.calculate_horizontal_scroll(props.area.width);
+    #[must_use]
+    pub fn border(mut self, border: Block<'a>) -> Self {
+        self.border.replace(border);
+        self
+    }
 
-        let input = Paragraph::new(self.text.as_str())
-            .style(Style::default().fg(props.text_color))
+    #[must_use]
+    pub const fn text_color(mut self, color: Color) -> Self {
+        self.text_color = color;
+        self
+    }
+}
+
+impl Default for InputBox<'_> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl StatefulWidget for InputBox<'_> {
+    type State = InputBoxState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        // Get the inner area inside a possible border
+        let inner_area = self.border.map_or(area, |border| {
+            let inner = border.inner(area);
+            border.render(area, buf);
+            inner
+        });
+
+        let cursor_column = state.ps_columns.get(state.cursor_position);
+        let horizontal_scroll = state.calculate_horizontal_scroll(inner_area.width);
+
+        #[allow(clippy::cast_possible_truncation)]
+        state.update_cursor_offset(cursor_column as u16 - horizontal_scroll);
+        let input = Paragraph::new(state.text.as_str())
+            .style(Style::default().fg(self.text_color))
             .scroll((0, horizontal_scroll));
 
-        frame.render_widget(input, props.area);
-
-        // Cursor is hidden by default, so we need to make it visible if the input box is selected
-        if props.show_cursor {
-            // Make the cursor visible and ask ratatui to put it at the specified coordinates after
-            // rendering
-            #[allow(clippy::cast_possible_truncation)]
-            frame.set_cursor_position(
-                // Draw the cursor at the current position in the input field.
-                // This position is can be controlled via the left and right arrow key
-                (
-                    props.area.x + cursor_column as u16 - horizontal_scroll,
-                    props.area.y,
-                ),
-            );
-        }
+        input.render(inner_area, buf);
     }
 }
 
@@ -301,12 +320,11 @@ mod tests {
     use super::*;
     use anyhow::Result;
     use pretty_assertions::assert_eq;
-    use ratatui::style::Color;
     use rstest::rstest;
 
     #[test]
     fn test_enter_delete() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
 
         input_box.enter_char('a');
         assert_eq!(input_box.text, "a");
@@ -334,7 +352,7 @@ mod tests {
         input_box.move_cursor_right();
         assert_eq!(input_box.cursor_position, 3);
 
-        input_box.reset();
+        input_box.clear();
         assert_eq!(input_box.text, "");
         assert_eq!(input_box.cursor_position, 0);
 
@@ -349,7 +367,7 @@ mod tests {
 
     #[test]
     fn test_enter_delete_non_ascii_char() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
 
         input_box.enter_char('a');
         assert_eq!(input_box.text, "a");
@@ -390,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_enter_delete_wide_characters() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
 
         input_box.enter_char('こ');
         assert_eq!(input_box.text, "こ");
@@ -444,7 +462,7 @@ mod tests {
 
     #[test]
     fn test_move_left_right() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
 
         // string with:
         // - normal ascii
@@ -499,7 +517,7 @@ mod tests {
 
     #[test]
     fn test_enter_delete_middle() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
 
         input_box.set_text("ace");
         assert_eq!(input_box.text, "ace");
@@ -559,10 +577,10 @@ mod tests {
 
     #[test]
     fn test_input_box_is_empty() {
-        let input_box = InputBox::default();
+        let input_box = InputBoxState::default();
         assert!(input_box.is_empty());
 
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
         input_box.set_text("abc");
 
         assert!(!input_box.is_empty());
@@ -570,7 +588,7 @@ mod tests {
 
     #[test]
     fn test_input_box_text() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
         input_box.set_text("abc");
 
         assert_eq!(input_box.text(), "abc");
@@ -580,22 +598,22 @@ mod tests {
     fn test_input_box_render(
         #[values(10, 20)] width: u16,
         #[values(1, 2, 3, 4, 5, 6)] height: u16,
-        #[values(true, false)] show_cursor: bool,
     ) -> Result<()> {
         use ratatui::{buffer::Buffer, text::Line};
 
         let (mut terminal, _) = setup_test_terminal(width, height);
-        let action_tx = tokio::sync::mpsc::unbounded_channel().0;
-        let mut input_box = InputBox::new(&AppState::default(), action_tx);
-        input_box.set_text("Hello, World!");
-        let props = RenderProps {
-            border: Block::bordered(),
-            area: Rect::new(0, 0, width, height),
-            text_color: Color::Reset,
-            show_cursor,
-        };
+        let mut state = InputBoxState::default();
+        state.set_text("Hello, World!");
+        let area = Rect::new(0, 0, width, height);
+
         let buffer = terminal
-            .draw(|frame| input_box.render(frame, props))?
+            .draw(|frame| {
+                frame.render_stateful_widget(
+                    InputBox::new().border(Block::bordered()),
+                    area,
+                    &mut state,
+                )
+            })?
             .buffer
             .clone();
 
@@ -607,7 +625,7 @@ mod tests {
                 String::from("│")
                     + &"Hello, World!"
                         .chars()
-                        .skip(input_box.text.len() - (width - 2) as usize)
+                        .skip(state.text().len() - (width - 2) as usize)
                         .collect::<String>()
                     + "│",
             )
@@ -648,17 +666,12 @@ mod tests {
         use ratatui::{buffer::Buffer, text::Line};
 
         let (mut terminal, _) = setup_test_terminal(view_width, 1);
-        let mut input_box = InputBox::default();
-        input_box.set_text(new_text);
+        let mut state = InputBoxState::default();
+        state.set_text(new_text);
 
-        let props = RenderProps {
-            border: Block::new(),
-            area: Rect::new(0, 0, view_width, 1),
-            text_color: Color::Reset,
-            show_cursor: true,
-        };
+        let area = Rect::new(0, 0, view_width, 1);
         let buffer = terminal
-            .draw(|frame| input_box.render(frame, props))?
+            .draw(|frame| frame.render_stateful_widget(InputBox::new(), area, &mut state))?
             .buffer
             .clone();
         let line = Line::raw(expected_visible_text.to_string());
@@ -669,7 +682,7 @@ mod tests {
 
     #[test]
     fn test_column_to_char_index() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
 
         // Test with ASCII text
         input_box.set_text("Hello, World!");
@@ -704,7 +717,7 @@ mod tests {
 
     #[test]
     fn test_calculate_horizontal_scroll() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
 
         // No scroll when text fits
         input_box.set_text("Hello");
@@ -724,7 +737,7 @@ mod tests {
 
     #[test]
     fn test_mouse_click_no_scroll() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
         input_box.set_text("Hello");
 
         // Click at position 2 (on 'l')
@@ -741,7 +754,7 @@ mod tests {
 
     #[test]
     fn test_mouse_click_with_scroll_ascii() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
         input_box.set_text("Hello, World!");
 
         // Move cursor to end to trigger scrolling
@@ -764,7 +777,7 @@ mod tests {
 
     #[test]
     fn test_mouse_click_with_scroll_wide_chars() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
         input_box.set_text("こんにちは世界"); // 7 chars, 14 columns
 
         // Move cursor to end
@@ -787,7 +800,7 @@ mod tests {
 
     #[test]
     fn test_mouse_click_beyond_text_end() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
         input_box.set_text("Hi");
 
         // Click far beyond the text
@@ -804,7 +817,7 @@ mod tests {
 
     #[test]
     fn test_mouse_click_on_wide_char_boundary() {
-        let mut input_box = InputBox::default();
+        let mut input_box = InputBoxState::default();
         input_box.set_text("aこb");
 
         // Click on column 2 (middle of 'こ' which spans columns 1-2)

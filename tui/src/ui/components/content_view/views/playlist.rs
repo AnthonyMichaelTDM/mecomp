@@ -1,11 +1,11 @@
 //! Views for both a single playlist, and the library of playlists.
 
-use std::sync::Mutex;
+use std::{cell::RefCell, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_prost::{PlaylistBrief, SongBrief};
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Margin, Position, Rect},
+    layout::{Constraint, Direction, Layout, Margin, Offset, Position, Rect},
     style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
@@ -22,7 +22,7 @@ use crate::{
             content_view::{ActiveView, views::generic::SortableItemView},
         },
         widgets::{
-            input_box::{self, InputBox},
+            input_box::{InputBox, InputBoxState},
             tree::{CheckTree, state::CheckTreeState},
         },
     },
@@ -46,7 +46,7 @@ pub struct LibraryPlaylistsView {
     /// tree state
     tree_state: Mutex<CheckTreeState<String>>,
     /// Playlist Name Input Box
-    input_box: InputBox,
+    input_box: RefCell<InputBoxState>,
     /// Is the input box visible
     input_box_visible: bool,
 }
@@ -75,7 +75,7 @@ impl Component for LibraryPlaylistsView {
         Self: Sized,
     {
         Self {
-            input_box: InputBox::new(state, action_tx.clone()),
+            input_box: RefCell::new(InputBoxState::new()),
             input_box_visible: false,
             action_tx,
             props: Props::from(state),
@@ -112,20 +112,18 @@ impl Component for LibraryPlaylistsView {
             match key.code {
                 // if the user presses Enter, we try to create a new playlist with the given name
                 KeyCode::Enter => {
-                    let name = self.input_box.text();
+                    let name = self.input_box.borrow().text().to_string();
                     if !name.is_empty() {
                         self.action_tx
-                            .send(Action::Library(LibraryAction::CreatePlaylist(
-                                name.to_string(),
-                            )))
+                            .send(Action::Library(LibraryAction::CreatePlaylist(name)))
                             .unwrap();
                     }
-                    self.input_box.reset();
+                    self.input_box.get_mut().clear();
                     self.input_box_visible = false;
                 }
                 // defer to the input box
                 _ => {
-                    self.input_box.handle_key_event(key);
+                    self.input_box.get_mut().handle_key_event(key);
                 }
             }
         } else {
@@ -213,7 +211,9 @@ impl Component for LibraryPlaylistsView {
                 ..content_area
             };
             if input_box_area.contains(mouse_position) {
-                self.input_box.handle_mouse_event(mouse, input_box_area);
+                self.input_box
+                    .borrow_mut()
+                    .handle_mouse_event(mouse, input_box_area);
             } else if content_area.contains(mouse_position)
                 && kind == MouseEventKind::Down(MouseButton::Left)
             {
@@ -276,17 +276,23 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
             let [input_box_area, content_area] = lib_split_area(content_area);
 
             // render the input box
-            self.input_box.render(
-                frame,
-                input_box::RenderProps {
-                    area: input_box_area,
-                    text_color: (*TEXT_HIGHLIGHT_ALT).into(),
-                    border: Block::bordered()
+            let input_box = InputBox::new()
+                .text_color((*TEXT_HIGHLIGHT_ALT).into())
+                .border(
+                    Block::bordered()
                         .title("Enter Name:")
                         .border_style(Style::default().fg((*BORDER_FOCUSED).into())),
-                    show_cursor: self.input_box_visible,
-                },
+                );
+            frame.render_stateful_widget(
+                input_box,
+                input_box_area,
+                &mut self.input_box.borrow_mut(),
             );
+            if self.input_box_visible {
+                let position =
+                    input_box_area + self.input_box.borrow().cursor_offset() + Offset::new(1, 1);
+                frame.set_cursor_position(position);
+            }
 
             content_area
         } else {
