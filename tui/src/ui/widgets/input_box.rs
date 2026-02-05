@@ -662,3 +662,135 @@ mod tests {
         Ok(())
     }
 }
+
+mod util {
+    /// A helper struct that maintains a prefix sum array of usize values.
+    ///
+    /// This is used to efficiently calculate the (column) width of substrings in the input box.
+    ///
+    /// This implementation optimizes the most common operations (reading and adding/removing from the end) to O(1), at the cost of
+    /// making insertions and deletions anywhere else take O(n).
+    #[derive(Debug)]
+    pub struct PrefixSumVec {
+        data: Vec<usize>,
+    }
+    impl PrefixSumVec {
+        pub fn new() -> Self {
+            Self { data: vec![0] }
+        }
+
+        pub const fn last(&self) -> usize {
+            if let [.., last] = self.data.as_slice() {
+                *last
+            } else {
+                unreachable!() // there is always at least one element (0)
+            }
+        }
+
+        pub fn push(&mut self, value: usize) {
+            let last = self.last();
+            self.data.push(last + value);
+        }
+
+        pub fn insert(&mut self, index: usize, value: usize) {
+            // adjust index to account for the leading zero
+            let index = index + 1;
+
+            // if trying to insert at the end, just push
+            if index >= self.data.len() {
+                self.push(value);
+                return;
+            }
+
+            // adjust all subsequent values, then push to the end.
+            // idea is to "add" the value at the index and adjust everything after it in place,
+            // without needing to actually perform a full insertion shift
+            let mut prev = self.data[index - 1];
+            for i in index..self.data.len() {
+                let current = self.data[i];
+                self.data[i] = prev + value;
+                prev = current;
+            }
+            self.data.push(prev + value);
+        }
+
+        pub fn remove(&mut self, index: usize) {
+            if self.data.len() <= 1 {
+                // nothing to remove
+                return;
+            }
+
+            // adjust index to account for the leading zero
+            let index = index + 1;
+
+            // if trying to remove at the end, just pop instead
+            if index >= self.data.len() {
+                self.data.pop();
+                return;
+            }
+
+            // adjust all subsequent values, then pop
+            for i in index..self.data.len() - 1 {
+                let prev = self.data[i - 1];
+                let next = self.data[i + 1];
+                self.data[i] = prev + (next - self.data[i]);
+            }
+            self.data.pop();
+        }
+
+        pub const fn get(&self, index: usize) -> usize {
+            self.data.as_slice()[index]
+        }
+
+        pub fn clear(&mut self) {
+            self.data.clear();
+            self.data.push(0);
+        }
+    }
+    impl Default for PrefixSumVec {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+    #[cfg(test)]
+    mod tests {
+        use super::PrefixSumVec;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn test_prefix_sum_vec_basic_operations() {
+            let mut psv = PrefixSumVec::new();
+            assert_eq!(psv.last(), 0);
+            assert_eq!(psv.data, vec![0]);
+            assert_eq!(psv.last(), 0);
+            psv.remove(0); // removing from empty should do nothing
+            assert_eq!(psv.data, vec![0]);
+            assert_eq!(psv.last(), 0);
+            psv.push(3);
+            assert_eq!(psv.data, vec![0, 3]);
+            assert_eq!(psv.last(), 3);
+            psv.push(5);
+            assert_eq!(psv.data, vec![0, 3, 8]);
+            assert_eq!(psv.last(), 8);
+            psv.insert(1, 2); // insert 2 at index 1
+            assert_eq!(psv.data, vec![0, 3, 5, 10]);
+            assert_eq!(psv.last(), 10);
+            psv.insert(0, 7); // insert 7 at index 0
+            assert_eq!(psv.data, vec![0, 7, 10, 12, 17]);
+            assert_eq!(psv.last(), 17);
+            psv.remove(2); // remove value at index 2
+            assert_eq!(psv.data, vec![0, 7, 10, 15]);
+            assert_eq!(psv.last(), 15);
+            psv.remove(0); // remove value at index 0
+            assert_eq!(psv.data, vec![0, 3, 8]);
+            psv.remove(1); // remove the last element
+            assert_eq!(psv.data, vec![0, 3]);
+            assert_eq!(psv.get(0), 0);
+            assert_eq!(psv.get(1), 3);
+            psv.insert(1, 4); // insert to the end
+            assert_eq!(psv.data, vec![0, 3, 7]);
+            psv.clear();
+            assert_eq!(psv.data, vec![0]);
+        }
+    }
+}
