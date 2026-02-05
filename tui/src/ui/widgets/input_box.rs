@@ -187,9 +187,11 @@ impl Component for InputBox {
             }
             KeyCode::Home => {
                 self.cursor_position = 0;
+                self.cursor_column = 0;
             }
             KeyCode::End => {
-                self.cursor_position = UnicodeWidthStr::width(self.text());
+                self.cursor_position = self.text_length;
+                self.cursor_column = self.text_length;
             }
             _ => {}
         }
