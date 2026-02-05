@@ -23,6 +23,8 @@ pub struct InputBoxState {
     ps_columns: util::PrefixSumVec,
     /// The offset of where the cursor is in the currently displayed area
     cursor_offset: u16,
+    /// Horizontal scroll offset in columns (maintains smooth scrolling)
+    horizontal_scroll: u16,
 }
 
 impl InputBoxState {
@@ -45,6 +47,8 @@ impl InputBoxState {
             self.ps_columns
                 .push(UnicodeWidthChar::width(c).unwrap_or_default());
         }
+        // Reset scroll when setting new text
+        self.horizontal_scroll = 0;
     }
 
     pub fn clear(&mut self) {
@@ -52,6 +56,7 @@ impl InputBoxState {
         self.cursor_position = 0;
         self.text_length = 0;
         self.ps_columns.clear();
+        self.horizontal_scroll = 0;
     }
 
     #[must_use]
@@ -156,15 +161,30 @@ impl InputBoxState {
         self.ps_columns.remove(self.cursor_position);
     }
 
-    /// Calculate the horizontal scroll offset based on the current cursor position and view width
-    const fn calculate_horizontal_scroll(&self, view_width: u16) -> u16 {
+    /// Update the horizontal scroll offset to keep the cursor visible
+    ///
+    /// Only scrolls when the cursor moves outside the visible area.
+    /// This maintains scroll position when cursor is visible, creating smooth scrolling.
+    const fn update_scroll(&mut self, view_width: u16) {
         let cursor_column = self.ps_columns.get(self.cursor_position);
+        let scroll = self.horizontal_scroll as usize;
+        let view_end = scroll + view_width as usize;
+
         #[allow(clippy::cast_possible_truncation)]
-        if cursor_column > view_width as usize {
-            cursor_column as u16 - view_width
-        } else {
-            0
+        if cursor_column < scroll {
+            // Cursor moved left past visible area - scroll left to make it visible
+            self.horizontal_scroll = cursor_column as u16;
+        } else if cursor_column > view_end {
+            // Cursor moved right past visible area - scroll right to make it visible
+            // Note: cursor_column == view_end is OK (cursor at right edge)
+            self.horizontal_scroll = (cursor_column.saturating_sub(view_width as usize)) as u16;
         }
+        // else: cursor is within visible area, keep current scroll
+    }
+
+    /// Calculate the horizontal scroll offset based on the current cursor position and view width
+    const fn calculate_horizontal_scroll(&self, _view_width: u16) -> u16 {
+        self.horizontal_scroll
     }
 
     /// Convert a column position to a character index
@@ -299,6 +319,9 @@ impl StatefulWidget for InputBox<'_> {
             border.render(area, buf);
             inner
         });
+
+        // Update scroll to keep cursor visible
+        state.update_scroll(inner_area.width);
 
         let cursor_column = state.ps_columns.get(state.cursor_position);
         let horizontal_scroll = state.calculate_horizontal_scroll(inner_area.width);
@@ -716,23 +739,141 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_horizontal_scroll() {
+    fn test_smooth_scrolling_maintains_position() {
+        let mut input_box = InputBoxState::default();
+        input_box.set_text("Hello, World! This is long text!"); // 32 chars
+
+        // Text is 32 chars, cursor at end after set_text
+        assert_eq!(input_box.text_length, 32);
+        assert_eq!(input_box.cursor_position, 32);
+
+        // Update scroll with view width of 10
+        input_box.update_scroll(10);
+        assert_eq!(input_box.horizontal_scroll, 22); // 32 - 10 = 22
+
+        // Move cursor left a few characters (but still visible)
+        for _ in 0..3 {
+            input_box.move_cursor_left();
+        }
+        input_box.update_scroll(10);
+        // Scroll should NOT change because cursor is still visible (column 29, view is [22, 32])
+        assert_eq!(input_box.cursor_position, 29);
+        assert_eq!(input_box.horizontal_scroll, 22);
+
+        // Move cursor even more left (still visible)
+        for _ in 0..5 {
+            input_box.move_cursor_left();
+        }
+        input_box.update_scroll(10);
+        // Still visible (column 24, view is [22, 32])
+        assert_eq!(input_box.cursor_position, 24);
+        assert_eq!(input_box.horizontal_scroll, 22);
+
+        // Now move cursor left past the visible area
+        for _ in 0..5 {
+            input_box.move_cursor_left();
+        }
+        input_box.update_scroll(10);
+        // Should scroll left to make cursor visible at left edge
+        assert_eq!(input_box.cursor_position, 19);
+        assert_eq!(input_box.horizontal_scroll, 19);
+    }
+
+    #[test]
+    fn test_smooth_scrolling_right_movement() {
+        let mut input_box = InputBoxState::default();
+        input_box.set_text("Hello, World! This is long text!"); // 32 chars
+
+        // Start with cursor at beginning (set_text leaves cursor at end, move it back)
+        input_box.move_cursor_to_start();
+        assert_eq!(input_box.cursor_position, 0);
+        assert_eq!(input_box.horizontal_scroll, 0);
+
+        // Move cursor right within visible area
+        for _ in 0..5 {
+            input_box.move_cursor_right();
+        }
+        input_box.update_scroll(10);
+        // Should not scroll (column 5 is visible in [0, 10])
+        assert_eq!(input_box.cursor_position, 5);
+        assert_eq!(input_box.horizontal_scroll, 0);
+
+        // Move cursor to exactly at the right edge
+        for _ in 0..4 {
+            input_box.move_cursor_right();
+        }
+        input_box.update_scroll(10);
+        // Still visible (column 9 is in [0, 10])
+        assert_eq!(input_box.cursor_position, 9);
+        assert_eq!(input_box.horizontal_scroll, 0);
+
+        // Move cursor to position that equals view_end
+        input_box.move_cursor_right();
+        input_box.update_scroll(10);
+        // Cursor at right edge (column 10 == view_end) - should be visible without scroll
+        assert_eq!(input_box.cursor_position, 10);
+        assert_eq!(input_box.horizontal_scroll, 0);
+
+        // Move cursor one more past the right edge
+        input_box.move_cursor_right();
+        input_box.update_scroll(10);
+        // Now cursor is not visible (column 11 > view_end 10), should scroll
+        assert_eq!(input_box.cursor_position, 11);
+        assert_eq!(input_box.horizontal_scroll, 1); // 11 - 10 = 1
+    }
+
+    #[test]
+    fn test_smooth_scrolling_with_wide_chars() {
+        let mut input_box = InputBoxState::default();
+        input_box.set_text("こんにちは世界です。"); // 10 chars, 20 columns
+
+        // Cursor at end after set_text (column 20)
+        assert_eq!(input_box.cursor_position, 10);
+        input_box.update_scroll(10);
+        // Cursor at column 20 > view_end 10, need to scroll
+        assert_eq!(input_box.horizontal_scroll, 10); // 20 - 10 = 10
+
+        // Move cursor left (still visible with current scroll)
+        for _ in 0..3 {
+            input_box.move_cursor_left();
+        }
+        input_box.update_scroll(10);
+        // Cursor at position 7, column 14, view is [10, 20], still visible
+        assert_eq!(input_box.cursor_position, 7);
+        assert_eq!(input_box.horizontal_scroll, 10);
+
+        // Move cursor further left past visible area
+        for _ in 0..3 {
+            input_box.move_cursor_left();
+        }
+        input_box.update_scroll(10);
+        // Cursor at position 4, column 8 < scroll 10, so scroll to 8
+        assert_eq!(input_box.cursor_position, 4);
+        assert_eq!(input_box.horizontal_scroll, 8);
+    }
+
+    #[test]
+    fn test_smooth_scrolling_edge_cases() {
         let mut input_box = InputBoxState::default();
 
-        // No scroll when text fits
-        input_box.set_text("Hello");
-        input_box.cursor_position = 5;
-        assert_eq!(input_box.calculate_horizontal_scroll(10), 0);
+        // Empty text
+        input_box.set_text("");
+        input_box.update_scroll(10);
+        assert_eq!(input_box.horizontal_scroll, 0);
 
-        // Scroll when cursor exceeds width
-        input_box.set_text("Hello, World!");
-        input_box.cursor_position = 13;
-        assert_eq!(input_box.calculate_horizontal_scroll(10), 3);
+        // Text shorter than view
+        input_box.set_text("Hi");
+        input_box.cursor_position = 2;
+        input_box.update_scroll(10);
+        assert_eq!(input_box.horizontal_scroll, 0);
 
-        // Scroll with wide characters
-        input_box.set_text("こんにちは");
-        input_box.cursor_position = 5; // 10 columns
-        assert_eq!(input_box.calculate_horizontal_scroll(8), 2);
+        // Clear should reset scroll
+        input_box.set_text("Long text here");
+        input_box.cursor_position = 14;
+        input_box.update_scroll(5);
+        assert!(input_box.horizontal_scroll > 0);
+        input_box.clear();
+        assert_eq!(input_box.horizontal_scroll, 0);
     }
 
     #[test]
@@ -757,11 +898,15 @@ mod tests {
         let mut input_box = InputBoxState::default();
         input_box.set_text("Hello, World!");
 
-        // Move cursor to end to trigger scrolling
-        input_box.cursor_position = 13;
+        // Move cursor to end using cursor movement
+        for _ in 0..13 {
+            input_box.move_cursor_right();
+        }
+        input_box.update_scroll(10);
 
-        // View width is 10 (with border: 12 total, 10 content)
-        // Cursor at position 13 (column 13), so scroll = 13 - 10 = 3
+        // View width is 10, cursor at column 13, so scroll = 13 - 10 = 3
+        assert_eq!(input_box.horizontal_scroll, 3);
+
         // Click at mouse position 5 (relative to content area)
         // actual_column = 5 + 3 = 8, which should be position 8
         let mouse_event = MouseEvent {
@@ -780,10 +925,15 @@ mod tests {
         let mut input_box = InputBoxState::default();
         input_box.set_text("こんにちは世界"); // 7 chars, 14 columns
 
-        // Move cursor to end
-        input_box.cursor_position = 7;
+        // Move cursor to end using cursor movement
+        for _ in 0..7 {
+            input_box.move_cursor_right();
+        }
+        input_box.update_scroll(10);
 
         // View width is 10, cursor at column 14, so scroll = 14 - 10 = 4
+        assert_eq!(input_box.horizontal_scroll, 4);
+
         // Click at mouse position 6 (relative to content area)
         // actual_column = 6 + 4 = 10
         // Column 10 corresponds to character index 5 (10/2 = 5)
