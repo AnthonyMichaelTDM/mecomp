@@ -182,11 +182,6 @@ impl InputBoxState {
         // else: cursor is within visible area, keep current scroll
     }
 
-    /// Calculate the horizontal scroll offset based on the current cursor position and view width
-    const fn calculate_horizontal_scroll(&self, _view_width: u16) -> u16 {
-        self.horizontal_scroll
-    }
-
     /// Convert a column position to a character index
     ///
     /// Finds the character index where the cumulative width is closest to the target column.
@@ -257,14 +252,8 @@ impl InputBoxState {
             // NOTE: this assumes that the border is 1 character wide, which may not necessarily be true
             let mouse_x = mouse_position.x.saturating_sub(area.x + 1);
 
-            // Calculate the view width (accounting for border)
-            let view_width = area.width.saturating_sub(2);
-
-            // Calculate current horizontal scroll
-            let horizontal_scroll = self.calculate_horizontal_scroll(view_width);
-
             // Add scroll offset to get the actual column position in the text
-            let actual_column = (mouse_x + horizontal_scroll) as usize;
+            let actual_column = (mouse_x + self.horizontal_scroll) as usize;
 
             // Convert column position to character index
             self.cursor_position = self.column_to_char_index(actual_column);
@@ -324,13 +313,12 @@ impl StatefulWidget for InputBox<'_> {
         state.update_scroll(inner_area.width);
 
         let cursor_column = state.ps_columns.get(state.cursor_position);
-        let horizontal_scroll = state.calculate_horizontal_scroll(inner_area.width);
 
         #[allow(clippy::cast_possible_truncation)]
-        state.update_cursor_offset(cursor_column as u16 - horizontal_scroll);
+        state.update_cursor_offset(cursor_column as u16 - state.horizontal_scroll);
         let input = Paragraph::new(state.text.as_str())
             .style(Style::default().fg(self.text_color))
-            .scroll((0, horizontal_scroll));
+            .scroll((0, state.horizontal_scroll));
 
         input.render(inner_area, buf);
     }
