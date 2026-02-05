@@ -112,20 +112,25 @@ impl InputBox {
         // Method "remove" is not used on the saved text for deleting the selected char.
         // Reason: Using remove on String works on bytes instead of the chars.
         // Using remove would require special care because of char boundaries.
-
-        let current_index = self.cursor_position;
-        let from_left_to_current_index = current_index - 1;
+        let mut chars = self.text.chars();
 
         // Getting all characters before the selected character.
-        let before_char_to_delete = self.text.chars().take(from_left_to_current_index);
+        let mut new = chars
+            .by_ref()
+            .take(self.cursor_position - 1)
+            .collect::<String>();
+        // the character being removed
+        let target = chars.next();
         // Getting all characters after selected character.
-        let after_char_to_delete = self.text.chars().skip(current_index);
+        new.extend(chars);
 
-        // Put all characters together except the selected one.
-        // By leaving the selected one out, it is forgotten and therefore deleted.
-        self.text = before_char_to_delete.chain(after_char_to_delete).collect();
+        self.text = new;
         self.text_length = self.text_length.saturating_sub(1);
-        self.text_width = UnicodeWidthStr::width(self.text.as_str());
+        if let Some(c) = target {
+            self.text_width = self
+                .text_width
+                .saturating_sub(UnicodeWidthChar::width(c).unwrap_or_default());
+        }
         self.move_cursor_left();
     }
 
@@ -133,12 +138,15 @@ impl InputBox {
     fn delete_next_char(&mut self) {
         // same procedure as with `self.delete_char()`, but we don't need to
         // decrement the cursor position
-        let before_cursor = self.text.chars().take(self.cursor_position);
-        let mut rest = self.text.chars().skip(self.cursor_position);
-        let target = rest.next();
-        let after_cursor = rest;
+        let mut chars = self.text.chars();
+        let mut new = chars
+            .by_ref()
+            .take(self.cursor_position)
+            .collect::<String>();
+        let target = chars.next();
+        new.extend(chars);
 
-        self.text = before_cursor.chain(after_cursor).collect();
+        self.text = new;
         self.text_length = self.text_length.saturating_sub(1);
         if let Some(c) = target {
             self.text_width = self
