@@ -1,11 +1,11 @@
-use std::{str::FromStr, sync::Mutex};
+use std::str::FromStr;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_prost::{DynamicPlaylist, SongBrief};
 use mecomp_storage::db::schemas::dynamic::query::Query;
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Margin, Position, Rect},
+    layout::{Constraint, Direction, Layout, Margin, Offset, Position, Rect},
     style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
@@ -25,7 +25,7 @@ use crate::{
             content_view::{ActiveView, views::generic::SortableItemView},
         },
         widgets::{
-            input_box::{self, InputBox},
+            input_box::{InputBox, InputBoxState},
             tree::{CheckTree, state::CheckTreeState},
         },
     },
@@ -42,21 +42,20 @@ use super::{
 ///
 /// Currently just a wrapper around an `InputBox`,
 /// but I want it to be more like a advanced search builder from something like airtable or a research database.
+#[derive(Default)]
 pub struct QueryBuilder {
-    inner: InputBox,
+    inner: InputBoxState,
 }
 
 impl QueryBuilder {
     #[must_use]
-    pub fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self {
-        Self {
-            inner: InputBox::new(state, action_tx),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     #[must_use]
-    pub fn text(&self) -> &str {
-        self.inner.text()
+    pub fn query(&self) -> Option<Query> {
+        Query::from_str(self.inner.text()).ok()
     }
 
     pub fn handle_key_event(&mut self, key: KeyEvent) {
@@ -67,8 +66,8 @@ impl QueryBuilder {
         self.inner.handle_mouse_event(mouse, area);
     }
 
-    pub fn reset(&mut self) {
-        self.inner.reset();
+    pub fn clear(&mut self) {
+        self.inner.clear();
     }
 }
 
@@ -81,9 +80,9 @@ pub struct LibraryDynamicView {
     /// Mapped Props from state
     props: Props,
     /// tree state
-    tree_state: Mutex<CheckTreeState<String>>,
+    tree_state: CheckTreeState<String>,
     /// Dynamic Playlist Name Input Box
-    name_input_box: InputBox,
+    name_input_box: InputBoxState,
     /// Dynamic Playlist Query Input Box
     query_builder: QueryBuilder,
     /// What is currently focused
@@ -122,12 +121,12 @@ impl Component for LibraryDynamicView {
         Self: Sized,
     {
         Self {
-            name_input_box: InputBox::new(state, action_tx.clone()),
-            query_builder: QueryBuilder::new(state, action_tx.clone()),
+            name_input_box: InputBoxState::new(),
+            query_builder: QueryBuilder::new(),
             focus: Focus::Tree,
             action_tx,
             props: Props::from(state),
-            tree_state: Mutex::new(CheckTreeState::default()),
+            tree_state: CheckTreeState::default(),
         }
     }
 
@@ -138,7 +137,7 @@ impl Component for LibraryDynamicView {
         let tree_state = if state.active_view == ActiveView::DynamicPlaylists {
             self.tree_state
         } else {
-            Mutex::new(CheckTreeState::default())
+            CheckTreeState::default()
         };
 
         Self {
@@ -160,32 +159,30 @@ impl Component for LibraryDynamicView {
             match key.code {
                 // arrow keys
                 KeyCode::PageUp => {
-                    self.tree_state.lock().unwrap().select_relative(|current| {
+                    self.tree_state.select_relative(|current| {
                         current.map_or(self.props.dynamics.len() - 1, |c| c.saturating_sub(10))
                     });
                 }
                 KeyCode::Up => {
-                    self.tree_state.lock().unwrap().key_up();
+                    self.tree_state.key_up();
                 }
                 KeyCode::PageDown => {
                     self.tree_state
-                        .lock()
-                        .unwrap()
                         .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
                 }
                 KeyCode::Down => {
-                    self.tree_state.lock().unwrap().key_down();
+                    self.tree_state.key_down();
                 }
                 KeyCode::Left => {
-                    self.tree_state.lock().unwrap().key_left();
+                    self.tree_state.key_left();
                 }
                 KeyCode::Right => {
-                    self.tree_state.lock().unwrap().key_right();
+                    self.tree_state.key_right();
                 }
                 // Enter key opens selected view
                 KeyCode::Enter => {
-                    if self.tree_state.lock().unwrap().toggle_selected() {
-                        let things = self.tree_state.lock().unwrap().get_selected_thing();
+                    if self.tree_state.toggle_selected() {
+                        let things = self.tree_state.get_selected_thing();
 
                         if let Some(thing) = things {
                             self.action_tx
@@ -198,12 +195,12 @@ impl Component for LibraryDynamicView {
                 KeyCode::Char('s') => {
                     self.props.sort_mode = self.props.sort_mode.next();
                     self.props.sort_mode.sort_items(&mut self.props.dynamics);
-                    self.tree_state.lock().unwrap().scroll_selected_into_view();
+                    self.tree_state.scroll_selected_into_view();
                 }
                 KeyCode::Char('S') => {
                     self.props.sort_mode = self.props.sort_mode.prev();
                     self.props.sort_mode.sort_items(&mut self.props.dynamics);
-                    self.tree_state.lock().unwrap().scroll_selected_into_view();
+                    self.tree_state.scroll_selected_into_view();
                 }
                 // "n" key to create a new playlist
                 KeyCode::Char('n') => {
@@ -211,7 +208,7 @@ impl Component for LibraryDynamicView {
                 }
                 // "d" key to delete the selected playlist
                 KeyCode::Char('d') => {
-                    let things = self.tree_state.lock().unwrap().get_selected_thing();
+                    let things = self.tree_state.get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -224,8 +221,8 @@ impl Component for LibraryDynamicView {
                 _ => {}
             }
         } else {
-            let query = Query::from_str(self.query_builder.text()).ok();
-            let name = self.name_input_box.text();
+            let query = self.query_builder.query();
+            let name = self.name_input_box.text().to_string();
 
             match (key.code, query, self.focus) {
                 // if the user presses Enter with an empty name, we cancel the operation
@@ -240,12 +237,11 @@ impl Component for LibraryDynamicView {
                 (KeyCode::Enter, Some(query), Focus::QueryInput) => {
                     self.action_tx
                         .send(Action::Library(LibraryAction::CreateDynamicPlaylist(
-                            name.to_string(),
-                            query,
+                            name, query,
                         )))
                         .unwrap();
-                    self.name_input_box.reset();
-                    self.query_builder.reset();
+                    self.name_input_box.clear();
+                    self.query_builder.clear();
                     self.focus = Focus::Tree;
                 }
                 // otherwise defer to the focused input box
@@ -272,11 +268,7 @@ impl Component for LibraryDynamicView {
                 ..area
             };
 
-            let result = self
-                .tree_state
-                .lock()
-                .unwrap()
-                .handle_mouse_event(mouse, area, true);
+            let result = self.tree_state.handle_mouse_event(mouse, area, true);
             if let Some(action) = result {
                 self.action_tx.send(action).unwrap();
             }
@@ -325,7 +317,7 @@ fn lib_split_area(area: Rect) -> [Rect; 3] {
 }
 
 impl ComponentRender<RenderProps> for LibraryDynamicView {
-    fn render_border(&self, frame: &mut Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // render primary border
@@ -367,46 +359,45 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
                 Focus::Tree => ((*BORDER_UNFOCUSED).into(), (*BORDER_UNFOCUSED).into()),
             };
 
-            let (name_show_cursor, query_show_cursor) = match self.focus {
-                Focus::NameInput => (true, false),
-                Focus::QueryInput => (false, true),
-                Focus::Tree => (false, false),
-            };
-
             // render the name input box
-            self.name_input_box.render(
-                frame,
-                input_box::RenderProps {
-                    area: input_box_area,
-                    text_color: name_text_color,
-                    border: Block::bordered()
-                        .title("Enter Name:")
-                        .border_style(Style::default().fg(name_border_color)),
-                    show_cursor: name_show_cursor,
-                },
+            let name_input = InputBox::new().text_color(name_text_color).border(
+                Block::bordered()
+                    .title("Enter Name:")
+                    .border_style(Style::default().fg(name_border_color)),
             );
+            frame.render_stateful_widget(name_input, input_box_area, &mut self.name_input_box);
 
             // render the query input box
-            let query_builder_props = if Query::from_str(self.query_builder.text()).is_ok() {
-                input_box::RenderProps {
-                    area: query_builder_area,
-                    text_color: query_text_color,
-                    border: Block::bordered()
-                        .title("Enter Query:")
-                        .border_style(Style::default().fg(query_border_color)),
-                    show_cursor: query_show_cursor,
-                }
+            let title = if self.query_builder.query().is_some() {
+                "Enter Query:"
             } else {
-                input_box::RenderProps {
-                    area: query_builder_area,
-                    text_color: (*TEXT_HIGHLIGHT).into(),
-                    border: Block::bordered()
-                        .title("Invalid Query:")
-                        .border_style(Style::default().fg(query_border_color)),
-                    show_cursor: query_show_cursor,
-                }
+                "Invalid Query:"
             };
-            self.query_builder.inner.render(frame, query_builder_props);
+            let query_builder = InputBox::new().text_color(query_text_color).border(
+                Block::bordered()
+                    .title(title)
+                    .border_style(Style::default().fg(query_border_color)),
+            );
+            frame.render_stateful_widget(
+                query_builder,
+                query_builder_area,
+                &mut self.query_builder.inner,
+            );
+
+            match self.focus {
+                Focus::NameInput => {
+                    let position =
+                        input_box_area + self.name_input_box.cursor_offset() + Offset::new(1, 1);
+                    frame.set_cursor_position(position);
+                }
+                Focus::QueryInput => {
+                    let position = query_builder_area
+                        + self.query_builder.inner.cursor_offset()
+                        + Offset::new(1, 1);
+                    frame.set_cursor_position(position);
+                }
+                Focus::Tree => {}
+            }
 
             content_area
         };
@@ -426,7 +417,7 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut Frame<'_>, props: RenderProps) {
         // create a tree for the playlists
         let items = self
             .props
@@ -445,7 +436,7 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
                 .node_checked_symbol("▪ ")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             props.area,
-            &mut self.tree_state.lock().unwrap(),
+            &mut self.tree_state,
         );
     }
 }
@@ -643,14 +634,7 @@ mod item_view_tests {
         let _frame = terminal.draw(|f| view.render(f, props)).unwrap();
 
         // click on the song (selecting it)
-        assert_eq!(
-            view.item_view
-                .tree_state
-                .lock()
-                .unwrap()
-                .get_selected_thing(),
-            None
-        );
+        assert_eq!(view.item_view.tree_state.get_selected_thing(), None);
         view.handle_mouse_event(
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
@@ -661,11 +645,7 @@ mod item_view_tests {
             area,
         );
         assert_eq!(
-            view.item_view
-                .tree_state
-                .lock()
-                .unwrap()
-                .get_selected_thing(),
+            view.item_view.tree_state.get_selected_thing(),
             Some(("song", item_id()).into())
         );
 
@@ -689,7 +669,7 @@ mod item_view_tests {
     fn test_render_no_dynamic_playlist() {
         let (tx, _) = unbounded_channel();
         let state = AppState::default();
-        let view = DynamicView::new(&state, tx);
+        let mut view = DynamicView::new(&state, tx);
 
         let (mut terminal, area) = setup_test_terminal(28, 3);
         let props = RenderProps {
@@ -715,7 +695,7 @@ mod item_view_tests {
     fn test_render() {
         let (tx, _) = unbounded_channel();
         let state = state_with_everything();
-        let view = DynamicView::new(&state, tx);
+        let mut view = DynamicView::new(&state, tx);
 
         let (mut terminal, area) = setup_test_terminal(60, 10);
         let props = RenderProps {
@@ -941,7 +921,7 @@ mod library_view_tests {
         for c in query.chars() {
             view.handle_key_event(KeyEvent::from(KeyCode::Char(c)));
         }
-        assert_eq!(view.query_builder.text(), query);
+        assert_eq!(view.query_builder.inner.text(), query);
         view.handle_key_event(KeyEvent::from(KeyCode::Enter));
 
         assert_eq!(
@@ -989,7 +969,7 @@ mod library_view_tests {
             modifiers: KeyModifiers::empty(),
         };
         view.handle_mouse_event(mouse_event, area);
-        assert_eq!(view.tree_state.lock().unwrap().get_selected_thing(), None);
+        assert_eq!(view.tree_state.get_selected_thing(), None);
         view.handle_mouse_event(mouse_event, area);
         assert_eq!(
             rx.try_recv(),
@@ -1006,7 +986,7 @@ mod library_view_tests {
             area,
         );
         assert_eq!(
-            view.tree_state.lock().unwrap().get_selected_thing(),
+            view.tree_state.get_selected_thing(),
             Some(("dynamic", item_id()).into())
         );
         assert_eq!(
@@ -1060,7 +1040,7 @@ mod library_view_tests {
     fn test_render() {
         let (tx, _) = unbounded_channel();
         let state = state_with_everything();
-        let view = LibraryDynamicView::new(&state, tx);
+        let mut view = LibraryDynamicView::new(&state, tx);
 
         let (mut terminal, area) = setup_test_terminal(60, 6);
         let props = RenderProps {

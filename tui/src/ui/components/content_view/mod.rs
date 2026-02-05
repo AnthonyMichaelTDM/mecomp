@@ -279,11 +279,11 @@ impl Component for ContentView {
 
 impl ComponentRender<RenderProps> for ContentView {
     /// we defer all border rendering to the active view
-    fn render_border(&self, _: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, _: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         props
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         match &self.props.active_view {
             ActiveView::None => self.none_view.render(frame, props),
             ActiveView::Search => self.search_view.render(frame, props),
@@ -331,10 +331,11 @@ mod tests {
     #[case(ActiveView::Random)]
     fn smoke_render(#[case] active_view: ActiveView, #[values(true, false)] is_focused: bool) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let content_view = ContentView::new(&AppState::default(), tx).move_with_state(&AppState {
-            active_view,
-            ..state_with_everything()
-        });
+        let mut content_view =
+            ContentView::new(&AppState::default(), tx).move_with_state(&AppState {
+                active_view,
+                ..state_with_everything()
+            });
 
         let (mut terminal, area) = setup_test_terminal(100, 100);
         let completed_frame =

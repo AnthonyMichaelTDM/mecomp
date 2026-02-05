@@ -1,7 +1,4 @@
 //! implementation of the radio view
-
-use std::sync::Mutex;
-
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::{
     Frame,
@@ -33,7 +30,7 @@ pub struct RadioView {
     /// Mapped Props from state
     pub props: Option<RadioViewProps>,
     /// tree state
-    tree_state: Mutex<CheckTreeState<String>>,
+    tree_state: CheckTreeState<String>,
 }
 
 impl Component for RadioView {
@@ -44,7 +41,7 @@ impl Component for RadioView {
         Self {
             action_tx,
             props: state.additional_view_data.radio.clone(),
-            tree_state: Mutex::new(CheckTreeState::default()),
+            tree_state: CheckTreeState::default(),
         }
     }
 
@@ -55,7 +52,7 @@ impl Component for RadioView {
         if let Some(props) = &state.additional_view_data.radio {
             Self {
                 props: Some(props.to_owned()),
-                tree_state: Mutex::new(CheckTreeState::default()),
+                tree_state: CheckTreeState::default(),
                 ..self
             }
         } else {
@@ -71,7 +68,7 @@ impl Component for RadioView {
         match key.code {
             // arrow keys
             KeyCode::PageUp => {
-                self.tree_state.lock().unwrap().select_relative(|current| {
+                self.tree_state.select_relative(|current| {
                     let first = self
                         .props
                         .as_ref()
@@ -80,30 +77,28 @@ impl Component for RadioView {
                 });
             }
             KeyCode::Up => {
-                self.tree_state.lock().unwrap().key_up();
+                self.tree_state.key_up();
             }
             KeyCode::PageDown => {
                 self.tree_state
-                    .lock()
-                    .unwrap()
                     .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
             }
             KeyCode::Down => {
-                self.tree_state.lock().unwrap().key_down();
+                self.tree_state.key_down();
             }
             KeyCode::Left => {
-                self.tree_state.lock().unwrap().key_left();
+                self.tree_state.key_left();
             }
             KeyCode::Right => {
-                self.tree_state.lock().unwrap().key_right();
+                self.tree_state.key_right();
             }
             KeyCode::Char(' ') => {
-                self.tree_state.lock().unwrap().key_space();
+                self.tree_state.key_space();
             }
             // Enter key opens selected view
             KeyCode::Enter => {
-                if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things = self.tree_state.lock().unwrap().get_selected_thing();
+                if self.tree_state.toggle_selected() {
+                    let things = self.tree_state.get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -114,7 +109,7 @@ impl Component for RadioView {
             }
             // if there are checked items, send to queue, otherwise send whole radio to queue
             KeyCode::Char('q') => {
-                let things = self.tree_state.lock().unwrap().get_checked_things();
+                let things = self.tree_state.get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
@@ -129,7 +124,7 @@ impl Component for RadioView {
             }
             // if there are checked items, add to playlist, otherwise add whole radio to playlist
             KeyCode::Char('p') => {
-                let things = self.tree_state.lock().unwrap().get_checked_things();
+                let things = self.tree_state.get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
@@ -157,11 +152,7 @@ impl Component for RadioView {
             ..area
         };
 
-        let result = self
-            .tree_state
-            .lock()
-            .unwrap()
-            .handle_mouse_event(mouse, area, false);
+        let result = self.tree_state.handle_mouse_event(mouse, area, false);
         if let Some(action) = result {
             self.action_tx.send(action).unwrap();
         }
@@ -169,7 +160,7 @@ impl Component for RadioView {
 }
 
 impl ComponentRender<RenderProps> for RadioView {
-    fn render_border(&self, frame: &mut Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let area = if let Some(state) = &self.props {
@@ -197,19 +188,11 @@ impl ComponentRender<RenderProps> for RadioView {
                 .borders(Borders::TOP)
                 .title_top(Line::from(vec![
                     Span::raw("Performing operations on "),
-                    Span::raw(
-                        if self
-                            .tree_state
-                            .lock()
-                            .unwrap()
-                            .get_checked_things()
-                            .is_empty()
-                        {
-                            "entire radio"
-                        } else {
-                            "checked items"
-                        },
-                    )
+                    Span::raw(if self.tree_state.get_checked_things().is_empty() {
+                        "entire radio"
+                    } else {
+                        "checked items"
+                    })
                     .fg(*TEXT_HIGHLIGHT),
                 ]))
                 .italic()
@@ -227,7 +210,7 @@ impl ComponentRender<RenderProps> for RadioView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut Frame<'_>, props: RenderProps) {
         if let Some(state) = &self.props {
             // create a tree to hold the radio results
             let items = state
@@ -245,7 +228,7 @@ impl ComponentRender<RenderProps> for RadioView {
                         ScrollbarOrientation::VerticalRight,
                     ))),
                 props.area,
-                &mut self.tree_state.lock().unwrap(),
+                &mut self.tree_state,
             );
         } else {
             let text = "Empty Radio";
@@ -297,7 +280,7 @@ mod tests {
     #[test]
     fn test_render_empty() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = RadioView::new(&AppState::default(), tx);
+        let mut view = RadioView::new(&AppState::default(), tx);
 
         let (mut terminal, area) = setup_test_terminal(16, 3);
         let props = RenderProps {
@@ -322,7 +305,7 @@ mod tests {
     #[test]
     fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = RadioView::new(&state_with_everything(), tx);
+        let mut view = RadioView::new(&state_with_everything(), tx);
 
         let (mut terminal, area) = setup_test_terminal(50, 6);
         let props = RenderProps {
@@ -579,7 +562,7 @@ mod tests {
             modifiers: KeyModifiers::empty(),
         };
         view.handle_mouse_event(mouse, area);
-        assert_eq!(view.tree_state.lock().unwrap().get_selected_thing(), None);
+        assert_eq!(view.tree_state.get_selected_thing(), None);
         view.handle_mouse_event(mouse, area);
         assert_eq!(
             rx.try_recv(),

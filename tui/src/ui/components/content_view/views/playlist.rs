@@ -1,11 +1,8 @@
 //! Views for both a single playlist, and the library of playlists.
-
-use std::sync::Mutex;
-
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_prost::{PlaylistBrief, SongBrief};
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Margin, Position, Rect},
+    layout::{Constraint, Direction, Layout, Margin, Offset, Position, Rect},
     style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
@@ -22,7 +19,7 @@ use crate::{
             content_view::{ActiveView, views::generic::SortableItemView},
         },
         widgets::{
-            input_box::{self, InputBox},
+            input_box::{InputBox, InputBoxState},
             tree::{CheckTree, state::CheckTreeState},
         },
     },
@@ -44,9 +41,9 @@ pub struct LibraryPlaylistsView {
     /// Mapped Props from state
     props: Props,
     /// tree state
-    tree_state: Mutex<CheckTreeState<String>>,
+    tree_state: CheckTreeState<String>,
     /// Playlist Name Input Box
-    input_box: InputBox,
+    input_box: InputBoxState,
     /// Is the input box visible
     input_box_visible: bool,
 }
@@ -75,11 +72,11 @@ impl Component for LibraryPlaylistsView {
         Self: Sized,
     {
         Self {
-            input_box: InputBox::new(state, action_tx.clone()),
+            input_box: InputBoxState::new(),
             input_box_visible: false,
             action_tx,
             props: Props::from(state),
-            tree_state: Mutex::new(CheckTreeState::default()),
+            tree_state: CheckTreeState::default(),
         }
     }
 
@@ -90,7 +87,7 @@ impl Component for LibraryPlaylistsView {
         let tree_state = if state.active_view == ActiveView::Playlists {
             self.tree_state
         } else {
-            Mutex::new(CheckTreeState::default())
+            CheckTreeState::default()
         };
 
         Self {
@@ -112,15 +109,13 @@ impl Component for LibraryPlaylistsView {
             match key.code {
                 // if the user presses Enter, we try to create a new playlist with the given name
                 KeyCode::Enter => {
-                    let name = self.input_box.text();
+                    let name = self.input_box.text().to_string();
                     if !name.is_empty() {
                         self.action_tx
-                            .send(Action::Library(LibraryAction::CreatePlaylist(
-                                name.to_string(),
-                            )))
+                            .send(Action::Library(LibraryAction::CreatePlaylist(name)))
                             .unwrap();
                     }
-                    self.input_box.reset();
+                    self.input_box.clear();
                     self.input_box_visible = false;
                 }
                 // defer to the input box
@@ -132,32 +127,30 @@ impl Component for LibraryPlaylistsView {
             match key.code {
                 // arrow keys
                 KeyCode::PageUp => {
-                    self.tree_state.lock().unwrap().select_relative(|current| {
+                    self.tree_state.select_relative(|current| {
                         current.map_or(self.props.playlists.len() - 1, |c| c.saturating_sub(10))
                     });
                 }
                 KeyCode::Up => {
-                    self.tree_state.lock().unwrap().key_up();
+                    self.tree_state.key_up();
                 }
                 KeyCode::PageDown => {
                     self.tree_state
-                        .lock()
-                        .unwrap()
                         .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
                 }
                 KeyCode::Down => {
-                    self.tree_state.lock().unwrap().key_down();
+                    self.tree_state.key_down();
                 }
                 KeyCode::Left => {
-                    self.tree_state.lock().unwrap().key_left();
+                    self.tree_state.key_left();
                 }
                 KeyCode::Right => {
-                    self.tree_state.lock().unwrap().key_right();
+                    self.tree_state.key_right();
                 }
                 // Enter key opens selected view
                 KeyCode::Enter => {
-                    if self.tree_state.lock().unwrap().toggle_selected() {
-                        let things = self.tree_state.lock().unwrap().get_selected_thing();
+                    if self.tree_state.toggle_selected() {
+                        let things = self.tree_state.get_selected_thing();
 
                         if let Some(thing) = things {
                             self.action_tx
@@ -170,12 +163,12 @@ impl Component for LibraryPlaylistsView {
                 KeyCode::Char('s') => {
                     self.props.sort_mode = self.props.sort_mode.next();
                     self.props.sort_mode.sort_items(&mut self.props.playlists);
-                    self.tree_state.lock().unwrap().scroll_selected_into_view();
+                    self.tree_state.scroll_selected_into_view();
                 }
                 KeyCode::Char('S') => {
                     self.props.sort_mode = self.props.sort_mode.prev();
                     self.props.sort_mode.sort_items(&mut self.props.playlists);
-                    self.tree_state.lock().unwrap().scroll_selected_into_view();
+                    self.tree_state.scroll_selected_into_view();
                 }
                 // "n" key to create a new playlist
                 KeyCode::Char('n') => {
@@ -183,7 +176,7 @@ impl Component for LibraryPlaylistsView {
                 }
                 // "d" key to delete the selected playlist
                 KeyCode::Char('d') => {
-                    let things = self.tree_state.lock().unwrap().get_selected_thing();
+                    let things = self.tree_state.get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -226,11 +219,7 @@ impl Component for LibraryPlaylistsView {
                 ..area
             };
 
-            let result = self
-                .tree_state
-                .lock()
-                .unwrap()
-                .handle_mouse_event(mouse, area, true);
+            let result = self.tree_state.handle_mouse_event(mouse, area, true);
             if let Some(action) = result {
                 self.action_tx.send(action).unwrap();
             }
@@ -250,7 +239,7 @@ fn lib_split_area(area: Rect) -> [Rect; 2] {
 }
 
 impl ComponentRender<RenderProps> for LibraryPlaylistsView {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // render primary border
@@ -276,17 +265,18 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
             let [input_box_area, content_area] = lib_split_area(content_area);
 
             // render the input box
-            self.input_box.render(
-                frame,
-                input_box::RenderProps {
-                    area: input_box_area,
-                    text_color: (*TEXT_HIGHLIGHT_ALT).into(),
-                    border: Block::bordered()
+            let input_box = InputBox::new()
+                .text_color((*TEXT_HIGHLIGHT_ALT).into())
+                .border(
+                    Block::bordered()
                         .title("Enter Name:")
                         .border_style(Style::default().fg((*BORDER_FOCUSED).into())),
-                    show_cursor: self.input_box_visible,
-                },
-            );
+                );
+            frame.render_stateful_widget(input_box, input_box_area, &mut self.input_box);
+            if self.input_box_visible {
+                let position = input_box_area + self.input_box.cursor_offset() + Offset::new(1, 1);
+                frame.set_cursor_position(position);
+            }
 
             content_area
         } else {
@@ -308,7 +298,7 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         // create a tree for the playlists
         let items = self
             .props
@@ -327,7 +317,7 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
                 .node_checked_symbol("▪ ")
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             props.area,
-            &mut self.tree_state.lock().unwrap(),
+            &mut self.tree_state,
         );
     }
 }
@@ -421,7 +411,7 @@ mod item_view_tests {
     #[test]
     fn test_render_no_playlist() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = PlaylistView::new(&AppState::default(), tx);
+        let mut view = PlaylistView::new(&AppState::default(), tx);
 
         let (mut terminal, area) = setup_test_terminal(20, 3);
         let props = RenderProps {
@@ -446,7 +436,7 @@ mod item_view_tests {
     #[test]
     fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = PlaylistView::new(&state_with_everything(), tx);
+        let mut view = PlaylistView::new(&state_with_everything(), tx);
 
         let (mut terminal, area) = setup_test_terminal(60, 9);
         let props = RenderProps {
@@ -801,7 +791,7 @@ mod library_view_tests {
     #[test]
     fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = LibraryPlaylistsView::new(&state_with_everything(), tx);
+        let mut view = LibraryPlaylistsView::new(&state_with_everything(), tx);
 
         let (mut terminal, area) = setup_test_terminal(60, 6);
         let props = RenderProps {
@@ -1040,7 +1030,7 @@ mod library_view_tests {
             modifiers: KeyModifiers::empty(),
         };
         view.handle_mouse_event(mouse, area);
-        assert_eq!(view.tree_state.lock().unwrap().get_selected_thing(), None);
+        assert_eq!(view.tree_state.get_selected_thing(), None);
         view.handle_mouse_event(mouse, area);
         assert_eq!(
             rx.try_recv(),

@@ -1,5 +1,3 @@
-use std::sync::Mutex;
-
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::{
     layout::{Alignment, Margin, Rect},
@@ -37,7 +35,7 @@ pub struct ItemView<Props> {
     /// Mapped Props from state
     pub props: Option<Props>,
     /// tree state
-    pub tree_state: Mutex<CheckTreeState<String>>,
+    pub tree_state: CheckTreeState<String>,
 }
 
 impl<Props> Component for ItemView<Props>
@@ -49,7 +47,7 @@ where
         Self: Sized,
     {
         let props = Props::retrieve(&state.additional_view_data);
-        let tree_state = Mutex::new(CheckTreeState::default());
+        let tree_state = CheckTreeState::default();
         Self {
             action_tx,
             props,
@@ -64,7 +62,7 @@ where
         if let Some(props) = Props::retrieve(&state.additional_view_data) {
             Self {
                 props: Some(props),
-                tree_state: Mutex::new(CheckTreeState::default()),
+                tree_state: CheckTreeState::default(),
                 ..self
             }
         } else {
@@ -80,24 +78,24 @@ where
         match key.code {
             // arrow keys
             KeyCode::Up => {
-                self.tree_state.lock().unwrap().key_up();
+                self.tree_state.key_up();
             }
             KeyCode::Down => {
-                self.tree_state.lock().unwrap().key_down();
+                self.tree_state.key_down();
             }
             KeyCode::Left => {
-                self.tree_state.lock().unwrap().key_left();
+                self.tree_state.key_left();
             }
             KeyCode::Right => {
-                self.tree_state.lock().unwrap().key_right();
+                self.tree_state.key_right();
             }
             KeyCode::Char(' ') => {
-                self.tree_state.lock().unwrap().key_space();
+                self.tree_state.key_space();
             }
             // Enter key opens selected view
             KeyCode::Enter => {
-                if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things = self.tree_state.lock().unwrap().get_selected_thing();
+                if self.tree_state.toggle_selected() {
+                    let things = self.tree_state.get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -108,7 +106,7 @@ where
             }
             // if there are checked items, add them to the queue, otherwise send the song to the queue
             KeyCode::Char('q') => {
-                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
+                let checked_things = self.tree_state.get_checked_things();
                 if let Some(action) = construct_add_to_queue_action(
                     checked_things,
                     self.props.as_ref().map(super::ItemViewProps::id),
@@ -118,7 +116,7 @@ where
             }
             // if there are checked items, start radio from checked items, otherwise start radio from song
             KeyCode::Char('r') => {
-                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
+                let checked_things = self.tree_state.get_checked_things();
                 if let Some(action) = construct_start_radio_action(
                     checked_things,
                     self.props.as_ref().map(super::ItemViewProps::id),
@@ -128,7 +126,7 @@ where
             }
             // if there are checked items, add them to playlist, otherwise add the song to playlist
             KeyCode::Char('p') => {
-                let checked_things = self.tree_state.lock().unwrap().get_checked_things();
+                let checked_things = self.tree_state.get_checked_things();
                 if let Some(action) = construct_add_to_playlist_action(
                     checked_things,
                     self.props.as_ref().map(super::ItemViewProps::id),
@@ -141,7 +139,7 @@ where
                     props.handle_extra_key_events(
                         key,
                         self.action_tx.clone(),
-                        &mut self.tree_state.lock().unwrap(),
+                        &mut self.tree_state,
                     );
                 }
             }
@@ -161,8 +159,6 @@ where
 
         let result = self
             .tree_state
-            .lock()
-            .unwrap()
             .handle_mouse_event(mouse, content_area, false);
         if let Some(action) = result {
             self.action_tx.send(action).unwrap();
@@ -174,7 +170,7 @@ impl<Props> ComponentRender<RenderProps> for ItemView<Props>
 where
     Props: ItemViewProps,
 {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // draw borders and get area for content
@@ -205,19 +201,11 @@ where
                 .borders(Borders::TOP)
                 .title_top(Line::from(vec![
                     Span::raw("Performing operations on "),
-                    Span::raw(
-                        if self
-                            .tree_state
-                            .lock()
-                            .unwrap()
-                            .get_checked_things()
-                            .is_empty()
-                        {
-                            Props::none_checked_string()
-                        } else {
-                            "checked items"
-                        },
-                    )
+                    Span::raw(if self.tree_state.get_checked_things().is_empty() {
+                        Props::none_checked_string()
+                    } else {
+                        "checked items"
+                    })
                     .fg(*TEXT_HIGHLIGHT),
                 ]))
                 .italic()
@@ -235,7 +223,7 @@ where
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         let Some(state) = &self.props else {
             let text = format!("No active {}", Props::name());
 
@@ -258,7 +246,7 @@ where
                 .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
                 .experimental_scrollbar(Props::scrollbar()),
             props.area,
-            &mut self.tree_state.lock().unwrap(),
+            &mut self.tree_state,
         );
     }
 }
@@ -317,22 +305,14 @@ where
                 self.sort_mode = self.sort_mode.next();
                 if let Some(props) = &mut self.item_view.props {
                     props.sort_items(&self.sort_mode);
-                    self.item_view
-                        .tree_state
-                        .lock()
-                        .unwrap()
-                        .scroll_selected_into_view();
+                    self.item_view.tree_state.scroll_selected_into_view();
                 }
             }
             crossterm::event::KeyCode::Char('S') => {
                 self.sort_mode = self.sort_mode.prev();
                 if let Some(props) = &mut self.item_view.props {
                     props.sort_items(&self.sort_mode);
-                    self.item_view
-                        .tree_state
-                        .lock()
-                        .unwrap()
-                        .scroll_selected_into_view();
+                    self.item_view.tree_state.scroll_selected_into_view();
                 }
             }
             _ => self.item_view.handle_key_event(key),
@@ -349,7 +329,7 @@ where
     Props: ItemViewProps + SortableViewProps<Item>,
     Mode: SortMode<Item>,
 {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // draw borders and get area for content
@@ -391,14 +371,7 @@ where
                 .title_top(Line::from(vec![
                     Span::raw("Performing operations on "),
                     Span::raw(
-                        if self
-                            .item_view
-                            .tree_state
-                            .lock()
-                            .unwrap()
-                            .get_checked_things()
-                            .is_empty()
-                        {
+                        if self.item_view.tree_state.get_checked_things().is_empty() {
                             Props::none_checked_string()
                         } else {
                             "checked items"
@@ -421,7 +394,7 @@ where
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         self.item_view.render_content(frame, props);
     }
 }

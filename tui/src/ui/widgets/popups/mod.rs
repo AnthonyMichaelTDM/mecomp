@@ -18,7 +18,7 @@ use crate::{
     ui::{AppState, colors::POPUP_BORDER, components::ComponentRender},
 };
 
-pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
+pub trait Popup: for<'a> ComponentRender<Rect> + Send {
     fn title(&self) -> Line<'_>;
     fn instructions(&self) -> Line<'_>;
     /// The area needed for the popup to render.
@@ -94,7 +94,7 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send + Sync {
     ///
     /// It draws a border with the given title and instructions and
     /// renders the component implementing popup.
-    fn render_popup(&self, frame: &mut ratatui::Frame<'_>) {
+    fn render_popup(&mut self, frame: &mut ratatui::Frame<'_>) {
         let area = self.area(frame.area());
 
         // clear the popup area
@@ -127,14 +127,13 @@ impl PopupType {
                 Box::new(playlist::PlaylistSelector::new(state, action_tx, items)) as _
             }
             Self::PlaylistEditor(playlist) => Box::new(playlist::PlaylistEditor::new(
-                state,
                 action_tx,
                 playlist.id.ulid(),
                 &playlist.name,
             )) as _,
-            Self::DynamicPlaylistEditor(playlist) => Box::new(dynamic::DynamicPlaylistEditor::new(
-                state, action_tx, playlist,
-            )) as _,
+            Self::DynamicPlaylistEditor(playlist) => {
+                Box::new(dynamic::DynamicPlaylistEditor::new(action_tx, playlist)) as _
+            }
         }
     }
 }

@@ -7,7 +7,7 @@ use mecomp_prost::{DynamicPlaylist, DynamicPlaylistChangeSet, RecordId};
 use mecomp_storage::db::schemas::dynamic::query::Query;
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Position, Rect},
+    layout::{Constraint, Direction, Layout, Offset, Position, Rect},
     style::Style,
     text::Line,
     widgets::Block,
@@ -21,8 +21,8 @@ use crate::{
         colors::{
             BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
         },
-        components::{Component, ComponentRender},
-        widgets::input_box::{InputBox, RenderProps},
+        components::ComponentRender,
+        widgets::input_box::{InputBox, InputBoxState},
     },
 };
 
@@ -32,23 +32,19 @@ use super::Popup;
 pub struct DynamicPlaylistEditor {
     action_tx: UnboundedSender<Action>,
     dynamic_playlist_id: RecordId,
-    name_input: InputBox,
-    query_input: InputBox,
+    name_input: InputBoxState,
+    query_input: InputBoxState,
     focus: Focus,
 }
 
 impl DynamicPlaylistEditor {
     /// Create a new `DynamicPlaylistEditor`.
     #[must_use]
-    pub fn new(
-        state: &AppState,
-        action_tx: UnboundedSender<Action>,
-        dynamic_playlist: DynamicPlaylist,
-    ) -> Self {
-        let mut name_input = InputBox::new(state, action_tx.clone());
+    pub fn new(action_tx: UnboundedSender<Action>, dynamic_playlist: DynamicPlaylist) -> Self {
+        let mut name_input = InputBoxState::new();
         name_input.set_text(&dynamic_playlist.name);
-        let mut query_input = InputBox::new(state, action_tx.clone());
-        query_input.set_text(&dynamic_playlist.query.clone());
+        let mut query_input = InputBoxState::new();
+        query_input.set_text(&dynamic_playlist.query);
 
         Self {
             action_tx,
@@ -190,11 +186,11 @@ fn split_area(area: Rect, name_height: u16, query_height: u16) -> [Rect; 2] {
 }
 
 impl ComponentRender<Rect> for DynamicPlaylistEditor {
-    fn render_border(&self, frame: &mut Frame<'_>, area: Rect) -> Rect {
+    fn render_border(&mut self, frame: &mut Frame<'_>, area: Rect) -> Rect {
         self.render_popup_border(frame, area)
     }
 
-    fn render_content(&self, frame: &mut Frame<'_>, area: Rect) {
+    fn render_content(&mut self, frame: &mut Frame<'_>, area: Rect) {
         let [name_area, query_area] = split_area(area, 3, 3);
 
         let (name_color, query_color) = match self.focus {
@@ -206,43 +202,40 @@ impl ComponentRender<Rect> for DynamicPlaylistEditor {
             Focus::Query => ((*BORDER_UNFOCUSED).into(), (*BORDER_FOCUSED).into()),
         };
 
-        self.name_input.render(
-            frame,
-            RenderProps {
-                border: Block::bordered()
+        let name_input = InputBox::new()
+            .border(
+                Block::bordered()
                     .title("Enter Name:")
                     .border_style(Style::default().fg(name_border)),
-                area: name_area,
-                text_color: name_color,
-                show_cursor: self.focus == Focus::Name,
-            },
-        );
+            )
+            .text_color(name_color);
+        frame.render_stateful_widget(name_input, name_area, &mut self.name_input);
 
-        if Query::from_str(self.query_input.text()).is_ok() {
-            self.query_input.render(
-                frame,
-                RenderProps {
-                    border: Block::bordered()
+        let query_input = if Query::from_str(self.query_input.text()).is_ok() {
+            InputBox::new()
+                .border(
+                    Block::bordered()
                         .title("Enter Query:")
                         .border_style(Style::default().fg(query_border)),
-                    area: query_area,
-                    text_color: query_color,
-                    show_cursor: self.focus == Focus::Query,
-                },
-            );
+                )
+                .text_color(query_color)
         } else {
-            self.query_input.render(
-                frame,
-                RenderProps {
-                    border: Block::bordered()
+            InputBox::new()
+                .border(
+                    Block::bordered()
                         .title("Invalid Query:")
                         .border_style(Style::default().fg(query_border)),
-                    area: query_area,
-                    text_color: (*TEXT_HIGHLIGHT).into(),
-                    show_cursor: self.focus == Focus::Query,
-                },
-            );
-        }
+                )
+                .text_color((*TEXT_HIGHLIGHT).into())
+        };
+        frame.render_stateful_widget(query_input, query_area, &mut self.query_input);
+
+        // update cursor position
+        let position = match self.focus {
+            Focus::Name => name_area + self.name_input.cursor_offset() + Offset::new(1, 1),
+            Focus::Query => query_area + self.query_input.cursor_offset() + Offset::new(1, 1),
+        };
+        frame.set_cursor_position(position);
     }
 }
 
@@ -288,21 +281,20 @@ mod tests {
     fn test_area(
         #[case] terminal_size: (u16, u16),
         #[case] expected_area: Rect,
-        state: AppState,
         playlist: DynamicPlaylist,
     ) {
         let (_, area) = setup_test_terminal(terminal_size.0, terminal_size.1);
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let editor = DynamicPlaylistEditor::new(&state, tx, playlist);
+        let editor = DynamicPlaylistEditor::new(tx, playlist);
         let area = editor.area(area);
         assert_eq!(area, expected_area);
     }
 
     #[rstest]
-    fn test_key_event_handling(state: AppState, playlist: DynamicPlaylist) {
+    fn test_key_event_handling(playlist: DynamicPlaylist) {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
-        let mut editor = DynamicPlaylistEditor::new(&state, tx, playlist.clone());
+        let mut editor = DynamicPlaylistEditor::new(tx, playlist.clone());
 
         // Test tab changes focus
         assert_eq!(editor.focus, Focus::Name);
@@ -349,10 +341,10 @@ mod tests {
     }
 
     #[rstest]
-    fn test_mouse_event_handling(state: AppState, playlist: DynamicPlaylist) {
+    fn test_mouse_event_handling(playlist: DynamicPlaylist) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
 
-        let mut editor = DynamicPlaylistEditor::new(&state, tx, playlist);
+        let mut editor = DynamicPlaylistEditor::new(tx, playlist);
         let area = Rect::new(0, 0, 50, 10);
 
         // Test clicking name area changes focus
@@ -367,10 +359,10 @@ mod tests {
     }
 
     #[rstest]
-    fn test_render(state: AppState, playlist: DynamicPlaylist) {
+    fn test_render(playlist: DynamicPlaylist) {
         let (mut terminal, _) = setup_test_terminal(30, 8);
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let editor = DynamicPlaylistEditor::new(&state, tx, playlist);
+        let mut editor = DynamicPlaylistEditor::new(tx, playlist);
         let buffer = terminal
             .draw(|frame| editor.render_popup(frame))
             .unwrap()

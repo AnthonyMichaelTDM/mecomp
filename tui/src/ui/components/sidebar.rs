@@ -220,7 +220,7 @@ impl Component for Sidebar {
 }
 
 impl ComponentRender<RenderProps> for Sidebar {
-    fn render_border(&self, frame: &mut Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let border = Block::bordered()
@@ -241,7 +241,7 @@ impl ComponentRender<RenderProps> for Sidebar {
         }
     }
 
-    fn render_content(&self, frame: &mut Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut Frame<'_>, props: RenderProps) {
         let items = SIDEBAR_ITEMS
             .iter()
             .map(|item| {
@@ -298,7 +298,7 @@ mod tests {
     #[test]
     fn test_sidebar_render() -> Result<()> {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let sidebar = Sidebar::new(&AppState::default(), tx).move_with_state(&AppState {
+        let mut sidebar = Sidebar::new(&AppState::default(), tx).move_with_state(&AppState {
             active_component: ActiveComponent::Sidebar,
             ..state_with_everything()
         });

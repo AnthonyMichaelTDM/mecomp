@@ -274,7 +274,7 @@ fn split_area(area: Rect) -> Areas {
 }
 
 impl ComponentRender<Rect> for App {
-    fn render_border(&self, frame: &mut Frame<'_>, area: Rect) -> Rect {
+    fn render_border(&mut self, frame: &mut Frame<'_>, area: Rect) -> Rect {
         let block = Block::bordered()
             .title_top(Span::styled(
                 "MECOMP",
@@ -293,7 +293,7 @@ impl ComponentRender<Rect> for App {
         app_area
     }
 
-    fn render_content(&self, frame: &mut Frame<'_>, area: Rect) {
+    fn render_content(&mut self, frame: &mut Frame<'_>, area: Rect) {
         let Areas {
             control_panel,
             sidebar,
@@ -347,7 +347,7 @@ impl ComponentRender<Rect> for App {
         );
 
         // render the popup if there is one
-        if let Some(popup) = &self.popup {
+        if let Some(popup) = &mut self.popup {
             popup.render_popup(frame);
         }
     }
@@ -413,7 +413,7 @@ mod tests {
     #[case::control_panel(ActiveComponent::ControlPanel)]
     fn smoke_render(#[case] active_component: ActiveComponent) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let app = App::new(
+        let mut app = App::new(
             &AppState {
                 active_component,
                 ..Default::default()
@@ -434,7 +434,7 @@ mod tests {
     #[case::control_panel(ActiveComponent::ControlPanel)]
     fn test_render_with_popup(#[case] active_component: ActiveComponent) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let app = App::new(
+        let mut app = App::new(
             &AppState {
                 active_component,
                 ..Default::default()
@@ -445,7 +445,7 @@ mod tests {
         let (mut terminal, area) = setup_test_terminal(100, 100);
         let pre_popup = terminal.draw(|frame| app.render(frame, area)).unwrap();
 
-        let app = app.move_with_popup(Some(Box::new(Notification::new(
+        app = app.move_with_popup(Some(Box::new(Notification::new(
             "Hello, World!".into(),
             unbounded_channel().0,
         ))));
