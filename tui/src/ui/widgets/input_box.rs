@@ -1,7 +1,5 @@
 //! Implementation of a search bar input box component
 //!
-//! TODO: clicking to move cursor does not account for scrolling
-//!
 //! TODO: scrolling is naive, only scrolls when cursor is at the end, and scrolls back when it isn't.
 //!       this means that if a user moves all the way to the end, then back a little bit, the end
 //!       doesn't necessarily stay visible.
@@ -137,6 +135,39 @@ impl InputBox {
         self.text_length = self.text_length.saturating_sub(1);
         self.ps_columns.remove(self.cursor_position);
     }
+
+    /// Calculate the horizontal scroll offset based on the current cursor position and view width
+    const fn calculate_horizontal_scroll(&self, view_width: u16) -> u16 {
+        let cursor_column = self.ps_columns.get(self.cursor_position);
+        #[allow(clippy::cast_possible_truncation)]
+        if cursor_column > view_width as usize {
+            cursor_column as u16 - view_width
+        } else {
+            0
+        }
+    }
+
+    /// Convert a column position to a character index
+    ///
+    /// Finds the character index where the cumulative width is closest to the target column.
+    /// For wide characters, snaps to the nearest character boundary.
+    const fn column_to_char_index(&self, column: usize) -> usize {
+        // Binary search to find the character index
+        // We want to find the largest index where ps_columns.get(index) <= column
+        let mut left = 0;
+        let mut right = self.text_length;
+
+        while left < right {
+            let mid = (left + right).div_ceil(2);
+            if self.ps_columns.get(mid) <= column {
+                left = mid;
+            } else {
+                right = mid - 1;
+            }
+        }
+
+        left
+    }
 }
 
 impl Component for InputBox {
@@ -201,9 +232,19 @@ impl Component for InputBox {
 
         if kind == crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) {
             // NOTE: this assumes that the border is 1 character wide, which may not necessarily be true
-            let mouse_x = mouse_position.x.saturating_sub(area.x + 1) as usize;
+            let mouse_x = mouse_position.x.saturating_sub(area.x + 1);
 
-            self.cursor_position = mouse_x.min(self.text_length);
+            // Calculate the view width (accounting for border)
+            let view_width = area.width.saturating_sub(2);
+
+            // Calculate current horizontal scroll
+            let horizontal_scroll = self.calculate_horizontal_scroll(view_width);
+
+            // Add scroll offset to get the actual column position in the text
+            let actual_column = (mouse_x + horizontal_scroll) as usize;
+
+            // Convert column position to character index
+            self.cursor_position = self.column_to_char_index(actual_column);
         }
     }
 }
@@ -228,12 +269,7 @@ impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
 
     fn render_content(&self, frame: &mut Frame<'_>, props: RenderProps<'a>) {
         let cursor_column = self.ps_columns.get(self.cursor_position);
-        #[allow(clippy::cast_possible_truncation)]
-        let horizontal_scroll = if cursor_column > props.area.width as usize {
-            cursor_column as u16 - props.area.width
-        } else {
-            0
-        };
+        let horizontal_scroll = self.calculate_horizontal_scroll(props.area.width);
 
         let input = Paragraph::new(self.text.as_str())
             .style(Style::default().fg(props.text_color))
@@ -629,6 +665,159 @@ mod tests {
         let expected = Buffer::with_lines(std::iter::once(line));
         assert_buffer_eq(&buffer, &expected);
         Ok(())
+    }
+
+    #[test]
+    fn test_column_to_char_index() {
+        let mut input_box = InputBox::default();
+
+        // Test with ASCII text
+        input_box.set_text("Hello, World!");
+        assert_eq!(input_box.column_to_char_index(0), 0);
+        assert_eq!(input_box.column_to_char_index(1), 1);
+        assert_eq!(input_box.column_to_char_index(5), 5);
+        assert_eq!(input_box.column_to_char_index(13), 13);
+        assert_eq!(input_box.column_to_char_index(100), 13); // Beyond end
+
+        // Test with wide characters
+        input_box.set_text("こんにち");
+        // Each character is 2 columns wide
+        assert_eq!(input_box.column_to_char_index(0), 0);
+        assert_eq!(input_box.column_to_char_index(1), 0); // In middle of first char
+        assert_eq!(input_box.column_to_char_index(2), 1); // Start of second char
+        assert_eq!(input_box.column_to_char_index(3), 1); // In middle of second char
+        assert_eq!(input_box.column_to_char_index(4), 2); // Start of third char
+        assert_eq!(input_box.column_to_char_index(6), 3); // Start of fourth char
+        assert_eq!(input_box.column_to_char_index(8), 4); // Beyond end
+
+        // Test with mixed width characters
+        input_box.set_text("aこbに");
+        // a=1, こ=2, b=1, に=2 total=6 columns
+        assert_eq!(input_box.column_to_char_index(0), 0); // 'a'
+        assert_eq!(input_box.column_to_char_index(1), 1); // 'こ' start
+        assert_eq!(input_box.column_to_char_index(2), 1); // 'こ' middle
+        assert_eq!(input_box.column_to_char_index(3), 2); // 'b'
+        assert_eq!(input_box.column_to_char_index(4), 3); // 'に' start
+        assert_eq!(input_box.column_to_char_index(5), 3); // 'に' middle
+        assert_eq!(input_box.column_to_char_index(6), 4); // Beyond end
+    }
+
+    #[test]
+    fn test_calculate_horizontal_scroll() {
+        let mut input_box = InputBox::default();
+
+        // No scroll when text fits
+        input_box.set_text("Hello");
+        input_box.cursor_position = 5;
+        assert_eq!(input_box.calculate_horizontal_scroll(10), 0);
+
+        // Scroll when cursor exceeds width
+        input_box.set_text("Hello, World!");
+        input_box.cursor_position = 13;
+        assert_eq!(input_box.calculate_horizontal_scroll(10), 3);
+
+        // Scroll with wide characters
+        input_box.set_text("こんにちは");
+        input_box.cursor_position = 5; // 10 columns
+        assert_eq!(input_box.calculate_horizontal_scroll(8), 2);
+    }
+
+    #[test]
+    fn test_mouse_click_no_scroll() {
+        let mut input_box = InputBox::default();
+        input_box.set_text("Hello");
+
+        // Click at position 2 (on 'l')
+        let mouse_event = MouseEvent {
+            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            column: 3, // area.x=1, border=1, so mouse_x = 3-1-1 = 1, but we want position 2
+            row: 1,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        let area = Rect::new(1, 1, 10, 1);
+        input_box.handle_mouse_event(mouse_event, area);
+        assert_eq!(input_box.cursor_position, 1);
+    }
+
+    #[test]
+    fn test_mouse_click_with_scroll_ascii() {
+        let mut input_box = InputBox::default();
+        input_box.set_text("Hello, World!");
+
+        // Move cursor to end to trigger scrolling
+        input_box.cursor_position = 13;
+
+        // View width is 10 (with border: 12 total, 10 content)
+        // Cursor at position 13 (column 13), so scroll = 13 - 10 = 3
+        // Click at mouse position 5 (relative to content area)
+        // actual_column = 5 + 3 = 8, which should be position 8
+        let mouse_event = MouseEvent {
+            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            column: 6, // area.x=0, border=1, mouse_x = 6-0-1 = 5
+            row: 0,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 12, 1);
+        input_box.handle_mouse_event(mouse_event, area);
+        assert_eq!(input_box.cursor_position, 8);
+    }
+
+    #[test]
+    fn test_mouse_click_with_scroll_wide_chars() {
+        let mut input_box = InputBox::default();
+        input_box.set_text("こんにちは世界"); // 7 chars, 14 columns
+
+        // Move cursor to end
+        input_box.cursor_position = 7;
+
+        // View width is 10, cursor at column 14, so scroll = 14 - 10 = 4
+        // Click at mouse position 6 (relative to content area)
+        // actual_column = 6 + 4 = 10
+        // Column 10 corresponds to character index 5 (10/2 = 5)
+        let mouse_event = MouseEvent {
+            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            column: 7, // area.x=0, border=1, mouse_x = 7-0-1 = 6
+            row: 0,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 12, 1);
+        input_box.handle_mouse_event(mouse_event, area);
+        assert_eq!(input_box.cursor_position, 5);
+    }
+
+    #[test]
+    fn test_mouse_click_beyond_text_end() {
+        let mut input_box = InputBox::default();
+        input_box.set_text("Hi");
+
+        // Click far beyond the text
+        let mouse_event = MouseEvent {
+            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            column: 20,
+            row: 0,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 30, 1);
+        input_box.handle_mouse_event(mouse_event, area);
+        assert_eq!(input_box.cursor_position, 2); // Should clamp to text length
+    }
+
+    #[test]
+    fn test_mouse_click_on_wide_char_boundary() {
+        let mut input_box = InputBox::default();
+        input_box.set_text("aこb");
+
+        // Click on column 2 (middle of 'こ' which spans columns 1-2)
+        // Should snap to character index 1
+        let mouse_event = MouseEvent {
+            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            column: 3, // area.x=0, border=1, mouse_x = 3-0-1 = 2
+            row: 0,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 10, 1);
+        input_box.handle_mouse_event(mouse_event, area);
+        assert_eq!(input_box.cursor_position, 1);
     }
 }
 
