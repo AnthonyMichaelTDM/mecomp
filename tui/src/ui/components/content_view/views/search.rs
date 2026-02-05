@@ -111,10 +111,10 @@ impl Component for SearchView {
             KeyCode::Down => {
                 self.tree_state.lock().unwrap().key_down();
             }
-            KeyCode::Left => {
+            KeyCode::Left if !self.search_bar_focused => {
                 self.tree_state.lock().unwrap().key_left();
             }
-            KeyCode::Right => {
+            KeyCode::Right if !self.search_bar_focused => {
                 self.tree_state.lock().unwrap().key_right();
             }
             KeyCode::Char(' ') if !self.search_bar_focused => {
