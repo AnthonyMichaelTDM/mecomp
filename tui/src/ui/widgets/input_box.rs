@@ -215,6 +215,13 @@ impl Component for InputBox {
             let mouse_x = mouse_position.x.saturating_sub(area.x + 1) as usize;
 
             self.cursor_position = mouse_x.min(self.text_length);
+            self.cursor_column = self
+                .text
+                .chars()
+                .take(self.cursor_position)
+                .map(|c| UnicodeWidthChar::width(c).unwrap_or_default())
+                .sum::<usize>()
+                .min(self.text_width);
         }
     }
 }
