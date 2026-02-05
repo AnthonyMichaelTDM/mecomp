@@ -10,7 +10,7 @@ use ratatui::{
     widgets::{Block, Paragraph},
 };
 use tokio::sync::mpsc::UnboundedSender;
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthChar;
 
 use crate::{
     state::action::Action,
@@ -29,12 +29,8 @@ pub struct InputBox {
     cursor_position: usize,
     /// length of the text in characters
     text_length: usize,
-    /// Position of the cursor in the editor area
-    /// This is in *columns*, not bytes or characters.
-    cursor_column: usize,
-    /// Width of the text in columns
-    /// This is in *columns*, not bytes or characters.
-    text_width: usize,
+    /// prefix sum array of the text width in columns
+    ps_columns: util::PrefixSumVec,
 }
 
 impl InputBox {
@@ -47,16 +43,18 @@ impl InputBox {
         self.text = String::from(new_text);
         self.text_length = self.text.chars().count();
         self.cursor_position = self.text_length;
-        self.text_width = UnicodeWidthStr::width(new_text);
-        self.cursor_column = self.text_width;
+        self.ps_columns.clear();
+        for c in self.text.chars() {
+            self.ps_columns
+                .push(UnicodeWidthChar::width(c).unwrap_or_default());
+        }
     }
 
     pub fn reset(&mut self) {
+        self.text.clear();
         self.cursor_position = 0;
         self.text_length = 0;
-        self.cursor_column = 0;
-        self.text_width = 0;
-        self.text.clear();
+        self.ps_columns.clear();
     }
 
     #[must_use]
@@ -66,24 +64,10 @@ impl InputBox {
 
     fn move_cursor_left(&mut self) {
         self.cursor_position = self.cursor_position.saturating_sub(1).min(self.text_length);
-        self.cursor_column = self
-            .text
-            .chars()
-            .take(self.cursor_position)
-            .map(|c| UnicodeWidthChar::width(c).unwrap_or_default())
-            .sum::<usize>()
-            .min(self.text_width);
     }
 
     fn move_cursor_right(&mut self) {
         self.cursor_position = self.cursor_position.saturating_add(1).min(self.text_length);
-        self.cursor_column = self
-            .text
-            .chars()
-            .take(self.cursor_position)
-            .map(|c| UnicodeWidthChar::width(c).unwrap_or_default())
-            .sum::<usize>()
-            .min(self.text_width);
     }
 
     fn enter_char(&mut self, new_char: char) {
@@ -98,7 +82,10 @@ impl InputBox {
 
         self.text.insert(cursor_byte_index, new_char);
         self.text_length += 1;
-        self.text_width += UnicodeWidthChar::width(new_char).unwrap_or_default();
+        self.ps_columns.insert(
+            self.cursor_position,
+            UnicodeWidthChar::width(new_char).unwrap_or_default(),
+        );
 
         self.move_cursor_right();
     }
@@ -120,17 +107,13 @@ impl InputBox {
             .take(self.cursor_position - 1)
             .collect::<String>();
         // the character being removed
-        let target = chars.next();
+        chars.next();
         // Getting all characters after selected character.
         new.extend(chars);
 
         self.text = new;
         self.text_length = self.text_length.saturating_sub(1);
-        if let Some(c) = target {
-            self.text_width = self
-                .text_width
-                .saturating_sub(UnicodeWidthChar::width(c).unwrap_or_default());
-        }
+        self.ps_columns.remove(self.cursor_position - 1);
         self.move_cursor_left();
     }
 
@@ -143,16 +126,12 @@ impl InputBox {
             .by_ref()
             .take(self.cursor_position)
             .collect::<String>();
-        let target = chars.next();
+        chars.next();
         new.extend(chars);
 
         self.text = new;
         self.text_length = self.text_length.saturating_sub(1);
-        if let Some(c) = target {
-            self.text_width = self
-                .text_width
-                .saturating_sub(UnicodeWidthChar::width(c).unwrap_or_default());
-        }
+        self.ps_columns.remove(self.cursor_position);
     }
 }
 
@@ -195,11 +174,9 @@ impl Component for InputBox {
             }
             KeyCode::Home => {
                 self.cursor_position = 0;
-                self.cursor_column = 0;
             }
             KeyCode::End => {
                 self.cursor_position = self.text_length;
-                self.cursor_column = self.text_length;
             }
             _ => {}
         }
@@ -223,13 +200,6 @@ impl Component for InputBox {
             let mouse_x = mouse_position.x.saturating_sub(area.x + 1) as usize;
 
             self.cursor_position = mouse_x.min(self.text_length);
-            self.cursor_column = self
-                .text
-                .chars()
-                .take(self.cursor_position)
-                .map(|c| UnicodeWidthChar::width(c).unwrap_or_default())
-                .sum::<usize>()
-                .min(self.text_width);
         }
     }
 }
@@ -253,9 +223,10 @@ impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
     }
 
     fn render_content(&self, frame: &mut Frame<'_>, props: RenderProps<'a>) {
+        let cursor_column = self.ps_columns.get(self.cursor_position);
         #[allow(clippy::cast_possible_truncation)]
-        let horizontal_scroll = if self.cursor_column > props.area.width as usize {
-            self.cursor_column as u16 - props.area.width
+        let horizontal_scroll = if cursor_column > props.area.width as usize {
+            cursor_column as u16 - props.area.width
         } else {
             0
         };
@@ -275,7 +246,7 @@ impl<'a> ComponentRender<RenderProps<'a>> for InputBox {
                 // Draw the cursor at the current position in the input field.
                 // This position is can be controlled via the left and right arrow key
                 (
-                    props.area.x + self.cursor_column as u16 - horizontal_scroll,
+                    props.area.x + cursor_column as u16 - horizontal_scroll,
                     props.area.y,
                 ),
             );
@@ -344,43 +315,37 @@ mod tests {
         assert_eq!(input_box.text, "a");
         assert_eq!(input_box.cursor_position, 1);
         assert_eq!(input_box.text_length, 1);
-        assert_eq!(input_box.cursor_column, 1);
-        assert_eq!(input_box.prefix_text_widths.last(), 1);
+        assert_eq!(input_box.ps_columns.last(), 1);
 
         input_box.enter_char('m');
         assert_eq!(input_box.text, "am");
         assert_eq!(input_box.cursor_position, 2);
         assert_eq!(input_box.text_length, 2);
-        assert_eq!(input_box.cursor_column, 2);
-        assert_eq!(input_box.prefix_text_widths.last(), 2);
+        assert_eq!(input_box.ps_columns.last(), 2);
 
         input_box.enter_char('é');
         assert_eq!(input_box.text, "amé");
         assert_eq!(input_box.cursor_position, 3);
         assert_eq!(input_box.text_length, 3);
-        assert_eq!(input_box.cursor_column, 3);
-        assert_eq!(input_box.prefix_text_widths.last(), 3);
+        assert_eq!(input_box.ps_columns.last(), 3);
 
         input_box.enter_char('l');
         assert_eq!(input_box.text, "amél");
         assert_eq!(input_box.cursor_position, 4);
         assert_eq!(input_box.text_length, 4);
-        assert_eq!(input_box.cursor_column, 4);
-        assert_eq!(input_box.prefix_text_widths.last(), 4);
+        assert_eq!(input_box.ps_columns.last(), 4);
 
         input_box.delete_char();
         assert_eq!(input_box.text, "amé");
         assert_eq!(input_box.cursor_position, 3);
         assert_eq!(input_box.text_length, 3);
-        assert_eq!(input_box.cursor_column, 3);
-        assert_eq!(input_box.prefix_text_widths.last(), 3);
+        assert_eq!(input_box.ps_columns.last(), 3);
 
         input_box.delete_char();
         assert_eq!(input_box.text, "am");
         assert_eq!(input_box.cursor_position, 2);
         assert_eq!(input_box.text_length, 2);
-        assert_eq!(input_box.cursor_column, 2);
-        assert_eq!(input_box.prefix_text_widths.last(), 2);
+        assert_eq!(input_box.ps_columns.last(), 2);
     }
 
     #[test]
@@ -391,50 +356,50 @@ mod tests {
         assert_eq!(input_box.text, "こ");
         assert_eq!(input_box.cursor_position, 1);
         assert_eq!(input_box.text_length, 1);
-        assert_eq!(input_box.cursor_column, 2);
-        assert_eq!(input_box.prefix_text_widths.last(), 2);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 2);
+        assert_eq!(input_box.ps_columns.last(), 2);
 
         input_box.enter_char('ん');
         assert_eq!(input_box.text, "こん");
         assert_eq!(input_box.cursor_position, 2);
         assert_eq!(input_box.text_length, 2);
-        assert_eq!(input_box.cursor_column, 4);
-        assert_eq!(input_box.prefix_text_widths.last(), 4);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 4);
+        assert_eq!(input_box.ps_columns.last(), 4);
 
         input_box.enter_char('に');
         assert_eq!(input_box.text, "こんに");
         assert_eq!(input_box.cursor_position, 3);
         assert_eq!(input_box.text_length, 3);
-        assert_eq!(input_box.cursor_column, 6);
-        assert_eq!(input_box.prefix_text_widths.last(), 6);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 6);
+        assert_eq!(input_box.ps_columns.last(), 6);
 
         input_box.enter_char('ち');
         assert_eq!(input_box.text, "こんにち");
         assert_eq!(input_box.cursor_position, 4);
         assert_eq!(input_box.text_length, 4);
-        assert_eq!(input_box.cursor_column, 8);
-        assert_eq!(input_box.prefix_text_widths.last(), 8);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 8);
+        assert_eq!(input_box.ps_columns.last(), 8);
 
         input_box.enter_char('は');
         assert_eq!(input_box.text, "こんにちは");
         assert_eq!(input_box.cursor_position, 5);
         assert_eq!(input_box.text_length, 5);
-        assert_eq!(input_box.cursor_column, 10);
-        assert_eq!(input_box.prefix_text_widths.last(), 10);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 10);
+        assert_eq!(input_box.ps_columns.last(), 10);
 
         input_box.delete_char();
         assert_eq!(input_box.text, "こんにち");
         assert_eq!(input_box.cursor_position, 4);
         assert_eq!(input_box.text_length, 4);
-        assert_eq!(input_box.cursor_column, 8);
-        assert_eq!(input_box.prefix_text_widths.last(), 8);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 8);
+        assert_eq!(input_box.ps_columns.last(), 8);
 
         input_box.delete_char();
         assert_eq!(input_box.text, "こんに");
         assert_eq!(input_box.cursor_position, 3);
         assert_eq!(input_box.text_length, 3);
-        assert_eq!(input_box.cursor_column, 6);
-        assert_eq!(input_box.prefix_text_widths.last(), 6);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 6);
+        assert_eq!(input_box.ps_columns.last(), 6);
     }
 
     #[test]
@@ -450,46 +415,46 @@ mod tests {
         assert_eq!(input_box.text, "héこ👨​");
         assert_eq!(input_box.cursor_position, 5);
         assert_eq!(input_box.text_length, 5);
-        assert_eq!(input_box.cursor_column, 6);
-        assert_eq!(input_box.prefix_text_widths.last(), 6);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 6);
+        assert_eq!(input_box.ps_columns.last(), 6);
 
         input_box.move_cursor_left();
         assert_eq!(input_box.cursor_position, 4);
-        assert_eq!(input_box.cursor_column, 6);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 6);
 
         input_box.move_cursor_left();
         assert_eq!(input_box.cursor_position, 3);
-        assert_eq!(input_box.cursor_column, 4);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 4);
         input_box.move_cursor_left();
         assert_eq!(input_box.cursor_position, 2);
-        assert_eq!(input_box.cursor_column, 2);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 2);
         input_box.move_cursor_left();
         assert_eq!(input_box.cursor_position, 1);
-        assert_eq!(input_box.cursor_column, 1);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 1);
         input_box.move_cursor_left();
         assert_eq!(input_box.cursor_position, 0);
-        assert_eq!(input_box.cursor_column, 0);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 0);
         input_box.move_cursor_left();
         assert_eq!(input_box.cursor_position, 0);
-        assert_eq!(input_box.cursor_column, 0);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 0);
         input_box.move_cursor_right();
         assert_eq!(input_box.cursor_position, 1);
-        assert_eq!(input_box.cursor_column, 1);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 1);
         input_box.move_cursor_right();
         assert_eq!(input_box.cursor_position, 2);
-        assert_eq!(input_box.cursor_column, 2);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 2);
         input_box.move_cursor_right();
         assert_eq!(input_box.cursor_position, 3);
-        assert_eq!(input_box.cursor_column, 4);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 4);
         input_box.move_cursor_right();
         assert_eq!(input_box.cursor_position, 4);
-        assert_eq!(input_box.cursor_column, 6);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 6);
         input_box.move_cursor_right();
         assert_eq!(input_box.cursor_position, 5);
-        assert_eq!(input_box.cursor_column, 6);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 6);
         input_box.move_cursor_right();
         assert_eq!(input_box.cursor_position, 5);
-        assert_eq!(input_box.cursor_column, 6);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 6);
     }
 
     #[test]
@@ -504,47 +469,47 @@ mod tests {
         input_box.enter_char('Ü');
         assert_eq!(input_box.text, "acÜe");
         assert_eq!(input_box.cursor_position, 3);
-        assert_eq!(input_box.cursor_column, 3);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 3);
         assert_eq!(input_box.text_length, 4);
-        assert_eq!(input_box.prefix_text_widths.last(), 4);
+        assert_eq!(input_box.ps_columns.last(), 4);
 
         input_box.move_cursor_left();
         input_box.move_cursor_left();
         input_box.enter_char('X');
         assert_eq!(input_box.text, "aXcÜe");
         assert_eq!(input_box.cursor_position, 2);
-        assert_eq!(input_box.cursor_column, 2);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 2);
         assert_eq!(input_box.text_length, 5);
-        assert_eq!(input_box.prefix_text_widths.last(), 5);
+        assert_eq!(input_box.ps_columns.last(), 5);
 
         // add two wide characters
         input_box.enter_char('こ');
         input_box.enter_char('い');
         assert_eq!(input_box.text, "aXこいcÜe");
         assert_eq!(input_box.cursor_position, 4);
-        assert_eq!(input_box.cursor_column, 6);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 6);
         assert_eq!(input_box.text_length, 7);
-        assert_eq!(input_box.prefix_text_widths.last(), 9);
+        assert_eq!(input_box.ps_columns.last(), 9);
 
         input_box.move_cursor_left();
         input_box.delete_char();
         assert_eq!(input_box.text, "aXいcÜe");
         assert_eq!(input_box.cursor_position, 2);
-        assert_eq!(input_box.cursor_column, 2);
+        assert_eq!(input_box.ps_columns.get(input_box.cursor_position), 2);
         assert_eq!(input_box.text_length, 6);
-        assert_eq!(input_box.prefix_text_widths.last(), 7);
+        assert_eq!(input_box.ps_columns.last(), 7);
 
         input_box.delete_next_char();
         assert_eq!(input_box.text, "aXcÜe");
         assert_eq!(input_box.cursor_position, 2);
         assert_eq!(input_box.text_length, 5);
-        assert_eq!(input_box.prefix_text_widths.last(), 5);
+        assert_eq!(input_box.ps_columns.last(), 5);
 
         input_box.delete_char();
         assert_eq!(input_box.text, "acÜe");
         assert_eq!(input_box.cursor_position, 1);
         assert_eq!(input_box.text_length, 4);
-        assert_eq!(input_box.prefix_text_widths.last(), 4);
+        assert_eq!(input_box.ps_columns.last(), 4);
 
         input_box.move_cursor_right();
         input_box.delete_next_char();
