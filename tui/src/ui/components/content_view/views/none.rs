@@ -43,7 +43,7 @@ impl Component for NoneView {
 }
 
 impl ComponentRender<RenderProps> for NoneView {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let block = Block::bordered().border_style(border_style);
@@ -53,7 +53,7 @@ impl ComponentRender<RenderProps> for NoneView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         let text = "No active view";
 
         frame.render_widget(
@@ -77,7 +77,7 @@ mod tests {
     #[test]
     fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = NoneView::new(&AppState::default(), tx).move_with_state(&AppState {
+        let mut view = NoneView::new(&AppState::default(), tx).move_with_state(&AppState {
             active_view: ActiveView::None,
             ..state_with_everything()
         });

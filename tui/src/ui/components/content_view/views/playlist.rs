@@ -250,7 +250,7 @@ fn lib_split_area(area: Rect) -> [Rect; 2] {
 }
 
 impl ComponentRender<RenderProps> for LibraryPlaylistsView {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // render primary border
@@ -314,7 +314,7 @@ impl ComponentRender<RenderProps> for LibraryPlaylistsView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         // create a tree for the playlists
         let items = self
             .props
@@ -427,7 +427,7 @@ mod item_view_tests {
     #[test]
     fn test_render_no_playlist() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = PlaylistView::new(&AppState::default(), tx);
+        let mut view = PlaylistView::new(&AppState::default(), tx);
 
         let (mut terminal, area) = setup_test_terminal(20, 3);
         let props = RenderProps {
@@ -452,7 +452,7 @@ mod item_view_tests {
     #[test]
     fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = PlaylistView::new(&state_with_everything(), tx);
+        let mut view = PlaylistView::new(&state_with_everything(), tx);
 
         let (mut terminal, area) = setup_test_terminal(60, 9);
         let props = RenderProps {
@@ -807,7 +807,7 @@ mod library_view_tests {
     #[test]
     fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = LibraryPlaylistsView::new(&state_with_everything(), tx);
+        let mut view = LibraryPlaylistsView::new(&state_with_everything(), tx);
 
         let (mut terminal, area) = setup_test_terminal(60, 6);
         let props = RenderProps {

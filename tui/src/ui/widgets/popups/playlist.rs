@@ -256,7 +256,7 @@ fn split_area(area: Rect) -> [Rect; 2] {
 }
 
 impl ComponentRender<Rect> for PlaylistSelector {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, area: Rect) -> Rect {
+    fn render_border(&mut self, frame: &mut ratatui::Frame<'_>, area: Rect) -> Rect {
         let area = self.render_popup_border(frame, area);
 
         let content_area = if self.input_box_visible {
@@ -300,7 +300,7 @@ impl ComponentRender<Rect> for PlaylistSelector {
         border.inner(content_area)
     }
 
-    fn render_content(&self, frame: &mut Frame<'_>, area: Rect) {
+    fn render_content(&mut self, frame: &mut Frame<'_>, area: Rect) {
         // create a tree for the playlists
         let playlists = self
             .props
@@ -416,11 +416,11 @@ impl Popup for PlaylistEditor {
 }
 
 impl ComponentRender<Rect> for PlaylistEditor {
-    fn render_border(&self, frame: &mut Frame<'_>, area: Rect) -> Rect {
+    fn render_border(&mut self, frame: &mut Frame<'_>, area: Rect) -> Rect {
         self.render_popup_border(frame, area)
     }
 
-    fn render_content(&self, frame: &mut Frame<'_>, area: Rect) {
+    fn render_content(&mut self, frame: &mut Frame<'_>, area: Rect) {
         let input_box = InputBox::new()
             .border(
                 Block::bordered()
@@ -505,7 +505,7 @@ mod selector_tests {
         let (mut terminal, _) = setup_test_terminal(31, 10);
         let action_tx = tokio::sync::mpsc::unbounded_channel().0;
         let items = vec![];
-        let popup = PlaylistSelector::new(&state, action_tx, items);
+        let mut popup = PlaylistSelector::new(&state, action_tx, items);
         let buffer = terminal
             .draw(|frame| popup.render_popup(frame))?
             .buffer
@@ -679,7 +679,7 @@ mod editor_tests {
     fn test_playlist_editor_render(playlist: PlaylistBrief) -> Result<()> {
         let (mut terminal, _) = setup_test_terminal(20, 5);
         let action_tx = tokio::sync::mpsc::unbounded_channel().0;
-        let editor = PlaylistEditor::new(action_tx, playlist.id.ulid(), &playlist.name);
+        let mut editor = PlaylistEditor::new(action_tx, playlist.id.ulid(), &playlist.name);
         let buffer = terminal
             .draw(|frame| editor.render_popup(frame))?
             .buffer

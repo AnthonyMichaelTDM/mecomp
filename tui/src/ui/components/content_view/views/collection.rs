@@ -165,7 +165,7 @@ impl Component for LibraryCollectionsView {
 }
 
 impl ComponentRender<RenderProps> for LibraryCollectionsView {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // render primary border
@@ -194,7 +194,7 @@ impl ComponentRender<RenderProps> for LibraryCollectionsView {
         }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         // create a tree to hold the collections
         let items = self
             .props
@@ -307,7 +307,7 @@ mod item_view_tests {
     #[test]
     fn test_render_no_collection() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = CollectionView::new(&AppState::default(), tx);
+        let mut view = CollectionView::new(&AppState::default(), tx);
 
         let (mut terminal, area) = setup_test_terminal(22, 3);
         let props = RenderProps {
@@ -332,7 +332,7 @@ mod item_view_tests {
     #[test]
     fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = CollectionView::new(&state_with_everything(), tx);
+        let mut view = CollectionView::new(&state_with_everything(), tx);
 
         let (mut terminal, area) = setup_test_terminal(60, 9);
         let props = RenderProps {
@@ -660,7 +660,7 @@ mod library_view_tests {
     #[test]
     fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = LibraryCollectionsView::new(&state_with_everything(), tx);
+        let mut view = LibraryCollectionsView::new(&state_with_everything(), tx);
 
         let (mut terminal, area) = setup_test_terminal(60, 6);
         let props = RenderProps {

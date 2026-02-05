@@ -247,7 +247,7 @@ fn split_area(area: Rect) -> [Rect; 2] {
 }
 
 impl ComponentRender<RenderProps> for SearchView {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style =
             Style::default().fg(border_color(props.is_focused && !self.search_bar_focused).into());
 
@@ -323,7 +323,7 @@ impl ComponentRender<RenderProps> for SearchView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         // if there are no search results, render a message
         if self.props.search_results.is_empty() {
             frame.render_widget(
@@ -369,7 +369,7 @@ mod tests {
     #[test]
     fn test_render_search_focused() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
+        let mut view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
             active_view: ActiveView::Search,
             ..state_with_everything()
         });
@@ -401,7 +401,7 @@ mod tests {
     #[test]
     fn test_render_empty() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
+        let mut view = SearchView::new(&AppState::default(), tx).move_with_state(&AppState {
             active_view: ActiveView::Search,
             search: SearchResult::default(),
             ..state_with_everything()

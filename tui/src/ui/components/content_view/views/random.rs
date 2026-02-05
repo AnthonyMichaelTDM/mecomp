@@ -168,7 +168,7 @@ impl Component for RandomView {
 }
 
 impl ComponentRender<RenderProps> for RandomView {
-    fn render_border(&self, frame: &mut Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         let border = Block::bordered()
@@ -181,7 +181,7 @@ impl ComponentRender<RenderProps> for RandomView {
         RenderProps { area, ..props }
     }
 
-    fn render_content(&self, frame: &mut Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut Frame<'_>, props: RenderProps) {
         if self.props.is_none() {
             frame.render_widget(
                 Line::from("Random items unavailable")
@@ -283,7 +283,7 @@ mod tests {
     /// Test rendering when there are no items available (e.g., empty library)
     fn test_render_empty() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = RandomView::new(&AppState::default(), tx);
+        let mut view = RandomView::new(&AppState::default(), tx);
 
         let (mut terminal, area) = setup_test_terminal(29, 3);
         let props = RenderProps {
@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = RandomView::new(&state_with_everything(), tx);
+        let mut view = RandomView::new(&state_with_everything(), tx);
 
         let (mut terminal, area) = setup_test_terminal(50, 5);
         let props = RenderProps {

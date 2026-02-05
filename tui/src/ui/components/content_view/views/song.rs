@@ -192,7 +192,7 @@ impl Component for LibrarySongsView {
 }
 
 impl ComponentRender<RenderProps> for LibrarySongsView {
-    fn render_border(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
+    fn render_border(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) -> RenderProps {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // draw primary border
@@ -233,7 +233,7 @@ impl ComponentRender<RenderProps> for LibrarySongsView {
         }
     }
 
-    fn render_content(&self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
+    fn render_content(&mut self, frame: &mut ratatui::Frame<'_>, props: RenderProps) {
         // create a tree to hold the songs
         let items = self
             .props
@@ -394,7 +394,7 @@ mod item_view_tests {
     #[test]
     fn test_render_no_song() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = SongView::new(&AppState::default(), tx);
+        let mut view = SongView::new(&AppState::default(), tx);
 
         let (mut terminal, area) = setup_test_terminal(16, 3);
         let props = RenderProps {
@@ -541,7 +541,7 @@ mod item_view_tests {
     #[test]
     fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = SongView::new(&state_with_everything(), tx);
+        let mut view = SongView::new(&state_with_everything(), tx);
 
         let (mut terminal, area) = setup_test_terminal(60, 12);
         let props = RenderProps {
@@ -896,7 +896,7 @@ mod library_view_tests {
     #[test]
     fn test_render() {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let view = LibrarySongsView::new(&state_with_everything(), tx);
+        let mut view = LibrarySongsView::new(&state_with_everything(), tx);
 
         let (mut terminal, area) = setup_test_terminal(60, 6);
         let props = RenderProps {

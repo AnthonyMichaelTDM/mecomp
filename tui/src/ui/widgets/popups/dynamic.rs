@@ -191,11 +191,11 @@ fn split_area(area: Rect, name_height: u16, query_height: u16) -> [Rect; 2] {
 }
 
 impl ComponentRender<Rect> for DynamicPlaylistEditor {
-    fn render_border(&self, frame: &mut Frame<'_>, area: Rect) -> Rect {
+    fn render_border(&mut self, frame: &mut Frame<'_>, area: Rect) -> Rect {
         self.render_popup_border(frame, area)
     }
 
-    fn render_content(&self, frame: &mut Frame<'_>, area: Rect) {
+    fn render_content(&mut self, frame: &mut Frame<'_>, area: Rect) {
         let [name_area, query_area] = split_area(area, 3, 3);
 
         let (name_color, query_color) = match self.focus {
@@ -369,7 +369,7 @@ mod tests {
     fn test_render(playlist: DynamicPlaylist) {
         let (mut terminal, _) = setup_test_terminal(30, 8);
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let editor = DynamicPlaylistEditor::new(tx, playlist);
+        let mut editor = DynamicPlaylistEditor::new(tx, playlist);
         let buffer = terminal
             .draw(|frame| editor.render_popup(frame))
             .unwrap()
