@@ -1,11 +1,11 @@
-use std::{str::FromStr, sync::Mutex};
+use std::{cell::RefCell, str::FromStr, sync::Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_prost::{DynamicPlaylist, SongBrief};
 use mecomp_storage::db::schemas::dynamic::query::Query;
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Margin, Position, Rect},
+    layout::{Constraint, Direction, Layout, Margin, Offset, Position, Rect},
     style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
@@ -25,7 +25,7 @@ use crate::{
             content_view::{ActiveView, views::generic::SortableItemView},
         },
         widgets::{
-            input_box::{self, InputBox},
+            input_box::{InputBox, InputBoxState},
             tree::{CheckTree, state::CheckTreeState},
         },
     },
@@ -42,33 +42,36 @@ use super::{
 ///
 /// Currently just a wrapper around an `InputBox`,
 /// but I want it to be more like a advanced search builder from something like airtable or a research database.
+#[derive(Default)]
 pub struct QueryBuilder {
-    inner: InputBox,
+    inner: RefCell<InputBoxState>,
 }
 
 impl QueryBuilder {
     #[must_use]
-    pub fn new(state: &AppState, action_tx: UnboundedSender<Action>) -> Self {
-        Self {
-            inner: InputBox::new(state, action_tx),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     #[must_use]
-    pub const fn text(&self) -> &str {
-        self.inner.text()
+    pub fn text(&self) -> String {
+        self.inner.borrow().text().to_string()
+    }
+
+    pub fn query(&self) -> Option<Query> {
+        Query::from_str(self.inner.borrow().text()).ok()
     }
 
     pub fn handle_key_event(&mut self, key: KeyEvent) {
-        self.inner.handle_key_event(key);
+        self.inner.get_mut().handle_key_event(key);
     }
 
     pub fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        self.inner.handle_mouse_event(mouse, area);
+        self.inner.get_mut().handle_mouse_event(mouse, area);
     }
 
-    pub fn reset(&mut self) {
-        self.inner.reset();
+    pub fn clear(&mut self) {
+        self.inner.get_mut().clear();
     }
 }
 
@@ -83,7 +86,7 @@ pub struct LibraryDynamicView {
     /// tree state
     tree_state: Mutex<CheckTreeState<String>>,
     /// Dynamic Playlist Name Input Box
-    name_input_box: InputBox,
+    name_input_box: RefCell<InputBoxState>,
     /// Dynamic Playlist Query Input Box
     query_builder: QueryBuilder,
     /// What is currently focused
@@ -122,8 +125,8 @@ impl Component for LibraryDynamicView {
         Self: Sized,
     {
         Self {
-            name_input_box: InputBox::new(state, action_tx.clone()),
-            query_builder: QueryBuilder::new(state, action_tx.clone()),
+            name_input_box: RefCell::new(InputBoxState::new()),
+            query_builder: QueryBuilder::new(),
             focus: Focus::Tree,
             action_tx,
             props: Props::from(state),
@@ -224,8 +227,8 @@ impl Component for LibraryDynamicView {
                 _ => {}
             }
         } else {
-            let query = Query::from_str(self.query_builder.text()).ok();
-            let name = self.name_input_box.text();
+            let query = self.query_builder.query();
+            let name = self.name_input_box.borrow().text().to_string();
 
             match (key.code, query, self.focus) {
                 // if the user presses Enter with an empty name, we cancel the operation
@@ -240,16 +243,15 @@ impl Component for LibraryDynamicView {
                 (KeyCode::Enter, Some(query), Focus::QueryInput) => {
                     self.action_tx
                         .send(Action::Library(LibraryAction::CreateDynamicPlaylist(
-                            name.to_string(),
-                            query,
+                            name, query,
                         )))
                         .unwrap();
-                    self.name_input_box.reset();
-                    self.query_builder.reset();
+                    self.name_input_box.get_mut().clear();
+                    self.query_builder.clear();
                     self.focus = Focus::Tree;
                 }
                 // otherwise defer to the focused input box
-                (_, _, Focus::NameInput) => self.name_input_box.handle_key_event(key),
+                (_, _, Focus::NameInput) => self.name_input_box.get_mut().handle_key_event(key),
                 (_, _, Focus::QueryInput) => self.query_builder.handle_key_event(key),
                 (_, _, Focus::Tree) => unreachable!(),
             }
@@ -293,6 +295,7 @@ impl Component for LibraryDynamicView {
                     self.focus = Focus::NameInput;
                 }
                 self.name_input_box
+                    .get_mut()
                     .handle_mouse_event(mouse, input_box_area);
             } else if query_builder_area.contains(mouse_position) {
                 if kind == MouseEventKind::Down(MouseButton::Left) {
@@ -367,46 +370,50 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
                 Focus::Tree => ((*BORDER_UNFOCUSED).into(), (*BORDER_UNFOCUSED).into()),
             };
 
-            let (name_show_cursor, query_show_cursor) = match self.focus {
-                Focus::NameInput => (true, false),
-                Focus::QueryInput => (false, true),
-                Focus::Tree => (false, false),
-            };
-
             // render the name input box
-            self.name_input_box.render(
-                frame,
-                input_box::RenderProps {
-                    area: input_box_area,
-                    text_color: name_text_color,
-                    border: Block::bordered()
-                        .title("Enter Name:")
-                        .border_style(Style::default().fg(name_border_color)),
-                    show_cursor: name_show_cursor,
-                },
+            let name_input = InputBox::new().text_color(name_text_color).border(
+                Block::bordered()
+                    .title("Enter Name:")
+                    .border_style(Style::default().fg(name_border_color)),
+            );
+            frame.render_stateful_widget(
+                name_input,
+                input_box_area,
+                &mut self.name_input_box.borrow_mut(),
             );
 
             // render the query input box
-            let query_builder_props = if Query::from_str(self.query_builder.text()).is_ok() {
-                input_box::RenderProps {
-                    area: query_builder_area,
-                    text_color: query_text_color,
-                    border: Block::bordered()
-                        .title("Enter Query:")
-                        .border_style(Style::default().fg(query_border_color)),
-                    show_cursor: query_show_cursor,
-                }
+            let title = if self.query_builder.query().is_some() {
+                "Enter Query:"
             } else {
-                input_box::RenderProps {
-                    area: query_builder_area,
-                    text_color: (*TEXT_HIGHLIGHT).into(),
-                    border: Block::bordered()
-                        .title("Invalid Query:")
-                        .border_style(Style::default().fg(query_border_color)),
-                    show_cursor: query_show_cursor,
-                }
+                "Invalid Query:"
             };
-            self.query_builder.inner.render(frame, query_builder_props);
+            let query_builder = InputBox::new().text_color(query_text_color).border(
+                Block::bordered()
+                    .title(title)
+                    .border_style(Style::default().fg(query_border_color)),
+            );
+            frame.render_stateful_widget(
+                query_builder,
+                query_builder_area,
+                &mut self.query_builder.inner.borrow_mut(),
+            );
+
+            match self.focus {
+                Focus::NameInput => {
+                    let position = input_box_area
+                        + self.name_input_box.borrow().cursor_offset()
+                        + Offset::new(1, 1);
+                    frame.set_cursor_position(position);
+                }
+                Focus::QueryInput => {
+                    let position = query_builder_area
+                        + self.query_builder.inner.borrow().cursor_offset()
+                        + Offset::new(1, 1);
+                    frame.set_cursor_position(position);
+                }
+                Focus::Tree => {}
+            }
 
             content_area
         };
@@ -928,7 +935,7 @@ mod library_view_tests {
         view.handle_key_event(KeyEvent::from(KeyCode::Char('c')));
         view.handle_key_event(KeyEvent::from(KeyCode::Enter));
 
-        assert_eq!(view.name_input_box.text(), "abc");
+        assert_eq!(view.name_input_box.borrow().text(), "abc");
         assert_eq!(view.focus, Focus::QueryInput);
 
         // when the query input box is focused:

@@ -1,11 +1,11 @@
 //! implementation the search view
 
-use std::sync::Mutex;
+use std::{cell::RefCell, sync::Mutex};
 
 use crossterm::event::{KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use mecomp_prost::SearchResult;
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Offset, Position, Rect},
     style::Style,
     text::Line,
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
@@ -19,7 +19,7 @@ use crate::{
         colors::{TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL, border_color},
         components::{Component, ComponentRender, RenderProps, content_view::ActiveView},
         widgets::{
-            input_box::{self, InputBox},
+            input_box::{InputBox, InputBoxState},
             popups::PopupType,
             tree::{CheckTree, state::CheckTreeState},
         },
@@ -39,7 +39,7 @@ pub struct SearchView {
     /// tree state
     tree_state: Mutex<CheckTreeState<String>>,
     /// Search Bar
-    search_bar: InputBox,
+    search_bar: RefCell<InputBoxState>,
     /// Is the search bar focused
     search_bar_focused: bool,
 }
@@ -66,7 +66,7 @@ impl Component for SearchView {
     {
         let props = Props::from(state);
         Self {
-            search_bar: InputBox::new(state, action_tx.clone()),
+            search_bar: RefCell::new(InputBoxState::new()),
             search_bar_focused: true,
             tree_state: Mutex::new(CheckTreeState::default()),
             action_tx,
@@ -79,7 +79,6 @@ impl Component for SearchView {
         Self: Sized,
     {
         Self {
-            search_bar: self.search_bar.move_with_state(state),
             props: Props::from(state),
             tree_state: Mutex::new(CheckTreeState::default()),
             ..self
@@ -124,11 +123,12 @@ impl Component for SearchView {
             KeyCode::Enter if self.search_bar_focused => {
                 self.search_bar_focused = false;
                 self.tree_state.lock().unwrap().reset();
-                if !self.search_bar.is_empty() {
+                let search_bar = self.search_bar.get_mut();
+                if !search_bar.is_empty() {
                     self.action_tx
-                        .send(Action::Search(self.search_bar.text().to_string()))
+                        .send(Action::Search(search_bar.text().to_string()))
                         .unwrap();
-                    self.search_bar.reset();
+                    search_bar.clear();
                 }
             }
             KeyCode::Char('/') if !self.search_bar_focused => {
@@ -180,7 +180,7 @@ impl Component for SearchView {
 
             // defer to the search bar, if it is focused
             _ if self.search_bar_focused => {
-                self.search_bar.handle_key_event(key);
+                self.search_bar.get_mut().handle_key_event(key);
             }
             _ => {}
         }
@@ -198,7 +198,9 @@ impl Component for SearchView {
         match (self.search_bar_focused, kind) {
             // defer to the search bar if mouse event belongs to it
             (true, _) if search_bar_area.contains(mouse_position) => {
-                self.search_bar.handle_mouse_event(mouse, search_bar_area);
+                self.search_bar
+                    .get_mut()
+                    .handle_mouse_event(mouse, search_bar_area);
             }
             // if the search bar is focused and mouse is clicked outside of it, unfocus the search bar
             (true, MouseEventKind::Down(MouseButton::Left))
@@ -253,22 +255,28 @@ impl ComponentRender<RenderProps> for SearchView {
         let [search_bar_area, content_area] = split_area(props.area);
 
         // render the search bar
-        self.search_bar.render(
-            frame,
-            input_box::RenderProps {
-                area: search_bar_area,
-                text_color: if self.search_bar_focused {
-                    (*TEXT_HIGHLIGHT_ALT).into()
-                } else {
-                    (*TEXT_NORMAL).into()
-                },
-                border: Block::bordered().title("Search").border_style(
+        let search_bar = InputBox::new()
+            .text_color(if self.search_bar_focused {
+                (*TEXT_HIGHLIGHT_ALT).into()
+            } else {
+                (*TEXT_NORMAL).into()
+            })
+            .border(
+                Block::bordered().title("Search").border_style(
                     Style::default()
                         .fg(border_color(self.search_bar_focused && props.is_focused).into()),
                 ),
-                show_cursor: self.search_bar_focused,
-            },
+            );
+        frame.render_stateful_widget(
+            search_bar,
+            search_bar_area,
+            &mut self.search_bar.borrow_mut(),
         );
+        if self.search_bar_focused {
+            let position =
+                search_bar_area + self.search_bar.borrow().cursor_offset() + Offset::new(1, 1);
+            frame.set_cursor_position(position);
+        }
 
         // put a border around the content area
         let area = if self.search_bar_focused {
