@@ -1,7 +1,4 @@
 //! Views for both a single album, and the library of albums.
-
-use std::sync::Mutex;
-
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_prost::AlbumBrief;
 use ratatui::{
@@ -39,7 +36,7 @@ pub struct LibraryAlbumsView {
     /// Mapped Props from state
     props: Props,
     /// tree state
-    tree_state: Mutex<CheckTreeState<String>>,
+    tree_state: CheckTreeState<String>,
 }
 
 struct Props {
@@ -63,7 +60,7 @@ impl Component for LibraryAlbumsView {
         Self {
             action_tx,
             props: Props::new(state, sort_mode),
-            tree_state: Mutex::new(CheckTreeState::default()),
+            tree_state: CheckTreeState::default(),
         }
     }
 
@@ -74,7 +71,7 @@ impl Component for LibraryAlbumsView {
         let tree_state = if state.active_view == ActiveView::Albums {
             self.tree_state
         } else {
-            Mutex::default()
+            CheckTreeState::default()
         };
 
         Self {
@@ -92,36 +89,34 @@ impl Component for LibraryAlbumsView {
         match key.code {
             // arrow keys
             KeyCode::PageUp => {
-                self.tree_state.lock().unwrap().select_relative(|current| {
+                self.tree_state.select_relative(|current| {
                     let first = self.props.albums.len().saturating_sub(1);
                     current.map_or(first, |c| c.saturating_sub(10))
                 });
             }
             KeyCode::Up => {
-                self.tree_state.lock().unwrap().key_up();
+                self.tree_state.key_up();
             }
             KeyCode::PageDown => {
                 self.tree_state
-                    .lock()
-                    .unwrap()
                     .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
             }
             KeyCode::Down => {
-                self.tree_state.lock().unwrap().key_down();
+                self.tree_state.key_down();
             }
             KeyCode::Left => {
-                self.tree_state.lock().unwrap().key_left();
+                self.tree_state.key_left();
             }
             KeyCode::Right => {
-                self.tree_state.lock().unwrap().key_right();
+                self.tree_state.key_right();
             }
             KeyCode::Char(' ') => {
-                self.tree_state.lock().unwrap().key_space();
+                self.tree_state.key_space();
             }
             // Enter key opens selected view
             KeyCode::Enter => {
-                if self.tree_state.lock().unwrap().toggle_selected() {
-                    let things = self.tree_state.lock().unwrap().get_selected_thing();
+                if self.tree_state.toggle_selected() {
+                    let things = self.tree_state.get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
@@ -132,7 +127,7 @@ impl Component for LibraryAlbumsView {
             }
             // when there are checked items, "q" will send the checked items to the queue
             KeyCode::Char('q') => {
-                let things = self.tree_state.lock().unwrap().get_checked_things();
+                let things = self.tree_state.get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Audio(AudioAction::Queue(QueueAction::Add(things))))
@@ -141,7 +136,7 @@ impl Component for LibraryAlbumsView {
             }
             // when there are checked items, "r" will start a radio with the checked items
             KeyCode::Char('r') => {
-                let things = self.tree_state.lock().unwrap().get_checked_things();
+                let things = self.tree_state.get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::ActiveView(ViewAction::Set(ActiveView::Radio(
@@ -152,7 +147,7 @@ impl Component for LibraryAlbumsView {
             }
             // when there are checked items, "p" will send the checked items to the playlist
             KeyCode::Char('p') => {
-                let things = self.tree_state.lock().unwrap().get_checked_things();
+                let things = self.tree_state.get_checked_things();
                 if !things.is_empty() {
                     self.action_tx
                         .send(Action::Popup(PopupAction::Open(PopupType::Playlist(
@@ -165,12 +160,12 @@ impl Component for LibraryAlbumsView {
             KeyCode::Char('s') => {
                 self.props.sort_mode = self.props.sort_mode.next();
                 self.props.sort_mode.sort_items(&mut self.props.albums);
-                self.tree_state.lock().unwrap().scroll_selected_into_view();
+                self.tree_state.scroll_selected_into_view();
             }
             KeyCode::Char('S') => {
                 self.props.sort_mode = self.props.sort_mode.prev();
                 self.props.sort_mode.sort_items(&mut self.props.albums);
-                self.tree_state.lock().unwrap().scroll_selected_into_view();
+                self.tree_state.scroll_selected_into_view();
             }
             _ => {}
         }
@@ -180,11 +175,7 @@ impl Component for LibraryAlbumsView {
         // adjust the area to account for the border
         let area = area.inner(Margin::new(1, 2));
 
-        let result = self
-            .tree_state
-            .lock()
-            .unwrap()
-            .handle_mouse_event(mouse, area, false);
+        let result = self.tree_state.handle_mouse_event(mouse, area, false);
         if let Some(action) = result {
             self.action_tx.send(action).unwrap();
         }
@@ -208,12 +199,7 @@ impl ComponentRender<RenderProps> for LibraryAlbumsView {
         frame.render_widget(border, props.area);
 
         // draw an additional border around the content area to display additional instructions
-        let tree_checked_things_empty = self
-            .tree_state
-            .lock()
-            .unwrap()
-            .get_checked_things()
-            .is_empty();
+        let tree_checked_things_empty = self.tree_state.get_checked_things().is_empty();
         let border_title_top = if tree_checked_things_empty {
             ""
         } else {
@@ -246,7 +232,7 @@ impl ComponentRender<RenderProps> for LibraryAlbumsView {
                 .highlight_style(Style::default().fg((*TEXT_HIGHLIGHT).into()).bold())
                 .experimental_scrollbar(Some(Scrollbar::new(ScrollbarOrientation::VerticalRight))),
             props.area,
-            &mut self.tree_state.lock().unwrap(),
+            &mut self.tree_state,
         );
     }
 }
@@ -1004,7 +990,7 @@ mod library_view_tests {
             modifiers: KeyModifiers::empty(),
         };
         view.handle_mouse_event(mouse, area);
-        assert_eq!(view.tree_state.lock().unwrap().get_selected_thing(), None);
+        assert_eq!(view.tree_state.get_selected_thing(), None);
         view.handle_mouse_event(mouse, area);
         assert_eq!(
             rx.try_recv(),
