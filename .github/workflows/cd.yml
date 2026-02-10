@@ -87,7 +87,7 @@ jobs:
         if: contains(matrix.platform.os, 'ubuntu')
 
       - name: Setup cache
-        uses: Swatinem/rust-cache@v2.8.1
+        uses: Swatinem/rust-cache@v2.8.2
         with:
           shared-key: ${{ runner.os }}-cargo-cd
 
