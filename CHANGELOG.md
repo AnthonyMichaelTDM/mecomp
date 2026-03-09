@@ -1,5 +1,17 @@
 # Mecomp Changelog
 
+## v0.7.2
+
+This release simplifies state management in the TUI and improved the behavior of input boxes
+
+### v0.7.2 What's Changed
+
+* perf(tui): simplify state management of various components by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/457
+* feat(inputbox): smooth scrolling (ex: search and dynamic playlist editing) by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/456
+
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.7.1...v0.7.2
+
 ## v0.7.1
 
 This release focuses on performance improvements and some minor fixes.

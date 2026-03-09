@@ -20,7 +20,7 @@ prost-types = { version = "0.14.3" }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["time"] }
 tonic = { workspace = true }
-tonic-prost = "0.14.2"
+tonic-prost = "0.14.5"
 tracing.workspace = true
 
 mecomp-core = { workspace = true }
@@ -29,7 +29,7 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
 
 [build-dependencies]
-tonic-prost-build = { version = "0.14.2", default-features = false }
+tonic-prost-build = { version = "0.14.5", default-features = false }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
