@@ -110,6 +110,7 @@ pub enum PopupType {
     Playlist(Vec<RecordId>),
     PlaylistEditor(PlaylistBrief),
     DynamicPlaylistEditor(DynamicPlaylist),
+    DynamicPlaylistCreator,
 }
 
 impl PopupType {
@@ -131,8 +132,11 @@ impl PopupType {
                 playlist.id.ulid(),
                 &playlist.name,
             )) as _,
-            Self::DynamicPlaylistEditor(playlist) => {
-                Box::new(dynamic::DynamicPlaylistEditor::new(action_tx, playlist)) as _
+            Self::DynamicPlaylistEditor(playlist) => Box::new(
+                dynamic::DynamicPlaylistEditor::new_editor(action_tx, playlist),
+            ) as _,
+            Self::DynamicPlaylistCreator => {
+                Box::new(dynamic::DynamicPlaylistEditor::new_creator(action_tx)) as _
             }
         }
     }
