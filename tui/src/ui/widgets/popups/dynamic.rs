@@ -28,6 +28,11 @@ use crate::{
 
 use super::Popup;
 
+pub enum PopupType {
+    Edit(RecordId),
+    Create,
+}
+
 /// The popup used to edit Dynamic Playlists.
 pub struct DynamicPlaylistEditor {
     action_tx: UnboundedSender<Action>,
@@ -35,12 +40,16 @@ pub struct DynamicPlaylistEditor {
     name_input: InputBoxState,
     query_input: InputBoxState,
     focus: Focus,
+    kind: PopupType,
 }
 
 impl DynamicPlaylistEditor {
-    /// Create a new `DynamicPlaylistEditor`.
+    /// Create a new `DynamicPlaylistEditor` to edit an existing dynamic playlist.
     #[must_use]
-    pub fn new(action_tx: UnboundedSender<Action>, dynamic_playlist: DynamicPlaylist) -> Self {
+    pub fn new_editor(
+        action_tx: UnboundedSender<Action>,
+        dynamic_playlist: DynamicPlaylist,
+    ) -> Self {
         let mut name_input = InputBoxState::new();
         name_input.set_text(&dynamic_playlist.name);
         let mut query_input = InputBoxState::new();
@@ -48,10 +57,25 @@ impl DynamicPlaylistEditor {
 
         Self {
             action_tx,
-            dynamic_playlist_id: dynamic_playlist.id,
             name_input,
             query_input,
             focus: Focus::Name,
+            kind: PopupType::Edit(dynamic_playlist.id),
+        }
+    }
+
+    /// Create a new `DynamicPlaylistEditor` to create a new dynamic playlist
+    #[must_use]
+    pub fn new_creator(action_tx: UnboundedSender<Action>) -> Self {
+        let name_input = InputBoxState::new();
+        let query_input = InputBoxState::new();
+
+        Self {
+            action_tx,
+            name_input,
+            query_input,
+            focus: Focus::Name,
+            kind: PopupType::Create,
         }
     }
 }
@@ -132,17 +156,22 @@ impl Popup for DynamicPlaylistEditor {
                 self.focus = self.focus.next();
             }
             (KeyCode::Enter, Some(query)) => {
-                let change_set = DynamicPlaylistChangeSet {
-                    new_name: Some(self.name_input.text().into()),
-                    new_query: Some(query.to_string()),
+                let name = self.name_input.text().into();
+                let action = match &self.kind {
+                    PopupType::Edit(id) => {
+                        let change_set = DynamicPlaylistChangeSet {
+                            new_name: Some(name),
+                            new_query: Some(query.to_string()),
+                        };
+                        Action::Library(LibraryAction::UpdateDynamicPlaylist(id.ulid(), change_set))
+                    }
+                    PopupType::Create => {
+                        Action::Library(LibraryAction::CreateDynamicPlaylist(name, query))
+                    }
                 };
 
-                self.action_tx
-                    .send(Action::Library(LibraryAction::UpdateDynamicPlaylist(
-                        self.dynamic_playlist_id.ulid(),
-                        change_set,
-                    )))
-                    .ok();
+                self.action_tx.send(action).ok();
+
                 self.action_tx.send(Action::Popup(PopupAction::Close)).ok();
             }
             _ => match self.focus {
