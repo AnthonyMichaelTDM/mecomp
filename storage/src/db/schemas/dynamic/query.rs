@@ -92,7 +92,7 @@ pub struct CompoundClause {
     pub kind: CompoundKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 /// The kind of a compound clause.
 pub enum CompoundKind {
     Or,
