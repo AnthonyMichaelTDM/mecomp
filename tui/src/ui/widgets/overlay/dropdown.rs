@@ -9,11 +9,17 @@ use ratatui::{
 use std::sync::Arc;
 
 use crate::ui::{AppState, components::ComponentRender};
+use crate::{
+    state::action::{Action, OverlayAction},
+    ui::widgets::overlay::OverlayResult,
+};
+use tokio::sync::mpsc::UnboundedSender;
 
 use super::Overlay;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DropdownOverlay {
+    pub target_id: u64,
     pub area: Rect,
     pub options: Arc<[String]>,
     pub selected_index: usize,
@@ -57,21 +63,44 @@ impl Overlay for DropdownOverlay {
 
     fn update_with_state(&mut self, _: &AppState) {}
 
-    fn inner_handle_key_event(&mut self, key: KeyEvent) {
+    fn inner_handle_key_event(&mut self, key: KeyEvent, action_tx: UnboundedSender<Action>) {
         match key.code {
             KeyCode::Up => self.move_up(),
             KeyCode::Down => self.move_down(),
+            KeyCode::Enter => {
+                action_tx
+                    .send(Action::Overlay(OverlayAction::Commit(
+                        OverlayResult::DropdownSelected {
+                            target_id: self.target_id,
+                            selected_index: self.selected_index,
+                        },
+                    )))
+                    .ok();
+            }
             _ => {}
         }
     }
 
-    fn inner_handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
+    fn inner_handle_mouse_event(
+        &mut self,
+        mouse: MouseEvent,
+        area: Rect,
+        action_tx: UnboundedSender<Action>,
+    ) {
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
                 let y = mouse.row.saturating_sub(area.y);
                 let clicked_index = self.scroll_offset + usize::from(y);
                 if clicked_index < self.options.len() {
                     self.selected_index = clicked_index;
+                    action_tx
+                        .send(Action::Overlay(OverlayAction::Commit(
+                            OverlayResult::DropdownSelected {
+                                target_id: self.target_id,
+                                selected_index: self.selected_index,
+                            },
+                        )))
+                        .ok();
                 }
             }
             MouseEventKind::ScrollUp => self.move_up(),
@@ -114,5 +143,66 @@ impl ComponentRender<Rect> for DropdownOverlay {
         }
 
         frame.render_stateful_widget(list, area, &mut state);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
+
+    #[test]
+    fn enter_commits_selected_index() {
+        let options: Arc<[String]> = Arc::from(vec!["A".to_string(), "B".to_string()]);
+        let mut overlay = DropdownOverlay {
+            target_id: 7,
+            area: Rect::new(10, 10, 8, 3),
+            options,
+            selected_index: 1,
+            scroll_offset: 0,
+        };
+
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        overlay.inner_handle_key_event(KeyEvent::from(KeyCode::Enter), tx);
+
+        let action = rx.blocking_recv().expect("expected commit action");
+        assert_eq!(
+            action,
+            Action::Overlay(OverlayAction::Commit(OverlayResult::DropdownSelected {
+                target_id: 7,
+                selected_index: 1,
+            }))
+        );
+    }
+
+    #[test]
+    fn click_commits_clicked_index() {
+        let options: Arc<[String]> = Arc::from(vec!["A".to_string(), "B".to_string()]);
+        let mut overlay = DropdownOverlay {
+            target_id: 3,
+            area: Rect::new(10, 10, 8, 3),
+            options,
+            selected_index: 0,
+            scroll_offset: 0,
+        };
+
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let click = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 11,
+            row: 11,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+
+        overlay.inner_handle_mouse_event(click, overlay.area, tx);
+
+        let action = rx.blocking_recv().expect("expected commit action");
+        assert_eq!(
+            action,
+            Action::Overlay(OverlayAction::Commit(OverlayResult::DropdownSelected {
+                target_id: 3,
+                selected_index: 1,
+            }))
+        );
     }
 }

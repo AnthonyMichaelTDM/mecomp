@@ -10,7 +10,10 @@ use mecomp_storage::db::schemas::dynamic::query::Query;
 
 use crate::ui::{
     components::content_view::ActiveView,
-    widgets::{overlay::OverlayType, popups::PopupType},
+    widgets::{
+        overlay::{OverlayResult, OverlayType},
+        popups::PopupType,
+    },
 };
 
 use super::component::ActiveComponent;
@@ -148,6 +151,8 @@ pub enum PopupAction {
 pub enum OverlayAction {
     /// Open an overlay
     Open(OverlayType),
+    /// Close the current overlay and publish a result
+    Commit(OverlayResult),
     /// Close the current overlay
     Close,
 }

@@ -9,10 +9,7 @@ use tokio::sync::{
 
 use crate::{
     termination::{Interrupted, Terminator},
-    ui::{
-        components::content_view::ActiveView,
-        widgets::{overlay::OverlayType, popups::PopupType},
-    },
+    ui::{components::content_view::ActiveView, widgets::popups::PopupType},
 };
 
 pub mod action;
@@ -52,7 +49,7 @@ pub struct Receivers {
     pub search: UnboundedReceiver<SearchResult>,
     pub library: UnboundedReceiver<LibraryBrief>,
     pub view: UnboundedReceiver<ActiveView>,
-    pub overlay: UnboundedReceiver<Option<OverlayType>>,
+    pub overlay: UnboundedReceiver<overlay::OverlayUpdate>,
     pub popup: UnboundedReceiver<Option<PopupType>>,
     pub component: UnboundedReceiver<component::ActiveComponent>,
 }

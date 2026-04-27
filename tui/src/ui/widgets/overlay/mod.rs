@@ -20,7 +20,7 @@ pub trait Overlay: for<'a> ComponentRender<Rect> + Send {
     fn update_with_state(&mut self, state: &AppState);
 
     /// Key event handler for the inner overlay content.
-    fn inner_handle_key_event(&mut self, key: KeyEvent);
+    fn inner_handle_key_event(&mut self, key: KeyEvent, action_tx: UnboundedSender<Action>);
 
     /// Shared key handling wrapper.
     fn handle_key_event(&mut self, key: KeyEvent, action_tx: UnboundedSender<Action>) {
@@ -32,12 +32,17 @@ pub trait Overlay: for<'a> ComponentRender<Rect> + Send {
             KeyCode::Esc => {
                 action_tx.send(Action::Overlay(OverlayAction::Close)).ok();
             }
-            _ => self.inner_handle_key_event(key),
+            _ => self.inner_handle_key_event(key, action_tx),
         }
     }
 
     /// Mouse event handler for the inner overlay content.
-    fn inner_handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect);
+    fn inner_handle_mouse_event(
+        &mut self,
+        mouse: MouseEvent,
+        area: Rect,
+        action_tx: UnboundedSender<Action>,
+    );
 
     /// Shared mouse handling wrapper.
     fn handle_mouse_event(
@@ -47,7 +52,7 @@ pub trait Overlay: for<'a> ComponentRender<Rect> + Send {
         action_tx: UnboundedSender<Action>,
     ) {
         if area.contains(Position::new(mouse.column, mouse.row)) {
-            self.inner_handle_mouse_event(mouse, area);
+            self.inner_handle_mouse_event(mouse, area, action_tx);
             return;
         }
 
@@ -61,6 +66,15 @@ pub trait Overlay: for<'a> ComponentRender<Rect> + Send {
         frame.render_widget(Clear, area);
         self.render(frame, area);
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum OverlayResult {
+    DropdownSelected {
+        target_id: u64,
+        selected_index: usize,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

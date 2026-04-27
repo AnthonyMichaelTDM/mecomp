@@ -16,6 +16,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::state::{
     action::{Action, ComponentAction, GeneralAction, LibraryAction},
     component::ActiveComponent,
+    overlay::OverlayUpdate,
 };
 
 use super::{
@@ -133,8 +134,15 @@ impl App {
     }
 
     /// Move the app with the given overlay update.
-    pub fn move_with_overlay(self, overlay: Option<OverlayType>) -> Self {
-        Self { overlay, ..self }
+    pub fn move_with_overlay(mut self, update: OverlayUpdate) -> Self {
+        if let Some(result) = update.result.as_ref()
+            && let Some(popup) = self.popup.as_mut()
+        {
+            popup.handle_overlay_result(result);
+        }
+
+        self.overlay = update.active;
+        self
     }
 }
 
