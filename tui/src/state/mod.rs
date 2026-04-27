@@ -9,13 +9,17 @@ use tokio::sync::{
 
 use crate::{
     termination::{Interrupted, Terminator},
-    ui::{components::content_view::ActiveView, widgets::popups::PopupType},
+    ui::{
+        components::content_view::ActiveView,
+        widgets::{overlay::OverlayType, popups::PopupType},
+    },
 };
 
 pub mod action;
 pub mod audio;
 pub mod component;
 pub mod library;
+pub mod overlay;
 pub mod popup;
 pub mod search;
 pub mod view;
@@ -26,6 +30,7 @@ pub struct Dispatcher {
     search: search::SearchState,
     library: library::LibraryState,
     view: view::ViewState,
+    overlay: overlay::OverlayState,
     popup: popup::PopupState,
     component: component::ComponentState,
 }
@@ -36,6 +41,7 @@ struct Senders {
     pub search: UnboundedSender<String>,
     pub library: UnboundedSender<action::LibraryAction>,
     pub view: UnboundedSender<action::ViewAction>,
+    pub overlay: UnboundedSender<action::OverlayAction>,
     pub popup: UnboundedSender<action::PopupAction>,
     pub component: UnboundedSender<action::ComponentAction>,
 }
@@ -46,6 +52,7 @@ pub struct Receivers {
     pub search: UnboundedReceiver<SearchResult>,
     pub library: UnboundedReceiver<LibraryBrief>,
     pub view: UnboundedReceiver<ActiveView>,
+    pub overlay: UnboundedReceiver<Option<OverlayType>>,
     pub popup: UnboundedReceiver<Option<PopupType>>,
     pub component: UnboundedReceiver<component::ActiveComponent>,
 }
@@ -57,6 +64,7 @@ impl Dispatcher {
         let (search, search_rx) = search::SearchState::new();
         let (library, library_rx) = library::LibraryState::new();
         let (view, view_rx) = view::ViewState::new();
+        let (overlay, overlay_rx) = overlay::OverlayState::new();
         let (popup, popup_rx) = popup::PopupState::new();
         let (active_component, active_component_rx) = component::ComponentState::new();
 
@@ -65,6 +73,7 @@ impl Dispatcher {
             search,
             library,
             view,
+            overlay,
             popup,
             component: active_component,
         };
@@ -73,6 +82,7 @@ impl Dispatcher {
             search: search_rx,
             library: library_rx,
             view: view_rx,
+            overlay: overlay_rx,
             popup: popup_rx,
             component: active_component_rx,
         };
@@ -98,6 +108,7 @@ impl Dispatcher {
         let (search_action_tx, search_action_rx) = mpsc::unbounded_channel();
         let (library_action_tx, library_action_rx) = mpsc::unbounded_channel();
         let (view_action_tx, view_action_rx) = mpsc::unbounded_channel();
+        let (overlay_action_tx, overlay_action_rx) = mpsc::unbounded_channel();
         let (popup_action_tx, popup_action_rx) = mpsc::unbounded_channel();
         let (component_action_tx, component_action_rx) = mpsc::unbounded_channel();
 
@@ -122,6 +133,9 @@ impl Dispatcher {
             // the view store
             self.view
                 .main_loop(view_action_rx, interrupt_rx.resubscribe()),
+            // the overlay store
+            self.overlay
+                .main_loop(overlay_action_rx, interrupt_rx.resubscribe()),
             // the popup store
             self.popup
                 .main_loop(popup_action_rx, interrupt_rx.resubscribe()),
@@ -137,6 +151,7 @@ impl Dispatcher {
                     search: search_action_tx,
                     library: library_action_tx,
                     view: view_action_tx,
+                    overlay: overlay_action_tx,
                     popup: popup_action_tx,
                     component: component_action_tx,
                 },
@@ -172,7 +187,15 @@ impl Dispatcher {
                 Action::ActiveView(action) => {
                     senders.view.send(action)?;
                 }
-                Action::Popup(popup) => senders.popup.send(popup)?,
+                Action::Overlay(overlay) => {
+                    senders.overlay.send(overlay)?;
+                }
+                Action::Popup(popup) => {
+                    if popup == action::PopupAction::Close {
+                        senders.overlay.send(action::OverlayAction::Close)?;
+                    }
+                    senders.popup.send(popup)?;
+                }
                 Action::ActiveComponent(action) => {
                     senders.component.send(action)?;
                 }
