@@ -36,7 +36,6 @@ pub enum PopupType {
 /// The popup used to edit Dynamic Playlists.
 pub struct DynamicPlaylistEditor {
     action_tx: UnboundedSender<Action>,
-    dynamic_playlist_id: RecordId,
     name_input: InputBoxState,
     query_input: InputBoxState,
     focus: Focus,
@@ -314,7 +313,7 @@ mod tests {
     ) {
         let (_, area) = setup_test_terminal(terminal_size.0, terminal_size.1);
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let editor = DynamicPlaylistEditor::new(tx, playlist);
+        let editor = DynamicPlaylistEditor::new_editor(tx, playlist);
         let area = editor.area(area);
         assert_eq!(area, expected_area);
     }
@@ -323,7 +322,7 @@ mod tests {
     fn test_key_event_handling(playlist: DynamicPlaylist) {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
-        let mut editor = DynamicPlaylistEditor::new(tx, playlist.clone());
+        let mut editor = DynamicPlaylistEditor::new_editor(tx, playlist.clone());
 
         // Test tab changes focus
         assert_eq!(editor.focus, Focus::Name);
@@ -373,7 +372,7 @@ mod tests {
     fn test_mouse_event_handling(playlist: DynamicPlaylist) {
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
 
-        let mut editor = DynamicPlaylistEditor::new(tx, playlist);
+        let mut editor = DynamicPlaylistEditor::new_editor(tx, playlist);
         let area = Rect::new(0, 0, 50, 10);
 
         // Test clicking name area changes focus
@@ -391,7 +390,7 @@ mod tests {
     fn test_render(playlist: DynamicPlaylist) {
         let (mut terminal, _) = setup_test_terminal(30, 8);
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-        let mut editor = DynamicPlaylistEditor::new(tx, playlist);
+        let mut editor = DynamicPlaylistEditor::new_editor(tx, playlist);
         let buffer = terminal
             .draw(|frame| editor.render_popup(frame))
             .unwrap()
