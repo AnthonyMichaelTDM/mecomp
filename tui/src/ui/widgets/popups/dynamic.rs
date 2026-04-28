@@ -17,7 +17,10 @@ use crate::{
         AppState,
         colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL},
         components::ComponentRender,
-        widgets::input_box::{InputBox, InputBoxState},
+        widgets::{
+            input_box::{InputBox, InputBoxState},
+            query_builder::state::BuilderMode,
+        },
     },
 };
 
@@ -85,15 +88,6 @@ enum Focus {
     Query,
 }
 
-impl Focus {
-    const fn next(self) -> Self {
-        match self {
-            Self::Name => Self::Query,
-            Self::Query => Self::Name,
-        }
-    }
-}
-
 impl Popup for DynamicPlaylistEditor {
     fn title(&self) -> Line<'static> {
         Line::from("Edit Dynamic Playlist")
@@ -105,16 +99,6 @@ impl Popup for DynamicPlaylistEditor {
 
     fn area(&self, terminal_area: Rect) -> Rect {
         let height = 15;
-        let width = u16::try_from(
-            self.name_input
-                .text()
-                .len()
-                .max(self.instructions().width())
-                .max(self.title().width())
-                + 5,
-        )
-        .unwrap_or(terminal_area.width)
-        .min(terminal_area.width);
 
         let [_, vertical_area, _] = *Layout::default()
             .direction(Direction::Vertical)
@@ -132,7 +116,7 @@ impl Popup for DynamicPlaylistEditor {
             .direction(Direction::Horizontal)
             .constraints([
                 Constraint::Fill(1),
-                Constraint::Min(width),
+                Constraint::Fill(2),
                 Constraint::Fill(1),
             ])
             .split(vertical_area)
@@ -149,9 +133,30 @@ impl Popup for DynamicPlaylistEditor {
         let query = self.query_builder.query();
 
         match (key.code, key.modifiers, query) {
-            (KeyCode::Tab, _, _) => {
-                self.focus = self.focus.next();
-            }
+            (KeyCode::Tab, _, _) => match self.focus {
+                Focus::Name => {
+                    self.focus = Focus::Query;
+                    self.query_builder.state.mode = BuilderMode::Visual;
+                }
+                Focus::Query => match self.query_builder.state.mode {
+                    BuilderMode::Visual => {
+                        self.query_builder.state.mode = BuilderMode::RawText;
+                    }
+                    BuilderMode::RawText => self.focus = Focus::Name,
+                },
+            },
+            (KeyCode::BackTab, _, _) => match self.focus {
+                Focus::Name => {
+                    self.focus = Focus::Query;
+                    self.query_builder.state.mode = BuilderMode::RawText;
+                }
+                Focus::Query => match self.query_builder.state.mode {
+                    BuilderMode::RawText => {
+                        self.query_builder.state.mode = BuilderMode::Visual;
+                    }
+                    BuilderMode::Visual => self.focus = Focus::Name,
+                },
+            },
             (KeyCode::Enter, KeyModifiers::CONTROL, Some(query)) => {
                 let name = self.name_input.text().into();
                 let action = match &self.kind {
@@ -277,12 +282,6 @@ mod tests {
             name: "Test".into(),
             query: Query::from_str("title = \"foo \"").unwrap().to_string(),
         }
-    }
-
-    #[test]
-    fn test_focus_next() {
-        assert_eq!(Focus::Name.next(), Focus::Query);
-        assert_eq!(Focus::Query.next(), Focus::Name);
     }
 
     #[rstest]

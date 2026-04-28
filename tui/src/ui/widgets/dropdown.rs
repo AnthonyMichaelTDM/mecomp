@@ -188,9 +188,11 @@ impl<T: std::fmt::Display> StatefulWidget for Dropdown<'_, T> {
         let truncated: String = label.chars().take(max_label).collect();
 
         let line = Line::from(vec![
+            Span::raw("["),
             Span::styled(truncated, self.style),
             Span::raw(" "),
             Span::raw(indicator),
+            Span::raw("]"),
         ]);
 
         line.render(area, buf);

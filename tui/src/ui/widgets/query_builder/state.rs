@@ -1,18 +1,18 @@
 //! UI-side data model for the query builder.
 
-use std::{collections::HashMap, str::FromStr};
+use std::str::FromStr;
 
 use mecomp_storage::db::schemas::dynamic::query::{
-    Clause, Compile as _, CompoundClause, CompoundKind, Field, LeafClause, Operator, Query, Value,
+    Clause, Compile as _, CompoundClause, CompoundKind, Query,
 };
-use ratatui::layout::Rect;
 use strum::IntoEnumIterator;
 
 use crate::ui::widgets::{
-    dropdown::DropdownState,
-    input_box::InputBoxState,
-    overlay::{OverlayResult, OverlayType},
+    dropdown::DropdownState, input_box::InputBoxState, overlay::OverlayResult,
+    query_builder::utils::flatten_tree,
 };
+
+use super::utils::{CursorPath, UiClause, UiCompoundKind, UiGroup, UiLeafClause};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BuilderMode {
@@ -21,449 +21,344 @@ pub enum BuilderMode {
     RawText,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ControlKind {
-    Field,
-    Operator,
-    Value,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ControlRef {
-    pub condition_id: u64,
-    pub kind: ControlKind,
-}
-
 #[derive(Debug, Clone)]
-pub struct QueryCondition {
-    pub id: u64,
-    pub field: DropdownState<Field>,
-    pub operator: DropdownState<Operator>,
-    pub value: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct QueryGroup {
-    pub id: u64,
-    pub join: CompoundKind,
-    pub children: Vec<QueryNode>,
-}
-
-#[derive(Debug, Clone)]
-pub enum QueryNode {
-    Group(QueryGroup),
-    Condition(QueryCondition),
-}
-
-#[derive(Debug, Clone)]
+/// Full state of the visual query builder.
 pub struct QueryBuilderState {
     pub mode: BuilderMode,
-    pub root: QueryGroup,
-    pub focused: Option<ControlRef>,
+    /// The root group (always a group, never a bare leaf at the top level).
+    pub root: UiGroup,
+    /// Cursor position in the flat list.
+    pub cursor: CursorPath,
+    /// Raw-text input mode.
     pub raw_input: InputBoxState,
+    /// Is the raw input currently a valid query?
     pub raw_input_valid: bool,
-    control_areas: HashMap<ControlRef, Rect>,
-    next_id: u64,
+    // TODO: a way to map some ID into the area on screen where that control is rendered, for mouse click handling.
 }
 
 impl Default for QueryBuilderState {
     fn default() -> Self {
-        Self::new()
+        Self {
+            mode: BuilderMode::Visual,
+            root: UiGroup::new(CompoundKind::And),
+            cursor: CursorPath::default(),
+            raw_input: InputBoxState::new(),
+            raw_input_valid: false,
+        }
     }
 }
 
 impl QueryBuilderState {
-    #[must_use]
-    pub fn new() -> Self {
-        let mut state = Self {
-            mode: BuilderMode::Visual,
-            root: QueryGroup {
-                id: 1,
-                join: CompoundKind::And,
-                children: Vec::new(),
-            },
-            focused: None,
-            raw_input: InputBoxState::new(),
-            raw_input_valid: false,
-            control_areas: HashMap::new(),
-            next_id: 2,
-        };
-
-        let condition = state.new_condition();
-        state.focused = Some(ControlRef {
-            condition_id: condition.id,
-            kind: ControlKind::Field,
-        });
-        state.root.children.push(QueryNode::Condition(condition));
-        if let Some(query) = state.try_to_query() {
-            state.raw_input.set_text(&query.compile_for_storage());
-            state.raw_input_valid = true;
-        }
-
-        state
-    }
-
-    fn new_condition(&mut self) -> QueryCondition {
-        let id = self.alloc_id();
-        let field_options = Field::iter();
-        let operator_options = Operator::iter();
-
-        QueryCondition {
-            id,
-            field: DropdownState::new(Self::control_id(id, ControlKind::Field), field_options),
-            operator: DropdownState::new(
-                Self::control_id(id, ControlKind::Operator),
-                operator_options,
-            ),
-            value: String::new(),
-        }
-    }
-
-    const fn alloc_id(&mut self) -> u64 {
-        let id = self.next_id;
-        self.next_id += 1;
-        id
-    }
-
-    #[must_use]
-    pub const fn control_id(condition_id: u64, kind: ControlKind) -> u64 {
-        let slot = match kind {
-            ControlKind::Field => 1,
-            ControlKind::Operator => 2,
-            ControlKind::Value => 3,
-        };
-        condition_id * 10 + slot
-    }
-
-    pub fn set_control_area(&mut self, control: ControlRef, area: Rect) {
-        self.control_areas.insert(control, area);
-    }
-
-    #[must_use]
-    pub fn control_area(&self, control: ControlRef) -> Option<Rect> {
-        self.control_areas.get(&control).copied()
-    }
-
-    pub fn clear_control_areas(&mut self) {
-        self.control_areas.clear();
-    }
-
-    pub fn add_condition_to_root(&mut self) -> u64 {
-        let condition = self.new_condition();
-        let id = condition.id;
-        self.root.children.push(QueryNode::Condition(condition));
-        self.focused = Some(ControlRef {
-            condition_id: id,
-            kind: ControlKind::Field,
-        });
-        self.sync_raw_from_visual();
-        id
-    }
-
-    pub fn toggle_root_join(&mut self) {
-        self.root.join = match self.root.join {
-            CompoundKind::And => CompoundKind::Or,
-            CompoundKind::Or => CompoundKind::And,
-        };
-        self.sync_raw_from_visual();
-    }
-
-    #[must_use]
-    pub fn open_overlay_for_focused(&mut self, max_rows: u16) -> Option<OverlayType> {
-        let focused = self.focused?;
-        let condition = self.find_condition_mut(focused.condition_id)?;
-
-        match focused.kind {
-            ControlKind::Field => Some(condition.field.open_overlay(max_rows)),
-            ControlKind::Operator => Some(condition.operator.open_overlay(max_rows)),
-            ControlKind::Value => None,
-        }
-    }
-
+    /// Apply the given overlay result to the state
     pub fn apply_overlay_result(&mut self, result: &OverlayResult) -> bool {
-        let changed = self
-            .iter_conditions_mut()
-            .any(|condition| condition.field.apply_overlay_result(result))
-            || self
-                .iter_conditions_mut()
-                .any(|condition| condition.operator.apply_overlay_result(result));
+        let (target_id, selected_index) = match result {
+            OverlayResult::DropdownSelected {
+                target_id,
+                selected_index,
+            } => (target_id, selected_index),
+        };
 
-        if changed {
-            self.sync_raw_from_visual();
+        let flat = flatten_tree(&self.root);
+        let Some(current_node) = flat.get(self.cursor.flat_index) else {
+            return false;
+        };
+
+        // find the available dropdowns at the currently selected node
+        if *target_id == 0 {
+            // this is a dropdown for a compound clause
+            let Some(group) = self.group_at_mut(&current_node.path) else {
+                return false;
+            };
+            group.kind_dd.set_selected_index(*selected_index);
+            true
+        } else if *target_id > 0 && *target_id <= 2 {
+            // this is a dropdown for a leaf clause
+            let Some(leaf) = self.leaf_at_mut(&current_node.path) else {
+                return false;
+            };
+            if *target_id == 1 {
+                leaf.field_dd.set_selected_index(*selected_index);
+            } else if *target_id == 2 {
+                leaf.operator_dd.set_selected_index(*selected_index);
+            } else {
+                return false;
+            }
+            true
+        } else {
+            false
         }
-
-        changed
     }
 
-    pub const fn set_focused(&mut self, focused: Option<ControlRef>) {
-        self.focused = focused;
-    }
-
-    pub fn root_conditions(&self) -> impl Iterator<Item = &QueryCondition> {
-        self.root.children.iter().filter_map(|node| match node {
-            QueryNode::Condition(condition) => Some(condition),
-            QueryNode::Group(_) => None,
-        })
-    }
-
-    pub fn root_conditions_mut(&mut self) -> impl Iterator<Item = &mut QueryCondition> {
-        self.root.children.iter_mut().filter_map(|node| match node {
-            QueryNode::Condition(condition) => Some(condition),
-            QueryNode::Group(_) => None,
-        })
-    }
-
-    fn find_condition_mut(&mut self, id: u64) -> Option<&mut QueryCondition> {
-        self.iter_conditions_mut()
-            .find(|condition| condition.id == id)
-    }
-
-    fn iter_conditions_mut(&mut self) -> impl Iterator<Item = &mut QueryCondition> {
-        self.root.children.iter_mut().filter_map(|node| match node {
-            QueryNode::Condition(condition) => Some(condition),
-            QueryNode::Group(_) => None,
-        })
-    }
-
+    /// Try to compile the current state to a `Query`.
     #[must_use]
     pub fn try_to_query(&self) -> Option<Query> {
         match self.mode {
             BuilderMode::RawText => Query::from_str(self.raw_input.text()).ok(),
-            BuilderMode::Visual => self.visual_to_query(),
+            BuilderMode::Visual => self.root.try_to_clause().map(|root| Query { root }),
         }
     }
 
+    /// Load a `Query` into the visual builder.
     pub fn load_query(&mut self, query: &Query) {
-        self.root.children.clear();
-
-        match &query.root {
-            Clause::Leaf(leaf) => {
-                if let Some(condition) = self.condition_from_leaf(leaf) {
-                    self.root.children.push(QueryNode::Condition(condition));
-                    self.root.join = CompoundKind::And;
-                }
-            }
-            Clause::Compound(compound) => {
-                self.root.join = compound.kind;
-                for clause in &compound.clauses {
-                    if let Clause::Leaf(leaf) = clause
-                        && let Some(condition) = self.condition_from_leaf(leaf)
-                    {
-                        self.root.children.push(QueryNode::Condition(condition));
-                    }
-                }
-            }
-        }
-
-        if self.root.children.is_empty() {
-            let condition = self.new_condition();
-            self.root.children.push(QueryNode::Condition(condition));
-        }
-
-        let focus_id = self
-            .root_conditions()
-            .next()
-            .map_or(1, |condition| condition.id);
-        self.focused = Some(ControlRef {
-            condition_id: focus_id,
-            kind: ControlKind::Field,
-        });
+        self.root = clause_to_ui_group(&query.root);
+        self.cursor = CursorPath::default();
+        // also update raw input for when user toggles mode
         self.raw_input.set_text(&query.compile_for_storage());
         self.raw_input_valid = true;
         self.mode = BuilderMode::Visual;
     }
 
+    /// Toggle between visual and raw-text mode, syncing state in both directions.
     pub fn toggle_mode(&mut self) {
         match self.mode {
             BuilderMode::Visual => {
-                self.sync_raw_from_visual();
+                // capture current visual query as text
+                if let Some(q) = self.root.try_to_clause().map(|root| Query { root }) {
+                    self.raw_input.set_text(&q.compile_for_storage());
+                    self.raw_input_valid = true;
+                } else {
+                    self.raw_input_valid = false;
+                }
                 self.mode = BuilderMode::RawText;
             }
             BuilderMode::RawText => {
-                if let Ok(query) = Query::from_str(self.raw_input.text()) {
-                    self.load_query(&query);
+                // parse raw text back to visual
+                if let Ok(q) = Query::from_str(self.raw_input.text()) {
+                    self.root = clause_to_ui_group(&q.root);
+                    self.raw_input_valid = true;
                 }
                 self.mode = BuilderMode::Visual;
             }
         }
     }
 
+    /// Update raw input validity.
     pub fn update_raw_validity(&mut self) {
         self.raw_input_valid = Query::from_str(self.raw_input.text()).is_ok();
     }
 
-    pub fn edit_value_text(&mut self, key: crossterm::event::KeyEvent) {
-        if let Some(focused) = self.focused
-            && focused.kind == ControlKind::Value
-            && let Some(condition) = self.find_condition_mut(focused.condition_id)
-        {
-            use crossterm::event::KeyCode;
-            match key.code {
-                KeyCode::Char(c) => condition.value.push(c),
-                KeyCode::Backspace => {
-                    condition.value.pop();
-                }
-                _ => {}
-            }
-            self.sync_raw_from_visual();
+    // ── Mutators ─────────────────────────────────────────────────────────────
+
+    /// Add a new leaf clause to the group at `path` (empty path = root).
+    pub fn add_leaf_at(&mut self, path: &[usize]) {
+        if let Some(group) = self.group_at_mut(path) {
+            group.clauses.push(UiClause::Leaf(UiLeafClause::new()));
         }
     }
 
-    fn sync_raw_from_visual(&mut self) {
-        if let Some(query) = self.visual_to_query() {
-            self.raw_input.set_text(&query.compile_for_storage());
-            self.raw_input_valid = true;
-        } else {
-            self.raw_input.set_text("");
-            self.raw_input_valid = false;
+    /// Add a new sub-group to the group at `path`.
+    pub fn add_group_at(&mut self, path: &[usize]) {
+        if let Some(group) = self.group_at_mut(path) {
+            let new_group = UiGroup::new(CompoundKind::And);
+            group.clauses.push(UiClause::Group(new_group));
         }
     }
 
-    fn visual_to_query(&self) -> Option<Query> {
-        let leaves = self
-            .root_conditions()
-            .filter_map(|condition| condition_to_leaf_clause(condition).map(Clause::Leaf))
-            .collect::<Vec<_>>();
-
-        match leaves.len() {
-            0 => None,
-            1 => Some(Query {
-                root: leaves.into_iter().next()?,
-            }),
-            _ => Some(Query {
-                root: Clause::Compound(CompoundClause {
-                    kind: self.root.join,
-                    clauses: leaves,
-                }),
-            }),
-        }
+    /// Remove the child at position `child_index` in the group at `path`.
+    /// Guards: won't remove if the parent group would drop below 1 child.
+    pub fn remove_child_at(&mut self, path: &[usize]) {
+        guard_remove(&mut self.root, path);
     }
 
-    fn condition_from_leaf(&mut self, leaf: &LeafClause) -> Option<QueryCondition> {
-        let Value::Field(field) = &leaf.left else {
-            return None;
-        };
+    /// Return a mutable reference to the group node at the given path.
+    pub fn group_at_mut<'a>(&'a mut self, path: &[usize]) -> Option<&'a mut UiGroup> {
+        navigate_to_group_mut(&mut self.root, path)
+    }
 
-        let mut condition = self.new_condition();
-        let field_text = field.compile_for_storage();
-        let op_text = leaf.operator.compile_for_storage();
-
-        let _ = condition.field.select_by_text(&field_text);
-        let _ = condition.operator.select_by_text(&op_text);
-
-        condition.value = match &leaf.right {
-            Value::String(text) => text.clone(),
-            Value::Int(v) => v.to_string(),
-            Value::Field(f) => f.compile_for_storage(),
-            Value::Set(items) => items
-                .iter()
-                .map(|value| match value {
-                    Value::String(text) => text.clone(),
-                    Value::Int(v) => v.to_string(),
-                    Value::Field(f) => f.compile_for_storage(),
-                    Value::Set(_) => String::new(),
-                })
-                .filter(|text| !text.is_empty())
-                .collect::<Vec<_>>()
-                .join(","),
-        };
-
-        Some(condition)
+    /// Return a mutable reference to the leaf at the given path.
+    pub fn leaf_at_mut<'a>(&'a mut self, path: &[usize]) -> Option<&'a mut UiLeafClause> {
+        navigate_to_leaf_mut(&mut self.root, path)
     }
 }
 
-fn condition_to_leaf_clause(condition: &QueryCondition) -> Option<LeafClause> {
-    let field = Field::from_str(condition.field.selected()?).ok()?;
-    let operator = Operator::from_str(condition.operator.selected()?).ok()?;
-    let right = if field == Field::ReleaseYear {
-        Value::Int(condition.value.parse().ok()?)
-    } else {
-        Value::String(condition.value.clone())
-    };
+// ── Navigation helpers ───────────────────────────────────────────────────────
 
-    let leaf = LeafClause {
-        left: Value::Field(field),
-        operator,
-        right,
-    };
+fn navigate_to_group_mut<'a>(root: &'a mut UiGroup, path: &[usize]) -> Option<&'a mut UiGroup> {
+    if path.is_empty() {
+        return Some(root);
+    }
+    let idx = path[0];
+    let child = root.clauses.get_mut(idx)?;
+    match child {
+        UiClause::Group(g) => navigate_to_group_mut(g, &path[1..]),
+        UiClause::Leaf(_) => None,
+    }
+}
 
-    if leaf.has_valid_operator() {
-        Some(leaf)
-    } else {
-        None
+fn navigate_to_leaf_mut<'a>(root: &'a mut UiGroup, path: &[usize]) -> Option<&'a mut UiLeafClause> {
+    if path.is_empty() {
+        return None; // root is always a group
+    }
+    if path.len() == 1 {
+        let idx = path[0];
+        let child = root.clauses.get_mut(idx)?;
+        return match child {
+            UiClause::Leaf(l) => Some(l),
+            UiClause::Group(_) => None,
+        };
+    }
+    // recurse into group
+    let idx = path[0];
+    let child = root.clauses.get_mut(idx)?;
+    match child {
+        UiClause::Group(g) => navigate_to_leaf_mut(g, &path[1..]),
+        UiClause::Leaf(_) => None,
+    }
+}
+
+fn guard_remove(root: &mut UiGroup, path: &[usize]) {
+    if path.is_empty() {
+        return; // can't remove root
+    }
+    // path[-1] is the index of the child to remove; path[..-1] is the parent group path
+    let (parent_path, child_idx_slice) = path.split_at(path.len() - 1);
+    let child_idx = child_idx_slice[0];
+
+    if let Some(parent) = navigate_to_group_mut(root, parent_path)
+        && parent.clauses.len() > 1
+    {
+        parent.clauses.remove(child_idx);
+    }
+}
+
+// ── Conversion from storage types ───────────────────────────────────────────
+
+/// Convert a storage `Clause` to a `UiGroup`.
+///
+/// - A `Compound` becomes a proper `UiGroup` with N-arified children.
+/// - A bare `Leaf` becomes a `UiGroup` wrapping a single leaf.
+fn clause_to_ui_group(clause: &Clause) -> UiGroup {
+    match clause {
+        Clause::Compound(c) => compound_to_ui_group(c),
+        Clause::Leaf(l) => {
+            let mut ui_leaf = UiLeafClause::new();
+            ui_leaf.load_leaf(l);
+            UiGroup {
+                kind_dd: DropdownState::new(
+                    0,
+                    vec![
+                        UiCompoundKind(CompoundKind::And),
+                        UiCompoundKind(CompoundKind::Or),
+                    ],
+                ),
+                clauses: vec![UiClause::Leaf(ui_leaf)],
+            }
+        }
+    }
+}
+
+fn compound_to_ui_group(compound: &CompoundClause) -> UiGroup {
+    let kind = compound.kind;
+    let kind_idx = match kind {
+        CompoundKind::And => 0,
+        CompoundKind::Or => 1,
+    };
+    let mut kind_dd = DropdownState::new(0, CompoundKind::iter().map(UiCompoundKind));
+    kind_dd.set_selected_index(kind_idx);
+
+    // Flatten N-ary: if nested compounds have the same kind, absorb their children.
+    let mut children: Vec<UiClause> = Vec::new();
+    flatten_compound_children(&compound.clauses, kind, &mut children);
+
+    UiGroup {
+        kind_dd,
+        clauses: children,
+    }
+}
+
+fn flatten_compound_children(clauses: &[Clause], kind: CompoundKind, out: &mut Vec<UiClause>) {
+    for clause in clauses {
+        match clause {
+            Clause::Compound(c) if c.kind == kind => {
+                // absorb children of same-kind compound
+                flatten_compound_children(&c.clauses, kind, out);
+            }
+            Clause::Compound(c) => {
+                out.push(UiClause::Group(compound_to_ui_group(c)));
+            }
+            Clause::Leaf(l) => {
+                let mut ui_leaf = UiLeafClause::new();
+                ui_leaf.load_leaf(l);
+                out.push(UiClause::Leaf(ui_leaf));
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mecomp_storage::db::schemas::dynamic::query::Query;
+    use mecomp_storage::db::schemas::dynamic::query::{
+        Compile, Field, LeafClause, Operator, Value,
+    };
+
+    fn leaf(field: Field, op: Operator, val: &str) -> Clause {
+        Clause::Leaf(LeafClause {
+            left: Value::Field(field),
+            operator: op,
+            right: Value::String(val.to_string()),
+        })
+    }
 
     #[test]
-    fn open_overlay_for_focused_uses_control_id() {
-        let mut state = QueryBuilderState::new();
-        let condition_id = state.root_conditions().next().expect("condition exists").id;
-        let focused = ControlRef {
-            condition_id,
-            kind: ControlKind::Field,
-        };
-        state.set_focused(Some(focused));
-        state.set_control_area(focused, Rect::new(2, 2, 12, 1));
+    fn test_round_trip_simple_leaf() {
+        let clause = leaf(Field::Title, Operator::Equal, "foo");
+        let query = Query { root: clause };
 
-        let overlay = state.open_overlay_for_focused(6).expect("overlay expected");
+        let mut state = QueryBuilderState::default();
+        state.load_query(&query);
 
-        let crate::ui::widgets::overlay::OverlayType::Dropdown(dropdown) = overlay;
+        let result = state.try_to_query().unwrap();
+        assert_eq!(result.compile_for_storage(), "title = \"foo\"");
+    }
+
+    #[test]
+    fn test_round_trip_compound() {
+        let clause = Clause::Compound(CompoundClause {
+            kind: CompoundKind::And,
+            clauses: vec![
+                leaf(Field::Title, Operator::Equal, "foo"),
+                leaf(Field::Album, Operator::Like, "bar"),
+            ],
+        });
+        let query = Query { root: clause };
+
+        let mut state = QueryBuilderState::default();
+        state.load_query(&query);
+
+        let result = state.try_to_query().unwrap();
         assert_eq!(
-            dropdown.target_id,
-            QueryBuilderState::control_id(condition_id, ControlKind::Field)
+            result.compile_for_storage(),
+            "(title = \"foo\" AND album ~ \"bar\")"
         );
     }
 
     #[test]
-    fn apply_overlay_result_updates_matching_dropdown() {
-        let mut state = QueryBuilderState::new();
-        let condition_id = state.root_conditions().next().expect("condition exists").id;
-        let target_id = QueryBuilderState::control_id(condition_id, ControlKind::Operator);
-
-        let changed = state.apply_overlay_result(&OverlayResult::DropdownSelected {
-            target_id,
-            selected_index: 1,
-        });
-
-        assert!(changed);
+    fn test_add_remove_leaf() {
+        let mut state = QueryBuilderState::default();
+        // root has 1 leaf by default
+        assert_eq!(state.root.clauses.len(), 1);
+        state.add_leaf_at(&[]);
+        assert_eq!(state.root.clauses.len(), 2);
+        // remove first leaf (path = [0])
+        state.remove_child_at(&[0]);
+        assert_eq!(state.root.clauses.len(), 1);
+        // guard: won't remove last child
+        state.remove_child_at(&[0]);
+        assert_eq!(state.root.clauses.len(), 1);
     }
 
     #[test]
-    fn toggle_mode_round_trip() {
-        let mut state = QueryBuilderState::new();
-        state.toggle_mode();
-        assert_eq!(state.mode, BuilderMode::RawText);
-        state.toggle_mode();
-        assert_eq!(state.mode, BuilderMode::Visual);
-    }
-
-    #[test]
-    fn query_compile_in_visual_mode() {
-        let state = QueryBuilderState::new();
-        let query = state.try_to_query().expect("query exists");
-        assert!(!query.compile_for_storage().is_empty());
-    }
-
-    #[test]
-    fn raw_mode_parse_works() {
-        let mut state = QueryBuilderState::new();
-        state.mode = BuilderMode::RawText;
-        state.raw_input.set_text("title = \"foo\"");
-        let query = state.try_to_query().expect("query parsed");
-        assert_eq!(query.compile_for_storage(), "title = \"foo\"");
-    }
-
-    #[test]
-    fn load_query_sets_visual_state() {
-        let mut state = QueryBuilderState::new();
-        let query = Query::from_str("title = \"abc\"").expect("query parse");
+    fn test_toggle_mode_round_trip() {
+        let clause = leaf(Field::Title, Operator::Equal, "hello");
+        let query = Query { root: clause };
+        let mut state = QueryBuilderState::default();
         state.load_query(&query);
+        state.toggle_mode(); // visual → raw
+        assert_eq!(state.mode, BuilderMode::RawText);
+        state.toggle_mode(); // raw → visual
         assert_eq!(state.mode, BuilderMode::Visual);
-        assert!(state.root_conditions().next().is_some());
+        let result = state.try_to_query().unwrap();
+        assert_eq!(result.compile_for_storage(), "title = \"hello\"");
     }
 }
