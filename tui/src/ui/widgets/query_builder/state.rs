@@ -440,7 +440,10 @@ mod tests {
 
         // After adding a leaf, both leaves are present but incomplete (no values set)
         // So the tree is invalid and raw_input_valid should be false
-        assert!(!state.raw_input_valid, "Added incomplete leaf makes tree invalid");
+        assert!(
+            !state.raw_input_valid,
+            "Added incomplete leaf makes tree invalid"
+        );
     }
 
     #[test]
@@ -508,7 +511,10 @@ mod tests {
 
         // After adding a subgroup, the tree is still invalid (both original leaf and new group)
         // because we have an incomplete state
-        assert!(!state.raw_input_valid, "Added group with unmatched leaf makes tree invalid");
+        assert!(
+            !state.raw_input_valid,
+            "Added group with unmatched leaf makes tree invalid"
+        );
     }
 
     #[test]
@@ -538,7 +544,10 @@ mod tests {
         state.apply_overlay_result(&result);
 
         // Raw text should be in sync and valid (we only changed the field, didn't add/remove)
-        assert!(state.raw_input_valid, "Changing field should keep tree valid");
+        assert!(
+            state.raw_input_valid,
+            "Changing field should keep tree valid"
+        );
 
         let raw_query = Query::from_str(state.raw_input.text()).expect("Raw text should be valid");
         let visual_query = state.try_to_query().expect("Visual tree should compile");
