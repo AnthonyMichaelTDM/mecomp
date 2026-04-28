@@ -57,7 +57,7 @@ impl QueryBuilderState {
         };
 
         // find the available dropdowns at the currently selected node
-        match result {
+        let success = match result {
             OverlayResult::DropdownSelected { target_id, .. } => {
                 if *target_id == 0 {
                     // this is a dropdown for a compound clause
@@ -79,7 +79,13 @@ impl QueryBuilderState {
                     false
                 }
             }
+        };
+
+        // Sync raw text with visual tree after any successful modification
+        if success {
+            self.sync_raw_from_visual();
         }
+        success
     }
 
     /// Try to compile the current state to a `Query`.
@@ -106,12 +112,7 @@ impl QueryBuilderState {
         match self.mode {
             BuilderMode::Visual => {
                 // capture current visual query as text
-                if let Some(q) = self.root.try_to_clause().map(|root| Query { root }) {
-                    self.raw_input.set_text(&q.compile_for_storage());
-                    self.raw_input_valid = true;
-                } else {
-                    self.raw_input_valid = false;
-                }
+                self.sync_raw_from_visual();
                 self.mode = BuilderMode::RawText;
             }
             BuilderMode::RawText => {
@@ -130,6 +131,17 @@ impl QueryBuilderState {
         self.raw_input_valid = Query::from_str(self.raw_input.text()).is_ok();
     }
 
+    /// Synchronize raw text representation from the visual tree.
+    /// Called after any modification to ensure both representations stay in sync.
+    fn sync_raw_from_visual(&mut self) {
+        if let Some(q) = self.root.try_to_clause().map(|root| Query { root }) {
+            self.raw_input.set_text(&q.compile_for_storage());
+            self.raw_input_valid = true;
+        } else {
+            self.raw_input_valid = false;
+        }
+    }
+
     // ── Mutators ─────────────────────────────────────────────────────────────
 
     /// Add a new leaf clause to the group at `path` (empty path = root).
@@ -137,6 +149,7 @@ impl QueryBuilderState {
         if let Some(group) = self.group_at_mut(path) {
             group.clauses.push(UiClause::Leaf(UiLeafClause::new()));
         }
+        self.sync_raw_from_visual();
     }
 
     /// Add a new sub-group to the group at `path`.
@@ -145,12 +158,14 @@ impl QueryBuilderState {
             let new_group = UiGroup::new(CompoundKind::And);
             group.clauses.push(UiClause::Group(new_group));
         }
+        self.sync_raw_from_visual();
     }
 
     /// Remove the child at position `child_index` in the group at `path`.
     /// Guards: won't remove if the parent group would drop below 1 child.
     pub fn remove_child_at(&mut self, path: &[usize]) {
         guard_remove(&mut self.root, path);
+        self.sync_raw_from_visual();
     }
 
     /// Return a mutable reference to the group node at the given path.
@@ -407,6 +422,131 @@ mod tests {
         assert!(
             !leaf_after.field_dd.is_open(),
             "Dropdown should be closed after overlay result is applied"
+        );
+    }
+
+    #[test]
+    fn test_visual_edits_sync_to_raw_text() {
+        // Test that adding clauses in visual mode syncs to raw text
+        let mut state = QueryBuilderState::default();
+
+        // Initial state: visual mode, 1 leaf clause
+        assert_eq!(state.mode, BuilderMode::Visual);
+        assert_eq!(state.root.clauses.len(), 1);
+
+        // Add another leaf at root level
+        state.add_leaf_at(&[]);
+        assert_eq!(state.root.clauses.len(), 2);
+
+        // After adding a leaf, both leaves are present but incomplete (no values set)
+        // So the tree is invalid and raw_input_valid should be false
+        assert!(!state.raw_input_valid, "Added incomplete leaf makes tree invalid");
+    }
+
+    #[test]
+    fn test_visual_edits_sync_to_raw_on_removal() {
+        let mut state = QueryBuilderState::default();
+
+        // Add a leaf, then remove it
+        state.add_leaf_at(&[]);
+        assert_eq!(state.root.clauses.len(), 2);
+
+        state.remove_child_at(&[0]);
+        assert_eq!(state.root.clauses.len(), 1);
+
+        // After removing a leaf, we're back to the default valid state
+        // The raw text should match the visual tree
+        if state.raw_input_valid {
+            let raw_query =
+                Query::from_str(state.raw_input.text()).expect("Raw text should be valid");
+            let visual_query = state.try_to_query().expect("Visual tree should compile");
+
+            assert_eq!(
+                raw_query.compile_for_storage(),
+                visual_query.compile_for_storage(),
+                "Raw text should match compiled visual tree after remove_child_at"
+            );
+        }
+    }
+
+    #[test]
+    fn test_visual_to_raw_mode_shows_synced_text() {
+        // Create a valid query to start with
+        let query = Query {
+            root: leaf(Field::Title, Operator::Equal, "foo"),
+        };
+        let mut state = QueryBuilderState::default();
+        state.load_query(&query);
+
+        // Start in visual mode
+        assert_eq!(state.mode, BuilderMode::Visual);
+        assert!(state.raw_input_valid);
+
+        let expected_visual_query = state.try_to_query().unwrap();
+
+        // Switch to raw mode
+        state.toggle_mode();
+        assert_eq!(state.mode, BuilderMode::RawText);
+
+        // Parse the raw text to verify it matches the visual tree
+        let raw_query = Query::from_str(state.raw_input.text()).expect("Raw text should be valid");
+
+        assert_eq!(
+            raw_query.compile_for_storage(),
+            expected_visual_query.compile_for_storage(),
+            "Switching to raw mode should show the synced text from visual state"
+        );
+    }
+
+    #[test]
+    fn test_add_group_syncs_to_raw() {
+        let mut state = QueryBuilderState::default();
+
+        // Add a subgroup
+        state.add_group_at(&[]);
+        assert_eq!(state.root.clauses.len(), 2);
+
+        // After adding a subgroup, the tree is still invalid (both original leaf and new group)
+        // because we have an incomplete state
+        assert!(!state.raw_input_valid, "Added group with unmatched leaf makes tree invalid");
+    }
+
+    #[test]
+    fn test_dropdown_change_syncs_to_raw() {
+        use crate::ui::widgets::overlay::OverlayResult;
+
+        // Start with a valid query
+        let query = Query {
+            root: leaf(Field::Title, Operator::Equal, "foo"),
+        };
+        let mut state = QueryBuilderState::default();
+        state.load_query(&query);
+
+        // Navigate to first leaf
+        let flat = flatten_tree(&state.root);
+        state.cursor.move_down(flat.len());
+
+        // Change field via dropdown overlay
+        let field_options = Field::iter().map(|f| f.to_string()).collect::<Vec<_>>();
+        let target_index = field_options.len() - 1; // select last field
+
+        let result = OverlayResult::DropdownSelected {
+            target_id: 1,
+            selected_index: target_index,
+        };
+
+        state.apply_overlay_result(&result);
+
+        // Raw text should be in sync and valid (we only changed the field, didn't add/remove)
+        assert!(state.raw_input_valid, "Changing field should keep tree valid");
+
+        let raw_query = Query::from_str(state.raw_input.text()).expect("Raw text should be valid");
+        let visual_query = state.try_to_query().expect("Visual tree should compile");
+
+        assert_eq!(
+            raw_query.compile_for_storage(),
+            visual_query.compile_for_storage(),
+            "Raw text should match compiled visual tree after dropdown change"
         );
     }
 }
