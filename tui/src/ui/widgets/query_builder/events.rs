@@ -236,7 +236,7 @@ fn parent_path_from_add(path: &[usize]) -> Vec<usize> {
 }
 
 #[must_use]
-pub fn handle_mouse_event(
+pub const fn handle_mouse_event(
     _state: &mut QueryBuilderState,
     _mouse: MouseEvent,
     _area: Rect, // area of the entire query builder

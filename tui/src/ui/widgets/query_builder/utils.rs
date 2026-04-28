@@ -76,7 +76,7 @@ pub const fn field_is_set(field: Field) -> bool {
 }
 
 /// The right-hand value of a leaf clause, as editable interactive state.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiValue {
     /// Plain text – for Title, Album, and set values when a single string is needed.
     Text(InputBoxState),
@@ -183,7 +183,7 @@ impl UiValue {
 }
 
 /// UI state for a single filter row: `field  operator  value`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiLeafClause {
     pub field_dd: DropdownState<Field>,
     pub operator_dd: DropdownState<Operator>,
@@ -303,14 +303,14 @@ impl UiLeafClause {
 }
 
 /// A clause in the UI query tree.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiClause {
     Leaf(UiLeafClause),
     Group(UiGroup),
 }
 
 /// An N-ary group (AND / OR) of clauses.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiGroup {
     /// The AND/OR selector.
     pub kind_dd: DropdownState<UiCompoundKind>,
@@ -321,7 +321,7 @@ pub struct UiGroup {
 impl UiGroup {
     #[must_use]
     pub fn new(kind: CompoundKind) -> Self {
-        let mut kind_dd = DropdownState::new(1, CompoundKind::iter().map(UiCompoundKind));
+        let mut kind_dd = DropdownState::new(0, CompoundKind::iter().map(UiCompoundKind));
         let _ = kind_dd.select_by_text(UiCompoundKind(kind).to_string().as_str());
 
         Self {
@@ -497,9 +497,40 @@ impl CursorPath {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_str_eq;
+
     use crate::ui::widgets::query_builder::QueryBuilderState;
 
     use super::*;
+
+    #[test]
+    fn test_uigroup_to_qury() {
+        let mut clause1 = UiLeafClause::new();
+        clause1.load_leaf(&LeafClause {
+            left: Value::Field(Field::Title),
+            operator: Operator::Equal,
+            right: Value::String("foo".to_string()),
+        });
+        let clause1 = UiClause::Leaf(clause1);
+
+        let mut clause2 = UiLeafClause::new();
+        clause2.load_leaf(&LeafClause {
+            left: Value::Field(Field::Album),
+            operator: Operator::Like,
+            right: Value::String("bar".to_string()),
+        });
+        let clause2 = UiClause::Leaf(clause2);
+
+        let mut group = UiGroup::new(CompoundKind::And);
+        group.clauses = vec![clause1, clause2];
+
+        // try converting to a query
+        let query = group
+            .try_to_clause()
+            .expect("couldn't convert UiGroup to Clause");
+        let query = query.compile_for_storage();
+        assert_str_eq!(query, "(title = \"foo\" AND album ~ \"bar\")")
+    }
 
     #[test]
     fn test_flatten_tree() {

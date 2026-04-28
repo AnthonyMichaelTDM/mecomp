@@ -227,13 +227,7 @@ fn clause_to_ui_group(clause: &Clause) -> UiGroup {
             let mut ui_leaf = UiLeafClause::new();
             ui_leaf.load_leaf(l);
             UiGroup {
-                kind_dd: DropdownState::new(
-                    0,
-                    vec![
-                        UiCompoundKind(CompoundKind::And),
-                        UiCompoundKind(CompoundKind::Or),
-                    ],
-                ),
+                kind_dd: DropdownState::new(0, CompoundKind::iter().map(UiCompoundKind)),
                 clauses: vec![UiClause::Leaf(ui_leaf)],
             }
         }
@@ -242,12 +236,8 @@ fn clause_to_ui_group(clause: &Clause) -> UiGroup {
 
 fn compound_to_ui_group(compound: &CompoundClause) -> UiGroup {
     let kind = compound.kind;
-    let kind_idx = match kind {
-        CompoundKind::And => 0,
-        CompoundKind::Or => 1,
-    };
     let mut kind_dd = DropdownState::new(0, CompoundKind::iter().map(UiCompoundKind));
-    kind_dd.set_selected_index(kind_idx);
+    let _ = kind_dd.select_by_text(UiCompoundKind(kind).to_string().as_str());
 
     // Flatten N-ary: if nested compounds have the same kind, absorb their children.
     let mut children: Vec<UiClause> = Vec::new();
@@ -284,6 +274,7 @@ mod tests {
     use mecomp_storage::db::schemas::dynamic::query::{
         Compile, Field, LeafClause, Operator, Value,
     };
+    use pretty_assertions::assert_eq;
 
     fn leaf(field: Field, op: Operator, val: &str) -> Clause {
         Clause::Leaf(LeafClause {

@@ -10,7 +10,7 @@ use ratatui::{
 
 use super::overlay::{OverlayResult, OverlayType, dropdown::DropdownOverlay};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DropdownState<T> {
     control_id: u64,
     options: Arc<[String]>,
