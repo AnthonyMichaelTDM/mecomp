@@ -10,7 +10,7 @@ use ratatui::{
 use unicode_width::UnicodeWidthChar;
 
 /// State for the input box widget containing all mutable data
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct InputBoxState {
     /// Current value of the input box
     text: String,
@@ -979,7 +979,7 @@ mod util {
     ///
     /// This implementation optimizes the most common operations (reading and adding/removing from the end) to O(1), at the cost of
     /// making insertions and deletions anywhere else take O(n).
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct PrefixSumVec {
         data: Vec<usize>,
     }
