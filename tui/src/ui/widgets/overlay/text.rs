@@ -102,11 +102,12 @@ impl Overlay for TextOverlay {
 
     fn inner_handle_mouse_event(
         &mut self,
-        _mouse: MouseEvent,
-        _area: Rect,
+        mouse: MouseEvent,
+        area: Rect,
         _action_tx: UnboundedSender<Action>,
     ) {
-        // Allow scrolling with mouse wheel (optional)
+        // Defer to input box for mouse click positioning
+        self.input.handle_mouse_event(mouse, area);
     }
 }
 

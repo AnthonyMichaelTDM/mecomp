@@ -26,10 +26,12 @@ pub struct SetEditorOverlay {
     pub size: Rect,
     /// Input boxes for each item
     pub item_inputs: Vec<InputBoxState>,
-    /// Index of the currently selected input (or `item_inputs.len()` for Save button)
+    /// Index of the currently selected input (or `item_inputs.len()` for Add button)
     pub selected_index: usize,
     /// Scroll offset for vertical scrolling
     pub scroll_offset: usize,
+    /// Cached visible items from last render (for scroll calculations in key handlers)
+    cached_visible_items: usize,
 }
 
 impl PartialEq for SetEditorOverlay {
@@ -62,21 +64,25 @@ impl SetEditorOverlay {
             item_inputs,
             selected_index: 0,
             scroll_offset: 0,
+            cached_visible_items: 10, // Default; updated each render
         }
     }
 
-    fn move_up(&mut self) {
+    const fn move_up(&mut self) {
         self.selected_index = self.selected_index.saturating_sub(1);
-        self.scroll_offset = self.scroll_offset.min(self.selected_index);
+        // Adjust scroll if selected goes above the visible area
+        if self.selected_index < self.scroll_offset {
+            self.scroll_offset = self.selected_index;
+        }
     }
 
-    fn move_down(&mut self) {
+    const fn move_down(&mut self, visible_items: usize) {
         let max_index = self.item_inputs.len(); // can select items or "Add" button
         if self.selected_index < max_index {
             self.selected_index += 1;
-            let visible_rows = usize::from(self.size.height.saturating_sub(4).max(1));
-            if self.selected_index > visible_rows && self.selected_index > self.scroll_offset {
-                self.scroll_offset = self.selected_index - visible_rows;
+            // Adjust scroll if selected goes below the visible area
+            if self.selected_index >= self.scroll_offset + visible_items {
+                self.scroll_offset = self.selected_index - visible_items + 1;
             }
         }
     }
@@ -140,7 +146,7 @@ impl Overlay for SetEditorOverlay {
             // Editing an item
             match key.code {
                 KeyCode::Up => self.move_up(),
-                KeyCode::Down => self.move_down(),
+                KeyCode::Down => self.move_down(self.cached_visible_items),
                 KeyCode::Delete => self.delete_current(),
                 KeyCode::Enter => {
                     // Confirm the entire set and close
@@ -163,10 +169,88 @@ impl Overlay for SetEditorOverlay {
 
     fn inner_handle_mouse_event(
         &mut self,
-        _mouse: MouseEvent,
-        _area: Rect,
+        mouse: MouseEvent,
+        area: Rect,
         _action_tx: UnboundedSender<Action>,
     ) {
+        use crossterm::event::{MouseButton, MouseEventKind};
+
+        // Calculate the inner area (excluding border) the same way render_border does
+        let block = Block::bordered();
+        let inner_area = block.inner(area);
+
+        let MouseEvent {
+            kind, row, column, ..
+        } = mouse;
+
+        // Handle scrolling
+        match kind {
+            MouseEventKind::ScrollUp => {
+                self.scroll_offset = self.scroll_offset.saturating_sub(1);
+                return;
+            }
+            MouseEventKind::ScrollDown => {
+                let num_items = self.item_inputs.len();
+                let visible_items = (inner_area.height - 1) as usize;
+                if self.scroll_offset + visible_items < num_items {
+                    self.scroll_offset += 1;
+                }
+                return;
+            }
+            _ => {}
+        }
+
+        // Only handle left click
+        if kind != MouseEventKind::Down(MouseButton::Left) {
+            return;
+        }
+
+        // Check if click is within the inner area
+        if row < inner_area.y
+            || row >= inner_area.y + inner_area.height
+            || column < inner_area.x
+            || column >= inner_area.x + inner_area.width
+        {
+            return;
+        }
+
+        // Calculate which row was clicked (relative to inner_area.y)
+        let click_row = row.saturating_sub(inner_area.y);
+
+        let num_items = self.item_inputs.len();
+        let visible_items = (inner_area.height - 1) as usize;
+
+        // Check if clicking on an item
+        if (click_row as usize) < visible_items {
+            let actual_idx = self.scroll_offset + (click_row as usize);
+
+            if actual_idx < num_items {
+                // Select this item
+                self.selected_index = actual_idx;
+
+                // Pass click to InputBox handler for cursor positioning
+                // The input box was rendered at:
+                // - x: inner_area.x + 3 (after the "N: " label)
+                // - y: inner_area.y + click_row
+                // - width: inner_area.width - 3
+                // - height: 1
+                let input_area = Rect {
+                    x: inner_area.x + 3,
+                    y: inner_area.y + click_row,
+                    width: inner_area.width.saturating_sub(3),
+                    height: 1,
+                };
+
+                self.item_inputs[actual_idx].handle_mouse_event(mouse, input_area);
+                return;
+            }
+        }
+
+        // Check if clicking on the [Add] button
+        let rendered_items = (num_items - self.scroll_offset).min(visible_items);
+        if (click_row as usize) == rendered_items {
+            self.selected_index = num_items; // Select Add button
+        }
     }
 }
 
@@ -185,6 +269,9 @@ impl ComponentRender<Rect> for SetEditorOverlay {
         }
         let num_items = self.item_inputs.len();
         let visible_items = (area.height - 1) as usize; // Leave room for [Add] button
+
+        // Cache visible items for scroll calculations in key handlers
+        self.cached_visible_items = visible_items;
 
         // Calculate how much space we have for items
         let mut constraints = Vec::new();
@@ -282,10 +369,10 @@ mod tests {
     fn set_editor_move_down() {
         let mut overlay = SetEditorOverlay::new(1, vec!["a".to_string(), "b".to_string()], 40);
         assert_eq!(overlay.selected_index, 0);
-        overlay.move_down();
+        overlay.move_down(10);
         assert_eq!(overlay.selected_index, 1);
-        overlay.move_down();
-        assert_eq!(overlay.selected_index, 2); // Save button
+        overlay.move_down(10);
+        assert_eq!(overlay.selected_index, 2); // Add button
     }
 
     #[test]
