@@ -51,41 +51,34 @@ impl Default for QueryBuilderState {
 impl QueryBuilderState {
     /// Apply the given overlay result to the state
     pub fn apply_overlay_result(&mut self, result: &OverlayResult) -> bool {
-        let (target_id, selected_index) = match result {
-            OverlayResult::DropdownSelected {
-                target_id,
-                selected_index,
-            } => (target_id, selected_index),
-        };
-
         let flat = flatten_tree(&self.root);
         let Some(current_node) = flat.get(self.cursor.flat_index) else {
             return false;
         };
 
         // find the available dropdowns at the currently selected node
-        if *target_id == 0 {
-            // this is a dropdown for a compound clause
-            let Some(group) = self.group_at_mut(&current_node.path) else {
-                return false;
-            };
-            group.kind_dd.set_selected_index(*selected_index);
-            true
-        } else if *target_id > 0 && *target_id <= 2 {
-            // this is a dropdown for a leaf clause
-            let Some(leaf) = self.leaf_at_mut(&current_node.path) else {
-                return false;
-            };
-            if *target_id == 1 {
-                leaf.field_dd.set_selected_index(*selected_index);
-            } else if *target_id == 2 {
-                leaf.operator_dd.set_selected_index(*selected_index);
-            } else {
-                return false;
+        match result {
+            OverlayResult::DropdownSelected { target_id, .. } => {
+                if *target_id == 0 {
+                    // this is a dropdown for a compound clause
+                    let Some(group) = self.group_at_mut(&current_node.path) else {
+                        return false;
+                    };
+                    group.kind_dd.apply_overlay_result(result)
+                } else if *target_id > 0 && *target_id <= 2 {
+                    // this is a dropdown for a leaf clause
+                    let Some(leaf) = self.leaf_at_mut(&current_node.path) else {
+                        return false;
+                    };
+                    match target_id {
+                        1 => leaf.field_dd.apply_overlay_result(result),
+                        2 => leaf.operator_dd.apply_overlay_result(result),
+                        _ => false,
+                    }
+                } else {
+                    false
+                }
             }
-            true
-        } else {
-            false
         }
     }
 
@@ -360,5 +353,69 @@ mod tests {
         assert_eq!(state.mode, BuilderMode::Visual);
         let result = state.try_to_query().unwrap();
         assert_eq!(result.compile_for_storage(), "title = \"hello\"");
+    }
+
+    #[test]
+    fn test_dropdown_overlay_updates_state() {
+        use crate::ui::widgets::overlay::OverlayResult;
+
+        let mut state = QueryBuilderState::default();
+
+        // Navigate down to the first leaf (skip the group header)
+        let flat = flatten_tree(&state.root);
+        state.cursor.move_down(flat.len());
+
+        // Get initial state
+        let flat = flatten_tree(&state.root);
+        assert!(!flat.is_empty());
+
+        let current_node = &flat[state.cursor.flat_index];
+
+        // Get the leaf at cursor position (before)
+        let leaf = state
+            .leaf_at_mut(&current_node.path)
+            .expect("Should be a leaf");
+        let initial_field = leaf.field_dd.selected().unwrap().to_string();
+
+        // Get the field options to select a different one
+        let field_options = Field::iter().map(|f| f.to_string()).collect::<Vec<_>>();
+
+        // Find a different field to select
+        let target_field = field_options
+            .iter()
+            .find(|f| f.as_str() != initial_field.as_str())
+            .unwrap();
+        let target_index = field_options
+            .iter()
+            .position(|f| f == target_field)
+            .unwrap();
+
+        // Simulate overlay result - field dropdown is control_id = 1
+        let result = OverlayResult::DropdownSelected {
+            target_id: 1,
+            selected_index: target_index,
+        };
+
+        // Apply the overlay result
+        let applied = state.apply_overlay_result(&result);
+        assert!(applied, "apply_overlay_result should return true");
+
+        // Check that the state was updated
+        let flat = flatten_tree(&state.root);
+        let current_node = &flat[state.cursor.flat_index];
+        let leaf_after = state.leaf_at_mut(&current_node.path).unwrap();
+        let new_field = leaf_after.field_dd.selected().unwrap();
+
+        assert_eq!(
+            new_field,
+            target_field.as_str(),
+            "Field should be updated to selected value"
+        );
+
+        // Check that the overlay is now closed
+        assert!(
+            !leaf_after.field_dd.is_open(),
+            "Dropdown should be closed after overlay result is applied"
+        );
     }
 }

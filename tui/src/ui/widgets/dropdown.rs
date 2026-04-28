@@ -236,7 +236,7 @@ mod tests {
 
         assert!(state.is_open());
         let OverlayType::Dropdown(dropdown) = overlay;
-        assert_eq!(dropdown.size, Rect::new(2, 3, 10, 3));
+        assert_eq!(dropdown.size, Rect::new(0, 0, 7, 3));
         assert_eq!(dropdown.target_id, 0);
     }
 

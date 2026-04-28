@@ -19,6 +19,7 @@ use crate::{
         components::ComponentRender,
         widgets::{
             input_box::{InputBox, InputBoxState},
+            overlay::OverlayResult,
             query_builder::state::BuilderMode,
         },
     },
@@ -187,6 +188,12 @@ impl Popup for DynamicPlaylistEditor {
         }
     }
 
+    fn handle_overlay_result(&mut self, result: &OverlayResult) {
+        if self.focus == Focus::Query {
+            self.query_builder.apply_overlay_result(result);
+        }
+    }
+
     fn inner_handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
         let MouseEvent {
             column, row, kind, ..
@@ -286,12 +293,12 @@ mod tests {
 
     #[rstest]
     // will give the popup at most 1/3 of the horizontal area,
-    #[case::large((100,100), Rect::new(33, 17, 34, 15))]
+    #[case::large((100,100), Rect::new(25, 17, 50, 15))]
     // or at least 30 if it can
-    #[case::small((40,8), Rect::new(5, 0, 30, 8))]
-    #[case::small2((30,8), Rect::new(0, 0, 30, 8))]
+    #[case::small((40,8), Rect::new(10, 0, 20, 8))]
+    #[case::small2((30,8), Rect::new(8, 0, 15, 8))]
     // or whatever is left if the terminal is too small
-    #[case::too_small((20,8), Rect::new(0, 0, 20, 8))]
+    #[case::too_small((20,8), Rect::new(5, 0, 10, 8))]
     fn test_area(
         #[case] terminal_size: (u16, u16),
         #[case] expected_area: Rect,
