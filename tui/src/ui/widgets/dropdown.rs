@@ -235,9 +235,13 @@ mod tests {
         let overlay = state.open_overlay(6);
 
         assert!(state.is_open());
-        let OverlayType::Dropdown(dropdown) = overlay;
-        assert_eq!(dropdown.size, Rect::new(0, 0, 7, 3));
-        assert_eq!(dropdown.target_id, 0);
+        match overlay {
+            OverlayType::Dropdown(dropdown) => {
+                assert_eq!(dropdown.size, Rect::new(0, 0, 7, 3));
+                assert_eq!(dropdown.target_id, 0);
+            }
+            _ => panic!("Expected Dropdown overlay"),
+        }
     }
 
     #[test]

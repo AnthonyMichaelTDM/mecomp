@@ -109,9 +109,7 @@ fn handle_leaf_key(
                 let overlay = match leaf.leaf_focus {
                     LeafFocus::Field => leaf.field_dd.open_overlay(8),
                     LeafFocus::Operator => leaf.operator_dd.open_overlay(10),
-                    LeafFocus::Value => {
-                        todo!();
-                    }
+                    LeafFocus::Value => leaf.value.open_overlay(3),
                 };
                 Some(Action::Overlay(OverlayAction::Open(overlay)))
             } else {

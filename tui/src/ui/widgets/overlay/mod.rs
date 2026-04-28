@@ -1,4 +1,5 @@
 pub mod dropdown;
+pub mod text;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{
@@ -75,11 +76,16 @@ pub enum OverlayResult {
         target_id: u64,
         selected_index: usize,
     },
+    TextInputted {
+        target_id: u64,
+        text: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OverlayType {
     Dropdown(dropdown::DropdownOverlay),
+    Text(text::TextOverlay),
 }
 
 impl OverlayType {
@@ -87,18 +93,21 @@ impl OverlayType {
     pub fn area(&self, terminal_area: Rect) -> Rect {
         match self {
             Self::Dropdown(overlay) => overlay.area(terminal_area),
+            Self::Text(overlay) => overlay.area(terminal_area),
         }
     }
 
     pub fn update_with_state(&mut self, state: &AppState) {
         match self {
             Self::Dropdown(overlay) => overlay.update_with_state(state),
+            Self::Text(overlay) => overlay.update_with_state(state),
         }
     }
 
     pub fn handle_key_event(&mut self, key: KeyEvent, action_tx: UnboundedSender<Action>) {
         match self {
             Self::Dropdown(overlay) => overlay.handle_key_event(key, action_tx),
+            Self::Text(overlay) => overlay.handle_key_event(key, action_tx),
         }
     }
 
@@ -110,12 +119,14 @@ impl OverlayType {
     ) {
         match self {
             Self::Dropdown(overlay) => overlay.handle_mouse_event(mouse, area, action_tx),
+            Self::Text(overlay) => overlay.handle_mouse_event(mouse, area, action_tx),
         }
     }
 
     pub fn render_overlay(&mut self, frame: &mut Frame<'_>) {
         match self {
             Self::Dropdown(overlay) => overlay.render_overlay(frame),
+            Self::Text(overlay) => overlay.render_overlay(frame),
         }
     }
 }

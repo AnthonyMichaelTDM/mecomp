@@ -79,6 +79,18 @@ impl QueryBuilderState {
                     false
                 }
             }
+            OverlayResult::TextInputted { target_id, text } => {
+                if *target_id == 3 {
+                    // this is a text input for a leaf clause value
+                    let Some(leaf) = self.leaf_at_mut(&current_node.path) else {
+                        return false;
+                    };
+                    leaf.value.apply_text_result(text.clone());
+                    true
+                } else {
+                    false
+                }
+            }
         };
 
         // Sync raw text with visual tree after any successful modification

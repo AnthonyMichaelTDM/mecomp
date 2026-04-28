@@ -1,7 +1,7 @@
 //! This is the implementation of the query builder for dynamic playlists
 //!
 //! pending TODOs:
-//! - [ ] fix issue where dropdown overlay isn't updating its corresponding dropbox
+//! - [x] fix issue where dropdown overlay isn't updating its corresponding dropbox
 //! - [ ] implement mouse event handling
 //! - [ ] implement text overlay for VALUEs (text, integer, set)
 //! - [ ] instead of this messy `FlatNode `and `leaf_at_mut`/`group_at_mut `mess where we have a tree that we flatten, parse, navigate, etc. multiple times per frame.. design the editor s.t. it maintains the underlying "raw text" and parses that to generate a list of dyn objects implementing some new trait that defines the behavior of "row items" (group, leaf, "add clause", "add group").

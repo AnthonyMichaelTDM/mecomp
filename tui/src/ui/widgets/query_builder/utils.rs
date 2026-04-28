@@ -5,7 +5,14 @@ use mecomp_storage::db::schemas::dynamic::query::{
 };
 use strum::IntoEnumIterator;
 
-use crate::ui::widgets::{dropdown::DropdownState, input_box::InputBoxState};
+use crate::ui::widgets::{
+    dropdown::DropdownState,
+    input_box::InputBoxState,
+    overlay::{
+        OverlayType,
+        text::{TextOverlay, ValueKind},
+    },
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UiCompoundKind(pub CompoundKind);
@@ -177,6 +184,42 @@ impl UiValue {
             Value::Field(_) => {
                 // Field references on the right are treated as text
                 *self = Self::Text(InputBoxState::new());
+            }
+        }
+    }
+
+    /// Open a text overlay for editing the value.
+    #[must_use]
+    pub fn open_overlay(&self, control_id: u64) -> OverlayType {
+        match self {
+            Self::Text(input) => {
+                let overlay = TextOverlay::new(control_id, input.text(), ValueKind::Text, 40);
+                OverlayType::Text(overlay)
+            }
+            Self::Integer(input) => {
+                let overlay = TextOverlay::new(control_id, input.text(), ValueKind::Integer, 15);
+                OverlayType::Text(overlay)
+            }
+            Self::Set { item_input, .. } => {
+                let overlay =
+                    TextOverlay::new(control_id, item_input.text(), ValueKind::SetItem, 40);
+                OverlayType::Text(overlay)
+            }
+        }
+    }
+
+    /// Apply text input result from overlay, updating the value.
+    pub fn apply_text_result(&mut self, text: String) {
+        match self {
+            Self::Text(input) | Self::Integer(input) => {
+                input.set_text(&text);
+            }
+            Self::Set { item_input, items } => {
+                // For sets, add the item if not empty
+                if !text.is_empty() {
+                    items.push(text);
+                    item_input.clear();
+                }
             }
         }
     }
