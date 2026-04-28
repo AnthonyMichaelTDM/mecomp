@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{
     Frame,
-    layout::Rect,
+    layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, List, ListItem, ListState},
@@ -20,7 +20,7 @@ use super::Overlay;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DropdownOverlay {
     pub target_id: u64,
-    pub area: Rect,
+    pub size: Rect,
     pub options: Arc<[String]>,
     pub selected_index: usize,
     pub scroll_offset: usize,
@@ -48,7 +48,7 @@ impl DropdownOverlay {
         let last = self.options.len().saturating_sub(1);
         self.selected_index = (self.selected_index + 1).min(last);
 
-        let visible_rows = usize::from(self.area.height.max(1));
+        let visible_rows = usize::from(self.size.height.max(1));
         let max_visible_index = self.scroll_offset + visible_rows.saturating_sub(1);
         if self.selected_index > max_visible_index {
             self.scroll_offset = self.selected_index + 1 - visible_rows;
@@ -57,8 +57,23 @@ impl DropdownOverlay {
 }
 
 impl Overlay for DropdownOverlay {
-    fn area(&self, _: Rect) -> Rect {
-        self.area
+    fn area(&self, terminal_area: Rect) -> Rect {
+        // place the overlay in the middle of the terminal
+        let layout = Layout::horizontal([
+            Constraint::Fill(1),
+            Constraint::Length(self.size.width),
+            Constraint::Fill(1),
+        ]);
+        let [_, horizontal_area, _] = terminal_area.layout(&layout);
+
+        let layout = Layout::vertical([
+            Constraint::Fill(1),
+            Constraint::Length(self.size.height),
+            Constraint::Fill(1),
+        ]);
+        let [_, area, _] = horizontal_area.layout(&layout);
+
+        area
     }
 
     fn update_with_state(&mut self, _: &AppState) {}
@@ -156,7 +171,7 @@ mod tests {
         let options: Arc<[String]> = Arc::from(vec!["A".to_string(), "B".to_string()]);
         let mut overlay = DropdownOverlay {
             target_id: 7,
-            area: Rect::new(10, 10, 8, 3),
+            size: Rect::new(10, 10, 8, 3),
             options,
             selected_index: 1,
             scroll_offset: 0,
@@ -180,7 +195,7 @@ mod tests {
         let options: Arc<[String]> = Arc::from(vec!["A".to_string(), "B".to_string()]);
         let mut overlay = DropdownOverlay {
             target_id: 3,
-            area: Rect::new(10, 10, 8, 3),
+            size: Rect::new(10, 10, 8, 3),
             options,
             selected_index: 0,
             scroll_offset: 0,
@@ -194,7 +209,7 @@ mod tests {
             modifiers: crossterm::event::KeyModifiers::empty(),
         };
 
-        overlay.inner_handle_mouse_event(click, overlay.area, tx);
+        overlay.inner_handle_mouse_event(click, overlay.size, tx);
 
         let action = rx.blocking_recv().expect("expected commit action");
         assert_eq!(

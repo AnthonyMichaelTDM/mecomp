@@ -18,16 +18,18 @@ pub struct DropdownState<T> {
     scroll_offset: usize,
     is_open: bool,
     option_type: std::marker::PhantomData<T>,
+    widest_option_length: usize,
 }
 
 impl<T: ToString> DropdownState<T> {
     #[must_use]
     pub fn new(control_id: u64, options: impl IntoIterator<Item = T>) -> Self {
-        let options = options
+        let options: Arc<[String]> = options
             .into_iter()
             .map(|option| option.to_string())
             .collect::<Vec<_>>()
             .into();
+        let widest_option_length = options.iter().map(|s| s.chars().count()).max().unwrap_or(0);
         Self {
             control_id,
             options,
@@ -35,6 +37,7 @@ impl<T: ToString> DropdownState<T> {
             scroll_offset: 0,
             is_open: false,
             option_type: std::marker::PhantomData,
+            widest_option_length,
         }
     }
 
@@ -84,17 +87,15 @@ impl<T: ToString> DropdownState<T> {
     }
 
     #[must_use]
-    pub fn open_overlay(
-        &mut self,
-        anchor: Rect,
-        terminal_area: Rect,
-        max_rows: u16,
-    ) -> OverlayType {
+    pub fn open_overlay(&mut self, max_rows: u16) -> OverlayType {
         self.is_open = true;
-        let area = compute_overlay_area(anchor, terminal_area, self.options.len(), max_rows);
+        let width = u16::try_from(self.widest_option_length + 2).unwrap_or(u16::MAX);
+        let height = max_rows.min(u16::try_from(self.options.len()).unwrap_or(u16::MAX));
+        let size = Rect::new(0, 0, width, height);
+
         OverlayType::Dropdown(DropdownOverlay {
             target_id: self.control_id,
-            area,
+            size,
             options: self.options.clone(),
             selected_index: self.selected_index,
             scroll_offset: self.scroll_offset,
@@ -118,29 +119,6 @@ impl<T: ToString> DropdownState<T> {
             _ => false,
         }
     }
-}
-
-fn compute_overlay_area(anchor: Rect, terminal: Rect, option_count: usize, max_rows: u16) -> Rect {
-    let width = anchor.width.min(terminal.width.max(1));
-    let x = anchor.x.min(terminal.right().saturating_sub(width));
-
-    let desired_rows = u16::try_from(option_count)
-        .unwrap_or(u16::MAX)
-        .max(1)
-        .min(max_rows.max(1));
-
-    let below_y = anchor.bottom();
-    let below_space = terminal.bottom().saturating_sub(below_y);
-
-    if below_space >= desired_rows {
-        return Rect::new(x, below_y, width, desired_rows);
-    }
-
-    let above_space = anchor.y.saturating_sub(terminal.y);
-    let height = desired_rows.min(above_space.max(1));
-    let y = anchor.y.saturating_sub(height);
-
-    Rect::new(x, y, width, height)
 }
 
 pub struct Dropdown<'a, T> {
@@ -252,18 +230,18 @@ mod tests {
     #[test]
     fn open_overlay_marks_open_and_places_below_if_space() {
         let mut state = make_state();
-        let overlay = state.open_overlay(Rect::new(2, 2, 10, 1), Rect::new(0, 0, 30, 20), 6);
+        let overlay = state.open_overlay(6);
 
         assert!(state.is_open());
         let OverlayType::Dropdown(dropdown) = overlay;
-        assert_eq!(dropdown.area, Rect::new(2, 3, 10, 3));
+        assert_eq!(dropdown.size, Rect::new(2, 3, 10, 3));
         assert_eq!(dropdown.target_id, 0);
     }
 
     #[test]
     fn apply_overlay_result_updates_when_target_matches() {
         let mut state = make_state();
-        let _overlay = state.open_overlay(Rect::new(0, 0, 10, 1), Rect::new(0, 0, 30, 10), 5);
+        let _overlay = state.open_overlay(5);
 
         let changed = state.apply_overlay_result(&OverlayResult::DropdownSelected {
             target_id: 0,

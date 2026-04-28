@@ -242,8 +242,7 @@ impl Component for App {
     fn handle_mouse_event(&mut self, mouse: crossterm::event::MouseEvent, area: Rect) {
         // if there is an overlay, defer all mouse handling to it.
         if let Some(overlay) = self.overlay.as_mut() {
-            let overlay_area = overlay.area(area);
-            overlay.handle_mouse_event(mouse, overlay_area, self.action_tx.clone());
+            overlay.handle_mouse_event(mouse, overlay.area(area), self.action_tx.clone());
             return;
         }
 
