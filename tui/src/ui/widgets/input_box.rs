@@ -267,15 +267,15 @@ impl InputBoxState {
 #[derive(Debug, Clone)]
 pub struct InputBox<'a> {
     border: Option<Block<'a>>,
-    text_color: Color,
+    style: Style,
 }
 
 impl<'a> InputBox<'a> {
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             border: None,
-            text_color: Color::Reset,
+            style: Style::default().fg(Color::Reset),
         }
     }
 
@@ -287,7 +287,13 @@ impl<'a> InputBox<'a> {
 
     #[must_use]
     pub const fn text_color(mut self, color: Color) -> Self {
-        self.text_color = color;
+        self.style = self.style.fg(color);
+        self
+    }
+
+    #[must_use]
+    pub const fn style(mut self, style: Style) -> Self {
+        self.style = style;
         self
     }
 }
@@ -317,7 +323,7 @@ impl StatefulWidget for InputBox<'_> {
         #[allow(clippy::cast_possible_truncation)]
         state.update_cursor_offset(cursor_column as u16 - state.horizontal_scroll);
         let input = Paragraph::new(state.text.as_str())
-            .style(Style::default().fg(self.text_color))
+            .style(self.style)
             .scroll((0, state.horizontal_scroll));
 
         input.render(inner_area, buf);
