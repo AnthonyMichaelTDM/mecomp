@@ -91,6 +91,18 @@ impl QueryBuilderState {
                     false
                 }
             }
+            OverlayResult::SetEdited { target_id, items } => {
+                if *target_id == 3 {
+                    // this is a set editor for a leaf clause value
+                    let Some(leaf) = self.leaf_at_mut(&current_node.path) else {
+                        return false;
+                    };
+                    leaf.value.apply_set_result(items.clone());
+                    true
+                } else {
+                    false
+                }
+            }
         };
 
         // Sync raw text with visual tree after any successful modification

@@ -10,6 +10,7 @@ use crate::ui::widgets::{
     input_box::InputBoxState,
     overlay::{
         OverlayType,
+        set_editor::SetEditorOverlay,
         text::{TextOverlay, ValueKind},
     },
 };
@@ -200,10 +201,9 @@ impl UiValue {
                 let overlay = TextOverlay::new(control_id, input.text(), ValueKind::Integer, 15);
                 OverlayType::Text(overlay)
             }
-            Self::Set { item_input, .. } => {
-                let overlay =
-                    TextOverlay::new(control_id, item_input.text(), ValueKind::SetItem, 40);
-                OverlayType::Text(overlay)
+            Self::Set { items, .. } => {
+                let overlay = SetEditorOverlay::new(control_id, items.clone(), 50);
+                OverlayType::SetEditor(overlay)
             }
         }
     }
@@ -221,6 +221,18 @@ impl UiValue {
                     item_input.clear();
                 }
             }
+        }
+    }
+
+    /// Apply set editor result from overlay, replacing all items
+    pub fn apply_set_result(&mut self, items: Vec<String>) {
+        if let Self::Set {
+            items: set_items,
+            item_input,
+        } = self
+        {
+            *set_items = items;
+            item_input.clear();
         }
     }
 }

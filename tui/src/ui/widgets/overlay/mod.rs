@@ -1,4 +1,5 @@
 pub mod dropdown;
+pub mod set_editor;
 pub mod text;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
@@ -80,12 +81,17 @@ pub enum OverlayResult {
         target_id: u64,
         text: String,
     },
+    SetEdited {
+        target_id: u64,
+        items: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OverlayType {
     Dropdown(dropdown::DropdownOverlay),
     Text(text::TextOverlay),
+    SetEditor(set_editor::SetEditorOverlay),
 }
 
 impl OverlayType {
@@ -94,6 +100,7 @@ impl OverlayType {
         match self {
             Self::Dropdown(overlay) => overlay.area(terminal_area),
             Self::Text(overlay) => overlay.area(terminal_area),
+            Self::SetEditor(overlay) => overlay.area(terminal_area),
         }
     }
 
@@ -101,6 +108,7 @@ impl OverlayType {
         match self {
             Self::Dropdown(overlay) => overlay.update_with_state(state),
             Self::Text(overlay) => overlay.update_with_state(state),
+            Self::SetEditor(overlay) => overlay.update_with_state(state),
         }
     }
 
@@ -108,6 +116,7 @@ impl OverlayType {
         match self {
             Self::Dropdown(overlay) => overlay.handle_key_event(key, action_tx),
             Self::Text(overlay) => overlay.handle_key_event(key, action_tx),
+            Self::SetEditor(overlay) => overlay.handle_key_event(key, action_tx),
         }
     }
 
@@ -120,6 +129,7 @@ impl OverlayType {
         match self {
             Self::Dropdown(overlay) => overlay.handle_mouse_event(mouse, area, action_tx),
             Self::Text(overlay) => overlay.handle_mouse_event(mouse, area, action_tx),
+            Self::SetEditor(overlay) => overlay.handle_mouse_event(mouse, area, action_tx),
         }
     }
 
@@ -127,6 +137,7 @@ impl OverlayType {
         match self {
             Self::Dropdown(overlay) => overlay.render_overlay(frame),
             Self::Text(overlay) => overlay.render_overlay(frame),
+            Self::SetEditor(overlay) => overlay.render_overlay(frame),
         }
     }
 }
