@@ -110,7 +110,7 @@ fn render_visual_mode(
             ),
         ]))
         .border_style(Style::default().fg(focused_color))
-        .title_bottom("↑/↓/←/→: focus | Enter: open | a: add | g: group | d/Del: remove");
+        .title_bottom("↑/↓/←/→: focus | Enter: open | d/Del: remove");
 
     let inner = border.inner(area);
     frame.render_widget(border, area);

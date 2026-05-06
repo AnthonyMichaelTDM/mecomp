@@ -1,5 +1,5 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseEvent};
-use ratatui::layout::Rect;
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
+use ratatui::layout::{Position, Rect};
 
 use crate::{
     state::action::{Action, OverlayAction},
@@ -41,6 +41,10 @@ pub fn handle_key_event(state: &mut QueryBuilderState, key: KeyEvent) -> Option<
     }
 }
 
+const KIND_OVERLAY_ROWS: u16 = 4;
+const FIELD_OVERLAY_ROWS: u16 = 8;
+const OPERATOR_OVERLAY_ROWS: u16 = 10;
+
 fn handle_group_header_key(
     state: &mut QueryBuilderState,
     key: KeyEvent,
@@ -60,7 +64,7 @@ fn handle_group_header_key(
             // Open overlay to change group kind
             if let Some(group) = state.group_at_mut(path) {
                 Some(Action::Overlay(OverlayAction::Open(
-                    group.kind_dd.open_overlay(4),
+                    group.kind_dd.open_overlay(KIND_OVERLAY_ROWS),
                 )))
             } else {
                 None
@@ -107,8 +111,8 @@ fn handle_leaf_key(
             // Activate the focused sub-element
             if let Some(leaf) = state.leaf_at_mut(path) {
                 let overlay = match leaf.leaf_focus {
-                    LeafFocus::Field => leaf.field_dd.open_overlay(8),
-                    LeafFocus::Operator => leaf.operator_dd.open_overlay(10),
+                    LeafFocus::Field => leaf.field_dd.open_overlay(FIELD_OVERLAY_ROWS),
+                    LeafFocus::Operator => leaf.operator_dd.open_overlay(OPERATOR_OVERLAY_ROWS),
                     LeafFocus::Value => leaf.value.open_overlay(3),
                 };
                 Some(Action::Overlay(OverlayAction::Open(overlay)))
@@ -126,59 +130,10 @@ fn handle_leaf_key(
     }
 }
 
-// fn handle_leaf_value_key(
-//     state: &mut QueryBuilderState,
-//     key: KeyEvent,
-//     path: &[usize],
-//     flat_len: usize,
-// ) -> bool {
-//     match key.code {
-//         KeyCode::Esc | KeyCode::Tab | KeyCode::BackTab => {
-//             // de-focus value; Tab advances leaf focus
-//             if let Some(leaf) = state.leaf_at_mut(path) {
-//                 match key.code {
-//                     KeyCode::Tab => leaf.leaf_focus = leaf.leaf_focus.next(),
-//                     KeyCode::BackTab => leaf.leaf_focus = leaf.leaf_focus.prev(),
-//                     _ => leaf.leaf_focus = LeafFocus::Field, // Esc resets to Field
-//                 }
-//             }
-//             true
-//         }
-//         KeyCode::Up => {
-//             // Treat as cursor move only if value doesn't intercept it
-//             state.cursor.move_up(flat_len);
-//             true
-//         }
-//         KeyCode::Down => {
-//             state.cursor.move_down(flat_len);
-//             true
-//         }
-//         _ => {
-//             // Delegate to the value input
-//             if let Some(leaf) = state.leaf_at_mut(path) {
-//                 match &mut leaf.value {
-//                     UiValue::Text(input) | UiValue::Integer(input) => {
-//                         input.handle_key_event(key);
-//                     }
-//                     UiValue::Set { items, item_input } => match key.code {
-//                         KeyCode::Enter => {
-//                             let text = item_input.text().trim().to_string();
-//                             if !text.is_empty() {
-//                                 items.push(text);
-//                                 item_input.clear();
-//                             }
-//                         }
-//                         KeyCode::Backspace if item_input.is_empty() => {
-//                             items.pop();
-//                         }
-//                         _ => item_input.handle_key_event(key),
-//                     },
-//                 }
-//             }
-//             true
-//         }
-//     }
-// }
+/// Gives the parent path of the given path
+const fn parent_path_of(path: &[usize]) -> &[usize] {
+    path.split_at(path.len().saturating_sub(1)).0
+}
 
 fn handle_add_clause_key(
     state: &mut QueryBuilderState,
@@ -189,10 +144,9 @@ fn handle_add_clause_key(
     match key.code {
         KeyCode::Up => state.cursor.move_up(flat_len),
         KeyCode::Down => state.cursor.move_down(flat_len),
-        KeyCode::Enter | KeyCode::Char(' ' | 'a') => {
+        KeyCode::Enter | KeyCode::Char(' ') => {
             // Add clause to the parent group (path with last sentinel removed)
-            let parent_path = parent_path_from_add(path);
-            state.add_leaf_at(&parent_path);
+            state.add_leaf_at(parent_path_of(path));
             // Move cursor to the newly added leaf
             let new_flat = flatten_tree(&state.root);
             state.cursor.flat_index = new_flat.len().saturating_sub(3); // before add buttons
@@ -212,9 +166,8 @@ fn handle_add_group_key(
     match key.code {
         KeyCode::Up => state.cursor.move_up(flat_len),
         KeyCode::Down => state.cursor.move_down(flat_len),
-        KeyCode::Enter | KeyCode::Char(' ' | 'g') => {
-            let parent_path = parent_path_from_add(path);
-            state.add_group_at(&parent_path);
+        KeyCode::Enter | KeyCode::Char(' ') => {
+            state.add_group_at(parent_path_of(path));
             let new_flat = flatten_tree(&state.root);
             state.cursor.flat_index = new_flat.len().saturating_sub(2);
             state.cursor.clamp(new_flat.len());
@@ -224,23 +177,12 @@ fn handle_add_group_key(
     None
 }
 
-/// Given the sentinel path of an add-button, return the parent group path.
-fn parent_path_from_add(path: &[usize]) -> Vec<usize> {
-    if path.len() <= 1 {
-        vec![]
-    } else {
-        path[..path.len() - 1].to_vec()
-    }
-}
-
 #[must_use]
 pub fn handle_mouse_event(
     state: &mut QueryBuilderState,
     mouse: MouseEvent,
     _area: Rect,
 ) -> Option<Action> {
-    use crossterm::event::{MouseButton, MouseEventKind};
-
     // Handle scroll wheel first
     match mouse.kind {
         MouseEventKind::ScrollUp => {
@@ -261,13 +203,13 @@ pub fn handle_mouse_event(
         return None;
     }
 
-    let click_pos = (mouse.column, mouse.row);
+    let click_pos = Position::new(mouse.column, mouse.row);
 
     // Find which clickable region was clicked and clone the data we need
     let region_data = state
         .clickable_regions
         .iter()
-        .find(|r| r.area.contains(click_pos.into()))
+        .find(|r| r.area.contains(click_pos))
         .map(|r| (r.action, r.path.clone(), r.flat_index, r.leaf_focus))?;
 
     let (action, path, flat_index, leaf_focus) = region_data;
@@ -286,43 +228,33 @@ pub fn handle_mouse_event(
     match action {
         super::state::ClickableAction::GroupKind => {
             // Open the group kind dropdown
-            if let Some(group) = state.group_at_mut(&path) {
-                Some(Action::Overlay(OverlayAction::Open(
-                    group.kind_dd.open_overlay(4),
-                )))
-            } else {
-                None
-            }
+            state.group_at_mut(&path).map(|group| {
+                Action::Overlay(OverlayAction::Open(
+                    group.kind_dd.open_overlay(KIND_OVERLAY_ROWS),
+                ))
+            })
         }
         super::state::ClickableAction::LeafField => {
             // Open the field dropdown
-            if let Some(leaf) = state.leaf_at_mut(&path) {
-                Some(Action::Overlay(OverlayAction::Open(
-                    leaf.field_dd.open_overlay(8),
-                )))
-            } else {
-                None
-            }
+            state.leaf_at_mut(&path).map(|leaf| {
+                Action::Overlay(OverlayAction::Open(
+                    leaf.field_dd.open_overlay(FIELD_OVERLAY_ROWS),
+                ))
+            })
         }
         super::state::ClickableAction::LeafOperator => {
             // Open the operator dropdown
-            if let Some(leaf) = state.leaf_at_mut(&path) {
-                Some(Action::Overlay(OverlayAction::Open(
-                    leaf.operator_dd.open_overlay(10),
-                )))
-            } else {
-                None
-            }
+            state.leaf_at_mut(&path).map(|leaf| {
+                Action::Overlay(OverlayAction::Open(
+                    leaf.operator_dd.open_overlay(OPERATOR_OVERLAY_ROWS),
+                ))
+            })
         }
         super::state::ClickableAction::LeafValue => {
             // Open the value overlay
-            if let Some(leaf) = state.leaf_at_mut(&path) {
-                Some(Action::Overlay(OverlayAction::Open(
-                    leaf.value.open_overlay(3),
-                )))
-            } else {
-                None
-            }
+            state
+                .leaf_at_mut(&path)
+                .map(|leaf| Action::Overlay(OverlayAction::Open(leaf.value.open_overlay(3))))
         }
         super::state::ClickableAction::Delete => {
             // Delete the element
@@ -333,12 +265,8 @@ pub fn handle_mouse_event(
         }
         super::state::ClickableAction::AddClause => {
             // Add a clause to the parent group
-            let parent_path = if path.len() <= 1 {
-                vec![]
-            } else {
-                path[..path.len() - 1].to_vec()
-            };
-            state.add_leaf_at(&parent_path);
+            let parent_path = parent_path_of(&path);
+            state.add_leaf_at(parent_path);
             let new_flat = flatten_tree(&state.root);
             state.cursor.flat_index = new_flat.len().saturating_sub(3); // before add buttons
             state.cursor.clamp(new_flat.len());
@@ -346,12 +274,8 @@ pub fn handle_mouse_event(
         }
         super::state::ClickableAction::AddGroup => {
             // Add a group to the parent group
-            let parent_path = if path.len() <= 1 {
-                vec![]
-            } else {
-                path[..path.len() - 1].to_vec()
-            };
-            state.add_group_at(&parent_path);
+            let parent_path = parent_path_of(&path);
+            state.add_group_at(parent_path);
             let new_flat = flatten_tree(&state.root);
             state.cursor.flat_index = new_flat.len().saturating_sub(2);
             state.cursor.clamp(new_flat.len());
@@ -362,7 +286,15 @@ pub fn handle_mouse_event(
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
+    use super::*;
+
+    #[test]
+    fn parent_path_of_works() {
+        let empty: &[usize] = &[];
+        assert_eq!(parent_path_of(empty), empty);
+        assert_eq!(parent_path_of(&[0]), empty);
+        assert_eq!(parent_path_of(&[0, 1, 2]), &[0, 1]);
+    }
 
     // #[test]
     // fn enter_opens_overlay_for_dropdown_control() {
