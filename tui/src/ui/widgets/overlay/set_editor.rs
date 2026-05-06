@@ -3,7 +3,7 @@
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::{
     Frame,
-    layout::{Constraint, Layout, Rect},
+    layout::{Constraint, Layout, Position, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Paragraph},
@@ -182,6 +182,7 @@ impl Overlay for SetEditorOverlay {
         let MouseEvent {
             kind, row, column, ..
         } = mouse;
+        let position = Position::new(column, row);
 
         // Handle scrolling
         match kind {
@@ -206,11 +207,7 @@ impl Overlay for SetEditorOverlay {
         }
 
         // Check if click is within the inner area
-        if row < inner_area.y
-            || row >= inner_area.y + inner_area.height
-            || column < inner_area.x
-            || column >= inner_area.x + inner_area.width
-        {
+        if !inner_area.contains(position) {
             return;
         }
 
@@ -230,14 +227,14 @@ impl Overlay for SetEditorOverlay {
 
                 // Pass click to InputBox handler for cursor positioning
                 // The input box was rendered at:
-                // - x: inner_area.x + 3 (after the "N: " label)
+                // - x: inner_area.x + 2 (after the "N: " label)
                 // - y: inner_area.y + click_row
-                // - width: inner_area.width - 3
+                // - width: inner_area.width - 2
                 // - height: 1
                 let input_area = Rect {
-                    x: inner_area.x + 3,
+                    x: inner_area.x + 2,
                     y: inner_area.y + click_row,
-                    width: inner_area.width.saturating_sub(3),
+                    width: inner_area.width.saturating_sub(2),
                     height: 1,
                 };
 
