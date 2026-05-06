@@ -417,23 +417,23 @@ fn render_value_area(
     };
     match value {
         UiValue::Text(input) | UiValue::Integer(input) => {
-            let label = if matches!(value, UiValue::Integer(_)) {
+            let fallback = if matches!(value, UiValue::Integer(_)) {
                 "year"
             } else {
                 "value"
             };
-            // Inline display without a full border to keep row height = 1
-            let text = input.text();
-            let display: String = text.chars().take(area.width as usize).collect();
-            let _ = label;
+            let display: String = if input.is_empty() {
+                fallback.to_string()
+            } else {
+                input.chars().take(area.width as usize).collect()
+            };
             frame.render_widget(Paragraph::new(Line::from(Span::styled(display, s))), area);
         }
-        UiValue::Set { items, item_input } => {
+        UiValue::Set(items) => {
             let mut parts: Vec<Span<'_>> = Vec::new();
             for item in items {
-                parts.push(Span::styled(format!("[{item}×]"), s));
+                parts.push(Span::styled(format!("[{item}]"), s));
             }
-            parts.push(Span::styled(item_input.text().to_string(), s));
             let line = Line::from(parts);
             frame.render_widget(Paragraph::new(line), area);
         }

@@ -12,7 +12,7 @@ use crate::ui::widgets::{
     dropdown::DropdownState,
     input_box::InputBoxState,
     overlay::OverlayResult,
-    query_builder::utils::{LeafFocus, flatten_tree},
+    query_builder::utils::{LeafFocus, UiValue, flatten_tree},
 };
 
 use super::utils::{CursorPath, UiClause, UiCompoundKind, UiGroup, UiLeafClause};
@@ -120,24 +120,22 @@ impl QueryBuilderState {
                 }
             }
             OverlayResult::TextInputted { target_id, text } => {
-                if *target_id == 3 {
-                    // this is a text input for a leaf clause value
-                    let Some(leaf) = self.leaf_at_mut(&current_node.path) else {
-                        return false;
-                    };
-                    leaf.value.apply_text_result(text.clone());
+                if *target_id == 3
+                    && let Some(leaf) = self.leaf_at_mut(&current_node.path)
+                    && let UiValue::Text(input) | UiValue::Integer(input) = &mut leaf.value
+                {
+                    input.clone_from(text);
                     true
                 } else {
                     false
                 }
             }
             OverlayResult::SetEdited { target_id, items } => {
-                if *target_id == 3 {
-                    // this is a set editor for a leaf clause value
-                    let Some(leaf) = self.leaf_at_mut(&current_node.path) else {
-                        return false;
-                    };
-                    leaf.value.apply_set_result(items.clone());
+                if *target_id == 3
+                    && let Some(leaf) = self.leaf_at_mut(&current_node.path)
+                    && let UiValue::Set(set_items) = &mut leaf.value
+                {
+                    set_items.clone_from(items);
                     true
                 } else {
                     false

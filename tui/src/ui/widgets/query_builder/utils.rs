@@ -7,7 +7,6 @@ use strum::IntoEnumIterator;
 
 use crate::ui::widgets::{
     dropdown::DropdownState,
-    input_box::InputBoxState,
     overlay::{
         OverlayType,
         set_editor::SetEditorOverlay,
@@ -87,19 +86,17 @@ pub const fn field_is_set(field: Field) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiValue {
     /// Plain text – for Title, Album, and set values when a single string is needed.
-    Text(InputBoxState),
+    Text(String),
     /// Integer – for `ReleaseYear`.
-    Integer(InputBoxState),
+    Integer(String),
     /// Set of strings – for operators that expect an array right-hand side.
-    Set {
-        items: Vec<String>,
-        item_input: InputBoxState,
-    },
+    Set(Vec<String>),
+    // TODO: A field reference (e.g. `title = album`), which is a dropdown of available fields.
 }
 
 impl Default for UiValue {
     fn default() -> Self {
-        Self::Text(InputBoxState::new())
+        Self::Text(String::new())
     }
 }
 
@@ -111,11 +108,11 @@ impl UiValue {
 
     /// Build the appropriate `UiValue` for a given `Field`.
     #[must_use]
-    pub fn for_field(field: Field) -> Self {
+    pub(super) fn for_field(field: Field) -> Self {
         if field == Field::ReleaseYear {
-            Self::Integer(InputBoxState::new())
+            Self::Integer(String::from("year"))
         } else {
-            Self::Text(InputBoxState::new())
+            Self::Text(String::from("value"))
         }
     }
 
@@ -124,22 +121,14 @@ impl UiValue {
     pub fn to_storage_value(&self) -> Option<Value> {
         match self {
             Self::Text(s) => {
-                let t = s.text().to_string();
-                if t.is_empty() {
+                if s.is_empty() {
                     None
                 } else {
-                    Some(Value::String(t))
+                    Some(Value::String(s.clone()))
                 }
             }
-            Self::Integer(s) => {
-                let t = s.text();
-                if t.is_empty() {
-                    None
-                } else {
-                    s.text().trim().parse::<i64>().ok().map(Value::Int)
-                }
-            }
-            Self::Set { items, .. } => {
+            Self::Integer(s) => s.trim().parse::<i64>().ok().map(Value::Int),
+            Self::Set(items) => {
                 if items.is_empty() {
                     None
                 } else {
@@ -157,14 +146,10 @@ impl UiValue {
     pub fn load_value(&mut self, value: &Value) {
         match &value {
             &Value::String(s) => {
-                let mut input = InputBoxState::new();
-                input.set_text(s);
-                *self = Self::Text(input);
+                *self = Self::Text(s.clone());
             }
             &Value::Int(i) => {
-                let mut input = InputBoxState::new();
-                input.set_text(&i.to_string());
-                *self = Self::Integer(input);
+                *self = Self::Integer(i.to_string());
             }
             &Value::Set(items) => {
                 let strings: Vec<String> = items
@@ -177,14 +162,11 @@ impl UiValue {
                         }
                     })
                     .collect();
-                *self = Self::Set {
-                    items: strings,
-                    item_input: InputBoxState::new(),
-                };
+                *self = Self::Set(strings);
             }
-            Value::Field(_) => {
+            Value::Field(f) => {
                 // Field references on the right are treated as text
-                *self = Self::Text(InputBoxState::new());
+                *self = Self::Text(f.to_string());
             }
         }
     }
@@ -194,45 +176,17 @@ impl UiValue {
     pub fn open_overlay(&self, control_id: u64) -> OverlayType {
         match self {
             Self::Text(input) => {
-                let overlay = TextOverlay::new(control_id, input.text(), ValueKind::Text, 40);
+                let overlay = TextOverlay::new(control_id, input, ValueKind::Text, 40);
                 OverlayType::Text(overlay)
             }
             Self::Integer(input) => {
-                let overlay = TextOverlay::new(control_id, input.text(), ValueKind::Integer, 15);
+                let overlay = TextOverlay::new(control_id, input, ValueKind::Integer, 15);
                 OverlayType::Text(overlay)
             }
-            Self::Set { items, .. } => {
+            Self::Set(items) => {
                 let overlay = SetEditorOverlay::new(control_id, items.clone(), 50);
                 OverlayType::SetEditor(overlay)
             }
-        }
-    }
-
-    /// Apply text input result from overlay, updating the value.
-    pub fn apply_text_result(&mut self, text: String) {
-        match self {
-            Self::Text(input) | Self::Integer(input) => {
-                input.set_text(&text);
-            }
-            Self::Set { item_input, items } => {
-                // For sets, add the item if not empty
-                if !text.is_empty() {
-                    items.push(text);
-                    item_input.clear();
-                }
-            }
-        }
-    }
-
-    /// Apply set editor result from overlay, replacing all items
-    pub fn apply_set_result(&mut self, items: Vec<String>) {
-        if let Self::Set {
-            items: set_items,
-            item_input,
-        } = self
-        {
-            *set_items = items;
-            item_input.clear();
         }
     }
 }
@@ -273,7 +227,7 @@ impl LeafFocus {
 }
 
 impl UiLeafClause {
-    /// Create a new, blank leaf clause defaulting to `title = ""`.
+    /// Create a new, blank leaf clause defaulting to `title = "value"`.
     #[must_use]
     pub fn new() -> Self {
         let field = Field::Title;
@@ -281,7 +235,7 @@ impl UiLeafClause {
         Self {
             field_dd: DropdownState::new(1, Field::iter()),
             operator_dd: DropdownState::new(2, operators),
-            value: UiValue::Text(InputBoxState::new()),
+            value: UiValue::for_field(field),
             leaf_focus: LeafFocus::default(),
         }
     }
