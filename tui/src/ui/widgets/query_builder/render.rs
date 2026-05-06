@@ -81,26 +81,15 @@ fn render_raw_mode(
     }
 }
 
-const fn compute_scroll(cursor: usize, visible: usize, total: usize) -> usize {
-    if total <= visible {
-        return 0;
-    }
-    // keep cursor in view
-    if cursor < visible {
-        0
-    } else if cursor >= total - visible / 2 {
-        total.saturating_sub(visible)
-    } else {
-        cursor.saturating_sub(visible / 2)
-    }
-}
-
 fn render_visual_mode(
     frame: &mut Frame<'_>,
     state: &mut QueryBuilderState,
     area: Rect,
     is_focused: bool,
 ) {
+    // Clear clickable regions before rendering
+    state.clickable_regions.clear();
+
     let focused_color: ratatui::style::Color = if is_focused {
         (*BORDER_FOCUSED).into()
     } else {
@@ -134,8 +123,28 @@ fn render_visual_mode(
     // We render one row per flat item.
     let visible_rows = inner.height as usize;
 
-    // Determine scroll offset so the cursor is visible.
-    let scroll_offset = compute_scroll(cursor_idx, visible_rows, n);
+    // Determine scroll offset: prefer the user's manual scroll, but ensure cursor is in view
+    let mut scroll_offset = state.scroll_offset;
+
+    // If cursor is above the visible area, scroll up to show it
+    if cursor_idx < scroll_offset {
+        scroll_offset = cursor_idx;
+    }
+
+    // If cursor is below the visible area, scroll down to show it
+    if cursor_idx >= scroll_offset + visible_rows {
+        scroll_offset = cursor_idx.saturating_sub(visible_rows - 1);
+    }
+
+    // Ensure we don't scroll past the end
+    if n > visible_rows {
+        scroll_offset = scroll_offset.min(n - visible_rows);
+    } else {
+        scroll_offset = 0;
+    }
+
+    // Update the stored scroll offset
+    state.scroll_offset = scroll_offset;
 
     // render rows
     let mut row_y = inner.y;
@@ -150,7 +159,7 @@ fn render_visual_mode(
             height: 1,
         };
         let is_cursor = rel_i == cursor_idx;
-        render_flat_node(frame, state, node, row_area, is_cursor);
+        render_flat_node(frame, state, node, row_area, is_cursor, rel_i);
         row_y += 1;
     }
 }
@@ -161,6 +170,7 @@ fn render_flat_node(
     node: &FlatNode,
     area: Rect,
     is_cursor: bool,
+    flat_index: usize,
 ) {
     #[allow(clippy::cast_possible_truncation)]
     let indent = (node.depth * 2) as u16;
@@ -182,18 +192,46 @@ fn render_flat_node(
 
     match node.kind {
         FlatNodeKind::GroupHeader => {
-            render_group_header(frame, state, &node.path, inner_area, cursor_style);
+            render_group_header(
+                frame,
+                state,
+                &node.path,
+                inner_area,
+                cursor_style,
+                flat_index,
+            );
         }
         FlatNodeKind::Leaf => {
-            render_leaf_row(frame, state, &node.path, inner_area, cursor_style);
+            render_leaf_row(
+                frame,
+                state,
+                &node.path,
+                inner_area,
+                cursor_style,
+                flat_index,
+            );
         }
         FlatNodeKind::AddClause => {
             let label = Span::styled("[+ Add Clause]", cursor_style);
             frame.render_widget(Paragraph::new(Line::from(label)), inner_area);
+            state.clickable_regions.push(super::state::ClickableRegion {
+                area: inner_area,
+                action: super::state::ClickableAction::AddClause,
+                path: node.path.clone(),
+                flat_index,
+                leaf_focus: None,
+            });
         }
         FlatNodeKind::AddGroup => {
             let label = Span::styled("[+ Add Group]", cursor_style);
             frame.render_widget(Paragraph::new(Line::from(label)), inner_area);
+            state.clickable_regions.push(super::state::ClickableRegion {
+                area: inner_area,
+                action: super::state::ClickableAction::AddGroup,
+                path: node.path.clone(),
+                flat_index,
+                leaf_focus: None,
+            });
         }
     }
 }
@@ -204,6 +242,7 @@ fn render_group_header(
     path: &[usize],
     area: Rect,
     row_style: Style,
+    flat_index: usize,
 ) {
     let Some(group) = state.group_at_mut(path) else {
         return;
@@ -217,6 +256,14 @@ fn render_group_header(
     if kind_area.width > 0 {
         let kind_dd = Dropdown::new().style(row_style);
         frame.render_stateful_widget(kind_dd, area, &mut group.kind_dd);
+        // Record the clickable region for the kind dropdown
+        state.clickable_regions.push(super::state::ClickableRegion {
+            area: kind_area,
+            action: super::state::ClickableAction::GroupKind,
+            path: path.to_vec(),
+            flat_index,
+            leaf_focus: None,
+        });
     }
 
     // Del button if non-root
@@ -227,6 +274,14 @@ fn render_group_header(
             Paragraph::new(Line::from(Span::styled("[-Del]", del_style))),
             del_area,
         );
+        // Record the clickable region for the delete button
+        state.clickable_regions.push(super::state::ClickableRegion {
+            area: del_area,
+            action: super::state::ClickableAction::Delete,
+            path: path.to_vec(),
+            flat_index,
+            leaf_focus: None,
+        });
     }
 }
 
@@ -236,6 +291,7 @@ fn render_leaf_row(
     path: &[usize],
     area: Rect,
     row_style: Style,
+    flat_index: usize,
 ) {
     let Some(leaf) = state.leaf_at_mut(path) else {
         return;
@@ -257,9 +313,15 @@ fn render_leaf_row(
     let [val_area, rest] = split2(rest, val_w);
     let [_, del_area] = split2(rest, 1); // gap before del
 
+    // Record leaf focus to use later (after releasing mutable borrow)
+    let leaf_focus_field = leaf.leaf_focus == LeafFocus::Field;
+    let leaf_focus_operator = leaf.leaf_focus == LeafFocus::Operator;
+    let leaf_value = leaf.value.clone();
+    let leaf_leaf_focus = leaf.leaf_focus;
+
     // Field
     if field_area.width > 0 {
-        let s = if leaf.leaf_focus == LeafFocus::Field {
+        let s = if leaf_focus_field {
             row_style.add_modifier(Modifier::REVERSED)
         } else {
             row_style
@@ -270,7 +332,7 @@ fn render_leaf_row(
 
     // Operator
     if op_area.width > 0 {
-        let s = if leaf.leaf_focus == LeafFocus::Operator {
+        let s = if leaf_focus_operator {
             row_style.add_modifier(Modifier::REVERSED)
         } else {
             row_style
@@ -279,9 +341,41 @@ fn render_leaf_row(
         frame.render_stateful_widget(widget, op_area, &mut leaf.operator_dd);
     }
 
+    // Drop the leaf borrow before we start mutating state.clickable_regions
+    let _ = leaf;
+
+    // Record clickable regions (now that we've dropped the leaf borrow)
+    if field_area.width > 0 {
+        state.clickable_regions.push(super::state::ClickableRegion {
+            area: field_area,
+            action: super::state::ClickableAction::LeafField,
+            path: path.to_vec(),
+            flat_index,
+            leaf_focus: Some(LeafFocus::Field),
+        });
+    }
+
+    if op_area.width > 0 {
+        state.clickable_regions.push(super::state::ClickableRegion {
+            area: op_area,
+            action: super::state::ClickableAction::LeafOperator,
+            path: path.to_vec(),
+            flat_index,
+            leaf_focus: Some(LeafFocus::Operator),
+        });
+    }
+
     // Value
     if val_area.width > 0 {
-        render_value_area(frame, &leaf.value, leaf.leaf_focus, val_area, row_style);
+        render_value_area(frame, &leaf_value, leaf_leaf_focus, val_area, row_style);
+        // Record the clickable region for the value
+        state.clickable_regions.push(super::state::ClickableRegion {
+            area: val_area,
+            action: super::state::ClickableAction::LeafValue,
+            path: path.to_vec(),
+            flat_index,
+            leaf_focus: Some(LeafFocus::Value),
+        });
     }
 
     // Del button
@@ -291,6 +385,14 @@ fn render_leaf_row(
             Paragraph::new(Line::from(Span::styled("[-Del]", del_style))),
             del_area,
         );
+        // Record the clickable region for the delete button
+        state.clickable_regions.push(super::state::ClickableRegion {
+            area: del_area,
+            action: super::state::ClickableAction::Delete,
+            path: path.to_vec(),
+            flat_index,
+            leaf_focus: None,
+        });
     }
 }
 

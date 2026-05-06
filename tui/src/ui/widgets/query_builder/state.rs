@@ -5,11 +5,14 @@ use std::str::FromStr;
 use mecomp_storage::db::schemas::dynamic::query::{
     Clause, Compile as _, CompoundClause, CompoundKind, Query,
 };
+use ratatui::layout::Rect;
 use strum::IntoEnumIterator;
 
 use crate::ui::widgets::{
-    dropdown::DropdownState, input_box::InputBoxState, overlay::OverlayResult,
-    query_builder::utils::flatten_tree,
+    dropdown::DropdownState,
+    input_box::InputBoxState,
+    overlay::OverlayResult,
+    query_builder::utils::{LeafFocus, flatten_tree},
 };
 
 use super::utils::{CursorPath, UiClause, UiCompoundKind, UiGroup, UiLeafClause};
@@ -19,6 +22,38 @@ pub enum BuilderMode {
     #[default]
     Visual,
     RawText,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ClickableAction {
+    /// Click on a group's kind dropdown
+    GroupKind,
+    /// Click on a leaf's field dropdown
+    LeafField,
+    /// Click on a leaf's operator dropdown
+    LeafOperator,
+    /// Click on a leaf's value field (open overlay)
+    LeafValue,
+    /// Click on a delete button for this element
+    Delete,
+    /// Click on the "add clause" button
+    AddClause,
+    /// Click on the "add group" button
+    AddGroup,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClickableRegion {
+    /// The screen area of this clickable region
+    pub area: Rect,
+    /// The action to perform when clicked
+    pub action: ClickableAction,
+    /// The path to the element in the tree
+    pub path: Vec<usize>,
+    /// The flat index in the flattened tree (for cursor positioning)
+    pub flat_index: usize,
+    /// For leaf nodes: which sub-element is this? (field, operator, value)
+    pub leaf_focus: Option<LeafFocus>,
 }
 
 #[derive(Debug, Clone)]
@@ -33,7 +68,10 @@ pub struct QueryBuilderState {
     pub raw_input: InputBoxState,
     /// Is the raw input currently a valid query?
     pub raw_input_valid: bool,
-    // TODO: a way to map some ID into the area on screen where that control is rendered, for mouse click handling.
+    /// Clickable regions for mouse handling (populated during render)
+    pub clickable_regions: Vec<ClickableRegion>,
+    /// Scroll offset for mouse wheel scrolling
+    pub scroll_offset: usize,
 }
 
 impl Default for QueryBuilderState {
@@ -44,6 +82,8 @@ impl Default for QueryBuilderState {
             cursor: CursorPath::default(),
             raw_input: InputBoxState::new(),
             raw_input_valid: false,
+            clickable_regions: Vec::new(),
+            scroll_offset: 0,
         }
     }
 }

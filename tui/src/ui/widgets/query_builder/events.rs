@@ -234,40 +234,130 @@ fn parent_path_from_add(path: &[usize]) -> Vec<usize> {
 }
 
 #[must_use]
-pub const fn handle_mouse_event(
-    _state: &mut QueryBuilderState,
-    _mouse: MouseEvent,
-    _area: Rect, // area of the entire query builder
+pub fn handle_mouse_event(
+    state: &mut QueryBuilderState,
+    mouse: MouseEvent,
+    _area: Rect,
 ) -> Option<Action> {
-    None
+    use crossterm::event::{MouseButton, MouseEventKind};
 
-    // if mouse.kind != MouseEventKind::Down(MouseButton::Left) {
-    //     return None;
-    // }
+    // Handle scroll wheel first
+    match mouse.kind {
+        MouseEventKind::ScrollUp => {
+            state.scroll_offset = state.scroll_offset.saturating_sub(1);
+            return None;
+        }
+        MouseEventKind::ScrollDown => {
+            let _flat = flatten_tree(&state.root);
+            // We'll increment but it will be clamped in the render function
+            state.scroll_offset = state.scroll_offset.saturating_add(1);
+            return None;
+        }
+        _ => {}
+    }
 
-    // // find the control that was clicked, if any, and focus it
-    // let controls = collect_controls(state);
-    // let hit = controls.iter().find_map(|control| {
-    //     state
-    //         .control_area(*control)
-    //         .filter(|area| area.contains((mouse.column, mouse.row).into()))
-    //         .map(|_| *control)
-    // });
+    // Handle left click
+    if mouse.kind != MouseEventKind::Down(MouseButton::Left) {
+        return None;
+    }
 
-    // // if we hit a control, focus it and open overlay if it's a dropdown control
-    // if let Some(control) = hit {
-    //     state.set_focused(Some(control));
+    let click_pos = (mouse.column, mouse.row);
 
-    //     if matches!(control.kind, LeafFocus::Field | LeafFocus::Operator) {
-    //         return state
-    //             .open_overlay_for_focused(8)
-    //             .map(|overlay| Action::Overlay(OverlayAction::Open(overlay)));
-    //     }
+    // Find which clickable region was clicked and clone the data we need
+    let region_data = state
+        .clickable_regions
+        .iter()
+        .find(|r| r.area.contains(click_pos.into()))
+        .map(|r| (r.action, r.path.clone(), r.flat_index, r.leaf_focus))?;
 
-    //     return None;
-    // }
+    let (action, path, flat_index, leaf_focus) = region_data;
 
-    // Some(Action::Overlay(OverlayAction::Close))
+    // Move cursor to this element
+    state.cursor.flat_index = flat_index;
+
+    // Set leaf focus if applicable
+    if let Some(focus) = leaf_focus
+        && let Some(leaf) = state.leaf_at_mut(&path)
+    {
+        leaf.leaf_focus = focus;
+    }
+
+    // Perform the action
+    match action {
+        super::state::ClickableAction::GroupKind => {
+            // Open the group kind dropdown
+            if let Some(group) = state.group_at_mut(&path) {
+                Some(Action::Overlay(OverlayAction::Open(
+                    group.kind_dd.open_overlay(4),
+                )))
+            } else {
+                None
+            }
+        }
+        super::state::ClickableAction::LeafField => {
+            // Open the field dropdown
+            if let Some(leaf) = state.leaf_at_mut(&path) {
+                Some(Action::Overlay(OverlayAction::Open(
+                    leaf.field_dd.open_overlay(8),
+                )))
+            } else {
+                None
+            }
+        }
+        super::state::ClickableAction::LeafOperator => {
+            // Open the operator dropdown
+            if let Some(leaf) = state.leaf_at_mut(&path) {
+                Some(Action::Overlay(OverlayAction::Open(
+                    leaf.operator_dd.open_overlay(10),
+                )))
+            } else {
+                None
+            }
+        }
+        super::state::ClickableAction::LeafValue => {
+            // Open the value overlay
+            if let Some(leaf) = state.leaf_at_mut(&path) {
+                Some(Action::Overlay(OverlayAction::Open(
+                    leaf.value.open_overlay(3),
+                )))
+            } else {
+                None
+            }
+        }
+        super::state::ClickableAction::Delete => {
+            // Delete the element
+            state.remove_child_at(&path);
+            let new_flat = flatten_tree(&state.root);
+            state.cursor.clamp(new_flat.len());
+            None
+        }
+        super::state::ClickableAction::AddClause => {
+            // Add a clause to the parent group
+            let parent_path = if path.len() <= 1 {
+                vec![]
+            } else {
+                path[..path.len() - 1].to_vec()
+            };
+            state.add_leaf_at(&parent_path);
+            let new_flat = flatten_tree(&state.root);
+            state.cursor.flat_index = new_flat.len().saturating_sub(3); // before add buttons
+            state.cursor.clamp(new_flat.len());
+            None
+        }
+        super::state::ClickableAction::AddGroup => {
+            // Add a group to the parent group
+            let parent_path = if path.len() <= 1 {
+                vec![]
+            } else {
+                path[..path.len() - 1].to_vec()
+            };
+            state.add_group_at(&parent_path);
+            let new_flat = flatten_tree(&state.root);
+            state.cursor.flat_index = new_flat.len().saturating_sub(2);
+            state.cursor.clamp(new_flat.len());
+            None
+        }
+    }
 }
 
 #[cfg(test)]
