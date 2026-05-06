@@ -42,6 +42,27 @@ pub enum ClickableAction {
     AddGroup,
 }
 
+impl ClickableAction {
+    #[must_use]
+    pub const fn region(self, area: Rect, path: Vec<usize>, flat_index: usize) -> ClickableRegion {
+        // Determine leaf focus based on action type
+        let leaf_focus = match self {
+            Self::LeafField => Some(LeafFocus::Field),
+            Self::LeafOperator => Some(LeafFocus::Operator),
+            Self::LeafValue => Some(LeafFocus::Value),
+            _ => None,
+        };
+
+        ClickableRegion {
+            area,
+            action: self,
+            path,
+            flat_index,
+            leaf_focus,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ClickableRegion {
     /// The screen area of this clickable region
