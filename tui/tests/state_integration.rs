@@ -157,17 +157,14 @@ async fn test_library_state_main_loop_handles_rescan_analyze_update_and_create_p
 
     let initial_state = state_rx.recv().await.unwrap();
 
-    action_tx.send(LibraryAction::Rescan).unwrap();
-    action_tx.send(LibraryAction::Analyze).unwrap();
-    action_tx.send(LibraryAction::Recluster).unwrap();
     action_tx.send(LibraryAction::Update).unwrap();
-    action_tx
-        .send(LibraryAction::CreatePlaylist("Test Playlist".into()))
-        .unwrap();
 
     let updated_state = state_rx.recv().await.unwrap();
     assert_eq!(updated_state.artists, initial_state.artists);
 
+    action_tx
+        .send(LibraryAction::CreatePlaylist("Test Playlist".into()))
+        .unwrap();
     let playlist_state = state_rx.recv().await.unwrap();
     assert!(
         playlist_state
@@ -175,6 +172,10 @@ async fn test_library_state_main_loop_handles_rescan_analyze_update_and_create_p
             .iter()
             .any(|playlist| playlist.name == "Test Playlist")
     );
+
+    action_tx.send(LibraryAction::Rescan).unwrap();
+    action_tx.send(LibraryAction::Analyze).unwrap();
+    action_tx.send(LibraryAction::Recluster).unwrap();
 
     terminator.terminate(Interrupted::UserInt).unwrap();
     let result = tokio::time::timeout(Duration::from_secs(2), handle)
