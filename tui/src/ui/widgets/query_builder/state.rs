@@ -142,8 +142,15 @@ impl QueryBuilderState {
                         return false;
                     };
                     match target_id {
-                        1 => leaf.field_dd.apply_overlay_result(result),
-                        2 => leaf.operator_dd.apply_overlay_result(result),
+                        1 => {
+                            leaf.refresh_operators();
+                            leaf.refresh_value();
+                            leaf.field_dd.apply_overlay_result(result)
+                        }
+                        2 => {
+                            leaf.refresh_value();
+                            leaf.operator_dd.apply_overlay_result(result)
+                        }
                         _ => false,
                     }
                 } else {
