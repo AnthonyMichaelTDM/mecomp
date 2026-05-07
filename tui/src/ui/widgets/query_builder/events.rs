@@ -11,6 +11,10 @@ use super::{
     utils::{FlatNodeKind, flatten_tree},
 };
 
+const KIND_OVERLAY_ROWS: u16 = 4;
+const FIELD_OVERLAY_ROWS: u16 = 8;
+const OPERATOR_OVERLAY_ROWS: u16 = 10;
+
 #[must_use]
 pub fn handle_key_event(state: &mut QueryBuilderState, key: KeyEvent) -> Option<Action> {
     if key.kind != KeyEventKind::Press {
@@ -33,33 +37,31 @@ pub fn handle_key_event(state: &mut QueryBuilderState, key: KeyEvent) -> Option<
     let cursor_idx = state.cursor.flat_index;
     let current_node = flat[cursor_idx].clone();
 
-    match current_node.kind {
-        FlatNodeKind::GroupHeader => handle_group_header_key(state, key, &current_node.path, n),
-        FlatNodeKind::Leaf => handle_leaf_key(state, key, &current_node.path, n),
-        FlatNodeKind::AddClause => handle_add_clause_key(state, key, &current_node.path, n),
-        FlatNodeKind::AddGroup => handle_add_group_key(state, key, &current_node.path, n),
+    // handle global keys first
+    match key.code {
+        KeyCode::Up => {
+            state.cursor.move_up();
+            None
+        }
+        KeyCode::Down => {
+            state.cursor.move_down();
+            None
+        }
+        _ => match current_node.kind {
+            FlatNodeKind::GroupHeader => handle_group_header_key(state, key, &current_node.path),
+            FlatNodeKind::Leaf => handle_leaf_key(state, key, &current_node.path),
+            FlatNodeKind::AddClause => handle_add_clause_key(state, key, &current_node.path),
+            FlatNodeKind::AddGroup => handle_add_group_key(state, key, &current_node.path),
+        },
     }
 }
-
-const KIND_OVERLAY_ROWS: u16 = 4;
-const FIELD_OVERLAY_ROWS: u16 = 8;
-const OPERATOR_OVERLAY_ROWS: u16 = 10;
 
 fn handle_group_header_key(
     state: &mut QueryBuilderState,
     key: KeyEvent,
     path: &[usize],
-    flat_len: usize,
 ) -> Option<Action> {
     match key.code {
-        KeyCode::Up => {
-            state.cursor.move_up(flat_len);
-            None
-        }
-        KeyCode::Down => {
-            state.cursor.move_down(flat_len);
-            None
-        }
         KeyCode::Enter | KeyCode::Char(' ') => {
             // Open overlay to change group kind
             if let Some(group) = state.group_at_mut(path) {
@@ -80,21 +82,8 @@ fn handle_group_header_key(
     }
 }
 
-fn handle_leaf_key(
-    state: &mut QueryBuilderState,
-    key: KeyEvent,
-    path: &[usize],
-    flat_len: usize,
-) -> Option<Action> {
+fn handle_leaf_key(state: &mut QueryBuilderState, key: KeyEvent, path: &[usize]) -> Option<Action> {
     match key.code {
-        KeyCode::Up => {
-            state.cursor.move_up(flat_len);
-            None
-        }
-        KeyCode::Down => {
-            state.cursor.move_down(flat_len);
-            None
-        }
         KeyCode::Right => {
             if let Some(leaf) = state.leaf_at_mut(path) {
                 leaf.leaf_focus = leaf.leaf_focus.next();
@@ -139,11 +128,8 @@ fn handle_add_clause_key(
     state: &mut QueryBuilderState,
     key: KeyEvent,
     path: &[usize],
-    flat_len: usize,
 ) -> Option<Action> {
     match key.code {
-        KeyCode::Up => state.cursor.move_up(flat_len),
-        KeyCode::Down => state.cursor.move_down(flat_len),
         KeyCode::Enter | KeyCode::Char(' ') => {
             // Add clause to the parent group (path with last sentinel removed)
             state.add_leaf_at(parent_path_of(path));
@@ -161,11 +147,8 @@ fn handle_add_group_key(
     state: &mut QueryBuilderState,
     key: KeyEvent,
     path: &[usize],
-    flat_len: usize,
 ) -> Option<Action> {
     match key.code {
-        KeyCode::Up => state.cursor.move_up(flat_len),
-        KeyCode::Down => state.cursor.move_down(flat_len),
         KeyCode::Enter | KeyCode::Char(' ') => {
             state.add_group_at(parent_path_of(path));
             let new_flat = flatten_tree(&state.root);
@@ -186,13 +169,11 @@ pub fn handle_mouse_event(
     // Handle scroll wheel first
     match mouse.kind {
         MouseEventKind::ScrollUp => {
-            state.scroll_offset = state.scroll_offset.saturating_sub(1);
+            state.cursor.move_up();
             return None;
         }
         MouseEventKind::ScrollDown => {
-            let _flat = flatten_tree(&state.root);
-            // We'll increment but it will be clamped in the render function
-            state.scroll_offset = state.scroll_offset.saturating_add(1);
+            state.cursor.move_down();
             return None;
         }
         _ => {}

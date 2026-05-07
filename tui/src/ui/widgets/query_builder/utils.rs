@@ -470,37 +470,64 @@ fn flatten_group(group: &UiGroup, path: &[usize], depth: usize, out: &mut Vec<Fl
 }
 
 /// Navigates the flat node list by flat index.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct CursorPath {
     /// Index into the flat list returned by `flatten_tree`.
     pub flat_index: usize,
+    /// Cached length of the flat list
+    cached_len: usize,
+    /// Cached scroll offset for rendering
+    cached_scroll: usize,
 }
 
 impl CursorPath {
-    pub const fn move_up(&mut self, len: usize) {
-        if len == 0 {
-            return;
+    pub const fn new(len: usize) -> Self {
+        Self {
+            flat_index: 0,
+            cached_len: len,
+            cached_scroll: 0,
         }
+    }
+
+    pub const fn move_up(&mut self) {
         if self.flat_index == 0 {
-            self.flat_index = len - 1;
+            self.flat_index = self.cached_len.saturating_sub(1);
         } else {
             self.flat_index -= 1;
         }
     }
 
-    pub const fn move_down(&mut self, len: usize) {
-        if len == 0 {
+    pub const fn move_down(&mut self) {
+        if self.cached_len == 0 {
             return;
         }
-        self.flat_index = (self.flat_index + 1) % len;
+        self.flat_index = (self.flat_index + 1) % self.cached_len;
     }
 
+    // Should be called at least after any tree modification.
+    /// Update the cached flat list length and clamp the index if needed.
     pub const fn clamp(&mut self, len: usize) {
         if len == 0 {
             self.flat_index = 0;
         } else if self.flat_index >= len {
             self.flat_index = len - 1;
         }
+        self.cached_len = len;
+    }
+
+    /// Compute and update the correct scroll offset for rendering, given the number of visible rows.
+    pub const fn scroll_offset(&mut self, visible: usize) -> usize {
+        // based on the provided visible row count, adjust the scroll offset
+
+        // if cursor is above the visible area, scroll up to show it
+        if self.flat_index < self.cached_scroll {
+            self.cached_scroll = self.flat_index;
+        }
+        // if the cursor is below the visible area, scroll down to show it
+        if self.flat_index >= self.cached_scroll + visible {
+            self.cached_scroll = self.flat_index + 1 - visible;
+        }
+        self.cached_scroll
     }
 }
 

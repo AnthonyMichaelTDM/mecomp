@@ -124,23 +124,18 @@ fn render_visual_mode(
     // We render one row per flat item.
     let visible_rows = inner.height as usize;
 
-    // Determine scroll offset: prefer the user's manual scroll, but ensure cursor is in view
-    let scroll_offset = state
-        .scroll_offset
-        // If cursor is above the visible area, scroll up to show it
-        .min(cursor_idx)
-        // If cursor is below the visible area, scroll down to show it
-        .max(cursor_idx.saturating_sub(visible_rows - 1))
-        // Ensure we don't scroll past the end
-        .min(n.saturating_sub(visible_rows));
-
-    // Update the stored scroll offset
-    state.scroll_offset = scroll_offset;
+    // Determine scroll offset to ensure cursor is visible
+    let offset = state.cursor.scroll_offset(visible_rows);
 
     // render rows
-    for ((rel_i, node), row_num) in flat.iter().enumerate().skip(scroll_offset).zip(0..) {
-        let row_area = inner.offset(Offset::new(0, row_num)).intersection(inner);
-        if row_area.height == 0 {
+    for ((rel_i, node), row_num) in flat.iter().enumerate().skip(offset).zip(0..) {
+        let row_area = Rect {
+            // ensure we don't go past the bottom of the inner area
+            y: inner.y.saturating_add(row_num),
+            height: 1,
+            ..inner
+        };
+        if row_area.bottom() > inner.bottom() {
             break;
         }
         let is_cursor = rel_i == cursor_idx;

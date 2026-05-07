@@ -91,8 +91,6 @@ pub struct QueryBuilderState {
     pub raw_input_valid: bool,
     /// Clickable regions for mouse handling (populated during render)
     pub clickable_regions: Vec<ClickableRegion>,
-    /// Scroll offset for mouse wheel scrolling
-    pub scroll_offset: usize,
 }
 
 impl Default for QueryBuilderState {
@@ -100,11 +98,10 @@ impl Default for QueryBuilderState {
         Self {
             mode: BuilderMode::Visual,
             root: UiGroup::new(CompoundKind::And),
-            cursor: CursorPath::default(),
+            cursor: CursorPath::new(3), // default flat length: 1 leaf + 2 buttons
             raw_input: InputBoxState::new(),
             raw_input_valid: false,
             clickable_regions: Vec::new(),
-            scroll_offset: 0,
         }
     }
 }
@@ -183,7 +180,8 @@ impl QueryBuilderState {
     /// Load a `Query` into the visual builder.
     pub fn load_query(&mut self, query: &Query) {
         self.root = clause_to_ui_group(&query.root);
-        self.cursor = CursorPath::default();
+        let flat_len = flatten_tree(&self.root).len();
+        self.cursor = CursorPath::new(flat_len);
         // also update raw input for when user toggles mode
         self.raw_input.set_text(&query.compile_for_storage());
         self.raw_input_valid = true;
@@ -451,8 +449,7 @@ mod tests {
         let mut state = QueryBuilderState::default();
 
         // Navigate down to the first leaf (skip the group header)
-        let flat = flatten_tree(&state.root);
-        state.cursor.move_down(flat.len());
+        state.cursor.move_down();
 
         // Get initial state
         let flat = flatten_tree(&state.root);
@@ -612,8 +609,7 @@ mod tests {
         state.load_query(&query);
 
         // Navigate to first leaf
-        let flat = flatten_tree(&state.root);
-        state.cursor.move_down(flat.len());
+        state.cursor.move_down();
 
         // Change field via dropdown overlay
         let field_options = Field::iter().map(|f| f.to_string()).collect::<Vec<_>>();
