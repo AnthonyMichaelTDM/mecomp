@@ -1,10 +1,11 @@
+use std::num::NonZero;
 use std::sync::Arc;
 use std::time::Duration;
 
 use mecomp_core::{audio::AudioKernelSender, config::Settings, udp::StateChange};
 use mecomp_daemon::init_test_client_server;
 use mecomp_prost::MusicPlayerClient;
-use mecomp_storage::test_utils::init_test_database;
+use mecomp_storage::test_utils::{arb_song_case, init_test_database_with_state};
 use mecomp_tui::state::action::{
     AudioAction, LibraryAction, PlaybackAction, PopupAction, QueueAction,
 };
@@ -14,11 +15,23 @@ use mecomp_tui::state::{
 use mecomp_tui::termination::{Interrupted, create_termination};
 use mecomp_tui::ui::widgets::popups::PopupType;
 use pretty_assertions::assert_eq;
+use rstest::rstest;
+use tempfile::tempdir;
 use tokio::sync::mpsc::unbounded_channel;
 
-async fn init_daemon() -> MusicPlayerClient {
-    let db = Arc::new(init_test_database().await.unwrap());
-    let settings = Arc::new(Settings::default());
+#[rstest::fixture]
+async fn client() -> MusicPlayerClient {
+    let music_dir = Arc::new(tempdir().unwrap());
+    let db = init_test_database_with_state(
+        NonZero::new(4).unwrap(),
+        |i| (arb_song_case()(), i > 1, i > 2),
+        None,
+        &music_dir,
+    )
+    .await;
+    let mut settings = Settings::default(); // override some setting to speed up tests
+    settings.daemon.library_paths = vec![music_dir.path().to_path_buf()].into_boxed_slice();
+    let settings = Arc::new(settings);
     let (tx, _) = std::sync::mpsc::channel();
     let audio_kernel = AudioKernelSender::start(tx);
     init_test_client_server(db, settings, audio_kernel)
@@ -54,9 +67,10 @@ async fn test_popup_state_main_loop_opens_and_closes() {
     assert_eq!(result, Interrupted::UserInt);
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_search_state_main_loop_publishes_search_results() {
-    let daemon = init_daemon().await;
+async fn test_search_state_main_loop_publishes_search_results(#[future] client: MusicPlayerClient) {
+    let client = client.await;
     let search_state = SearchState::new();
     let (search_state, mut state_rx) = search_state;
     let (action_tx, action_rx) = unbounded_channel();
@@ -64,7 +78,7 @@ async fn test_search_state_main_loop_publishes_search_results() {
 
     let handle = tokio::spawn(async move {
         search_state
-            .main_loop(daemon, action_rx, interrupt_rx)
+            .main_loop(client, action_rx, interrupt_rx)
             .await
     });
 
@@ -86,9 +100,12 @@ async fn test_search_state_main_loop_publishes_search_results() {
     assert_eq!(result.unwrap(), Interrupted::UserInt);
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_audio_state_main_loop_processes_actions_and_handles_state_change() {
-    let daemon = init_daemon().await;
+async fn test_audio_state_main_loop_processes_actions_and_handles_state_change(
+    #[future] client: MusicPlayerClient,
+) {
+    let daemon = client.await;
     let audio_state = AudioState::new();
     let (audio_state, mut state_rx) = audio_state;
     let (action_tx, action_rx) = unbounded_channel();
@@ -121,9 +138,12 @@ async fn test_audio_state_main_loop_processes_actions_and_handles_state_change()
     assert_eq!(result.unwrap(), Interrupted::UserInt);
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_library_state_main_loop_handles_rescan_analyze_update_and_create_playlist() {
-    let daemon = init_daemon().await;
+async fn test_library_state_main_loop_handles_rescan_analyze_update_and_create_playlist(
+    #[future] client: MusicPlayerClient,
+) {
+    let daemon = client.await;
     let library_state = LibraryState::new();
     let (library_state, mut state_rx) = library_state;
     let (action_tx, action_rx) = unbounded_channel();
@@ -136,7 +156,6 @@ async fn test_library_state_main_loop_handles_rescan_analyze_update_and_create_p
     });
 
     let initial_state = state_rx.recv().await.unwrap();
-    assert!(initial_state.artists.is_empty());
 
     action_tx.send(LibraryAction::Rescan).unwrap();
     action_tx.send(LibraryAction::Analyze).unwrap();
