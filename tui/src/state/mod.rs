@@ -202,3 +202,84 @@ impl Dispatcher {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::action::{
+        Action, AudioAction, ComponentAction, GeneralAction, LibraryAction, OverlayAction,
+        PlaybackAction, PopupAction, ViewAction,
+    };
+    use crate::state::component::ActiveComponent;
+    use crate::termination::create_termination;
+    use crate::ui::components::content_view::ActiveView;
+    use pretty_assertions::assert_eq;
+    use tokio::sync::mpsc::unbounded_channel;
+
+    #[tokio::test]
+    async fn test_action_dispatcher_forwards_actions() {
+        let (terminator, _) = create_termination();
+        let (action_tx, action_rx) = unbounded_channel::<Action>();
+        let (audio_tx, mut audio_rx) = unbounded_channel::<AudioAction>();
+        let (search_tx, mut search_rx) = unbounded_channel::<String>();
+        let (library_tx, mut library_rx) = unbounded_channel::<LibraryAction>();
+        let (view_tx, mut view_rx) = unbounded_channel::<ViewAction>();
+        let (overlay_tx, mut overlay_rx) = unbounded_channel::<OverlayAction>();
+        let (popup_tx, mut popup_rx) = unbounded_channel::<PopupAction>();
+        let (component_tx, mut component_rx) = unbounded_channel::<ComponentAction>();
+
+        let senders = Senders {
+            audio: audio_tx,
+            search: search_tx,
+            library: library_tx,
+            view: view_tx,
+            overlay: overlay_tx,
+            popup: popup_tx,
+            component: component_tx,
+        };
+
+        let dispatcher_handle = tokio::spawn(async move {
+            Dispatcher::action_dispatcher(terminator, action_rx, senders).await
+        });
+
+        action_tx
+            .send(Action::Audio(AudioAction::Playback(PlaybackAction::Toggle)))
+            .unwrap();
+        action_tx.send(Action::Search("query".into())).unwrap();
+        action_tx
+            .send(Action::Library(LibraryAction::Update))
+            .unwrap();
+        action_tx
+            .send(Action::ActiveView(ViewAction::Set(ActiveView::Search)))
+            .unwrap();
+        action_tx.send(Action::Popup(PopupAction::Close)).unwrap();
+        action_tx
+            .send(Action::ActiveComponent(ComponentAction::Set(
+                ActiveComponent::ContentView,
+            )))
+            .unwrap();
+        action_tx
+            .send(Action::General(GeneralAction::Exit))
+            .unwrap();
+
+        let result = dispatcher_handle.await.unwrap();
+        assert!(result.is_ok());
+
+        assert_eq!(
+            audio_rx.recv().await.unwrap(),
+            AudioAction::Playback(PlaybackAction::Toggle)
+        );
+        assert_eq!(search_rx.recv().await.unwrap(), "query");
+        assert_eq!(library_rx.recv().await.unwrap(), LibraryAction::Update);
+        assert_eq!(
+            view_rx.recv().await.unwrap(),
+            ViewAction::Set(ActiveView::Search)
+        );
+        assert_eq!(overlay_rx.recv().await.unwrap(), OverlayAction::Close);
+        assert_eq!(popup_rx.recv().await.unwrap(), PopupAction::Close);
+        assert_eq!(
+            component_rx.recv().await.unwrap(),
+            ComponentAction::Set(ActiveComponent::ContentView)
+        );
+    }
+}
