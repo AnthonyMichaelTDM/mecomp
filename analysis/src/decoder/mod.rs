@@ -91,20 +91,20 @@ pub trait Decoder {
     /// # Example
     ///
     /// ```rust
-    /// use mecomp_analysis::decoder::{Decoder as _, MecmopDecoder as Decoder};
+    /// use mecomp_analysis::decoder::{Decoder as _, MecompDecoder as Decoder};
     ///
     /// let paths = vec![
     ///     "data/piano.wav",
     ///     "data/s32_mono_44_1_kHz.flac"
     /// ];
     ///
-    /// let (tx, rx) = std::mpsc::channel();
+    /// let (tx, rx) = std::sync::mpsc::channel();
     ///
     /// let handle = std::thread::spawn(move || {
     ///     Decoder::new().unwrap().analyze_paths(paths, tx).unwrap();
     /// });
     ///
-    /// for (path, maybe_analysis) = rx {
+    /// for (path, maybe_analysis) in rx {
     ///     if let Ok(analysis) = maybe_analysis {
     ///         println!("{} analyzed successfully!", path.display());
     ///         // do something with the analysis
