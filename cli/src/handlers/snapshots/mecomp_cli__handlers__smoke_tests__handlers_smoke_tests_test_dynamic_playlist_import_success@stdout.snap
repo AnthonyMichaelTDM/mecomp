@@ -1,0 +1,7 @@
+---
+source: cli/src/handlers/smoke_tests.rs
+expression: stdout
+---
+Daemon response:
+Dynamic Playlists:
+	dynamic:{id}: "Dynamic Playlist 0" (artist CONTAINS "Artist 0")

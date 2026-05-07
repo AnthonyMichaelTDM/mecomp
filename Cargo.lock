@@ -3238,6 +3238,7 @@ dependencies = [
  "mecomp-storage",
  "mecomp-workspace-hack",
  "pretty_assertions",
+ "regex",
  "rstest",
  "surrealdb",
  "tempfile",
