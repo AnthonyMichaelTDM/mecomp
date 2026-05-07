@@ -270,6 +270,9 @@ pub fn handle_mouse_event(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::widgets::query_builder::state::{ClickableAction, ClickableRegion};
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
+    use ratatui::layout::Position;
 
     #[test]
     fn parent_path_of_works() {
@@ -277,153 +280,633 @@ mod tests {
         assert_eq!(parent_path_of(empty), empty);
         assert_eq!(parent_path_of(&[0]), empty);
         assert_eq!(parent_path_of(&[0, 1, 2]), &[0, 1]);
+        assert_eq!(parent_path_of(&[0, 1, 2, 3, 4, 5]), &[0, 1, 2, 3, 4]);
     }
 
-    // #[test]
-    // fn enter_opens_overlay_for_dropdown_control() {
-    //     let mut state = QueryBuilderState::new();
-    //     let condition = state.root_conditions().next().expect("condition exists");
-    //     let control = ControlRef {
-    //         condition_id: condition.id,
-    //         kind: LeafFocus::Field,
-    //     };
+    #[test]
+    fn key_event_ignores_releases() {
+        let mut state = QueryBuilderState::default();
+        let key = KeyEvent {
+            code: KeyCode::Up,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Release,
+            state: crossterm::event::KeyEventState::empty(),
+        };
+        let result = handle_key_event(&mut state, key);
+        assert_eq!(result, None);
+    }
 
-    //     state.set_focused(Some(control));
-    //     state.set_control_area(control, Rect::new(1, 1, 10, 1));
+    #[test]
+    fn key_event_ignores_repeats() {
+        let mut state = QueryBuilderState::default();
+        let key = KeyEvent {
+            code: KeyCode::Up,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Repeat,
+            state: crossterm::event::KeyEventState::empty(),
+        };
+        let result = handle_key_event(&mut state, key);
+        assert_eq!(result, None);
+    }
 
-    //     let command = handle_key_event(&mut state, KeyEvent::from(KeyCode::Enter));
+    #[test]
+    fn up_key_moves_cursor_up() {
+        let mut state = QueryBuilderState::default();
+        // Default flat list has 3 nodes: 1 leaf + 2 add buttons
+        // Cursor should start at 0
+        assert_eq!(state.cursor.flat_index, 0);
 
-    //     assert!(matches!(
-    //         command,
-    //         Some(Action::Overlay(OverlayAction::Open(_)))
-    //     ));
-    // }
+        state.cursor.flat_index = 2;
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Up,
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
 
-    // #[test]
-    // fn space_opens_overlay_for_dropdown_control() {
-    //     let mut state = QueryBuilderState::new();
-    //     let condition = state.root_conditions().next().expect("condition exists");
-    //     state.set_focused(Some(ControlRef {
-    //         condition_id: condition.id,
-    //         kind: LeafFocus::Operator,
-    //     }));
+        assert_eq!(result, None);
+        assert_eq!(state.cursor.flat_index, 1);
+    }
 
-    //     let command = handle_key_event(&mut state, KeyEvent::from(KeyCode::Char(' ')));
+    #[test]
+    fn down_key_moves_cursor_down() {
+        let mut state = QueryBuilderState::default();
+        assert_eq!(state.cursor.flat_index, 0);
 
-    //     assert!(matches!(
-    //         command,
-    //         Some(Action::Overlay(OverlayAction::Open(_)))
-    //     ));
-    // }
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Down,
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
 
-    // #[test]
-    // fn up_down_wrap_row_focus() {
-    //     let mut state = QueryBuilderState::new();
-    //     let first_id = state.root_conditions().next().expect("condition exists").id;
-    //     let second_id = state.add_condition_to_root();
+        assert_eq!(result, None);
+        assert_eq!(state.cursor.flat_index, 1);
+    }
 
-    //     state.set_focused(Some(ControlRef {
-    //         condition_id: first_id,
-    //         kind: LeafFocus::Field,
-    //     }));
+    #[test]
+    fn up_key_wraps_around_at_top() {
+        let mut state = QueryBuilderState::default();
+        state.cursor.flat_index = 0;
 
-    //     let _ = handle_key_event(&mut state, KeyEvent::from(KeyCode::Up));
-    //     assert_eq!(
-    //         state.focused.map(|focused| focused.condition_id),
-    //         Some(second_id)
-    //     );
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Up,
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
 
-    //     let _ = handle_key_event(&mut state, KeyEvent::from(KeyCode::Down));
-    //     assert_eq!(
-    //         state.focused.map(|focused| focused.condition_id),
-    //         Some(first_id)
-    //     );
-    // }
+        assert_eq!(result, None);
+        // Should wrap to the last item (index 2 in default 3-item list)
+        assert_eq!(state.cursor.flat_index, 2);
+    }
 
-    // #[test]
-    // fn left_right_cycle_focused_part() {
-    //     let mut state = QueryBuilderState::new();
-    //     let condition_id = state.root_conditions().next().expect("condition exists").id;
-    //     state.set_focused(Some(ControlRef {
-    //         condition_id,
-    //         kind: LeafFocus::Field,
-    //     }));
+    #[test]
+    fn down_key_wraps_around_at_bottom() {
+        let mut state = QueryBuilderState::default();
+        state.cursor.flat_index = 2;
 
-    //     let _ = handle_key_event(&mut state, KeyEvent::from(KeyCode::Right));
-    //     assert_eq!(
-    //         state.focused.map(|focused| focused.kind),
-    //         Some(LeafFocus::Operator)
-    //     );
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Down,
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
 
-    //     let _ = handle_key_event(&mut state, KeyEvent::from(KeyCode::Left));
-    //     assert_eq!(
-    //         state.focused.map(|focused| focused.kind),
-    //         Some(LeafFocus::Field)
-    //     );
-    // }
+        assert_eq!(result, None);
+        // Should wrap to the first item (index 0)
+        assert_eq!(state.cursor.flat_index, 0);
+    }
 
-    // #[test]
-    // fn delete_key_removes_focused_condition() {
-    //     let mut state = QueryBuilderState::new();
-    //     let first_id = state.root_conditions().next().expect("condition exists").id;
-    //     let _second_id = state.add_condition_to_root();
-    //     state.set_focused(Some(ControlRef {
-    //         condition_id: first_id,
-    //         kind: LeafFocus::Field,
-    //     }));
+    #[test]
+    fn leaf_right_key_advances_leaf_focus() {
+        let mut state = QueryBuilderState::default();
+        // The cursor should be on the leaf
+        let flat = flatten_tree(&state.root);
+        assert_eq!(flat[0].kind, FlatNodeKind::Leaf);
 
-    //     let _ = handle_key_event(&mut state, KeyEvent::from(KeyCode::Delete));
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Right,
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
 
-    //     assert_eq!(state.root_conditions().count(), 1);
-    //     assert_ne!(
-    //         state.root_conditions().next().expect("condition exists").id,
-    //         first_id
-    //     );
-    // }
+        assert_eq!(result, None);
+        if let Some(UiClause::Leaf(leaf)) = state.clause_at_mut(&[]) {
+            assert_eq!(leaf.leaf_focus, LeafFocus::Operator);
+        } else {
+            panic!("Expected leaf at root");
+        }
+    }
 
-    // #[test]
-    // fn g_adds_group_node() {
-    //     let mut state = QueryBuilderState::new();
-    //     let group_count_before = state
-    //         .root
-    //         .children
-    //         .iter()
-    //         .filter(|node| matches!(node, super::super::state::QueryNode::Group(_)))
-    //         .count();
+    #[test]
+    fn leaf_left_key_moves_back_in_leaf_focus() {
+        let mut state = QueryBuilderState::default();
+        if let Some(UiClause::Leaf(leaf)) = state.clause_at_mut(&[]) {
+            leaf.leaf_focus = LeafFocus::Operator;
+        }
 
-    //     let _ = handle_key_event(&mut state, KeyEvent::from(KeyCode::Char('g')));
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Left,
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
 
-    //     let group_count_after = state
-    //         .root
-    //         .children
-    //         .iter()
-    //         .filter(|node| matches!(node, super::super::state::QueryNode::Group(_)))
-    //         .count();
-    //     assert_eq!(group_count_after, group_count_before + 1);
-    // }
+        assert_eq!(result, None);
+        if let Some(UiClause::Leaf(leaf)) = state.clause_at_mut(&[]) {
+            assert_eq!(leaf.leaf_focus, LeafFocus::Field);
+        } else {
+            panic!("Expected leaf at root");
+        }
+    }
 
-    // #[test]
-    // fn esc_deactivates_before_propagating_close() {
-    //     let mut state = QueryBuilderState::new();
+    #[test]
+    fn leaf_focus_cycles_through_field_operator_value() {
+        if let Some(UiClause::Leaf(_leaf)) = {
+            let mut state = QueryBuilderState::default();
+            state.clause_at_mut(&[]).cloned()
+        } {
+            assert_eq!(LeafFocus::Field.next(), LeafFocus::Operator);
+            assert_eq!(LeafFocus::Operator.next(), LeafFocus::Value);
+            assert_eq!(LeafFocus::Value.next(), LeafFocus::Field);
 
-    //     let first = handle_key_event(&mut state, KeyEvent::from(KeyCode::Esc));
-    //     assert_eq!(first, None);
-    //     assert!(state.focused.is_none());
+            assert_eq!(LeafFocus::Field.prev(), LeafFocus::Value);
+            assert_eq!(LeafFocus::Value.prev(), LeafFocus::Operator);
+            assert_eq!(LeafFocus::Operator.prev(), LeafFocus::Field);
+        }
+    }
 
-    //     let second = handle_key_event(&mut state, KeyEvent::from(KeyCode::Esc));
-    //     assert!(matches!(
-    //         second,
-    //         Some(Action::Overlay(OverlayAction::Close))
-    //     ));
-    // }
+    #[test]
+    fn leaf_enter_opens_field_overlay() {
+        let mut state = QueryBuilderState::default();
+        if let Some(UiClause::Leaf(leaf)) = state.clause_at_mut(&[]) {
+            leaf.leaf_focus = LeafFocus::Field;
+        }
 
-    // #[test]
-    // fn j_no_longer_toggles_join() {
-    //     let mut state = QueryBuilderState::new();
-    //     let join_before = state.root.join;
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Enter,
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
 
-    //     let _ = handle_key_event(&mut state, KeyEvent::from(KeyCode::Char('j')));
+        assert!(matches!(
+            result,
+            Some(Action::Overlay(OverlayAction::Open(_)))
+        ));
+    }
 
-    //     assert_eq!(state.root.join, join_before);
-    // }
+    #[test]
+    fn leaf_space_opens_operator_overlay() {
+        let mut state = QueryBuilderState::default();
+        if let Some(UiClause::Leaf(leaf)) = state.clause_at_mut(&[]) {
+            leaf.leaf_focus = LeafFocus::Operator;
+        }
+
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Char(' '),
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
+
+        assert!(matches!(
+            result,
+            Some(Action::Overlay(OverlayAction::Open(_)))
+        ));
+    }
+
+    #[test]
+    fn leaf_delete_removes_leaf_when_not_root() {
+        let mut state = QueryBuilderState::default();
+        // Add leaves to create a group: first converts leaf to group, second adds another leaf
+        state.add_leaf_at(&[]);
+        state.add_leaf_at(&[]);
+
+        // Now we have a group with 3 leaves. Delete one and we should still have a group with 2.
+        let initial_count = if let Some(UiClause::Group(g)) = state.clause_at_mut(&[]) {
+            g.clauses.len()
+        } else {
+            panic!("Root should be a group after adding leaves");
+        };
+        assert_eq!(initial_count, 3);
+
+        // Move cursor to the last leaf (index 3: header=0, leaf1=1, leaf2=2, leaf3=3)
+        state.cursor.flat_index = 3;
+
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Delete,
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
+
+        assert_eq!(result, None);
+        if let Some(UiClause::Group(g)) = state.clause_at_mut(&[]) {
+            assert_eq!(g.clauses.len(), initial_count - 1);
+        } else {
+            panic!("Expected root to still be a group after deletion");
+        }
+    }
+
+    #[test]
+    fn group_header_enter_opens_kind_overlay() {
+        let mut state = QueryBuilderState::default();
+        // Convert to group
+        state.add_leaf_at(&[]);
+
+        // Move cursor to group header (index 0)
+        state.cursor.flat_index = 0;
+
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Enter,
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
+
+        assert!(matches!(
+            result,
+            Some(Action::Overlay(OverlayAction::Open(_)))
+        ));
+    }
+
+    #[test]
+    fn add_clause_button_creates_new_leaf() {
+        let mut state = QueryBuilderState::default();
+        state.add_leaf_at(&[]);
+        // Find the AddClause button
+        let flat = flatten_tree(&state.root);
+        let add_clause_idx = flat
+            .iter()
+            .position(|n| n.kind == FlatNodeKind::AddClause)
+            .expect("AddClause button should exist");
+
+        state.cursor.flat_index = add_clause_idx;
+
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Enter,
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
+
+        assert_eq!(result, None);
+        // Verify a new leaf was added
+        let new_flat = flatten_tree(&state.root);
+        let leaf_count = new_flat
+            .iter()
+            .filter(|n| n.kind == FlatNodeKind::Leaf)
+            .count();
+        assert_eq!(leaf_count, 3); // 2 original + 1 new
+    }
+
+    #[test]
+    fn add_group_button_creates_new_group() {
+        let mut state = QueryBuilderState::default();
+        state.add_leaf_at(&[]);
+        let flat = flatten_tree(&state.root);
+        let add_group_idx = flat
+            .iter()
+            .position(|n| n.kind == FlatNodeKind::AddGroup)
+            .expect("AddGroup button should exist");
+
+        state.cursor.flat_index = add_group_idx;
+
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Enter,
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
+
+        assert_eq!(result, None);
+        // Verify structure changed (new group added)
+        let new_flat = flatten_tree(&state.root);
+        assert!(new_flat.iter().any(|n| n.kind == FlatNodeKind::GroupHeader));
+    }
+
+    #[test]
+    fn mouse_scroll_up_moves_cursor() {
+        let mut state = QueryBuilderState::default();
+        state.cursor.flat_index = 2;
+
+        let mouse = MouseEvent {
+            kind: MouseEventKind::ScrollUp,
+            column: 0,
+            row: 0,
+            modifiers: KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 80, 20);
+
+        let result = handle_mouse_event(&mut state, mouse, area);
+
+        assert_eq!(result, None);
+        assert_eq!(state.cursor.flat_index, 1);
+    }
+
+    #[test]
+    fn mouse_scroll_down_moves_cursor() {
+        let mut state = QueryBuilderState::default();
+        state.cursor.flat_index = 0;
+
+        let mouse = MouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            column: 0,
+            row: 0,
+            modifiers: KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 80, 20);
+
+        let result = handle_mouse_event(&mut state, mouse, area);
+
+        assert_eq!(result, None);
+        assert_eq!(state.cursor.flat_index, 1);
+    }
+
+    #[test]
+    fn mouse_ignores_non_left_clicks() {
+        let mut state = QueryBuilderState::default();
+        let initial_index = state.cursor.flat_index;
+
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Right),
+            column: 0,
+            row: 0,
+            modifiers: KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 80, 20);
+
+        let result = handle_mouse_event(&mut state, mouse, area);
+
+        assert_eq!(result, None);
+        assert_eq!(state.cursor.flat_index, initial_index);
+    }
+
+    #[test]
+    fn mouse_ignores_click_outside_regions() {
+        let mut state = QueryBuilderState::default();
+        let initial_index = state.cursor.flat_index;
+
+        // Click at position (100, 100) which is far outside our 80x20 area
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 100,
+            row: 100,
+            modifiers: KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 80, 20);
+
+        let result = handle_mouse_event(&mut state, mouse, area);
+
+        assert_eq!(result, None);
+        assert_eq!(state.cursor.flat_index, initial_index);
+    }
+
+    #[test]
+    fn mouse_left_click_on_region_moves_cursor() {
+        let mut state = QueryBuilderState::default();
+        state.add_leaf_at(&[]);
+
+        // Add a clickable region for testing
+        let region = ClickableRegion {
+            area: Rect::new(10, 5, 20, 1),
+            action: ClickableAction::LeafField,
+            path: vec![0],
+            flat_index: 1,
+            leaf_focus: Some(LeafFocus::Field),
+        };
+        state.clickable_regions.push(region);
+
+        // Click within the region
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 15,
+            row: 5,
+            modifiers: KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 80, 20);
+
+        let result = handle_mouse_event(&mut state, mouse, area);
+
+        assert!(matches!(
+            result,
+            Some(Action::Overlay(OverlayAction::Open(_)))
+        ));
+        assert_eq!(state.cursor.flat_index, 1);
+    }
+
+    #[test]
+    fn mouse_click_sets_leaf_focus() {
+        let mut state = QueryBuilderState::default();
+        state.add_leaf_at(&[]);
+
+        let region = ClickableRegion {
+            area: Rect::new(10, 5, 20, 1),
+            action: ClickableAction::LeafOperator,
+            path: vec![0],
+            flat_index: 1,
+            leaf_focus: Some(LeafFocus::Operator),
+        };
+        state.clickable_regions.push(region);
+
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 15,
+            row: 5,
+            modifiers: KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 80, 20);
+
+        let result = handle_mouse_event(&mut state, mouse, area);
+
+        assert!(result.is_some());
+        if let Some(UiClause::Group(g)) = state.clause_at_mut(&[]) {
+            if let UiClause::Leaf(leaf) = &g.clauses[0] {
+                assert_eq!(leaf.leaf_focus, LeafFocus::Operator);
+            }
+        }
+    }
+
+    #[test]
+    fn mouse_delete_action_removes_element() {
+        let mut state = QueryBuilderState::default();
+        state.add_leaf_at(&[]);
+
+        let region = ClickableRegion {
+            area: Rect::new(10, 5, 20, 1),
+            action: ClickableAction::Delete,
+            path: vec![1],
+            flat_index: 2,
+            leaf_focus: None,
+        };
+        state.clickable_regions.push(region);
+
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 15,
+            row: 5,
+            modifiers: KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 80, 20);
+
+        let result = handle_mouse_event(&mut state, mouse, area);
+
+        assert_eq!(result, None);
+        if let Some(UiClause::Group(g)) = state.clause_at_mut(&[]) {
+            // Should have one less clause
+            assert!(g.clauses.len() < 3);
+        }
+    }
+
+    #[test]
+    fn mouse_add_clause_action_creates_leaf() {
+        let mut state = QueryBuilderState::default();
+        state.add_leaf_at(&[]);
+
+        let region = ClickableRegion {
+            area: Rect::new(10, 5, 20, 1),
+            action: ClickableAction::AddClause,
+            path: vec![usize::MAX - 1], // sentinel for add button
+            flat_index: 3,
+            leaf_focus: None,
+        };
+        state.clickable_regions.push(region);
+
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 15,
+            row: 5,
+            modifiers: KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 80, 20);
+
+        let result = handle_mouse_event(&mut state, mouse, area);
+
+        assert_eq!(result, None);
+        // Verify a new leaf was added
+        let new_flat = flatten_tree(&state.root);
+        let leaf_count = new_flat
+            .iter()
+            .filter(|n| n.kind == FlatNodeKind::Leaf)
+            .count();
+        assert!(leaf_count >= 3);
+    }
+
+    #[test]
+    fn mouse_add_group_action_creates_group() {
+        let mut state = QueryBuilderState::default();
+        state.add_leaf_at(&[]);
+
+        let region = ClickableRegion {
+            area: Rect::new(10, 6, 20, 1),
+            action: ClickableAction::AddGroup,
+            path: vec![usize::MAX],
+            flat_index: 4,
+            leaf_focus: None,
+        };
+        state.clickable_regions.push(region);
+
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 15,
+            row: 6,
+            modifiers: KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 80, 20);
+
+        let result = handle_mouse_event(&mut state, mouse, area);
+
+        assert_eq!(result, None);
+        // Verify structure changed
+        let new_flat = flatten_tree(&state.root);
+        assert!(new_flat.iter().any(|n| n.kind == FlatNodeKind::GroupHeader));
+    }
+
+    #[test]
+    fn mouse_group_kind_action_opens_overlay() {
+        let mut state = QueryBuilderState::default();
+        state.add_leaf_at(&[]);
+
+        let region = ClickableRegion {
+            area: Rect::new(10, 0, 20, 1),
+            action: ClickableAction::GroupKind,
+            path: vec![],
+            flat_index: 0,
+            leaf_focus: None,
+        };
+        state.clickable_regions.push(region);
+
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 15,
+            row: 0,
+            modifiers: KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 80, 20);
+
+        let result = handle_mouse_event(&mut state, mouse, area);
+
+        assert!(matches!(
+            result,
+            Some(Action::Overlay(OverlayAction::Open(_)))
+        ));
+    }
+
+    #[test]
+    fn position_detection_works_at_boundaries() {
+        let rect = Rect::new(10, 5, 20, 3); // x: 10-29, y: 5-7
+
+        let pos_inside_top_left = Position::new(10, 5);
+        let pos_inside_bottom_right = Position::new(29, 7);
+        let pos_outside_left = Position::new(9, 5);
+        let pos_outside_right = Position::new(30, 5);
+        let pos_outside_top = Position::new(10, 4);
+        let pos_outside_bottom = Position::new(10, 8);
+
+        assert!(rect.contains(pos_inside_top_left));
+        assert!(rect.contains(pos_inside_bottom_right));
+        assert!(!rect.contains(pos_outside_left));
+        assert!(!rect.contains(pos_outside_right));
+        assert!(!rect.contains(pos_outside_top));
+        assert!(!rect.contains(pos_outside_bottom));
+    }
 }
