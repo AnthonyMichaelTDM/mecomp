@@ -555,23 +555,15 @@ mod tests {
 
         let mut state = QueryBuilderState::default();
 
-        // Navigate down to the first leaf (skip the group header)
-        state.cursor.move_down();
-
         // Get initial state
         let flat = flatten_tree(&state.root);
         assert!(!flat.is_empty());
 
-        let current_node = &flat[state.cursor.flat_index];
-
         // Get the leaf at cursor position (before)
-        let leaf = state
-            .clause_at_mut(&current_node.path)
-            .and_then(|c| match c {
-                UiClause::Leaf(leaf) => Some(leaf),
-                _ => None,
-            })
-            .expect("Should be a leaf");
+        let leaf = match &state.root {
+            UiClause::Leaf(leaf) => leaf,
+            _ => panic!("Expected root to be a leaf clause"),
+        };
         let initial_field = leaf.field_dd.selected().unwrap().to_string();
 
         // Get the field options to select a different one
