@@ -775,6 +775,130 @@ async fn test_playlist_create(#[future] client: MusicPlayerClient) {
 }
 
 #[rstest]
+#[tokio::test]
+async fn test_playlist_export_path_canonicalize_falls_back(#[future] client: MusicPlayerClient) {
+    let tmpdir = tempdir().unwrap();
+    let path = tmpdir.path().join("export_playlist.m3u");
+
+    let command = Command::Playlist {
+        command: PlaylistCommand::Export {
+            id: item_id().to_string(),
+            path: path.clone(),
+        },
+    };
+
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+    let stdin = &StdInMock::new(vec![], true);
+
+    let result = command.handle(client.await, stdout, stderr, stdin).await;
+    assert!(result.is_ok(), "export command failed: {result:?}");
+    assert!(path.exists(), "expected export path to be created");
+
+    let stdout = String::from_utf8(stdout.0.clone()).unwrap();
+    assert!(stdout.contains("Daemon response:\nplaylist exported to"));
+    assert!(
+        String::from_utf8(stderr.0.clone())
+            .unwrap()
+            .contains("Failed to canonicalize")
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_playlist_import_nonexistent_path_reports_error(#[future] client: MusicPlayerClient) {
+    let tmpdir = tempdir().unwrap();
+    let path = tmpdir.path().join("does_not_exist.m3u");
+
+    let command = Command::Playlist {
+        command: PlaylistCommand::Import {
+            path: path.clone(),
+            name: Some("Import Test".to_string()),
+        },
+    };
+
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+    let stdin = &StdInMock::new(vec![], true);
+
+    let result = command.handle(client.await, stdout, stderr, stdin).await;
+    assert!(result.is_err());
+    let stderr_text = String::from_utf8(stderr.0.clone()).unwrap();
+    assert!(stderr_text.contains("Failed to canonicalize"));
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_dynamic_playlist_export_path_canonicalize_falls_back(
+    #[future] client: MusicPlayerClient,
+) {
+    let tmpdir = tempdir().unwrap();
+    let path = tmpdir.path().join("export_dynamic.csv");
+
+    let command = Command::Dynamic {
+        command: DynamicCommand::Export { path: path.clone() },
+    };
+
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+    let stdin = &StdInMock::new(vec![], true);
+
+    let result = command.handle(client.await, stdout, stderr, stdin).await;
+    assert!(result.is_ok(), "dynamic export failed: {result:?}");
+    assert!(path.exists(), "expected dynamic export path to be created");
+
+    set_snapshot_suffix!("export_dynamic");
+    insta::assert_snapshot!(
+        testname(),
+        String::from_utf8(std::fs::read(path).unwrap()).unwrap()
+    );
+
+    let stdout = String::from_utf8(stdout.0.clone()).unwrap();
+    let stderr = String::from_utf8(stderr.0.clone()).unwrap();
+
+    // redact the tempdir name since it's different each time and not relevant to the test
+    let tempdir_str = tmpdir.path().to_string_lossy().to_string();
+    let stdout = stdout.replace(&tempdir_str, "{tempdir}");
+    let stderr = stderr.replace(&tempdir_str, "{tempdir}");
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), stdout);
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), stderr);
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_dynamic_playlist_import_nonexistent_path_reports_error(
+    #[future] client: MusicPlayerClient,
+) {
+    let tmpdir = tempdir().unwrap();
+    let path = tmpdir.path().join("does_not_exist.csv");
+
+    let command = Command::Dynamic {
+        command: DynamicCommand::Import { path: path.clone() },
+    };
+
+    let stdout = &mut WriteAdapter(Vec::new());
+    let stderr = &mut WriteAdapter(Vec::new());
+    let stdin = &StdInMock::new(vec![], true);
+
+    let result = command.handle(client.await, stdout, stderr, stdin).await;
+    assert!(result.is_err());
+
+    let stdout = String::from_utf8(stdout.0.clone()).unwrap();
+    let stderr = String::from_utf8(stderr.0.clone()).unwrap();
+
+    // redact the tempdir name since it's different each time and not relevant to the test
+    let tempdir_str = tmpdir.path().to_string_lossy().to_string();
+    let stdout = stdout.replace(&tempdir_str, "{tempdir}");
+    let stderr = stderr.replace(&tempdir_str, "{tempdir}");
+    set_snapshot_suffix!("stdout");
+    insta::assert_snapshot!(testname(), stdout);
+    set_snapshot_suffix!("stderr");
+    insta::assert_snapshot!(testname(), stderr);
+}
+
+#[rstest]
 #[case(DynamicCommand::List)]
 #[case(DynamicCommand::Get { id: item_id().to_string() })]
 #[case(DynamicCommand::Songs { id: item_id().to_string() })]
