@@ -92,7 +92,7 @@ pub struct CompoundClause {
     pub kind: CompoundKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumIter)]
 /// The kind of a compound clause.
 pub enum CompoundKind {
     Or,
@@ -210,7 +210,7 @@ pub enum Value {
     Field(Field),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumIter)]
 ///  The fields of a song that are available for filtering.
 pub enum Field {
     // Song
@@ -222,7 +222,7 @@ pub enum Field {
     ReleaseYear,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumIter)]
 /// The operators that can be used in a clause.
 pub enum Operator {
     // Comparison

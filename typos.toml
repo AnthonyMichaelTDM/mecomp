@@ -6,3 +6,5 @@ extend-exclude = ["mecomp-workspace-hack/*"]
 ratatui = "ratatui"
 # don't correct seeked to sought
 seeked = "seeked"
+# don't correct "leafs" to "leaves"
+leafs = "leafs"

@@ -157,6 +157,9 @@ impl UiManager {
                     };
                     app = app.move_with_component(&state);
                 },
+                Some(overlay) = state_rx.overlay.recv() => {
+                    app = app.move_with_overlay(overlay);
+                },
                 Some(popup) = state_rx.popup.recv() => {
                      app = app.move_with_popup( popup.map(|popup| {
                          popup.into_popup(&state, self.action_tx.clone())

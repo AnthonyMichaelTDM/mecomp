@@ -1,11 +1,8 @@
-use std::str::FromStr;
-
-use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use mecomp_prost::{DynamicPlaylist, SongBrief};
-use mecomp_storage::db::schemas::dynamic::query::Query;
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Margin, Offset, Position, Rect},
+    layout::{Margin, Rect},
     style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Scrollbar, ScrollbarOrientation},
@@ -13,19 +10,16 @@ use ratatui::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    state::action::{Action, LibraryAction, ViewAction},
+    state::action::{Action, LibraryAction, PopupAction, ViewAction},
     ui::{
         AppState,
-        colors::{
-            BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL,
-            border_color,
-        },
+        colors::{TEXT_HIGHLIGHT, border_color},
         components::{
             Component, ComponentRender, RenderProps,
             content_view::{ActiveView, views::generic::SortableItemView},
         },
         widgets::{
-            input_box::{InputBox, InputBoxState},
+            popups::PopupType,
             tree::{CheckTree, state::CheckTreeState},
         },
     },
@@ -38,39 +32,6 @@ use super::{
     traits::SortMode,
 };
 
-/// A Query Building interface for Dynamic Playlists
-///
-/// Currently just a wrapper around an `InputBox`,
-/// but I want it to be more like a advanced search builder from something like airtable or a research database.
-#[derive(Default)]
-pub struct QueryBuilder {
-    inner: InputBoxState,
-}
-
-impl QueryBuilder {
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    #[must_use]
-    pub fn query(&self) -> Option<Query> {
-        Query::from_str(self.inner.text()).ok()
-    }
-
-    pub fn handle_key_event(&mut self, key: KeyEvent) {
-        self.inner.handle_key_event(key);
-    }
-
-    pub fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        self.inner.handle_mouse_event(mouse, area);
-    }
-
-    pub fn clear(&mut self) {
-        self.inner.clear();
-    }
-}
-
 #[allow(clippy::module_name_repetitions)]
 pub type DynamicView = SortableItemView<DynamicPlaylistViewProps, SongSort, SongBrief>;
 
@@ -81,20 +42,6 @@ pub struct LibraryDynamicView {
     props: Props,
     /// tree state
     tree_state: CheckTreeState<String>,
-    /// Dynamic Playlist Name Input Box
-    name_input_box: InputBoxState,
-    /// Dynamic Playlist Query Input Box
-    query_builder: QueryBuilder,
-    /// What is currently focused
-    /// Note: name and query input boxes are only visible when one of them is focused
-    focus: Focus,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Focus {
-    NameInput,
-    QueryInput,
-    Tree,
 }
 
 #[derive(Debug)]
@@ -121,9 +68,6 @@ impl Component for LibraryDynamicView {
         Self: Sized,
     {
         Self {
-            name_input_box: InputBoxState::new(),
-            query_builder: QueryBuilder::new(),
-            focus: Focus::Tree,
             action_tx,
             props: Props::from(state),
             tree_state: CheckTreeState::default(),
@@ -152,168 +96,91 @@ impl Component for LibraryDynamicView {
     }
 
     fn handle_key_event(&mut self, key: KeyEvent) {
-        // this page has 2 distinct "modes",
-        // one for navigating the tree when the input boxes are not visible
-        // one for interacting with the input boxes when they are visible
-        if self.focus == Focus::Tree {
-            match key.code {
-                // arrow keys
-                KeyCode::PageUp => {
-                    self.tree_state.select_relative(|current| {
-                        current.map_or(self.props.dynamics.len() - 1, |c| c.saturating_sub(10))
-                    });
-                }
-                KeyCode::Up => {
-                    self.tree_state.key_up();
-                }
-                KeyCode::PageDown => {
-                    self.tree_state
-                        .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
-                }
-                KeyCode::Down => {
-                    self.tree_state.key_down();
-                }
-                KeyCode::Left => {
-                    self.tree_state.key_left();
-                }
-                KeyCode::Right => {
-                    self.tree_state.key_right();
-                }
-                // Enter key opens selected view
-                KeyCode::Enter => {
-                    if self.tree_state.toggle_selected() {
-                        let things = self.tree_state.get_selected_thing();
-
-                        if let Some(thing) = things {
-                            self.action_tx
-                                .send(Action::ActiveView(ViewAction::Set(thing.into())))
-                                .unwrap();
-                        }
-                    }
-                }
-                // Change sort mode
-                KeyCode::Char('s') => {
-                    self.props.sort_mode = self.props.sort_mode.next();
-                    self.props.sort_mode.sort_items(&mut self.props.dynamics);
-                    self.tree_state.scroll_selected_into_view();
-                }
-                KeyCode::Char('S') => {
-                    self.props.sort_mode = self.props.sort_mode.prev();
-                    self.props.sort_mode.sort_items(&mut self.props.dynamics);
-                    self.tree_state.scroll_selected_into_view();
-                }
-                // "n" key to create a new playlist
-                KeyCode::Char('n') => {
-                    self.focus = Focus::NameInput;
-                }
-                // "d" key to delete the selected playlist
-                KeyCode::Char('d') => {
+        match key.code {
+            // arrow keys
+            KeyCode::PageUp => {
+                self.tree_state.select_relative(|current| {
+                    current.map_or(self.props.dynamics.len() - 1, |c| c.saturating_sub(10))
+                });
+            }
+            KeyCode::Up => {
+                self.tree_state.key_up();
+            }
+            KeyCode::PageDown => {
+                self.tree_state
+                    .select_relative(|current| current.map_or(0, |c| c.saturating_add(10)));
+            }
+            KeyCode::Down => {
+                self.tree_state.key_down();
+            }
+            KeyCode::Left => {
+                self.tree_state.key_left();
+            }
+            KeyCode::Right => {
+                self.tree_state.key_right();
+            }
+            // Enter key opens selected view
+            KeyCode::Enter => {
+                if self.tree_state.toggle_selected() {
                     let things = self.tree_state.get_selected_thing();
 
                     if let Some(thing) = things {
                         self.action_tx
-                            .send(Action::Library(LibraryAction::RemoveDynamicPlaylist(
-                                thing.ulid(),
-                            )))
+                            .send(Action::ActiveView(ViewAction::Set(thing.into())))
                             .unwrap();
                     }
                 }
-                _ => {}
             }
-        } else {
-            let query = self.query_builder.query();
-            let name = self.name_input_box.text().to_string();
+            // Change sort mode
+            KeyCode::Char('s') => {
+                self.props.sort_mode = self.props.sort_mode.next();
+                self.props.sort_mode.sort_items(&mut self.props.dynamics);
+                self.tree_state.scroll_selected_into_view();
+            }
+            KeyCode::Char('S') => {
+                self.props.sort_mode = self.props.sort_mode.prev();
+                self.props.sort_mode.sort_items(&mut self.props.dynamics);
+                self.tree_state.scroll_selected_into_view();
+            }
+            // "n" key to create a new playlist
+            KeyCode::Char('n') => {
+                self.action_tx
+                    .send(Action::Popup(PopupAction::Open(
+                        PopupType::DynamicPlaylistCreator,
+                    )))
+                    .unwrap();
+            }
+            // "d" key to delete the selected playlist
+            KeyCode::Char('d') => {
+                let things = self.tree_state.get_selected_thing();
 
-            match (key.code, query, self.focus) {
-                // if the user presses Enter with an empty name, we cancel the operation
-                (KeyCode::Enter, _, Focus::NameInput) if name.is_empty() => {
-                    self.focus = Focus::Tree;
-                }
-                // if the user pressed Enter with a valid (non-empty) name, we prompt the user for the query
-                (KeyCode::Enter, _, Focus::NameInput) if !name.is_empty() => {
-                    self.focus = Focus::QueryInput;
-                }
-                // if the user presses Enter with a valid query, we create a new playlist
-                (KeyCode::Enter, Some(query), Focus::QueryInput) => {
+                if let Some(thing) = things {
                     self.action_tx
-                        .send(Action::Library(LibraryAction::CreateDynamicPlaylist(
-                            name, query,
+                        .send(Action::Library(LibraryAction::RemoveDynamicPlaylist(
+                            thing.ulid(),
                         )))
                         .unwrap();
-                    self.name_input_box.clear();
-                    self.query_builder.clear();
-                    self.focus = Focus::Tree;
                 }
-                // otherwise defer to the focused input box
-                (_, _, Focus::NameInput) => self.name_input_box.handle_key_event(key),
-                (_, _, Focus::QueryInput) => self.query_builder.handle_key_event(key),
-                (_, _, Focus::Tree) => unreachable!(),
             }
+            _ => {}
         }
     }
 
     fn handle_mouse_event(&mut self, mouse: MouseEvent, area: Rect) {
-        let MouseEvent {
-            kind, column, row, ..
-        } = mouse;
-        let mouse_position = Position::new(column, row);
-
         // adjust the area to account for the border
         let area = area.inner(Margin::new(1, 1));
 
-        if self.focus == Focus::Tree {
-            let area = Rect {
-                y: area.y + 1,
-                height: area.height - 1,
-                ..area
-            };
+        let area = Rect {
+            y: area.y + 1,
+            height: area.height - 1,
+            ..area
+        };
 
-            let result = self.tree_state.handle_mouse_event(mouse, area, true);
-            if let Some(action) = result {
-                self.action_tx.send(action).unwrap();
-            }
-        } else {
-            let [input_box_area, query_builder_area, content_area] = lib_split_area(area);
-            let content_area = Rect {
-                y: content_area.y + 1,
-                height: content_area.height - 1,
-                ..content_area
-            };
-
-            if input_box_area.contains(mouse_position) {
-                if kind == MouseEventKind::Down(MouseButton::Left) {
-                    self.focus = Focus::NameInput;
-                }
-                self.name_input_box
-                    .handle_mouse_event(mouse, input_box_area);
-            } else if query_builder_area.contains(mouse_position) {
-                if kind == MouseEventKind::Down(MouseButton::Left) {
-                    self.focus = Focus::QueryInput;
-                }
-                self.query_builder
-                    .handle_mouse_event(mouse, query_builder_area);
-            } else if content_area.contains(mouse_position)
-                && kind == MouseEventKind::Down(MouseButton::Left)
-            {
-                self.focus = Focus::Tree;
-            }
+        let result = self.tree_state.handle_mouse_event(mouse, area, true);
+        if let Some(action) = result {
+            self.action_tx.send(action).unwrap();
         }
     }
-}
-
-fn lib_split_area(area: Rect) -> [Rect; 3] {
-    let [input_box_area, query_builder_area, content_area] = *Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Min(1),
-        ])
-        .split(area)
-    else {
-        panic!("Failed to split library dynamic playlists view area");
-    };
-    [input_box_area, query_builder_area, content_area]
 }
 
 impl ComponentRender<RenderProps> for LibraryDynamicView {
@@ -321,11 +188,8 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
         let border_style = Style::default().fg(border_color(props.is_focused).into());
 
         // render primary border
-        let border_title_bottom = if self.focus == Focus::Tree {
-            " \u{23CE} : Open | ←/↑/↓/→: Navigate | s/S: change sort"
-        } else {
-            ""
-        };
+        let border_title_bottom = " \u{23CE} : Open | ←/↑/↓/→: Navigate | s/S: change sort";
+
         let border = Block::bordered()
             .title_top(Line::from(vec![
                 Span::styled(
@@ -340,76 +204,10 @@ impl ComponentRender<RenderProps> for LibraryDynamicView {
         let content_area = border.inner(props.area);
         frame.render_widget(border, props.area);
 
-        // render input box (if visible)
-        let content_area = if self.focus == Focus::Tree {
-            content_area
-        } else {
-            // split content area to make room for the input box
-            let [input_box_area, query_builder_area, content_area] = lib_split_area(content_area);
-
-            let (name_text_color, query_text_color) = match self.focus {
-                Focus::NameInput => ((*TEXT_HIGHLIGHT_ALT).into(), (*TEXT_HIGHLIGHT).into()),
-                Focus::QueryInput => ((*TEXT_HIGHLIGHT).into(), (*TEXT_HIGHLIGHT_ALT).into()),
-                Focus::Tree => ((*TEXT_NORMAL).into(), (*TEXT_NORMAL).into()),
-            };
-
-            let (name_border_color, query_border_color) = match self.focus {
-                Focus::NameInput => ((*BORDER_FOCUSED).into(), (*BORDER_UNFOCUSED).into()),
-                Focus::QueryInput => ((*BORDER_UNFOCUSED).into(), (*BORDER_FOCUSED).into()),
-                Focus::Tree => ((*BORDER_UNFOCUSED).into(), (*BORDER_UNFOCUSED).into()),
-            };
-
-            // render the name input box
-            let name_input = InputBox::new().text_color(name_text_color).border(
-                Block::bordered()
-                    .title("Enter Name:")
-                    .border_style(Style::default().fg(name_border_color)),
-            );
-            frame.render_stateful_widget(name_input, input_box_area, &mut self.name_input_box);
-
-            // render the query input box
-            let title = if self.query_builder.query().is_some() {
-                "Enter Query:"
-            } else {
-                "Invalid Query:"
-            };
-            let query_builder = InputBox::new().text_color(query_text_color).border(
-                Block::bordered()
-                    .title(title)
-                    .border_style(Style::default().fg(query_border_color)),
-            );
-            frame.render_stateful_widget(
-                query_builder,
-                query_builder_area,
-                &mut self.query_builder.inner,
-            );
-
-            match self.focus {
-                Focus::NameInput => {
-                    let position =
-                        input_box_area + self.name_input_box.cursor_offset() + Offset::new(1, 1);
-                    frame.set_cursor_position(position);
-                }
-                Focus::QueryInput => {
-                    let position = query_builder_area
-                        + self.query_builder.inner.cursor_offset()
-                        + Offset::new(1, 1);
-                    frame.set_cursor_position(position);
-                }
-                Focus::Tree => {}
-            }
-
-            content_area
-        };
-
         // draw additional border around content area to display additional instructions
         let border = Block::new()
             .borders(Borders::TOP)
-            .title_top(match self.focus {
-                Focus::NameInput => " \u{23CE} : Set (cancel if empty)",
-                Focus::QueryInput => " \u{23CE} : Create (cancel if empty)",
-                Focus::Tree => "n: new dynamic | d: delete dynamic",
-            })
+            .title_top("n: new dynamic | d: delete dynamic")
             .border_style(border_style);
         let area = border.inner(content_area);
         frame.render_widget(border, content_area);
@@ -449,7 +247,7 @@ mod item_view_tests {
         test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
         ui::{components::content_view::ActiveView, widgets::popups::PopupType},
     };
-    use crossterm::event::KeyModifiers;
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use mecomp_prost::RecordId;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
@@ -785,7 +583,7 @@ mod library_view_tests {
         state::action::{LibraryAction, ViewAction},
         test_utils::{assert_buffer_eq, item_id, setup_test_terminal, state_with_everything},
     };
-    use crossterm::event::KeyModifiers;
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
     use tokio::sync::mpsc::unbounded_channel;
@@ -851,6 +649,15 @@ mod library_view_tests {
         };
         let _frame = terminal.draw(|f| view.render(f, props)).unwrap();
 
+        // open the creator popup
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('n')));
+        assert_eq!(
+            rx.try_recv(),
+            Ok(Action::Popup(PopupAction::Open(
+                PopupType::DynamicPlaylistCreator
+            )))
+        );
+
         // when there are no selected items:
         // - Enter should do nothing
         // - "d" should do nothing
@@ -873,63 +680,6 @@ mod library_view_tests {
         assert_eq!(
             rx.blocking_recv().unwrap(),
             Action::ActiveView(ViewAction::Set(ActiveView::DynamicPlaylist(item_id())))
-        );
-    }
-
-    #[test]
-    fn test_actions_with_input_boxes() {
-        let (tx, mut rx) = unbounded_channel();
-        let state = state_with_everything();
-        let mut view = LibraryDynamicView::new(&state, tx);
-
-        // need to render at least once to load the tree state
-        let (mut terminal, area) = setup_test_terminal(60, 11);
-        let props = RenderProps {
-            area,
-            is_focused: true,
-        };
-        let _frame = terminal.draw(|f| view.render(f, props)).unwrap();
-
-        // pressing "n" should reveal the name/query input boxes
-        assert_eq!(view.focus, Focus::Tree);
-        view.handle_key_event(KeyEvent::from(KeyCode::Char('n')));
-        assert_eq!(view.focus, Focus::NameInput);
-
-        // when the name input box is focused:
-        // - Enter with an empty name should cancel the operation
-        // - Enter with a valid name should reveal the query input box
-        // - other keys are deferred to the input box
-        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
-        assert_eq!(view.focus, Focus::Tree);
-        view.handle_key_event(KeyEvent::from(KeyCode::Char('n'))); // reveal the name input box again
-        assert_eq!(view.focus, Focus::NameInput);
-        view.handle_key_event(KeyEvent::from(KeyCode::Char('a')));
-        view.handle_key_event(KeyEvent::from(KeyCode::Char('b')));
-        view.handle_key_event(KeyEvent::from(KeyCode::Char('c')));
-        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
-
-        assert_eq!(view.name_input_box.text(), "abc");
-        assert_eq!(view.focus, Focus::QueryInput);
-
-        // when the query input box is focused:
-        // - Enter with an invalid query should do nothing
-        // - Enter with a valid query should create a new dynamic playlist
-        // - other keys are deferred to the input box
-        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
-        assert_eq!(view.focus, Focus::QueryInput);
-        let query = "artist CONTAINS 'foo'";
-        for c in query.chars() {
-            view.handle_key_event(KeyEvent::from(KeyCode::Char(c)));
-        }
-        assert_eq!(view.query_builder.inner.text(), query);
-        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
-
-        assert_eq!(
-            rx.blocking_recv().unwrap(),
-            Action::Library(LibraryAction::CreateDynamicPlaylist(
-                "abc".to_string(),
-                Query::from_str(query).unwrap()
-            ))
         );
     }
 
@@ -994,46 +744,13 @@ mod library_view_tests {
             Err(tokio::sync::mpsc::error::TryRecvError::Empty)
         );
 
-        view.handle_key_event(KeyEvent::from(KeyCode::Char('n'))); // reveal the name input box
-
-        // with the input boxes visible:
-        // - clicking on the query input box should focus it
-        // - clicking on the name input box should focus it
-        // - clicking on the content area should defocus and hide the input boxes
-        assert_eq!(view.focus, Focus::NameInput);
-        view.handle_mouse_event(
-            // click on the query input box
-            MouseEvent {
-                kind: MouseEventKind::Down(MouseButton::Left),
-                column: 2,
-                row: 5,
-                modifiers: KeyModifiers::empty(),
-            },
-            area,
+        view.handle_key_event(KeyEvent::from(KeyCode::Char('n')));
+        assert_eq!(
+            rx.try_recv(),
+            Ok(Action::Popup(PopupAction::Open(
+                PopupType::DynamicPlaylistCreator
+            )))
         );
-        assert_eq!(view.focus, Focus::QueryInput);
-        view.handle_mouse_event(
-            // click on the name input box
-            MouseEvent {
-                kind: MouseEventKind::Down(MouseButton::Left),
-                column: 2,
-                row: 2,
-                modifiers: KeyModifiers::empty(),
-            },
-            area,
-        );
-        assert_eq!(view.focus, Focus::NameInput);
-        // click on the content area
-        view.handle_mouse_event(
-            MouseEvent {
-                kind: MouseEventKind::Down(MouseButton::Left),
-                column: 2,
-                row: 8,
-                modifiers: KeyModifiers::empty(),
-            },
-            area,
-        );
-        assert_eq!(view.focus, Focus::Tree);
     }
 
     #[test]
@@ -1059,93 +776,6 @@ mod library_view_tests {
             "│                                                          │",
             "│                                                          │",
             "└ ⏎ : Open | ←/↑/↓/→: Navigate | s/S: change sort──────────┘",
-        ]);
-
-        assert_buffer_eq(&buffer, &expected);
-    }
-
-    #[test]
-    fn test_render_with_input_boxes_visible() {
-        let (tx, _) = unbounded_channel();
-        let state = state_with_everything();
-        let mut view = LibraryDynamicView::new(&state, tx);
-
-        // reveal the name input box
-        view.handle_key_event(KeyEvent::from(KeyCode::Char('n')));
-
-        let (mut terminal, area) = setup_test_terminal(60, 11);
-        let props = RenderProps {
-            area,
-            is_focused: true,
-        };
-        let buffer = terminal
-            .draw(|f| view.render(f, props))
-            .unwrap()
-            .buffer
-            .clone();
-        let expected = Buffer::with_lines([
-            "┌Library Dynamic Playlists sorted by: Name─────────────────┐",
-            "│┌Enter Name:─────────────────────────────────────────────┐│",
-            "││                                                        ││",
-            "│└────────────────────────────────────────────────────────┘│",
-            "│┌Invalid Query:──────────────────────────────────────────┐│",
-            "││                                                        ││",
-            "│└────────────────────────────────────────────────────────┘│",
-            "│ ⏎ : Set (cancel if empty)────────────────────────────────│",
-            "│▪ Test Dynamic                                            │",
-            "│                                                          │",
-            "└──────────────────────────────────────────────────────────┘",
-        ]);
-        assert_buffer_eq(&buffer, &expected);
-
-        let name = "Test";
-        for c in name.chars() {
-            view.handle_key_event(KeyEvent::from(KeyCode::Char(c)));
-        }
-        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
-
-        let buffer = terminal
-            .draw(|f| view.render(f, props))
-            .unwrap()
-            .buffer
-            .clone();
-        let expected = Buffer::with_lines([
-            "┌Library Dynamic Playlists sorted by: Name─────────────────┐",
-            "│┌Enter Name:─────────────────────────────────────────────┐│",
-            "││Test                                                    ││",
-            "│└────────────────────────────────────────────────────────┘│",
-            "│┌Invalid Query:──────────────────────────────────────────┐│",
-            "││                                                        ││",
-            "│└────────────────────────────────────────────────────────┘│",
-            "│ ⏎ : Create (cancel if empty)─────────────────────────────│",
-            "│▪ Test Dynamic                                            │",
-            "│                                                          │",
-            "└──────────────────────────────────────────────────────────┘",
-        ]);
-        assert_buffer_eq(&buffer, &expected);
-
-        let query = "artist CONTAINS 'foo'";
-        for c in query.chars() {
-            view.handle_key_event(KeyEvent::from(KeyCode::Char(c)));
-        }
-
-        let buffer = terminal
-            .draw(|f| view.render(f, props))
-            .unwrap()
-            .buffer
-            .clone();
-        let expected = Buffer::with_lines([
-            "┌Library Dynamic Playlists sorted by: Name─────────────────┐",
-            "│┌Enter Name:─────────────────────────────────────────────┐│",
-            "││Test                                                    ││",
-            "│└────────────────────────────────────────────────────────┘│",
-            "│┌Enter Query:────────────────────────────────────────────┐│",
-            "││artist CONTAINS 'foo'                                   ││",
-            "│└────────────────────────────────────────────────────────┘│",
-            "│ ⏎ : Create (cancel if empty)─────────────────────────────│",
-            "│▪ Test Dynamic                                            │",
-            "│                                                          │",
-            "└──────────────────────────────────────────────────────────┘",
         ]);
 
         assert_buffer_eq(&buffer, &expected);

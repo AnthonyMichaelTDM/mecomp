@@ -16,6 +16,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::state::{
     action::{Action, ComponentAction, GeneralAction, LibraryAction},
     component::ActiveComponent,
+    overlay::OverlayUpdate,
 };
 
 use super::{
@@ -25,7 +26,7 @@ use super::{
         Component, ComponentRender, RenderProps, content_view::ContentView,
         control_panel::ControlPanel, queuebar::QueueBar, sidebar::Sidebar,
     },
-    widgets::popups::Popup,
+    widgets::{overlay::OverlayType, popups::Popup},
 };
 
 #[must_use]
@@ -41,6 +42,8 @@ pub struct App {
     content_view: ContentView,
     // (global) Components that are conditionally in view (popups)
     popup: Option<Box<dyn Popup>>,
+    // (global) Components that are conditionally in view (overlays)
+    overlay: Option<OverlayType>,
 }
 
 impl App {
@@ -123,7 +126,23 @@ impl App {
     ///
     /// in this case, that is the popup
     pub fn move_with_popup(self, popup: Option<Box<dyn Popup>>) -> Self {
-        Self { popup, ..self }
+        Self {
+            popup,
+            overlay: None,
+            ..self
+        }
+    }
+
+    /// Move the app with the given overlay update.
+    pub fn move_with_overlay(mut self, update: OverlayUpdate) -> Self {
+        if let Some(result) = update.result.as_ref()
+            && let Some(popup) = self.popup.as_mut()
+        {
+            popup.handle_overlay_result(result);
+        }
+
+        self.overlay = update.active;
+        self
     }
 }
 
@@ -142,6 +161,7 @@ impl Component for App {
             content_view: ContentView::new(state, action_tx),
             //
             popup: None,
+            overlay: None,
         }
         .move_with_state(state)
     }
@@ -160,6 +180,11 @@ impl Component for App {
                 popup.update_with_state(state);
                 popup
             }),
+            overlay: self.overlay.map(|overlay| {
+                let mut overlay = overlay;
+                overlay.update_with_state(state);
+                overlay
+            }),
             ..self
         }
     }
@@ -171,6 +196,12 @@ impl Component for App {
 
     fn handle_key_event(&mut self, key: KeyEvent) {
         if key.kind != KeyEventKind::Press {
+            return;
+        }
+
+        // if there is an overlay, defer all key handling to it.
+        if let Some(overlay) = self.overlay.as_mut() {
+            overlay.handle_key_event(key, self.action_tx.clone());
             return;
         }
 
@@ -209,6 +240,12 @@ impl Component for App {
     }
 
     fn handle_mouse_event(&mut self, mouse: crossterm::event::MouseEvent, area: Rect) {
+        // if there is an overlay, defer all mouse handling to it.
+        if let Some(overlay) = self.overlay.as_mut() {
+            overlay.handle_mouse_event(mouse, overlay.area(area), self.action_tx.clone());
+            return;
+        }
+
         // if there is a popup, defer all mouse handling to it.
         if let Some(popup) = self.popup.as_mut() {
             popup.handle_mouse_event(mouse, popup.area(area), self.action_tx.clone());
@@ -349,6 +386,11 @@ impl ComponentRender<Rect> for App {
         // render the popup if there is one
         if let Some(popup) = &mut self.popup {
             popup.render_popup(frame);
+        }
+
+        // render the overlay if there is one
+        if let Some(overlay) = &mut self.overlay {
+            overlay.render_overlay(frame);
         }
     }
 }

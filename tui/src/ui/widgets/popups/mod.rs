@@ -15,7 +15,10 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     state::action::{Action, PopupAction},
-    ui::{AppState, colors::POPUP_BORDER, components::ComponentRender},
+    ui::{
+        AppState, colors::POPUP_BORDER, components::ComponentRender,
+        widgets::overlay::OverlayResult,
+    },
 };
 
 pub trait Popup: for<'a> ComponentRender<Rect> + Send {
@@ -30,6 +33,9 @@ pub trait Popup: for<'a> ComponentRender<Rect> + Send {
     }
 
     fn update_with_state(&mut self, state: &AppState);
+
+    /// Handle an overlay result delivered by the app-level overlay pipeline.
+    fn handle_overlay_result(&mut self, _result: &OverlayResult) {}
 
     /// Key Event Handler for the inner component of the popup,
     /// this method is called when the key event is not the escape key.
@@ -110,6 +116,7 @@ pub enum PopupType {
     Playlist(Vec<RecordId>),
     PlaylistEditor(PlaylistBrief),
     DynamicPlaylistEditor(DynamicPlaylist),
+    DynamicPlaylistCreator,
 }
 
 impl PopupType {
@@ -131,8 +138,11 @@ impl PopupType {
                 playlist.id.ulid(),
                 &playlist.name,
             )) as _,
-            Self::DynamicPlaylistEditor(playlist) => {
-                Box::new(dynamic::DynamicPlaylistEditor::new(action_tx, playlist)) as _
+            Self::DynamicPlaylistEditor(playlist) => Box::new(
+                dynamic::DynamicPlaylistEditor::new_editor(action_tx, playlist),
+            ) as _,
+            Self::DynamicPlaylistCreator => {
+                Box::new(dynamic::DynamicPlaylistEditor::new_creator(action_tx)) as _
             }
         }
     }

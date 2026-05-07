@@ -1,0 +1,584 @@
+use ratatui::{
+    Frame,
+    layout::{Constraint, Flex, Layout, Offset, Rect},
+    style::{Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Paragraph},
+};
+
+use crate::ui::{
+    colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL},
+    widgets::{dropdown::Dropdown, input_box::InputBox, query_builder::utils::UiClause},
+};
+
+use super::{
+    state::{BuilderMode, ClickableAction, QueryBuilderState},
+    utils::{FlatNode, FlatNodeKind, LeafFocus, UiValue, flatten_tree},
+};
+
+pub fn render_query_builder(
+    frame: &mut Frame<'_>,
+    state: &mut QueryBuilderState,
+    area: Rect,
+    is_focused: bool,
+) {
+    match state.mode {
+        BuilderMode::Visual => render_visual_mode(frame, state, area, is_focused),
+        BuilderMode::RawText => render_raw_mode(frame, state, area, is_focused),
+    }
+}
+
+fn render_raw_mode(
+    frame: &mut Frame<'_>,
+    state: &mut QueryBuilderState,
+    area: Rect,
+    is_focused: bool,
+) {
+    let status = if state.raw_input_valid {
+        "Enter Query"
+    } else {
+        "Invalid Query"
+    };
+
+    let border_color: ratatui::style::Color = if state.raw_input_valid {
+        if is_focused {
+            *BORDER_FOCUSED
+        } else {
+            *BORDER_UNFOCUSED
+        }
+    } else {
+        *TEXT_HIGHLIGHT
+    }
+    .into();
+
+    let border = Block::bordered()
+        .title_top(Line::from(vec![
+            Span::styled(
+                "Query Builder",
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
+            Span::raw("  "),
+            Span::styled(
+                "Raw(Shift+Tab: visual mode)",
+                Style::default().add_modifier(Modifier::DIM),
+            ),
+        ]))
+        .title_bottom(status)
+        .border_style(Style::default().fg(border_color));
+
+    let text_color = if is_focused {
+        (*TEXT_NORMAL).into()
+    } else {
+        (*TEXT_HIGHLIGHT_ALT).into()
+    };
+
+    let query_input = InputBox::new().border(border).text_color(text_color);
+    frame.render_stateful_widget(query_input, area, &mut state.raw_input);
+
+    // update cursor position
+    if is_focused {
+        let position = area + state.raw_input.cursor_offset() + Offset::new(1, 1);
+        frame.set_cursor_position(position);
+    }
+}
+
+fn render_visual_mode(
+    frame: &mut Frame<'_>,
+    state: &mut QueryBuilderState,
+    area: Rect,
+    is_focused: bool,
+) {
+    // Clear clickable regions before rendering
+    state.clickable_regions.clear();
+
+    let focused_color: ratatui::style::Color = if is_focused {
+        (*BORDER_FOCUSED).into()
+    } else {
+        (*BORDER_UNFOCUSED).into()
+    };
+
+    let border = Block::bordered()
+        .title_top(Line::from(vec![
+            Span::styled(
+                "Query Builder",
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
+            Span::raw("  "),
+            Span::styled(
+                "Visual(Tab: raw mode)",
+                Style::default().add_modifier(Modifier::DIM),
+            ),
+        ]))
+        .border_style(Style::default().fg(focused_color))
+        .title_bottom("↑/↓/←/→: focus | Enter: open | d/Del: remove");
+
+    let inner = border.inner(area);
+    frame.render_widget(border, area);
+
+    // Build the flat list to know how many items there are and where the cursor is.
+    let flat = flatten_tree(&state.root);
+    let n = flat.len();
+    state.cursor.clamp(n);
+    let cursor_idx = state.cursor.flat_index;
+
+    // We render one row per flat item.
+    let visible_rows = inner.height as usize;
+
+    // Determine scroll offset to ensure cursor is visible
+    let offset = state.cursor.scroll_offset(visible_rows);
+
+    // render rows
+    for ((rel_i, node), row_num) in flat.iter().enumerate().skip(offset).zip(0..) {
+        let row_area = Rect {
+            // ensure we don't go past the bottom of the inner area
+            y: inner.y.saturating_add(row_num),
+            height: 1,
+            ..inner
+        };
+        if row_area.bottom() > inner.bottom() {
+            break;
+        }
+        let is_cursor = rel_i == cursor_idx;
+        render_flat_node(frame, state, node, row_area, is_cursor, rel_i);
+    }
+}
+
+fn render_flat_node(
+    frame: &mut Frame<'_>,
+    state: &mut QueryBuilderState,
+    node: &FlatNode,
+    area: Rect,
+    is_cursor: bool,
+    flat_index: usize,
+) {
+    #[allow(clippy::cast_possible_truncation)]
+    let indent = (node.depth * 2) as u16;
+    let [_, inner_area] = area.layout(&Layout::horizontal([
+        Constraint::Length(indent),
+        Constraint::Min(0),
+    ]));
+
+    if inner_area.width == 0 {
+        return;
+    }
+
+    let cursor_style = if is_cursor {
+        Style::default().bg((*BORDER_UNFOCUSED).into())
+    } else {
+        Style::default()
+    };
+
+    match node.kind {
+        FlatNodeKind::GroupHeader => {
+            render_group_header(
+                frame,
+                state,
+                &node.path,
+                inner_area,
+                cursor_style,
+                flat_index,
+            );
+        }
+        FlatNodeKind::Leaf => {
+            render_leaf_row(
+                frame,
+                state,
+                &node.path,
+                inner_area,
+                cursor_style,
+                flat_index,
+            );
+        }
+        FlatNodeKind::AddClause => {
+            let label = Span::styled("[+ Add Clause]", cursor_style);
+            frame.render_widget(Paragraph::new(Line::from(label)), inner_area);
+            state
+                .clickable_regions
+                .push(ClickableAction::AddClause.region(inner_area, node.path.clone(), flat_index));
+        }
+        FlatNodeKind::AddGroup => {
+            let label = Span::styled("[+ Add Group]", cursor_style);
+            frame.render_widget(Paragraph::new(Line::from(label)), inner_area);
+            state
+                .clickable_regions
+                .push(ClickableAction::AddGroup.region(inner_area, node.path.clone(), flat_index));
+        }
+    }
+}
+
+fn render_group_header(
+    frame: &mut Frame<'_>,
+    state: &mut QueryBuilderState,
+    path: &[usize],
+    area: Rect,
+    row_style: Style,
+    flat_index: usize,
+) {
+    let Some(UiClause::Group(group)) = state.clause_at_mut(path) else {
+        return;
+    };
+
+    // Allocate space: "[kind ▼]  [-Del]"
+    // kind_dd takes 8 cols, del button 6 cols
+    let [kind_area, _, del_area] = area.layout(&Layout::horizontal([
+        Constraint::Length(8),
+        Constraint::Min(0),
+        Constraint::Length(6),
+    ]));
+
+    let kind_dd = Dropdown::new().style(row_style);
+    frame.render_stateful_widget(kind_dd, area, &mut group.kind_dd);
+    // Record the clickable region for the kind dropdown
+    state
+        .clickable_regions
+        .push(ClickableAction::GroupKind.region(kind_area, path.to_vec(), flat_index));
+
+    // Del button if non-root
+    if !path.is_empty() {
+        let del_style = Style::default().fg((*TEXT_HIGHLIGHT).into());
+        frame.render_widget(Line::from("[-Del]").style(del_style), del_area);
+        // Record the clickable region for the delete button
+        state.clickable_regions.push(ClickableAction::Delete.region(
+            del_area,
+            path.to_vec(),
+            flat_index,
+        ));
+    }
+}
+
+fn render_leaf_row(
+    frame: &mut Frame<'_>,
+    state: &mut QueryBuilderState,
+    path: &[usize],
+    area: Rect,
+    row_style: Style,
+    flat_index: usize,
+) {
+    let Some(UiClause::Leaf(leaf)) = state.clause_at_mut(path) else {
+        return;
+    };
+
+    // Layout: [Field▼][space][Op▼][space][value...][del]
+    // Columns:  12       1    12    1      rest-1    6
+    let [field_area, op_area, val_area, del_area] = area.layout(
+        &Layout::horizontal([
+            Constraint::Length(14),
+            Constraint::Length(14),
+            Constraint::Min(2),
+            Constraint::Length(6),
+        ])
+        .flex(Flex::SpaceBetween),
+    );
+
+    // Record leaf focus to use later (after releasing mutable borrow)
+    let leaf_focus_field = leaf.leaf_focus == LeafFocus::Field;
+    let leaf_focus_operator = leaf.leaf_focus == LeafFocus::Operator;
+    let leaf_value = leaf.value.clone();
+    let leaf_leaf_focus = leaf.leaf_focus;
+
+    // Field
+    let s = if leaf_focus_field {
+        row_style.add_modifier(Modifier::REVERSED)
+    } else {
+        row_style
+    };
+    let field_dd = Dropdown::new().style(s);
+    frame.render_stateful_widget(field_dd, field_area, &mut leaf.field_dd);
+
+    // Operator
+    let s = if leaf_focus_operator {
+        row_style.add_modifier(Modifier::REVERSED)
+    } else {
+        row_style
+    };
+    let widget = Dropdown::new().style(s);
+    frame.render_stateful_widget(widget, op_area, &mut leaf.operator_dd);
+
+    // Drop the leaf borrow before we start mutating state.clickable_regions
+    let _ = leaf;
+
+    // Record clickable regions (now that we've dropped the leaf borrow)
+    // Field
+    state
+        .clickable_regions
+        .push(ClickableAction::LeafField.region(field_area, path.to_vec(), flat_index));
+    // Operator
+    state
+        .clickable_regions
+        .push(ClickableAction::LeafOperator.region(op_area, path.to_vec(), flat_index));
+    // Value
+    render_value_area(frame, &leaf_value, leaf_leaf_focus, val_area, row_style);
+    // Record the clickable region for the value
+    state
+        .clickable_regions
+        .push(ClickableAction::LeafValue.region(val_area, path.to_vec(), flat_index));
+
+    // Del button
+    let del_style = Style::default().fg((*TEXT_HIGHLIGHT).into());
+    frame.render_widget(Line::from("[-Del]").style(del_style), del_area);
+    // Record the clickable region for the delete button
+    state.clickable_regions.push(ClickableAction::Delete.region(
+        del_area,
+        path.to_vec(),
+        flat_index,
+    ));
+}
+
+fn render_value_area(
+    frame: &mut Frame<'_>,
+    value: &UiValue,
+    focus: LeafFocus,
+    area: Rect,
+    row_style: Style,
+) {
+    let is_focused = focus == LeafFocus::Value;
+    let border_color: ratatui::style::Color = if is_focused {
+        (*BORDER_FOCUSED).into()
+    } else {
+        (*BORDER_UNFOCUSED).into()
+    };
+
+    let s = if is_focused {
+        row_style.add_modifier(Modifier::REVERSED)
+    } else {
+        row_style
+    };
+    match value {
+        UiValue::Text(input) => {
+            let display = if input.is_empty() { "value" } else { input };
+            frame.render_widget(Line::from_iter(["\"", display, "\""]).style(s), area);
+        }
+        UiValue::Integer(input) => {
+            let display = if input.is_empty() { "year" } else { input };
+            frame.render_widget(Line::from(display).style(s), area);
+        }
+        UiValue::Set(items) => {
+            frame.render_widget(
+                items
+                    .iter()
+                    .map(|item| format!("[{item}]"))
+                    .collect::<Line<'_>>()
+                    .style(s),
+                area,
+            );
+        }
+    }
+    let _ = border_color; // used only via style above
+}
+
+#[cfg(test)]
+mod tests {
+    use ratatui::buffer::Buffer;
+
+    use crate::test_utils::setup_test_terminal;
+
+    use super::*;
+
+    /// Extract one full row from the buffer as a plain string.
+    fn row_str(buf: &Buffer, row: u16) -> String {
+        let mut s = String::with_capacity(buf.area.width as usize);
+        for x in 0..buf.area.width {
+            s.push_str(buf.cell((x, row)).map_or(" ", |c| c.symbol()));
+        }
+        s
+    }
+
+    /// Concatenate every row (newline-separated) for whole-buffer substring checks.
+    fn all_rows(buf: &Buffer) -> String {
+        (0..buf.area.height)
+            .map(|r| row_str(buf, r))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    // -- visual mode ----------------------------------------------------------
+
+    #[test]
+    fn visual_mode_top_border_contains_title() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let top = row_str(&buf, 0);
+        assert!(
+            top.contains("Query Builder"),
+            "top border should contain 'Query Builder', got: {top:?}"
+        );
+        assert!(
+            top.contains("Visual(Tab: raw mode)"),
+            "top border should contain mode indicator, got: {top:?}"
+        );
+    }
+
+    #[test]
+    fn visual_mode_bottom_border_contains_hint() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let bottom = row_str(&buf, area.height - 1);
+        assert!(
+            bottom.contains("↑/↓/←/→: focus"),
+            "bottom border should contain navigation hint, got: {bottom:?}"
+        );
+    }
+
+    #[test]
+    fn visual_mode_leaf_row_shows_field_operator_value_and_delete() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        // The leaf is the first (and only) data row - row index 1.
+        let row1 = row_str(&buf, 1);
+        assert!(
+            row1.contains("title"),
+            "leaf row should show default field 'title', got: {row1:?}"
+        );
+        assert!(
+            row1.contains('='),
+            "leaf row should show default operator '=', got: {row1:?}"
+        );
+        assert!(
+            row1.contains("value"),
+            "leaf row should show default value text, got: {row1:?}"
+        );
+        assert!(
+            row1.contains("[-Del]"),
+            "leaf row should show delete button, got: {row1:?}"
+        );
+    }
+
+    #[test]
+    fn visual_mode_add_buttons_are_visible() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let content = all_rows(&buf);
+        assert!(
+            content.contains("[+ Add Clause]"),
+            "should contain 'Add Clause' button, buffer:\n{content}"
+        );
+        assert!(
+            content.contains("[+ Add Group]"),
+            "should contain 'Add Group' button, buffer:\n{content}"
+        );
+    }
+
+    #[test]
+    fn visual_mode_render_populates_clickable_regions() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        assert!(
+            !state.clickable_regions.is_empty(),
+            "render should populate clickable_regions"
+        );
+    }
+
+    #[test]
+    fn visual_mode_clickable_regions_cleared_on_each_render() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        // First render
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let count_after_first = state.clickable_regions.len();
+        // Second render - regions should not accumulate
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        assert_eq!(
+            state.clickable_regions.len(),
+            count_after_first,
+            "clickable_regions should be reset on each render, not accumulated"
+        );
+    }
+
+    #[test]
+    fn visual_mode_with_group_shows_and_in_header() {
+        let (mut terminal, area) = setup_test_terminal(60, 10);
+        let mut state = QueryBuilderState::default();
+        // Converting the root Leaf -> Group (wraps existing leaf + new leaf in a UiGroup)
+        state.add_leaf_at(&[]);
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let content = all_rows(&buf);
+        // Default CompoundKind is Or, so the group header shows "OR"
+        assert!(
+            content.contains("OR"),
+            "group header should show the default 'OR' kind, buffer:\n{content}"
+        );
+    }
+
+    // -- raw mode -------------------------------------------------------------
+
+    #[test]
+    fn raw_mode_top_border_contains_title() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        state.mode = BuilderMode::RawText;
+        state.raw_input_valid = true;
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let top = row_str(&buf, 0);
+        assert!(
+            top.contains("Query Builder"),
+            "top border should contain 'Query Builder', got: {top:?}"
+        );
+        assert!(
+            top.contains("Raw(Shift+Tab: visual mode)"),
+            "top border should contain raw mode indicator, got: {top:?}"
+        );
+    }
+
+    #[test]
+    fn raw_mode_valid_shows_enter_query_in_bottom_border() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        state.mode = BuilderMode::RawText;
+        state.raw_input_valid = true;
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let bottom = row_str(&buf, area.height - 1);
+        assert!(
+            bottom.contains("Enter Query"),
+            "bottom border should show 'Enter Query' when input is valid, got: {bottom:?}"
+        );
+    }
+
+    #[test]
+    fn raw_mode_invalid_shows_invalid_query_in_bottom_border() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        state.mode = BuilderMode::RawText;
+        state.raw_input_valid = false;
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let bottom = row_str(&buf, area.height - 1);
+        assert!(
+            bottom.contains("Invalid Query"),
+            "bottom border should show 'Invalid Query' when input is invalid, got: {bottom:?}"
+        );
+    }
+}

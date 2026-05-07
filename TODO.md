@@ -30,6 +30,7 @@
   - [x] criteria can be scoped to allow for more complex queries
 - [x] integrate dynamic playlist functionality into the CLI
 - [x] integrate dynamic playlist functionality into the TUI
+  - [x] create a capable but intuitive query-building interface similar to the advanced search tools for research databases
 - [ ] integrate dynamic playlist functionality into the GUI, when it's done
   - [ ] create a capable but intuitive query-building interface similar to the advanced search tools for research databases
 

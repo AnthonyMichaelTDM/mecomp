@@ -8,7 +8,13 @@ use mecomp_core::{state::SeekType, udp::StateChange};
 use mecomp_prost::{DynamicPlaylistChangeSet, RecordId, Ulid};
 use mecomp_storage::db::schemas::dynamic::query::Query;
 
-use crate::ui::{components::content_view::ActiveView, widgets::popups::PopupType};
+use crate::ui::{
+    components::content_view::ActiveView,
+    widgets::{
+        overlay::{OverlayResult, OverlayType},
+        popups::PopupType,
+    },
+};
 
 use super::component::ActiveComponent;
 
@@ -26,6 +32,8 @@ pub enum Action {
     ActiveView(ViewAction),
     /// Actions regarding popups
     Popup(PopupAction),
+    /// Actions regarding overlays
+    Overlay(OverlayAction),
     /// Actions that change the active component
     ActiveComponent(ComponentAction),
 }
@@ -136,6 +144,16 @@ pub enum PopupAction {
     /// Open a popup
     Open(PopupType),
     /// Close the current popup
+    Close,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OverlayAction {
+    /// Open an overlay
+    Open(OverlayType),
+    /// Close the current overlay and publish a result
+    Commit(OverlayResult),
+    /// Close the current overlay
     Close,
 }
 
