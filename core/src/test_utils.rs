@@ -17,7 +17,7 @@ static INIT: OnceLock<()> = OnceLock::new();
 #[allow(clippy::missing_inline_in_public_items)]
 pub fn init() {
     INIT.get_or_init(|| {
-        init_logger(log::LevelFilter::Debug, None);
+        init_logger(log::LevelFilter::Warn, None);
         if let Err(e) = tracing::subscriber::set_global_default(init_tracing()) {
             panic!("Error setting global default tracing subscriber: {e:?}")
         }
