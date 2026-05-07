@@ -249,4 +249,23 @@ mod tests {
         assert_eq!(state.selected_index(), 1);
         assert_eq!(state.selected(), Some("Green"));
     }
+
+    #[test]
+    fn set_selected_index_clamps_to_last_option() {
+        let mut state = make_state();
+        state.set_selected_index(42);
+
+        assert_eq!(state.selected_index(), 2);
+    }
+
+    #[test]
+    fn open_overlay_respects_max_rows() {
+        let mut state = make_state();
+        let overlay = state.open_overlay(2);
+        if let OverlayType::Dropdown(dropdown) = overlay {
+            assert_eq!(dropdown.size.height, 4);
+        } else {
+            panic!("expected dropdown overlay");
+        }
+    }
 }

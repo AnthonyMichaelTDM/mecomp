@@ -645,4 +645,54 @@ mod tests {
         // scalar-only operators should not appear
         assert!(!ops.iter().any(|o| *o == Operator::Equal));
     }
+
+    #[test]
+    fn parent_path_of_returns_parent_path() {
+        assert_eq!(parent_path_of(&[0, 1, 2]), &[0, 1]);
+        assert_eq!(parent_path_of(&[0]), &[] as &[usize]);
+        assert_eq!(parent_path_of(&[]), &[] as &[usize]);
+    }
+
+    #[test]
+    fn refresh_operators_for_set_value_updates_operator_dropdown() {
+        let mut leaf = UiLeafClause::new();
+        leaf.value = UiValue::Set(vec!["one".to_string(), "two".to_string()]);
+        let _ = leaf
+            .field_dd
+            .select_by_text(Field::Title.compile_for_storage().as_str());
+
+        leaf.refresh_operators();
+
+        assert!(leaf.operator_dd.selected().is_some());
+        assert!(
+            leaf.operator_dd.selected().unwrap().contains("IN")
+                || leaf.operator_dd.selected().unwrap().contains("CONTAINS")
+        );
+    }
+
+    #[test]
+    fn refresh_value_sets_integer_for_release_year() {
+        let mut leaf = UiLeafClause::new();
+        let _ = leaf
+            .field_dd
+            .select_by_text(Field::ReleaseYear.compile_for_storage().as_str());
+        let _ = leaf
+            .operator_dd
+            .select_by_text(Operator::Equal.compile_for_storage().as_str());
+
+        leaf.refresh_value();
+
+        assert_eq!(leaf.value, UiValue::Integer("year".to_string()));
+    }
+
+    #[test]
+    fn refresh_value_sets_set_when_operator_requires_set() {
+        let mut leaf = UiLeafClause::new();
+        leaf.field_dd = DropdownState::new(1, vec![Field::Title]);
+        leaf.operator_dd = DropdownState::new(2, vec![Operator::In]);
+
+        leaf.refresh_value();
+
+        assert!(matches!(leaf.value, UiValue::Set(_)));
+    }
 }

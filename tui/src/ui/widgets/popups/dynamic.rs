@@ -276,6 +276,7 @@ mod tests {
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
     use rstest::{fixture, rstest};
+    use tokio::sync::mpsc::unbounded_channel;
 
     #[fixture]
     fn state() -> AppState {
@@ -289,6 +290,55 @@ mod tests {
             name: "Test".into(),
             query: Query::from_str("title = \"foo \"").unwrap().to_string(),
         }
+    }
+
+    fn make_editor() -> (
+        DynamicPlaylistEditor,
+        tokio::sync::mpsc::UnboundedReceiver<Action>,
+    ) {
+        let (action_tx, action_rx) = unbounded_channel();
+        let editor = DynamicPlaylistEditor::new_creator(action_tx);
+        (editor, action_rx)
+    }
+
+    #[test]
+    fn test_tab_switches_focus() {
+        let (mut editor, _) = make_editor();
+        assert_eq!(editor.focus, Focus::Name);
+
+        editor.inner_handle_key_event(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
+        assert_eq!(editor.focus, Focus::Query);
+    }
+
+    #[test]
+    fn test_ctrl_enter_sends_create_action() {
+        let (mut editor, mut action_rx) = make_editor();
+        editor.name_input.set_text("My Playlist");
+
+        editor.inner_handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::CONTROL));
+
+        let action = action_rx.try_recv().expect("expected first action");
+        assert!(matches!(action, Action::Library(_)));
+        let action = action_rx.try_recv().expect("expected overlay action");
+        assert!(matches!(action, Action::Overlay(_)));
+        let action = action_rx.try_recv().expect("expected popup action");
+        assert!(matches!(action, Action::Popup(_)));
+    }
+
+    #[test]
+    fn test_mouse_click_on_name_area_sets_focus_name() {
+        let (mut editor, _) = make_editor();
+        editor.focus = Focus::Query;
+        let area = Rect::new(0, 0, 20, 10);
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 1,
+            row: 1,
+            modifiers: KeyModifiers::NONE,
+        };
+
+        editor.inner_handle_mouse_event(mouse, area);
+        assert_eq!(editor.focus, Focus::Name);
     }
 
     #[rstest]

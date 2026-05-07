@@ -196,6 +196,29 @@ fn setup_terminal() -> anyhow::Result<Terminal<CrosstermBackend<Stdout>>> {
     Ok(Terminal::new(CrosstermBackend::new(stdout))?)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::action::{Action, GeneralAction};
+    use tokio::sync::mpsc::unbounded_channel;
+
+    #[test]
+    fn test_ui_manager_new() {
+        let (action_tx, mut action_rx) = unbounded_channel::<Action>();
+        let manager = UiManager::new(action_tx);
+
+        manager
+            .action_tx
+            .send(Action::General(GeneralAction::Exit))
+            .unwrap();
+
+        assert!(matches!(
+            action_rx.try_recv(),
+            Ok(Action::General(GeneralAction::Exit))
+        ));
+    }
+}
+
 #[cfg(not(tarpaulin_include))]
 fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> anyhow::Result<()> {
     disable_raw_mode()?;

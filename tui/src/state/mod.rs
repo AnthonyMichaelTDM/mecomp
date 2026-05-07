@@ -282,4 +282,17 @@ mod tests {
             ComponentAction::Set(ActiveComponent::ContentView)
         );
     }
+
+    #[test]
+    fn test_dispatcher_new_initializes_receivers() {
+        let (_dispatcher, mut receivers) = Dispatcher::new();
+
+        assert!(receivers.audio.try_recv().is_err());
+        assert!(receivers.search.try_recv().is_err());
+        assert!(receivers.library.try_recv().is_err());
+        assert!(receivers.view.try_recv().is_err());
+        assert!(receivers.overlay.try_recv().is_err());
+        assert!(receivers.popup.try_recv().is_err());
+        assert!(receivers.component.try_recv().is_err());
+    }
 }
