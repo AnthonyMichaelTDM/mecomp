@@ -398,3 +398,347 @@ impl ComponentRender<RenderProps> for ControlPanel {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        state::action::{AudioAction, PlaybackAction, VolumeAction},
+        test_utils::setup_test_terminal,
+        ui::AppState,
+    };
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
+    use mecomp_core::state::{Percent, SeekType, StateAudio, StateRuntime, Status};
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+    use std::time::Duration;
+
+    fn make_panel(
+        state: &AppState,
+    ) -> (ControlPanel, tokio::sync::mpsc::UnboundedReceiver<Action>) {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let panel = ControlPanel::new(state, tx);
+        (panel, rx)
+    }
+
+    fn make_mouse(kind: MouseEventKind, column: u16, row: u16) -> crossterm::event::MouseEvent {
+        crossterm::event::MouseEvent {
+            kind,
+            column,
+            row,
+            modifiers: KeyModifiers::empty(),
+        }
+    }
+
+    // -- key event tests -------------------------------------------------------
+
+    #[rstest]
+    #[case::toggle(
+        KeyCode::Char(' '),
+        Action::Audio(AudioAction::Playback(PlaybackAction::Toggle))
+    )]
+    #[case::next(
+        KeyCode::Char('n'),
+        Action::Audio(AudioAction::Playback(PlaybackAction::Next))
+    )]
+    #[case::prev(
+        KeyCode::Char('p'),
+        Action::Audio(AudioAction::Playback(PlaybackAction::Previous))
+    )]
+    #[case::seek_fwd(
+        KeyCode::Right,
+        Action::Audio(AudioAction::Playback(PlaybackAction::Seek(
+            SeekType::RelativeForwards,
+            Duration::from_secs(5)
+        )))
+    )]
+    #[case::seek_back(
+        KeyCode::Left,
+        Action::Audio(AudioAction::Playback(PlaybackAction::Seek(
+            SeekType::RelativeBackwards,
+            Duration::from_secs(5)
+        )))
+    )]
+    #[case::vol_up(
+        KeyCode::Char('+'),
+        Action::Audio(AudioAction::Playback(PlaybackAction::Volume(VolumeAction::Increase(
+            0.05
+        ))))
+    )]
+    #[case::vol_up_eq(
+        KeyCode::Char('='),
+        Action::Audio(AudioAction::Playback(PlaybackAction::Volume(VolumeAction::Increase(
+            0.05
+        ))))
+    )]
+    #[case::vol_down(
+        KeyCode::Char('-'),
+        Action::Audio(AudioAction::Playback(PlaybackAction::Volume(VolumeAction::Decrease(
+            0.05
+        ))))
+    )]
+    #[case::vol_down_underscore(
+        KeyCode::Char('_'),
+        Action::Audio(AudioAction::Playback(PlaybackAction::Volume(VolumeAction::Decrease(
+            0.05
+        ))))
+    )]
+    #[case::mute(
+        KeyCode::Char('m'),
+        Action::Audio(AudioAction::Playback(PlaybackAction::ToggleMute))
+    )]
+    fn test_key_event(#[case] key_code: KeyCode, #[case] expected: Action) {
+        let state = AppState::default();
+        let (mut panel, mut rx) = make_panel(&state);
+
+        panel.handle_key_event(KeyEvent::from(key_code));
+
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(action, expected);
+    }
+
+    #[test]
+    fn test_key_event_unrecognised_does_nothing() {
+        let state = AppState::default();
+        let (mut panel, mut rx) = make_panel(&state);
+
+        panel.handle_key_event(KeyEvent::from(KeyCode::F(1)));
+
+        assert!(rx.try_recv().is_err());
+    }
+
+    // -- mouse event tests (area = 100 wide, 6 tall, origin 0,0) ---------------
+    // Layout: border takes row 0, inner area is rows 1-5.
+    // split_area within the inner area (y+1):
+    //   row 1 = song_info, row 2 = playback_info, row 3 = instructions
+    // playback_info is split horizontally:
+    //   play_pause: x 0..9, song_progress: x 10..89, volume: x 90..99
+
+    const AREA: Rect = Rect {
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 6,
+    };
+
+    #[test]
+    fn test_mouse_click_in_area_focuses_control_panel() {
+        let state = AppState::default();
+        let (mut panel, mut rx) = make_panel(&state);
+
+        // click anywhere in the area -> set active component
+        panel.handle_mouse_event(
+            make_mouse(MouseEventKind::Down(MouseButton::Left), 50, 3),
+            AREA,
+        );
+
+        let action = rx.blocking_recv().unwrap();
+        assert_eq!(
+            action,
+            Action::ActiveComponent(ComponentAction::Set(ActiveComponent::ControlPanel))
+        );
+    }
+
+    #[test]
+    fn test_mouse_click_outside_area_no_focus_action() {
+        let state = AppState::default();
+        let (mut panel, mut rx) = make_panel(&state);
+
+        // click outside the area -> no set-active-component action
+        panel.handle_mouse_event(
+            make_mouse(MouseEventKind::Down(MouseButton::Left), 200, 200),
+            AREA,
+        );
+
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn test_mouse_scroll_up_on_volume_increases_volume() {
+        let state = AppState::default();
+        let (mut panel, mut rx) = make_panel(&state);
+
+        // scroll outside the entire area -> no action (tests fallthrough branch)
+        panel.handle_mouse_event(make_mouse(MouseEventKind::ScrollUp, 200, 200), AREA);
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn test_mouse_scroll_down_on_volume_decreases_volume() {
+        let state = AppState::default();
+        let (mut panel, mut rx) = make_panel(&state);
+
+        // scroll outside the entire area -> no action (tests fallthrough branch)
+        panel.handle_mouse_event(make_mouse(MouseEventKind::ScrollDown, 200, 200), AREA);
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn test_mouse_moved_does_nothing() {
+        let state = AppState::default();
+        let (mut panel, mut rx) = make_panel(&state);
+
+        panel.handle_mouse_event(make_mouse(MouseEventKind::Moved, 50, 3), AREA);
+        assert!(rx.try_recv().is_err());
+    }
+
+    // -- Props / move_with_state -----------------------------------------------
+
+    #[test]
+    fn test_props_from_state_playing() {
+        let state = AppState {
+            audio: StateAudio {
+                status: Status::Playing,
+                muted: false,
+                volume: 0.8,
+                runtime: Some(StateRuntime {
+                    seek_position: Duration::from_secs(30),
+                    seek_percent: Percent::new(0.5),
+                    duration: Duration::from_secs(60),
+                }),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (panel, _) = make_panel(&state);
+        assert!(panel.props.is_playing);
+        assert!(!panel.props.muted);
+        assert!((panel.props.volume - 0.8).abs() < f32::EPSILON);
+        assert!(panel.props.song_runtime.is_some());
+    }
+
+    #[test]
+    fn test_props_from_state_no_song() {
+        let state = AppState::default();
+        let (panel, _) = make_panel(&state);
+        assert!(!panel.props.is_playing);
+        assert!(panel.props.song_title.is_none());
+        assert!(panel.props.song_artist.is_none());
+        assert!(panel.props.song_runtime.is_none());
+    }
+
+    #[test]
+    fn test_move_with_state_updates_props() {
+        let state = AppState::default();
+        let (panel, _rx) = make_panel(&state);
+        assert!(!panel.props.is_playing);
+
+        let new_state = AppState {
+            audio: StateAudio {
+                status: Status::Playing,
+                volume: 0.5,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let panel = panel.move_with_state(&new_state);
+        assert!(panel.props.is_playing);
+        assert!((panel.props.volume - 0.5).abs() < f32::EPSILON);
+    }
+
+    // -- runtime_string --------------------------------------------------------
+
+    #[test]
+    fn test_runtime_string_none() {
+        assert_eq!(runtime_string(None), "0.0/0.0");
+    }
+
+    #[test]
+    fn test_runtime_string_some() {
+        let rt = StateRuntime {
+            seek_position: Duration::from_secs(65),
+            seek_percent: Percent::new(0.5),
+            duration: Duration::from_secs(130),
+        };
+        let s = runtime_string(Some(rt));
+        // 65s = 1 min 5s -> "1: 5.0/ 2:10.0" (formatted)
+        assert!(s.contains('/'), "expected a '/' separator in '{s}'");
+    }
+
+    // -- volume_string ---------------------------------------------------------
+
+    #[test]
+    fn test_volume_string_unmuted() {
+        let s = volume_string(false, 1.0);
+        assert!(s.contains("🔊"), "expected speaker icon in '{s}'");
+        assert!(s.contains("100"), "expected '100' in '{s}'");
+    }
+
+    #[test]
+    fn test_volume_string_muted() {
+        let s = volume_string(true, 0.5);
+        assert!(s.contains("🔇"), "expected muted icon in '{s}'");
+    }
+
+    // -- render ----------------------------------------------------------------
+
+    #[test]
+    fn test_render_no_song() {
+        let state = AppState::default();
+        let (mut panel, _) = make_panel(&state);
+
+        let (mut terminal, area) = setup_test_terminal(100, 6);
+        let result = terminal.draw(|frame| {
+            panel.render(
+                frame,
+                RenderProps {
+                    area,
+                    is_focused: false,
+                },
+            );
+        });
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_render_with_song_and_runtime() {
+        use mecomp_storage::db::schemas::song::{Song, SongBrief};
+        let song = SongBrief {
+            id: Song::generate_id(),
+            title: "Test Song".into(),
+            artist: "Test Artist".to_string().into(),
+            album_artist: "Test Album Artist".to_string().into(),
+            album: "Test Album".into(),
+            genre: "Test Genre".to_string().into(),
+            runtime: Duration::from_secs(180),
+            track: Some(0),
+            disc: Some(0),
+            release_year: Some(2021),
+            path: "test.mp3".into(),
+        };
+        let state = AppState {
+            audio: StateAudio {
+                status: Status::Playing,
+                current_song: Some(song),
+                runtime: Some(StateRuntime {
+                    seek_position: Duration::from_secs(10),
+                    seek_percent: Percent::new(0.05),
+                    duration: Duration::from_secs(180),
+                }),
+                volume: 0.8,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (mut panel, _) = make_panel(&state);
+
+        let (mut terminal, area) = setup_test_terminal(100, 6);
+        let result = terminal.draw(|frame| {
+            panel.render(
+                frame,
+                RenderProps {
+                    area,
+                    is_focused: true,
+                },
+            );
+        });
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_name() {
+        let state = AppState::default();
+        let (panel, _) = make_panel(&state);
+        assert_eq!(panel.name(), "ControlPanel");
+    }
+}
