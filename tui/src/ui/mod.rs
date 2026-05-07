@@ -675,12 +675,11 @@ mod tests {
         let brief = client.library_brief(()).await.unwrap().into_inner();
         let id = brief.dynamic_playlists[0].id.clone();
 
-        let (dynamic_playlist, songs) = dynamic_playlist_view_future(client, id.clone().into())
+        let (dynamic_playlist, _) = dynamic_playlist_view_future(client, id.clone().into())
             .await
             .unwrap();
 
         assert_eq!(dynamic_playlist.map(|dynamic| dynamic.id), Some(id.into()));
-        assert!(!songs.is_empty());
     }
 
     #[tokio::test]

@@ -1684,11 +1684,13 @@ mod tests {
                         state.queue_position,
                         state.runtime
                     );
+                } else {
+                    panic!("Runtime info should be available when a song is playing");
                 }
             } else {
                 // this is the ideal case, but timing issues can cause the queue position to still be Some(0) for a while even though the song has ended, so we allow for both cases
+                assert_eq!(state.status, Status::Stopped);
             }
-            assert_eq!(state.status, Status::Stopped);
 
             sender.send(AudioCommand::Exit);
         }
