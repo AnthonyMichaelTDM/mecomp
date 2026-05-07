@@ -326,9 +326,12 @@ mod test_client_tests {
     use mecomp_core::errors::{BackupError, SerializableLibraryError};
     use mecomp_prost::{
         DynamicPlaylist, DynamicPlaylistChangeSet, DynamicPlaylistCreateRequest,
-        DynamicPlaylistUpdateRequest, LibraryFull, Path, PlaylistExportRequest,
-        PlaylistImportRequest, PlaylistName, PlaylistRenameRequest, RecordIdList,
+        DynamicPlaylistUpdateRequest, LibraryFull, Path, PlaylistAddRequest, PlaylistExportRequest,
+        PlaylistImportRequest, PlaylistName, PlaylistRenameRequest, RadioSimilarRequest,
+        RecordIdList,
     };
+    use mecomp_storage::db::schemas::analysis::Analysis;
+    use mecomp_storage::test_utils::arb_feature_array;
     use mecomp_storage::{
         db::schemas::{
             collection::Collection,
@@ -391,9 +394,40 @@ mod test_client_tests {
 
         let result = Collection::create(&db, collection).await.unwrap().unwrap();
 
-        Collection::add_songs(&db, result.id, vec![song.id])
+        Collection::add_songs(&db, result.id, vec![song.id.clone()])
             .await
             .unwrap();
+
+        // create another song
+        let song_case = SongCase::new(1, vec![1], vec![1], 1, 1);
+
+        let song2 = create_song_with_overrides(
+            &db,
+            song_case,
+            SongChangeSet {
+                artist: Some("Artist 1".to_string().into()),
+                album_artist: Some("Artist 1".to_string().into()),
+                album: Some("Album 1".into()),
+                path: Some("/path/to/song1.mp3".into()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        // create analysis data for the songs
+        let analysis1 = Analysis {
+            id: Analysis::generate_id(),
+            features: arb_feature_array()(),
+            embedding: arb_feature_array()(),
+        };
+        let analysis2 = Analysis {
+            id: Analysis::generate_id(),
+            features: arb_feature_array()(),
+            embedding: arb_feature_array()(),
+        };
+        Analysis::create(&db, song.id, analysis1).await.unwrap();
+        Analysis::create(&db, song2.id, analysis2).await.unwrap();
 
         return db;
     }
@@ -441,7 +475,7 @@ mod test_client_tests {
             .into_inner()
             .artists;
 
-        assert_eq!(response, library_brief.artists);
+        assert_eq!(response, library_brief.artists[..1]);
 
         Ok(())
     }
@@ -485,6 +519,150 @@ mod test_client_tests {
 
     #[rstest]
     #[tokio::test]
+    async fn test_library_song_get_collections(#[future] client: MusicPlayerClient) -> Result<()> {
+        let mut client = client.await;
+
+        let library_full = client.library_full(()).await?.into_inner();
+
+        let response = client
+            .library_song_get_collections(library_full.songs.first().unwrap().id.ulid())
+            .await?
+            .into_inner()
+            .collections;
+
+        assert_eq!(response, library_full.collections);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_current_artists_success(#[future] client: MusicPlayerClient) -> Result<()> {
+        let mut client = client.await;
+
+        let library_brief = client.library_brief(()).await?.into_inner();
+        let song_id = library_brief.songs.first().unwrap().id.clone();
+
+        client.queue_add(song_id.clone()).await?;
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let response = client.current_artists(()).await?.into_inner();
+
+        assert!(response.artists.is_some());
+        assert_eq!(
+            response.artists.unwrap().artists,
+            library_brief.artists[..1]
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_current_album_success(#[future] client: MusicPlayerClient) -> Result<()> {
+        let mut client = client.await;
+
+        let library_brief = client.library_brief(()).await?.into_inner();
+        let song_id = library_brief.songs.first().unwrap().id.clone();
+
+        client.queue_add(song_id.clone()).await?;
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let response = client.current_album(()).await?.into_inner();
+
+        assert!(response.album.is_some());
+        assert_eq!(
+            response.album.unwrap(),
+            library_brief.albums.first().unwrap().clone()
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_playlist_add(#[future] client: MusicPlayerClient) -> Result<()> {
+        let mut client = client.await;
+
+        let library_brief = client.library_brief(()).await?.into_inner();
+        let song_id = library_brief.songs.first().unwrap().id.clone();
+
+        let playlist_id = client
+            .playlist_get_or_create(PlaylistName::new("Playlist Add Test"))
+            .await?
+            .into_inner();
+
+        client
+            .playlist_add(PlaylistAddRequest::new(playlist_id.id.clone(), song_id))
+            .await?;
+
+        let songs = client
+            .library_playlist_get_songs(playlist_id.ulid())
+            .await?
+            .into_inner()
+            .songs;
+
+        assert_eq!(songs.len(), 1);
+        assert_eq!(songs[0].id, library_brief.songs.first().unwrap().id);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_playlist_import_duplicate_name_returns_existing_id(
+        #[future] client: MusicPlayerClient,
+    ) -> Result<()> {
+        let mut client = client.await;
+
+        let playlist_id = client
+            .playlist_get_or_create(PlaylistName::new("Imported Playlist"))
+            .await?
+            .into_inner();
+
+        let tmpfile = tempfile::NamedTempFile::with_suffix("pl.m3u")?;
+        let mut file = tmpfile.reopen()?;
+        write!(
+            file,
+            r"#EXTM3U
+#EXTINF:123,Sample Artist - Sample title
+/path/to/song.mp3
+"
+        )?;
+
+        let response = client
+            .playlist_import(PlaylistImportRequest::with_name(
+                tmpfile.path().to_path_buf(),
+                "Imported Playlist".to_string(),
+            ))
+            .await?
+            .into_inner();
+
+        assert_eq!(response.ulid(), playlist_id.ulid());
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_radio_get_similar(#[future] client: MusicPlayerClient) -> Result<()> {
+        let mut client = client.await;
+
+        let library_brief = client.library_brief(()).await?.into_inner();
+        let ids = vec![library_brief.songs.first().unwrap().id.clone().into()];
+
+        let response = client
+            .radio_get_similar(RadioSimilarRequest::new(ids, 1))
+            .await?
+            .into_inner()
+            .songs;
+
+        assert!(!response.is_empty());
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
     async fn test_library_album_get_artist(#[future] client: MusicPlayerClient) -> Result<()> {
         let mut client = client.await;
 
@@ -496,7 +674,7 @@ mod test_client_tests {
             .into_inner()
             .artists;
 
-        assert_eq!(response, library.artists);
+        assert_eq!(response, library.artists[..1]);
 
         Ok(())
     }
@@ -514,7 +692,7 @@ mod test_client_tests {
             .into_inner()
             .songs;
 
-        assert_eq!(response, library_brief.songs);
+        assert_eq!(response, library_brief.songs[..1]);
 
         Ok(())
     }
@@ -532,7 +710,7 @@ mod test_client_tests {
             .into_inner()
             .songs;
 
-        assert_eq!(response, library.songs);
+        assert_eq!(response, library.songs[..1]);
 
         Ok(())
     }
@@ -550,7 +728,7 @@ mod test_client_tests {
             .into_inner()
             .albums;
 
-        assert_eq!(response, library.albums);
+        assert_eq!(response, library.albums[..1]);
 
         Ok(())
     }
@@ -660,7 +838,7 @@ mod test_client_tests {
             .into_inner()
             .songs;
 
-        assert_eq!(response, library.songs);
+        assert_eq!(response, library.songs[..1]);
 
         Ok(())
     }
@@ -712,7 +890,7 @@ mod test_client_tests {
             .into_inner()
             .songs;
 
-        assert_eq!(response, library.songs);
+        assert_eq!(response, library.songs[..1]);
 
         Ok(())
     }

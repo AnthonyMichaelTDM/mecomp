@@ -1725,3 +1725,72 @@ impl MusicPlayerTrait for MusicPlayer {
         Ok(Response::new(DynamicPlaylistList { playlists: ids }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    use mecomp_core::udp::Sender;
+    use mecomp_storage::test_utils::init_test_database;
+    use tonic::Code;
+
+    async fn build_test_player() -> MusicPlayer {
+        let db = Arc::new(init_test_database().await.unwrap());
+        let settings = Arc::new(Settings::default());
+        let message_publisher = Arc::new(Sender::new().await.unwrap());
+        let state_change_publisher = std::sync::mpsc::channel().0;
+        let audio_kernel = AudioKernelSender::start(state_change_publisher);
+        let (terminator, interrupt) = termination::create_termination();
+
+        MusicPlayer::new(
+            db,
+            settings,
+            audio_kernel,
+            message_publisher,
+            terminator,
+            interrupt,
+        )
+    }
+
+    #[tokio::test]
+    async fn test_ping_returns_pong() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::ping(player.clone(), Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert_eq!(response.message, "pong");
+    }
+
+    #[tokio::test]
+    async fn test_register_listener_invalid_address() {
+        let player = Arc::new(build_test_player().await);
+        let request = Request::new(RegisterListenerRequest {
+            host: "not-a-host".into(),
+            port: 1234,
+        });
+
+        let status = MusicPlayerTrait::register_listener(player.clone(), request)
+            .await
+            .unwrap_err();
+
+        assert_eq!(status.code(), Code::InvalidArgument);
+    }
+
+    #[tokio::test]
+    async fn test_library_rescan_concurrency_is_prevented() {
+        let player = Arc::new(build_test_player().await);
+
+        MusicPlayerTrait::library_rescan(player.clone(), Request::new(()))
+            .await
+            .unwrap();
+
+        let status = MusicPlayerTrait::library_rescan(player, Request::new(()))
+            .await
+            .unwrap_err();
+
+        assert_eq!(status.code(), Code::Aborted);
+    }
+}
