@@ -236,7 +236,7 @@ impl QueryBuilderState {
         }
     }
 
-    // ── Mutators ─────────────────────────────────────────────────────────────
+    // -- Mutators -------------------------------------------------------------
 
     /// Add a new leaf clause to the group at `path` (empty path = root).
     ///
@@ -330,7 +330,7 @@ impl QueryBuilderState {
     }
 }
 
-// ── Navigation helpers ───────────────────────────────────────────────────────
+// -- Navigation helpers -------------------------------------------------------
 
 fn navigate_to_clause_mut<'a>(root: &'a mut UiClause, path: &[usize]) -> Option<&'a mut UiClause> {
     if path.is_empty() {
@@ -344,7 +344,7 @@ fn navigate_to_clause_mut<'a>(root: &'a mut UiClause, path: &[usize]) -> Option<
     navigate_to_clause_mut(child, &path[1..])
 }
 
-// ── Conversion from storage types ───────────────────────────────────────────
+// -- Conversion from storage types -------------------------------------------
 
 /// Convert a storage `Clause` to a `UiGroup`.
 ///
@@ -541,9 +541,9 @@ mod tests {
         let query = Query { root: clause };
         let mut state = QueryBuilderState::default();
         state.load_query(&query);
-        state.toggle_mode(); // visual → raw
+        state.toggle_mode(); // visual -> raw
         assert_eq!(state.mode, BuilderMode::RawText);
-        state.toggle_mode(); // raw → visual
+        state.toggle_mode(); // raw -> visual
         assert_eq!(state.mode, BuilderMode::Visual);
         let result = state.try_to_query().unwrap();
         assert_eq!(result.compile_for_storage(), "title = \"hello\"");

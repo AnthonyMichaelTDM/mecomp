@@ -365,3 +365,220 @@ fn render_value_area(
     }
     let _ = border_color; // used only via style above
 }
+
+#[cfg(test)]
+mod tests {
+    use ratatui::buffer::Buffer;
+
+    use crate::test_utils::setup_test_terminal;
+
+    use super::*;
+
+    /// Extract one full row from the buffer as a plain string.
+    fn row_str(buf: &Buffer, row: u16) -> String {
+        let mut s = String::with_capacity(buf.area.width as usize);
+        for x in 0..buf.area.width {
+            s.push_str(buf.cell((x, row)).map_or(" ", |c| c.symbol()));
+        }
+        s
+    }
+
+    /// Concatenate every row (newline-separated) for whole-buffer substring checks.
+    fn all_rows(buf: &Buffer) -> String {
+        (0..buf.area.height)
+            .map(|r| row_str(buf, r))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    // -- visual mode ----------------------------------------------------------
+
+    #[test]
+    fn visual_mode_top_border_contains_title() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let top = row_str(&buf, 0);
+        assert!(
+            top.contains("Query Builder"),
+            "top border should contain 'Query Builder', got: {top:?}"
+        );
+        assert!(
+            top.contains("Visual(Tab: raw mode)"),
+            "top border should contain mode indicator, got: {top:?}"
+        );
+    }
+
+    #[test]
+    fn visual_mode_bottom_border_contains_hint() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let bottom = row_str(&buf, area.height - 1);
+        assert!(
+            bottom.contains("↑/↓/←/→: focus"),
+            "bottom border should contain navigation hint, got: {bottom:?}"
+        );
+    }
+
+    #[test]
+    fn visual_mode_leaf_row_shows_field_operator_value_and_delete() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        // The leaf is the first (and only) data row - row index 1.
+        let row1 = row_str(&buf, 1);
+        assert!(
+            row1.contains("title"),
+            "leaf row should show default field 'title', got: {row1:?}"
+        );
+        assert!(
+            row1.contains('='),
+            "leaf row should show default operator '=', got: {row1:?}"
+        );
+        assert!(
+            row1.contains("value"),
+            "leaf row should show default value text, got: {row1:?}"
+        );
+        assert!(
+            row1.contains("[-Del]"),
+            "leaf row should show delete button, got: {row1:?}"
+        );
+    }
+
+    #[test]
+    fn visual_mode_add_buttons_are_visible() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let content = all_rows(&buf);
+        assert!(
+            content.contains("[+ Add Clause]"),
+            "should contain 'Add Clause' button, buffer:\n{content}"
+        );
+        assert!(
+            content.contains("[+ Add Group]"),
+            "should contain 'Add Group' button, buffer:\n{content}"
+        );
+    }
+
+    #[test]
+    fn visual_mode_render_populates_clickable_regions() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        assert!(
+            !state.clickable_regions.is_empty(),
+            "render should populate clickable_regions"
+        );
+    }
+
+    #[test]
+    fn visual_mode_clickable_regions_cleared_on_each_render() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        // First render
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let count_after_first = state.clickable_regions.len();
+        // Second render - regions should not accumulate
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        assert_eq!(
+            state.clickable_regions.len(),
+            count_after_first,
+            "clickable_regions should be reset on each render, not accumulated"
+        );
+    }
+
+    #[test]
+    fn visual_mode_with_group_shows_and_in_header() {
+        let (mut terminal, area) = setup_test_terminal(60, 10);
+        let mut state = QueryBuilderState::default();
+        // Converting the root Leaf -> Group (wraps existing leaf + new leaf in a UiGroup)
+        state.add_leaf_at(&[]);
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let content = all_rows(&buf);
+        // Default CompoundKind is Or, so the group header shows "OR"
+        assert!(
+            content.contains("OR"),
+            "group header should show the default 'OR' kind, buffer:\n{content}"
+        );
+    }
+
+    // -- raw mode -------------------------------------------------------------
+
+    #[test]
+    fn raw_mode_top_border_contains_title() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        state.mode = BuilderMode::RawText;
+        state.raw_input_valid = true;
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let top = row_str(&buf, 0);
+        assert!(
+            top.contains("Query Builder"),
+            "top border should contain 'Query Builder', got: {top:?}"
+        );
+        assert!(
+            top.contains("Raw(Shift+Tab: visual mode)"),
+            "top border should contain raw mode indicator, got: {top:?}"
+        );
+    }
+
+    #[test]
+    fn raw_mode_valid_shows_enter_query_in_bottom_border() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        state.mode = BuilderMode::RawText;
+        state.raw_input_valid = true;
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let bottom = row_str(&buf, area.height - 1);
+        assert!(
+            bottom.contains("Enter Query"),
+            "bottom border should show 'Enter Query' when input is valid, got: {bottom:?}"
+        );
+    }
+
+    #[test]
+    fn raw_mode_invalid_shows_invalid_query_in_bottom_border() {
+        let (mut terminal, area) = setup_test_terminal(60, 8);
+        let mut state = QueryBuilderState::default();
+        state.mode = BuilderMode::RawText;
+        state.raw_input_valid = false;
+        terminal
+            .draw(|frame| render_query_builder(frame, &mut state, area, false))
+            .unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let bottom = row_str(&buf, area.height - 1);
+        assert!(
+            bottom.contains("Invalid Query"),
+            "bottom border should show 'Invalid Query' when input is invalid, got: {bottom:?}"
+        );
+    }
+}
