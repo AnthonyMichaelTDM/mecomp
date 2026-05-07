@@ -319,6 +319,7 @@ mod test_client_tests {
     //! - daemon endpoints that aren't covered in other tests
 
     use std::io::{Read, Write};
+    use std::time::Duration;
 
     use super::*;
     use anyhow::Result;
@@ -1245,6 +1246,47 @@ Dynamic Playlist 0,"artist CONTAINS ""Artist 0"""
 "
         );
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_event_publisher_sends_state_change() -> Result<()> {
+        let publisher = EventPublisher::new().await;
+        publisher.event_tx.send(StateChange::Muted).unwrap();
+
+        // Give the background task a moment to process the event.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        drop(publisher);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_run_daemon_stops_on_interrupt() -> Result<()> {
+        let db = Arc::new(init_test_database().await?);
+        let settings = Arc::new(Settings::default());
+        let audio_kernel = AudioKernelSender::start(EventPublisher::new().await.event_tx.clone());
+        let event_publisher = Arc::new(Sender::new().await?);
+        let (terminator, interrupt_rx) = termination::create_termination();
+
+        let state = MusicPlayer::new(
+            db.clone(),
+            settings.clone(),
+            audio_kernel.clone(),
+            event_publisher.clone(),
+            terminator.clone(),
+            interrupt_rx.resubscribe(),
+        );
+
+        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        let incoming = TcpListenerStream::new(listener);
+
+        let handle = tokio::spawn(async move { run_daemon(incoming, state, interrupt_rx).await });
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        terminator.terminate(termination::Interrupted::UserInt)?;
+
+        let _ = tokio::time::timeout(Duration::from_secs(5), handle).await??;
         Ok(())
     }
 }
