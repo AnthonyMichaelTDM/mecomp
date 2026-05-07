@@ -1793,4 +1793,85 @@ mod tests {
 
         assert_eq!(status.code(), Code::Aborted);
     }
+
+    #[tokio::test]
+    async fn test_library_rescan_in_progress_reports_false() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::library_rescan_in_progress(player, Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(!response.in_progress);
+    }
+
+    #[tokio::test]
+    async fn test_library_analyze_in_progress_reports_false() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::library_analyze_in_progress(player, Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(!response.in_progress);
+    }
+
+    #[tokio::test]
+    async fn test_library_recluster_in_progress_reports_false() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::library_recluster_in_progress(player, Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(!response.in_progress);
+    }
+
+    #[tokio::test]
+    async fn test_library_song_get_by_path_invalid() {
+        let player = Arc::new(build_test_player().await);
+        let request = Request::new(Path {
+            path: "does/not/exist.mp3".to_string(),
+        });
+
+        let status = MusicPlayerTrait::library_song_get_by_path(player, request)
+            .await
+            .unwrap_err();
+
+        assert_eq!(status.code(), Code::InvalidArgument);
+        assert!(status.message().contains("Invalid path provided"));
+    }
+
+    #[tokio::test]
+    async fn test_current_artists_returns_none_if_no_song() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::current_artists(player, Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.artists.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_current_album_returns_none_if_no_song() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::current_album(player, Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.album.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_current_song_returns_none_if_no_song() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::current_song(player, Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.song.is_none());
+    }
 }

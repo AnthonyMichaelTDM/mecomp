@@ -753,6 +753,7 @@ mod tests {
     use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
 
+    use crate::state::RepeatMode;
     use crate::test_utils::init;
 
     use super::*;
@@ -808,6 +809,20 @@ mod tests {
         let (tx, _) = mpsc::channel();
         let sender = AudioKernelSender::new(tx);
         assert!(sender.try_send(AudioCommand::Play).is_err());
+    }
+
+    #[rstest]
+    fn test_audio_kernel_try_send_success(
+        #[from(audio_kernel_sender)] sender: Arc<AudioKernelSender>,
+    ) {
+        assert!(sender.try_send(AudioCommand::Play).is_ok());
+        sender.send(AudioCommand::Exit);
+    }
+
+    #[rstest]
+    fn test_audio_kernel_queue_set_repeat_mode(mut audio_kernel: AudioKernel) {
+        audio_kernel.queue_control(QueueCommand::SetRepeatMode(RepeatMode::All));
+        assert_eq!(audio_kernel.queue.get_repeat_mode(), RepeatMode::All);
     }
 
     #[rstest]
