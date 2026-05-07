@@ -263,29 +263,6 @@ where
         self.ensure_selected_in_view_on_next_render = true;
     }
 
-    /// Scroll the specified amount of lines up
-    ///
-    /// Returns `true` when the scroll position changed.
-    /// Returns `false` when the scrolling has reached the top.
-    pub const fn scroll_up(&mut self, lines: usize) -> bool {
-        let before = self.offset;
-        self.offset = self.offset.saturating_sub(lines);
-        before != self.offset
-    }
-
-    /// Scroll the specified amount of lines down
-    ///
-    /// Returns `true` when the scroll position changed.
-    /// Returns `false` when the scrolling has reached the last [`CheckTreeItem`].
-    pub fn scroll_down(&mut self, lines: usize) -> bool {
-        let before = self.offset;
-        self.offset = self
-            .offset
-            .saturating_add(lines)
-            .min(self.last_biggest_index);
-        before != self.offset
-    }
-
     /// Handles the up arrow key.
     /// Moves up in the current depth or to its parent.
     ///
