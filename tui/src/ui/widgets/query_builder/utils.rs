@@ -14,6 +14,11 @@ use crate::ui::widgets::{
     },
 };
 
+/// Gives the parent path of the given path
+pub(super) const fn parent_path_of(path: &[usize]) -> &[usize] {
+    path.split_at(path.len().saturating_sub(1)).0
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UiCompoundKind(pub CompoundKind);
 impl Display for UiCompoundKind {
@@ -273,7 +278,7 @@ impl UiLeafClause {
 
     /// Try to compile to a storage `LeafClause`.
     #[must_use]
-    pub fn try_to_leaf(&self) -> Option<LeafClause> {
+    fn try_to_storage(&self) -> Option<Clause> {
         let field = self.field();
         let op = self.operator()?;
         let right = self.value.to_storage_value()?;
@@ -283,11 +288,7 @@ impl UiLeafClause {
             operator: op,
             right,
         };
-        if leaf.has_valid_operator() {
-            Some(leaf)
-        } else {
-            None
-        }
+        leaf.has_valid_operator().then_some(Clause::Leaf(leaf))
     }
 
     /// Load from a storage `LeafClause`.
@@ -318,6 +319,34 @@ pub enum UiClause {
     Group(UiGroup),
 }
 
+impl UiClause {
+    /// Try to compile this group to a storage `Clause`.
+    #[must_use]
+    pub fn try_to_storage(&self) -> Option<Clause> {
+        match self {
+            Self::Group(g) => g.try_to_storage(),
+            Self::Leaf(l) => l.try_to_storage(),
+        }
+    }
+
+    #[must_use]
+    pub const fn leaf(&mut self) -> Option<&mut UiLeafClause> {
+        if let Self::Leaf(leaf) = self {
+            Some(leaf)
+        } else {
+            None
+        }
+    }
+    #[must_use]
+    pub const fn group(&mut self) -> Option<&mut UiGroup> {
+        if let Self::Group(group) = self {
+            Some(group)
+        } else {
+            None
+        }
+    }
+}
+
 /// An N-ary group (AND / OR) of clauses.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiGroup {
@@ -335,7 +364,10 @@ impl UiGroup {
 
         Self {
             kind_dd,
-            clauses: vec![UiClause::Leaf(UiLeafClause::new())],
+            clauses: vec![
+                UiClause::Leaf(UiLeafClause::new()),
+                UiClause::Leaf(UiLeafClause::new()),
+            ],
         }
     }
 
@@ -352,11 +384,11 @@ impl UiGroup {
 
     /// Try to compile this group to a storage `Clause`.
     #[must_use]
-    pub fn try_to_clause(&self) -> Option<Clause> {
+    fn try_to_storage(&self) -> Option<Clause> {
         let children: Vec<Clause> = self
             .clauses
             .iter()
-            .filter_map(try_clause_to_storage)
+            .filter_map(UiClause::try_to_storage)
             .collect();
 
         match children.len() {
@@ -377,13 +409,6 @@ impl UiGroup {
                 Some(result)
             }
         }
-    }
-}
-
-fn try_clause_to_storage(clause: &UiClause) -> Option<Clause> {
-    match clause {
-        UiClause::Leaf(l) => l.try_to_leaf().map(Clause::Leaf),
-        UiClause::Group(g) => g.try_to_clause(),
     }
 }
 
@@ -413,10 +438,30 @@ pub struct FlatNode {
 }
 
 /// Flatten a `UiClause` tree into an ordered, displayable list of [`FlatNode`]s.
-/// The root is always a group.
-pub fn flatten_tree(root: &UiGroup) -> Vec<FlatNode> {
+pub fn flatten_tree(root: &UiClause) -> Vec<FlatNode> {
     let mut out = Vec::new();
-    flatten_group(root, &[], 0, &mut out);
+    match root {
+        UiClause::Leaf(_) => {
+            out.push(FlatNode {
+                depth: 0,
+                path: vec![],
+                kind: FlatNodeKind::Leaf,
+            });
+            out.push(FlatNode {
+                depth: 0,
+                path: vec![usize::MAX - 1], // sentinel: add clause button
+                kind: FlatNodeKind::AddClause,
+            });
+            out.push(FlatNode {
+                depth: 0,
+                path: vec![usize::MAX], // sentinel: add group button
+                kind: FlatNodeKind::AddGroup,
+            });
+        }
+        UiClause::Group(group) => {
+            flatten_group(group, &[], 0, &mut out);
+        }
+    }
     out
 }
 
@@ -562,8 +607,8 @@ mod tests {
 
         // try converting to a query
         let query = group
-            .try_to_clause()
-            .expect("couldn't convert UiGroup to Clause");
+            .try_to_storage()
+            .expect("couldn't convert UiClause::Group to Clause");
         let query = query.compile_for_storage();
         assert_str_eq!(query, "(title = \"foo\" AND album ~ \"bar\")")
     }

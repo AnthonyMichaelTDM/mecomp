@@ -3,7 +3,7 @@ use ratatui::layout::{Position, Rect};
 
 use crate::{
     state::action::{Action, OverlayAction},
-    ui::widgets::query_builder::utils::LeafFocus,
+    ui::widgets::query_builder::utils::{LeafFocus, UiClause, parent_path_of},
 };
 
 use super::{
@@ -64,13 +64,14 @@ fn handle_group_header_key(
     match key.code {
         KeyCode::Enter | KeyCode::Char(' ') => {
             // Open overlay to change group kind
-            if let Some(group) = state.group_at_mut(path) {
-                Some(Action::Overlay(OverlayAction::Open(
-                    group.kind_dd.open_overlay(KIND_OVERLAY_ROWS),
-                )))
-            } else {
-                None
-            }
+            state
+                .clause_at_mut(path)
+                .and_then(UiClause::group)
+                .map(|group| {
+                    Action::Overlay(OverlayAction::Open(
+                        group.kind_dd.open_overlay(KIND_OVERLAY_ROWS),
+                    ))
+                })
         }
         KeyCode::Char('d') | KeyCode::Delete if !path.is_empty() => {
             state.remove_child_at(path);
@@ -83,33 +84,29 @@ fn handle_group_header_key(
 }
 
 fn handle_leaf_key(state: &mut QueryBuilderState, key: KeyEvent, path: &[usize]) -> Option<Action> {
+    let Some(UiClause::Leaf(leaf)) = state.clause_at_mut(path) else {
+        return None;
+    };
+
     match key.code {
         KeyCode::Right => {
-            if let Some(leaf) = state.leaf_at_mut(path) {
-                leaf.leaf_focus = leaf.leaf_focus.next();
-            }
+            leaf.leaf_focus = leaf.leaf_focus.next();
             None
         }
         KeyCode::Left => {
-            if let Some(leaf) = state.leaf_at_mut(path) {
-                leaf.leaf_focus = leaf.leaf_focus.prev();
-            }
+            leaf.leaf_focus = leaf.leaf_focus.prev();
             None
         }
         KeyCode::Enter | KeyCode::Char(' ') => {
             // Activate the focused sub-element
-            if let Some(leaf) = state.leaf_at_mut(path) {
-                let overlay = match leaf.leaf_focus {
-                    LeafFocus::Field => leaf.field_dd.open_overlay(FIELD_OVERLAY_ROWS),
-                    LeafFocus::Operator => leaf.operator_dd.open_overlay(OPERATOR_OVERLAY_ROWS),
-                    LeafFocus::Value => leaf.value.open_overlay(3),
-                };
-                Some(Action::Overlay(OverlayAction::Open(overlay)))
-            } else {
-                None
-            }
+            let overlay = match leaf.leaf_focus {
+                LeafFocus::Field => leaf.field_dd.open_overlay(FIELD_OVERLAY_ROWS),
+                LeafFocus::Operator => leaf.operator_dd.open_overlay(OPERATOR_OVERLAY_ROWS),
+                LeafFocus::Value => leaf.value.open_overlay(3),
+            };
+            Some(Action::Overlay(OverlayAction::Open(overlay)))
         }
-        KeyCode::Char('d') | KeyCode::Delete => {
+        KeyCode::Char('d') | KeyCode::Delete if !path.is_empty() => {
             state.remove_child_at(path);
             let new_flat = flatten_tree(&state.root);
             state.cursor.clamp(new_flat.len());
@@ -117,11 +114,6 @@ fn handle_leaf_key(state: &mut QueryBuilderState, key: KeyEvent, path: &[usize])
         }
         _ => None,
     }
-}
-
-/// Gives the parent path of the given path
-const fn parent_path_of(path: &[usize]) -> &[usize] {
-    path.split_at(path.len().saturating_sub(1)).0
 }
 
 fn handle_add_clause_key(
@@ -199,8 +191,8 @@ pub fn handle_mouse_event(
     state.cursor.flat_index = flat_index;
 
     // Set leaf focus if applicable
-    if let Some(focus) = leaf_focus
-        && let Some(leaf) = state.leaf_at_mut(&path)
+    if let Some(UiClause::Leaf(leaf)) = state.clause_at_mut(&path)
+        && let Some(focus) = leaf_focus
     {
         leaf.leaf_focus = focus;
     }
@@ -209,32 +201,42 @@ pub fn handle_mouse_event(
     match action {
         super::state::ClickableAction::GroupKind => {
             // Open the group kind dropdown
-            state.group_at_mut(&path).map(|group| {
-                Action::Overlay(OverlayAction::Open(
-                    group.kind_dd.open_overlay(KIND_OVERLAY_ROWS),
-                ))
-            })
+            state
+                .clause_at_mut(&path)
+                .and_then(UiClause::group)
+                .map(|group| {
+                    Action::Overlay(OverlayAction::Open(
+                        group.kind_dd.open_overlay(KIND_OVERLAY_ROWS),
+                    ))
+                })
         }
         super::state::ClickableAction::LeafField => {
             // Open the field dropdown
-            state.leaf_at_mut(&path).map(|leaf| {
-                Action::Overlay(OverlayAction::Open(
-                    leaf.field_dd.open_overlay(FIELD_OVERLAY_ROWS),
-                ))
-            })
+            state
+                .clause_at_mut(&path)
+                .and_then(UiClause::leaf)
+                .map(|leaf| {
+                    Action::Overlay(OverlayAction::Open(
+                        leaf.field_dd.open_overlay(FIELD_OVERLAY_ROWS),
+                    ))
+                })
         }
         super::state::ClickableAction::LeafOperator => {
             // Open the operator dropdown
-            state.leaf_at_mut(&path).map(|leaf| {
-                Action::Overlay(OverlayAction::Open(
-                    leaf.operator_dd.open_overlay(OPERATOR_OVERLAY_ROWS),
-                ))
-            })
+            state
+                .clause_at_mut(&path)
+                .and_then(UiClause::leaf)
+                .map(|leaf| {
+                    Action::Overlay(OverlayAction::Open(
+                        leaf.operator_dd.open_overlay(OPERATOR_OVERLAY_ROWS),
+                    ))
+                })
         }
         super::state::ClickableAction::LeafValue => {
             // Open the value overlay
             state
-                .leaf_at_mut(&path)
+                .clause_at_mut(&path)
+                .and_then(UiClause::leaf)
                 .map(|leaf| Action::Overlay(OverlayAction::Open(leaf.value.open_overlay(3))))
         }
         super::state::ClickableAction::Delete => {

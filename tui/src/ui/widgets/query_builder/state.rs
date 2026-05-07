@@ -12,7 +12,7 @@ use crate::ui::widgets::{
     dropdown::DropdownState,
     input_box::InputBoxState,
     overlay::OverlayResult,
-    query_builder::utils::{LeafFocus, UiValue, flatten_tree},
+    query_builder::utils::{LeafFocus, UiValue, flatten_tree, parent_path_of},
 };
 
 use super::utils::{CursorPath, UiClause, UiCompoundKind, UiGroup, UiLeafClause};
@@ -43,6 +43,18 @@ pub enum ClickableAction {
 }
 
 impl ClickableAction {
+    // TODO: use this instead of hardcoding target_id values in apply_overlay_result
+    // pub fn id(&self) -> u8 {
+    //     match self {
+    //         ClickableAction::GroupKind => 0,
+    //         ClickableAction::LeafField => 1,
+    //         ClickableAction::LeafOperator => 2,
+    //         ClickableAction::LeafValue => 3,
+    //         ClickableAction::Delete => 4,
+    //         ClickableAction::AddClause => 5,
+    //         ClickableAction::AddGroup => 6,
+    //     }
+    // }
     #[must_use]
     pub const fn region(self, area: Rect, path: Vec<usize>, flat_index: usize) -> ClickableRegion {
         // Determine leaf focus based on action type
@@ -81,8 +93,8 @@ pub struct ClickableRegion {
 /// Full state of the visual query builder.
 pub struct QueryBuilderState {
     pub mode: BuilderMode,
-    /// The root group (always a group, never a bare leaf at the top level).
-    pub root: UiGroup,
+    /// The root group.
+    pub root: UiClause,
     /// Cursor position in the flat list.
     pub cursor: CursorPath,
     /// Raw-text input mode.
@@ -97,7 +109,7 @@ impl Default for QueryBuilderState {
     fn default() -> Self {
         Self {
             mode: BuilderMode::Visual,
-            root: UiGroup::new(CompoundKind::And),
+            root: UiClause::Leaf(UiLeafClause::new()),
             cursor: CursorPath::new(3), // default flat length: 1 leaf + 2 buttons
             raw_input: InputBoxState::new(),
             raw_input_valid: false,
@@ -119,13 +131,14 @@ impl QueryBuilderState {
             OverlayResult::DropdownSelected { target_id, .. } => {
                 if *target_id == 0 {
                     // this is a dropdown for a compound clause
-                    let Some(group) = self.group_at_mut(&current_node.path) else {
+                    let Some(UiClause::Group(group)) = self.clause_at_mut(&current_node.path)
+                    else {
                         return false;
                     };
                     group.kind_dd.apply_overlay_result(result)
                 } else if *target_id > 0 && *target_id <= 2 {
                     // this is a dropdown for a leaf clause
-                    let Some(leaf) = self.leaf_at_mut(&current_node.path) else {
+                    let Some(UiClause::Leaf(leaf)) = self.clause_at_mut(&current_node.path) else {
                         return false;
                     };
                     match target_id {
@@ -139,7 +152,7 @@ impl QueryBuilderState {
             }
             OverlayResult::TextInputted { target_id, text } => {
                 if *target_id == 3
-                    && let Some(leaf) = self.leaf_at_mut(&current_node.path)
+                    && let Some(UiClause::Leaf(leaf)) = self.clause_at_mut(&current_node.path)
                     && let UiValue::Text(input) | UiValue::Integer(input) = &mut leaf.value
                 {
                     input.clone_from(text);
@@ -150,7 +163,7 @@ impl QueryBuilderState {
             }
             OverlayResult::SetEdited { target_id, items } => {
                 if *target_id == 3
-                    && let Some(leaf) = self.leaf_at_mut(&current_node.path)
+                    && let Some(UiClause::Leaf(leaf)) = self.clause_at_mut(&current_node.path)
                     && let UiValue::Set(set_items) = &mut leaf.value
                 {
                     set_items.clone_from(items);
@@ -173,13 +186,13 @@ impl QueryBuilderState {
     pub fn try_to_query(&self) -> Option<Query> {
         match self.mode {
             BuilderMode::RawText => Query::from_str(self.raw_input.text()).ok(),
-            BuilderMode::Visual => self.root.try_to_clause().map(|root| Query { root }),
+            BuilderMode::Visual => self.root.try_to_storage().map(|root| Query { root }),
         }
     }
 
     /// Load a `Query` into the visual builder.
     pub fn load_query(&mut self, query: &Query) {
-        self.root = clause_to_ui_group(&query.root);
+        self.root = clause_to_ui_clause(&query.root);
         let flat_len = flatten_tree(&self.root).len();
         self.cursor = CursorPath::new(flat_len);
         // also update raw input for when user toggles mode
@@ -199,7 +212,7 @@ impl QueryBuilderState {
             BuilderMode::RawText => {
                 // parse raw text back to visual
                 if let Ok(q) = Query::from_str(self.raw_input.text()) {
-                    self.root = clause_to_ui_group(&q.root);
+                    self.root = clause_to_ui_clause(&q.root);
                     self.raw_input_valid = true;
                 }
                 self.mode = BuilderMode::Visual;
@@ -215,7 +228,7 @@ impl QueryBuilderState {
     /// Synchronize raw text representation from the visual tree.
     /// Called after any modification to ensure both representations stay in sync.
     fn sync_raw_from_visual(&mut self) {
-        if let Some(q) = self.root.try_to_clause().map(|root| Query { root }) {
+        if let Some(q) = self.root.try_to_storage().map(|root| Query { root }) {
             self.raw_input.set_text(&q.compile_for_storage());
             self.raw_input_valid = true;
         } else {
@@ -226,88 +239,109 @@ impl QueryBuilderState {
     // ── Mutators ─────────────────────────────────────────────────────────────
 
     /// Add a new leaf clause to the group at `path` (empty path = root).
+    ///
+    /// If we try to add a leaf to a leaf node, we convert it to a group with the existing leaf and the new leaf as children.
     pub fn add_leaf_at(&mut self, path: &[usize]) {
-        if let Some(group) = self.group_at_mut(path) {
-            group.clauses.push(UiClause::Leaf(UiLeafClause::new()));
+        let Some(clause) = self.clause_at_mut(path) else {
+            return;
+        };
+        let new_leaf = UiClause::Leaf(UiLeafClause::new());
+        match clause {
+            UiClause::Group(group) => {
+                group.clauses.push(new_leaf);
+            }
+            UiClause::Leaf(leaf) => {
+                // adding a leaf at a leaf -> convert to group
+                let new_leaf = UiLeafClause::new();
+                *clause = UiClause::Group(UiGroup {
+                    kind_dd: DropdownState::new(0, CompoundKind::iter().map(UiCompoundKind)),
+                    clauses: vec![UiClause::Leaf(leaf.clone()), UiClause::Leaf(new_leaf)],
+                });
+            }
         }
         self.sync_raw_from_visual();
     }
 
     /// Add a new sub-group to the group at `path`.
+    ///
+    /// If adding a group to a leaf node, we convert it to a group with the existing leaf and new group as children, similar to `add_leaf_at`.
     pub fn add_group_at(&mut self, path: &[usize]) {
-        if let Some(group) = self.group_at_mut(path) {
-            let new_group = UiGroup::new(CompoundKind::And);
-            group.clauses.push(UiClause::Group(new_group));
+        let Some(clause) = self.clause_at_mut(path) else {
+            return;
+        };
+        let new_group = UiClause::Group(UiGroup::new(CompoundKind::And));
+        match clause {
+            UiClause::Group(group) => {
+                group.clauses.push(new_group);
+            }
+            UiClause::Leaf(leaf) => {
+                // adding a group at a leaf -> convert to group
+                *clause = UiClause::Group(UiGroup {
+                    kind_dd: DropdownState::new(0, CompoundKind::iter().map(UiCompoundKind)),
+                    clauses: vec![UiClause::Leaf(leaf.clone()), new_group],
+                });
+            }
         }
         self.sync_raw_from_visual();
     }
 
     /// Remove the child at position `child_index` in the group at `path`.
-    /// Guards: won't remove if the parent group would drop below 1 child.
+    ///
+    /// If the parent group would have only one child left after removal, we remove the group and promote the remaining child
+    /// (if it's a leaf) to take its place, to avoid degenerate 1-child groups.
     pub fn remove_child_at(&mut self, path: &[usize]) {
-        guard_remove(&mut self.root, path);
+        if path.is_empty() {
+            return; // can't remove root
+        }
+        // path[-1] is the index of the child to remove; path[..-1] is the parent group path
+        let parent_path = parent_path_of(path);
+        let child_idx = path.last().copied().unwrap_or_default();
+
+        if let Some(UiClause::Group(parent)) = self.clause_at_mut(parent_path)
+            && child_idx < parent.clauses.len()
+        {
+            // remove the child
+            parent.clauses.remove(child_idx);
+
+            // promote remaining child if necessary
+            if parent.clauses.len() <= 1 {
+                let Some(only_child) = parent.clauses.pop() else {
+                    return self.sync_raw_from_visual();
+                };
+                let grandparent_path = parent_path_of(parent_path);
+                if let Some(UiClause::Group(grandparent)) = self.clause_at_mut(grandparent_path)
+                    && grandparent_path.len() < parent_path.len()
+                {
+                    let idx_in_grandparent = parent_path.last().copied().unwrap_or_default();
+                    grandparent.clauses[idx_in_grandparent] = only_child;
+                } else {
+                    // if no grandparent, we're at root - promote to root
+                    self.root = only_child;
+                }
+            }
+        }
+
         self.sync_raw_from_visual();
     }
 
-    /// Return a mutable reference to the group node at the given path.
-    pub fn group_at_mut<'a>(&'a mut self, path: &[usize]) -> Option<&'a mut UiGroup> {
-        navigate_to_group_mut(&mut self.root, path)
-    }
-
-    /// Return a mutable reference to the leaf at the given path.
-    pub fn leaf_at_mut<'a>(&'a mut self, path: &[usize]) -> Option<&'a mut UiLeafClause> {
-        navigate_to_leaf_mut(&mut self.root, path)
+    /// Returns a mutable reference to the clause at the given path
+    pub fn clause_at_mut<'a>(&'a mut self, path: &[usize]) -> Option<&'a mut UiClause> {
+        navigate_to_clause_mut(&mut self.root, path)
     }
 }
 
 // ── Navigation helpers ───────────────────────────────────────────────────────
 
-fn navigate_to_group_mut<'a>(root: &'a mut UiGroup, path: &[usize]) -> Option<&'a mut UiGroup> {
+fn navigate_to_clause_mut<'a>(root: &'a mut UiClause, path: &[usize]) -> Option<&'a mut UiClause> {
     if path.is_empty() {
         return Some(root);
     }
     let idx = path[0];
-    let child = root.clauses.get_mut(idx)?;
-    match child {
-        UiClause::Group(g) => navigate_to_group_mut(g, &path[1..]),
-        UiClause::Leaf(_) => None,
-    }
-}
-
-fn navigate_to_leaf_mut<'a>(root: &'a mut UiGroup, path: &[usize]) -> Option<&'a mut UiLeafClause> {
-    if path.is_empty() {
-        return None; // root is always a group
-    }
-    if path.len() == 1 {
-        let idx = path[0];
-        let child = root.clauses.get_mut(idx)?;
-        return match child {
-            UiClause::Leaf(l) => Some(l),
-            UiClause::Group(_) => None,
-        };
-    }
-    // recurse into group
-    let idx = path[0];
-    let child = root.clauses.get_mut(idx)?;
-    match child {
-        UiClause::Group(g) => navigate_to_leaf_mut(g, &path[1..]),
-        UiClause::Leaf(_) => None,
-    }
-}
-
-fn guard_remove(root: &mut UiGroup, path: &[usize]) {
-    if path.is_empty() {
-        return; // can't remove root
-    }
-    // path[-1] is the index of the child to remove; path[..-1] is the parent group path
-    let (parent_path, child_idx_slice) = path.split_at(path.len() - 1);
-    let child_idx = child_idx_slice[0];
-
-    if let Some(parent) = navigate_to_group_mut(root, parent_path)
-        && parent.clauses.len() > 1
-    {
-        parent.clauses.remove(child_idx);
-    }
+    let child = match root {
+        UiClause::Group(g) => g.clauses.get_mut(idx)?,
+        UiClause::Leaf(_) => return None,
+    };
+    navigate_to_clause_mut(child, &path[1..])
 }
 
 // ── Conversion from storage types ───────────────────────────────────────────
@@ -316,21 +350,18 @@ fn guard_remove(root: &mut UiGroup, path: &[usize]) {
 ///
 /// - A `Compound` becomes a proper `UiGroup` with N-arified children.
 /// - A bare `Leaf` becomes a `UiGroup` wrapping a single leaf.
-fn clause_to_ui_group(clause: &Clause) -> UiGroup {
+fn clause_to_ui_clause(clause: &Clause) -> UiClause {
     match clause {
-        Clause::Compound(c) => compound_to_ui_group(c),
+        Clause::Compound(c) => compound_to_ui_clause(c),
         Clause::Leaf(l) => {
             let mut ui_leaf = UiLeafClause::new();
             ui_leaf.load_leaf(l);
-            UiGroup {
-                kind_dd: DropdownState::new(0, CompoundKind::iter().map(UiCompoundKind)),
-                clauses: vec![UiClause::Leaf(ui_leaf)],
-            }
+            UiClause::Leaf(ui_leaf)
         }
     }
 }
 
-fn compound_to_ui_group(compound: &CompoundClause) -> UiGroup {
+fn compound_to_ui_clause(compound: &CompoundClause) -> UiClause {
     let kind = compound.kind;
     let mut kind_dd = DropdownState::new(0, CompoundKind::iter().map(UiCompoundKind));
     let _ = kind_dd.select_by_text(UiCompoundKind(kind).to_string().as_str());
@@ -339,10 +370,10 @@ fn compound_to_ui_group(compound: &CompoundClause) -> UiGroup {
     let mut children: Vec<UiClause> = Vec::new();
     flatten_compound_children(&compound.clauses, kind, &mut children);
 
-    UiGroup {
+    UiClause::Group(UiGroup {
         kind_dd,
         clauses: children,
-    }
+    })
 }
 
 fn flatten_compound_children(clauses: &[Clause], kind: CompoundKind, out: &mut Vec<UiClause>) {
@@ -353,7 +384,7 @@ fn flatten_compound_children(clauses: &[Clause], kind: CompoundKind, out: &mut V
                 flatten_compound_children(&c.clauses, kind, out);
             }
             Clause::Compound(c) => {
-                out.push(UiClause::Group(compound_to_ui_group(c)));
+                out.push(compound_to_ui_clause(c));
             }
             Clause::Leaf(l) => {
                 let mut ui_leaf = UiLeafClause::new();
@@ -378,6 +409,73 @@ mod tests {
             operator: op,
             right: Value::String(val.to_string()),
         })
+    }
+
+    #[test]
+    fn test_load_query() {
+        let mut state = QueryBuilderState::default();
+        let query = Query {
+            root: leaf(Field::Title, Operator::Equal, "foo"),
+        };
+        state.load_query(&query);
+        assert_eq!(
+            state.mode,
+            BuilderMode::Visual,
+            "should reset to visual mode"
+        );
+        assert_eq!(
+            state.raw_input.text(),
+            "title = \"foo\"",
+            "raw input should be set to compiled query"
+        );
+        assert!(
+            state.raw_input_valid,
+            "raw input should be valid since query is valid"
+        );
+        let mut expected = UiLeafClause::new();
+        expected.value = UiValue::Text("foo".to_string());
+        assert_eq!(
+            state.root,
+            UiClause::Leaf(expected),
+            "root should be a leaf clause with correct field/operator/value"
+        );
+    }
+
+    #[test]
+    fn test_navigate_to_clause() {
+        let mut state = QueryBuilderState::default();
+        state.add_group_at(&[]); // root is now a group with 2 children
+        state.add_leaf_at(&[0]); // first child is a group with 2 leafs
+        state.add_leaf_at(&[1]); // second child is a group with 2 leafs
+
+        // so, overall, the tree should look like this:
+        // root (group)
+        // |-- child 0 (group)
+        // |   |-- child 0 (leaf)
+        // |   |-- child 1 (leaf)
+        // |-- child 1 (group)
+        //     |-- child 0 (leaf)
+        //     |-- child 1 (leaf)
+
+        // navigate to each leaf/group and check we get the expected clause
+        let clause = state.clause_at_mut(&[]).unwrap();
+        assert!(matches!(clause, UiClause::Group(_)));
+        let clause = state.clause_at_mut(&[0]).unwrap();
+        assert!(matches!(clause, UiClause::Group(_)));
+        let clause = state.clause_at_mut(&[0, 0]).unwrap();
+        assert!(matches!(clause, UiClause::Leaf(_)));
+        let clause = state.clause_at_mut(&[0, 1]).unwrap();
+        assert!(matches!(clause, UiClause::Leaf(_)));
+        let clause = state.clause_at_mut(&[1]).unwrap();
+        assert!(matches!(clause, UiClause::Group(_)));
+        let clause = state.clause_at_mut(&[1, 0]).unwrap();
+        assert!(matches!(clause, UiClause::Leaf(_)));
+        let clause = state.clause_at_mut(&[1, 1]).unwrap();
+        assert!(matches!(clause, UiClause::Leaf(_)));
+
+        // invalid paths returns None
+        assert!(state.clause_at_mut(&[2]).is_none());
+        assert!(state.clause_at_mut(&[0, 2]).is_none());
     }
 
     #[test]
@@ -417,15 +515,24 @@ mod tests {
     fn test_add_remove_leaf() {
         let mut state = QueryBuilderState::default();
         // root has 1 leaf by default
-        assert_eq!(state.root.clauses.len(), 1);
+        assert_eq!(state.root, UiClause::Leaf(UiLeafClause::new()));
         state.add_leaf_at(&[]);
-        assert_eq!(state.root.clauses.len(), 2);
+        assert_eq!(
+            state.root,
+            UiClause::Group(UiGroup {
+                kind_dd: DropdownState::new(0, CompoundKind::iter().map(UiCompoundKind)),
+                clauses: vec![
+                    UiClause::Leaf(UiLeafClause::new()),
+                    UiClause::Leaf(UiLeafClause::new())
+                ]
+            })
+        );
         // remove first leaf (path = [0])
         state.remove_child_at(&[0]);
-        assert_eq!(state.root.clauses.len(), 1);
+        assert_eq!(state.root, UiClause::Leaf(UiLeafClause::new()));
         // guard: won't remove last child
-        state.remove_child_at(&[0]);
-        assert_eq!(state.root.clauses.len(), 1);
+        state.remove_child_at(&[]);
+        assert_eq!(state.root, UiClause::Leaf(UiLeafClause::new()));
     }
 
     #[test]
@@ -459,7 +566,11 @@ mod tests {
 
         // Get the leaf at cursor position (before)
         let leaf = state
-            .leaf_at_mut(&current_node.path)
+            .clause_at_mut(&current_node.path)
+            .and_then(|c| match c {
+                UiClause::Leaf(leaf) => Some(leaf),
+                _ => None,
+            })
             .expect("Should be a leaf");
         let initial_field = leaf.field_dd.selected().unwrap().to_string();
 
@@ -489,7 +600,13 @@ mod tests {
         // Check that the state was updated
         let flat = flatten_tree(&state.root);
         let current_node = &flat[state.cursor.flat_index];
-        let leaf_after = state.leaf_at_mut(&current_node.path).unwrap();
+        let leaf_after = state
+            .clause_at_mut(&current_node.path)
+            .and_then(|c| match c {
+                UiClause::Leaf(leaf) => Some(leaf),
+                _ => None,
+            })
+            .unwrap();
         let new_field = leaf_after.field_dd.selected().unwrap();
 
         assert_eq!(
@@ -512,17 +629,24 @@ mod tests {
 
         // Initial state: visual mode, 1 leaf clause
         assert_eq!(state.mode, BuilderMode::Visual);
-        assert_eq!(state.root.clauses.len(), 1);
+        assert_eq!(state.root, UiClause::Leaf(UiLeafClause::new()));
 
         // Add another leaf at root level
         state.add_leaf_at(&[]);
-        assert_eq!(state.root.clauses.len(), 2);
-
-        // After adding a leaf, both leaves are present but incomplete (no values set)
-        // So the tree is invalid and raw_input_valid should be false
-        assert!(
-            !state.raw_input_valid,
-            "Added incomplete leaf makes tree invalid"
+        assert_eq!(
+            state.root,
+            UiClause::Group(UiGroup {
+                kind_dd: DropdownState::new(0, CompoundKind::iter().map(UiCompoundKind)),
+                clauses: vec![
+                    UiClause::Leaf(UiLeafClause::new()),
+                    UiClause::Leaf(UiLeafClause::new())
+                ]
+            })
+        );
+        assert!(state.raw_input_valid,);
+        assert_eq!(
+            state.raw_input.text(),
+            "(title = \"value\" OR title = \"value\")"
         );
     }
 
@@ -532,24 +656,12 @@ mod tests {
 
         // Add a leaf, then remove it
         state.add_leaf_at(&[]);
-        assert_eq!(state.root.clauses.len(), 2);
 
         state.remove_child_at(&[0]);
-        assert_eq!(state.root.clauses.len(), 1);
+        assert_eq!(state.root, UiClause::Leaf(UiLeafClause::new()));
 
-        // After removing a leaf, we're back to the default valid state
-        // The raw text should match the visual tree
-        if state.raw_input_valid {
-            let raw_query =
-                Query::from_str(state.raw_input.text()).expect("Raw text should be valid");
-            let visual_query = state.try_to_query().expect("Visual tree should compile");
-
-            assert_eq!(
-                raw_query.compile_for_storage(),
-                visual_query.compile_for_storage(),
-                "Raw text should match compiled visual tree after remove_child_at"
-            );
-        }
+        assert!(state.raw_input_valid);
+        assert_eq!(state.raw_input.text(), "title = \"value\"");
     }
 
     #[test]
@@ -587,13 +699,21 @@ mod tests {
 
         // Add a subgroup
         state.add_group_at(&[]);
-        assert_eq!(state.root.clauses.len(), 2);
-
-        // After adding a subgroup, the tree is still invalid (both original leaf and new group)
-        // because we have an incomplete state
-        assert!(
-            !state.raw_input_valid,
-            "Added group with unmatched leaf makes tree invalid"
+        assert_eq!(
+            state.root,
+            UiClause::Group(UiGroup {
+                kind_dd: DropdownState::new(0, CompoundKind::iter().map(UiCompoundKind)),
+                clauses: vec![
+                    UiClause::Leaf(UiLeafClause::new()),
+                    UiClause::Group(UiGroup::new(CompoundKind::And))
+                ]
+            })
+        );
+        assert!(state.raw_input_valid);
+        assert_eq!(
+            state.raw_input.text(),
+            "(title = \"value\" OR (title = \"value\" AND title = \"value\"))",
+            "Raw text should reflect added group with empty leaf clauses"
         );
     }
 

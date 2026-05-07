@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::ui::{
     colors::{BORDER_FOCUSED, BORDER_UNFOCUSED, TEXT_HIGHLIGHT, TEXT_HIGHLIGHT_ALT, TEXT_NORMAL},
-    widgets::{dropdown::Dropdown, input_box::InputBox},
+    widgets::{dropdown::Dropdown, input_box::InputBox, query_builder::utils::UiClause},
 };
 
 use super::{
@@ -214,7 +214,7 @@ fn render_group_header(
     row_style: Style,
     flat_index: usize,
 ) {
-    let Some(group) = state.group_at_mut(path) else {
+    let Some(UiClause::Group(group)) = state.clause_at_mut(path) else {
         return;
     };
 
@@ -254,18 +254,18 @@ fn render_leaf_row(
     row_style: Style,
     flat_index: usize,
 ) {
-    let Some(leaf) = state.leaf_at_mut(path) else {
+    let Some(UiClause::Leaf(leaf)) = state.clause_at_mut(path) else {
         return;
     };
 
     // Layout: [Field▼][space][Op▼][space][value...][del]
-    // Columns:  12       1    12    1      rest-1    8
+    // Columns:  12       1    12    1      rest-1    6
     let [field_area, op_area, val_area, del_area] = area.layout(
         &Layout::horizontal([
             Constraint::Length(14),
             Constraint::Length(14),
             Constraint::Min(2),
-            Constraint::Length(8),
+            Constraint::Length(6),
         ])
         .flex(Flex::SpaceBetween),
     );
