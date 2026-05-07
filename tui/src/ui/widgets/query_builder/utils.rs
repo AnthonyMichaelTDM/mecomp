@@ -585,7 +585,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_uigroup_to_qury() {
+    fn test_uigroup_to_query() {
         let mut clause1 = UiLeafClause::new();
         clause1.load_leaf(&LeafClause {
             left: Value::Field(Field::Title),
