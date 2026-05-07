@@ -152,16 +152,20 @@ impl MusicPlayerTrait for MusicPlayer {
     async fn library_rescan(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Rescanning library");
 
-        if self.library_rescan_lock.try_lock().is_err() {
-            warn!("Library rescan already in progress");
-            return Err(tonic::Status::aborted("Library rescan already in progress"));
-        }
+        let guard = self
+            .library_rescan_lock
+            .clone()
+            .try_lock_owned()
+            .map_err(|_| {
+                warn!("Library rescan already in progress");
+                tonic::Status::aborted("Library rescan already in progress")
+            })?;
 
         let span = tracing::Span::current();
 
         tokio::task::spawn(
             async move {
-                let _guard = self.library_rescan_lock.lock().await;
+                let _guard = guard;
                 match services::library::rescan(
                     &self.db,
                     &self.settings.daemon.library_paths,
@@ -204,12 +208,14 @@ impl MusicPlayerTrait for MusicPlayer {
         let overwrite = request.get_ref().overwrite;
         info!("Analyzing library");
 
-        if self.library_analyze_lock.try_lock().is_err() {
-            warn!("Library analysis already in progress");
-            return Err(tonic::Status::aborted(
-                "Library analysis already in progress",
-            ));
-        }
+        let guard = self
+            .library_analyze_lock
+            .clone()
+            .try_lock_owned()
+            .map_err(|_| {
+                warn!("Library analysis already in progress");
+                tonic::Status::aborted("Library analysis already in progress")
+            })?;
 
         let span = tracing::Span::current();
 
@@ -219,7 +225,7 @@ impl MusicPlayerTrait for MusicPlayer {
 
         tokio::task::spawn(
             async move {
-                let _guard = self.library_analyze_lock.lock().await;
+                let _guard = guard;
                 match services::library::analyze(
                     &self.db,
                     self.interrupt.resubscribe(),
@@ -257,18 +263,20 @@ impl MusicPlayerTrait for MusicPlayer {
     async fn library_recluster(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Reclustering collections");
 
-        if self.collection_recluster_lock.try_lock().is_err() {
-            warn!("Collection reclustering already in progress");
-            return Err(tonic::Status::aborted(
-                "Collection reclustering already in progress",
-            ));
-        }
+        let guard = self
+            .collection_recluster_lock
+            .clone()
+            .try_lock_owned()
+            .map_err(|_| {
+                warn!("Collection reclustering already in progress");
+                tonic::Status::aborted("Collection reclustering already in progress")
+            })?;
 
         let span = tracing::Span::current();
 
         tokio::task::spawn(
             async move {
-                let _guard = self.collection_recluster_lock.lock().await;
+                let _guard = guard;
                 match services::library::recluster(
                     &self.db,
                     self.settings.reclustering,
