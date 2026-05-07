@@ -594,6 +594,44 @@ mod tests {
         let parsed = T::from_str(input);
         assert_eq!(parsed, Ok(expected));
     }
+
+    #[rstest]
+    #[case(LeafClause {
+        left: Value::String("foo".to_string()),
+        operator: Operator::Contains,
+        right: Value::String("bar".to_string())
+    }, true)]
+    #[case(LeafClause {
+        left: Value::Field(Field::Title),
+        operator: Operator::Equal,
+        right: Value::String("foo".to_string())
+    }, true)]
+    #[case(LeafClause {
+        left: Value::Field(Field::AlbumArtists),
+        operator: Operator::Contains,
+        right: Value::String("bar".to_string())
+    }, true)]
+    #[case(LeafClause {
+        left: Value::Set(vec![Value::String("foo".to_string())]),
+        operator: Operator::ContainsAll,
+        right: Value::Set(vec![Value::String("foo".to_string())])
+    }, true)]
+    #[case(LeafClause {
+        left: Value::Field(Field::Artists),
+        operator: Operator::Equal,
+        right: Value::Field(Field::Album)
+    }, false)]
+    fn test_leaf_clause_has_valid_operator(#[case] clause: LeafClause, #[case] expected: bool) {
+        assert_eq!(clause.has_valid_operator(), expected);
+    }
+
+    #[rstest]
+    #[case("title invalid \"foo\"")]
+    #[case("(title = \"foo\" AND")]
+    fn test_query_parse_failure(#[case] input: &str) {
+        let parsed = Query::from_str(input);
+        assert!(parsed.is_err(), "expected parse failure for {input}");
+    }
 }
 
 macro_rules! impl_from_str {
