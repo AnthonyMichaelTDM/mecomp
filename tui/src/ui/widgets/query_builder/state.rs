@@ -606,12 +606,6 @@ mod tests {
             target_field.as_str(),
             "Field should be updated to selected value"
         );
-
-        // Check that the overlay is now closed
-        assert!(
-            !leaf_after.field_dd.is_open(),
-            "Dropdown should be closed after overlay result is applied"
-        );
     }
 
     #[test]

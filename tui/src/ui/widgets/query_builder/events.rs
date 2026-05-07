@@ -11,7 +11,7 @@ use super::{
     utils::{FlatNodeKind, flatten_tree},
 };
 
-const KIND_OVERLAY_ROWS: u16 = 4;
+const KIND_OVERLAY_ROWS: u16 = 2;
 const FIELD_OVERLAY_ROWS: u16 = 8;
 const OPERATOR_OVERLAY_ROWS: u16 = 10;
 

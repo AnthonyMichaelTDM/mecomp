@@ -16,7 +16,6 @@ pub struct DropdownState<T> {
     options: Arc<[String]>,
     selected_index: usize,
     scroll_offset: usize,
-    is_open: bool,
     option_type: std::marker::PhantomData<T>,
     widest_option_length: usize,
 }
@@ -35,7 +34,6 @@ impl<T: ToString> DropdownState<T> {
             options,
             selected_index: 0,
             scroll_offset: 0,
-            is_open: false,
             option_type: std::marker::PhantomData,
             widest_option_length,
         }
@@ -49,11 +47,6 @@ impl<T: ToString> DropdownState<T> {
     #[must_use]
     pub const fn selected_index(&self) -> usize {
         self.selected_index
-    }
-
-    #[must_use]
-    pub const fn is_open(&self) -> bool {
-        self.is_open
     }
 
     #[must_use]
@@ -82,15 +75,10 @@ impl<T: ToString> DropdownState<T> {
         false
     }
 
-    pub const fn close_overlay(&mut self) {
-        self.is_open = false;
-    }
-
     #[must_use]
     pub fn open_overlay(&mut self, max_rows: u16) -> OverlayType {
-        self.is_open = true;
         let width = u16::try_from(self.widest_option_length + 2).unwrap_or(u16::MAX);
-        let height = max_rows.min(u16::try_from(self.options.len()).unwrap_or(u16::MAX));
+        let height = max_rows.min(u16::try_from(self.options.len()).unwrap_or(u16::MAX - 2)) + 2;
         let size = Rect::new(0, 0, width, height);
 
         OverlayType::Dropdown(DropdownOverlay {
@@ -113,7 +101,6 @@ impl<T: ToString> DropdownState<T> {
                 } else {
                     self.selected_index = (*selected_index).min(self.options.len() - 1);
                 }
-                self.close_overlay();
                 true
             }
             _ => false,
@@ -123,8 +110,7 @@ impl<T: ToString> DropdownState<T> {
 
 pub struct Dropdown<'a, T> {
     style: Style,
-    open_indicator: &'a str,
-    closed_indicator: &'a str,
+    indicator: &'a str,
     _phantom: std::marker::PhantomData<T>,
 }
 
@@ -133,8 +119,7 @@ impl<'a, T> Dropdown<'a, T> {
     pub fn new() -> Self {
         Self {
             style: Style::default(),
-            open_indicator: "▲",
-            closed_indicator: "▼",
+            indicator: "▼",
             _phantom: std::marker::PhantomData,
         }
     }
@@ -146,14 +131,8 @@ impl<'a, T> Dropdown<'a, T> {
     }
 
     #[must_use]
-    pub const fn open_indicator(mut self, indicator: &'a str) -> Self {
-        self.open_indicator = indicator;
-        self
-    }
-
-    #[must_use]
-    pub const fn closed_indicator(mut self, indicator: &'a str) -> Self {
-        self.closed_indicator = indicator;
+    pub const fn indicator(mut self, indicator: &'a str) -> Self {
+        self.indicator = indicator;
         self
     }
 }
@@ -177,12 +156,6 @@ impl<T: std::fmt::Display> StatefulWidget for Dropdown<'_, T> {
             .map(ToString::to_string)
             .unwrap_or_default();
 
-        let indicator = if state.is_open() {
-            self.open_indicator
-        } else {
-            self.closed_indicator
-        };
-
         // Truncate to available width minus indicator + space
         let max_label = (area.width as usize).saturating_sub(2);
         let truncated: String = label.chars().take(max_label).collect();
@@ -191,7 +164,7 @@ impl<T: std::fmt::Display> StatefulWidget for Dropdown<'_, T> {
             Span::raw("["),
             Span::styled(truncated, self.style),
             Span::raw(" "),
-            Span::raw(indicator),
+            Span::raw(self.indicator),
             Span::raw("]"),
         ]);
 
@@ -230,21 +203,6 @@ mod tests {
     }
 
     #[test]
-    fn open_overlay_marks_open_and_places_below_if_space() {
-        let mut state = make_state();
-        let overlay = state.open_overlay(6);
-
-        assert!(state.is_open());
-        match overlay {
-            OverlayType::Dropdown(dropdown) => {
-                assert_eq!(dropdown.size, Rect::new(0, 0, 7, 3));
-                assert_eq!(dropdown.target_id, 0);
-            }
-            _ => panic!("Expected Dropdown overlay"),
-        }
-    }
-
-    #[test]
     fn apply_overlay_result_updates_when_target_matches() {
         let mut state = make_state();
         let _overlay = state.open_overlay(5);
@@ -256,7 +214,6 @@ mod tests {
 
         assert!(changed);
         assert_eq!(state.selected_index(), 1);
-        assert!(!state.is_open());
     }
 
     #[test]

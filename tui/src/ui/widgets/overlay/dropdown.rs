@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{
     Frame,
-    layout::{Constraint, Layout, Rect},
+    layout::{Constraint, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, List, ListItem, ListState},
@@ -59,21 +59,10 @@ impl DropdownOverlay {
 impl Overlay for DropdownOverlay {
     fn area(&self, terminal_area: Rect) -> Rect {
         // place the overlay in the middle of the terminal
-        let layout = Layout::horizontal([
-            Constraint::Fill(1),
+        terminal_area.centered(
             Constraint::Length(self.size.width),
-            Constraint::Fill(1),
-        ]);
-        let [_, horizontal_area, _] = terminal_area.layout(&layout);
-
-        let layout = Layout::vertical([
-            Constraint::Fill(1),
             Constraint::Length(self.size.height),
-            Constraint::Fill(1),
-        ]);
-        let [_, area, _] = horizontal_area.layout(&layout);
-
-        area
+        )
     }
 
     fn update_with_state(&mut self, _: &AppState) {}
