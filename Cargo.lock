@@ -6167,6 +6167,8 @@ dependencies = [
  "anyhow",
  "log",
  "mecomp-workspace-hack",
+ "pretty_assertions",
+ "rstest",
  "serde",
  "serde_json",
  "sha256",

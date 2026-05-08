@@ -611,9 +611,37 @@ impl From<SchemaVersion> for usize {
 mod tests {
     use super::*;
     use anyhow::Result;
+    use pretty_assertions::{assert_eq, assert_str_eq};
+    use rstest::{fixture, rstest};
     use serde::Deserialize;
     use serde_json::Value;
-    use surrealdb::sql::{Datetime, Thing};
+    use surrealdb::{
+        engine::any::Any,
+        sql::{Datetime, Thing},
+    };
+
+    #[test]
+    fn error_conversion_from_tuple() {
+        let surreal_error = surrealdb::Error::Db(surrealdb::error::Db::DbEmpty);
+        let error_with_context: Error = ("while doing something", surreal_error).into();
+        let surreal_error = surrealdb::Error::Db(surrealdb::error::Db::DbEmpty);
+
+        match error_with_context {
+            Error::SurrealdbErrorWithContext { context, err } => {
+                assert_eq!(context, "while doing something");
+                assert_eq!(err.to_string(), surreal_error.to_string());
+            }
+            _ => panic!("Expected SurrealdbErrorWithContext"),
+        }
+    }
+
+    #[rstest]
+    #[case::none(SchemaVersion::NoneSet, "0 (no version set)")]
+    #[case::inside(SchemaVersion::Inside(NonZeroUsize::new(3).unwrap()), "3 (inside)")]
+    #[case::outside(SchemaVersion::Outside(NonZeroUsize::new(5).unwrap()), "5 (outside)")]
+    fn schema_version_display(#[case] version: SchemaVersion, #[case] expected: &'static str) {
+        assert_str_eq!(version.to_string(), expected);
+    }
 
     #[derive(Debug, Deserialize)]
     #[allow(unused)]
@@ -626,19 +654,28 @@ mod tests {
         pub installed_on: Datetime,
     }
 
+    #[fixture]
+    async fn db() -> Surreal<Any> {
+        let db = surrealdb::engine::any::connect("mem://").await.unwrap();
+        db.use_ns("test").use_db("test").await.unwrap();
+        db
+    }
+
+    #[rstest]
     #[tokio::test]
-    async fn empty_db_should_have_version_0() -> Result<()> {
-        let db = surrealdb::engine::any::connect("mem://").await?;
-        db.use_ns("test").use_db("test").await?;
+    async fn empty_db_should_have_version_0(#[future] db: Surreal<Any>) -> Result<()> {
+        let db = db.await;
         let version = get_current_version(&db, "test_scope").await?;
         assert_eq!(version, 0);
         Ok(())
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn fail_with_no_migrations_defined_when_no_migrations() -> Result<()> {
-        let db = surrealdb::engine::any::connect("mem://").await?;
-        db.use_ns("test").use_db("test").await?;
+    async fn fail_with_no_migrations_defined_when_no_migrations(
+        #[future] db: Surreal<Any>,
+    ) -> Result<()> {
+        let db = db.await;
         let migrations = Migrations::new("test_scope", vec![]);
         let result = migrations.to_latest(&db).await;
         matches!(
@@ -650,10 +687,12 @@ mod tests {
         Ok(())
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn empty_migrations_table_is_created_when_run_migrations() -> Result<()> {
-        let db = surrealdb::engine::any::connect("mem://").await?;
-        db.use_ns("test").use_db("test").await?;
+    async fn empty_migrations_table_is_created_when_run_migrations(
+        #[future] db: Surreal<Any>,
+    ) -> Result<()> {
+        let db = db.await;
         let migrations = Migrations::new("test_scope", vec![]);
         let _ = migrations.to_latest(&db).await;
         let mut result = db.query("INFO FOR TABLE _migrations;").await?.check()?;
@@ -682,10 +721,10 @@ mod tests {
         Ok(())
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn run_to_latest() -> Result<()> {
-        let db = surrealdb::engine::any::connect("mem://").await?;
-        db.use_ns("test").use_db("test").await?;
+    async fn run_to_latest(#[future] db: Surreal<Any>) -> Result<()> {
+        let db = db.await;
         let migrations = Migrations::new("test_scope", vec![
             M::up("DEFINE TABLE animal SCHEMAFULL; DEFINE FIELD name ON animal TYPE string; DEFINE FIELD created_at ON animal TYPE datetime DEFAULT time::now()")
                 .comment("Create animal table"),
@@ -890,10 +929,10 @@ mod tests {
         Ok(())
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn run_to_latest_when_table_already_exists() -> Result<()> {
-        let db = surrealdb::engine::any::connect("mem://").await?;
-        db.use_ns("test").use_db("test").await?;
+    async fn run_to_latest_when_table_already_exists(#[future] db: Surreal<Any>) -> Result<()> {
+        let db = db.await;
         let migrations = Migrations::new("test_scope", vec![
             M::up("DEFINE TABLE OVERWRITE animal SCHEMAFULL; DEFINE FIELD name ON animal TYPE string; DEFINE FIELD created_at ON animal TYPE datetime DEFAULT time::now()")
                 .comment("Create animal table"),
@@ -903,7 +942,6 @@ mod tests {
 
         db.query("DEFINE TABLE animal;").await?.check()?;
 
-        // First run
         migrations.to_latest(&db).await?;
 
         let mut result = db
@@ -917,15 +955,223 @@ mod tests {
         Ok(())
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn test_change_size_of_preexisting_vector_index() {
+    async fn run_to_latest_empty_migrations(#[future] db: Surreal<Any>) {
+        let db = db.await;
+        let migrations = Migrations::new("test_scope", vec![]);
+
+        let result = migrations.to_latest(&db).await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            Error::MigrationDefinition(MigrationDefinitionError::NoMigrationsDefined) => {}
+            err => panic!("Expected NoMigrationsDefined, but got: {err}"),
+        }
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(1)]
+    #[tokio::test]
+    async fn run_to_version_empty_migrations(#[future] db: Surreal<Any>, #[case] version: usize) {
+        let db = db.await;
+        let migrations = Migrations::new("test_scope", vec![]);
+
+        let result = migrations.to_version(&db, version).await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            Error::MigrationDefinition(MigrationDefinitionError::NoMigrationsDefined) => {}
+            err => panic!("Expected NoMigrationsDefined, but got: {err}"),
+        }
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn fail_to_version_with_target_version_out_of_range(
+        #[future] db: Surreal<Any>,
+    ) -> Result<()> {
+        let db = db.await;
+        let migrations = Migrations::new(
+            "test_scope",
+            vec![M::up(
+                "DEFINE TABLE animal; DEFINE FIELD name ON animal TYPE string;",
+            )],
+        );
+
+        let result = migrations.to_version(&db, 2).await;
+
+        match result.unwrap_err() {
+            Error::SpecifiedSchemaVersion(SchemaVersionError::TargetVersionOutOfRange {
+                specified,
+                highest,
+            }) => {
+                assert_eq!(usize::from(specified), 2);
+                assert_eq!(usize::from(highest), 1);
+            }
+            err => panic!("Expected TargetVersionOutOfRange, but got: {err}"),
+        }
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn fail_to_version_when_database_is_too_far_ahead(
+        #[future] db: Surreal<Any>,
+    ) -> Result<()> {
+        let db = db.await;
+        let migrations = Migrations::new(
+            "test_scope",
+            vec![M::up(
+                "DEFINE TABLE animal; DEFINE FIELD name ON animal TYPE string;",
+            )],
+        );
+
+        migrations.ensure_migrations_table(&db).await?;
+        db.query(
+            "BEGIN; INSERT INTO _migrations { scope: 'test_scope', version: 2, comment: '', checksum: 'x', installed_on: time::now() }; COMMIT;",
+        )
+        .await?
+        .check()?;
+
+        let result = migrations.to_version(&db, 1).await;
+
+        matches!(
+            result,
+            Err(Error::MigrationDefinition(
+                MigrationDefinitionError::DatabaseTooFarAhead
+            ))
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn fail_to_version_down_when_down_not_defined(#[future] db: Surreal<Any>) -> Result<()> {
+        let db = db.await;
+        let migrations = Migrations::new(
+            "test_scope",
+            vec![
+                M::up("DEFINE TABLE animal SCHEMAFULL; DEFINE FIELD name ON animal TYPE string;")
+                    .down("REMOVE TABLE animal;")
+                    .comment("Create animal table"),
+                M::up("DEFINE TABLE food SCHEMAFULL; DEFINE FIELD name ON food TYPE string;"),
+            ],
+        );
+
+        migrations.to_latest(&db).await?;
+
+        let result = migrations.to_version(&db, 0).await;
+
+        match result.unwrap_err() {
+            Error::MigrationDefinition(MigrationDefinitionError::DownNotDefined {
+                migration_index,
+            }) => {
+                assert_eq!(migration_index, 1);
+            }
+            err => panic!("Expected DownNotDefined, but got: {err}"),
+        }
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn migrate_up_with_multiple_errors(#[future] db: Surreal<Any>) -> Result<()> {
+        let db = db.await;
+        let migrations = Migrations::new(
+            "test_scope",
+            vec![
+                M::up("DEFINE TABLE animal; DEFINE FIELD name ON animal TYPE string;").comment("Create animal table"),
+                M::up("DEFINE TABLE animal;").comment("Try to create animal table again, which should cause an error because the table already exists"),
+            ],
+        );
+
+        // Run the migrations
+        let result = migrations.to_latest(&db).await;
+
+        assert!(result.is_err(), "Expected an error, but got Ok");
+
+        match result.unwrap_err() {
+            Error::MigrationExecutionErrors { errs } => {
+                assert_eq!(errs.len(), 2);
+                // should be a QueryNotExecuted error and a TbAlreadyExists error, but the order is not guaranteed
+                let not_executed = errs.iter().any(|err| {
+                    matches!(
+                        err.err,
+                        surrealdb::Error::Db(surrealdb::error::Db::QueryNotExecuted)
+                    )
+                });
+                let already_exists = errs.iter().any(|err| matches!(
+                    err.err,surrealdb::Error::Db(surrealdb::error::Db::TbAlreadyExists { ref name }) if name == "animal"
+                ));
+                assert!(
+                    not_executed && already_exists,
+                    "Expected both QueryNotExecuted and TbAlreadyExists errors, but got: {errs:?}"
+                );
+            }
+            err => panic!("Expected MigrationExecutionErrors, but got: {err}"),
+        }
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn migrate_down_with_multiple_errors(#[future] db: Surreal<Any>) -> Result<()> {
+        let db = db.await;
+        let migrations = Migrations::new(
+            "test_scope",
+            vec![
+                M::up("DEFINE TABLE animal;")
+                    .comment("Create animal table")
+                    .down("REMOVE TABLE food;"),
+            ],
+        );
+
+        // Run the migrations
+        migrations.to_latest(&db).await?;
+        // Try to migrate down, which should cause an error
+        let result = migrations.goto(&db, 0).await;
+
+        assert!(result.is_err(), "Expected an error, but got Ok");
+
+        match result.unwrap_err() {
+            Error::MigrationExecutionErrors { errs } => {
+                assert_eq!(errs.len(), 2);
+                // should be a QueryNotExecuted error and a TbNotFound error, but the order is not guaranteed
+                let not_executed = errs.iter().any(|err| {
+                    matches!(
+                        err.err,
+                        surrealdb::Error::Db(surrealdb::error::Db::QueryNotExecuted)
+                    )
+                });
+                let not_found = errs.iter().any(|err| matches!(
+                    err.err,surrealdb::Error::Db(surrealdb::error::Db::TbNotFound { ref name }) if name == "food"
+                ));
+                assert!(
+                    not_executed && not_found,
+                    "Expected both QueryNotExecuted and TbNotFound errors, but got: {errs:?}"
+                );
+            }
+            err => panic!("Expected MigrationExecutionErrors, but got: {err}"),
+        }
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_change_size_of_preexisting_vector_index(#[future] db: Surreal<Any>) {
         #[derive(Debug, Deserialize, PartialEq)]
         struct Table1 {
             numbers: Vec<f32>,
         }
 
-        let db = surrealdb::engine::any::connect("mem://").await.unwrap();
-        db.use_ns("test").use_db("test").await.unwrap();
+        let db = db.await;
 
         db.query(surrql!(
             r"
