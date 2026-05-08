@@ -203,6 +203,8 @@ pub async fn start_daemon(
             .inspect_err(|e| error!("Failed to persist queue state: {e}"));
     }
 
+    audio_kernel.send(AudioCommand::Exit);
+
     log::info!("Cleanup complete");
 
     Ok(())
@@ -262,10 +264,10 @@ pub async fn init_test_client_server(
     // initialize the event publisher
     let event_publisher = Arc::new(Sender::new().await?);
     // initialize the termination handler
-    let (terminator, mut interrupt_rx) = termination::create_termination();
+    let (terminator, interrupt_rx) = termination::create_termination();
 
     // Build the service implementation
-    let server = MusicPlayer::new(
+    let state = MusicPlayer::new(
         db,
         settings.clone(),
         audio_kernel.clone(),
@@ -279,28 +281,17 @@ pub async fn init_test_client_server(
     let local_addr = listener.local_addr()?;
     let incoming = TcpListenerStream::new(listener);
 
-    // Create the gRPC service
-    let svc = MusicPlayerServer::new(server);
-
     // Spawn the server with shutdown triggered by interrupt receiver
     tokio::spawn(async move {
-        let shutdown_future = async move {
-            let _ = interrupt_rx.wait().await;
-            info!("Stopping test server...");
-            audio_kernel.send(AudioCommand::Exit);
-            let _ = event_publisher
-                .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
-                .await;
-            info!("Test server stopped");
-        };
-
-        if let Err(e) = Server::builder()
-            .add_service(svc)
-            .serve_with_incoming_shutdown(incoming, shutdown_future)
-            .await
-        {
+        if let Err(e) = run_daemon(incoming, state, interrupt_rx).await {
             error!("Error running test server: {e}");
         }
+        info!("Stopping test server...");
+        let _ = event_publisher
+            .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
+            .await;
+        audio_kernel.send(AudioCommand::Exit);
+        info!("Test server stopped");
     });
 
     // Connect a client to the local server
@@ -313,7 +304,7 @@ pub async fn init_test_client_server(
 }
 
 #[cfg(test)]
-mod test_client_tests {
+mod tests {
     //! Tests for:
     //! - the `init_test_client_server` function
     //! - daemon endpoints that aren't covered in other tests
@@ -324,11 +315,12 @@ mod test_client_tests {
     use super::*;
     use anyhow::Result;
     use mecomp_core::errors::{BackupError, SerializableLibraryError};
+    use mecomp_core::udp::Listener;
     use mecomp_prost::{
         DynamicPlaylist, DynamicPlaylistChangeSet, DynamicPlaylistCreateRequest,
         DynamicPlaylistUpdateRequest, LibraryFull, Path, PlaylistAddRequest, PlaylistExportRequest,
         PlaylistImportRequest, PlaylistName, PlaylistRenameRequest, RadioSimilarRequest,
-        RecordIdList,
+        RecordIdList, RegisterListenerRequest,
     };
     use mecomp_storage::db::schemas::analysis::Analysis;
     use mecomp_storage::test_utils::arb_feature_array;
@@ -457,9 +449,63 @@ mod test_client_tests {
         let response = client.ping(()).await.unwrap().into_inner().message;
 
         assert_eq!(response, "pong");
+    }
 
-        // ensure that the client is shutdown properly
-        drop(client);
+    #[tokio::test]
+    async fn test_daemon_shutdown() -> Result<()> {
+        let db = Arc::new(init_test_database().await.unwrap());
+        let settings = Arc::new(Settings::default());
+        let event_publisher = EventPublisher::new().await;
+        let audio_kernel = AudioKernelSender::start(event_publisher.event_tx.clone());
+        let (terminator, interrupt_rx) = termination::create_termination();
+
+        let state = MusicPlayer::new(
+            db.clone(),
+            settings.clone(),
+            audio_kernel.clone(),
+            event_publisher.dispatcher.clone(),
+            terminator.clone(),
+            interrupt_rx.resubscribe(),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        let local_addr = listener.local_addr()?;
+        let incoming = TcpListenerStream::new(listener);
+        let handle: tokio::task::JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
+            run_daemon(incoming, state, interrupt_rx).await?;
+            let _ = event_publisher
+                .dispatcher
+                .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
+                .await;
+            audio_kernel.send(AudioCommand::Exit);
+            Ok(())
+        });
+
+        let endpoint = format!("http://{local_addr}");
+        let endpoint = tonic::transport::Channel::from_shared(endpoint)?.connect_lazy();
+        let mut client = mecomp_prost::client::MusicPlayerClient::with_interceptor(
+            endpoint,
+            TraceInterceptor {},
+        );
+
+        // register a listener so we can listen for the shutdown event
+        let mut event_subscriber = Listener::new().await?;
+        client
+            .register_listener(RegisterListenerRequest::new(event_subscriber.local_addr()?))
+            .await?;
+
+        // send the shutdown command
+        client.daemon_shutdown(()).await?;
+
+        // wait for the shutdown event
+        let event: Message =
+            tokio::time::timeout(Duration::from_secs(2), event_subscriber.recv()).await??;
+        assert_eq!(
+            event,
+            Message::Event(mecomp_core::udp::Event::DaemonShutdown)
+        );
+
+        let _ = tokio::time::timeout(Duration::from_secs(1), handle).await??;
+        Ok(())
     }
 
     #[rstest]
