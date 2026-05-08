@@ -32,7 +32,7 @@ pub enum Error {
     },
     /// A `SurrealDB` error that occurred during a migration
     #[error("{} errors occurred while executing migrations: [ {} ]", errs.len(), errs.iter().map(|e| format!("`{e}`")).collect::<Vec<_>>().join(", ") )]
-    MigrationExecutionErroors { errs: Vec<MigrationExecutionError> },
+    MigrationExecutionErrors { errs: Vec<MigrationExecutionError> },
     #[error("Specified schema version error: {0}")]
     /// Error with the specified schema version
     SpecifiedSchemaVersion(SchemaVersionError),
@@ -287,13 +287,16 @@ impl<'a> Migrations<'a> {
         let v_max = self.max_schema_version();
         match v_max {
             SchemaVersion::NoneSet => {
-                warn!("no migrations defined");
+                warn!("({}) no migrations defined", self.scope);
                 Err(Error::MigrationDefinition(
                     MigrationDefinitionError::NoMigrationsDefined,
                 ))
             }
             SchemaVersion::Inside(v) => {
-                debug!("some migrations defined (version: {v}), try to migrate");
+                debug!(
+                    "({}) some migrations defined (version: {v}), try to migrate",
+                    self.scope
+                );
                 if target_version > v_max {
                     warn!("specified version is higher than the max supported version");
                     return Err(Error::SpecifiedSchemaVersion(
@@ -359,21 +362,21 @@ impl<'a> Migrations<'a> {
                         MigrationDefinitionError::DatabaseTooFarAhead,
                     ));
                 }
-                info!(
+                debug!(
                     "({}) rollback to older version requested, target_db_version: {}, current_version: {}",
                     self.scope, target_db_version, current_version
                 );
                 self.goto_down(db, current_version, target_db_version).await
             }
             Ordering::Equal => {
-                info!(
+                debug!(
                     "({}) no migration to run, db already up to date",
                     self.scope
                 );
                 return Ok(()); // return directly, so the migration message is not printed
             }
             Ordering::Greater => {
-                info!(
+                debug!(
                     "({}) some migrations to run, target: {target_db_version}, current: {current_version}",
                     self.scope
                 );
@@ -436,7 +439,7 @@ impl<'a> Migrations<'a> {
             let errors = response.take_errors();
 
             if !errors.is_empty() {
-                return Err(Error::MigrationExecutionErroors {
+                return Err(Error::MigrationExecutionErrors {
                     errs: errors
                         .into_iter()
                         .map(|(i, err)| {
@@ -506,6 +509,7 @@ impl<'a> Migrations<'a> {
                     .bind(("scope", self.scope))
                     .bind(("version", v + 1));
             } else {
+                // we already checked that all migrations have a down
                 unreachable!();
             }
 
@@ -514,7 +518,7 @@ impl<'a> Migrations<'a> {
             let errors = response.take_errors();
 
             if !errors.is_empty() {
-                return Err(Error::MigrationExecutionErroors {
+                return Err(Error::MigrationExecutionErrors {
                     errs: errors
                         .into_iter()
                         .map(|(i, err)| {
