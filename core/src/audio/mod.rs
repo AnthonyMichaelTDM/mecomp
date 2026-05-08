@@ -50,6 +50,10 @@ impl AudioKernelSender {
     /// Starts the audio kernel in a detached thread and returns a sender to be used to send commands to the audio kernel.
     /// The audio kernel will transmit state changes to the provided event transmitter.
     ///
+    /// # Parameters
+    ///
+    /// * `event_tx` - A sender that the audio kernel will use to transmit state changes to the rest of the application.
+    ///
     /// # Returns
     ///
     /// A sender to be used to send commands to the audio kernel.
