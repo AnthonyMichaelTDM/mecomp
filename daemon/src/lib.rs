@@ -107,7 +107,7 @@ impl Drop for EventPublisher {
 ///
 /// Panics if the peer address of the underlying TCP transport cannot be determined.
 #[inline]
-#[allow(clippy::redundant_pub_crate)]
+#[cfg(not(tarpaulin_include))]
 pub async fn start_daemon(
     settings: Settings,
     db_dir: PathBuf,
