@@ -107,7 +107,7 @@ impl Drop for EventPublisher {
 ///
 /// Panics if the peer address of the underlying TCP transport cannot be determined.
 #[inline]
-#[allow(clippy::redundant_pub_crate)]
+#[cfg(not(tarpaulin_include))]
 pub async fn start_daemon(
     settings: Settings,
     db_dir: PathBuf,
@@ -203,6 +203,8 @@ pub async fn start_daemon(
             .inspect_err(|e| error!("Failed to persist queue state: {e}"));
     }
 
+    audio_kernel.send(AudioCommand::Exit);
+
     log::info!("Cleanup complete");
 
     Ok(())
@@ -262,10 +264,10 @@ pub async fn init_test_client_server(
     // initialize the event publisher
     let event_publisher = Arc::new(Sender::new().await?);
     // initialize the termination handler
-    let (terminator, mut interrupt_rx) = termination::create_termination();
+    let (terminator, interrupt_rx) = termination::create_termination();
 
     // Build the service implementation
-    let server = MusicPlayer::new(
+    let state = MusicPlayer::new(
         db,
         settings.clone(),
         audio_kernel.clone(),
@@ -279,28 +281,17 @@ pub async fn init_test_client_server(
     let local_addr = listener.local_addr()?;
     let incoming = TcpListenerStream::new(listener);
 
-    // Create the gRPC service
-    let svc = MusicPlayerServer::new(server);
-
     // Spawn the server with shutdown triggered by interrupt receiver
     tokio::spawn(async move {
-        let shutdown_future = async move {
-            let _ = interrupt_rx.wait().await;
-            info!("Stopping test server...");
-            audio_kernel.send(AudioCommand::Exit);
-            let _ = event_publisher
-                .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
-                .await;
-            info!("Test server stopped");
-        };
-
-        if let Err(e) = Server::builder()
-            .add_service(svc)
-            .serve_with_incoming_shutdown(incoming, shutdown_future)
-            .await
-        {
+        if let Err(e) = run_daemon(incoming, state, interrupt_rx).await {
             error!("Error running test server: {e}");
         }
+        info!("Stopping test server...");
+        let _ = event_publisher
+            .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
+            .await;
+        audio_kernel.send(AudioCommand::Exit);
+        info!("Test server stopped");
     });
 
     // Connect a client to the local server
@@ -313,21 +304,26 @@ pub async fn init_test_client_server(
 }
 
 #[cfg(test)]
-mod test_client_tests {
+mod tests {
     //! Tests for:
     //! - the `init_test_client_server` function
     //! - daemon endpoints that aren't covered in other tests
 
     use std::io::{Read, Write};
+    use std::time::Duration;
 
     use super::*;
     use anyhow::Result;
     use mecomp_core::errors::{BackupError, SerializableLibraryError};
+    use mecomp_core::udp::Listener;
     use mecomp_prost::{
         DynamicPlaylist, DynamicPlaylistChangeSet, DynamicPlaylistCreateRequest,
-        DynamicPlaylistUpdateRequest, LibraryFull, Path, PlaylistExportRequest,
-        PlaylistImportRequest, PlaylistName, PlaylistRenameRequest, RecordIdList,
+        DynamicPlaylistUpdateRequest, LibraryFull, Path, PlaylistAddRequest, PlaylistExportRequest,
+        PlaylistImportRequest, PlaylistName, PlaylistRenameRequest, RadioSimilarRequest,
+        RecordIdList, RegisterListenerRequest,
     };
+    use mecomp_storage::db::schemas::analysis::Analysis;
+    use mecomp_storage::test_utils::arb_feature_array;
     use mecomp_storage::{
         db::schemas::{
             collection::Collection,
@@ -390,9 +386,40 @@ mod test_client_tests {
 
         let result = Collection::create(&db, collection).await.unwrap().unwrap();
 
-        Collection::add_songs(&db, result.id, vec![song.id])
+        Collection::add_songs(&db, result.id, vec![song.id.clone()])
             .await
             .unwrap();
+
+        // create another song
+        let song_case = SongCase::new(1, vec![1], vec![1], 1, 1);
+
+        let song2 = create_song_with_overrides(
+            &db,
+            song_case,
+            SongChangeSet {
+                artist: Some("Artist 1".to_string().into()),
+                album_artist: Some("Artist 1".to_string().into()),
+                album: Some("Album 1".into()),
+                path: Some("/path/to/song1.mp3".into()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        // create analysis data for the songs
+        let analysis1 = Analysis {
+            id: Analysis::generate_id(),
+            features: arb_feature_array()(),
+            embedding: arb_feature_array()(),
+        };
+        let analysis2 = Analysis {
+            id: Analysis::generate_id(),
+            features: arb_feature_array()(),
+            embedding: arb_feature_array()(),
+        };
+        Analysis::create(&db, song.id, analysis1).await.unwrap();
+        Analysis::create(&db, song2.id, analysis2).await.unwrap();
 
         return db;
     }
@@ -422,9 +449,63 @@ mod test_client_tests {
         let response = client.ping(()).await.unwrap().into_inner().message;
 
         assert_eq!(response, "pong");
+    }
 
-        // ensure that the client is shutdown properly
-        drop(client);
+    #[tokio::test]
+    async fn test_daemon_shutdown() -> Result<()> {
+        let db = Arc::new(init_test_database().await.unwrap());
+        let settings = Arc::new(Settings::default());
+        let event_publisher = EventPublisher::new().await;
+        let audio_kernel = AudioKernelSender::start(event_publisher.event_tx.clone());
+        let (terminator, interrupt_rx) = termination::create_termination();
+
+        let state = MusicPlayer::new(
+            db.clone(),
+            settings.clone(),
+            audio_kernel.clone(),
+            event_publisher.dispatcher.clone(),
+            terminator.clone(),
+            interrupt_rx.resubscribe(),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        let local_addr = listener.local_addr()?;
+        let incoming = TcpListenerStream::new(listener);
+        let handle: tokio::task::JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
+            run_daemon(incoming, state, interrupt_rx).await?;
+            let _ = event_publisher
+                .dispatcher
+                .send(Message::Event(mecomp_core::udp::Event::DaemonShutdown))
+                .await;
+            audio_kernel.send(AudioCommand::Exit);
+            Ok(())
+        });
+
+        let endpoint = format!("http://{local_addr}");
+        let endpoint = tonic::transport::Channel::from_shared(endpoint)?.connect_lazy();
+        let mut client = mecomp_prost::client::MusicPlayerClient::with_interceptor(
+            endpoint,
+            TraceInterceptor {},
+        );
+
+        // register a listener so we can listen for the shutdown event
+        let mut event_subscriber = Listener::new().await?;
+        client
+            .register_listener(RegisterListenerRequest::new(event_subscriber.local_addr()?))
+            .await?;
+
+        // send the shutdown command
+        client.daemon_shutdown(()).await?;
+
+        // wait for the shutdown event
+        let event: Message =
+            tokio::time::timeout(Duration::from_secs(2), event_subscriber.recv()).await??;
+        assert_eq!(
+            event,
+            Message::Event(mecomp_core::udp::Event::DaemonShutdown)
+        );
+
+        let _ = tokio::time::timeout(Duration::from_secs(1), handle).await??;
+        Ok(())
     }
 
     #[rstest]
@@ -440,7 +521,7 @@ mod test_client_tests {
             .into_inner()
             .artists;
 
-        assert_eq!(response, library_brief.artists);
+        assert_eq!(response, library_brief.artists[..1]);
 
         Ok(())
     }
@@ -484,6 +565,150 @@ mod test_client_tests {
 
     #[rstest]
     #[tokio::test]
+    async fn test_library_song_get_collections(#[future] client: MusicPlayerClient) -> Result<()> {
+        let mut client = client.await;
+
+        let library_full = client.library_full(()).await?.into_inner();
+
+        let response = client
+            .library_song_get_collections(library_full.songs.first().unwrap().id.ulid())
+            .await?
+            .into_inner()
+            .collections;
+
+        assert_eq!(response, library_full.collections);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_current_artists_success(#[future] client: MusicPlayerClient) -> Result<()> {
+        let mut client = client.await;
+
+        let library_brief = client.library_brief(()).await?.into_inner();
+        let song_id = library_brief.songs.first().unwrap().id.clone();
+
+        client.queue_add(song_id.clone()).await?;
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let response = client.current_artists(()).await?.into_inner();
+
+        assert!(response.artists.is_some());
+        assert_eq!(
+            response.artists.unwrap().artists,
+            library_brief.artists[..1]
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_current_album_success(#[future] client: MusicPlayerClient) -> Result<()> {
+        let mut client = client.await;
+
+        let library_brief = client.library_brief(()).await?.into_inner();
+        let song_id = library_brief.songs.first().unwrap().id.clone();
+
+        client.queue_add(song_id.clone()).await?;
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let response = client.current_album(()).await?.into_inner();
+
+        assert!(response.album.is_some());
+        assert_eq!(
+            response.album.unwrap(),
+            library_brief.albums.first().unwrap().clone()
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_playlist_add(#[future] client: MusicPlayerClient) -> Result<()> {
+        let mut client = client.await;
+
+        let library_brief = client.library_brief(()).await?.into_inner();
+        let song_id = library_brief.songs.first().unwrap().id.clone();
+
+        let playlist_id = client
+            .playlist_get_or_create(PlaylistName::new("Playlist Add Test"))
+            .await?
+            .into_inner();
+
+        client
+            .playlist_add(PlaylistAddRequest::new(playlist_id.id.clone(), song_id))
+            .await?;
+
+        let songs = client
+            .library_playlist_get_songs(playlist_id.ulid())
+            .await?
+            .into_inner()
+            .songs;
+
+        assert_eq!(songs.len(), 1);
+        assert_eq!(songs[0].id, library_brief.songs.first().unwrap().id);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_playlist_import_duplicate_name_returns_existing_id(
+        #[future] client: MusicPlayerClient,
+    ) -> Result<()> {
+        let mut client = client.await;
+
+        let playlist_id = client
+            .playlist_get_or_create(PlaylistName::new("Imported Playlist"))
+            .await?
+            .into_inner();
+
+        let tmpfile = tempfile::NamedTempFile::with_suffix("pl.m3u")?;
+        let mut file = tmpfile.reopen()?;
+        write!(
+            file,
+            r"#EXTM3U
+#EXTINF:123,Sample Artist - Sample title
+/path/to/song.mp3
+"
+        )?;
+
+        let response = client
+            .playlist_import(PlaylistImportRequest::with_name(
+                tmpfile.path().to_path_buf(),
+                "Imported Playlist".to_string(),
+            ))
+            .await?
+            .into_inner();
+
+        assert_eq!(response.ulid(), playlist_id.ulid());
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn test_radio_get_similar(#[future] client: MusicPlayerClient) -> Result<()> {
+        let mut client = client.await;
+
+        let library_brief = client.library_brief(()).await?.into_inner();
+        let ids = vec![library_brief.songs.first().unwrap().id.clone().into()];
+
+        let response = client
+            .radio_get_similar(RadioSimilarRequest::new(ids, 1))
+            .await?
+            .into_inner()
+            .songs;
+
+        assert!(!response.is_empty());
+        Ok(())
+    }
+
+    #[rstest]
+    #[tokio::test]
     async fn test_library_album_get_artist(#[future] client: MusicPlayerClient) -> Result<()> {
         let mut client = client.await;
 
@@ -495,7 +720,7 @@ mod test_client_tests {
             .into_inner()
             .artists;
 
-        assert_eq!(response, library.artists);
+        assert_eq!(response, library.artists[..1]);
 
         Ok(())
     }
@@ -513,7 +738,7 @@ mod test_client_tests {
             .into_inner()
             .songs;
 
-        assert_eq!(response, library_brief.songs);
+        assert_eq!(response, library_brief.songs[..1]);
 
         Ok(())
     }
@@ -531,7 +756,7 @@ mod test_client_tests {
             .into_inner()
             .songs;
 
-        assert_eq!(response, library.songs);
+        assert_eq!(response, library.songs[..1]);
 
         Ok(())
     }
@@ -549,7 +774,7 @@ mod test_client_tests {
             .into_inner()
             .albums;
 
-        assert_eq!(response, library.albums);
+        assert_eq!(response, library.albums[..1]);
 
         Ok(())
     }
@@ -659,7 +884,7 @@ mod test_client_tests {
             .into_inner()
             .songs;
 
-        assert_eq!(response, library.songs);
+        assert_eq!(response, library.songs[..1]);
 
         Ok(())
     }
@@ -711,7 +936,7 @@ mod test_client_tests {
             .into_inner()
             .songs;
 
-        assert_eq!(response, library.songs);
+        assert_eq!(response, library.songs[..1]);
 
         Ok(())
     }
@@ -1245,6 +1470,47 @@ Dynamic Playlist 0,"artist CONTAINS ""Artist 0"""
 "
         );
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_event_publisher_sends_state_change() -> Result<()> {
+        let publisher = EventPublisher::new().await;
+        publisher.event_tx.send(StateChange::Muted).unwrap();
+
+        // Give the background task a moment to process the event.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        drop(publisher);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_run_daemon_stops_on_interrupt() -> Result<()> {
+        let db = Arc::new(init_test_database().await?);
+        let settings = Arc::new(Settings::default());
+        let audio_kernel = AudioKernelSender::start(EventPublisher::new().await.event_tx.clone());
+        let event_publisher = Arc::new(Sender::new().await?);
+        let (terminator, interrupt_rx) = termination::create_termination();
+
+        let state = MusicPlayer::new(
+            db.clone(),
+            settings.clone(),
+            audio_kernel.clone(),
+            event_publisher.clone(),
+            terminator.clone(),
+            interrupt_rx.resubscribe(),
+        );
+
+        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        let incoming = TcpListenerStream::new(listener);
+
+        let handle = tokio::spawn(async move { run_daemon(incoming, state, interrupt_rx).await });
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        terminator.terminate(termination::Interrupted::UserInt)?;
+
+        let _ = tokio::time::timeout(Duration::from_secs(5), handle).await??;
         Ok(())
     }
 }

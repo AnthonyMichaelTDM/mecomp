@@ -559,3 +559,165 @@ async fn handle_additional_view_data(
         | ActiveView::Collections => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::action::{Action, GeneralAction};
+    use mecomp_core::{audio::AudioKernelSender, config::Settings};
+    use mecomp_daemon::init_test_client_server;
+    use mecomp_storage::{
+        db::schemas::dynamic::{DynamicPlaylist, query::Query},
+        test_utils::{arb_song_case, init_test_database_with_state},
+    };
+    use std::{num::NonZero, str::FromStr, sync::Arc};
+    use tempfile::tempdir;
+    use tokio::sync::mpsc::unbounded_channel;
+
+    async fn client() -> MusicPlayerClient {
+        let music_dir = Arc::new(tempdir().unwrap());
+        let db = init_test_database_with_state(
+            NonZero::new(4).unwrap(),
+            |i| (arb_song_case()(), i < 1, i < 2),
+            Some(DynamicPlaylist {
+                id: DynamicPlaylist::generate_id(),
+                name: "Test Dynamic Playlist".to_string(),
+                query: Query::from_str("artist CONTAINS \"Artist 1\"").unwrap(),
+            }),
+            &music_dir,
+        )
+        .await;
+        let mut settings = Settings::default();
+        settings.daemon.library_paths = vec![music_dir.path().to_path_buf()].into_boxed_slice();
+        let settings = Arc::new(settings);
+        let (tx, _) = std::sync::mpsc::channel();
+        let audio_kernel = AudioKernelSender::start(tx);
+
+        init_test_client_server(db, settings, audio_kernel)
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_ui_manager_new() {
+        let (action_tx, mut action_rx) = unbounded_channel::<Action>();
+        let manager = UiManager::new(action_tx);
+
+        manager
+            .action_tx
+            .send(Action::General(GeneralAction::Exit))
+            .unwrap();
+
+        assert!(matches!(
+            action_rx.try_recv(),
+            Ok(Action::General(GeneralAction::Exit))
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_song_view_future_returns_song_details() {
+        let mut client = client().await;
+        let brief = client.library_brief(()).await.unwrap().into_inner();
+        let id = brief.songs[0].id.clone();
+
+        let (song, artists, album, playlists, collections) =
+            song_view_future(client, id.clone().into()).await.unwrap();
+
+        assert_eq!(song.map(|song| song.id), Some(id.into()));
+        assert!(!artists.is_empty());
+        assert!(album.is_some());
+        assert!(!playlists.is_empty());
+        assert!(!collections.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_album_view_future_returns_album_details() {
+        let mut client = client().await;
+        let brief = client.library_brief(()).await.unwrap().into_inner();
+        let id = brief.albums[0].id.clone();
+
+        let (album, artists, songs) = album_view_future(client, id.clone().into()).await.unwrap();
+
+        assert_eq!(album.map(|album| album.id), Some(id.into()));
+        assert!(!artists.is_empty());
+        assert!(!songs.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_artist_view_future_returns_artist_details() {
+        let mut client = client().await;
+        let brief = client.library_brief(()).await.unwrap().into_inner();
+        let id = brief.artists[0].id.clone();
+
+        let (artist, albums, songs) = artist_view_future(client, id.clone().into()).await.unwrap();
+
+        assert_eq!(artist.map(|artist| artist.id), Some(id.into()));
+        assert!(!albums.is_empty() || !songs.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_playlist_view_future_returns_playlist_details() {
+        let mut client = client().await;
+        let brief = client.library_brief(()).await.unwrap().into_inner();
+        let id = brief.playlists[0].id.clone();
+
+        let (playlist, songs) = playlist_view_future(client, id.clone().into())
+            .await
+            .unwrap();
+
+        assert_eq!(playlist.map(|playlist| playlist.id), Some(id.into()));
+        assert!(!songs.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_dynamic_playlist_view_future_returns_dynamic_playlist_details() {
+        let mut client = client().await;
+        let brief = client.library_brief(()).await.unwrap().into_inner();
+        let id = brief.dynamic_playlists[0].id.clone();
+
+        let (dynamic_playlist, _) = dynamic_playlist_view_future(client, id.clone().into())
+            .await
+            .unwrap();
+
+        assert_eq!(dynamic_playlist.map(|dynamic| dynamic.id), Some(id.into()));
+    }
+
+    #[tokio::test]
+    async fn test_collection_view_future_returns_collection_details() {
+        let mut client = client().await;
+        let brief = client.library_brief(()).await.unwrap().into_inner();
+        let id = brief.collections[0].id.clone();
+
+        let (collection, songs) = collection_view_future(client, id.clone().into())
+            .await
+            .unwrap();
+
+        assert_eq!(collection.map(|collection| collection.id), Some(id.into()));
+        assert!(!songs.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_random_view_future_returns_random_items() {
+        let client = client().await;
+
+        let (album, artist, song) = random_view_future(client).await.unwrap();
+
+        assert!(album.is_some());
+        assert!(artist.is_some());
+        assert!(song.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_additional_view_data_populates_song_view() {
+        let mut client = client().await;
+        let brief = client.library_brief(()).await.unwrap().into_inner();
+        let id = brief.songs[0].id.clone();
+
+        let state = AppState::default();
+        let view_data =
+            handle_additional_view_data(client, &state, &ActiveView::Song(id.into())).await;
+
+        assert!(view_data.is_some());
+        assert!(view_data.unwrap().song.is_some());
+    }
+}

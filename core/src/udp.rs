@@ -71,7 +71,7 @@ pub struct Listener<T, const BUF_SIZE: usize> {
 }
 
 impl<T: DeserializeOwned + Send + Sync> Listener<T, MAX_MESSAGE_SIZE> {
-    /// Create a new UDP listener bound to the given socket address.
+    /// Create a new UDP listener bound to an unspecified socket address that can be retrieved with `local_addr`.
     ///
     /// # Errors
     ///
@@ -83,7 +83,7 @@ impl<T: DeserializeOwned + Send + Sync> Listener<T, MAX_MESSAGE_SIZE> {
 }
 
 impl<T: DeserializeOwned + Send + Sync, const B: usize> Listener<T, B> {
-    /// Create a new UDP listener bound to the given socket address.
+    /// Create a new UDP listener bound to an unspecified socket address that can be retrieved with `local_addr`.
     /// With a custom buffer size (set with const generics).
     ///
     /// # Errors

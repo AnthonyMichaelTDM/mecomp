@@ -1,0 +1,5 @@
+---
+source: cli/src/handlers/smoke_tests.rs
+expression: stderr
+---
+

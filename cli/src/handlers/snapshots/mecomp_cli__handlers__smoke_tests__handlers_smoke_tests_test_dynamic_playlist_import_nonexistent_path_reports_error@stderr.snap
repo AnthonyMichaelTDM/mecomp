@@ -1,0 +1,5 @@
+---
+source: cli/src/handlers/smoke_tests.rs
+expression: stderr
+---
+Failed to canonicalize {tempdir}/does_not_exist.csv: No such file or directory (os error 2)

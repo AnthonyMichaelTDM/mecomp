@@ -421,6 +421,53 @@ impl ComponentRender<Rect> for PlaylistEditor {
 }
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use mecomp_prost::RecordId;
+    use tokio::sync::mpsc::unbounded_channel;
+
+    fn make_selector() -> (
+        PlaylistSelector,
+        tokio::sync::mpsc::UnboundedReceiver<Action>,
+    ) {
+        let (action_tx, action_rx) = unbounded_channel();
+        let state = AppState::default();
+        let items = vec![RecordId::default()];
+        let selector = PlaylistSelector::new(&state, action_tx, items);
+        (selector, action_rx)
+    }
+
+    #[test]
+    fn test_new_selector_hides_input_box() {
+        let (selector, _) = make_selector();
+        assert!(!selector.input_box_visible);
+    }
+
+    #[test]
+    fn test_press_n_shows_input_box() {
+        let (mut selector, _) = make_selector();
+        selector.inner_handle_key_event(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
+        assert!(selector.input_box_visible);
+    }
+
+    #[test]
+    fn test_enter_with_input_creates_playlist_and_closes_popup() {
+        let (mut selector, mut action_rx) = make_selector();
+        selector.input_box_visible = true;
+        selector.input_box.set_text("New Playlist");
+
+        selector.inner_handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+
+        let action = action_rx.try_recv().expect("expected library action");
+        assert!(matches!(action, Action::Library(_)));
+        let action = action_rx.try_recv().expect("expected popup action");
+        assert!(matches!(action, Action::Popup(_)));
+        assert!(!selector.input_box_visible);
+    }
+}
+
+#[cfg(test)]
 mod selector_tests {
     use super::*;
     use crate::{

@@ -151,7 +151,7 @@ impl SpectralDesc {
                     ))
                 })?,
             phase_vocoder: PVoc::new(Self::WINDOW_SIZE, Self::HOP_SIZE).map_err_unlikely(|e| {
-                AnalysisError::AnalysisError(format!("error while loading aubio pvoc object: {e}",))
+                AnalysisError::AnalysisError(format!("error while loading aubio pvoc object: {e}"))
             })?,
             values_centroid: Vec::new(),
             values_rolloff: Vec::new(),

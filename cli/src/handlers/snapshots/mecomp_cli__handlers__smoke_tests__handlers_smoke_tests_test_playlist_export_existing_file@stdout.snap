@@ -1,0 +1,6 @@
+---
+source: cli/src/handlers/smoke_tests.rs
+expression: stdout
+---
+Daemon response:
+playlist exported to {tempdir}/export_playlist.m3u

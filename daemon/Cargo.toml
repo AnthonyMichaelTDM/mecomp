@@ -41,14 +41,13 @@ harness = false
 
 [features]
 default = ["cli", "dynamic_updates"]
-cli = [
-    "dep:clap",
-    "dep:clap_complete",
-] # features needed for the CLI (binary crate)
+# features needed for the CLI (binary crate)
+cli = ["dep:clap", "dep:clap_complete"]
 # otel_tracing = ["mecomp-core/otel_tracing"]
 # flame = ["mecomp-core/flame"]
 dynamic_updates = ["dep:notify-debouncer-full", "dep:notify"]
-dhat-heap = ["dep:dhat"] # Enable heap profiling with dhat-rs
+# Enable heap profiling with dhat-rs
+dhat-heap = ["dep:dhat"]
 
 # Hardware acceleration for ONNX model inference (opt-in, requires additional setup)
 cuda = ["mecomp-analysis/cuda"] # NVIDIA CUDA (requires CUDA 12 + cuDNN 9.x)
@@ -104,3 +103,6 @@ mecomp-storage = { workspace = true, features = [
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }

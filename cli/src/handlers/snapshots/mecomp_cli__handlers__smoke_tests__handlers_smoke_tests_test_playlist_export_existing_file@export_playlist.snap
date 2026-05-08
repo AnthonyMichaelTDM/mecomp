@@ -1,0 +1,12 @@
+---
+source: cli/src/handlers/smoke_tests.rs
+expression: "String::from_utf8(std::fs::read(path).unwrap()).unwrap()"
+---
+#EXTM3U
+
+#PLAYLIST:Test Playlist
+
+#EXTINF:180,Test Song - Test Artist
+#EXTGENRE:Test Genre
+#EXTALB:Test Artist
+test.mp3

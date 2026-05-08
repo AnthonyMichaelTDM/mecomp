@@ -30,53 +30,58 @@ impl Display for UiCompoundKind {
     }
 }
 
+const SCALAR_SCALAR_OPS: &[Operator] = &[
+    Operator::Equal,
+    Operator::NotEqual,
+    Operator::Like,
+    Operator::NotLike,
+    Operator::LessThan,
+    Operator::LessThanOrEqual,
+    Operator::GreaterThan,
+    Operator::GreaterThanOrEqual,
+    Operator::Contains,
+    Operator::ContainsNot,
+    Operator::Inside,
+    Operator::NotInside,
+    Operator::In,
+    Operator::NotIn,
+];
+const SCALAR_SET_OPS: &[Operator] = &[
+    Operator::Inside,
+    Operator::NotInside,
+    Operator::In,
+    Operator::NotIn,
+];
+const SET_SCALAR_OPS: &[Operator] = &[
+    Operator::Contains,
+    Operator::ContainsNot,
+    Operator::AnyEqual,
+    Operator::AllEqual,
+    Operator::AnyLike,
+    Operator::AllLike,
+];
+const SET_SET_OPS: &[Operator] = &[
+    Operator::Contains,
+    Operator::ContainsAll,
+    Operator::ContainsAny,
+    Operator::ContainsNone,
+    Operator::AllInside,
+    Operator::AnyInside,
+    Operator::NoneInside,
+];
+
 /// Returns the valid operators for a given field, given whether the right-hand value is a set.
 #[must_use]
 pub fn operators_for_field(field: Field, right_is_set: bool) -> Vec<Operator> {
     let ops: &[Operator] = match (field_is_set(field), right_is_set) {
         // scalar ↔ scalar
-        (false, false) => &[
-            Operator::Equal,
-            Operator::NotEqual,
-            Operator::Like,
-            Operator::NotLike,
-            Operator::LessThan,
-            Operator::LessThanOrEqual,
-            Operator::GreaterThan,
-            Operator::GreaterThanOrEqual,
-            Operator::Contains,
-            Operator::ContainsNot,
-            Operator::Inside,
-            Operator::NotInside,
-            Operator::In,
-            Operator::NotIn,
-        ],
+        (false, false) => SCALAR_SCALAR_OPS,
         // scalar → set  (value INSIDE set_field)
-        (false, true) => &[
-            Operator::Inside,
-            Operator::NotInside,
-            Operator::In,
-            Operator::NotIn,
-        ],
+        (false, true) => SCALAR_SET_OPS,
         // set field → scalar
-        (true, false) => &[
-            Operator::Contains,
-            Operator::ContainsNot,
-            Operator::AnyEqual,
-            Operator::AllEqual,
-            Operator::AnyLike,
-            Operator::AllLike,
-        ],
+        (true, false) => SET_SCALAR_OPS,
         // set ↔ set
-        (true, true) => &[
-            Operator::Contains,
-            Operator::ContainsAll,
-            Operator::ContainsAny,
-            Operator::ContainsNone,
-            Operator::AllInside,
-            Operator::AnyInside,
-            Operator::NoneInside,
-        ],
+        (true, true) => SET_SET_OPS,
     };
     ops.to_vec()
 }
@@ -109,16 +114,6 @@ impl UiValue {
     #[must_use]
     pub const fn is_set(&self) -> bool {
         matches!(self, Self::Set { .. })
-    }
-
-    /// Build the appropriate `UiValue` for a given `Field`.
-    #[must_use]
-    pub(super) fn for_field(field: Field) -> Self {
-        if field == Field::ReleaseYear {
-            Self::Integer(String::from("year"))
-        } else {
-            Self::Text(String::from("value"))
-        }
     }
 
     /// Convert to a storage `Value`.  Returns `None` if the input is empty / invalid.
@@ -240,7 +235,7 @@ impl UiLeafClause {
         Self {
             field_dd: DropdownState::new(1, Field::iter()),
             operator_dd: DropdownState::new(2, operators),
-            value: UiValue::for_field(field),
+            value: UiValue::Text(String::from("value")),
             leaf_focus: LeafFocus::default(),
         }
     }
@@ -268,12 +263,21 @@ impl UiLeafClause {
         self.operator_dd = DropdownState::new(self.operator_dd.control_id(), ops);
     }
 
-    /// Called when the selected field changes: resets the value to the appropriate type and
-    /// refreshes the operator list.
-    pub fn on_field_changed(&mut self) {
+    /// Set the appropriate `UiValue` variant for the current field + operator combo
+    pub fn refresh_value(&mut self) {
         let field = self.field();
-        self.value = UiValue::for_field(field);
-        self.refresh_operators();
+        let Some(op) = self.operator() else { return };
+
+        let field_is_set = field_is_set(field);
+        let rhs_is_set = (field_is_set && SET_SET_OPS.contains(&op))
+            || (!field_is_set && SCALAR_SET_OPS.contains(&op));
+        self.value = if rhs_is_set {
+            UiValue::Set(vec!["value1".to_string(), "value2".to_string()])
+        } else if field == Field::ReleaseYear {
+            UiValue::Integer("year".to_string())
+        } else {
+            UiValue::Text("value".to_string())
+        };
     }
 
     /// Try to compile to a storage `LeafClause`.
@@ -640,5 +644,55 @@ mod tests {
         assert!(ops.iter().any(|o| *o == Operator::Contains));
         // scalar-only operators should not appear
         assert!(!ops.iter().any(|o| *o == Operator::Equal));
+    }
+
+    #[test]
+    fn parent_path_of_returns_parent_path() {
+        assert_eq!(parent_path_of(&[0, 1, 2]), &[0, 1]);
+        assert_eq!(parent_path_of(&[0]), &[] as &[usize]);
+        assert_eq!(parent_path_of(&[]), &[] as &[usize]);
+    }
+
+    #[test]
+    fn refresh_operators_for_set_value_updates_operator_dropdown() {
+        let mut leaf = UiLeafClause::new();
+        leaf.value = UiValue::Set(vec!["one".to_string(), "two".to_string()]);
+        let _ = leaf
+            .field_dd
+            .select_by_text(Field::Title.compile_for_storage().as_str());
+
+        leaf.refresh_operators();
+
+        assert!(leaf.operator_dd.selected().is_some());
+        assert!(
+            leaf.operator_dd.selected().unwrap().contains("IN")
+                || leaf.operator_dd.selected().unwrap().contains("CONTAINS")
+        );
+    }
+
+    #[test]
+    fn refresh_value_sets_integer_for_release_year() {
+        let mut leaf = UiLeafClause::new();
+        let _ = leaf
+            .field_dd
+            .select_by_text(Field::ReleaseYear.compile_for_storage().as_str());
+        let _ = leaf
+            .operator_dd
+            .select_by_text(Operator::Equal.compile_for_storage().as_str());
+
+        leaf.refresh_value();
+
+        assert_eq!(leaf.value, UiValue::Integer("year".to_string()));
+    }
+
+    #[test]
+    fn refresh_value_sets_set_when_operator_requires_set() {
+        let mut leaf = UiLeafClause::new();
+        leaf.field_dd = DropdownState::new(1, vec![Field::Title]);
+        leaf.operator_dd = DropdownState::new(2, vec![Operator::In]);
+
+        leaf.refresh_value();
+
+        assert!(matches!(leaf.value, UiValue::Set(_)));
     }
 }

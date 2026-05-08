@@ -1,0 +1,7 @@
+---
+source: cli/src/handlers/smoke_tests.rs
+expression: stdout
+---
+Daemon response:
+playlist imported from {tempdir}/import_playlist.m3u
+  {id}

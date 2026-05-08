@@ -152,16 +152,20 @@ impl MusicPlayerTrait for MusicPlayer {
     async fn library_rescan(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Rescanning library");
 
-        if self.library_rescan_lock.try_lock().is_err() {
-            warn!("Library rescan already in progress");
-            return Err(tonic::Status::aborted("Library rescan already in progress"));
-        }
+        let guard = self
+            .library_rescan_lock
+            .clone()
+            .try_lock_owned()
+            .map_err(|_| {
+                warn!("Library rescan already in progress");
+                tonic::Status::aborted("Library rescan already in progress")
+            })?;
 
         let span = tracing::Span::current();
 
         tokio::task::spawn(
             async move {
-                let _guard = self.library_rescan_lock.lock().await;
+                let _guard = guard;
                 match services::library::rescan(
                     &self.db,
                     &self.settings.daemon.library_paths,
@@ -204,12 +208,14 @@ impl MusicPlayerTrait for MusicPlayer {
         let overwrite = request.get_ref().overwrite;
         info!("Analyzing library");
 
-        if self.library_analyze_lock.try_lock().is_err() {
-            warn!("Library analysis already in progress");
-            return Err(tonic::Status::aborted(
-                "Library analysis already in progress",
-            ));
-        }
+        let guard = self
+            .library_analyze_lock
+            .clone()
+            .try_lock_owned()
+            .map_err(|_| {
+                warn!("Library analysis already in progress");
+                tonic::Status::aborted("Library analysis already in progress")
+            })?;
 
         let span = tracing::Span::current();
 
@@ -219,7 +225,7 @@ impl MusicPlayerTrait for MusicPlayer {
 
         tokio::task::spawn(
             async move {
-                let _guard = self.library_analyze_lock.lock().await;
+                let _guard = guard;
                 match services::library::analyze(
                     &self.db,
                     self.interrupt.resubscribe(),
@@ -257,18 +263,20 @@ impl MusicPlayerTrait for MusicPlayer {
     async fn library_recluster(self: Arc<Self>, _: Request<()>) -> TonicResult<()> {
         info!("Reclustering collections");
 
-        if self.collection_recluster_lock.try_lock().is_err() {
-            warn!("Collection reclustering already in progress");
-            return Err(tonic::Status::aborted(
-                "Collection reclustering already in progress",
-            ));
-        }
+        let guard = self
+            .collection_recluster_lock
+            .clone()
+            .try_lock_owned()
+            .map_err(|_| {
+                warn!("Collection reclustering already in progress");
+                tonic::Status::aborted("Collection reclustering already in progress")
+            })?;
 
         let span = tracing::Span::current();
 
         tokio::task::spawn(
             async move {
-                let _guard = self.collection_recluster_lock.lock().await;
+                let _guard = guard;
                 match services::library::recluster(
                     &self.db,
                     self.settings.reclustering,
@@ -1715,5 +1723,155 @@ impl MusicPlayerTrait for MusicPlayer {
         }
 
         Ok(Response::new(DynamicPlaylistList { playlists: ids }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    use mecomp_core::udp::Sender;
+    use mecomp_storage::test_utils::init_test_database;
+    use tonic::Code;
+
+    async fn build_test_player() -> MusicPlayer {
+        let db = Arc::new(init_test_database().await.unwrap());
+        let settings = Arc::new(Settings::default());
+        let message_publisher = Arc::new(Sender::new().await.unwrap());
+        let state_change_publisher = std::sync::mpsc::channel().0;
+        let audio_kernel = AudioKernelSender::start(state_change_publisher);
+        let (terminator, interrupt) = termination::create_termination();
+
+        MusicPlayer::new(
+            db,
+            settings,
+            audio_kernel,
+            message_publisher,
+            terminator,
+            interrupt,
+        )
+    }
+
+    #[tokio::test]
+    async fn test_ping_returns_pong() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::ping(player.clone(), Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert_eq!(response.message, "pong");
+    }
+
+    #[tokio::test]
+    async fn test_register_listener_invalid_address() {
+        let player = Arc::new(build_test_player().await);
+        let request = Request::new(RegisterListenerRequest {
+            host: "not-a-host".into(),
+            port: 1234,
+        });
+
+        let status = MusicPlayerTrait::register_listener(player.clone(), request)
+            .await
+            .unwrap_err();
+
+        assert_eq!(status.code(), Code::InvalidArgument);
+    }
+
+    #[tokio::test]
+    async fn test_library_rescan_concurrency_is_prevented() {
+        let player = Arc::new(build_test_player().await);
+
+        MusicPlayerTrait::library_rescan(player.clone(), Request::new(()))
+            .await
+            .unwrap();
+
+        let status = MusicPlayerTrait::library_rescan(player, Request::new(()))
+            .await
+            .unwrap_err();
+
+        assert_eq!(status.code(), Code::Aborted);
+    }
+
+    #[tokio::test]
+    async fn test_library_rescan_in_progress_reports_false() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::library_rescan_in_progress(player, Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(!response.in_progress);
+    }
+
+    #[tokio::test]
+    async fn test_library_analyze_in_progress_reports_false() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::library_analyze_in_progress(player, Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(!response.in_progress);
+    }
+
+    #[tokio::test]
+    async fn test_library_recluster_in_progress_reports_false() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::library_recluster_in_progress(player, Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(!response.in_progress);
+    }
+
+    #[tokio::test]
+    async fn test_library_song_get_by_path_invalid() {
+        let player = Arc::new(build_test_player().await);
+        let request = Request::new(Path {
+            path: "does/not/exist.mp3".to_string(),
+        });
+
+        let status = MusicPlayerTrait::library_song_get_by_path(player, request)
+            .await
+            .unwrap_err();
+
+        assert_eq!(status.code(), Code::InvalidArgument);
+        assert!(status.message().contains("Invalid path provided"));
+    }
+
+    #[tokio::test]
+    async fn test_current_artists_returns_none_if_no_song() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::current_artists(player, Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.artists.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_current_album_returns_none_if_no_song() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::current_album(player, Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.album.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_current_song_returns_none_if_no_song() {
+        let player = Arc::new(build_test_player().await);
+        let response = MusicPlayerTrait::current_song(player, Request::new(()))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.song.is_none());
     }
 }
