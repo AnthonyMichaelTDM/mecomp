@@ -147,13 +147,13 @@ impl Drop for AudioKernelSender {
 pub(crate) struct AudioKernel {
     /// this is not used, but is needed to keep the stream alive
     #[cfg(not(feature = "mock_playback"))]
-    _music_output: rodio::OutputStream,
+    _music_output: rodio::MixerDeviceSink,
     #[cfg(feature = "mock_playback")]
     queue_rx_stop: Arc<AtomicBool>,
     // /// Transmitter used to send commands to the audio kernel
     // tx: Sender<(AudioCommand, tracing::Span)>,
     /// the rodio sink used to play audio
-    player: rodio::Sink,
+    player: rodio::Player,
     /// the queue of songs to play
     queue: Queue,
     /// The value `1.0` is the "normal" volume (unfiltered input).
@@ -190,9 +190,9 @@ impl AudioKernel {
         command_tx: Sender<(AudioCommand, tracing::Span)>,
         event_tx: Sender<StateChange>,
     ) -> Self {
-        let stream = rodio::OutputStreamBuilder::open_default_stream().unwrap();
+        let stream = rodio::DeviceSinkBuilder::open_default_sink().unwrap();
 
-        let sink = rodio::Sink::connect_new(stream.mixer());
+        let sink = rodio::Player::connect_new(stream.mixer());
         sink.pause();
 
         Self {
@@ -224,7 +224,7 @@ impl AudioKernel {
         // thus, we should poll the queue every 22 microseconds
         const QUEUE_POLLING_INTERVAL: Duration = Duration::from_micros(22);
 
-        let (sink, mut queue_rx) = rodio::Sink::new();
+        let (sink, mut queue_rx) = rodio::Player::new();
 
         let queue_stop = Arc::new(AtomicBool::new(false));
         let queue_stop_clone = queue_stop.clone();
