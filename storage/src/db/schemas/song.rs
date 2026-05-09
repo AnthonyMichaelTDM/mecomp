@@ -351,7 +351,7 @@ impl SongMetadata {
             );
         artist.dedup();
 
-        let mut album_artist = tag.get_string(&ItemKey::AlbumArtist).map_or_else(
+        let mut album_artist = tag.get_string(ItemKey::AlbumArtist).map_or_else(
             || artist.get(0).cloned().into(),
             |a| split_artist_name(a, artist_name_separator, protected_artist_names),
         );
@@ -391,12 +391,12 @@ impl SongMetadata {
             genre,
             runtime: properties.duration(),
             track: tag
-                .get_string(&ItemKey::TrackNumber)
+                .get_string(ItemKey::TrackNumber)
                 .and_then(|x| x.parse().ok()),
             disc: tag
-                .get_string(&ItemKey::DiscNumber)
+                .get_string(ItemKey::DiscNumber)
                 .and_then(|x| x.parse().ok()),
-            release: tag.get_string(&ItemKey::Year).and_then(|x| x.parse().ok()),
+            release: tag.get_string(ItemKey::Year).and_then(|x| x.parse().ok()),
             extension: path
                 .extension()
                 .unwrap_or_default()

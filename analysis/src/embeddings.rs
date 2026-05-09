@@ -4,21 +4,14 @@
 use crate::ResampledAudio;
 use log::warn;
 use ort::{
-    execution_providers::CPUExecutionProvider,
+    ep::{
+        CPUExecutionProvider, CUDAExecutionProvider, CoreMLExecutionProvider,
+        DirectMLExecutionProvider, ExecutionProvider,
+    },
     session::{Session, builder::GraphOptimizationLevel},
     value::TensorRef,
 };
 use std::path::{Path, PathBuf};
-
-// Conditionally import execution providers based on enabled features/platform
-#[cfg(feature = "cuda")]
-use ort::execution_providers::CUDAExecutionProvider;
-#[cfg(target_os = "macos")]
-use ort::execution_providers::CoreMLExecutionProvider;
-#[cfg(target_os = "windows")]
-use ort::execution_providers::DirectMLExecutionProvider;
-#[cfg(feature = "tensorrt")]
-use ort::execution_providers::TensorRTExecutionProvider;
 
 static MODEL_BYTES: &[u8] = include_bytes!("../models/audio_embedding_model.onnx");
 
@@ -88,34 +81,22 @@ pub struct AudioEmbeddingModel {
 fn build_execution_providers() -> Vec<ort::execution_providers::ExecutionProviderDispatch> {
     let mut providers = Vec::new();
 
-    // GPU providers (feature-gated, require user to have appropriate drivers)
-    #[cfg(feature = "tensorrt")]
-    {
-        providers.push(TensorRTExecutionProvider::default().build());
-        log::info!("TensorRT execution provider enabled");
+    let cuda = CUDAExecutionProvider::default();
+    if matches!(cuda.is_available(), Ok(true)) {
+        log::info!("CUDA execution provider available");
+        providers.push(cuda.build());
     }
 
-    #[cfg(feature = "cuda")]
-    {
-        providers.push(CUDAExecutionProvider::default().build());
-        log::info!("CUDA execution provider enabled");
+    let directml = DirectMLExecutionProvider::default();
+    if matches!(directml.is_available(), Ok(true)) {
+        log::info!("DirectML execution provider available");
+        providers.push(directml.build());
     }
 
-    // Platform-specific zero-dependency providers
-    #[cfg(target_os = "windows")]
-    {
-        providers.push(DirectMLExecutionProvider::default().build());
-        log::info!("DirectML execution provider enabled (Windows)");
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        providers.push(
-            CoreMLExecutionProvider::default()
-                .with_subgraphs(true) // Enable CoreML on subgraphs for better coverage
-                .build(),
-        );
-        log::info!("CoreML execution provider enabled (macOS)");
+    let coreml = CoreMLExecutionProvider::default().with_subgraphs(true);
+    if matches!(coreml.is_available(), Ok(true)) {
+        log::info!("CoreML execution provider available");
+        providers.push(coreml.build());
     }
 
     // CPU is always the final fallback
