@@ -33,8 +33,7 @@ ignored = [
     "futures-lite",
     "futures-task",
     "futures-util",
-    "hashbrown-3575ec1268b04181",
-    "hashbrown-986da7b5efc2b80e",
+    "hashbrown",
     "indexmap",
     "itertools-582f2526e08bb6a0",
     "itertools-594e8ee84c453af0",
@@ -60,9 +59,9 @@ ignored = [
     "serde",
     "serde_core",
     "serde_json",
+    "slab",
     "smallvec",
     "string_cache",
-    "strum",
     "surrealdb",
     "surrealdb-core",
     "symphonia",
@@ -91,7 +90,7 @@ doc = false
 
 ### BEGIN HAKARI SECTION
 [dependencies]
-anstream = { version = "0.6" }
+anstream = { version = "1" }
 approx = { version = "0.5" }
 bitflags = { version = "2", default-features = false, features = ["std"] }
 bytes = { version = "1", features = ["serde"] }
@@ -109,8 +108,7 @@ futures-io = { version = "0.3" }
 futures-lite = { version = "2" }
 futures-task = { version = "0.3", default-features = false, features = ["std"] }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
-hashbrown-3575ec1268b04181 = { package = "hashbrown", version = "0.15" }
-hashbrown-986da7b5efc2b80e = { package = "hashbrown", version = "0.16" }
+hashbrown = { version = "0.15" }
 indexmap = { version = "2", features = ["serde"] }
 itertools-582f2526e08bb6a0 = { package = "itertools", version = "0.14" }
 itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
@@ -136,9 +134,9 @@ semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", features = ["alloc", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
+slab = { version = "0.4" }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
-strum = { version = "0.27", features = ["derive"] }
 surrealdb = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 surrealdb-core = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 symphonia = { version = "0.5", default-features = false, features = ["all-codecs", "all-formats", "opt-simd"] }
@@ -149,17 +147,17 @@ time = { version = "0.3", default-features = false, features = ["formatting", "l
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io"] }
-toml_datetime = { version = "0.7", features = ["serde"] }
+toml_datetime = { version = "1", features = ["serde"] }
 toml_parser = { version = "1" }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
 uuid = { version = "1", features = ["serde"] }
-winnow = { version = "0.7" }
+winnow = { version = "1" }
 zerocopy = { version = "0.8", default-features = false, features = ["derive", "simd"] }
 
 [build-dependencies]
-anstream = { version = "0.6" }
+anstream = { version = "1" }
 approx = { version = "0.5" }
 bitflags = { version = "2", default-features = false, features = ["std"] }
 bytes = { version = "1", features = ["serde"] }
@@ -178,8 +176,7 @@ futures-io = { version = "0.3" }
 futures-lite = { version = "2" }
 futures-task = { version = "0.3", default-features = false, features = ["std"] }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
-hashbrown-3575ec1268b04181 = { package = "hashbrown", version = "0.15" }
-hashbrown-986da7b5efc2b80e = { package = "hashbrown", version = "0.16" }
+hashbrown = { version = "0.15" }
 indexmap = { version = "2", features = ["serde"] }
 itertools-582f2526e08bb6a0 = { package = "itertools", version = "0.14" }
 itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
@@ -205,9 +202,9 @@ semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", features = ["alloc", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order"] }
+slab = { version = "0.4" }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 string_cache = { version = "0.8" }
-strum = { version = "0.27", features = ["derive"] }
 surrealdb = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 surrealdb-core = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 symphonia = { version = "0.5", default-features = false, features = ["all-codecs", "all-formats", "opt-simd"] }
@@ -218,13 +215,13 @@ time = { version = "0.3", default-features = false, features = ["formatting", "l
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io"] }
-toml_datetime = { version = "0.7", features = ["serde"] }
+toml_datetime = { version = "1", features = ["serde"] }
 toml_parser = { version = "1" }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }
 unicode-xid = { version = "0.2" }
 uuid = { version = "1", features = ["serde"] }
-winnow = { version = "0.7" }
+winnow = { version = "1" }
 zerocopy = { version = "0.8", default-features = false, features = ["derive", "simd"] }
 
 ### END HAKARI SECTION

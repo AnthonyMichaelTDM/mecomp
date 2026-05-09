@@ -176,7 +176,7 @@ mod tests {
     #[case(LibraryError::from(std::io::Error::other("test")), "IO error: test")]
     #[case(
         LibraryError::from(rodio::decoder::DecoderError::DecodeError("test")),
-        "Decoder error: test"
+        "Decoder error: The stream contained malformed data and could not be decoded or demuxed: test"
     )]
     fn test_serializable_library_error(#[case] input: LibraryError, #[case] expected: String) {
         let actual = SerializableLibraryError::from(input).to_string();
