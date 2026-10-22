@@ -32,7 +32,7 @@ pub enum SongIOError {
     #[error("IO error: {0}")]
     FsError(#[from] std::io::Error),
     #[error("Lofty error: {0}")]
-    LoftyError(#[from] lofty::error::LoftyError),
+    LoftyError(#[from] lofty::error::FileParseError),
     #[error("Song missing audio tags")]
     MissingTags,
     #[error("File not found: {0}")]

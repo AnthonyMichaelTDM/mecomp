@@ -99,7 +99,7 @@ where
     }
 
     #[must_use]
-    pub fn height(&self) -> usize {
+    pub const fn height(&self) -> usize {
         self.text.height()
     }
 
