@@ -6,14 +6,14 @@ use object_pool::Pool;
 use rubato::{FastFixedIn, Resampler, ResamplerConstructionError};
 use symphonia::{
     core::{
-        audio::{AudioBufferRef, SampleBuffer, SignalSpec},
-        codecs::{CODEC_TYPE_NULL, DecoderOptions},
+        audio::{AudioBuffer, AudioBufferRef, Channels, SampleBuffer},
+        codecs::{CODEC_TYPE_NULL, Decoder as AudioDecoder, DecoderOptions as AudioDecoderOptions},
         errors::Error,
         formats::{FormatOptions, FormatReader},
         io::{MediaSourceStream, MediaSourceStreamOptions},
         meta::MetadataOptions,
         probe::Hint,
-        units,
+        units::TimeBase,
     },
     default::get_probe,
 };
@@ -26,14 +26,29 @@ const MAX_DECODE_RETRIES: usize = 3;
 const CHUNK_SIZE: usize = 4096;
 
 /// Struct used by the symphonia-based bliss decoders to decode audio files
+///
+/// When iterated over, yields decoded audio packets
 #[doc(hidden)]
 pub struct SymphoniaSource {
-    decoder: Box<dyn symphonia::core::codecs::Decoder>,
-    current_span_offset: usize,
+    decoder: Box<dyn AudioDecoder>,
     format: Box<dyn FormatReader>,
     total_duration: Option<Duration>,
-    buffer: SampleBuffer<f32>,
-    spec: SignalSpec,
+    /// The audio buffer used for storing decoded audio samples.
+    /// We decode a packet, convert it to f32, then store it here
+    buffer: AudioBuffer<f32>,
+    /// The mono buffer used for storing downmixed audio samples.
+    /// This is used after downmixing the decoded audio to a single channel.
+    mono: Vec<f32>,
+    /// current position of the iterator in the current audio packet
+    current_offset: usize,
+    /// Number of items the iterator has yielded so far.
+    items_yielded: usize,
+    /// Sample rate of the track
+    sample_rate: u32,
+    /// channels in the track
+    channels: usize,
+    /// Track ID of the audio track
+    track_id: u32,
 }
 
 impl SymphoniaSource {
@@ -44,7 +59,7 @@ impl SymphoniaSource {
     /// This function will return an error if the `MediaSourceStream` does not contain any streams, or if the stream
     /// is not supported by the decoder.
     pub fn new(mss: MediaSourceStream) -> Result<Self, Error> {
-        Self::init(mss)?.ok_or(Error::DecodeError("No Streams"))
+        Self::init(mss)?.ok_or(Error::DecodeError("No Audio Streams"))
     }
 
     fn init(mss: MediaSourceStream) -> symphonia::core::errors::Result<Option<Self>> {
@@ -54,67 +69,97 @@ impl SymphoniaSource {
             ..Default::default()
         };
         let metadata_opts = MetadataOptions::default();
-        let mut probed_format = get_probe()
+        let probed_format = get_probe()
             .format(&hint, mss, &format_opts, &metadata_opts)?
             .format;
 
-        let Some(stream) = probed_format.default_track() else {
-            return Ok(None);
+        // get the default audio track from the probed format,
+        // falling back to the first supported audio track
+        let track = if let Some(track) = probed_format.default_track() {
+            track
+        } else {
+            probed_format
+                .tracks()
+                .iter()
+                .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+                .ok_or(Error::Unsupported("No track with supported codec"))?
         };
-
-        // Select the first supported track
-        let track = probed_format
-            .tracks()
-            .iter()
-            .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
-            .ok_or(Error::Unsupported("No track with supported codec"))?;
+        // get the audio codec parameters for the selected track
+        let codec = &track.codec_params;
 
         let track_id = track.id;
 
-        let mut decoder = symphonia::default::get_codecs()
-            .make(&track.codec_params, &DecoderOptions::default())?;
-        let total_duration = stream
-            .codec_params
-            .time_base
-            .zip(stream.codec_params.n_frames)
-            .map(|(base, spans)| base.calc_time(spans).into());
+        let decoder_options = AudioDecoderOptions::default();
+        let decoder = symphonia::default::get_codecs().make(codec, &decoder_options)?;
 
-        let mut decode_errors: usize = 0;
-        let decoded_audio = loop {
-            let current_span = probed_format.next_packet()?;
-
-            // If the packet does not belong to the selected track, skip over it
-            if current_span.track_id() != track_id {
-                continue;
-            }
-
-            match decoder.decode(&current_span) {
-                Ok(audio) => break audio,
-                Err(Error::DecodeError(_)) if decode_errors < MAX_DECODE_RETRIES => {
-                    decode_errors += 1;
-                }
-                Err(e) => return Err(e),
-            }
+        let total_duration = if let (Some(base), Some(timestamp)) =
+            (track.codec_params.time_base, track.codec_params.n_frames)
+        {
+            let base: TimeBase = base;
+            let time = base.calc_time(timestamp);
+            Some(Duration::from(time))
+        } else {
+            None
         };
 
-        let spec = decoded_audio.spec().to_owned();
-        let buffer = Self::get_buffer(decoded_audio, spec);
         Ok(Some(Self {
             decoder,
-            current_span_offset: 0,
-            format: probed_format,
             total_duration,
-            buffer,
-            spec,
+            buffer: AudioBuffer::unused(),
+            mono: Vec::new(),
+            current_offset: 0,
+            sample_rate: codec.sample_rate.unwrap_or(0),
+            channels: codec.channels.map_or(0, Channels::count),
+            track_id,
+            format: probed_format,
+            items_yielded: 0,
         }))
     }
 
-    #[inline]
-    fn get_buffer(decoded: AudioBufferRef<'_>, spec: SignalSpec) -> SampleBuffer<f32> {
-        let duration = units::Duration::from(decoded.capacity() as u64);
-        let mut buffer = SampleBuffer::<f32>::new(duration, spec);
-        buffer.copy_interleaved_ref(decoded);
-        buffer
+    /// Downmixes the given decoded audio buffer into a single mono channel.
+    ///
+    /// channels are interleaved, so if we have 2 channels, `[1, 2, 3, 4]` and `[5, 6, 7, 8]`,
+    /// they will be stored as `[1, 5, 2, 6, 3, 7, 4, 8]`
+    ///
+    /// For stereo sound, we can make this mono by averaging the channels and multiplying by the square root of 2,
+    /// This recovers the exact behavior of ffmpeg when converting stereo to mono, however for 2.1 and 5.1 surround sound,
+    /// ffmpeg might be doing something different, and I'm not sure what that is (don't have a 5.1 surround sound file to test with)
+    ///
+    /// TODO: Figure out how ffmpeg does it for 2.1 and 5.1 surround sound, and do it the same way
+    ///
+    /// # Arguments
+    ///
+    /// * `planes` - The audio planes of the decoded buffer.
+    /// * `mono` - The output buffer where the downmixed mono samples will be stored.
+    fn downmix_to_mono(decoded: AudioBufferRef<'_>, planes: &[&[f32]], mono: &mut Vec<f32>) {
+        let channels = decoded.spec().channels.count();
+        let frames = decoded.frames();
+
+        // copy the decoded audio into a sample buffer so we can downmix
+        let mut samples =
+            SampleBuffer::<f32>::new(decoded.capacity() as u64, decoded.spec().to_owned());
+        SampleBuffer::copy_interleaved_ref(&mut samples, decoded);
+
+        mono.clear();
+        mono.resize(frames, 0.0);
+
+        // determine scale factor based on number of channels
+        #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+        let scale = match channels {
+            0 | 1 => 1.0,
+            2 => SQRT_2 / 2.0,
+            n => (n as f64).recip() as f32,
+        };
+
+        // for each frame, sum the samples from each channel into the mono buffer
+        for plane in planes {
+            for (out, &sample) in mono.iter_mut().zip(*plane) {
+                *out += sample;
+            }
+        }
+        for sample in mono {
+            *sample *= scale;
+        }
     }
 
     #[inline]
@@ -126,13 +171,13 @@ impl SymphoniaSource {
     #[inline]
     #[must_use]
     pub const fn sample_rate(&self) -> u32 {
-        self.spec.rate
+        self.sample_rate
     }
 
     #[inline]
     #[must_use]
-    pub fn channels(&self) -> usize {
-        self.spec.channels.count()
+    pub const fn channels(&self) -> usize {
+        self.channels
     }
 }
 
@@ -141,29 +186,36 @@ impl Iterator for SymphoniaSource {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         (
-            self.buffer.samples().len(),
+            self.mono.len() - self.current_offset,
             self.total_duration.map(|dur| {
                 usize::try_from(
-                    (dur.as_secs() + 1)
-                        * u64::from(self.spec.rate)
-                        * self.spec.channels.count() as u64,
+                    (dur.as_secs() + 1) * u64::from(self.sample_rate) * self.channels as u64,
                 )
+                .map(|n| n.saturating_sub(self.items_yielded))
                 .unwrap_or(usize::MAX)
             }),
         )
     }
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_span_offset < self.buffer.len() {
-            let sample = self.buffer.samples().get(self.current_span_offset);
-            self.current_span_offset += 1;
-
+        // When we are in the process of yielding frames from a previously decoded packet,
+        // simply yield the next sample from the buffer.
+        if self.current_offset < self.mono.len() {
+            let sample = self.mono.get(self.current_offset);
+            self.current_offset += 1;
+            self.items_yielded += 1;
             return sample.copied();
         }
 
+        // we need to decode the next packet.
         let mut decode_errors = 0;
         let decoded = loop {
             let packet = self.format.next_packet().ok()?;
+            // Skip packets that do not belong to the track selected in `init`
+            if packet.track_id() != self.track_id {
+                continue;
+            }
+
             match self.decoder.decode(&packet) {
                 // Loop until we get a packet with audio frames. This is necessary because some
                 // formats can have packets with only metadata, particularly when rewinding, in
@@ -172,17 +224,25 @@ impl Iterator for SymphoniaSource {
                 // can returns non-zero durations for packets without audio frames.
                 Ok(decoded) if decoded.frames() > 0 => break decoded,
                 Ok(_) => {}
-                Err(Error::DecodeError(_)) if decode_errors < MAX_DECODE_RETRIES => {
+                // discard packet if DecodeError or IoError
+                Err(Error::DecodeError(_) | Error::IoError(_))
+                    if decode_errors < MAX_DECODE_RETRIES =>
+                {
                     decode_errors += 1;
                 }
+                // All other errors are unrecoverable.
                 Err(_) => return None,
             }
         };
+        // copy the decoded audio into the buffer
+        decoded.convert(&mut self.buffer);
 
-        decoded.spec().clone_into(&mut self.spec);
-        self.buffer = Self::get_buffer(decoded, self.spec);
-        self.current_span_offset = 1;
-        self.buffer.samples().first().copied()
+        // then downmix the decoded audio to mono.
+        Self::downmix_to_mono(decoded, self.buffer.planes().planes(), &mut self.mono);
+
+        self.current_offset = 1;
+        self.items_yielded += 1;
+        self.mono.first().copied()
     }
 }
 
@@ -365,11 +425,8 @@ impl Decoder for MecompDecoder {
         let source = SymphoniaSource::new(mss)?;
 
         // Convert the audio source into a mono channel
-        let sample_rate = source.spec.rate;
-        let num_channels = source.channels();
-
-        let mono_sample_array =
-            Self::into_mono_samples(source.into_iter().collect(), num_channels)?;
+        let sample_rate = source.sample_rate;
+        let mono_sample_array = source.into_iter().collect();
 
         // then we need to resample the audio source into 22050 Hz
         let resampled_array = self.resample_mono_samples(mono_sample_array, sample_rate)?;
