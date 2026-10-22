@@ -6,7 +6,7 @@ use object_pool::Pool;
 use rubato::{FastFixedIn, Resampler, ResamplerConstructionError};
 use symphonia::{
     core::{
-        audio::{AsAudioBufferRef, AudioBuffer, Channels, SampleBuffer, Signal},
+        audio::{AudioBuffer, Channels, Signal},
         codecs::{CODEC_TYPE_NULL, Decoder as AudioDecoder, DecoderOptions as AudioDecoderOptions},
         errors::Error,
         formats::{FormatOptions, FormatReader},
@@ -144,11 +144,6 @@ impl SymphoniaSource {
         let frames = decoded.frames();
 
         let planes = decoded.planes();
-
-        // copy the decoded audio into a sample buffer so we can downmix
-        let mut samples =
-            SampleBuffer::<f32>::new(decoded.capacity() as u64, decoded.spec().to_owned());
-        SampleBuffer::copy_interleaved_ref(&mut samples, decoded.as_audio_buffer_ref());
 
         mono.clear();
         mono.resize(frames, 0.0);
@@ -291,6 +286,10 @@ impl Iterator for SymphoniaSource {
             }
         };
         // copy the decoded audio into the buffer
+        if self.buffer.capacity() < decoded.capacity() || self.buffer.spec() != decoded.spec() {
+            // reallocate buffer to be big enough to fit decoded packet
+            self.buffer.clone_from(&decoded.make_equivalent::<f32>());
+        }
         decoded.convert(&mut self.buffer);
 
         if self.downmix {
