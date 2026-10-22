@@ -2,7 +2,6 @@
 
 use std::{
     cell::RefCell,
-    clone::Clone,
     marker::Send,
     num::NonZeroUsize,
     path::{Path, PathBuf},
@@ -209,7 +208,12 @@ pub trait Decoder {
             return Ok(());
         }
 
+        // one environment is reused to spawn individual sessions for each thread.
+        let environment = AudioEmbeddingModel::default_environment()?;
         thread_local! {
+            /// Thread-local storage for the audio embedding model.
+            /// ORT models are both expensive to load, and can't be evaluated concurrently across threads without separate instances,
+            /// so we store it in a thread-local variable so that the model is initialized once per thread in the pool and reused for all songs processed by that thread.
             static MODEL: RefCell<Option<AudioEmbeddingModel>> = const { RefCell::new(None) };
         }
 
@@ -256,7 +260,8 @@ pub trait Decoder {
                             let mut model_ref = model_cell.borrow_mut();
                             if model_ref.is_none() {
                                 debug!("Loading model in thread {thread_name}");
-                                *model_ref = Some(AudioEmbeddingModel::load(&model_config)?);
+                                *model_ref =
+                                    Some(AudioEmbeddingModel::load(&environment, &model_config)?);
                             }
                             let model = model_ref.as_mut().unwrap();
                             model.embed(&audio).map_err(AnalysisError::from)

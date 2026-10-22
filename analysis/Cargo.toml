@@ -15,16 +15,6 @@ exclude = ["data/"]
 default = []
 # plot_gap = ["dep:plotters"]
 
-# Hardware acceleration features for ONNX inference (opt-in, requires additional setup)
-# These require the user to have the appropriate drivers/libraries installed
-cuda = [ # NVIDIA CUDA (requires CUDA + cuDNN)
-    "ort/copy-dylibs",
-    "ort/cuda",
-]
-tensorrt = [ # NVIDIA TensorRT (requires TensorRT + CUDA)
-    "ort/copy-dylibs",
-    "ort/tensorrt",
-]
 
 [dependencies]
 bliss-audio-aubio-rs = { version = "0.2.4", features = ["static"] }
@@ -51,23 +41,15 @@ likely_stable.workspace = true
 bitvec.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
-# Platform-specific zero-dependency hardware acceleration for ONNX inference
-## MacOS: CoreML built-in on macOS 11+
-[target.'cfg(target_os = "macos")'.dependencies.ort]
-version = "2.0.0-rc.12"
-features = ["std", "download-binaries", "tls-rustls", "coreml"]
-default-features = false
-## Windows: DirectML ships with Windows 10+, no extra dependencies needed
-[target.'cfg(target_os = "windows")'.dependencies.ort]
-version = "2.0.0-rc.12"
-features = ["std", "download-binaries", "tls-rustls", "copy-dylibs", "directml"]
-default-features = false
-## Linux and other platforms: CPU only by default (CUDA/TensorRT available via features)
-[target.'cfg(not(any(target_os = "macos", target_os = "windows")))'.dependencies.ort]
-version = "2.0.0-rc.12"
-features = ["std", "download-binaries", "tls-rustls"]
-default-features = false
-
+# WebGPU for hardware acceleration for ONNX inference
+ort = { version = "2.0.0-rc.15", default-features = false, features = [
+    "api-31",
+    "copy-dylibs",
+    "download-binaries",
+    "std",
+    "tls-rustls",
+    "webgpu",
+] }
 
 # if we're building on macos, we need to link against the system's fftw3
 # library, which is not available on linux

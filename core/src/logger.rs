@@ -80,7 +80,7 @@ pub fn init_logger(filter: log::LevelFilter, log_file_path: Option<std::path::Pa
             // SAFETY: This is safe because this code runs before we start spawning threads.
             std::env::set_var(
                 "RUST_LOG",
-                format!("off,mecomp={filter},surrealqlx={filter}"),
+                format!("off,mecomp={filter},surrealqlx={filter},ort=ERROR"),
             );
         },
     }
