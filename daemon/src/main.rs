@@ -22,7 +22,7 @@ compile_error!("The cli feature is required to build the daemon binary");
 
 /// Options configurable via the CLI.
 #[derive(Parser)]
-#[command(name = "mecomp-daemon", version = env!("CARGO_PKG_VERSION"), about)]
+#[command(name = "mecomp-daemon", version, about)]
 struct Flags {
     /// Set the TCP port that the daemon will listen on
     #[clap(
@@ -57,7 +57,7 @@ fn main() -> anyhow::Result<()> {
 
     clap_complete::CompleteEnv::with_factory(Flags::command).complete();
 
-    let flags = Flags::try_parse()?;
+    let flags = Flags::parse();
 
     let config_file: PathBuf = match &flags.config {
         Some(config_file) if config_file.exists() => config_file.clone(),
