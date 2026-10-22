@@ -6,7 +6,7 @@ use object_pool::Pool;
 use rubato::{FastFixedIn, Resampler, ResamplerConstructionError};
 use symphonia::{
     core::{
-        audio::{AudioBuffer, AudioBufferRef, Channels, SampleBuffer},
+        audio::{AsAudioBufferRef, AudioBuffer, Channels, SampleBuffer, Signal},
         codecs::{CODEC_TYPE_NULL, Decoder as AudioDecoder, DecoderOptions as AudioDecoderOptions},
         errors::Error,
         formats::{FormatOptions, FormatReader},
@@ -27,7 +27,7 @@ const CHUNK_SIZE: usize = 4096;
 
 /// Struct used by the symphonia-based bliss decoders to decode audio files
 ///
-/// When iterated over, yields decoded audio packets
+/// When iterated over, yields decoded audio samples downmixed to mono if created with the `downmix` flag set to `true`.
 #[doc(hidden)]
 pub struct SymphoniaSource {
     decoder: Box<dyn AudioDecoder>,
@@ -36,9 +36,9 @@ pub struct SymphoniaSource {
     /// The audio buffer used for storing decoded audio samples.
     /// We decode a packet, convert it to f32, then store it here
     buffer: AudioBuffer<f32>,
-    /// The mono buffer used for storing downmixed audio samples.
-    /// This is used after downmixing the decoded audio to a single channel.
-    mono: Vec<f32>,
+    /// The mono/interleaved buffer used for storing downmixed/interleaved audio samples.
+    /// This is used after downmixing the decoded audio to a single channel. or after interleaving all the channels
+    output: Vec<f32>,
     /// current position of the iterator in the current audio packet
     current_offset: usize,
     /// Number of items the iterator has yielded so far.
@@ -49,20 +49,27 @@ pub struct SymphoniaSource {
     channels: usize,
     /// Track ID of the audio track
     track_id: u32,
+    /// Whether samples should be downmixed to mono or interleaves
+    downmix: bool,
 }
 
 impl SymphoniaSource {
     /// Create a new `SymphoniaSource` from a `MediaSourceStream`
     ///
+    /// The `downmix` flag determines whether the output should be downmixed to mono (true) or interleaved multi-channel (false)
+    ///
     /// # Errors
     ///
     /// This function will return an error if the `MediaSourceStream` does not contain any streams, or if the stream
     /// is not supported by the decoder.
-    pub fn new(mss: MediaSourceStream) -> Result<Self, Error> {
-        Self::init(mss)?.ok_or(Error::DecodeError("No Audio Streams"))
+    pub fn new(mss: MediaSourceStream, downmix: bool) -> Result<Self, Error> {
+        Self::init(mss, downmix)?.ok_or(Error::DecodeError("No Audio Streams"))
     }
 
-    fn init(mss: MediaSourceStream) -> symphonia::core::errors::Result<Option<Self>> {
+    fn init(
+        mss: MediaSourceStream,
+        downmix: bool,
+    ) -> symphonia::core::errors::Result<Option<Self>> {
         let hint = Hint::new();
         let format_opts = FormatOptions {
             enable_gapless: true,
@@ -106,13 +113,14 @@ impl SymphoniaSource {
             decoder,
             total_duration,
             buffer: AudioBuffer::unused(),
-            mono: Vec::new(),
+            output: Vec::new(),
             current_offset: 0,
             sample_rate: codec.sample_rate.unwrap_or(0),
             channels: codec.channels.map_or(0, Channels::count),
             track_id,
             format: probed_format,
             items_yielded: 0,
+            downmix,
         }))
     }
 
@@ -129,16 +137,18 @@ impl SymphoniaSource {
     ///
     /// # Arguments
     ///
-    /// * `planes` - The audio planes of the decoded buffer.
+    /// * `decoded` - The decoded audio buffer containing the original multi-channel audio.
     /// * `mono` - The output buffer where the downmixed mono samples will be stored.
-    fn downmix_to_mono(decoded: AudioBufferRef<'_>, planes: &[&[f32]], mono: &mut Vec<f32>) {
+    fn downmix_to_mono(decoded: &AudioBuffer<f32>, mono: &mut Vec<f32>) {
         let channels = decoded.spec().channels.count();
         let frames = decoded.frames();
+
+        let planes = decoded.planes();
 
         // copy the decoded audio into a sample buffer so we can downmix
         let mut samples =
             SampleBuffer::<f32>::new(decoded.capacity() as u64, decoded.spec().to_owned());
-        SampleBuffer::copy_interleaved_ref(&mut samples, decoded);
+        SampleBuffer::copy_interleaved_ref(&mut samples, decoded.as_audio_buffer_ref());
 
         mono.clear();
         mono.resize(frames, 0.0);
@@ -152,13 +162,58 @@ impl SymphoniaSource {
         };
 
         // for each frame, sum the samples from each channel into the mono buffer
-        for plane in planes {
+        for plane in planes.planes() {
             for (out, &sample) in mono.iter_mut().zip(*plane) {
                 *out += sample;
             }
         }
         for sample in mono {
             *sample *= scale;
+        }
+    }
+
+    /// Interleaves the given decoded audio planes into a single buffer.
+    ///
+    /// # Arguments
+    ///
+    /// * `decoded` - The decoded audio buffer containing the original multi-channel audio.
+    /// * `interleaved` - The output buffer where the interleaved samples will be stored.
+    fn interleave(decoded: &AudioBuffer<f32>, interleaved: &mut Vec<f32>) {
+        let channels = decoded.spec().channels.count();
+        let frames = decoded.frames();
+
+        let planes = decoded.planes();
+        let planes = planes.planes();
+
+        interleaved.clear();
+        interleaved.resize(frames * channels, 0.0);
+
+        let mut i = 0;
+
+        // Copy planes in pairs when possible, it is substaintially faster.
+        // Could use the same pattern to copy in triplets, but to ease future migration to symphonia 0.6 I won't
+        while channels - i > 1 {
+            let src0 = planes[i];
+            let src1 = planes[i + 1];
+
+            for ((&s0, &s1), d) in src0
+                .iter()
+                .zip(src1)
+                .zip(interleaved.chunks_exact_mut(channels))
+            {
+                d[i] = s0;
+                d[i + 1] = s1;
+            }
+            i += 2;
+        }
+
+        // copy the final plane.
+        while i < channels {
+            let src = planes[i];
+            for (&s, d) in src.iter().zip(interleaved.chunks_exact_mut(channels)) {
+                d[i] = s;
+            }
+            i += 1;
         }
     }
 
@@ -185,23 +240,24 @@ impl Iterator for SymphoniaSource {
     type Item = f32;
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (
-            self.mono.len() - self.current_offset,
-            self.total_duration.map(|dur| {
-                usize::try_from(
-                    (dur.as_secs() + 1) * u64::from(self.sample_rate) * self.channels as u64,
-                )
-                .map(|n| n.saturating_sub(self.items_yielded))
-                .unwrap_or(usize::MAX)
-            }),
-        )
+        let upper = self.total_duration.map(|dur| {
+            usize::try_from(if self.downmix {
+                (dur.as_secs() + 1) * u64::from(self.sample_rate)
+            } else {
+                (dur.as_secs() + 1) * u64::from(self.sample_rate) * self.channels as u64
+            })
+            .map(|n| n.saturating_sub(self.items_yielded))
+            .unwrap_or(usize::MAX)
+        });
+
+        (self.output.len() - self.current_offset, upper)
     }
 
     fn next(&mut self) -> Option<Self::Item> {
         // When we are in the process of yielding frames from a previously decoded packet,
         // simply yield the next sample from the buffer.
-        if self.current_offset < self.mono.len() {
-            let sample = self.mono.get(self.current_offset);
+        if self.current_offset < self.output.len() {
+            let sample = self.output.get(self.current_offset);
             self.current_offset += 1;
             self.items_yielded += 1;
             return sample.copied();
@@ -237,12 +293,17 @@ impl Iterator for SymphoniaSource {
         // copy the decoded audio into the buffer
         decoded.convert(&mut self.buffer);
 
-        // then downmix the decoded audio to mono.
-        Self::downmix_to_mono(decoded, self.buffer.planes().planes(), &mut self.mono);
+        if self.downmix {
+            // then downmix the decoded audio to mono.
+            Self::downmix_to_mono(&self.buffer, &mut self.output);
+        } else {
+            // then interleave the decoded audio into the mono buffer.
+            Self::interleave(&self.buffer, &mut self.output);
+        }
 
         self.current_offset = 1;
         self.items_yielded += 1;
-        self.mono.first().copied()
+        self.output.first().copied()
     }
 }
 
@@ -422,7 +483,7 @@ impl Decoder for MecompDecoder {
         // create the media source stream
         let mss = MediaSourceStream::new(Box::new(file), MediaSourceStreamOptions::default());
 
-        let source = SymphoniaSource::new(mss)?;
+        let source = SymphoniaSource::new(mss, true)?;
 
         // Convert the audio source into a mono channel
         let sample_rate = source.sample_rate;
