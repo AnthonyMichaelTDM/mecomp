@@ -41,14 +41,13 @@ likely_stable.workspace = true
 bitvec.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
-# WebGPU for hardware acceleration for ONNX inference
+# Every Execution Provider I've tried has had issues, unless webgpu is stabilized just run with CPU only
 ort = { version = "2.0.0-rc.15", default-features = false, features = [
     "api-31",
     "copy-dylibs",
     "download-binaries",
     "std",
     "tls-rustls",
-    "webgpu",
 ] }
 
 # if we're building on macos, we need to link against the system's fftw3

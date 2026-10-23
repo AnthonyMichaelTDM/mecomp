@@ -4,8 +4,12 @@
 use crate::ResampledAudio;
 use log::warn;
 use ort::{
+    environment::Environment,
     ep,
-    session::{self, Session, builder::GraphOptimizationLevel},
+    session::{
+        Session,
+        builder::{GraphOptimizationLevel, SessionBuilder},
+    },
     value::TensorRef,
 };
 use std::path::{Path, PathBuf};
@@ -68,7 +72,7 @@ pub struct ModelConfig {
 /// Struct representing an audio embedding model loaded from an ONNX file.
 #[derive(Debug)]
 pub struct AudioEmbeddingModel {
-    session: session::Session,
+    session: Session,
 }
 
 /// Register a list of execution providers in priority order based on available features/platform.
@@ -78,20 +82,20 @@ pub struct AudioEmbeddingModel {
 /// # Errors
 ///
 /// Returns an error if the CPU EP failed to register, ignores other EP registration failures
-fn register_execution_providers(builder: &mut session::builder::SessionBuilder) -> ort::Result<()> {
-    #[allow(unused_macros)]
-    macro_rules! register_ep {
-        ($ep:expr, $builder:expr, $name:expr) => {
-            if let Err(e) = $ep.build().register($builder) {
-                log::error!("Failed to register {} execution provider: {:?}", $name, e);
-            } else {
-                log::info!("Successfully registered {} execution provider", $name);
-            }
-        };
-    }
+fn register_execution_providers(builder: &mut SessionBuilder) -> ort::Result<()> {
+    // #[allow(unused_macros)]
+    // macro_rules! register_ep {
+    //     ($ep:expr, $builder:expr, $name:expr) => {
+    //         if let Err(e) = $ep.build().register($builder) {
+    //             log::error!("Failed to register {} execution provider: {:?}", $name, e);
+    //         } else {
+    //             log::info!("Successfully registered {} execution provider", $name);
+    //         }
+    //     };
+    // }
 
-    let webgpu = ep::WebGPU::default();
-    register_ep!(webgpu, builder, "WebGPU");
+    // let ep = ep::WebGPU::default();
+    // register_ep!(ep, builder, "WebGPU");
 
     // CPU is always the final fallback
     // Disable the CPU memory arena to prevent memory accumulation when processing
@@ -106,11 +110,10 @@ fn register_execution_providers(builder: &mut session::builder::SessionBuilder) 
     Ok(())
 }
 
-fn session_builder(
-    environment: &ort::environment::Environment,
-) -> ort::Result<session::builder::SessionBuilder> {
+fn session_builder(environment: &Environment) -> ort::Result<SessionBuilder> {
     let mut builder = Session::builder(environment)?
         .with_memory_pattern(false)?
+        .with_approximate_gelu()?
         .with_optimization_level(GraphOptimizationLevel::Level3)?;
 
     // register execution providers
@@ -125,7 +128,7 @@ impl AudioEmbeddingModel {
     ///
     /// Fails if the environment cannot be created for some reason.
     #[inline]
-    pub fn default_environment() -> ort::Result<ort::environment::Environment> {
+    pub fn default_environment() -> ort::Result<Environment> {
         ort::init().with_name("AudioEmbeddingModel").build()
     }
 
@@ -134,7 +137,7 @@ impl AudioEmbeddingModel {
     /// # Errors
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
-    pub fn load_default(env: &ort::environment::Environment) -> ort::Result<Self> {
+    pub fn load_default(env: &Environment) -> ort::Result<Self> {
         let session = session_builder(env)?.commit_from_memory(MODEL_BYTES)?;
 
         Ok(Self { session })
@@ -145,10 +148,7 @@ impl AudioEmbeddingModel {
     /// # Errors
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
-    pub fn load_from_onnx<P: AsRef<Path>>(
-        env: &ort::environment::Environment,
-        path: P,
-    ) -> ort::Result<Self> {
+    pub fn load_from_onnx<P: AsRef<Path>>(env: &Environment, path: P) -> ort::Result<Self> {
         let session = session_builder(env)?.commit_from_file(&path)?;
 
         Ok(Self { session })
@@ -162,7 +162,7 @@ impl AudioEmbeddingModel {
     /// # Errors
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
-    pub fn load(env: &ort::environment::Environment, config: &ModelConfig) -> ort::Result<Self> {
+    pub fn load(env: &Environment, config: &ModelConfig) -> ort::Result<Self> {
         config.path.as_ref().map_or_else(| | Self::load_default(env), |path|{
             Self::load_from_onnx(env, path).or_else(|e| {
                 warn!("failed to load embeddings model from specified path: {e}, falling back to default model.");
