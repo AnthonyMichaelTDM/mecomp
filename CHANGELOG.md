@@ -1,5 +1,26 @@
 # Mecomp Changelog
 
+## v0.7.3
+
+This release has some minor code maintenance, and the addition of a proper dynamic query editor to the TUI (a long term goal)
+
+## What's Changed
+* fix(tui): remove some unused functions by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/464
+* feat(tui): Query Builder by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/465
+* test: increase code coverage across the board by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/466
+* feat: update dependencies by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/467
+* Update analysis dependencies and migrate to latest ONNX Runtime by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/470
+* chore: update cargo-dist version to 0.33.0 by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/473
+* fix(daemon): output format for cli input errors, and -h / -V flags by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/472
+* chore(deps): bump crate-ci/typos from 1.39.2 to 1.44.0 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/460
+* chore(deps): bump codecov/codecov-action from 5.5.1 to 5.5.2 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/459
+* chore(deps): bump actions/upload-artifact from 4.6.2 to 7.0.2 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/463
+* chore(deps): bump actions/download-artifact from 4.2.1 to 8.0.2 by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/474
+* Downmix decoder samples at the source by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/471
+
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.7.2...v0.7.3
+
 ## v0.7.2
 
 This release simplifies state management in the TUI and improved the behavior of input boxes
