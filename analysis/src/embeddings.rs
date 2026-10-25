@@ -124,12 +124,19 @@ fn session_builder(environment: &Environment) -> ort::Result<SessionBuilder> {
 
 impl AudioEmbeddingModel {
     /// Create a new environment to use to spawn sessions.
-    /// # Errors
+    /// # Panics
     ///
-    /// Fails if the environment cannot be created for some reason.
+    /// Panics if the environment cannot be created for some reason.
     #[inline]
-    pub fn default_environment() -> ort::Result<Environment> {
-        ort::init().with_name("AudioEmbeddingModel").build()
+    pub fn default_environment() -> Environment {
+        static ENV: std::sync::OnceLock<Environment> = std::sync::OnceLock::new();
+        ENV.get_or_init(|| {
+            ort::init()
+                .with_name("AudioEmbeddingModel")
+                .build()
+                .expect("Failed to initialize environment")
+        });
+        ENV.get().unwrap().clone()
     }
 
     /// Load the default audio embedding model included in the package.
@@ -264,28 +271,34 @@ impl AudioEmbeddingModel {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
     use crate::decoder::Decoder;
     use crate::decoder::MecompDecoder;
 
     const TEST_AUDIO_PATH: &str = "data/5_mins_of_noise_stereo_48kHz.ogg";
 
-    #[test]
-    fn test_embedding_model() {
+    #[rstest::fixture]
+    fn env() -> ort::environment::Environment {
+        AudioEmbeddingModel::default_environment()
+    }
+
+    #[rstest]
+    fn test_embedding_model(env: ort::environment::Environment) {
         let decoder = MecompDecoder::new().unwrap();
         let audio = decoder
             .decode(Path::new(TEST_AUDIO_PATH))
             .expect("Failed to decode test audio");
 
-        let env = AudioEmbeddingModel::default_environment().expect("Failed to create environment");
         let mut model =
             AudioEmbeddingModel::load_default(&env).expect("Failed to load embedding model");
         let embedding = model.embed(&audio).expect("Failed to compute embedding");
         assert_eq!(embedding.len(), DIM_EMBEDDING);
     }
 
-    #[test]
-    fn test_embedding_model_batch() {
+    #[rstest]
+    fn test_embedding_model_batch(env: ort::environment::Environment) {
         let decoder = MecompDecoder::new().unwrap();
         let audio = decoder
             .decode(Path::new(TEST_AUDIO_PATH))
@@ -293,7 +306,6 @@ mod tests {
 
         let audios = vec![audio.clone(); 4];
 
-        let env = AudioEmbeddingModel::default_environment().expect("Failed to create environment");
         let mut model =
             AudioEmbeddingModel::load_default(&env).expect("Failed to load embedding model");
         let embeddings = model
@@ -310,8 +322,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_embedding_model_batch_mixed_sizes() {
+    #[rstest]
+    fn test_embedding_model_batch_mixed_sizes(env: ort::environment::Environment) {
         let decoder = MecompDecoder::new().unwrap();
         let audio1 = decoder
             .decode(Path::new(TEST_AUDIO_PATH))
@@ -325,7 +337,6 @@ mod tests {
 
         let audios = vec![audio1.clone(), audio2.clone()];
 
-        let env = AudioEmbeddingModel::default_environment().expect("Failed to create environment");
         let mut model =
             AudioEmbeddingModel::load_default(&env).expect("Failed to load embedding model");
         let embeddings = model

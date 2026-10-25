@@ -209,7 +209,7 @@ pub trait Decoder {
         }
 
         // one environment is reused to spawn individual sessions for each thread.
-        let environment = AudioEmbeddingModel::default_environment()?;
+        let environment = AudioEmbeddingModel::default_environment();
         thread_local! {
             /// Thread-local storage for the audio embedding model.
             /// ORT models are both expensive to load, and can't be evaluated concurrently across threads without separate instances,

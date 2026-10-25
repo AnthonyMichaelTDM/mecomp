@@ -8,16 +8,14 @@ use std::{hint::black_box, path::Path};
 
 fn bench_load_embeddings_model(c: &mut Criterion) {
     c.bench_function("embeddings.rs: AudioEmbeddingModel::load_default", |b| {
-        let environment =
-            AudioEmbeddingModel::default_environment().expect("failed to create environment");
+        let environment = AudioEmbeddingModel::default_environment();
         b.iter(|| {
             let _ = black_box(AudioEmbeddingModel::load_default(&environment).unwrap());
         });
     });
 
     c.bench_function("embeddings.rs: AudioEmbeddingModel::load_from_onnx", |b| {
-        let environment =
-            AudioEmbeddingModel::default_environment().expect("failed to create environment");
+        let environment = AudioEmbeddingModel::default_environment();
         let model_path = Path::new("models/audio_embedding_model.onnx");
         b.iter(|| {
             let _ = black_box(
@@ -39,8 +37,7 @@ fn bench_generate_embeddings(c: &mut Criterion) {
 
     let batch_of_samples = vec![batch_samples.clone(); 5];
 
-    let environment =
-        AudioEmbeddingModel::default_environment().expect("failed to create environment");
+    let environment = AudioEmbeddingModel::default_environment();
     let mut model = AudioEmbeddingModel::load_default(&environment).unwrap();
 
     c.bench_function("embeddings.rs: AudioEmbeddingModel::embed cpu", |b| {
