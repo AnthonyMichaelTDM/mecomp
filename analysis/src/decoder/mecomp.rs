@@ -435,7 +435,7 @@ impl MecompDecoder {
         let remainder = sample_chunks.remainder();
 
         for chunk in sample_chunks {
-            debug_assert!(resampler.input_frames_next() == CHUNK_SIZE);
+            debug_assert_eq!(resampler.input_frames_next(), CHUNK_SIZE);
 
             let (_, output_written) =
                 resampler.process_into_buffer(&[chunk], output_buffer.as_mut_slice(), None)?;
@@ -608,7 +608,7 @@ mod tests {
             .unwrap()
             .analyze_path(Path::new(path))
             .unwrap();
-        for (x, y) in analysis.as_vec().iter().zip(expected_analysis) {
+        for (x, y) in analysis.inner().iter().zip(expected_analysis) {
             assert!(
                 1e-5 > (x - y).abs(),
                 "Expected {x} to be within 1e-5 of {y}, but it was not"
@@ -653,7 +653,7 @@ mod tests {
             .analyze_path(Path::new(path))
             .unwrap();
 
-        for (x, y) in analysis.as_vec().iter().zip(expected_analysis) {
+        for (x, y) in analysis.inner().iter().zip(expected_analysis) {
             assert!(
                 0.1 > (x - y).abs(),
                 "Expected {x} to be within 0.1 of {y}, but it was not"
