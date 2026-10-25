@@ -3384,7 +3384,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-analysis"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "adler32",
  "bitvec",
@@ -3418,7 +3418,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-cli"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -3440,7 +3440,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-core"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "anyhow",
  "ciborium",
@@ -3479,7 +3479,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-daemon"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -3512,7 +3512,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-mpris"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -3537,7 +3537,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-prost"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "log",
  "mecomp-core",
@@ -3555,7 +3555,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-storage"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "anyhow",
  "criterion",
@@ -3584,7 +3584,7 @@ dependencies = [
 
 [[package]]
 name = "mecomp-tui"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -6547,7 +6547,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "log",
@@ -6565,7 +6565,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx-macros"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "mecomp-workspace-hack",
  "surrealqlx-macros-impl",
@@ -6574,7 +6574,7 @@ dependencies = [
 
 [[package]]
 name = "surrealqlx-macros-impl"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "mecomp-workspace-hack",
  "pretty_assertions",
