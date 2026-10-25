@@ -22,10 +22,12 @@ ignored = [
     "castaway",
     "clap",
     "clap_builder",
+    "crc32fast",
     "crossbeam-utils",
     "either",
     "event-listener",
     "event-listener-strategy",
+    "fastrand",
     "futures-channel",
     "futures-core",
     "futures-executor",
@@ -33,7 +35,8 @@ ignored = [
     "futures-lite",
     "futures-task",
     "futures-util",
-    "hashbrown",
+    "hashbrown-3575ec1268b04181",
+    "hashbrown-9067fe90e8c1f593",
     "indexmap",
     "itertools-582f2526e08bb6a0",
     "itertools-594e8ee84c453af0",
@@ -46,6 +49,7 @@ ignored = [
     "num-integer",
     "num-traits",
     "once_cell",
+    "phf_shared",
     "proc-macro2",
     "prost",
     "quote",
@@ -59,16 +63,14 @@ ignored = [
     "serde",
     "serde_core",
     "serde_json",
-    "slab",
     "smallvec",
-    "string_cache",
     "surrealdb",
     "surrealdb-core",
     "symphonia",
     "symphonia-core",
-    "syn",
+    "syn-7b89eefb6aaa9bf3",
+    "syn-f595c2ba2a3f28df",
     "sync_wrapper",
-    "time",
     "tokio",
     "tokio-stream",
     "tokio-util",
@@ -97,18 +99,21 @@ bytes = { version = "1", features = ["serde"] }
 castaway = { version = "0.2" }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
+crc32fast = { version = "1" }
 crossbeam-utils = { version = "0.8" }
 either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
 event-listener-strategy = { version = "0.5" }
+fastrand = { version = "2" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-lite = { version = "2" }
 futures-task = { version = "0.3", default-features = false, features = ["std"] }
-futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
-hashbrown = { version = "0.15" }
+futures-util = { version = "0.3", default-features = false, features = ["async-await-macro", "channel", "io", "sink"] }
+hashbrown-3575ec1268b04181 = { package = "hashbrown", version = "0.15" }
+hashbrown-9067fe90e8c1f593 = { package = "hashbrown", version = "0.17" }
 indexmap = { version = "2", features = ["serde"] }
 itertools-582f2526e08bb6a0 = { package = "itertools", version = "0.14" }
 itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
@@ -121,6 +126,7 @@ num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
 once_cell = { version = "1" }
+phf_shared = { version = "0.11", features = ["unicase"] }
 proc-macro2 = { version = "1" }
 prost = { version = "0.14" }
 quote = { version = "1" }
@@ -133,21 +139,19 @@ rustfft = { version = "6" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", features = ["alloc", "rc"] }
-serde_json = { version = "1", features = ["alloc", "preserve_order"] }
-slab = { version = "0.4" }
+serde_json = { version = "1", features = ["preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
-string_cache = { version = "0.8" }
 surrealdb = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 surrealdb-core = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 symphonia = { version = "0.5", default-features = false, features = ["all-codecs", "all-formats", "opt-simd"] }
 symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
-syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
+syn-7b89eefb6aaa9bf3 = { package = "syn", version = "3", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
+syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
 sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
-time = { version = "0.3", default-features = false, features = ["formatting", "local-offset", "macros", "parsing"] }
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io"] }
-toml_datetime = { version = "1", features = ["serde"] }
+toml_datetime = { version = "1" }
 toml_parser = { version = "1" }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }
@@ -165,18 +169,21 @@ castaway = { version = "0.2" }
 cc = { version = "1", default-features = false, features = ["parallel"] }
 clap = { version = "4", default-features = false, features = ["color", "derive", "error-context", "help", "std", "suggestions", "unstable-ext", "usage"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "help", "std", "suggestions", "unstable-ext", "usage"] }
+crc32fast = { version = "1" }
 crossbeam-utils = { version = "0.8" }
 either = { version = "1", features = ["use_std"] }
 event-listener = { version = "5" }
 event-listener-strategy = { version = "0.5" }
+fastrand = { version = "2" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-core = { version = "0.3" }
 futures-executor = { version = "0.3" }
 futures-io = { version = "0.3" }
 futures-lite = { version = "2" }
 futures-task = { version = "0.3", default-features = false, features = ["std"] }
-futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
-hashbrown = { version = "0.15" }
+futures-util = { version = "0.3", default-features = false, features = ["async-await-macro", "channel", "io", "sink"] }
+hashbrown-3575ec1268b04181 = { package = "hashbrown", version = "0.15" }
+hashbrown-9067fe90e8c1f593 = { package = "hashbrown", version = "0.17" }
 indexmap = { version = "2", features = ["serde"] }
 itertools-582f2526e08bb6a0 = { package = "itertools", version = "0.14" }
 itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
@@ -189,6 +196,7 @@ num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
 once_cell = { version = "1" }
+phf_shared = { version = "0.11", features = ["unicase"] }
 proc-macro2 = { version = "1" }
 prost = { version = "0.14" }
 quote = { version = "1" }
@@ -201,21 +209,19 @@ rustfft = { version = "6" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", features = ["alloc", "rc"] }
-serde_json = { version = "1", features = ["alloc", "preserve_order"] }
-slab = { version = "0.4" }
+serde_json = { version = "1", features = ["preserve_order"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
-string_cache = { version = "0.8" }
 surrealdb = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 surrealdb-core = { version = "2", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
 symphonia = { version = "0.5", default-features = false, features = ["all-codecs", "all-formats", "opt-simd"] }
 symphonia-core = { version = "0.5", features = ["opt-simd-avx", "opt-simd-neon", "opt-simd-sse"] }
-syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
+syn-7b89eefb6aaa9bf3 = { package = "syn", version = "3", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
+syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
 sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
-time = { version = "0.3", default-features = false, features = ["formatting", "local-offset", "macros", "parsing"] }
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time", "tracing"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec", "compat", "io"] }
-toml_datetime = { version = "1", features = ["serde"] }
+toml_datetime = { version = "1" }
 toml_parser = { version = "1" }
 tracing-core = { version = "0.1" }
 ulid = { version = "1", features = ["serde"] }

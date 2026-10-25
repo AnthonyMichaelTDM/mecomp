@@ -1,22 +1,25 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use decoder::{Decoder as _, MecompDecoder as Decoder};
 use mecomp_analysis::{
-    decoder,
-    embeddings::{AudioEmbeddingModel, ModelConfig},
+    decoder::{Decoder as _, MecompDecoder as Decoder},
+    embeddings::{AudioEmbeddingModel, ModelConfig, onnx_test_env},
 };
 use std::{hint::black_box, path::Path};
 
 fn bench_load_embeddings_model(c: &mut Criterion) {
     c.bench_function("embeddings.rs: AudioEmbeddingModel::load_default", |b| {
+        let environment = onnx_test_env();
         b.iter(|| {
-            let _ = black_box(AudioEmbeddingModel::load_default().unwrap());
+            let _ = black_box(AudioEmbeddingModel::load_default(&environment).unwrap());
         });
     });
 
     c.bench_function("embeddings.rs: AudioEmbeddingModel::load_from_onnx", |b| {
+        let environment = onnx_test_env();
         let model_path = Path::new("models/audio_embedding_model.onnx");
         b.iter(|| {
-            let _ = black_box(AudioEmbeddingModel::load_from_onnx(black_box(&model_path)).unwrap());
+            let _ = black_box(
+                AudioEmbeddingModel::load_from_onnx(&environment, black_box(&model_path)).unwrap(),
+            );
         });
     });
 }
@@ -33,7 +36,8 @@ fn bench_generate_embeddings(c: &mut Criterion) {
 
     let batch_of_samples = vec![batch_samples.clone(); 5];
 
-    let mut model = AudioEmbeddingModel::load_default().unwrap();
+    let environment = onnx_test_env();
+    let mut model = AudioEmbeddingModel::load_default(&environment).unwrap();
 
     c.bench_function("embeddings.rs: AudioEmbeddingModel::embed cpu", |b| {
         b.iter(|| {
@@ -73,13 +77,19 @@ fn bench_process_songs(c: &mut Criterion) {
             b.iter_with_setup(
                 || {
                     let decoder = Decoder::new().unwrap();
-                    let config = ModelConfig::default();
+                    let config: ModelConfig = ModelConfig::default();
                     let (tx, rx) = std::sync::mpsc::sync_channel(16);
-                    (decoder, config, tx, rx)
+                    let env: ort::environment::Environment = onnx_test_env();
+                    (decoder, config, tx, rx, env)
                 },
-                |(decoder, config, tx, rx)| {
+                |(decoder, config, tx, rx, env)| {
                     decoder
-                        .process_songs(black_box(&paths), black_box(tx), black_box(config))
+                        .process_songs(
+                            black_box(&paths),
+                            black_box(tx),
+                            black_box(config),
+                            black_box(&env),
+                        )
                         .unwrap();
 
                     // drain the receiver

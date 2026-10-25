@@ -3,13 +3,14 @@
 use std::num::NonZeroUsize;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use mecomp_analysis::embeddings::ModelConfig;
+use mecomp_analysis::embeddings::{ModelConfig, onnx_test_env};
 use mecomp_core::config::AnalysisSettings;
 use mecomp_daemon::{services::library::analyze, termination::InterruptReceiver};
 use mecomp_storage::{
     db::schemas::song::Song,
     test_utils::{arb_song_case, arb_vec, create_song_metadata, init_test_database},
 };
+use std::sync::Arc;
 use tokio::runtime::Runtime;
 
 fn benchmark_analyze(c: &mut Criterion) {
@@ -46,12 +47,21 @@ fn benchmark_analyze(c: &mut Criterion) {
 
                 let config = ModelConfig::default();
 
-                (db.join().unwrap(), config)
+                let env = Arc::new(onnx_test_env());
+
+                (db.join().unwrap(), config, env)
             },
-            async |(db, config)| {
-                analyze(&db, InterruptReceiver::dummy(), false, &settings, config)
-                    .await
-                    .unwrap();
+            async |(db, config, env)| {
+                analyze(
+                    &db,
+                    InterruptReceiver::dummy(),
+                    false,
+                    &settings,
+                    config,
+                    env.clone(),
+                )
+                .await
+                .unwrap();
             },
         );
     });

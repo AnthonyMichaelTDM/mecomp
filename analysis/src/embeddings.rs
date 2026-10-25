@@ -3,12 +3,13 @@
 
 use crate::ResampledAudio;
 use log::warn;
+pub use ort::environment::Environment;
 use ort::{
-    ep::{
-        CPUExecutionProvider, CUDAExecutionProvider, CoreMLExecutionProvider,
-        DirectMLExecutionProvider, ExecutionProvider,
+    ep,
+    session::{
+        Session,
+        builder::{GraphOptimizationLevel, SessionBuilder},
     },
-    session::{Session, builder::GraphOptimizationLevel},
     value::TensorRef,
 };
 use std::path::{Path, PathBuf};
@@ -71,57 +72,63 @@ pub struct ModelConfig {
 /// Struct representing an audio embedding model loaded from an ONNX file.
 #[derive(Debug)]
 pub struct AudioEmbeddingModel {
-    session: ort::session::Session,
+    session: Session,
 }
 
-/// Build a list of execution providers in priority order based on available features/platform.
+/// Register a list of execution providers in priority order based on available features/platform.
 /// Providers are tried in order; if one fails to register, the next is attempted.
 /// CPU is always the final fallback.
-#[allow(clippy::vec_init_then_push)]
-fn build_execution_providers() -> Vec<ort::execution_providers::ExecutionProviderDispatch> {
-    let mut providers = Vec::new();
+///
+/// # Errors
+///
+/// Returns an error if the CPU EP failed to register, ignores other EP registration failures
+fn register_execution_providers(builder: &mut SessionBuilder) -> ort::Result<()> {
+    // #[allow(unused_macros)]
+    // macro_rules! register_ep {
+    //     ($ep:expr, $builder:expr, $name:expr) => {
+    //         if let Err(e) = $ep.build().register($builder) {
+    //             log::error!("Failed to register {} execution provider: {:?}", $name, e);
+    //         } else {
+    //             log::info!("Successfully registered {} execution provider", $name);
+    //         }
+    //     };
+    // }
 
-    let cuda = CUDAExecutionProvider::default();
-    if matches!(cuda.is_available(), Ok(true)) {
-        log::info!("CUDA execution provider available");
-        providers.push(cuda.build());
-    }
-
-    let directml = DirectMLExecutionProvider::default();
-    if matches!(directml.is_available(), Ok(true)) {
-        log::info!("DirectML execution provider available");
-        providers.push(directml.build());
-    }
-
-    let coreml = CoreMLExecutionProvider::default().with_subgraphs(true);
-    if matches!(coreml.is_available(), Ok(true)) {
-        log::info!("CoreML execution provider available");
-        providers.push(coreml.build());
-    }
+    // let ep = ep::WebGPU::default();
+    // register_ep!(ep, builder, "WebGPU");
 
     // CPU is always the final fallback
     // Disable the CPU memory arena to prevent memory accumulation when processing
     // variable-length audio inputs. The arena allocator grows to accommodate the
     // largest input seen but never shrinks, which causes memory to accumulate
     // when processing many songs of varying lengths.
-    providers.push(
-        CPUExecutionProvider::default()
-            .with_arena_allocator(false)
-            .build(),
-    );
+    ep::CPU::default()
+        .with_arena_allocator(false)
+        .build()
+        .register(builder)?;
 
-    providers
+    Ok(())
 }
 
-fn session_builder() -> ort::Result<ort::session::builder::SessionBuilder> {
-    let providers = build_execution_providers();
-
-    let builder = Session::builder()?
-        .with_execution_providers(providers)?
+fn session_builder(environment: &Environment) -> ort::Result<SessionBuilder> {
+    let mut builder = Session::builder(environment)?
         .with_memory_pattern(false)?
+        .with_approximate_gelu()?
         .with_optimization_level(GraphOptimizationLevel::Level3)?;
 
+    // register execution providers
+    register_execution_providers(&mut builder)?;
+
     Ok(builder)
+}
+
+/// Create a new environment to use to spawn sessions.
+/// # Errors
+///
+/// Returns an error if the environment cannot be created for some reason.
+#[inline]
+pub fn default_environment() -> ort::Result<Environment> {
+    ort::init().with_name("AudioEmbeddingModel").build()
 }
 
 impl AudioEmbeddingModel {
@@ -130,8 +137,8 @@ impl AudioEmbeddingModel {
     /// # Errors
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
-    pub fn load_default() -> ort::Result<Self> {
-        let session = session_builder()?.commit_from_memory(MODEL_BYTES)?;
+    pub fn load_default(env: &Environment) -> ort::Result<Self> {
+        let session = session_builder(env)?.commit_from_memory(MODEL_BYTES)?;
 
         Ok(Self { session })
     }
@@ -141,8 +148,8 @@ impl AudioEmbeddingModel {
     /// # Errors
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
-    pub fn load_from_onnx<P: AsRef<Path>>(path: P) -> ort::Result<Self> {
-        let session = session_builder()?.commit_from_file(&path)?;
+    pub fn load_from_onnx<P: AsRef<Path>>(env: &Environment, path: P) -> ort::Result<Self> {
+        let session = session_builder(env)?.commit_from_file(&path)?;
 
         Ok(Self { session })
     }
@@ -155,11 +162,11 @@ impl AudioEmbeddingModel {
     /// # Errors
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
-    pub fn load(config: &ModelConfig) -> ort::Result<Self> {
-        config.path.as_ref().map_or_else(Self::load_default, |path|{
-            Self::load_from_onnx(path).or_else(|e| {
+    pub fn load(env: &Environment, config: &ModelConfig) -> ort::Result<Self> {
+        config.path.as_ref().map_or_else(| | Self::load_default(env), |path|{
+            Self::load_from_onnx(env, path).or_else(|e| {
                 warn!("failed to load embeddings model from specified path: {e}, falling back to default model.");
-                Self::load_default()
+                Self::load_default(env)
             })
         })
     }
@@ -255,29 +262,47 @@ impl AudioEmbeddingModel {
     }
 }
 
+/// Returns a shared ONNX runtime environment for testing.
+///
+/// # Panics
+///
+/// panics if the ONNX runtime environment cannot be initialized.
+#[cfg_attr(test, rstest::fixture)]
+#[allow(clippy::missing_inline_in_public_items)]
+pub fn onnx_test_env() -> Environment {
+    static ENV: std::sync::OnceLock<Environment> = std::sync::OnceLock::new();
+    ENV.get_or_init(|| {
+        crate::embeddings::default_environment().expect("Failed to initialize default environment")
+    })
+    .clone()
+}
+
 #[cfg(test)]
 mod tests {
+    use ort::environment::Environment;
+    use rstest::rstest;
+
     use super::*;
     use crate::decoder::Decoder;
     use crate::decoder::MecompDecoder;
 
     const TEST_AUDIO_PATH: &str = "data/5_mins_of_noise_stereo_48kHz.ogg";
 
-    #[test]
-    fn test_embedding_model() {
+    #[rstest]
+    fn test_embedding_model(onnx_test_env: Environment) {
         let decoder = MecompDecoder::new().unwrap();
         let audio = decoder
             .decode(Path::new(TEST_AUDIO_PATH))
             .expect("Failed to decode test audio");
 
-        let mut model =
-            AudioEmbeddingModel::load_default().expect("Failed to load embedding model");
+        let mut model = AudioEmbeddingModel::load_default(&onnx_test_env)
+            .expect("Failed to load embedding model");
         let embedding = model.embed(&audio).expect("Failed to compute embedding");
         assert_eq!(embedding.len(), DIM_EMBEDDING);
     }
 
-    #[test]
-    fn test_embedding_model_batch() {
+    #[rstest]
+    fn test_embedding_model_batch(onnx_test_env: Environment) {
         let decoder = MecompDecoder::new().unwrap();
         let audio = decoder
             .decode(Path::new(TEST_AUDIO_PATH))
@@ -285,8 +310,8 @@ mod tests {
 
         let audios = vec![audio.clone(); 4];
 
-        let mut model =
-            AudioEmbeddingModel::load_default().expect("Failed to load embedding model");
+        let mut model = AudioEmbeddingModel::load_default(&onnx_test_env)
+            .expect("Failed to load embedding model");
         let embeddings = model
             .embed_batch(&audios)
             .expect("Failed to compute batch embeddings");
@@ -301,8 +326,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_embedding_model_batch_mixed_sizes() {
+    #[rstest]
+    fn test_embedding_model_batch_mixed_sizes(onnx_test_env: Environment) {
         let decoder = MecompDecoder::new().unwrap();
         let audio1 = decoder
             .decode(Path::new(TEST_AUDIO_PATH))
@@ -316,8 +341,8 @@ mod tests {
 
         let audios = vec![audio1.clone(), audio2.clone()];
 
-        let mut model =
-            AudioEmbeddingModel::load_default().expect("Failed to load embedding model");
+        let mut model = AudioEmbeddingModel::load_default(&onnx_test_env)
+            .expect("Failed to load embedding model");
         let embeddings = model
             .embed_batch(&audios)
             .expect("Failed to compute batch embeddings");

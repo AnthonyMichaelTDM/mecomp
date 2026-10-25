@@ -49,11 +49,6 @@ dynamic_updates = ["dep:notify-debouncer-full", "dep:notify"]
 # Enable heap profiling with dhat-rs
 dhat-heap = ["dep:dhat"]
 
-# Hardware acceleration for ONNX model inference (opt-in, requires additional setup)
-cuda = ["mecomp-analysis/cuda"] # NVIDIA CUDA (requires CUDA 12 + cuDNN 9.x)
-tensorrt = [ # NVIDIA TensorRT (requires TensorRT + CUDA)
-    "mecomp-analysis/tensorrt",
-]
 
 [dependencies]
 # shared dependencies

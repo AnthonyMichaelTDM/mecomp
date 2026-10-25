@@ -8,6 +8,7 @@ use std::{
 };
 //--------------------------------------------------------------------------------- other libraries
 use log::{error, info};
+use mecomp_analysis::embeddings::onnx_test_env;
 use persistence::QueueState;
 use surrealdb::{Surreal, engine::local::Db};
 use tokio::net::TcpListener;
@@ -171,6 +172,9 @@ pub async fn start_daemon(
         interrupt_rx.resubscribe(),
     )?;
 
+    // create a onnx environment
+    let env = Arc::new(mecomp_analysis::embeddings::default_environment()?);
+
     // Initialize the server state.
     let state = MusicPlayer::new(
         db.clone(),
@@ -179,6 +183,7 @@ pub async fn start_daemon(
         event_publisher_guard.dispatcher.clone(),
         terminator.clone(),
         interrupt_rx.resubscribe(),
+        env,
     );
 
     // Start the daemon server.
@@ -266,6 +271,8 @@ pub async fn init_test_client_server(
     // initialize the termination handler
     let (terminator, interrupt_rx) = termination::create_termination();
 
+    let env = Arc::new(onnx_test_env());
+
     // Build the service implementation
     let state = MusicPlayer::new(
         db,
@@ -274,6 +281,7 @@ pub async fn init_test_client_server(
         event_publisher.clone(),
         terminator,
         interrupt_rx.resubscribe(),
+        env,
     );
 
     // Bind an ephemeral local port for the in-process server
@@ -458,6 +466,7 @@ mod tests {
         let event_publisher = EventPublisher::new().await;
         let audio_kernel = AudioKernelSender::start(event_publisher.event_tx.clone());
         let (terminator, interrupt_rx) = termination::create_termination();
+        let env = Arc::new(onnx_test_env());
 
         let state = MusicPlayer::new(
             db.clone(),
@@ -466,6 +475,7 @@ mod tests {
             event_publisher.dispatcher.clone(),
             terminator.clone(),
             interrupt_rx.resubscribe(),
+            env.clone(),
         );
         let listener = TcpListener::bind("127.0.0.1:0").await?;
         let local_addr = listener.local_addr()?;
@@ -1492,6 +1502,7 @@ Dynamic Playlist 0,"artist CONTAINS ""Artist 0"""
         let audio_kernel = AudioKernelSender::start(EventPublisher::new().await.event_tx.clone());
         let event_publisher = Arc::new(Sender::new().await?);
         let (terminator, interrupt_rx) = termination::create_termination();
+        let env = Arc::new(onnx_test_env());
 
         let state = MusicPlayer::new(
             db.clone(),
@@ -1500,6 +1511,7 @@ Dynamic Playlist 0,"artist CONTAINS ""Artist 0"""
             event_publisher.clone(),
             terminator.clone(),
             interrupt_rx.resubscribe(),
+            env.clone(),
         );
 
         let listener = TcpListener::bind("127.0.0.1:0").await?;
