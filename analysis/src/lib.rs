@@ -165,7 +165,7 @@ impl std::fmt::Debug for Analysis {
             debug_struct.field(&format!("{feature:?}"), &self[feature]);
         }
         debug_struct.finish()?;
-        f.write_str(&format!(" /* {:?} */", &self.as_vec()))
+        f.write_str(&format!(" /* {:?} */", self.inner()))
     }
 }
 
@@ -204,16 +204,6 @@ impl Analysis {
     #[inline]
     pub const fn inner(&self) -> &[Feature; NUMBER_FEATURES] {
         &self.internal_analysis
-    }
-
-    /// Return a `Vec<f32>` representing the analysis' features.
-    ///
-    /// Particularly useful if you want iterate through the values to store
-    /// them somewhere.
-    #[must_use]
-    #[inline]
-    pub fn as_vec(&self) -> Vec<Feature> {
-        self.internal_analysis.to_vec()
     }
 
     /// Create an `Analysis` object from a `ResampledAudio`.

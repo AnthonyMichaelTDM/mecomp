@@ -35,7 +35,7 @@ fn bench_decoder_steps_symphonia_source(c: &mut Criterion) {
                         MediaSourceStream::new(file, MediaSourceStreamOptions::default())
                     },
                     |mss| {
-                        let source = SymphoniaSource::new(mss).unwrap();
+                        let source = SymphoniaSource::new(mss, false).unwrap();
                         black_box(source.into_iter().collect::<Vec<f32>>());
                     },
                 );
@@ -67,10 +67,13 @@ fn bench_decoder_steps_downmix(c: &mut Criterion) {
             BenchmarkId::from_parameter(file),
             &path.join(file),
             |b, path| {
-                let source = SymphoniaSource::new(MediaSourceStream::new(
-                    Box::new(File::open(path).unwrap()),
-                    MediaSourceStreamOptions::default(),
-                ))
+                let source = SymphoniaSource::new(
+                    MediaSourceStream::new(
+                        Box::new(File::open(path).unwrap()),
+                        MediaSourceStreamOptions::default(),
+                    ),
+                    false,
+                )
                 .unwrap();
                 let channels = source.channels();
                 let samples: Vec<f32> = source.collect();
@@ -110,10 +113,13 @@ fn bench_decoder_steps_resample(c: &mut Criterion) {
             BenchmarkId::from_parameter(file),
             &path.join(file),
             |b, path| {
-                let source = SymphoniaSource::new(MediaSourceStream::new(
-                    Box::new(File::open(path).unwrap()),
-                    MediaSourceStreamOptions::default(),
-                ))
+                let source = SymphoniaSource::new(
+                    MediaSourceStream::new(
+                        Box::new(File::open(path).unwrap()),
+                        MediaSourceStreamOptions::default(),
+                    ),
+                    false,
+                )
                 .unwrap();
                 let sample_rate = source.sample_rate();
                 let channels = source.channels();

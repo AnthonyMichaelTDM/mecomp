@@ -12,7 +12,7 @@ fn bench_different_downmixing_techniques(c: &mut Criterion) {
     let file = File::open(path).unwrap();
     let mss = MediaSourceStream::new(Box::new(file), MediaSourceStreamOptions::default());
 
-    let source = SymphoniaSource::new(mss).unwrap();
+    let source = SymphoniaSource::new(mss, false).unwrap();
     let num_channels = source.channels();
     let total_duration = source.total_duration().unwrap();
     let sample_rate = source.sample_rate();
@@ -164,7 +164,7 @@ fn bench_different_resampling_techniques(c: &mut Criterion) {
         Box::new(File::open(&path).unwrap()),
         MediaSourceStreamOptions::default(),
     );
-    let source = SymphoniaSource::new(mss).unwrap();
+    let source = SymphoniaSource::new(mss, false).unwrap();
     let sample_rate = source.sample_rate();
     let channels = source.channels();
     assert!(sample_rate == 44100);
