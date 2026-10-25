@@ -7,7 +7,6 @@ pub trait Table {
 
     fn migrations() -> Vec<M<'static>>;
 
-    #[must_use]
     fn init_table<C: Connection>(
         db: &Surreal<C>,
     ) -> impl std::future::Future<Output = Result<()>> + Send {

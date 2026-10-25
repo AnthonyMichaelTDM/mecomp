@@ -241,8 +241,7 @@ impl Iterator for SymphoniaSource {
             } else {
                 (dur.as_secs() + 1) * u64::from(self.sample_rate) * self.channels as u64
             })
-            .map(|n| n.saturating_sub(self.items_yielded))
-            .unwrap_or(usize::MAX)
+            .map_or(usize::MAX, |n| n.saturating_sub(self.items_yielded))
         });
 
         (self.output.len() - self.current_offset, upper)
@@ -374,7 +373,7 @@ impl MecompDecoder {
                 }
 
                 // process the remainder
-                for (i, chunk) in src_remainder.chunks_exact(2).enumerate() {
+                for (i, chunk) in src_remainder.as_chunks::<2>().0.iter().enumerate() {
                     dest_remainder[i] = (chunk[0] + chunk[1]) * scale;
                 }
 
@@ -431,8 +430,7 @@ impl MecompDecoder {
         let mut output_buffer = resampler.output_buffer_allocate(true);
 
         // chunks of frames, each being CHUNKSIZE long.
-        let sample_chunks = samples.chunks_exact(CHUNK_SIZE);
-        let remainder = sample_chunks.remainder();
+        let (sample_chunks, remainder) = samples.as_chunks::<CHUNK_SIZE>();
 
         for chunk in sample_chunks {
             debug_assert_eq!(resampler.input_frames_next(), CHUNK_SIZE);

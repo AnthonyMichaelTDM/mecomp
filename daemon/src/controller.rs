@@ -1070,7 +1070,7 @@ impl MusicPlayerTrait for MusicPlayer {
         request: Request<PlaybackVolumeSetRequest>,
     ) -> TonicResult<()> {
         let PlaybackVolumeSetRequest { volume } = request.into_inner();
-        info!("Setting volume to: {volume}",);
+        info!("Setting volume to: {volume}");
         self.audio_kernel
             .send(AudioCommand::Volume(VolumeCommand::Set(volume)));
         Ok(Response::new(()))
@@ -1082,7 +1082,7 @@ impl MusicPlayerTrait for MusicPlayer {
         request: Request<PlaybackVolumeAdjustRequest>,
     ) -> TonicResult<()> {
         let PlaybackVolumeAdjustRequest { amount } = request.into_inner();
-        info!("Increasing volume by: {amount}",);
+        info!("Increasing volume by: {amount}");
         self.audio_kernel
             .send(AudioCommand::Volume(VolumeCommand::Up(amount)));
         Ok(Response::new(()))
@@ -1094,7 +1094,7 @@ impl MusicPlayerTrait for MusicPlayer {
         request: Request<PlaybackVolumeAdjustRequest>,
     ) -> TonicResult<()> {
         let PlaybackVolumeAdjustRequest { amount } = request.into_inner();
-        info!("Decreasing volume by: {amount}",);
+        info!("Decreasing volume by: {amount}");
         self.audio_kernel
             .send(AudioCommand::Volume(VolumeCommand::Down(amount)));
         Ok(Response::new(()))

@@ -2,7 +2,7 @@
 //!
 //! [org.mpris.MediaPlayer2.Player](https://specifications.freedesktop.org/mpris-spec/latest/Player_Interface.html)
 
-use std::{path::PathBuf, str::FromStr, time::Duration};
+use std::{future::ready, path::PathBuf, str::FromStr, time::Duration};
 
 use futures::executor::block_on;
 use mecomp_core::state::{RepeatMode, SeekType, Status};
@@ -15,6 +15,7 @@ use mpris_server::{
 use crate::{Mpris, interfaces::root::SUPPORTED_MIME_TYPES, metadata_from_opt_song};
 
 impl PlayerInterface for Mpris {
+    #[allow(clippy::unused_async_trait_impl)]
     async fn next(&self) -> fdo::Result<()> {
         block_on(
             self.daemon
@@ -25,6 +26,7 @@ impl PlayerInterface for Mpris {
         Ok(())
     }
 
+    #[allow(clippy::unused_async_trait_impl)]
     async fn previous(&self) -> fdo::Result<()> {
         block_on(
             self.daemon
@@ -35,6 +37,7 @@ impl PlayerInterface for Mpris {
         Ok(())
     }
 
+    #[allow(clippy::unused_async_trait_impl)]
     async fn pause(&self) -> fdo::Result<()> {
         block_on(self.daemon.clone().playback_pause(()))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
@@ -42,24 +45,28 @@ impl PlayerInterface for Mpris {
         Ok(())
     }
 
+    #[allow(clippy::unused_async_trait_impl)]
     async fn play_pause(&self) -> fdo::Result<()> {
         block_on(self.daemon.clone().playback_toggle(()))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
+    #[allow(clippy::unused_async_trait_impl)]
     async fn stop(&self) -> fdo::Result<()> {
         block_on(self.daemon.clone().playback_stop(()))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
+    #[allow(clippy::unused_async_trait_impl)]
     async fn play(&self) -> fdo::Result<()> {
         block_on(self.daemon.clone().playback_play(()))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
+    #[allow(clippy::unused_async_trait_impl)]
     async fn open_uri(&self, uri: String) -> fdo::Result<()> {
         // the uri should be in the format:
         // file:///path/to/file
@@ -153,6 +160,7 @@ impl PlayerInterface for Mpris {
         }
     }
 
+    #[allow(clippy::unused_async_trait_impl)]
     async fn set_loop_status(&self, loop_status: LoopStatus) -> Result<(), ZbusError> {
         let repeat_mode = match loop_status {
             LoopStatus::None => RepeatMode::None,
@@ -167,21 +175,22 @@ impl PlayerInterface for Mpris {
         Ok(())
     }
 
-    async fn rate(&self) -> fdo::Result<PlaybackRate> {
-        Ok(1.0)
+    fn rate(&self) -> impl Future<Output = fdo::Result<PlaybackRate>> {
+        ready(Ok(1.0))
     }
 
-    async fn set_rate(&self, _: PlaybackRate) -> Result<(), ZbusError> {
-        Ok(())
+    fn set_rate(&self, _: PlaybackRate) -> impl Future<Output = Result<(), ZbusError>> {
+        ready(Ok(()))
     }
 
-    async fn shuffle(&self) -> fdo::Result<bool> {
+    fn shuffle(&self) -> impl Future<Output = fdo::Result<bool>> {
         // Mecomp has no distinction between shuffle and non-shuffle playback
         // shuffling is done by actually shuffling the queue and is not reversible
         // therefore, we always return true
-        Ok(true)
+        ready(Ok(true))
     }
 
+    #[allow(clippy::unused_async_trait_impl)]
     async fn set_shuffle(&self, shuffle: bool) -> Result<(), ZbusError> {
         // if called with false, does nothing, if called with true, shuffles the queue
         if shuffle {
@@ -208,6 +217,7 @@ impl PlayerInterface for Mpris {
         }
     }
 
+    #[allow(clippy::unused_async_trait_impl)]
     async fn set_volume(&self, volume: Volume) -> Result<(), ZbusError> {
         let mut daemon = self.daemon.clone();
         #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
@@ -228,6 +238,7 @@ impl PlayerInterface for Mpris {
         )
     }
 
+    #[allow(clippy::unused_async_trait_impl)]
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
         //TODO: if the value passed in would mean seeking beyond the end of the track, act like a call to Next
         let seek_type = if offset.as_micros() > 0 {
@@ -268,36 +279,36 @@ impl PlayerInterface for Mpris {
         Ok(())
     }
 
-    async fn minimum_rate(&self) -> fdo::Result<PlaybackRate> {
-        Ok(1.0)
+    fn minimum_rate(&self) -> impl Future<Output = fdo::Result<PlaybackRate>> {
+        ready(Ok(1.0))
     }
 
-    async fn maximum_rate(&self) -> fdo::Result<PlaybackRate> {
-        Ok(1.0)
+    fn maximum_rate(&self) -> impl Future<Output = fdo::Result<PlaybackRate>> {
+        ready(Ok(1.0))
     }
 
-    async fn can_go_next(&self) -> fdo::Result<bool> {
-        Ok(true)
+    fn can_go_next(&self) -> impl Future<Output = fdo::Result<bool>> {
+        ready(Ok(true))
     }
 
-    async fn can_go_previous(&self) -> fdo::Result<bool> {
-        Ok(true)
+    fn can_go_previous(&self) -> impl Future<Output = fdo::Result<bool>> {
+        ready(Ok(true))
     }
 
-    async fn can_play(&self) -> fdo::Result<bool> {
-        Ok(true)
+    fn can_play(&self) -> impl Future<Output = fdo::Result<bool>> {
+        ready(Ok(true))
     }
 
-    async fn can_pause(&self) -> fdo::Result<bool> {
-        Ok(true)
+    fn can_pause(&self) -> impl Future<Output = fdo::Result<bool>> {
+        ready(Ok(true))
     }
 
-    async fn can_seek(&self) -> fdo::Result<bool> {
-        Ok(true)
+    fn can_seek(&self) -> impl Future<Output = fdo::Result<bool>> {
+        ready(Ok(true))
     }
 
-    async fn can_control(&self) -> fdo::Result<bool> {
-        Ok(true)
+    fn can_control(&self) -> impl Future<Output = fdo::Result<bool>> {
+        ready(Ok(true))
     }
 }
 

@@ -310,7 +310,7 @@ impl Compile for Clause {
 impl Compile for CompoundClause {
     #[inline]
     fn compile(&self, context: Context) -> String {
-        debug_assert!(!self.clauses.is_empty());
+        debug_assert_ne!(self.clauses, [] as [Clause; 0]);
         debug_assert_eq!(self.clauses.len(), 2);
 
         let operator = self.kind.operator();

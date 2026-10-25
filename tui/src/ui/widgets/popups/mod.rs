@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-pub trait Popup: for<'a> ComponentRender<Rect> + Send {
+pub trait Popup: ComponentRender<Rect> + Send {
     fn title(&self) -> Line<'_>;
     fn instructions(&self) -> Line<'_>;
     /// The area needed for the popup to render.

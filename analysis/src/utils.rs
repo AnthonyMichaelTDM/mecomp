@@ -121,7 +121,7 @@ pub fn geometric_mean(input: &[f32]) -> f32 {
 
     let mut exponents: i32 = 0;
     let mut mantissas: f64 = 1.;
-    for ch in input.chunks_exact(8) {
+    for ch in input.as_chunks::<8>().0 {
         let mut m = (f64::from(ch[0]) * f64::from(ch[1])) * (f64::from(ch[2]) * f64::from(ch[3]));
         m *= 3.273_390_607_896_142e150; // 2^500 : avoid underflows and denormals
         m *= (f64::from(ch[4]) * f64::from(ch[5])) * (f64::from(ch[6]) * f64::from(ch[7]));

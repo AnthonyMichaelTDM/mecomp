@@ -2,6 +2,8 @@
 //!
 //! [org.mpris.MediaPlayer2](https://specifications.freedesktop.org/mpris-spec/latest/Media_Player.html)
 
+use std::future::ready;
+
 use futures::executor::block_on;
 use mpris_server::{
     RootInterface,
@@ -13,60 +15,63 @@ use crate::Mpris;
 pub const SUPPORTED_MIME_TYPES: [&str; 4] = ["audio/mp3", "audio/wav", "audio/ogg", "audio/flac"];
 
 impl RootInterface for Mpris {
-    async fn raise(&self) -> fdo::Result<()> {
-        Ok(())
+    fn raise(&self) -> impl Future<Output = fdo::Result<()>> {
+        ready(Ok(()))
     }
 
+    #[allow(clippy::unused_async_trait_impl)]
     async fn quit(&self) -> fdo::Result<()> {
         block_on(self.daemon.clone().daemon_shutdown(()))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
-    async fn can_quit(&self) -> fdo::Result<bool> {
-        Ok(true)
+    fn can_quit(&self) -> impl Future<Output = fdo::Result<bool>> {
+        ready(Ok(true))
     }
 
-    async fn fullscreen(&self) -> fdo::Result<bool> {
-        Ok(false)
+    fn fullscreen(&self) -> impl Future<Output = fdo::Result<bool>> {
+        ready(Ok(false))
     }
 
-    async fn set_fullscreen(&self, _: bool) -> Result<(), ZbusError> {
-        Err(ZbusError::Unsupported)
+    fn set_fullscreen(&self, _: bool) -> impl Future<Output = Result<(), ZbusError>> {
+        ready(Err(ZbusError::Unsupported))
     }
 
-    async fn can_set_fullscreen(&self) -> fdo::Result<bool> {
-        Ok(false)
+    fn can_set_fullscreen(&self) -> impl Future<Output = fdo::Result<bool>> {
+        ready(Ok(false))
     }
 
-    async fn can_raise(&self) -> fdo::Result<bool> {
+    fn can_raise(&self) -> impl Future<Output = fdo::Result<bool>> {
         // TODO: Maybe in the future we can implement raising the player by starting the GUI.
-        Ok(false)
+        ready(Ok(false))
     }
 
-    async fn has_track_list(&self) -> fdo::Result<bool> {
+    fn has_track_list(&self) -> impl Future<Output = fdo::Result<bool>> {
         // TODO: when we implement the track list interface, we should return true here.
-        Ok(false)
+        ready(Ok(false))
     }
 
-    async fn identity(&self) -> fdo::Result<String> {
-        Ok("MECOMP Music Player".to_string())
+    fn identity(&self) -> impl Future<Output = fdo::Result<String>> {
+        ready(Ok("MECOMP Music Player".to_string()))
     }
 
-    async fn desktop_entry(&self) -> fdo::Result<String> {
+    fn desktop_entry(&self) -> impl Future<Output = fdo::Result<String>> {
         // TODO: bundle a desktop entry with the application so we can support this
-        Err(fdo::Error::Failed("Desktop entry not found".to_string()))
+        ready(Err(fdo::Error::Failed(
+            "Desktop entry not found".to_string(),
+        )))
     }
 
-    async fn supported_uri_schemes(&self) -> fdo::Result<Vec<String>> {
-        Ok(vec!["file".to_string()])
+    fn supported_uri_schemes(&self) -> impl Future<Output = fdo::Result<Vec<String>>> {
+        ready(Ok(vec!["file".to_string()]))
     }
 
-    async fn supported_mime_types(&self) -> fdo::Result<Vec<String>> {
-        Ok(SUPPORTED_MIME_TYPES
+    fn supported_mime_types(&self) -> impl Future<Output = fdo::Result<Vec<String>>> {
+        ready(Ok(SUPPORTED_MIME_TYPES
             .iter()
             .map(ToString::to_string)
-            .collect())
+            .collect()))
     }
 }
 

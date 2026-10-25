@@ -574,33 +574,29 @@ impl CommandHandler for VolumeCommand {
                     .playback_volume(PlaybackVolumeSetRequest::new(*volume / 100.0))
                     .await?;
                 writeln!(stdout, "Daemon response:\nvolume set to {volume}")?;
-                Ok(())
             }
             Self::Increase { amount } => {
                 client
                     .playback_volume_up(PlaybackVolumeAdjustRequest::new(*amount / 100.0))
                     .await?;
                 writeln!(stdout, "Daemon response:\nvolume increased by {amount}")?;
-                Ok(())
             }
             Self::Decrease { amount } => {
                 client
                     .playback_volume_down(PlaybackVolumeAdjustRequest::new(*amount / 100.0))
                     .await?;
                 writeln!(stdout, "Daemon response:\nvolume decreased by {amount}")?;
-                Ok(())
             }
             Self::Mute => {
                 client.playback_mute(()).await?;
                 writeln!(stdout, "Daemon response:\nvolume muted")?;
-                Ok(())
             }
             Self::Unmute => {
                 client.playback_unmute(()).await?;
                 writeln!(stdout, "Daemon response:\nvolume unmuted")?;
-                Ok(())
             }
         }
+        Ok(())
     }
 }
 
@@ -931,7 +927,6 @@ impl CommandHandler for super::DynamicCommand {
                     "Daemon response:\n{}",
                     printing::dynamic_playlist_list("Dynamic Playlists", resp)?
                 )?;
-                Ok(())
             }
             Self::Get { id } => {
                 let resp: Option<DynamicPlaylist> = client
@@ -940,7 +935,6 @@ impl CommandHandler for super::DynamicCommand {
                     .into_inner()
                     .playlist;
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
-                Ok(())
             }
             Self::Songs { id } => {
                 match client
@@ -960,7 +954,6 @@ impl CommandHandler for super::DynamicCommand {
                     }
                     Err(e) => bail!(e),
                 }
-                Ok(())
             }
             Self::Create { name, query } => {
                 let resp: RecordId = client
@@ -971,12 +964,10 @@ impl CommandHandler for super::DynamicCommand {
                     .await?
                     .into_inner();
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
-                Ok(())
             }
             Self::Delete { id } => {
                 client.dynamic_playlist_remove(Ulid::new(id)).await?;
                 writeln!(stdout, "Daemon response:\nDynamic playlist deleted")?;
-                Ok(())
             }
             Self::Update { id, update } => {
                 let mut changes = DynamicPlaylistChangeSet::new();
@@ -999,11 +990,9 @@ impl CommandHandler for super::DynamicCommand {
                 } else {
                     writeln!(stdout, "Daemon response:\ndynamic playlist not found")?;
                 }
-                Ok(())
             }
             Self::ShowBNF => {
                 writeln!(stdout, "{BNF_GRAMMAR}")?;
-                Ok(())
             }
             Self::Export { path } => {
                 // `canonicalize` fails if the path doesn't already exist, which is an expected situation.
@@ -1028,7 +1017,6 @@ impl CommandHandler for super::DynamicCommand {
                     "Daemon response:\nDynamic playlists exported to {}",
                     path.display()
                 )?;
-                Ok(())
             }
             Self::Import { path } => {
                 // `canonicalize` fails if the path doesn't already exist, which in this case is an error.
@@ -1045,9 +1033,9 @@ impl CommandHandler for super::DynamicCommand {
                     "Daemon response:\n{}",
                     printing::dynamic_playlist_list("Dynamic Playlists", resp)?
                 )?;
-                Ok(())
             }
         }
+        Ok(())
     }
 }
 
@@ -1073,7 +1061,6 @@ impl CommandHandler for super::CollectionCommand {
                     "Daemon response:\n{}",
                     printing::collection_list("Collections", resp)?
                 )?;
-                Ok(())
             }
             Self::Get { id } => {
                 let resp = client
@@ -1082,7 +1069,6 @@ impl CommandHandler for super::CollectionCommand {
                     .into_inner()
                     .collection;
                 writeln!(stdout, "Daemon response:\n{resp:?}")?;
-                Ok(())
             }
             Self::Songs { id } => {
                 match client
@@ -1102,7 +1088,6 @@ impl CommandHandler for super::CollectionCommand {
                     }
                     Err(e) => bail!(e),
                 }
-                Ok(())
             }
             Self::Recluster => {
                 let resp = client
@@ -1111,7 +1096,6 @@ impl CommandHandler for super::CollectionCommand {
                     .map(|()| "reclustering started")
                     .into_inner();
                 writeln!(stdout, "Daemon response:\n{resp:?}")?;
-                Ok(())
             }
             Self::Freeze { id, name } => {
                 let resp: RecordId = client
@@ -1119,9 +1103,9 @@ impl CommandHandler for super::CollectionCommand {
                     .await?
                     .into_inner();
                 writeln!(stdout, "Daemon response:\n{resp}")?;
-                Ok(())
             }
         }
+        Ok(())
     }
 }
 

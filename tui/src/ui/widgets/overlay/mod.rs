@@ -15,7 +15,7 @@ use crate::{
     ui::{AppState, components::ComponentRender},
 };
 
-pub trait Overlay: for<'a> ComponentRender<Rect> + Send {
+pub trait Overlay: ComponentRender<Rect> + Send {
     /// The area needed for the overlay to render.
     fn area(&self, terminal_area: Rect) -> Rect;
 

@@ -27,7 +27,7 @@ impl Count {
         let result: Option<Self> = db.query(count()).bind(("table", table)).await?.take(0)?;
         Ok(result.map_or_else(
             || {
-                log::warn!("When counting entries in table {table}, no count was returned",);
+                log::warn!("When counting entries in table {table}, no count was returned");
                 0
             },
             |c| c.count,

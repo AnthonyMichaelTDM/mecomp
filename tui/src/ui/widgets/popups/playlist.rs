@@ -173,23 +173,21 @@ impl Popup for PlaylistSelector {
                 }
                 // Enter key adds the items to the selected playlist
                 // and closes the popup
-                KeyCode::Enter => {
-                    if self.tree_state.toggle_selected() {
-                        let things = self.tree_state.get_selected_thing();
+                KeyCode::Enter if self.tree_state.toggle_selected() => {
+                    let things = self.tree_state.get_selected_thing();
 
-                        if let Some(thing) = things {
-                            // add the items to the selected playlist
-                            self.action_tx
-                                .send(Action::Library(LibraryAction::AddThingsToPlaylist(
-                                    thing,
-                                    self.items.clone(),
-                                )))
-                                .unwrap();
-                            // close the popup
-                            self.action_tx
-                                .send(Action::Popup(PopupAction::Close))
-                                .unwrap();
-                        }
+                    if let Some(thing) = things {
+                        // add the items to the selected playlist
+                        self.action_tx
+                            .send(Action::Library(LibraryAction::AddThingsToPlaylist(
+                                thing,
+                                self.items.clone(),
+                            )))
+                            .unwrap();
+                        // close the popup
+                        self.action_tx
+                            .send(Action::Popup(PopupAction::Close))
+                            .unwrap();
                     }
                 }
                 _ => {}

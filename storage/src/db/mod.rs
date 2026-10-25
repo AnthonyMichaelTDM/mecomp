@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 #[cfg(feature = "db")]
 pub mod crud;
 #[cfg(feature = "db")]
