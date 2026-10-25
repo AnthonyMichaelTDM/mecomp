@@ -2,7 +2,7 @@
 use std::{fs::File, path::PathBuf, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use log::{debug, error, info, warn};
-use mecomp_analysis::embeddings::ModelConfig;
+use mecomp_analysis::embeddings::{Environment, ModelConfig};
 use surrealdb::{Surreal, engine::local::Db};
 use tokio::sync::Mutex;
 use tonic::{Code, Request, Response};
@@ -64,6 +64,7 @@ pub struct MusicPlayer {
     publisher: Arc<Sender<Message>>,
     terminator: Arc<Mutex<Terminator>>,
     interrupt: Arc<termination::InterruptReceiver>,
+    onnx_runtime_environment: Arc<Environment>,
 }
 
 impl MusicPlayer {
@@ -76,6 +77,7 @@ impl MusicPlayer {
         event_publisher: Arc<Sender<Message>>,
         terminator: Terminator,
         interrupt: termination::InterruptReceiver,
+        onnx_runtime_environment: Arc<Environment>,
     ) -> Self {
         Self {
             db,
@@ -87,6 +89,7 @@ impl MusicPlayer {
             collection_recluster_lock: Arc::new(Mutex::new(())),
             terminator: Arc::new(Mutex::new(terminator)),
             interrupt: Arc::new(interrupt),
+            onnx_runtime_environment,
         }
     }
 
@@ -232,6 +235,7 @@ impl MusicPlayerTrait for MusicPlayer {
                     overwrite,
                     &self.settings.analysis,
                     config,
+                    self.onnx_runtime_environment.clone(),
                 )
                 .await
                 {
@@ -1731,6 +1735,7 @@ mod tests {
     use super::*;
     use std::sync::Arc;
 
+    use mecomp_analysis::embeddings::onnx_test_env;
     use mecomp_core::udp::Sender;
     use mecomp_storage::test_utils::init_test_database;
     use tonic::Code;
@@ -1743,6 +1748,8 @@ mod tests {
         let audio_kernel = AudioKernelSender::start(state_change_publisher);
         let (terminator, interrupt) = termination::create_termination();
 
+        let onnx_runtime_environment = onnx_test_env();
+
         MusicPlayer::new(
             db,
             settings,
@@ -1750,6 +1757,7 @@ mod tests {
             message_publisher,
             terminator,
             interrupt,
+            Arc::new(onnx_runtime_environment.clone()),
         )
     }
 

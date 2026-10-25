@@ -9,7 +9,7 @@ use log::{debug, error, info, warn};
 use mecomp_analysis::{
     clustering::{ClusteringHelper, KOptimal},
     decoder::{Decoder, MecompDecoder},
-    embeddings::ModelConfig,
+    embeddings::{Environment, ModelConfig},
 };
 use mecomp_core::config::{AnalysisKind, AnalysisSettings, ReclusterSettings};
 use mecomp_prost::{LibraryBrief, LibraryFull, LibraryHealth};
@@ -292,6 +292,7 @@ pub async fn analyze<C: Connection>(
     overwrite: bool,
     settings: &AnalysisSettings,
     config: ModelConfig,
+    environment: std::sync::Arc<Environment>,
 ) -> Result<(), Error> {
     if overwrite {
         // delete all the analyses
@@ -330,9 +331,9 @@ pub async fn analyze<C: Connection>(
     let num_threads = settings.num_threads;
     let handle = tokio::task::spawn_blocking(move || {
         if let Some(num) = num_threads {
-            decoder.process_songs_with_cores(&keys, tx, num, config.clone())
+            decoder.process_songs_with_cores(&keys, tx, num, config.clone(), &environment)
         } else {
-            decoder.process_songs(&keys, tx, config.clone())
+            decoder.process_songs(&keys, tx, config.clone(), &environment)
         }
     });
     let abort = handle.abort_handle();
@@ -673,6 +674,7 @@ mod tests {
     use super::*;
     use crate::test_utils::init;
 
+    use mecomp_analysis::embeddings::onnx_test_env;
     use mecomp_core::config::{ClusterAlgorithm, ProjectionMethod};
     use mecomp_storage::db::schemas::song::{SongChangeSet, SongMetadata};
     use mecomp_storage::test_utils::{
@@ -935,6 +937,7 @@ mod tests {
         let db = init_test_database().await.unwrap();
         let interrupt = InterruptReceiver::dummy();
         let config = mecomp_analysis::embeddings::ModelConfig::default();
+        let env = std::sync::Arc::new(onnx_test_env());
         let settings = AnalysisSettings::default();
 
         // load some songs into the database
@@ -962,7 +965,7 @@ mod tests {
         );
 
         // analyze the library
-        analyze(&db, interrupt, true, &settings, config)
+        analyze(&db, interrupt, true, &settings, config, env)
             .await
             .unwrap();
 

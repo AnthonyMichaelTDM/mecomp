@@ -10,6 +10,7 @@ use std::{
 };
 
 use log::{debug, error, trace};
+use ort::environment::Environment;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
@@ -195,6 +196,7 @@ pub trait Decoder {
         callback: ProcessingCallback,
         number_cores: NonZeroUsize,
         model_config: crate::embeddings::ModelConfig,
+        environment: &Environment,
     ) -> AnalysisResult<()>
     where
         Self: Sync + Send,
@@ -208,8 +210,6 @@ pub trait Decoder {
             return Ok(());
         }
 
-        // one environment is reused to spawn individual sessions for each thread.
-        let environment = AudioEmbeddingModel::default_environment();
         thread_local! {
             /// Thread-local storage for the audio embedding model.
             /// ORT models are both expensive to load, and can't be evaluated concurrently across threads without separate instances,
@@ -261,7 +261,7 @@ pub trait Decoder {
                             if model_ref.is_none() {
                                 debug!("Loading model in thread {thread_name}");
                                 *model_ref =
-                                    Some(AudioEmbeddingModel::load(&environment, &model_config)?);
+                                    Some(AudioEmbeddingModel::load(environment, &model_config)?);
                             }
                             let model = model_ref.as_mut().unwrap();
                             model.embed(&audio).map_err(AnalysisError::from)
@@ -303,11 +303,12 @@ pub trait Decoder {
         paths: &[PathBuf],
         callback: ProcessingCallback,
         model_config: crate::embeddings::ModelConfig,
+        environment: &Environment,
     ) -> AnalysisResult<()>
     where
         Self: Sync + Send,
     {
         let cores = thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
-        self.process_songs_with_cores(paths, callback, cores, model_config)
+        self.process_songs_with_cores(paths, callback, cores, model_config, environment)
     }
 }

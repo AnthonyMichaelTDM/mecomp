@@ -3,8 +3,8 @@
 
 use crate::ResampledAudio;
 use log::warn;
+pub use ort::environment::Environment;
 use ort::{
-    environment::Environment,
     ep,
     session::{
         Session,
@@ -122,23 +122,16 @@ fn session_builder(environment: &Environment) -> ort::Result<SessionBuilder> {
     Ok(builder)
 }
 
-impl AudioEmbeddingModel {
-    /// Create a new environment to use to spawn sessions.
-    /// # Panics
-    ///
-    /// Panics if the environment cannot be created for some reason.
-    #[inline]
-    pub fn default_environment() -> Environment {
-        static ENV: std::sync::OnceLock<Environment> = std::sync::OnceLock::new();
-        ENV.get_or_init(|| {
-            ort::init()
-                .with_name("AudioEmbeddingModel")
-                .build()
-                .expect("Failed to initialize environment")
-        });
-        ENV.get().unwrap().clone()
-    }
+/// Create a new environment to use to spawn sessions.
+/// # Errors
+///
+/// Returns an error if the environment cannot be created for some reason.
+#[inline]
+pub fn default_environment() -> ort::Result<Environment> {
+    ort::init().with_name("AudioEmbeddingModel").build()
+}
 
+impl AudioEmbeddingModel {
     /// Load the default audio embedding model included in the package.
     ///
     /// # Errors
@@ -269,8 +262,24 @@ impl AudioEmbeddingModel {
     }
 }
 
+/// Returns a shared ONNX runtime environment for testing.
+///
+/// # Panics
+///
+/// panics if the ONNX runtime environment cannot be initialized.
+#[cfg_attr(test, rstest::fixture)]
+#[allow(clippy::missing_inline_in_public_items)]
+pub fn onnx_test_env() -> Environment {
+    static ENV: std::sync::OnceLock<Environment> = std::sync::OnceLock::new();
+    ENV.get_or_init(|| {
+        crate::embeddings::default_environment().expect("Failed to initialize default environment")
+    })
+    .clone()
+}
+
 #[cfg(test)]
 mod tests {
+    use ort::environment::Environment;
     use rstest::rstest;
 
     use super::*;
@@ -279,26 +288,21 @@ mod tests {
 
     const TEST_AUDIO_PATH: &str = "data/5_mins_of_noise_stereo_48kHz.ogg";
 
-    #[rstest::fixture]
-    fn env() -> ort::environment::Environment {
-        AudioEmbeddingModel::default_environment()
-    }
-
     #[rstest]
-    fn test_embedding_model(env: ort::environment::Environment) {
+    fn test_embedding_model(onnx_test_env: Environment) {
         let decoder = MecompDecoder::new().unwrap();
         let audio = decoder
             .decode(Path::new(TEST_AUDIO_PATH))
             .expect("Failed to decode test audio");
 
-        let mut model =
-            AudioEmbeddingModel::load_default(&env).expect("Failed to load embedding model");
+        let mut model = AudioEmbeddingModel::load_default(&onnx_test_env)
+            .expect("Failed to load embedding model");
         let embedding = model.embed(&audio).expect("Failed to compute embedding");
         assert_eq!(embedding.len(), DIM_EMBEDDING);
     }
 
     #[rstest]
-    fn test_embedding_model_batch(env: ort::environment::Environment) {
+    fn test_embedding_model_batch(onnx_test_env: Environment) {
         let decoder = MecompDecoder::new().unwrap();
         let audio = decoder
             .decode(Path::new(TEST_AUDIO_PATH))
@@ -306,8 +310,8 @@ mod tests {
 
         let audios = vec![audio.clone(); 4];
 
-        let mut model =
-            AudioEmbeddingModel::load_default(&env).expect("Failed to load embedding model");
+        let mut model = AudioEmbeddingModel::load_default(&onnx_test_env)
+            .expect("Failed to load embedding model");
         let embeddings = model
             .embed_batch(&audios)
             .expect("Failed to compute batch embeddings");
@@ -323,7 +327,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_embedding_model_batch_mixed_sizes(env: ort::environment::Environment) {
+    fn test_embedding_model_batch_mixed_sizes(onnx_test_env: Environment) {
         let decoder = MecompDecoder::new().unwrap();
         let audio1 = decoder
             .decode(Path::new(TEST_AUDIO_PATH))
@@ -337,8 +341,8 @@ mod tests {
 
         let audios = vec![audio1.clone(), audio2.clone()];
 
-        let mut model =
-            AudioEmbeddingModel::load_default(&env).expect("Failed to load embedding model");
+        let mut model = AudioEmbeddingModel::load_default(&onnx_test_env)
+            .expect("Failed to load embedding model");
         let embeddings = model
             .embed_batch(&audios)
             .expect("Failed to compute batch embeddings");

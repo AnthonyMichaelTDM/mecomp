@@ -383,7 +383,10 @@ impl Decoder for MecompDecoder {
 
 #[cfg(test)]
 mod tests {
-    use crate::{NUMBER_FEATURES, embeddings::ModelConfig};
+    use crate::{
+        NUMBER_FEATURES,
+        embeddings::{ModelConfig, onnx_test_env},
+    };
 
     use super::{Decoder as DecoderTrait, MecompDecoder as Decoder};
     use adler32::RollingAdler32;
@@ -613,11 +616,12 @@ mod tests {
         // ensure we *can* analyze these without errors
         let decoder = Decoder::new().unwrap();
         let model_config = ModelConfig::default();
+        let env = onnx_test_env();
         let (tx, rx) = std::sync::mpsc::sync_channel(4);
 
         // spawn a thread to process the songs
         let paths_clone = paths.clone();
-        std::thread::spawn(move || decoder.process_songs(&paths_clone, tx, model_config));
+        std::thread::spawn(move || decoder.process_songs(&paths_clone, tx, model_config, &env));
 
         let mut count = 0;
         for (path, analysis, embedding) in rx {
