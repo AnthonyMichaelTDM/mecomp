@@ -185,7 +185,7 @@ impl SymphoniaSource {
 
         let mut i = 0;
 
-        // Copy planes in pairs when possible, it is substaintially faster.
+        // Copy planes in pairs when possible, it is substantially faster.
         // Could use the same pattern to copy in triplets, but to ease future migration to symphonia 0.6 I won't
         while channels - i > 1 {
             let src0 = planes[i];
