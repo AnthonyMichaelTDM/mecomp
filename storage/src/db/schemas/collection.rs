@@ -1,4 +1,4 @@
-//! A collection is an auto currated list of similar songs.
+//! A collection is an auto curated list of similar songs.
 
 use super::Id;
 #[cfg(not(feature = "db"))]

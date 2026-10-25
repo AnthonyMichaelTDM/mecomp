@@ -8,3 +8,5 @@ ratatui = "ratatui"
 seeked = "seeked"
 # don't correct "leafs" to "leaves"
 leafs = "leafs"
+# one of our tests uses `SELEC` instead of `SELECT` to test invalid surrealQL,
+SELEC = "SELEC"
