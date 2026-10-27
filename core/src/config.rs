@@ -254,6 +254,15 @@ pub struct AnalysisSettings {
     /// If unset, or a non-existent/invalid path, the built-in model (which is bundled into the daemon binary) will be used.
     #[serde(default)]
     pub model_path: Option<PathBuf>,
+    /// Whether to enable hardware acceleration for the audio embedding model.
+    /// Default is `false`, if set to `true`, the model will attempt to use available hardware acceleration (e.g., GPU) for inference.
+    /// This has some limitations
+    /// - Your system must have compatible hardware and drivers for the acceleration to work correctly.
+    /// - If your hardware accelerator doesn't have enough memory, analysis can fail unexpectedly
+    ///   (there is no mechanism to "retry on CPU", so if you encounter this you will need to either reduce the number of threads or disable hardware acceleration).
+    ///   hardware acceleration only helps generation of audio embeddings, not other parts of the analysis pipeline.
+    #[serde(default)]
+    pub hardware_acceleration: bool,
 }
 
 impl Default for AnalysisSettings {
@@ -263,6 +272,7 @@ impl Default for AnalysisSettings {
             kind: AnalysisKind::default(),
             num_threads: None,
             model_path: None,
+            hardware_acceleration: false,
         }
     }
 }

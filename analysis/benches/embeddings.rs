@@ -9,7 +9,7 @@ fn bench_load_embeddings_model(c: &mut Criterion) {
     c.bench_function("embeddings.rs: AudioEmbeddingModel::load_default", |b| {
         let environment = onnx_test_env();
         b.iter(|| {
-            let _ = black_box(AudioEmbeddingModel::load_default(&environment).unwrap());
+            let _ = black_box(AudioEmbeddingModel::load_default(&environment, false).unwrap());
         });
     });
 
@@ -18,7 +18,8 @@ fn bench_load_embeddings_model(c: &mut Criterion) {
         let model_path = Path::new("models/audio_embedding_model.onnx");
         b.iter(|| {
             let _ = black_box(
-                AudioEmbeddingModel::load_from_onnx(&environment, black_box(&model_path)).unwrap(),
+                AudioEmbeddingModel::load_from_onnx(&environment, black_box(&model_path), false)
+                    .unwrap(),
             );
         });
     });
@@ -37,7 +38,7 @@ fn bench_generate_embeddings(c: &mut Criterion) {
     let batch_of_samples = vec![batch_samples.clone(); 5];
 
     let environment = onnx_test_env();
-    let mut model = AudioEmbeddingModel::load_default(&environment).unwrap();
+    let mut model = AudioEmbeddingModel::load_default(&environment, false).unwrap();
 
     c.bench_function("embeddings.rs: AudioEmbeddingModel::embed cpu", |b| {
         b.iter(|| {
@@ -50,11 +51,29 @@ fn bench_generate_embeddings(c: &mut Criterion) {
             let _ = black_box(model.embed_batch(black_box(&batch_of_samples)).unwrap());
         });
     });
+
+    let mut model = AudioEmbeddingModel::load_default(&environment, true).unwrap();
+    c.bench_function(
+        "embeddings.rs: AudioEmbeddingModel::embed accelerator",
+        |b| {
+            b.iter(|| {
+                let _ = black_box(model.embed(black_box(&samples)).unwrap());
+            });
+        },
+    );
+    c.bench_function(
+        "embeddings.rs: AudioEmbeddingModel::embed_batch accelerator",
+        |b| {
+            b.iter(|| {
+                let _ = black_box(model.embed_batch(black_box(&batch_of_samples)).unwrap());
+            });
+        },
+    );
 }
 
 fn bench_process_songs(c: &mut Criterion) {
     // get the paths to every music file in the "data" directory
-    let mut paths = Path::new(env!("CARGO_MANIFEST_DIR"))
+    let paths = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("data")
         .read_dir()
         .unwrap()
@@ -65,11 +84,15 @@ fn bench_process_songs(c: &mut Criterion) {
                     || p.extension().unwrap() == "flac"
                     || p.extension().unwrap() == "mp3")
         })
+        // repeat 4 times
+        .flat_map(|p| vec![p.clone(); 4])
         .collect::<Vec<_>>();
 
-    // quadruple the number of paths to analyze
-    paths.extend(paths.clone());
-    paths.extend(paths.clone());
+    // create a channel for sending and receiving processed songs
+    let (tx, rx) = std::sync::mpsc::sync_channel(2 * paths.len());
+
+    // spawn a thread to drain the receiver
+    std::thread::spawn(move || for _ in rx {});
 
     c.bench_function(
         "mecomp-analysis: decoder.rs: MecompDecoder::process_songs",
@@ -78,11 +101,11 @@ fn bench_process_songs(c: &mut Criterion) {
                 || {
                     let decoder = Decoder::new().unwrap();
                     let config: ModelConfig = ModelConfig::default();
-                    let (tx, rx) = std::sync::mpsc::sync_channel(16);
+                    let tx = tx.clone();
                     let env: ort::environment::Environment = onnx_test_env();
-                    (decoder, config, tx, rx, env)
+                    (decoder, config, tx, env)
                 },
-                |(decoder, config, tx, rx, env)| {
+                |(decoder, config, tx, env)| {
                     decoder
                         .process_songs(
                             black_box(&paths),
@@ -91,13 +114,38 @@ fn bench_process_songs(c: &mut Criterion) {
                             black_box(&env),
                         )
                         .unwrap();
-
-                    // drain the receiver
-                    for _ in rx {}
                 },
             );
         },
     );
+
+    c.bench_function(
+        "mecomp-analysis: decoder.rs: MecompDecoder::process_songs (accelerator)",
+        |b| {
+            b.iter_with_setup(
+                || {
+                    let decoder = Decoder::new().unwrap();
+                    let mut config: ModelConfig = ModelConfig::default();
+                    config.hardware_acceleration = true;
+                    let tx = tx.clone();
+                    let env: ort::environment::Environment = onnx_test_env();
+                    (decoder, config, tx, env)
+                },
+                |(decoder, config, tx, env)| {
+                    decoder
+                        .process_songs(
+                            black_box(&paths),
+                            black_box(tx),
+                            black_box(config),
+                            black_box(&env),
+                        )
+                        .unwrap();
+                },
+            );
+        },
+    );
+
+    drop(tx);
 }
 
 criterion_group!(load_benches, bench_load_embeddings_model);
