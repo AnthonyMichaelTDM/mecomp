@@ -144,10 +144,10 @@ impl Component for QueueBar {
             }
             // set the repeat mode
             KeyCode::Char('r') => {
-                let repeat_mode = self.props.repeat_mode.into();
+                let next_repeat_mode = self.props.repeat_mode.next().into();
                 self.action_tx
                     .send(Action::Audio(AudioAction::Queue(
-                        QueueAction::SetRepeatMode(repeat_mode),
+                        QueueAction::SetRepeatMode(next_repeat_mode),
                     )))
                     .unwrap();
             }

@@ -64,6 +64,16 @@ impl RepeatMode {
     pub const fn is_all(&self) -> bool {
         matches!(self, Self::All)
     }
+
+    #[must_use]
+    #[inline]
+    pub const fn next(&self) -> Self {
+        match self {
+            Self::None => Self::All,
+            Self::All => Self::One,
+            Self::One => Self::None,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize, Default)]
@@ -234,6 +244,14 @@ mod tests {
         assert_eq!(mode.is_none(), expected[0]);
         assert_eq!(mode.is_one(), expected[1]);
         assert_eq!(mode.is_all(), expected[2]);
+    }
+
+    #[rstest]
+    #[case::next_none(RepeatMode::None, RepeatMode::All)]
+    #[case::next_all(RepeatMode::All, RepeatMode::One)]
+    #[case::next_one(RepeatMode::One, RepeatMode::None)]
+    fn test_repeat_mode_next(#[case] mode: RepeatMode, #[case] expected: RepeatMode) {
+        assert_eq!(mode.next(), expected);
     }
 
     #[rstest]
