@@ -15,12 +15,7 @@ use mecomp_analysis::{
 fn bench_descriptors(c: &mut Criterion) {
     let signal = Decoder::new()
         .unwrap()
-        .decode(
-            &Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../assets/music.mp3")
-                .canonicalize()
-                .unwrap(),
-        )
+        .decode(Path::new("data/5_mins_of_noise_stereo_48kHz.ogg"))
         .unwrap()
         .samples;
 
