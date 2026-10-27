@@ -112,11 +112,11 @@ pub const fn read_songs() -> impl IntoQuery {
     surrql!("SELECT * FROM array::flatten($ids->analysis_to_song->song)")
 }
 
-/// Query to find all the songs that don't have an analysis
+/// Query to find all the songs that don't have an analysis, ordered by their duration to reduce re-allocations during analysis
 ///
 /// Compiles to:
 /// ```sql, ignore
-/// SELECT * FROM song WHERE count(<-analysis_to_song.in) = 0
+/// SELECT * FROM song WHERE count(<-analysis_to_song.in) = 0 ORDER BY runtime DESC
 /// ```
 ///
 /// # Example
@@ -129,14 +129,14 @@ pub const fn read_songs() -> impl IntoQuery {
 /// let statement = read_songs_without_analysis();
 /// assert_eq!(
 ///     statement.into_query().unwrap(),
-///     "SELECT * FROM song WHERE count(<-analysis_to_song.in) = 0".into_query().unwrap()
+///     "SELECT * FROM song WHERE count(<-analysis_to_song.in) = 0 ORDER BY runtime DESC".into_query().unwrap()
 /// );
 /// ```
 #[allow(clippy::module_name_repetitions)]
 #[must_use]
 #[inline]
 pub const fn read_songs_without_analysis() -> impl IntoQuery {
-    surrql!("SELECT * FROM song WHERE count(<-analysis_to_song.in) = 0")
+    surrql!("SELECT * FROM song WHERE count(<-analysis_to_song.in) = 0 ORDER BY runtime DESC")
 }
 
 /// Query to find the `n` nearest neighbors to a given analysis
@@ -226,7 +226,7 @@ mod query_validation_tests {
     )]
     #[case::read_songs_without_analysis(
         read_songs_without_analysis(),
-        "SELECT * FROM song WHERE count(<-analysis_to_song.in) = 0"
+        "SELECT * FROM song WHERE count(<-analysis_to_song.in) = 0 ORDER BY runtime DESC"
     )]
     #[case::nearest_neighbors(
         nearest_neighbors(5),

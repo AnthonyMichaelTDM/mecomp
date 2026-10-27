@@ -225,6 +225,8 @@ impl Analysis {
 
 #[cfg(test)]
 mod test {
+    use std::time::Duration;
+
     use super::*;
     use crate::{
         db::schemas::song::SongChangeSet,
@@ -413,6 +415,32 @@ mod test {
         let result =
             Analysis::read_songs(&db, vec![analysis1.id.clone(), analysis2.id.clone()]).await?;
         assert_eq!(result, vec![song1, song2]);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_read_songs_without_analysis_is_sorted() -> Result<()> {
+        let db = init_test_database().await?;
+
+        let overrides = SongChangeSet {
+            runtime: Some(Duration::from_secs(20)),
+            ..Default::default()
+        };
+        let song1 = create_song_with_overrides(&db, arb_song_case()(), overrides).await?;
+        let overrides = SongChangeSet {
+            runtime: Some(Duration::from_secs(40)),
+            ..Default::default()
+        };
+        let song2 = create_song_with_overrides(&db, arb_song_case()(), overrides).await?;
+        let overrides = SongChangeSet {
+            runtime: Some(Duration::from_secs(60)),
+            ..Default::default()
+        };
+        let song3 = create_song_with_overrides(&db, arb_song_case()(), overrides).await?;
+
+        let result = Analysis::read_songs_without_analysis(&db).await?;
+        assert_eq!(result, vec![song3, song2, song1]);
 
         Ok(())
     }
