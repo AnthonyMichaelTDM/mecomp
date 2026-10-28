@@ -3,7 +3,18 @@ lint =     "clippy --all --all-features                      -- -D warnings -D c
 lint-fix = "clippy --all --all-features --fix --allow-staged -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::perf -D rust-2018-idioms" # -D clippy::cargo
 coverage = "tarpaulin --skip-clean --out Html --workspace --profile tarpaulin --implicit-test-threads"
 
-[build]
+[target.aarch64-apple-darwin]
+rustflags = [
+    # tokio console
+    "--cfg", "tokio_unstable",
+    # for profiling
+    "-C",
+    "symbol-mangling-version=v0",
+    # fix linking issues on macOS with Apple Silicon    
+    "-Clink-arg=-fapple-link-rtlib"
+]
+
+[target.'cfg(not(target_arch = "aarch64"))']
 rustflags = [
     # tokio console
     "--cfg", "tokio_unstable",
@@ -11,6 +22,3 @@ rustflags = [
     "-C",
     "symbol-mangling-version=v0",
 ]
-
-[target.aarch64-apple-darwin]
-rustflags = ["-Clink-arg=-fapple-link-rtlib"] # fix linking issues on macOS with Apple Silicon
