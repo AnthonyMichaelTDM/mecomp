@@ -11,6 +11,8 @@ readme = "README.md"
 license.workspace = true
 exclude = ["data/"]
 
+build = "build.rs"
+
 [features]
 default = []
 # plot_gap = ["dep:plotters"]
