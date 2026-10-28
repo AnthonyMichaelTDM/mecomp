@@ -4,7 +4,8 @@
 
 This release has some minor code maintenance, and the addition of a proper dynamic query editor to the TUI (a long term goal)
 
-## What's Changed
+### v0.7.3 What's Changed
+
 * fix(tui): remove some unused functions by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/464
 * feat(tui): Query Builder by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/465
 * test: increase code coverage across the board by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/466
