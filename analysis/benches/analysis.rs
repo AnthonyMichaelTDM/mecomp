@@ -4,10 +4,8 @@ use mecomp_analysis::{Analysis, decoder};
 use std::{hint::black_box, path::Path};
 
 fn bench_analysis_from_samples(c: &mut Criterion) {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../assets/music.mp3")
-        .canonicalize()
-        .unwrap();
+    // the same path used in the embeddings benchmarks
+    let path = Path::new("data/5_mins_of_noise_stereo_48kHz.ogg");
 
     let samples = Decoder::new().unwrap().decode(&path).unwrap();
 

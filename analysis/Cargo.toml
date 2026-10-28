@@ -45,7 +45,10 @@ mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 ort = { version = "2.0.0-rc.15", default-features = false, features = [
     "api-31",
     "copy-dylibs",
+    "coreml",               # EP for MacOS
+    "cuda",                 # EP for Windows/Linux with CUDA support
     "download-binaries",
+    "lax-feature-matching", # allow compilation to not fail if some EPs are unavailable (e.g., coreml is only available on MacOS)
     "std",
     "tls-rustls",
 ] }

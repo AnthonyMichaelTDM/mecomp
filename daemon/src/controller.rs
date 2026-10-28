@@ -224,6 +224,7 @@ impl MusicPlayerTrait for MusicPlayer {
 
         let config = ModelConfig {
             path: self.settings.analysis.model_path.clone(),
+            hardware_acceleration: self.settings.analysis.hardware_acceleration,
         };
 
         tokio::task::spawn(
