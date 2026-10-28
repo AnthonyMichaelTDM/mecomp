@@ -17,6 +17,9 @@ This release has some minor code maintenance, and the addition of a proper dynam
 * chore(deps): bump actions/upload-artifact from 4.6.2 to 7.0.2 by @dependabot[bot] in https://github.com/AnthonyMichaelTDM/mecomp/pull/463
 * chore(deps): bump actions/download-artifact from 4.2.1 to 8.0.2 by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/474
 * Downmix decoder samples at the source by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/471
+* perf(storage, analysis): order songs to analyze by runtime by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/480
+* fix(tui/queuebar): correct "cycle repeat mode" behavior by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/481
+* feat(analysis/embeddings): optional hardware acceleration by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/482
 
 
 **Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.7.2...v0.7.3
