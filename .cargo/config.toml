@@ -11,3 +11,6 @@ rustflags = [
     "-C",
     "symbol-mangling-version=v0",
 ]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-Clink-arg=-fapple-link-rtlib"] # fix linking issues on macOS with Apple Silicon
