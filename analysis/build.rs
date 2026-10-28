@@ -1,6 +1,10 @@
 //! On macOS, the statically linked ONNX Runtime (`CoreML` EP) references
 //! `___isPlatformVersionAtLeast`, which lives in clang's compiler-rt. rustc links with
 //! `-nodefaultlibs`, so we have to link the runtime explicitly.
+//!
+//! Theoretically, none of this should be necessary (see <https://github.com/pykeio/ort/pull/625>)
+//! However, before adding this publishing v0.7.3 kept failing on macOS with linking errors similar to
+//! those reported in <https://github.com/pykeio/ort/issues/360>
 use std::{path::Path, process::Command};
 
 fn main() {
