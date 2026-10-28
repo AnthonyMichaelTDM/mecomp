@@ -10,7 +10,11 @@ ci = "github"
 # The installers to generate for each app
 installers = ["shell", "powershell", "msi"]
 # Target platforms to build apps for (Rust target-triple syntax)
-targets = ["aarch64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+]
 # Path that installers should place binaries in
 install-path = "CARGO_HOME"
 # Whether to install an updater program
@@ -28,6 +32,7 @@ msvc-crt-static = false
 x86_64-pc-windows-msvc = "windows-latest"
 x86_64-unknown-linux-gnu = "ubuntu-latest"
 aarch64-unknown-linux-gnu = "ubuntu-latest"
+aarch64-apple-darwin = "macos-latest"
 global = "ubuntu-latest"
 
 [dist.dependencies.apt]
