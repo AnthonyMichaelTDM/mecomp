@@ -76,11 +76,19 @@ name = "analysis"
 harness = false
 
 [[bench]]
+name = "analysis_pipeline"
+harness = false
+
+[[bench]]
 name = "chroma"
 harness = false
 
 [[bench]]
 name = "decoder"
+harness = false
+
+[[bench]]
+name = "decoder_pipeline"
 harness = false
 
 [[bench]]
