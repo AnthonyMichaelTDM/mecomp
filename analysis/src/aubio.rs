@@ -11,7 +11,7 @@ use std::f32::consts::PI;
 
 /// Compute spectral centroid from FFT magnitudes (in bins)
 ///
-/// This is a direct transcription of aubio's cvec_centroid function from
+/// This is a direct transcription of aubio's `cvec_centroid` function from
 /// src/spectral/statistics.c
 fn spectral_centroid(spec_norm: &[f32]) -> f32 {
     let sum: f32 = spec_norm.iter().sum();
@@ -30,7 +30,7 @@ fn spectral_centroid(spec_norm: &[f32]) -> f32 {
 
 /// Compute spectral rolloff from FFT magnitudes (in bins)
 ///
-/// This is a direct transcription of aubio's aubio_specdesc_rolloff function from
+/// This is a direct transcription of aubio's `aubio_specdesc_rolloff` function from
 /// src/spectral/statistics.c
 /// Returns the bin number below which 95% of the spectrum energy is found.
 fn spectral_rolloff(spec_norm: &[f32]) -> f32 {
@@ -59,7 +59,7 @@ fn spectral_rolloff(spec_norm: &[f32]) -> f32 {
 
 /// Convert frequency bin to frequency (Hz)
 ///
-/// This is a direct transcription of aubio's aubio_bintofreq function from
+/// This is a direct transcription of aubio's `aubio_bintofreq` function from
 /// src/mathutils.c
 ///
 /// - `bin` Frequency bin to convert
@@ -70,14 +70,14 @@ pub(crate) fn bin_to_freq(bin: f32, sample_rate: f32, fft_size: f32) -> f32 {
     freq * bin.max(0.0)
 }
 
-/// Spectral descriptor shape - matches aubio's SpecShape enum
+/// Spectral descriptor shape - matches aubio's `SpecShape` enum
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum SpecShape {
     Centroid,
     Rolloff,
 }
 
-/// Spectral descriptor object - matches aubio's SpecDesc API
+/// Spectral descriptor object - matches aubio's `SpecDesc` API
 pub(crate) struct SpecDesc {
     shape: SpecShape,
     _buf_size: usize,
@@ -85,24 +85,22 @@ pub(crate) struct SpecDesc {
 
 impl SpecDesc {
     /// Create new spectral descriptor - matches aubio's API
-    pub(crate) fn new(shape: SpecShape, buf_size: usize) -> AnalysisResult<Self> {
-        Ok(SpecDesc {
+    pub(crate) fn new(shape: SpecShape, buf_size: usize) -> Self {
+        Self {
             shape,
             _buf_size: buf_size,
-        })
+        }
     }
 
-    /// Compute spectral descriptor value - matches aubio's do_result() API
-    pub(crate) fn do_result(&self, fftgrain: &[f32]) -> AnalysisResult<f32> {
+    /// Compute spectral descriptor value - matches aubio's `do_result()` API
+    pub(crate) fn do_result(&self, fftgrain: &[f32]) -> f32 {
         let num_bins = fftgrain.len() / 2;
         let norm = &fftgrain[..num_bins];
 
-        let result = match self.shape {
+        match self.shape {
             SpecShape::Centroid => spectral_centroid(norm),
             SpecShape::Rolloff => spectral_rolloff(norm),
-        };
-
-        Ok(result)
+        }
     }
 }
 
@@ -130,20 +128,17 @@ impl PVoc {
     pub(crate) fn new(win_s: usize, hop_s: usize) -> AnalysisResult<Self> {
         if hop_s < 1 {
             return Err(AnalysisError::AnalysisError(format!(
-                "error while loading aubio pvoc object: hop_size ({}) must be >= 1",
-                hop_s
+                "error while loading aubio pvoc object: hop_size ({hop_s}) must be >= 1",
             )));
         }
         if win_s < 2 {
             return Err(AnalysisError::AnalysisError(format!(
-                "error while loading aubio pvoc object: win_size ({}) must be >= 2",
-                win_s
+                "error while loading aubio pvoc object: win_size ({win_s}) must be >= 2",
             )));
         }
         if win_s < hop_s {
             return Err(AnalysisError::AnalysisError(format!(
-                "error while loading aubio pvoc object: hop_size ({}) is larger than win_size ({})",
-                hop_s, win_s
+                "error while loading aubio pvoc object: hop_size ({hop_s}) is larger than win_size ({win_s})",
             )));
         }
 
@@ -159,7 +154,7 @@ impl PVoc {
 
         let dataold_size = if win_s > hop_s { win_s - hop_s } else { 1 };
 
-        Ok(PVoc {
+        Ok(Self {
             win_s,
             hop_s,
             data: vec![0.0; win_s],
@@ -172,13 +167,13 @@ impl PVoc {
 
     /// Compute spectral frame
     ///
-    /// This is a transcription of aubio_pvoc_do from phasevoc.c
+    /// This is a transcription of `aubio_pvoc_do` from phasevoc.c
     /// (matching the original buffer overflow bug with 512-element buffer)
     ///
-    /// Like aubio's bindings, this accepts input of any size >= hop_s and only uses the first hop_s elements.
+    /// Like aubio's bindings, this accepts input of any size `>= hop_s` and only uses the first `hop_s` elements.
     ///
-    /// - `input` New input signal (>= hop_s samples, only first hop_s used)
-    /// - `fftgrain` Output buffer (win_s samples: win_s/2 norm + win_s/2 phase = 256+256)
+    /// - `input` New input signal (`>= hop_s` samples, only first `hop_s` used)
+    /// - `fftgrain` Output buffer (`win_s` samples: `win_s/2` norm + `win_s/2` phase = 256+256)
     pub(crate) fn do_(&mut self, input: &[f32], fftgrain: &mut [f32]) -> AnalysisResult<()> {
         if input.len() < self.hop_s {
             return Err(AnalysisError::AnalysisError(format!(
@@ -270,7 +265,7 @@ impl PVoc {
 
 /// Phase Vocoder for Tempo Detection
 ///
-/// Similar to PVoc in timbral.rs, but outputs CORRECT 257 bins (not buggy 256)
+/// Similar to `PVoc` in timbral.rs, but outputs CORRECT 257 bins (not buggy 256)
 struct PVocTempo {
     win_s: usize,
     hop_s: usize,
@@ -285,20 +280,17 @@ impl PVocTempo {
     fn new(win_s: usize, hop_s: usize) -> AnalysisResult<Self> {
         if hop_s < 1 {
             return Err(AnalysisError::AnalysisError(format!(
-                "pvoc: hop_size ({}) must be >= 1",
-                hop_s
+                "pvoc: hop_size ({hop_s}) must be >= 1",
             )));
         }
         if win_s < 2 {
             return Err(AnalysisError::AnalysisError(format!(
-                "pvoc: win_size ({}) must be >= 2",
-                win_s
+                "pvoc: win_size ({win_s}) must be >= 2",
             )));
         }
         if win_s < hop_s {
             return Err(AnalysisError::AnalysisError(format!(
-                "pvoc: hop_size ({}) is larger than win_size ({})",
-                hop_s, win_s
+                "pvoc: hop_size ({hop_s}) is larger than win_size ({win_s})",
             )));
         }
 
@@ -314,7 +306,7 @@ impl PVocTempo {
 
         let dataold_size = if win_s > hop_s { win_s - hop_s } else { 1 };
 
-        Ok(PVocTempo {
+        Ok(Self {
             win_s,
             hop_s,
             data: vec![0.0; win_s],
@@ -327,14 +319,14 @@ impl PVocTempo {
 
     /// Compute spectral frame.
     ///
-    /// Unlike the buggy timbral version, this outputs win_s + 2 elements:
+    /// Unlike the buggy timbral version, this outputs `win_s + 2` elements:
     /// - 257 norm values (bins 0-256, including DC and Nyquist)
     /// - 257 phase values
     ///
     /// Total: 514 elements
     ///
-    /// - `input` New input signal (>= hop_s samples, only first hop_s used)
-    /// - `fftgrain` Output buffer (win_s + 2 samples = 514 for win_s=512)
+    /// - `input` New input signal (`>= hop_s` samples, only first `hop_s` used)
+    /// - `fftgrain` Output buffer (`win_s + 2` samples = `514` for `win_s=512`)
     fn do_(&mut self, input: &[f32], fftgrain: &mut [f32]) -> AnalysisResult<()> {
         if input.len() < self.hop_s {
             return Err(AnalysisError::AnalysisError(format!(
@@ -425,9 +417,9 @@ impl PVocTempo {
     }
 }
 
-/// SpecFlux onset detection
+/// `SpecFlux` onset detection
 ///
-/// Transcription of aubio_specdesc_specflux from aubio/src/spectral/specdesc.c:235-243
+/// Transcription of `aubio_specdesc_specflux` from aubio/src/spectral/specdesc.c:235-243
 /// Computes spectral flux: sum of positive magnitude differences between frames
 struct SpecFlux {
     /// Previous frame magnitudes
@@ -435,22 +427,22 @@ struct SpecFlux {
 }
 
 impl SpecFlux {
-    /// Create new SpecFlux onset detector
+    /// Create new `SpecFlux` onset detector
     ///
     /// - `size` FFT window size (e.g., 512)
     fn new(size: usize) -> Self {
-        // aubio uses size/2+1 for the CVec length (real FFT bins)
+        // aubio uses size/2+1 for the `CVec` length (real FFT bins)
         let rsize = size / 2 + 1;
-        SpecFlux {
+        Self {
             oldmag: vec![0.0; rsize],
         }
     }
 
     /// Compute spectral flux onset detection function
     ///
-    /// Direct transcription of aubio_specdesc_specflux
+    /// Direct transcription of `aubio_specdesc_specflux`
     ///
-    /// - `fftgrain_norm` Magnitude spectrum (norm part of CVec)
+    /// - `fftgrain_norm` Magnitude spectrum (norm part of `CVec`)
     /// - Returns: Onset detection function value (sum of positive differences)
     fn do_(&mut self, fftgrain_norm: &[f32]) -> f32 {
         let mut onset = 0.0;
@@ -467,7 +459,7 @@ impl SpecFlux {
     }
 }
 
-/// Helper functions for PeakPicker
+/// Helper functions for `PeakPicker`
 /// Compute mean of a slice
 fn vec_mean(data: &[f32]) -> f32 {
     if data.is_empty() {
@@ -620,7 +612,7 @@ struct Biquad {
 
 impl Biquad {
     fn new(b0: f32, b1: f32, b2: f32, a1: f32, a2: f32) -> Self {
-        Biquad {
+        Self {
             b0,
             b1,
             b2,
@@ -687,7 +679,7 @@ impl Biquad {
 
 /// Peak Picker for onset detection
 ///
-/// Transcription of aubio_peakpicker from aubio/src/onset/peakpicker.c
+/// Transcription of `aubio_peakpicker` from aubio/src/onset/peakpicker.c
 /// Uses adaptive thresholding to detect peaks in onset detection function
 struct PeakPicker {
     threshold: f32,
@@ -712,9 +704,9 @@ impl PeakPicker {
         let buf_size = win_post + win_pre + 1;
 
         // Biquad coefficients from aubio (2nd order Butterworth lowpass, cutoff 0.34)
-        let biquad = Biquad::new(0.159_987_9, 0.31997577, 0.159_987_9, 0.23484048, 0.0);
+        let biquad = Biquad::new(0.159_987_9, 0.319_975_77, 0.159_987_9, 0.234_840_48, 0.0);
 
-        PeakPicker {
+        Self {
             threshold,
             win_post,
             biquad,
@@ -778,9 +770,9 @@ impl PeakPicker {
     }
 }
 
-/// Additional helper functions for BeatTracking
+/// Additional helper functions for `BeatTracking`
 /// Find index of maximum element in slice
-/// Matches C aubio's fvec_max_elem behavior:
+/// Matches C aubio's `fvec_max_elem` behavior:
 /// - Iterates through all elements
 /// - Updates pos whenever current value >= tmp (not just >)
 /// - This ensures pos points to the last occurrence of the maximum value
@@ -829,7 +821,7 @@ fn vec_autocorr(input: &[f32], output: &mut [f32]) {
 
 /// Beat Tracking for BPM estimation
 ///
-/// Transcription of aubio_beattracking from aubio/src/tempo/beattracking.c
+/// Transcription of `aubio_beattracking` from aubio/src/tempo/beattracking.c
 /// Uses autocorrelation and comb filterbank to estimate tempo
 struct BeatTracking {
     hop_size: usize,
@@ -1348,7 +1340,7 @@ impl Tempo {
         let dfframe = vec![0.0; winlen];
         let out = vec![0.0; step];
 
-        Ok(Tempo {
+        Ok(Self {
             pv,
             od,
             pp,
