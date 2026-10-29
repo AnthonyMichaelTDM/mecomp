@@ -1241,9 +1241,9 @@ fn next_power_of_two(a: usize) -> usize {
     i
 }
 
-/// Compute mean energy (sum of squares / length)
+/// Compute mean energy (`level_lin`) (sum of squares / length)
 /// Transcribed from aubio/src/mathutils.c:328-340
-fn level_lin(data: &[f32]) -> f32 {
+pub(crate) fn level_lin(data: &[f32]) -> f32 {
     let mut energy = 0.0;
     for &x in data {
         energy += x * x;
