@@ -9,6 +9,7 @@
 
 #![deny(clippy::missing_inline_in_public_items)]
 
+pub mod aubio;
 pub mod chroma;
 pub mod clustering;
 pub mod decoder;
