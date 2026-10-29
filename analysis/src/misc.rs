@@ -6,18 +6,9 @@
 use ndarray::{Axis, arr1};
 
 use crate::Feature;
+use crate::aubio::level_lin;
 
 use super::utils::{Normalize, mean};
-
-/// Compute mean energy (`level_lin`)
-/// Transcribed from aubio/src/mathutils.c:328-340
-fn level_lin(data: &[f32]) -> f32 {
-    let mut energy = 0.0;
-    for &x in data {
-        energy += x * x;
-    }
-    energy / data.len() as f32
-}
 
 /**
  * Loudness (in dB) detection object.
