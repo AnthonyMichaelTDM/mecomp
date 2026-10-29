@@ -137,18 +137,8 @@ impl SpectralDesc {
         Ok(Self {
             fftgrain: vec![0.0; Self::WINDOW_SIZE],
 
-            centroid_aubio_desc: SpecDesc::new(SpecShape::Centroid, Self::WINDOW_SIZE)
-                .map_err_unlikely(|e| {
-                    AnalysisError::AnalysisError(format!(
-                        "error while loading aubio centroid object: {e}",
-                    ))
-                })?,
-            rolloff_aubio_desc: SpecDesc::new(SpecShape::Rolloff, Self::WINDOW_SIZE)
-                .map_err_unlikely(|e| {
-                    AnalysisError::AnalysisError(format!(
-                        "error while loading aubio rolloff object: {e}",
-                    ))
-                })?,
+            centroid_aubio_desc: SpecDesc::new(SpecShape::Centroid, Self::WINDOW_SIZE),
+            rolloff_aubio_desc: SpecDesc::new(SpecShape::Rolloff, Self::WINDOW_SIZE),
             phase_vocoder: PVoc::new(Self::WINDOW_SIZE, Self::HOP_SIZE)?,
             values_centroid: Vec::new(),
             values_rolloff: Vec::new(),
@@ -175,27 +165,13 @@ impl SpectralDesc {
                 AnalysisError::AnalysisError(format!("error while processing aubio pv object: {e}"))
             })?;
 
-        let bin = self
-            .centroid_aubio_desc
-            .do_result(self.fftgrain.as_slice())
-            .map_err_unlikely(|e| {
-                AnalysisError::AnalysisError(format!(
-                    "error while processing aubio centroid object: {e}",
-                ))
-            })?;
+        let bin = self.centroid_aubio_desc.do_result(self.fftgrain.as_slice());
 
         #[allow(clippy::cast_precision_loss)]
         let freq = bin_to_freq(bin, self.sample_rate as f32, Self::WINDOW_SIZE as f32);
         self.values_centroid.push(freq);
 
-        let mut bin = self
-            .rolloff_aubio_desc
-            .do_result(self.fftgrain.as_slice())
-            .map_err_unlikely(|e| {
-                AnalysisError::AnalysisError(format!(
-                    "error while processing aubio rolloff object: {e}",
-                ))
-            })?;
+        let mut bin = self.rolloff_aubio_desc.do_result(self.fftgrain.as_slice());
 
         // Until https://github.com/aubio/aubio/pull/318 is in
         #[allow(clippy::cast_precision_loss)]
