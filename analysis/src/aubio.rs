@@ -78,14 +78,44 @@ fn spectral_centroid_impl<const FMA: bool>(spec_norm: &[f32]) -> f32 {
 /// This is a direct transcription of aubio's `aubio_specdesc_rolloff` function from
 /// src/spectral/statistics.c
 /// Returns the bin number below which 95% of the spectrum energy is found.
-#[allow(clippy::cast_precision_loss)]
+#[multiversion::multiversion(targets("x86_64+fma+avx+avx2"))]
 fn spectral_rolloff(spec_norm: &[f32]) -> f32 {
-    let mut cumsum = 0.0;
+    if multiversion::target::target_cfg_f!(target_feature = "fma") {
+        spectral_rolloff_impl::<true>(spec_norm)
+    } else {
+        spectral_rolloff_impl::<false>(spec_norm)
+    }
+}
+
+#[allow(clippy::cast_precision_loss)]
+#[allow(
+    clippy::inline_always,
+    reason = "the multiversioned loop should inline"
+)]
+#[inline(always)]
+fn spectral_rolloff_impl<const FMA: bool>(spec_norm: &[f32]) -> f32 {
+    const LANES: usize = 8;
+
+    #[inline(always)]
+    fn mac<const FMA: bool>(x: f32, acc: f32) -> f32 {
+        #[allow(clippy::suboptimal_flops)]
+        if FMA { x.mul_add(x, acc) } else { acc + x * x }
+    }
+
+    let mut cumsum;
     let mut rollsum = 0.0;
 
     // Compute sum of squared magnitudes
-    for &norm_value in spec_norm {
-        cumsum += norm_value * norm_value;
+    let (chunks, remainder) = spec_norm.as_chunks::<LANES>();
+    let mut acc = [0.0f32; LANES];
+    for chunk in chunks {
+        for i in 0..LANES {
+            acc[i] = mac::<FMA>(chunk[i], acc[i]);
+        }
+    }
+    cumsum = acc.into_iter().sum();
+    for &norm_value in remainder {
+        cumsum = mac::<FMA>(norm_value, cumsum);
     }
 
     if cumsum == 0.0 {
@@ -1651,6 +1681,30 @@ mod tests {
         sc / sum
     }
 
+    fn spectral_rolloff_reference(spec_norm: &[f32]) -> f32 {
+        let mut cumsum = 0.0;
+        let mut rollsum = 0.0;
+
+        // Compute sum of squared magnitudes
+        for &norm_value in spec_norm {
+            cumsum += norm_value * norm_value;
+        }
+
+        if cumsum == 0.0 {
+            return 0.0;
+        }
+
+        // Find bin where 95% of energy is reached
+        cumsum *= 0.95;
+        let mut j = 0;
+        while rollsum < cumsum && j < spec_norm.len() {
+            rollsum += spec_norm[j] * spec_norm[j];
+            j += 1;
+        }
+
+        j as f32
+    }
+
     fn pseudo_random(n: usize) -> Vec<f32> {
         let mut state = 0x2545_F491_u32;
         (0..n)
@@ -1713,6 +1767,25 @@ mod tests {
                 spectral_centroid_impl::<false>(&input),
                 spectral_centroid_impl::<true>(&input),
                 spectral_centroid(&input),
+            ] {
+                assert!(
+                    (value - expected).abs() <= 1e-4 * expected.abs().max(1e-3),
+                    "n = {n}: {value} vs {expected}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_spectral_rolloff_matches_reference() {
+        for n in [1, 2, 7, 8, 9, 15, 16, 17, 100, 345] {
+            let input = pseudo_random(n);
+            let expected = spectral_rolloff_reference(&input);
+
+            for value in [
+                spectral_rolloff_impl::<false>(&input),
+                spectral_rolloff_impl::<true>(&input),
+                spectral_rolloff(&input),
             ] {
                 assert!(
                     (value - expected).abs() <= 1e-4 * expected.abs().max(1e-3),
