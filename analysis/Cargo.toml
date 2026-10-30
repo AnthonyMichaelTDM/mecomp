@@ -41,6 +41,7 @@ thiserror = { workspace = true }
 likely_stable.workspace = true
 bitvec.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+multiversion = "0.9.2"
 
 # Every Execution Provider I've tried has had issues, unless webgpu is stabilized just run with CPU only
 ort = { version = "2.0.0-rc.15", default-features = false, features = [

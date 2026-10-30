@@ -8,6 +8,7 @@
 //! We use rubato to resample the audio file to 22050 Hz.
 
 #![deny(clippy::missing_inline_in_public_items)]
+#![allow(clippy::suboptimal_flops)] // when it suggests mul_add, doing so turns a `mulss+addss` into a libc call
 
 pub mod aubio;
 pub mod chroma;

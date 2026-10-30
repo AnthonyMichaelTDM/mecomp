@@ -828,14 +828,74 @@ fn vec_weight(data: &mut [f32], weight: &[f32]) {
 
 /// Compute autocorrelation
 /// Transcribed from aubio/src/mathutils.c:655-669
+///
+/// Reference (scalar) algorithm:
+/// ```text
+/// for i in 0..n { output[i] = sum_{j=i..n}(input[j - i] * input[j]) / (n - i) }
+/// ```
+/// The inner sum is a float reduction, which LLVM can't vectorize without reassociating it.
+/// Instead, we compute `LANES` consecutive lags at once, one lane per lag, so every lane keeps the
+/// original summation order and the lanes are independent (SIMD-friendly).
+#[multiversion::multiversion(targets("x86_64+fma+avx+avx2"))]
 fn vec_autocorr(input: &[f32], output: &mut [f32]) {
-    let length = input.len();
-    for i in 0..length {
-        let mut tmp = 0.0;
-        for j in i..length {
-            tmp += input[j - i] * input[j];
+    if multiversion::target::target_cfg_f!(target_feature = "fma") {
+        vec_autocorr_impl::<true>(input, output);
+    } else {
+        vec_autocorr_impl::<false>(input, output);
+    }
+}
+
+/// `FMA` selects fused multiply-add, only use it when the target has hardware FMA (otherwise
+/// `mul_add` becomes a call to libm's `fmaf` for every element).
+#[inline(always)]
+fn vec_autocorr_impl<const FMA: bool>(input: &[f32], output: &mut [f32]) {
+    const LANES: usize = 8;
+
+    #[inline(always)]
+    fn mac<const FMA: bool>(a: f32, b: f32, acc: f32) -> f32 {
+        #[allow(clippy::suboptimal_flops)]
+        if FMA { a.mul_add(b, acc) } else { acc + a * b }
+    }
+
+    let n = input.len();
+    let output = &mut output[..n];
+
+    let mut i0 = 0;
+    // blocks of LANES lags: lane k handles lag i0 + k
+    while i0 + LANES <= n {
+        let mut acc = [0.0f32; LANES];
+
+        // Lane k only starts contributing at j = i0 + k, so for j < i0 + LANES - 1 only the
+        // first (j - i0 + 1) lanes are active.
+        for j in i0..i0 + LANES - 1 {
+            let x = input[j];
+            for k in 0..=(j - i0) {
+                acc[k] = mac::<FMA>(input[j - i0 - k], x, acc[k]);
+            }
         }
-        output[i] = tmp / (length - i) as f32;
+
+        // all lanes active; window[LANES - 1 - k] == input[j - i0 - k]
+        for j in (i0 + LANES - 1)..n {
+            let x = input[j];
+            let window: &[f32; LANES] = input[j - i0 + 1 - LANES..=j - i0].try_into().unwrap();
+            for k in 0..LANES {
+                acc[k] = mac::<FMA>(window[LANES - 1 - k], x, acc[k]);
+            }
+        }
+
+        for k in 0..LANES {
+            output[i0 + k] = acc[k] / (n - (i0 + k)) as f32;
+        }
+        i0 += LANES;
+    }
+
+    // remaining lags (fewer than LANES)
+    for i in i0..n {
+        let mut tmp = 0.0;
+        for j in i..n {
+            tmp = mac::<FMA>(input[j - i], input[j], tmp);
+        }
+        output[i] = tmp / (n - i) as f32;
     }
 }
 
@@ -1461,5 +1521,56 @@ impl Tempo {
     /// Transcribed from aubio/src/tempo/tempo.c:232-234
     pub fn get_bpm(&self) -> f32 {
         self.bt.get_bpm()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn autocorr_reference(input: &[f32]) -> Vec<f32> {
+        let n = input.len();
+        (0..n)
+            .map(|i| {
+                let mut tmp = 0.0;
+                for j in i..n {
+                    tmp += input[j - i] * input[j];
+                }
+                tmp / (n - i) as f32
+            })
+            .collect()
+    }
+
+    fn pseudo_random(n: usize) -> Vec<f32> {
+        let mut state = 0x2545_F491_u32;
+        (0..n)
+            .map(|_| {
+                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                (state >> 8) as f32 / (1u32 << 24) as f32 - 0.5
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_vec_autocorr_matches_reference() {
+        for n in [0, 1, 2, 7, 8, 9, 15, 16, 17, 100, 345] {
+            let input = pseudo_random(n);
+            let expected = autocorr_reference(&input);
+
+            // without FMA, the lane-wise version keeps the summation order, so it's bit-exact
+            let mut unfused = vec![0.0; n];
+            vec_autocorr_impl::<false>(&input, &mut unfused);
+            assert_eq!(unfused, expected, "unfused, n = {n}");
+
+            // dispatched version (may use FMA): only rounding differences
+            let mut dispatched = vec![0.0; n];
+            vec_autocorr(&input, &mut dispatched);
+            for (a, b) in dispatched.iter().zip(&expected) {
+                assert!(
+                    (a - b).abs() <= 1e-4 * b.abs().max(1e-3),
+                    "n = {n}: {a} vs {b}"
+                );
+            }
+        }
     }
 }
