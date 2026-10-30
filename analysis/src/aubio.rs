@@ -245,7 +245,13 @@ impl PVoc {
         for (i, item) in fftgrain.iter_mut().enumerate().take(num_bins - 1).skip(1) {
             let re = self.buffer[i].re;
             let im = self.buffer[i].im;
-            *item = re.hypot(im); // magnitude
+            #[allow(
+                clippy::imprecise_flops,
+                reason = "`hypot` is a non-inlinable libm call, much slower than this"
+            )]
+            {
+                *item = (re * re + im * im).sqrt(); // magnitude
+            }
         }
 
         // Bin 255: aubio puts the NYQUIST bin here (bin 256) due to the buffer overflow bug!
@@ -405,7 +411,13 @@ impl PVocTempo {
         for (i, item) in fftgrain.iter_mut().enumerate().take(num_bins - 1).skip(1) {
             let re = self.buffer[i].re;
             let im = self.buffer[i].im;
-            *item = re.hypot(im); // magnitude
+            #[allow(
+                clippy::imprecise_flops,
+                reason = "`hypot` is a non-inlinable libm call, much slower than this"
+            )]
+            {
+                *item = (re * re + im * im).sqrt(); // magnitude
+            }
         }
 
         // Bin 256 (Nyquist): always real, use abs
