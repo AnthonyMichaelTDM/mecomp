@@ -155,7 +155,7 @@ fn normalize_embeddings_inplace(embeddings: &mut Array2<Feature>) {
         let range = max - min;
         embeddings
             .column_mut(i)
-            .mapv_inplace(|v| ((v - min) / range).mul_add(2., -1.));
+            .mapv_inplace(|v| 2.0 * ((v - min) / range) - 1.0);
     }
 }
 
