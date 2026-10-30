@@ -242,7 +242,7 @@ impl PVoc {
         for (i, item) in fftgrain.iter_mut().enumerate().take(num_bins - 1).skip(1) {
             let re = self.buffer[i].re;
             let im = self.buffer[i].im;
-            *item = (re * re + im * im).sqrt(); // magnitude
+            *item = re.hypot(im); // magnitude
         }
 
         // Bin 255: aubio puts the NYQUIST bin here (bin 256) due to the buffer overflow bug!
@@ -401,7 +401,7 @@ impl PVocTempo {
         for (i, item) in fftgrain.iter_mut().enumerate().take(num_bins - 1).skip(1) {
             let re = self.buffer[i].re;
             let im = self.buffer[i].im;
-            *item = (re * re + im * im).sqrt(); // magnitude
+            *item = re.hypot(im); // magnitude
         }
 
         // Bin 256 (Nyquist): always real, use abs
@@ -479,7 +479,7 @@ fn vec_median(data: &mut [f32]) -> f32 {
 
     let mut low = 0;
     let mut high = n - 1;
-    let median = (low + high) / 2;
+    let median = usize::midpoint(low, high);
 
     loop {
         if high <= low {
@@ -496,7 +496,7 @@ fn vec_median(data: &mut [f32]) -> f32 {
         }
 
         // Find median of low, middle and high items; swap into position low
-        let middle = (low + high) / 2;
+        let middle = usize::midpoint(low, high);
         if data[middle] > data[high] {
             data.swap(middle, high);
         }
