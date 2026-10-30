@@ -21,6 +21,7 @@ fn spectral_centroid(spec_norm: &[f32]) -> f32 {
     }
 
     let mut sc = 0.0;
+    #[allow(clippy::cast_precision_loss)]
     for (j, &norm_value) in spec_norm.iter().enumerate() {
         sc += j as f32 * norm_value;
     }
@@ -33,6 +34,7 @@ fn spectral_centroid(spec_norm: &[f32]) -> f32 {
 /// This is a direct transcription of aubio's `aubio_specdesc_rolloff` function from
 /// src/spectral/statistics.c
 /// Returns the bin number below which 95% of the spectrum energy is found.
+#[allow(clippy::cast_precision_loss)]
 fn spectral_rolloff(spec_norm: &[f32]) -> f32 {
     let mut cumsum = 0.0;
     let mut rollsum = 0.0;
@@ -144,6 +146,7 @@ impl PVoc {
 
         // Create Hann window (hanningz variant)
         let mut window = vec![0.0; win_s];
+        #[allow(clippy::cast_precision_loss)]
         for (i, item) in window.iter_mut().enumerate().take(win_s) {
             *item = 0.5 * (1.0 - (2.0 * PI * i as f32 / win_s as f32).cos());
         }
@@ -296,6 +299,7 @@ impl PVocTempo {
 
         // Create Hann window (hanningz variant)
         let mut window = vec![0.0; win_s];
+        #[allow(clippy::cast_precision_loss)]
         for (i, item) in window.iter_mut().enumerate().take(win_s) {
             *item = 0.5 * (1.0 - (2.0 * PI * i as f32 / win_s as f32).cos());
         }
@@ -461,6 +465,7 @@ impl SpecFlux {
 
 /// Helper functions for `PeakPicker`
 /// Compute mean of a slice
+#[allow(clippy::cast_precision_loss)]
 fn vec_mean(data: &[f32]) -> f32 {
     if data.is_empty() {
         return 0.0;
@@ -516,11 +521,13 @@ fn vec_median(data: &mut [f32]) -> f32 {
 
         loop {
             ll += 1;
+            #[allow(clippy::while_float)]
             while data[low] > data[ll] {
                 ll += 1;
             }
 
             hh -= 1;
+            #[allow(clippy::while_float)]
             while data[hh] > data[low] {
                 hh -= 1;
             }
@@ -565,6 +572,7 @@ fn vec_peakpick(onset: &[f32], pos: usize) -> bool {
 
 /// Quadratic interpolation for peak position
 /// Transcribed from aubio/src/mathutils.c:486-498
+#[allow(clippy::cast_precision_loss)]
 fn vec_quadratic_peak_pos(x: &[f32], pos: usize) -> f32 {
     if pos == 0 || pos >= x.len() - 1 {
         return pos as f32;
@@ -862,6 +870,11 @@ impl BeatTracking {
         let mut four_energy = 0.0;
         let acflen = acf.len();
 
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            clippy::cast_possible_wrap
+        )]
         if acflen > 6 * gp + 2 {
             // C code doesn't have bounds checking here because the outer condition ensures validity
             for k in -2..2 {
@@ -896,10 +909,12 @@ impl BeatTracking {
 
     /// Create new beat tracking object
     /// Transcribed from aubio/src/tempo/beattracking.c:58-108
+    #[allow(clippy::cast_precision_loss)]
     fn new(winlen: usize, hop_size: usize, samplerate: u32) -> Self {
         // Default rayleigh parameter - sets preferred tempo to 120bpm
         // C uses float for initialization but stores as uint_t for rp fallback
         let rayparam_float = 60.0 * samplerate as f32 / 120.0 / hop_size as f32;
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
         let rayparam = rayparam_float as u32; // Truncate for struct storage, matching C
         // Use float rayparam for initialization, matching C lines 66, 100, 105-106
         let dfwvnorm = ((2.0_f32.ln() / rayparam_float) * (winlen + 2) as f32).exp();
@@ -951,6 +966,11 @@ impl BeatTracking {
 
     /// Process detection function frame and estimate beats
     /// Transcribed from aubio/src/tempo/beattracking.c:125-262
+    #[allow(
+        clippy::cast_sign_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss
+    )]
     fn do_(&mut self, dfframe: &[f32], output: &mut [f32]) {
         let step = self.step;
         let laglen = self.rwv.len();
@@ -1051,6 +1071,7 @@ impl BeatTracking {
         }
 
         // Start counting beats
+        #[allow(clippy::while_float)]
         while beat + bp < 0.0 {
             beat += bp;
         }
@@ -1147,6 +1168,11 @@ impl BeatTracking {
         rp1 = rp;
 
         // Determine bp based on state
+        #[allow(
+            clippy::cast_sign_loss,
+            clippy::cast_possible_truncation,
+            clippy::cast_precision_loss
+        )]
         if flagconst {
             // First run of new hypothesis
             gp = rp;
@@ -1204,7 +1230,9 @@ impl BeatTracking {
         if self.bp == 0.0 {
             0.0
         } else {
+            #[allow(clippy::cast_precision_loss)]
             let period_samples = self.hop_size as f32 * self.bp;
+            #[allow(clippy::cast_precision_loss)]
             let period_s = period_samples / self.samplerate as f32;
             60.0 / period_s
         }
@@ -1217,6 +1245,7 @@ impl BeatTracking {
 
 /// Compute mean energy (`level_lin`) (sum of squares / length)
 /// Transcribed from aubio/src/mathutils.c:328-340
+#[allow(clippy::cast_precision_loss)]
 pub(crate) fn level_lin(data: &[f32]) -> f32 {
     let mut energy = 0.0;
     for &x in data {
@@ -1296,6 +1325,11 @@ impl Tempo {
 
         // Calculate winlen: next power of 2 >= (5.8 * samplerate / hop_size)
         // This gives about 6 seconds of detection function data
+        #[allow(
+            clippy::cast_sign_loss,
+            clippy::cast_possible_truncation,
+            clippy::cast_precision_loss
+        )]
         let mut winlen =
             (((5.8 * samplerate as f32) / hop_size as f32) as usize).next_power_of_two();
         if winlen < 4 {
@@ -1350,7 +1384,7 @@ impl Tempo {
         self.of = self.od.do_(fftgrain_norm);
 
         // 3. Every step frames, run beat tracking and rotate buffer
-        if self.blockpos == (step as isize) - 1 {
+        if self.blockpos == step.cast_signed() - 1 {
             // Run beat tracking
             self.bt.do_(&self.dfframe, &mut self.out);
 
@@ -1376,15 +1410,21 @@ impl Tempo {
         // 5. Store thresholded value in dfframe
         let thresholded = self.pp.get_thresholded();
 
-        self.dfframe[winlen - step + self.blockpos as usize] = thresholded;
+        self.dfframe[winlen - step + self.blockpos.cast_unsigned()] = thresholded;
 
         // 6. Check for beat at current position
         let mut tempo_out = 0.0;
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
         let num_beats = self.out[0] as usize;
 
         for i in 1..num_beats {
             let beat_pos = self.out[i];
 
+            #[allow(
+                clippy::cast_sign_loss,
+                clippy::cast_possible_truncation,
+                clippy::cast_precision_loss
+            )]
             if self.blockpos == beat_pos.floor() as isize {
                 // Found a beat at current position
                 tempo_out = beat_pos - beat_pos.floor();
