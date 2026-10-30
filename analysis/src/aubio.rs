@@ -847,6 +847,10 @@ fn vec_autocorr(input: &[f32], output: &mut [f32]) {
 
 /// `FMA` selects fused multiply-add, only use it when the target has hardware FMA (otherwise
 /// `mul_add` becomes a call to libm's `fmaf` for every element).
+#[allow(
+    clippy::inline_always,
+    reason = "this must inline to allow simd-vectorization"
+)]
 #[inline(always)]
 fn vec_autocorr_impl<const FMA: bool>(input: &[f32], output: &mut [f32]) {
     const LANES: usize = 8;
@@ -858,44 +862,48 @@ fn vec_autocorr_impl<const FMA: bool>(input: &[f32], output: &mut [f32]) {
     }
 
     let n = input.len();
-    let output = &mut output[..n];
+    let (lag_blocks, remaining_lags) = output[..n].as_chunks_mut::<LANES>();
 
-    let mut i0 = 0;
-    // blocks of LANES lags: lane k handles lag i0 + k
-    while i0 + LANES <= n {
+    // Blocks of LANES lags: lane k handles lag `block_start + k`.
+    for (block_index, output_block) in lag_blocks.iter_mut().enumerate() {
+        let block_start = block_index * LANES;
         let mut acc = [0.0f32; LANES];
 
-        // Lane k only starts contributing at j = i0 + k, so for j < i0 + LANES - 1 only the
-        // first (j - i0 + 1) lanes are active.
-        for j in i0..i0 + LANES - 1 {
+        // Lane k starts at j = block_start + k, so only the leading lanes contribute in this
+        // prologue.
+        for j in block_start..block_start + LANES - 1 {
             let x = input[j];
-            for k in 0..=(j - i0) {
-                acc[k] = mac::<FMA>(input[j - i0 - k], x, acc[k]);
+            for k in 0..=(j - block_start) {
+                acc[k] = mac::<FMA>(input[j - block_start - k], x, acc[k]);
             }
         }
 
-        // all lanes active; window[LANES - 1 - k] == input[j - i0 - k]
-        for j in (i0 + LANES - 1)..n {
+        // All lanes are active; window[LANES - 1 - k] == input[j - block_start - k].
+        for j in (block_start + LANES - 1)..n {
             let x = input[j];
-            let window: &[f32; LANES] = input[j - i0 + 1 - LANES..=j - i0].try_into().unwrap();
+            let window: &[f32; LANES] = input[j - block_start + 1 - LANES..=j - block_start]
+                .try_into()
+                .unwrap();
             for k in 0..LANES {
                 acc[k] = mac::<FMA>(window[LANES - 1 - k], x, acc[k]);
             }
         }
 
+        #[allow(clippy::cast_precision_loss)]
         for k in 0..LANES {
-            output[i0 + k] = acc[k] / (n - (i0 + k)) as f32;
+            output_block[k] = acc[k] / (n - (block_start + k)) as f32;
         }
-        i0 += LANES;
     }
 
     // remaining lags (fewer than LANES)
-    for i in i0..n {
+    #[allow(clippy::cast_precision_loss)]
+    for (offset, output_value) in remaining_lags.iter_mut().enumerate() {
+        let i = lag_blocks.len() * LANES + offset;
         let mut tmp = 0.0;
         for j in i..n {
             tmp = mac::<FMA>(input[j - i], input[j], tmp);
         }
-        output[i] = tmp / (n - i) as f32;
+        *output_value = tmp / (n - i) as f32;
     }
 }
 
