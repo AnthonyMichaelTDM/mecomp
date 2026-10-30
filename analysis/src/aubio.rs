@@ -13,17 +13,61 @@ use std::f32::consts::PI;
 ///
 /// This is a direct transcription of aubio's `cvec_centroid` function from
 /// src/spectral/statistics.c
+#[multiversion::multiversion(targets("x86_64+fma+avx+avx2"))]
 fn spectral_centroid(spec_norm: &[f32]) -> f32 {
-    let sum: f32 = spec_norm.iter().sum();
+    if multiversion::target::target_cfg_f!(target_feature = "fma") {
+        spectral_centroid_impl::<true>(spec_norm)
+    } else {
+        spectral_centroid_impl::<false>(spec_norm)
+    }
+}
+
+/// Two separate SIMD-optimized loops
+#[allow(
+    clippy::inline_always,
+    reason = "this must inline to allow simd-vectorization"
+)]
+#[inline(always)]
+fn spectral_centroid_impl<const FMA: bool>(spec_norm: &[f32]) -> f32 {
+    #[inline(always)]
+    fn mac<const FMA: bool>(a: f32, b: f32, acc: f32) -> f32 {
+        #[allow(clippy::suboptimal_flops)]
+        if FMA { a.mul_add(b, acc) } else { acc + a * b }
+    }
+    const LANES: usize = 8;
+    let (chunks, remainder) = spec_norm.as_chunks::<LANES>();
+    let mut acc = [0.0f32; LANES];
+
+    // calculate the sum of the spec_norms
+    for chunk in chunks {
+        for i in 0..LANES {
+            acc[i] += chunk[i];
+        }
+    }
+    let mut sum: f32 = acc.into_iter().sum();
+    for &x in remainder {
+        sum += x;
+    }
 
     if sum == 0.0 {
         return 0.0;
     }
 
-    let mut sc = 0.0;
+    // calculate the spectral centroid using the computed sum
+    acc = [0.0f32; LANES];
+    let mut j = 0;
     #[allow(clippy::cast_precision_loss)]
-    for (j, &norm_value) in spec_norm.iter().enumerate() {
-        sc += j as f32 * norm_value;
+    for chunk in chunks {
+        for i in 0..LANES {
+            acc[i] = mac::<FMA>((j + i) as f32, chunk[i], acc[i]);
+        }
+        j += LANES;
+    }
+    let mut sc = acc.into_iter().sum();
+    #[allow(clippy::cast_precision_loss)]
+    for &x in remainder {
+        sc = mac::<FMA>(j as f32, x, sc);
+        j += 1;
     }
 
     sc / sum
@@ -1325,7 +1369,7 @@ impl BeatTracking {
 
 /// Compute mean energy (`level_lin`) (sum of squares / length)
 /// Transcribed from aubio/src/mathutils.c:328-340
-#[multiversion::multiversion(targets = "simd")]
+#[multiversion::multiversion(targets("x86_64+fma+avx+avx2"))]
 pub(crate) fn level_lin(data: &[f32]) -> f32 {
     if multiversion::target::target_cfg_f!(target_feature = "fma") {
         level_lin_impl::<true>(data)
@@ -1591,6 +1635,22 @@ mod tests {
         energy / data.len() as f32
     }
 
+    fn spectral_centroid_reference(spec_norm: &[f32]) -> f32 {
+        let sum: f32 = spec_norm.iter().sum();
+
+        if sum == 0.0 {
+            return 0.0;
+        }
+
+        let mut sc = 0.0;
+        #[allow(clippy::cast_precision_loss)]
+        for (j, &norm_value) in spec_norm.iter().enumerate() {
+            sc += j as f32 * norm_value;
+        }
+
+        sc / sum
+    }
+
     fn pseudo_random(n: usize) -> Vec<f32> {
         let mut state = 0x2545_F491_u32;
         (0..n)
@@ -1634,6 +1694,25 @@ mod tests {
                 level_lin_impl::<false>(&input),
                 level_lin_impl::<true>(&input),
                 level_lin(&input),
+            ] {
+                assert!(
+                    (value - expected).abs() <= 1e-4 * expected.abs().max(1e-3),
+                    "n = {n}: {value} vs {expected}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_spectral_centroid_matches_reference() {
+        for n in [1, 2, 7, 8, 9, 15, 16, 17, 100, 345] {
+            let input = pseudo_random(n);
+            let expected = spectral_centroid_reference(&input);
+
+            for value in [
+                spectral_centroid_impl::<false>(&input),
+                spectral_centroid_impl::<true>(&input),
+                spectral_centroid(&input),
             ] {
                 assert!(
                     (value - expected).abs() <= 1e-4 * expected.abs().max(1e-3),
