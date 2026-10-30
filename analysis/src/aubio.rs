@@ -1215,16 +1215,6 @@ impl BeatTracking {
  * Helper functions for silence detection
 */
 
-/// Compute next power of two >= a
-/// Transcribed from aubio/src/mathutils.c:590-595
-const fn next_power_of_two(a: usize) -> usize {
-    let mut i = 1;
-    while i < a {
-        i <<= 1;
-    }
-    i
-}
-
 /// Compute mean energy (`level_lin`) (sum of squares / length)
 /// Transcribed from aubio/src/mathutils.c:328-340
 pub(crate) fn level_lin(data: &[f32]) -> f32 {
@@ -1306,7 +1296,8 @@ impl Tempo {
 
         // Calculate winlen: next power of 2 >= (5.8 * samplerate / hop_size)
         // This gives about 6 seconds of detection function data
-        let mut winlen = next_power_of_two(((5.8 * samplerate as f32) / hop_size as f32) as usize);
+        let mut winlen =
+            (((5.8 * samplerate as f32) / hop_size as f32) as usize).next_power_of_two();
         if winlen < 4 {
             winlen = 4;
         }
