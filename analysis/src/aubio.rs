@@ -85,7 +85,7 @@ pub(crate) struct SpecDesc {
 
 impl SpecDesc {
     /// Create new spectral descriptor - matches aubio's API
-    pub(crate) fn new(shape: SpecShape, buf_size: usize) -> Self {
+    pub(crate) const fn new(shape: SpecShape, buf_size: usize) -> Self {
         Self {
             shape,
             _buf_size: buf_size,
@@ -611,7 +611,7 @@ struct Biquad {
 }
 
 impl Biquad {
-    fn new(b0: f32, b1: f32, b2: f32, a1: f32, a2: f32) -> Self {
+    const fn new(b0: f32, b1: f32, b2: f32, a1: f32, a2: f32) -> Self {
         Self {
             b0,
             b1,
@@ -641,7 +641,7 @@ impl Biquad {
     }
 
     /// Reset filter state
-    fn reset(&mut self) {
+    const fn reset(&mut self) {
         self.x1 = 0.0;
         self.x2 = 0.0;
         self.y1 = 0.0;
@@ -760,12 +760,12 @@ impl PeakPicker {
     }
 
     /// Get current thresholded value
-    fn get_thresholded(&self) -> f32 {
+    const fn get_thresholded(&self) -> f32 {
         self.thresholded
     }
 
     /// Set threshold parameter
-    fn set_threshold(&mut self, threshold: f32) {
+    const fn set_threshold(&mut self, threshold: f32) {
         self.threshold = threshold;
     }
 }
@@ -1233,7 +1233,7 @@ impl BeatTracking {
 
 /// Compute next power of two >= a
 /// Transcribed from aubio/src/mathutils.c:590-595
-fn next_power_of_two(a: usize) -> usize {
+const fn next_power_of_two(a: usize) -> usize {
     let mut i = 1;
     while i < a {
         i <<= 1;
