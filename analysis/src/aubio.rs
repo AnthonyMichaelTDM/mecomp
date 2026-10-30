@@ -1317,11 +1317,45 @@ impl BeatTracking {
 
 /// Compute mean energy (`level_lin`) (sum of squares / length)
 /// Transcribed from aubio/src/mathutils.c:328-340
-#[allow(clippy::cast_precision_loss)]
+#[multiversion::multiversion(targets = "simd")]
 pub(crate) fn level_lin(data: &[f32]) -> f32 {
-    let mut energy = 0.0;
-    for &x in data {
-        energy += x * x;
+    if multiversion::target::target_cfg_f!(target_feature = "fma") {
+        level_lin_impl::<true>(data)
+    } else {
+        level_lin_impl::<false>(data)
+    }
+}
+
+#[allow(clippy::cast_precision_loss)]
+#[allow(
+    clippy::inline_always,
+    reason = "the multiversioned loop should inline"
+)]
+#[inline(always)]
+fn level_lin_impl<const FMA: bool>(data: &[f32]) -> f32 {
+    #[inline(always)]
+    fn mac<const FMA: bool>(x: f32, acc: f32) -> f32 {
+        #[allow(clippy::suboptimal_flops)]
+        if FMA { x.mul_add(x, acc) } else { acc + x * x }
+    }
+
+    const LANES: usize = 8;
+    let (chunks, remainder) = data.as_chunks::<LANES>();
+    let mut acc = [0.0; LANES];
+
+    // Process each chunk of data, accumulating the squared values in the accumulator array
+    for chunk in chunks {
+        for i in 0..LANES {
+            acc[i] = mac::<FMA>(chunk[i], acc[i]);
+        }
+    }
+
+    // Sum the accumulated values from the accumulator array to get the total energy
+    let mut energy = acc.into_iter().sum::<f32>();
+
+    // process the remainder
+    for &x in remainder {
+        energy = mac::<FMA>(x, energy);
     }
     energy / data.len() as f32
 }
@@ -1541,6 +1575,14 @@ mod tests {
             .collect()
     }
 
+    fn level_lin_reference(data: &[f32]) -> f32 {
+        let mut energy = 0.0;
+        for &x in data {
+            energy += x * x;
+        }
+        energy / data.len() as f32
+    }
+
     fn pseudo_random(n: usize) -> Vec<f32> {
         let mut state = 0x2545_F491_u32;
         (0..n)
@@ -1569,6 +1611,25 @@ mod tests {
                 assert!(
                     (a - b).abs() <= 1e-4 * b.abs().max(1e-3),
                     "n = {n}: {a} vs {b}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_level_lin_matches_reference() {
+        for n in [1, 2, 7, 8, 9, 15, 16, 17, 100, 345] {
+            let input = pseudo_random(n);
+            let expected = level_lin_reference(&input);
+
+            for value in [
+                level_lin_impl::<false>(&input),
+                level_lin_impl::<true>(&input),
+                level_lin(&input),
+            ] {
+                assert!(
+                    (value - expected).abs() <= 1e-4 * expected.abs().max(1e-3),
+                    "n = {n}: {value} vs {expected}"
                 );
             }
         }
