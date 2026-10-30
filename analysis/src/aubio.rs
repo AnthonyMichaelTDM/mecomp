@@ -38,7 +38,7 @@ fn spectral_rolloff(spec_norm: &[f32]) -> f32 {
     let mut rollsum = 0.0;
 
     // Compute sum of squared magnitudes
-    for &norm_value in spec_norm.iter() {
+    for &norm_value in spec_norm {
         cumsum += norm_value * norm_value;
     }
 
@@ -972,9 +972,7 @@ impl BeatTracking {
         vec_autocorr(dfframe, &mut self.acf);
 
         // Clear acfout
-        for val in self.acfout.iter_mut() {
-            *val = 0.0;
-        }
+        self.acfout.fill(0.0);
 
         // Compute shift invariant comb filterbank
         for i in 1..laglen - 1 {
@@ -1004,9 +1002,7 @@ impl BeatTracking {
 
         if bp == 0.0 {
             // Zero output
-            for val in output.iter_mut() {
-                *val = 0.0;
-            }
+            output.fill(0.0);
             return;
         }
 
@@ -1014,9 +1010,7 @@ impl BeatTracking {
         let kmax = (winlen as f32 / bp).floor() as usize;
 
         // Clear phout
-        for val in self.phout.iter_mut() {
-            *val = 0.0;
-        }
+        self.phout.fill(0.0);
 
         // In C, "for (i = 0; i < bp; i++)" where bp is float compares each i against bp as float
         // e.g. if bp=54.712, loop runs while i < 54.712, so i=0..54 (55 iterations), not 0..53
@@ -1045,9 +1039,7 @@ impl BeatTracking {
         phase += 1.0;
 
         // Reset output
-        for val in output.iter_mut() {
-            *val = 0.0;
-        }
+        output.fill(0.0);
 
         let mut i = 1;
         let mut beat = bp - phase;
@@ -1098,9 +1090,7 @@ impl BeatTracking {
         // If gp is set, compute shift invariant comb filterbank
         if gp > 0.0 {
             // Zero out acfout
-            for val in self.acfout.iter_mut() {
-                *val = 0.0;
-            }
+            self.acfout.fill(0.0);
 
             // Compute shift invariant comb filterbank
             for i in 1..(laglen - 1) {
@@ -1171,9 +1161,7 @@ impl BeatTracking {
             bp = gp;
 
             // Flat phase weighting
-            for val in self.phwv.iter_mut() {
-                *val = 1.0;
-            }
+            self.phwv.fill(1.0);
         } else if self.timesig > 0 {
             // Context dependent model
             bp = gp;
@@ -1186,17 +1174,13 @@ impl BeatTracking {
                 }
             } else {
                 // Flat phase weighting
-                for val in self.phwv.iter_mut() {
-                    *val = 1.0;
-                }
+                self.phwv.fill(1.0);
             }
         } else {
             // Initial state
             bp = rp;
             // Flat phase weighting
-            for val in self.phwv.iter_mut() {
-                *val = 1.0;
-            }
+            self.phwv.fill(1.0);
         }
 
         // If tempo is > 206 bpm, double it
@@ -1217,12 +1201,12 @@ impl BeatTracking {
     /// Get current BPM estimate
     /// Transcribed from aubio/src/tempo/beattracking.c:424-431
     fn get_bpm(&self) -> f32 {
-        if self.bp != 0.0 {
+        if self.bp == 0.0 {
+            0.0
+        } else {
             let period_samples = self.hop_size as f32 * self.bp;
             let period_s = period_samples / self.samplerate as f32;
             60.0 / period_s
-        } else {
-            0.0
         }
     }
 }
