@@ -1149,14 +1149,19 @@ impl BeatTracking {
         self.acfout.fill(0.0);
 
         // Compute shift invariant comb filterbank
+        let acf_len = self.acf.len();
         for i in 1..laglen - 1 {
+            let mut acc = self.acfout[i];
             for a in 1..=numelem {
-                for b in 1..2 * a {
-                    if i * a + b - 1 < self.acf.len() {
-                        self.acfout[i] += self.acf[i * a + b - 1] / (2.0 * a as f32 - 1.0);
-                    }
+                let start = i * a;
+                if start >= acf_len {
+                    break; // start grows with a, so no later `a` can have valid indices either
                 }
+                let divisor = 2.0 * a as f32 - 1.0;
+                let count = (2 * a - 1).min(acf_len - start);
+                acc += self.acf[start..start + count].iter().sum::<f32>() / divisor;
             }
+            self.acfout[i] = acc;
         }
 
         // Apply Rayleigh weight
@@ -1269,14 +1274,17 @@ impl BeatTracking {
 
             // Compute shift invariant comb filterbank
             for i in 1..(laglen - 1) {
+                let mut acc = self.acfout[i];
                 for a in 1..=self.timesig {
-                    for b in 1..(2 * a) {
-                        let idx = i * a as usize + b as usize - 1;
-                        if idx < acflen {
-                            self.acfout[i] += self.acf[idx];
-                        }
+                    let a = a as usize;
+                    let start = i * a;
+                    if start >= acflen {
+                        break; // start grows with a, so no later `a` can have valid indices either
                     }
+                    let count = (2 * a - 1).min(acflen - start);
+                    acc += self.acf[start..start + count].iter().sum::<f32>();
                 }
+                self.acfout[i] = acc;
             }
 
             // Apply Gaussian weighting
