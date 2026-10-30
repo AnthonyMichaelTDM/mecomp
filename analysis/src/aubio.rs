@@ -923,7 +923,7 @@ impl BeatTracking {
             *item = ((2.0_f32.ln() / rayparam_float) * (i + 1) as f32).exp() / dfwvnorm;
         }
 
-        BeatTracking {
+        Self {
             hop_size,
             samplerate,
             rwv,
