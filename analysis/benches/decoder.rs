@@ -1,3 +1,8 @@
+//! Benchmarks to compare different:
+//! 1. Downmixing techniques
+//! 2. Resampling techniques
+//! 3. Parallelism as a percent of available CPU cores
+
 use criterion::{Criterion, criterion_group, criterion_main};
 use mecomp_analysis::{
     SAMPLE_RATE,
