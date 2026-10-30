@@ -3,10 +3,10 @@
 //! Contains various descriptors that don't fit in one of the
 //! existing categories.
 
-use bliss_audio_aubio_rs::level_lin;
 use ndarray::{Axis, arr1};
 
 use crate::Feature;
+use crate::aubio::level_lin;
 
 use super::utils::{Normalize, mean};
 

@@ -19,7 +19,6 @@ default = []
 
 
 [dependencies]
-bliss-audio-aubio-rs = { version = "0.2.4", features = ["static"] }
 linfa = "0.8.1"
 linfa-clustering = "0.8.1"
 linfa-reduction = "0.8.1"
@@ -54,12 +53,6 @@ ort = { version = "2.0.0-rc.15", default-features = false, features = [
     "std",
     "tls-rustls",
 ] }
-
-# if we're building on macos, we need to link against the system's fftw3
-# library, which is not available on linux
-[target.'cfg(target_os = "macos")'.dependencies.bliss-audio-aubio-rs]
-version = "0.2.4"
-features = ["static", "bindgen"]
 
 [dev-dependencies]
 ndarray-npy = { version = "0.9.1", default-features = false }
