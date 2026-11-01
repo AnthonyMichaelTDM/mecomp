@@ -830,6 +830,7 @@ fn vec_weight(data: &mut [f32], weight: &[f32]) {
 /// Transcribed from aubio/src/mathutils.c:655-669
 fn vec_autocorr(input: &[f32], output: &mut [f32]) {
     let length = input.len();
+    #[allow(clippy::cast_precision_loss)]
     for i in 0..length {
         let mut tmp = 0.0;
         for j in i..length {
