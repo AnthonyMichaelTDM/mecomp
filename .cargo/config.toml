@@ -10,4 +10,5 @@ rustflags = [
     # for profiling
     "-C",
     "symbol-mangling-version=v0",
+    # "-C","force-frame-pointers=yes",
 ]

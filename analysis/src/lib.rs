@@ -231,63 +231,60 @@ impl Analysis {
         }
 
         // jobs are split in a way that should make it so that each branch takes roughly the same amount of time
-        let (chroma, (spectral, tempo_zcr_loudness)) = rayon::join(
+        let (chroma_zcr, spectral_tempo_loudness) = rayon::join(
             || -> AnalysisResult<_> {
+                // Chroma
                 let mut chroma_desc = ChromaDesc::new(SAMPLE_RATE, 12);
                 chroma_desc.do_(&audio.samples)?;
-                Ok(chroma_desc.get_value())
+                let chroma = chroma_desc.get_value();
+
+                // ZCR
+                let mut zcr_desc = ZeroCrossingRateDesc::default();
+                zcr_desc.do_(&audio.samples);
+                let zcr = zcr_desc.get_value();
+
+                Ok((chroma, zcr))
             },
-            || {
-                rayon::join(
-                    || -> AnalysisResult<_> {
-                        let mut spectral_desc = SpectralDesc::new(SAMPLE_RATE)?;
-                        let windows = audio
-                            .samples
-                            .windows(SpectralDesc::WINDOW_SIZE)
-                            .step_by(SpectralDesc::HOP_SIZE);
+            || -> AnalysisResult<_> {
+                // Spectral
+                let mut spectral_desc = SpectralDesc::new(SAMPLE_RATE)?;
+                let windows = audio
+                    .samples
+                    .windows(SpectralDesc::WINDOW_SIZE)
+                    .step_by(SpectralDesc::HOP_SIZE);
+                for window in windows {
+                    spectral_desc.do_(window)?;
+                }
+                let centroid = spectral_desc.get_centroid();
+                let rolloff = spectral_desc.get_rolloff();
+                let flatness = spectral_desc.get_flatness();
+                let spectral = (centroid, rolloff, flatness);
 
-                        for window in windows {
-                            spectral_desc.do_(window)?;
-                        }
-                        let centroid = spectral_desc.get_centroid();
-                        let rolloff = spectral_desc.get_rolloff();
-                        let flatness = spectral_desc.get_flatness();
-                        Ok((centroid, rolloff, flatness))
-                    },
-                    || -> AnalysisResult<_> {
-                        // BPM
-                        let mut tempo_desc = BPMDesc::new(SAMPLE_RATE)?;
-                        let windows = audio
-                            .samples
-                            .windows(BPMDesc::WINDOW_SIZE)
-                            .step_by(BPMDesc::HOP_SIZE);
-                        for window in windows {
-                            tempo_desc.do_(window)?;
-                        }
-                        let tempo = tempo_desc.get_value();
+                // BPM
+                let mut tempo_desc = BPMDesc::new(SAMPLE_RATE)?;
+                let windows = audio
+                    .samples
+                    .windows(BPMDesc::WINDOW_SIZE)
+                    .step_by(BPMDesc::HOP_SIZE);
+                for window in windows {
+                    tempo_desc.do_(window)?;
+                }
+                let tempo = tempo_desc.get_value();
 
-                        // ZCR
-                        let mut zcr_desc = ZeroCrossingRateDesc::default();
-                        zcr_desc.do_(&audio.samples);
-                        let zcr = zcr_desc.get_value();
+                // Loudness
+                let mut loudness_desc = LoudnessDesc::default();
+                let windows = audio.samples.chunks(LoudnessDesc::WINDOW_SIZE);
+                for window in windows {
+                    loudness_desc.do_(window);
+                }
+                let loudness = loudness_desc.get_value();
 
-                        // Loudness
-                        let mut loudness_desc = LoudnessDesc::default();
-                        let windows = audio.samples.chunks(LoudnessDesc::WINDOW_SIZE);
-                        for window in windows {
-                            loudness_desc.do_(window);
-                        }
-                        let loudness = loudness_desc.get_value();
-
-                        Ok((tempo, zcr, loudness))
-                    },
-                )
+                Ok((spectral, tempo, loudness))
             },
         );
 
-        let chroma = chroma?;
-        let (centroid, rolloff, flatness) = spectral?;
-        let (tempo, zcr, loudness) = tempo_zcr_loudness?;
+        let (chroma, zcr) = chroma_zcr?;
+        let ((centroid, rolloff, flatness), tempo, loudness) = spectral_tempo_loudness?;
 
         let mut result = vec![tempo, zcr];
         result.extend_from_slice(&centroid);

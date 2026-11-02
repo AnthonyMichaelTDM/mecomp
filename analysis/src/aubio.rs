@@ -13,17 +13,61 @@ use std::f32::consts::PI;
 ///
 /// This is a direct transcription of aubio's `cvec_centroid` function from
 /// src/spectral/statistics.c
+#[multiversion::multiversion(targets("x86_64+fma+avx+avx2"))]
 fn spectral_centroid(spec_norm: &[f32]) -> f32 {
-    let sum: f32 = spec_norm.iter().sum();
+    if multiversion::target::target_cfg_f!(target_feature = "fma") {
+        spectral_centroid_impl::<true>(spec_norm)
+    } else {
+        spectral_centroid_impl::<false>(spec_norm)
+    }
+}
+
+/// Two separate SIMD-optimized loops
+#[allow(
+    clippy::inline_always,
+    reason = "this must inline to allow simd-vectorization"
+)]
+#[inline(always)]
+fn spectral_centroid_impl<const FMA: bool>(spec_norm: &[f32]) -> f32 {
+    #[inline(always)]
+    fn mac<const FMA: bool>(a: f32, b: f32, acc: f32) -> f32 {
+        #[allow(clippy::suboptimal_flops)]
+        if FMA { a.mul_add(b, acc) } else { acc + a * b }
+    }
+    const LANES: usize = 8;
+    let (chunks, remainder) = spec_norm.as_chunks::<LANES>();
+    let mut acc = [0.0f32; LANES];
+
+    // calculate the sum of the spec_norms
+    for chunk in chunks {
+        for i in 0..LANES {
+            acc[i] += chunk[i];
+        }
+    }
+    let mut sum: f32 = acc.into_iter().sum();
+    for &x in remainder {
+        sum += x;
+    }
 
     if sum == 0.0 {
         return 0.0;
     }
 
-    let mut sc = 0.0;
+    // calculate the spectral centroid using the computed sum
+    acc = [0.0f32; LANES];
+    let mut j = 0;
     #[allow(clippy::cast_precision_loss)]
-    for (j, &norm_value) in spec_norm.iter().enumerate() {
-        sc += j as f32 * norm_value;
+    for chunk in chunks {
+        for i in 0..LANES {
+            acc[i] = mac::<FMA>((j + i) as f32, chunk[i], acc[i]);
+        }
+        j += LANES;
+    }
+    let mut sc = acc.into_iter().sum();
+    #[allow(clippy::cast_precision_loss)]
+    for &x in remainder {
+        sc = mac::<FMA>(j as f32, x, sc);
+        j += 1;
     }
 
     sc / sum
@@ -34,14 +78,44 @@ fn spectral_centroid(spec_norm: &[f32]) -> f32 {
 /// This is a direct transcription of aubio's `aubio_specdesc_rolloff` function from
 /// src/spectral/statistics.c
 /// Returns the bin number below which 95% of the spectrum energy is found.
-#[allow(clippy::cast_precision_loss)]
+#[multiversion::multiversion(targets("x86_64+fma+avx+avx2"))]
 fn spectral_rolloff(spec_norm: &[f32]) -> f32 {
-    let mut cumsum = 0.0;
-    let mut rollsum = 0.0;
+    if multiversion::target::target_cfg_f!(target_feature = "fma") {
+        spectral_rolloff_impl::<true>(spec_norm)
+    } else {
+        spectral_rolloff_impl::<false>(spec_norm)
+    }
+}
+
+#[allow(clippy::cast_precision_loss)]
+#[allow(
+    clippy::inline_always,
+    reason = "the multiversioned loop should inline"
+)]
+#[inline(always)]
+fn spectral_rolloff_impl<const FMA: bool>(spec_norm: &[f32]) -> f32 {
+    const LANES: usize = 4;
+
+    #[inline(always)]
+    fn mac<const FMA: bool>(x: f64, acc: f64) -> f64 {
+        #[allow(clippy::suboptimal_flops)]
+        if FMA { x.mul_add(x, acc) } else { acc + x * x }
+    }
+
+    let mut cumsum;
+    let mut rollsum = 0.0f64;
 
     // Compute sum of squared magnitudes
-    for &norm_value in spec_norm {
-        cumsum += norm_value * norm_value;
+    let (chunks, remainder) = spec_norm.as_chunks::<LANES>();
+    let mut acc = [0.0f64; LANES];
+    for chunk in chunks {
+        for i in 0..LANES {
+            acc[i] = mac::<FMA>(f64::from(chunk[i]), acc[i]);
+        }
+    }
+    cumsum = acc.into_iter().sum();
+    for &norm_value in remainder {
+        cumsum = mac::<FMA>(f64::from(norm_value), cumsum);
     }
 
     if cumsum == 0.0 {
@@ -52,7 +126,8 @@ fn spectral_rolloff(spec_norm: &[f32]) -> f32 {
     cumsum *= 0.95;
     let mut j = 0;
     while rollsum < cumsum && j < spec_norm.len() {
-        rollsum += spec_norm[j] * spec_norm[j];
+        let norm_value = f64::from(spec_norm[j]);
+        rollsum = mac::<FMA>(norm_value, rollsum);
         j += 1;
     }
 
@@ -828,15 +903,82 @@ fn vec_weight(data: &mut [f32], weight: &[f32]) {
 
 /// Compute autocorrelation
 /// Transcribed from aubio/src/mathutils.c:655-669
+///
+/// Reference (scalar) algorithm:
+/// ```text
+/// for i in 0..n { output[i] = sum_{j=i..n}(input[j - i] * input[j]) / (n - i) }
+/// ```
+/// The inner sum is a float reduction, which LLVM can't vectorize without reassociating it.
+/// Instead, we compute `LANES` consecutive lags at once, one lane per lag, so every lane keeps the
+/// original summation order and the lanes are independent (SIMD-friendly).
+#[multiversion::multiversion(targets("x86_64+fma+avx+avx2"))]
 fn vec_autocorr(input: &[f32], output: &mut [f32]) {
-    let length = input.len();
-    #[allow(clippy::cast_precision_loss)]
-    for i in 0..length {
-        let mut tmp = 0.0;
-        for j in i..length {
-            tmp += input[j - i] * input[j];
+    if multiversion::target::target_cfg_f!(target_feature = "fma") {
+        vec_autocorr_impl::<true>(input, output);
+    } else {
+        vec_autocorr_impl::<false>(input, output);
+    }
+}
+
+/// `FMA` selects fused multiply-add, only use it when the target has hardware FMA (otherwise
+/// `mul_add` becomes a call to libm's `fmaf` for every element).
+#[allow(
+    clippy::inline_always,
+    reason = "this must inline to allow simd-vectorization"
+)]
+#[inline(always)]
+fn vec_autocorr_impl<const FMA: bool>(input: &[f32], output: &mut [f32]) {
+    const LANES: usize = 8;
+
+    #[inline(always)]
+    fn mac<const FMA: bool>(a: f32, b: f32, acc: f32) -> f32 {
+        #[allow(clippy::suboptimal_flops)]
+        if FMA { a.mul_add(b, acc) } else { acc + a * b }
+    }
+
+    let n = input.len();
+    let (lag_blocks, remaining_lags) = output[..n].as_chunks_mut::<LANES>();
+
+    // Blocks of LANES lags: lane k handles lag `block_start + k`.
+    for (block_index, output_block) in lag_blocks.iter_mut().enumerate() {
+        let block_start = block_index * LANES;
+        let mut acc = [0.0f32; LANES];
+
+        // Lane k starts at j = block_start + k, so only the leading lanes contribute in this
+        // prologue.
+        for j in block_start..block_start + LANES - 1 {
+            let x = input[j];
+            for k in 0..=(j - block_start) {
+                acc[k] = mac::<FMA>(input[j - block_start - k], x, acc[k]);
+            }
         }
-        output[i] = tmp / (length - i) as f32;
+
+        // All lanes are active; window[LANES - 1 - k] == input[j - block_start - k].
+        for j in (block_start + LANES - 1)..n {
+            let x = input[j];
+            let window: &[f32; LANES] = input[j - block_start + 1 - LANES..=j - block_start]
+                .try_into()
+                .unwrap();
+            for k in 0..LANES {
+                acc[k] = mac::<FMA>(window[LANES - 1 - k], x, acc[k]);
+            }
+        }
+
+        #[allow(clippy::cast_precision_loss)]
+        for k in 0..LANES {
+            output_block[k] = acc[k] / (n - (block_start + k)) as f32;
+        }
+    }
+
+    // remaining lags (fewer than LANES)
+    #[allow(clippy::cast_precision_loss)]
+    for (offset, output_value) in remaining_lags.iter_mut().enumerate() {
+        let i = lag_blocks.len() * LANES + offset;
+        let mut tmp = 0.0;
+        for j in i..n {
+            tmp = mac::<FMA>(input[j - i], input[j], tmp);
+        }
+        *output_value = tmp / (n - i) as f32;
     }
 }
 
@@ -1008,14 +1150,19 @@ impl BeatTracking {
         self.acfout.fill(0.0);
 
         // Compute shift invariant comb filterbank
+        let acf_len = self.acf.len();
         for i in 1..laglen - 1 {
+            let mut acc = self.acfout[i];
             for a in 1..=numelem {
-                for b in 1..2 * a {
-                    if i * a + b - 1 < self.acf.len() {
-                        self.acfout[i] += self.acf[i * a + b - 1] / (2.0 * a as f32 - 1.0);
-                    }
+                let start = i * a;
+                if start >= acf_len {
+                    break; // start grows with a, so no later `a` can have valid indices either
                 }
+                let divisor = 2.0 * a as f32 - 1.0;
+                let count = (2 * a - 1).min(acf_len - start);
+                acc += self.acf[start..start + count].iter().sum::<f32>() / divisor;
             }
+            self.acfout[i] = acc;
         }
 
         // Apply Rayleigh weight
@@ -1128,14 +1275,17 @@ impl BeatTracking {
 
             // Compute shift invariant comb filterbank
             for i in 1..(laglen - 1) {
+                let mut acc = self.acfout[i];
                 for a in 1..=self.timesig {
-                    for b in 1..(2 * a) {
-                        let idx = i * a as usize + b as usize - 1;
-                        if idx < acflen {
-                            self.acfout[i] += self.acf[idx];
-                        }
+                    let a = a as usize;
+                    let start = i * a;
+                    if start >= acflen {
+                        break; // start grows with a, so no later `a` can have valid indices either
                     }
+                    let count = (2 * a - 1).min(acflen - start);
+                    acc += self.acf[start..start + count].iter().sum::<f32>();
                 }
+                self.acfout[i] = acc;
             }
 
             // Apply Gaussian weighting
@@ -1258,11 +1408,45 @@ impl BeatTracking {
 
 /// Compute mean energy (`level_lin`) (sum of squares / length)
 /// Transcribed from aubio/src/mathutils.c:328-340
-#[allow(clippy::cast_precision_loss)]
+#[multiversion::multiversion(targets("x86_64+fma+avx+avx2"))]
 pub(crate) fn level_lin(data: &[f32]) -> f32 {
-    let mut energy = 0.0;
-    for &x in data {
-        energy += x * x;
+    if multiversion::target::target_cfg_f!(target_feature = "fma") {
+        level_lin_impl::<true>(data)
+    } else {
+        level_lin_impl::<false>(data)
+    }
+}
+
+#[allow(clippy::cast_precision_loss)]
+#[allow(
+    clippy::inline_always,
+    reason = "the multiversioned loop should inline"
+)]
+#[inline(always)]
+fn level_lin_impl<const FMA: bool>(data: &[f32]) -> f32 {
+    #[inline(always)]
+    fn mac<const FMA: bool>(x: f32, acc: f32) -> f32 {
+        #[allow(clippy::suboptimal_flops)]
+        if FMA { x.mul_add(x, acc) } else { acc + x * x }
+    }
+
+    const LANES: usize = 8;
+    let (chunks, remainder) = data.as_chunks::<LANES>();
+    let mut acc = [0.0; LANES];
+
+    // Process each chunk of data, accumulating the squared values in the accumulator array
+    for chunk in chunks {
+        for i in 0..LANES {
+            acc[i] = mac::<FMA>(chunk[i], acc[i]);
+        }
+    }
+
+    // Sum the accumulated values from the accumulator array to get the total energy
+    let mut energy = acc.into_iter().sum::<f32>();
+
+    // process the remainder
+    for &x in remainder {
+        energy = mac::<FMA>(x, energy);
     }
     energy / data.len() as f32
 }
@@ -1462,5 +1646,173 @@ impl Tempo {
     /// Transcribed from aubio/src/tempo/tempo.c:232-234
     pub fn get_bpm(&self) -> f32 {
         self.bt.get_bpm()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn autocorr_reference(input: &[f32]) -> Vec<f32> {
+        let n = input.len();
+        (0..n)
+            .map(|i| {
+                let mut tmp = 0.0;
+                for j in i..n {
+                    tmp += input[j - i] * input[j];
+                }
+                tmp / (n - i) as f32
+            })
+            .collect()
+    }
+
+    fn level_lin_reference(data: &[f32]) -> f32 {
+        let mut energy = 0.0;
+        for &x in data {
+            energy += x * x;
+        }
+        energy / data.len() as f32
+    }
+
+    fn spectral_centroid_reference(spec_norm: &[f32]) -> f32 {
+        let sum: f32 = spec_norm.iter().sum();
+
+        if sum == 0.0 {
+            return 0.0;
+        }
+
+        let mut sc = 0.0;
+        #[allow(clippy::cast_precision_loss)]
+        for (j, &norm_value) in spec_norm.iter().enumerate() {
+            sc += j as f32 * norm_value;
+        }
+
+        sc / sum
+    }
+
+    fn spectral_rolloff_reference(spec_norm: &[f32]) -> f32 {
+        let mut cumsum = 0.0;
+        let mut rollsum = 0.0;
+
+        // Compute sum of squared magnitudes
+        for &norm_value in spec_norm {
+            cumsum += norm_value * norm_value;
+        }
+
+        if cumsum == 0.0 {
+            return 0.0;
+        }
+
+        // Find bin where 95% of energy is reached
+        cumsum *= 0.95;
+        let mut j = 0;
+        while rollsum < cumsum && j < spec_norm.len() {
+            rollsum += spec_norm[j] * spec_norm[j];
+            j += 1;
+        }
+
+        j as f32
+    }
+
+    fn pseudo_random(n: usize) -> Vec<f32> {
+        let mut state = 0x2545_F491_u32;
+        (0..n)
+            .map(|_| {
+                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                (state >> 8) as f32 / (1u32 << 24) as f32 - 0.5
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_vec_autocorr_matches_reference() {
+        for n in [0, 1, 2, 7, 8, 9, 15, 16, 17, 100, 345] {
+            let input = pseudo_random(n);
+            let expected = autocorr_reference(&input);
+
+            // without FMA, the lane-wise version keeps the summation order, so it's bit-exact
+            let mut unfused = vec![0.0; n];
+            vec_autocorr_impl::<false>(&input, &mut unfused);
+            assert_eq!(unfused, expected, "unfused, n = {n}");
+
+            // dispatched version (may use FMA): only rounding differences
+            let mut dispatched = vec![0.0; n];
+            vec_autocorr(&input, &mut dispatched);
+            for (a, b) in dispatched.iter().zip(&expected) {
+                assert!(
+                    (a - b).abs() <= 1e-4 * b.abs().max(1e-3),
+                    "n = {n}: {a} vs {b}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_level_lin_matches_reference() {
+        for n in [1, 2, 7, 8, 9, 15, 16, 17, 100, 345] {
+            let input = pseudo_random(n);
+            let expected = level_lin_reference(&input);
+
+            for value in [
+                level_lin_impl::<false>(&input),
+                level_lin_impl::<true>(&input),
+                level_lin(&input),
+            ] {
+                assert!(
+                    (value - expected).abs() <= 1e-4 * expected.abs().max(1e-3),
+                    "n = {n}: {value} vs {expected}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_spectral_centroid_matches_reference() {
+        for n in [1, 2, 7, 8, 9, 15, 16, 17, 100, 345] {
+            let input = pseudo_random(n);
+            let expected = spectral_centroid_reference(&input);
+
+            for value in [
+                spectral_centroid_impl::<false>(&input),
+                spectral_centroid_impl::<true>(&input),
+                spectral_centroid(&input),
+            ] {
+                assert!(
+                    (value - expected).abs() <= 1e-4 * expected.abs().max(1e-3),
+                    "n = {n}: {value} vs {expected}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_spectral_rolloff_matches_reference() {
+        for n in [1, 2, 7, 8, 9, 15, 16, 17, 100, 345] {
+            let input = pseudo_random(n);
+            let expected = spectral_rolloff_reference(&input);
+
+            for value in [
+                spectral_rolloff_impl::<false>(&input),
+                spectral_rolloff_impl::<true>(&input),
+                spectral_rolloff(&input),
+            ] {
+                assert!(
+                    (value - expected).abs() <= 1e-4 * expected.abs().max(1e-3),
+                    "n = {n}: {value} vs {expected}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_spectral_rolloff_at_95_percent_boundary() {
+        let mut input = vec![0.0; 256];
+        input[..19].fill(0.01);
+        input[255] = 0.01;
+
+        assert_eq!(spectral_rolloff_reference(&input), 19.0);
+        assert_eq!(spectral_rolloff_impl::<false>(&input), 19.0);
+        assert_eq!(spectral_rolloff_impl::<true>(&input), 19.0);
+        assert_eq!(spectral_rolloff(&input), 19.0);
     }
 }
