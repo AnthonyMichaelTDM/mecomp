@@ -4,12 +4,11 @@
 //! spectral centroid, spectral flatness and spectral roll-off of
 //! a given Song.
 
-use bliss_audio_aubio_rs::vec::CVec;
-use bliss_audio_aubio_rs::{PVoc, SpecDesc, SpecShape, bin_to_freq};
 use likely_stable::{LikelyResult, unlikely};
 use ndarray::{Axis, arr1};
 
 use crate::Feature;
+use crate::aubio::{PVoc, SpecDesc, SpecShape, bin_to_freq};
 
 use super::SAMPLE_RATE;
 use super::errors::{AnalysisError, AnalysisResult};
@@ -138,21 +137,9 @@ impl SpectralDesc {
         Ok(Self {
             fftgrain: vec![0.0; Self::WINDOW_SIZE],
 
-            centroid_aubio_desc: SpecDesc::new(SpecShape::Centroid, Self::WINDOW_SIZE)
-                .map_err_unlikely(|e| {
-                    AnalysisError::AnalysisError(format!(
-                        "error while loading aubio centroid object: {e}",
-                    ))
-                })?,
-            rolloff_aubio_desc: SpecDesc::new(SpecShape::Rolloff, Self::WINDOW_SIZE)
-                .map_err_unlikely(|e| {
-                    AnalysisError::AnalysisError(format!(
-                        "error while loading aubio rolloff object: {e}",
-                    ))
-                })?,
-            phase_vocoder: PVoc::new(Self::WINDOW_SIZE, Self::HOP_SIZE).map_err_unlikely(|e| {
-                AnalysisError::AnalysisError(format!("error while loading aubio pvoc object: {e}"))
-            })?,
+            centroid_aubio_desc: SpecDesc::new(SpecShape::Centroid, Self::WINDOW_SIZE),
+            rolloff_aubio_desc: SpecDesc::new(SpecShape::Rolloff, Self::WINDOW_SIZE),
+            phase_vocoder: PVoc::new(Self::WINDOW_SIZE, Self::HOP_SIZE)?,
             values_centroid: Vec::new(),
             values_rolloff: Vec::new(),
             values_flatness: Vec::new(),
@@ -170,33 +157,21 @@ impl SpectralDesc {
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     #[allow(clippy::missing_inline_in_public_items)]
     pub fn do_(&mut self, chunk: &[f32]) -> AnalysisResult<()> {
+        self.fftgrain.fill(0.0);
+
         self.phase_vocoder
             .do_(chunk, self.fftgrain.as_mut_slice())
             .map_err_unlikely(|e| {
                 AnalysisError::AnalysisError(format!("error while processing aubio pv object: {e}"))
             })?;
 
-        let bin = self
-            .centroid_aubio_desc
-            .do_result(self.fftgrain.as_slice())
-            .map_err_unlikely(|e| {
-                AnalysisError::AnalysisError(format!(
-                    "error while processing aubio centroid object: {e}",
-                ))
-            })?;
+        let bin = self.centroid_aubio_desc.do_result(self.fftgrain.as_slice());
 
         #[allow(clippy::cast_precision_loss)]
         let freq = bin_to_freq(bin, self.sample_rate as f32, Self::WINDOW_SIZE as f32);
         self.values_centroid.push(freq);
 
-        let mut bin = self
-            .rolloff_aubio_desc
-            .do_result(self.fftgrain.as_slice())
-            .map_err_unlikely(|e| {
-                AnalysisError::AnalysisError(format!(
-                    "error while processing aubio rolloff object: {e}",
-                ))
-            })?;
+        let mut bin = self.rolloff_aubio_desc.do_result(self.fftgrain.as_slice());
 
         // Until https://github.com/aubio/aubio/pull/318 is in
         #[allow(clippy::cast_precision_loss)]
@@ -209,8 +184,10 @@ impl SpectralDesc {
         let freq = bin_to_freq(bin, self.sample_rate as f32, Self::WINDOW_SIZE as f32);
         self.values_rolloff.push(freq);
 
-        let cvec: CVec<'_> = self.fftgrain.as_slice().into();
-        let norm = cvec.norm();
+        // Extract norm (magnitude) array from fftgrain for flatness calculation
+        // fftgrain format: [norm_0, ..., norm_255, phas_0, ..., phas_255]
+        let num_bins = Self::WINDOW_SIZE / 2;
+        let norm = &self.fftgrain[..num_bins];
         let geo_mean = geometric_mean(norm);
         let arithmetic_mean = mean(norm);
 

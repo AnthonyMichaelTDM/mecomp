@@ -4,10 +4,10 @@
 //! of a given Song.
 
 use crate::Feature;
+use crate::aubio::Tempo;
 
 use super::errors::{AnalysisError, AnalysisResult};
 use super::utils::Normalize;
-use bliss_audio_aubio_rs::{OnsetMode, Tempo};
 use likely_stable::{LikelyResult, unlikely};
 use log::warn;
 use ndarray::arr1;
@@ -32,7 +32,7 @@ use noisy_float::prelude::*;
  *
  */
 pub struct BPMDesc {
-    aubio_obj: Tempo,
+    tempo: Tempo,
     bpms: Vec<f32>,
 }
 
@@ -46,15 +46,7 @@ impl BPMDesc {
     #[inline]
     pub fn new(sample_rate: u32) -> AnalysisResult<Self> {
         Ok(Self {
-            aubio_obj: Tempo::new(
-                OnsetMode::SpecFlux,
-                Self::WINDOW_SIZE,
-                Self::HOP_SIZE,
-                sample_rate,
-            )
-            .map_err_unlikely(|e| {
-                AnalysisError::AnalysisError(format!("error while loading aubio tempo object: {e}"))
-            })?,
+            tempo: Tempo::new(Self::WINDOW_SIZE, Self::HOP_SIZE, sample_rate)?,
             bpms: Vec::new(),
         })
     }
@@ -62,12 +54,12 @@ impl BPMDesc {
     #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
     #[inline]
     pub fn do_(&mut self, chunk: &[f32]) -> AnalysisResult<()> {
-        let result = self.aubio_obj.do_result(chunk).map_err_unlikely(|e| {
+        let result = self.tempo.do_(chunk).map_err_unlikely(|e| {
             AnalysisError::AnalysisError(format!("aubio error while computing tempo {e}"))
         })?;
 
         if result > 0. {
-            self.bpms.push(self.aubio_obj.get_bpm());
+            self.bpms.push(self.tempo.get_bpm());
         }
         Ok(())
     }

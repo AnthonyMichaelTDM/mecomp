@@ -241,7 +241,7 @@ pub fn chroma_filter(
     let mut freq_bins = frequencies;
     hz_to_octs_inplace(&mut freq_bins, tuning, n_chroma);
     freq_bins *= n_chroma_float;
-    freq_bins[0] = (1.5).mul_add(-n_chroma_float, freq_bins[1]);
+    freq_bins[0] = -1.5 * n_chroma_float + freq_bins[1];
     let mut binwidth_bins = Array::ones(freq_bins.raw_dim());
     binwidth_bins
         .slice_mut(s![0..freq_bins.len() - 1])
@@ -254,8 +254,8 @@ pub fn chroma_filter(
     }
 
     d.zip_mut_with(&freq_bins, |d_elem, &fb| {
-        let x = -*d_elem + fb;
-        let x = n_chroma_float.mul_add(10., x + n_chroma2);
+        let x = fb - *d_elem;
+        let x = 10.0 * n_chroma_float + x + n_chroma2;
         *d_elem = x % n_chroma_float - n_chroma2;
     });
     d.zip_mut_with(&binwidth_bins, |d_elem, &bb| {
@@ -344,14 +344,14 @@ pub fn pip_track(
     zipped.for_each(|(i, j), &before_elem, &elem, &after_elem| {
         if elem > ref_value[j] && after_elem <= elem && before_elem < elem {
             let avg = 0.5 * (after_elem - before_elem);
-            let mut shift = (2.0).mul_add(elem, -after_elem - before_elem);
+            let mut shift = 2.0 * elem - after_elem - before_elem;
             if shift.abs() < f32::MIN_POSITIVE {
                 shift += 1.;
             }
             shift = avg / shift;
             #[allow(clippy::cast_precision_loss)]
             pitches.push(((i + beginning + 1) as f32 + shift) * sample_rate_float / n_fft as f32);
-            mags.push((0.5 * avg).mul_add(shift, elem));
+            mags.push((0.5 * avg) * shift + elem);
         }
     });
 
@@ -389,7 +389,7 @@ pub fn pitch_tuning(
 
     // Return the bin with the most reoccurring frequency.
     #[allow(clippy::cast_precision_loss)]
-    Ok((100. * resolution).mul_add(max_index as f32, -50.) / 100.)
+    Ok((100. * resolution * (max_index as f32) - 50.) / 100.)
 }
 
 #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
