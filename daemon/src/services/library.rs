@@ -361,13 +361,16 @@ pub async fn analyze<C: Connection>(
             };
 
             // handle errors in analysis generation
-            let features = match maybe_analysis {
+            let mut features = match maybe_analysis {
                 Ok(analysis) => *analysis.inner(),
                 Err(e) => {
                     error!("Error generating analysis for {displayable_path}: {e}");
                     continue;
                 }
             };
+
+            // apply weights to the features
+            mecomp_analysis::apply_feature_weights(&mut features);
 
             if let Err(e) = Analysis::create(
                 db,

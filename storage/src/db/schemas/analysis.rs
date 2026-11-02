@@ -67,6 +67,12 @@ DEFINE INDEX IF NOT EXISTS analysis_features_vector_index ON analysis FIELDS fea
             M::up(surrql!("DEFINE INDEX IF NOT EXISTS analysis_embeddings_vector_index ON analysis FIELDS embedding MTREE DIMENSION 32;"))
                 .down(surrql!("REMOVE INDEX analysis_embeddings_vector_index ON analysis;"))
                 .comment("Define analysis embeddings index after adding embedding field"),
+            // v0.7.4: weighted analysis features, migration needs to apply weights to pre-existing analyses features
+            M::up(surrql!(r"
+                LET $weights = [ 0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, math::sqrt(3.0 / 13.0), math::sqrt(3.0 / 13.0), math::sqrt(3.0 / 13.0), math::sqrt(3.0 / 13.0), math::sqrt(3.0 / 13.0), math::sqrt(3.0 / 13.0), math::sqrt(3.0 / 13.0), math::sqrt(3.0 / 13.0), math::sqrt(3.0 / 13.0), math::sqrt(3.0 / 13.0), math::sqrt(3.0 / 13.0), math::sqrt(3.0 / 13.0), math::sqrt(3.0 / 13.0) ];
+                UPDATE analysis 
+                SET features = vector::multiply(features, $weights);
+            ")).comment("Apply feature weights to pre-existing analyses"),
         ]
     }
 }
@@ -90,5 +96,58 @@ impl From<Analysis> for mecomp_analysis::Analysis {
     #[inline]
     fn from(analysis: Analysis) -> Self {
         Self::new(analysis.features)
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "db")]
+mod tests {
+    use mecomp_analysis::FEATURE_WEIGHTS;
+    use pretty_assertions::assert_eq;
+    use surrealdb::{Surreal, engine::local::Mem, opt::Config};
+    use surrealqlx::migrations::Migrations;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_v0_7_4_migration() {
+        // setup the DB
+        let config = Config::new().strict();
+        let db = Surreal::new::<Mem>(config).await.unwrap();
+
+        db.query("DEFINE NAMESPACE IF NOT EXISTS test")
+            .await
+            .unwrap();
+        db.use_ns("test").await.unwrap();
+        db.query("DEFINE DATABASE IF NOT EXISTS test")
+            .await
+            .unwrap();
+        db.use_db("test").await.unwrap();
+
+        // run the migrations up to v0.7.4
+        let migrations = Migrations::new(Analysis::TABLE_NAME, Analysis::migrations());
+        migrations.to_version(&db, 7).await.unwrap();
+
+        // insert a "test" analysis into the database
+        let test_analysis = Analysis {
+            id: Analysis::generate_id(),
+            features: [1.0f32; 23],
+            embedding: [1.0f32; 32],
+        };
+        let expected_features = FEATURE_WEIGHTS;
+        let created: Option<Analysis> = db
+            .create(test_analysis.id.clone())
+            .content(test_analysis.clone())
+            .await
+            .unwrap();
+        assert_eq!(created, Some(test_analysis.clone()));
+
+        // run the v0.7.4 migration
+        migrations.to_version(&db, 8).await.unwrap();
+
+        // read that test analysis back and make sure it matches what we expect
+        let row: Option<Analysis> = db.select(test_analysis.id).await.unwrap();
+        let row = row.expect("Expected analysis row to exist");
+        assert_eq!(row.features, expected_features);
     }
 }
