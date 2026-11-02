@@ -94,28 +94,28 @@ fn spectral_rolloff(spec_norm: &[f32]) -> f32 {
 )]
 #[inline(always)]
 fn spectral_rolloff_impl<const FMA: bool>(spec_norm: &[f32]) -> f32 {
-    const LANES: usize = 8;
+    const LANES: usize = 4;
 
     #[inline(always)]
-    fn mac<const FMA: bool>(x: f32, acc: f32) -> f32 {
+    fn mac<const FMA: bool>(x: f64, acc: f64) -> f64 {
         #[allow(clippy::suboptimal_flops)]
         if FMA { x.mul_add(x, acc) } else { acc + x * x }
     }
 
     let mut cumsum;
-    let mut rollsum = 0.0;
+    let mut rollsum = 0.0f64;
 
     // Compute sum of squared magnitudes
     let (chunks, remainder) = spec_norm.as_chunks::<LANES>();
-    let mut acc = [0.0f32; LANES];
+    let mut acc = [0.0f64; LANES];
     for chunk in chunks {
         for i in 0..LANES {
-            acc[i] = mac::<FMA>(chunk[i], acc[i]);
+            acc[i] = mac::<FMA>(f64::from(chunk[i]), acc[i]);
         }
     }
     cumsum = acc.into_iter().sum();
     for &norm_value in remainder {
-        cumsum = mac::<FMA>(norm_value, cumsum);
+        cumsum = mac::<FMA>(f64::from(norm_value), cumsum);
     }
 
     if cumsum == 0.0 {
@@ -126,7 +126,8 @@ fn spectral_rolloff_impl<const FMA: bool>(spec_norm: &[f32]) -> f32 {
     cumsum *= 0.95;
     let mut j = 0;
     while rollsum < cumsum && j < spec_norm.len() {
-        rollsum += spec_norm[j] * spec_norm[j];
+        let norm_value = f64::from(spec_norm[j]);
+        rollsum = mac::<FMA>(norm_value, rollsum);
         j += 1;
     }
 
@@ -1801,5 +1802,17 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_spectral_rolloff_at_95_percent_boundary() {
+        let mut input = vec![0.0; 256];
+        input[..19].fill(0.01);
+        input[255] = 0.01;
+
+        assert_eq!(spectral_rolloff_reference(&input), 19.0);
+        assert_eq!(spectral_rolloff_impl::<false>(&input), 19.0);
+        assert_eq!(spectral_rolloff_impl::<true>(&input), 19.0);
+        assert_eq!(spectral_rolloff(&input), 19.0);
     }
 }
