@@ -2,9 +2,7 @@
 use std::{fs::File, hint::black_box, path::Path};
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use mecomp_analysis::decoder::{
-    Decoder as DecoderTrait, MecompDecoder as Decoder, SymphoniaSource,
-};
+use mecomp_analysis::decoder::{MecompDecoder as Decoder, SymphoniaSource};
 use symphonia::core::io::{MediaSourceStream, MediaSourceStreamOptions};
 
 fn bench_decoder_steps_symphonia_source(c: &mut Criterion) {
@@ -139,50 +137,10 @@ fn bench_decoder_steps_resample(c: &mut Criterion) {
     }
 }
 
-fn bench_decoder_end2end(c: &mut Criterion) {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("data")
-        .canonicalize()
-        .unwrap();
-
-    let mut group = c.benchmark_group("mecomp-analysis: decoder.rs: MecompDecoder::decode");
-
-    let files = &[
-        "s16_mono_22_5kHz.flac",
-        "s16_stereo_22_5kHz.flac",
-        "s32_mono_44_1_kHz.flac",
-        "s32_stereo_44_1_kHz.flac",
-        "s32_stereo_44_1_kHz.mp3",
-        "5_mins_of_noise_stereo_48kHz.ogg",
-    ];
-
-    for file in files {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(file),
-            &path.join(file),
-            |b, path| {
-                b.iter_with_setup(
-                    || Decoder::new().unwrap(),
-                    |decoder| {
-                        decoder.decode(black_box(path)).unwrap();
-                    },
-                );
-            },
-        );
-    }
-
-    group.finish();
-}
-
 criterion_group!(
     benches,
     bench_decoder_steps_symphonia_source,
     bench_decoder_steps_downmix,
     bench_decoder_steps_resample,
 );
-criterion_group!(
-    name = e2e;
-    config = Criterion::default().measurement_time(std::time::Duration::from_secs(20));
-    targets = bench_decoder_end2end
-);
-criterion_main!(benches, e2e);
+criterion_main!(benches);
