@@ -122,6 +122,77 @@ pub type Feature = f32;
 /// The number of features used in `Analysis`
 pub const NUMBER_FEATURES: usize = AnalysisIndex::COUNT;
 
+#[allow(clippy::doc_markdown)]
+/// If Euclidean distance between vectors $a,b\in\mathbb{R}^{n}$ is given by
+///
+/// $$
+/// d(a,b) = \sqrt{(a-b)^T\cdot I \cdot (a-b)}
+/// $$
+///
+/// And the Mahalanobis distance between vectors $a,b\in\mathbb{R}^{n}$ is given by
+///
+/// $$
+/// d_M(a,b) = \sqrt{(a-b)^T\cdot M \cdot (a-b)}
+/// $$
+///
+/// where $M$ is a positive semi-definite matrix.
+///
+/// In the case that $M$ is a diagonal matrix with entries $m_1, m_2, \dots, m_n$,
+/// the Mahalanobis distance can be expressed in terms of the Euclidean distance as follows:
+///
+/// $$
+/// d_M(a,b) = d(a\circ \sqrt{m}, b\circ \sqrt{m})
+/// $$
+///
+/// where $m = (m_1, m_2, \dots, m_n)$, and $\sqrt{m} = (\sqrt{m_1}, \sqrt{m_2}, \dots, \sqrt{m_n})$.
+/// And $a\circ b$ denotes the element-wise product of vectors $a$ and $b$.
+///
+/// ---
+///
+/// `SurrealDB` lets us compute nearest-neighbors with Euclidean distance (and clustering also uses euclidean distance),
+/// so if we apply the weights before returning them in the analysis pipeline we can effectively get the
+/// Mahalanobis distance using the Euclidean distance computation.
+///
+/// In practice, we may want to return them unweighted and make the NN query apply the weights on the fly,
+/// so that users can toggle between weighted and unweighted distance measurements
+/// (or store both unweighted and weighted features in the database).
+pub const FEATURE_WEIGHTS: [f32; NUMBER_FEATURES] = [
+    // tempo: beat tracker unreliable on onset-poor music. Pending confidence use.
+    0.5, // sqrt(0.25)
+    // values below: zcr, timbral, loudness
+    1., // sqrt(1.)
+    1., // sqrt(1.)
+    1., // sqrt(1.)
+    1., // sqrt(1.)
+    1., // sqrt(1.)
+    1., // sqrt(1.)
+    1., // sqrt(1.)
+    1., // sqrt(1.)
+    1., // sqrt(1.)
+    // values below: chroma: harmony gets ~3 dims of total weight instead of 13
+    0.480_384_47, // sqrt(3. / 13.) = 0.480_384_461_415
+    0.480_384_47, // sqrt(3. / 13.)
+    0.480_384_47, // sqrt(3. / 13.)
+    0.480_384_47, // sqrt(3. / 13.)
+    0.480_384_47, // sqrt(3. / 13.)
+    0.480_384_47, // sqrt(3. / 13.)
+    0.480_384_47, // sqrt(3. / 13.)
+    0.480_384_47, // sqrt(3. / 13.)
+    0.480_384_47, // sqrt(3. / 13.)
+    0.480_384_47, // sqrt(3. / 13.)
+    0.480_384_47, // sqrt(3. / 13.)
+    0.480_384_47, // sqrt(3. / 13.)
+    0.480_384_47, // sqrt(3. / 13.)
+];
+
+/// Applies `FEATURE_WEIGHTS` to the given analysis features.
+#[inline]
+pub fn apply_feature_weights(features: &mut [Feature; NUMBER_FEATURES]) {
+    for (i, feature) in features.iter_mut().enumerate() {
+        *feature *= FEATURE_WEIGHTS[i];
+    }
+}
+
 #[derive(Default, PartialEq, Clone, Copy)]
 /// Object holding the results of the song's analysis.
 ///
@@ -297,5 +368,45 @@ impl Analysis {
             .map_err_unlikely(|_| AnalysisError::InvalidFeaturesLen)?;
 
         Ok(Self::new(array))
+    }
+}
+
+#[cfg(test)]
+mod feature_weights {
+    use crate::{FEATURE_WEIGHTS, NUMBER_FEATURES};
+    use pretty_assertions::assert_eq;
+
+    const RAW_FEATURE_WEIGHTS: [f32; NUMBER_FEATURES] = [
+        0.25, // tempo: beat tracker unreliable on onset-poor music. Pending confidence use.
+        // values below: zcr, timbral, loudness
+        1.,
+        1.,
+        1.,
+        1.,
+        1.,
+        1.,
+        1.,
+        1.,
+        1.,
+        // values below: chroma: harmony gets ~3 dims of total weight instead of 13
+        3. / 13.,
+        3. / 13.,
+        3. / 13.,
+        3. / 13.,
+        3. / 13.,
+        3. / 13.,
+        3. / 13.,
+        3. / 13.,
+        3. / 13.,
+        3. / 13.,
+        3. / 13.,
+        3. / 13.,
+        3. / 13.,
+    ];
+
+    #[test]
+    fn feature_weights_match_expected() {
+        let expected = RAW_FEATURE_WEIGHTS.map(|w| w.sqrt());
+        assert_eq!(expected, FEATURE_WEIGHTS);
     }
 }
