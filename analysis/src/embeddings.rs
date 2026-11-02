@@ -7,7 +7,7 @@ pub use ort::environment::Environment;
 use ort::{
     ep::{self, ExecutionProvider, ExecutionProviderDispatch},
     session::{
-        Session,
+        RunOptions, Session,
         builder::{GraphOptimizationLevel, SessionBuilder},
     },
     value::TensorRef,
@@ -71,9 +71,22 @@ pub struct ModelConfig {
 }
 
 /// Struct representing an audio embedding model loaded from an ONNX file.
-#[derive(Debug)]
 pub struct AudioEmbeddingModel {
     session: Session,
+    run_opts: RunOptions,
+}
+
+#[allow(
+    clippy::missing_fields_in_debug,
+    reason = "RunOptions doesn't implement Debug"
+)]
+impl std::fmt::Debug for AudioEmbeddingModel {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AudioEmbeddingModel")
+            .field("session", &self.session)
+            .finish()
+    }
 }
 
 /// Create a CPU execution provider with the arena allocator disabled.
@@ -92,18 +105,29 @@ fn cpu_execution_provider() -> ExecutionProviderDispatch {
 /// Providers are tried in order; if one is unavailable or fails to register, the next is attempted.
 /// CPU is always the final fallback.
 ///
+/// # Returns
+///
+/// `Ok(bool)` if the execution providers were registered successfully, or an error if the CPU EP failed to register.
+///
+/// The `bool` indicates whether a GPU-based execution provider was successfully registered.
+///
 /// # Errors
 ///
 /// Returns an error if the CPU EP failed to register, ignores other EP registration failures
-fn register_execution_providers(builder: &mut SessionBuilder) -> ort::Result<()> {
+fn register_execution_providers(builder: &mut SessionBuilder) -> ort::Result<bool> {
     #[allow(unused_macros)]
     macro_rules! register_ep {
         ($ep:expr, $builder:expr, $name:expr) => {
+            let mut _success = false;
+            register_ep!($ep, $builder, $name, _success);
+        };
+        ($ep:expr, $builder:expr, $name:expr, $success:expr) => {
             let dispatch = $ep.build();
             if let Err(e) = dispatch.register($builder) {
                 log::error!("Failed to register {} execution provider: {:?}", $name, e);
             } else {
                 log::info!("Successfully registered {} execution provider", $name);
+                $success = true;
             }
         };
     }
@@ -116,9 +140,12 @@ fn register_execution_providers(builder: &mut SessionBuilder) -> ort::Result<()>
         log::debug!("CoreML execution provider is not available");
     }
 
+    let mut gpu_success = false;
     if ep::CUDA::is_available()? {
-        let cuda = ep::CUDA::default();
-        register_ep!(cuda, builder, "CUDA");
+        let cuda = ep::CUDA::default()
+            .with_arena_extend_strategy(ep::ArenaExtendStrategy::SameAsRequested)
+            .with_conv_algorithm_search(ep::cuda::ConvAlgorithmSearch::Heuristic);
+        register_ep!(cuda, builder, "CUDA", gpu_success);
     } else {
         log::debug!("CUDA execution provider is not available");
     }
@@ -130,27 +157,33 @@ fn register_execution_providers(builder: &mut SessionBuilder) -> ort::Result<()>
     // when processing many songs of varying lengths.
     cpu_execution_provider().register(builder)?;
 
-    Ok(())
+    Ok(gpu_success)
 }
 
 fn session_builder(
     environment: &Environment,
     hardware_acceleration: bool,
-) -> ort::Result<SessionBuilder> {
+) -> ort::Result<(SessionBuilder, RunOptions)> {
     let mut builder = Session::builder(environment)?
         .with_memory_pattern(false)?
         .with_approximate_gelu()?
+        .with_device_allocated_initializers()?
         .with_optimization_level(GraphOptimizationLevel::Level3)?;
+
+    let mut run_opts = RunOptions::new()?;
 
     if hardware_acceleration {
         // Register hardware acceleration EPs here if needed
-        register_execution_providers(&mut builder)?;
+        let gpu_ep_reg = register_execution_providers(&mut builder)?;
+        if gpu_ep_reg {
+            run_opts.set("memory.enable_memory_arena_shrinkage", "gpu:0")?;
+        }
     } else {
         // Register only the CPU execution provider when hardware acceleration is disabled
         cpu_execution_provider().register(&mut builder)?;
     }
 
-    Ok(builder)
+    Ok((builder, run_opts))
 }
 
 /// Create a new environment to use to spawn sessions.
@@ -170,10 +203,10 @@ impl AudioEmbeddingModel {
     /// Fails if the model cannot be loaded for some reason.
     #[inline]
     pub fn load_default(env: &Environment, hardware_acceleration: bool) -> ort::Result<Self> {
-        let session =
-            session_builder(env, hardware_acceleration)?.commit_from_memory(MODEL_BYTES)?;
+        let (mut builder, run_opts) = session_builder(env, hardware_acceleration)?;
+        let session = builder.commit_from_memory(MODEL_BYTES)?;
 
-        Ok(Self { session })
+        Ok(Self { session, run_opts })
     }
 
     /// Load an audio embedding model from the specified ONNX file path.
@@ -186,9 +219,10 @@ impl AudioEmbeddingModel {
         path: P,
         hardware_acceleration: bool,
     ) -> ort::Result<Self> {
-        let session = session_builder(env, hardware_acceleration)?.commit_from_file(&path)?;
+        let (mut builder, run_opts) = session_builder(env, hardware_acceleration)?;
+        let session = builder.commit_from_file(&path)?;
 
-        Ok(Self { session })
+        Ok(Self { session, run_opts })
     }
 
     /// Load the an audio embedding model with the specified configuration.
@@ -225,7 +259,7 @@ impl AudioEmbeddingModel {
         };
 
         // Run inference
-        let outputs = self.session.run(inputs)?;
+        let outputs = self.session.run_with_options(inputs, &self.run_opts)?;
 
         // Extract embedding
         let (shape, embedding) = outputs["embedding"].try_extract_tensor::<f32>()?;
@@ -273,7 +307,7 @@ impl AudioEmbeddingModel {
         };
 
         // Run inference
-        let outputs = self.session.run(input)?;
+        let outputs = self.session.run_with_options(input, &self.run_opts)?;
 
         // Extract embeddings
         let (shape, embedding_tensor) = outputs["embedding"].try_extract_tensor::<f32>()?;
