@@ -193,7 +193,8 @@ pub fn column_wise_scaled_sum(planes: &[&[f32]], output: &mut [f32], scale: f32)
 
 #[simd]
 fn lagged_cross_correlation_f32s<S: Simd>(simd: S, a: &[f32], b: &[f32], output: &mut [f32]) {
-    let n = a.len().min(output.len());
+    let n = a.len().min(b.len());
+    let num_lags = n.min(output.len());
 
     #[allow(clippy::cast_precision_loss)]
     let indices = S::f32s::from_fn(
@@ -201,7 +202,7 @@ fn lagged_cross_correlation_f32s<S: Simd>(simd: S, a: &[f32], b: &[f32], output:
         #[inline(always)]
         |i| i as f32,
     );
-    let mut output_chunks = output[..n].chunks_exact_mut(S::f32s::LEN);
+    let mut output_chunks = output[..num_lags].chunks_exact_mut(S::f32s::LEN);
     let n_output_chunks = output_chunks.len();
 
     // Blocks of LANES lags: lane k handles lag `block_start + k`.
