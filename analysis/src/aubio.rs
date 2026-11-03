@@ -13,64 +13,12 @@ use std::f32::consts::PI;
 ///
 /// This is a direct transcription of aubio's `cvec_centroid` function from
 /// src/spectral/statistics.c
-#[multiversion::multiversion(targets("x86_64+fma+avx+avx2"))]
 fn spectral_centroid(spec_norm: &[f32]) -> f32 {
-    if multiversion::target::target_cfg_f!(target_feature = "fma") {
-        spectral_centroid_impl::<true>(spec_norm)
-    } else {
-        spectral_centroid_impl::<false>(spec_norm)
-    }
-}
-
-/// Two separate SIMD-optimized loops
-#[allow(
-    clippy::inline_always,
-    reason = "this must inline to allow simd-vectorization"
-)]
-#[inline(always)]
-fn spectral_centroid_impl<const FMA: bool>(spec_norm: &[f32]) -> f32 {
-    #[inline(always)]
-    fn mac<const FMA: bool>(a: f32, b: f32, acc: f32) -> f32 {
-        #[allow(clippy::suboptimal_flops)]
-        if FMA { a.mul_add(b, acc) } else { acc + a * b }
-    }
-    const LANES: usize = 8;
-    let (chunks, remainder) = spec_norm.as_chunks::<LANES>();
-    let mut acc = [0.0f32; LANES];
-
-    // calculate the sum of the spec_norms
-    for chunk in chunks {
-        for i in 0..LANES {
-            acc[i] += chunk[i];
-        }
-    }
-    let mut sum: f32 = acc.into_iter().sum();
-    for &x in remainder {
-        sum += x;
-    }
-
+    let (sum, weighted_sum) = crate::simd::sum_and_index_weighted_sum(spec_norm);
     if sum == 0.0 {
         return 0.0;
     }
-
-    // calculate the spectral centroid using the computed sum
-    acc = [0.0f32; LANES];
-    let mut j = 0;
-    #[allow(clippy::cast_precision_loss)]
-    for chunk in chunks {
-        for i in 0..LANES {
-            acc[i] = mac::<FMA>((j + i) as f32, chunk[i], acc[i]);
-        }
-        j += LANES;
-    }
-    let mut sc = acc.into_iter().sum();
-    #[allow(clippy::cast_precision_loss)]
-    for &x in remainder {
-        sc = mac::<FMA>(j as f32, x, sc);
-        j += 1;
-    }
-
-    sc / sum
+    weighted_sum / sum
 }
 
 /// Compute spectral rolloff from FFT magnitudes (in bins)
@@ -78,44 +26,12 @@ fn spectral_centroid_impl<const FMA: bool>(spec_norm: &[f32]) -> f32 {
 /// This is a direct transcription of aubio's `aubio_specdesc_rolloff` function from
 /// src/spectral/statistics.c
 /// Returns the bin number below which 95% of the spectrum energy is found.
-#[multiversion::multiversion(targets("x86_64+fma+avx+avx2"))]
-fn spectral_rolloff(spec_norm: &[f32]) -> f32 {
-    if multiversion::target::target_cfg_f!(target_feature = "fma") {
-        spectral_rolloff_impl::<true>(spec_norm)
-    } else {
-        spectral_rolloff_impl::<false>(spec_norm)
-    }
-}
-
 #[allow(clippy::cast_precision_loss)]
-#[allow(
-    clippy::inline_always,
-    reason = "the multiversioned loop should inline"
-)]
-#[inline(always)]
-fn spectral_rolloff_impl<const FMA: bool>(spec_norm: &[f32]) -> f32 {
-    const LANES: usize = 4;
-
-    #[inline(always)]
-    fn mac<const FMA: bool>(x: f64, acc: f64) -> f64 {
-        #[allow(clippy::suboptimal_flops)]
-        if FMA { x.mul_add(x, acc) } else { acc + x * x }
-    }
-
-    let mut cumsum;
-    let mut rollsum = 0.0f64;
-
+fn spectral_rolloff(spec_norm: &[f32]) -> f32 {
+    let mut cumsum = 0.0;
     // Compute sum of squared magnitudes
-    let (chunks, remainder) = spec_norm.as_chunks::<LANES>();
-    let mut acc = [0.0f64; LANES];
-    for chunk in chunks {
-        for i in 0..LANES {
-            acc[i] = mac::<FMA>(f64::from(chunk[i]), acc[i]);
-        }
-    }
-    cumsum = acc.into_iter().sum();
-    for &norm_value in remainder {
-        cumsum = mac::<FMA>(f64::from(norm_value), cumsum);
+    for &norm_value in spec_norm {
+        cumsum += norm_value * norm_value;
     }
 
     if cumsum == 0.0 {
@@ -125,9 +41,10 @@ fn spectral_rolloff_impl<const FMA: bool>(spec_norm: &[f32]) -> f32 {
     // Find bin where 95% of energy is reached
     cumsum *= 0.95;
     let mut j = 0;
+    let mut rollsum = 0.0;
     while rollsum < cumsum && j < spec_norm.len() {
-        let norm_value = f64::from(spec_norm[j]);
-        rollsum = mac::<FMA>(norm_value, rollsum);
+        let norm_value = spec_norm[j];
+        rollsum += norm_value * norm_value;
         j += 1;
     }
 
@@ -895,10 +812,7 @@ fn vec_rev(data: &mut [f32]) {
 
 /// Element-wise multiplication (weight)
 fn vec_weight(data: &mut [f32], weight: &[f32]) {
-    let length = data.len().min(weight.len());
-    for j in 0..length {
-        data[j] *= weight[j];
-    }
+    crate::simd::multiply(data, weight);
 }
 
 /// Compute autocorrelation
@@ -911,75 +825,8 @@ fn vec_weight(data: &mut [f32], weight: &[f32]) {
 /// The inner sum is a float reduction, which LLVM can't vectorize without reassociating it.
 /// Instead, we compute `LANES` consecutive lags at once, one lane per lag, so every lane keeps the
 /// original summation order and the lanes are independent (SIMD-friendly).
-#[multiversion::multiversion(targets("x86_64+fma+avx+avx2"))]
 fn vec_autocorr(input: &[f32], output: &mut [f32]) {
-    if multiversion::target::target_cfg_f!(target_feature = "fma") {
-        vec_autocorr_impl::<true>(input, output);
-    } else {
-        vec_autocorr_impl::<false>(input, output);
-    }
-}
-
-/// `FMA` selects fused multiply-add, only use it when the target has hardware FMA (otherwise
-/// `mul_add` becomes a call to libm's `fmaf` for every element).
-#[allow(
-    clippy::inline_always,
-    reason = "this must inline to allow simd-vectorization"
-)]
-#[inline(always)]
-fn vec_autocorr_impl<const FMA: bool>(input: &[f32], output: &mut [f32]) {
-    const LANES: usize = 8;
-
-    #[inline(always)]
-    fn mac<const FMA: bool>(a: f32, b: f32, acc: f32) -> f32 {
-        #[allow(clippy::suboptimal_flops)]
-        if FMA { a.mul_add(b, acc) } else { acc + a * b }
-    }
-
-    let n = input.len();
-    let (lag_blocks, remaining_lags) = output[..n].as_chunks_mut::<LANES>();
-
-    // Blocks of LANES lags: lane k handles lag `block_start + k`.
-    for (block_index, output_block) in lag_blocks.iter_mut().enumerate() {
-        let block_start = block_index * LANES;
-        let mut acc = [0.0f32; LANES];
-
-        // Lane k starts at j = block_start + k, so only the leading lanes contribute in this
-        // prologue.
-        for j in block_start..block_start + LANES - 1 {
-            let x = input[j];
-            for k in 0..=(j - block_start) {
-                acc[k] = mac::<FMA>(input[j - block_start - k], x, acc[k]);
-            }
-        }
-
-        // All lanes are active; window[LANES - 1 - k] == input[j - block_start - k].
-        for j in (block_start + LANES - 1)..n {
-            let x = input[j];
-            let window: &[f32; LANES] = input[j - block_start + 1 - LANES..=j - block_start]
-                .try_into()
-                .unwrap();
-            for k in 0..LANES {
-                acc[k] = mac::<FMA>(window[LANES - 1 - k], x, acc[k]);
-            }
-        }
-
-        #[allow(clippy::cast_precision_loss)]
-        for k in 0..LANES {
-            output_block[k] = acc[k] / (n - (block_start + k)) as f32;
-        }
-    }
-
-    // remaining lags (fewer than LANES)
-    #[allow(clippy::cast_precision_loss)]
-    for (offset, output_value) in remaining_lags.iter_mut().enumerate() {
-        let i = lag_blocks.len() * LANES + offset;
-        let mut tmp = 0.0;
-        for j in i..n {
-            tmp = mac::<FMA>(input[j - i], input[j], tmp);
-        }
-        *output_value = tmp / (n - i) as f32;
-    }
+    crate::simd::lagged_cross_correlation(input, input, output);
 }
 
 /// Beat Tracking for BPM estimation
@@ -1408,46 +1255,10 @@ impl BeatTracking {
 
 /// Compute mean energy (`level_lin`) (sum of squares / length)
 /// Transcribed from aubio/src/mathutils.c:328-340
-#[multiversion::multiversion(targets("x86_64+fma+avx+avx2"))]
-pub(crate) fn level_lin(data: &[f32]) -> f32 {
-    if multiversion::target::target_cfg_f!(target_feature = "fma") {
-        level_lin_impl::<true>(data)
-    } else {
-        level_lin_impl::<false>(data)
-    }
-}
-
 #[allow(clippy::cast_precision_loss)]
-#[allow(
-    clippy::inline_always,
-    reason = "the multiversioned loop should inline"
-)]
-#[inline(always)]
-fn level_lin_impl<const FMA: bool>(data: &[f32]) -> f32 {
-    #[inline(always)]
-    fn mac<const FMA: bool>(x: f32, acc: f32) -> f32 {
-        #[allow(clippy::suboptimal_flops)]
-        if FMA { x.mul_add(x, acc) } else { acc + x * x }
-    }
+pub(crate) fn level_lin(data: &[f32]) -> f32 {
+    let energy = crate::simd::dot(data, data);
 
-    const LANES: usize = 8;
-    let (chunks, remainder) = data.as_chunks::<LANES>();
-    let mut acc = [0.0; LANES];
-
-    // Process each chunk of data, accumulating the squared values in the accumulator array
-    for chunk in chunks {
-        for i in 0..LANES {
-            acc[i] = mac::<FMA>(chunk[i], acc[i]);
-        }
-    }
-
-    // Sum the accumulated values from the accumulator array to get the total energy
-    let mut energy = acc.into_iter().sum::<f32>();
-
-    // process the remainder
-    for &x in remainder {
-        energy = mac::<FMA>(x, energy);
-    }
     energy / data.len() as f32
 }
 
@@ -1730,12 +1541,6 @@ mod tests {
             let input = pseudo_random(n);
             let expected = autocorr_reference(&input);
 
-            // without FMA, the lane-wise version keeps the summation order, so it's bit-exact
-            let mut unfused = vec![0.0; n];
-            vec_autocorr_impl::<false>(&input, &mut unfused);
-            assert_eq!(unfused, expected, "unfused, n = {n}");
-
-            // dispatched version (may use FMA): only rounding differences
             let mut dispatched = vec![0.0; n];
             vec_autocorr(&input, &mut dispatched);
             for (a, b) in dispatched.iter().zip(&expected) {
@@ -1753,11 +1558,7 @@ mod tests {
             let input = pseudo_random(n);
             let expected = level_lin_reference(&input);
 
-            for value in [
-                level_lin_impl::<false>(&input),
-                level_lin_impl::<true>(&input),
-                level_lin(&input),
-            ] {
+            for value in [level_lin(&input)] {
                 assert!(
                     (value - expected).abs() <= 1e-4 * expected.abs().max(1e-3),
                     "n = {n}: {value} vs {expected}"
@@ -1772,11 +1573,7 @@ mod tests {
             let input = pseudo_random(n);
             let expected = spectral_centroid_reference(&input);
 
-            for value in [
-                spectral_centroid_impl::<false>(&input),
-                spectral_centroid_impl::<true>(&input),
-                spectral_centroid(&input),
-            ] {
+            for value in [spectral_centroid(&input)] {
                 assert!(
                     (value - expected).abs() <= 1e-4 * expected.abs().max(1e-3),
                     "n = {n}: {value} vs {expected}"
@@ -1791,11 +1588,7 @@ mod tests {
             let input = pseudo_random(n);
             let expected = spectral_rolloff_reference(&input);
 
-            for value in [
-                spectral_rolloff_impl::<false>(&input),
-                spectral_rolloff_impl::<true>(&input),
-                spectral_rolloff(&input),
-            ] {
+            for value in [spectral_rolloff(&input)] {
                 assert!(
                     (value - expected).abs() <= 1e-4 * expected.abs().max(1e-3),
                     "n = {n}: {value} vs {expected}"
@@ -1811,8 +1604,6 @@ mod tests {
         input[255] = 0.01;
 
         assert_eq!(spectral_rolloff_reference(&input), 19.0);
-        assert_eq!(spectral_rolloff_impl::<false>(&input), 19.0);
-        assert_eq!(spectral_rolloff_impl::<true>(&input), 19.0);
         assert_eq!(spectral_rolloff(&input), 19.0);
     }
 }

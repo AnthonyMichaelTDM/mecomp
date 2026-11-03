@@ -156,15 +156,7 @@ impl SymphoniaSource {
             n => (n as f64).recip() as f32,
         };
 
-        // for each frame, sum the samples from each channel into the mono buffer
-        for plane in planes.planes() {
-            for (out, &sample) in mono.iter_mut().zip(*plane) {
-                *out += sample;
-            }
-        }
-        for sample in mono {
-            *sample *= scale;
-        }
+        crate::simd::column_wise_scaled_sum(planes.planes(), mono, scale);
     }
 
     /// Interleaves the given decoded audio planes into a single buffer.
