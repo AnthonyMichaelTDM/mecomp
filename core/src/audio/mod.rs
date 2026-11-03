@@ -24,9 +24,10 @@ use tracing::instrument;
 use crate::{
     errors::LibraryError,
     format_duration,
-    state::{Percent, SeekType, StateAudio, StateRuntime, Status},
+    state::{Percent, StateAudio, StateRuntime},
     udp::StateChange,
 };
+use mecomp_prost::{PlaybackStatus as Status, SeekType};
 use mecomp_storage::db::schemas::song::SongBrief;
 use one_or_many::OneOrMany;
 
@@ -364,7 +365,7 @@ impl AudioKernel {
 
             match status {
                 // if it was previously stopped, we don't need to do anything here
-                Status::Stopped => {}
+                Status::Unspecified | Status::Stopped => {}
                 // if it was previously paused, we need to re-pause
                 Status::Paused => self.pause(),
                 // if it was previously playing, we need to play
@@ -534,7 +535,7 @@ impl AudioKernel {
                 error!("Failed to append song to player: {e}");
             }
             match status {
-                Status::Stopped => {}
+                Status::Unspecified | Status::Stopped => {}
                 Status::Paused => self.pause(),
                 Status::Playing => self.play(),
             }
@@ -555,7 +556,7 @@ impl AudioKernel {
             }
 
             match status {
-                Status::Stopped => {}
+                Status::Unspecified | Status::Stopped => {}
                 Status::Paused => self.pause(),
                 Status::Playing => self.play(),
             }
@@ -727,7 +728,7 @@ impl AudioKernel {
     fn seek(&mut self, seek: SeekType, duration: Duration) {
         // calculate the new time based on the seek type
         let new_time = match seek {
-            SeekType::Absolute => duration,
+            SeekType::Unspecified | SeekType::Absolute => duration,
             SeekType::RelativeForwards => self.get_time_played().saturating_add(duration),
             SeekType::RelativeBackwards => self.get_time_played().saturating_sub(duration),
         };
@@ -754,10 +755,10 @@ impl AudioKernel {
 
 #[cfg(test)]
 mod tests {
+    use mecomp_prost::RepeatMode;
     use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
 
-    use crate::state::RepeatMode;
     use crate::test_utils::init;
 
     use super::*;

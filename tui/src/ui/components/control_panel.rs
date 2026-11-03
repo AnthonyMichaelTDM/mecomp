@@ -6,7 +6,8 @@
 use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_core::state::{SeekType, StateRuntime, Status};
+use mecomp_core::state::StateRuntime;
+use mecomp_prost::{PlaybackStatus, SeekType};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Position},
     prelude::Rect,
@@ -46,7 +47,7 @@ impl From<&AppState> for Props {
     fn from(value: &AppState) -> Self {
         let value = &value.audio;
         Self {
-            is_playing: value.status == Status::Playing,
+            is_playing: value.status == PlaybackStatus::Playing,
             muted: value.muted,
             volume: value.volume,
             song_runtime: value.runtime,
@@ -408,7 +409,7 @@ mod tests {
         ui::AppState,
     };
     use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
-    use mecomp_core::state::{Percent, SeekType, StateAudio, StateRuntime, Status};
+    use mecomp_core::state::{Percent, StateAudio, StateRuntime};
     use pretty_assertions::assert_eq;
     use rstest::rstest;
     use std::time::Duration;
@@ -588,7 +589,7 @@ mod tests {
     fn test_props_from_state_playing() {
         let state = AppState {
             audio: StateAudio {
-                status: Status::Playing,
+                status: PlaybackStatus::Playing,
                 muted: false,
                 volume: 0.8,
                 runtime: Some(StateRuntime {
@@ -625,7 +626,7 @@ mod tests {
 
         let new_state = AppState {
             audio: StateAudio {
-                status: Status::Playing,
+                status: PlaybackStatus::Playing,
                 volume: 0.5,
                 ..Default::default()
             },
@@ -708,7 +709,7 @@ mod tests {
         };
         let state = AppState {
             audio: StateAudio {
-                status: Status::Playing,
+                status: PlaybackStatus::Playing,
                 current_song: Some(song),
                 runtime: Some(StateRuntime {
                     seek_position: Duration::from_secs(10),

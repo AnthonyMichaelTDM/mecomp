@@ -12,10 +12,8 @@ use object_pool::Pool;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tokio::{net::UdpSocket, sync::RwLock};
 
-use crate::{
-    errors::UdpError,
-    state::{RepeatMode, Status},
-};
+use crate::errors::UdpError;
+use mecomp_prost::{PlaybackStatus, RepeatMode};
 
 pub type Result<T> = std::result::Result<T, UdpError>;
 
@@ -43,7 +41,7 @@ pub enum StateChange {
     /// Seeked to a new position in the track
     Seeked(Duration),
     /// Playback Status has changes
-    StatusChanged(Status),
+    StatusChanged(PlaybackStatus),
     /// The queue has changed, e.g. songs added/removed/reordered
     QueueChanged,
 }
@@ -246,9 +244,9 @@ mod test {
     #[case(Message::StateChange(StateChange::TrackChanged(None)))]
     #[case(Message::StateChange(StateChange::RepeatModeChanged(RepeatMode::None)))]
     #[case(Message::StateChange(StateChange::Seeked(Duration::from_secs(3))))]
-    #[case(Message::StateChange(StateChange::StatusChanged(Status::Paused)))]
-    #[case(Message::StateChange(StateChange::StatusChanged(Status::Playing)))]
-    #[case(Message::StateChange(StateChange::StatusChanged(Status::Stopped)))]
+    #[case(Message::StateChange(StateChange::StatusChanged(PlaybackStatus::Paused)))]
+    #[case(Message::StateChange(StateChange::StatusChanged(PlaybackStatus::Playing)))]
+    #[case(Message::StateChange(StateChange::StatusChanged(PlaybackStatus::Stopped)))]
     #[case(Message::StateChange(StateChange::TrackChanged(Some(
         mecomp_storage::db::schemas::song::Song::generate_id().into()
     ))))]

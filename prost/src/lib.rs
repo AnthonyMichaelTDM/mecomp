@@ -16,6 +16,7 @@ mod mecomp {
 #[doc(hidden)]
 mod conversions;
 pub mod helpers;
+pub mod state;
 
 use std::time::Duration;
 

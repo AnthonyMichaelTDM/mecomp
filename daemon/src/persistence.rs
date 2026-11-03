@@ -34,7 +34,8 @@ use std::{
     io::{BufReader, BufWriter},
 };
 
-use mecomp_core::state::{RepeatMode, SeekType, StateAudio};
+use mecomp_core::state::StateAudio;
+use mecomp_prost::{RepeatMode, SeekType};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueueState {

@@ -1,80 +1,12 @@
 #![allow(clippy::module_name_repetitions)]
-use std::{fmt::Display, time::Duration};
+use std::fmt::Display;
+use std::time::Duration;
 
+use mecomp_prost::{PlaybackStatus, RepeatMode, convert_std_duration};
 use mecomp_storage::db::schemas::song::SongBrief;
 use serde::{Deserialize, Serialize};
 
 use crate::format_duration;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
-pub enum SeekType {
-    Absolute,
-    RelativeForwards,
-    RelativeBackwards,
-}
-
-impl Display for SeekType {
-    #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Absolute => write!(f, "Absolute"),
-            Self::RelativeForwards => write!(f, "Forwards"),
-            Self::RelativeBackwards => write!(f, "Backwards"),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum RepeatMode {
-    /// No repeat: after the queue is finished the player stops
-    #[default]
-    None,
-    /// Repeat the current Song: Repeats the current song, otherwise behaves like `RepeatMode::None`
-    One,
-    /// Repeat the queue Continuously: after going through the queue, the player goes back to the beginning and continues
-    All,
-}
-
-impl Display for RepeatMode {
-    #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::None => write!(f, "None"),
-            Self::One => write!(f, "One"),
-            Self::All => write!(f, "All"),
-        }
-    }
-}
-
-impl RepeatMode {
-    #[must_use]
-    #[inline]
-    pub const fn is_none(&self) -> bool {
-        matches!(self, Self::None)
-    }
-
-    #[must_use]
-    #[inline]
-    pub const fn is_one(&self) -> bool {
-        matches!(self, Self::One)
-    }
-
-    #[must_use]
-    #[inline]
-    pub const fn is_all(&self) -> bool {
-        matches!(self, Self::All)
-    }
-
-    #[must_use]
-    #[inline]
-    pub const fn next(&self) -> Self {
-        match self {
-            Self::None => Self::All,
-            Self::All => Self::One,
-            Self::One => Self::None,
-        }
-    }
-}
 
 #[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize, Default)]
 pub struct Percent(f32);
@@ -125,23 +57,28 @@ impl Display for StateRuntime {
     }
 }
 
-#[derive(
-    Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default,
-)]
-pub enum Status {
-    #[default]
-    Stopped,
-    Paused,
-    Playing,
+impl From<mecomp_prost::StateRuntime> for StateRuntime {
+    #[inline]
+    fn from(value: mecomp_prost::StateRuntime) -> Self {
+        Self {
+            seek_position: value
+                .seek_position
+                .normalized()
+                .try_into()
+                .unwrap_or_default(),
+            seek_percent: Percent::new(value.seek_percent),
+            duration: value.duration.normalized().try_into().unwrap_or_default(),
+        }
+    }
 }
 
-impl Display for Status {
+impl From<StateRuntime> for mecomp_prost::StateRuntime {
     #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Paused => write!(f, "Paused"),
-            Self::Playing => write!(f, "Playing"),
-            Self::Stopped => write!(f, "Stopped"),
+    fn from(value: StateRuntime) -> Self {
+        Self {
+            seek_position: convert_std_duration(value.seek_position),
+            seek_percent: value.seek_percent.into_inner(),
+            duration: convert_std_duration(value.duration),
         }
     }
 }
@@ -153,7 +90,7 @@ pub struct StateAudio {
     pub current_song: Option<SongBrief>,
     pub repeat_mode: RepeatMode,
     pub runtime: Option<StateRuntime>,
-    pub status: Status,
+    pub status: PlaybackStatus,
     pub muted: bool,
     pub volume: f32,
 }
@@ -192,11 +129,44 @@ impl Default for StateAudio {
             queue: Box::default(),
             queue_position: None,
             current_song: None,
-            repeat_mode: RepeatMode::default(),
+            repeat_mode: RepeatMode::None,
             runtime: None,
-            status: Status::default(),
+            status: PlaybackStatus::Stopped,
             muted: false,
             volume: 1.0,
+        }
+    }
+}
+
+impl From<mecomp_prost::StateAudio> for StateAudio {
+    #[allow(clippy::cast_possible_truncation)]
+    #[inline]
+    fn from(value: mecomp_prost::StateAudio) -> Self {
+        Self {
+            queue: value.queue.into_iter().map(Into::into).collect(),
+            queue_position: value.queue_position.map(|v| v as usize),
+            current_song: value.current_song.map(Into::into),
+            repeat_mode: RepeatMode::try_from(value.repeat_mode).unwrap_or_default(),
+            runtime: value.runtime.map(Into::into),
+            status: PlaybackStatus::try_from(value.status).unwrap_or_default(),
+            muted: value.muted,
+            volume: value.volume,
+        }
+    }
+}
+
+impl From<StateAudio> for mecomp_prost::StateAudio {
+    #[inline]
+    fn from(value: StateAudio) -> Self {
+        Self {
+            queue: value.queue.into_iter().map(Into::into).collect(),
+            queue_position: value.queue_position.map(|v| v as u64),
+            current_song: value.current_song.map(Into::into),
+            repeat_mode: value.repeat_mode as i32,
+            runtime: value.runtime.map(Into::into),
+            status: value.status as i32,
+            muted: value.muted,
+            volume: value.volume,
         }
     }
 }
@@ -205,7 +175,7 @@ impl StateAudio {
     #[must_use]
     #[inline]
     pub const fn paused(&self) -> bool {
-        !matches!(self.status, Status::Playing)
+        !matches!(self.status, PlaybackStatus::Playing)
     }
 }
 
@@ -216,7 +186,8 @@ mod tests {
     use super::*;
     use mecomp_storage::db::schemas::song::Song;
     use one_or_many::OneOrMany;
-    use pretty_assertions::{assert_eq, assert_str_eq};
+    use pretty_assertions::assert_eq;
+    use pretty_assertions::assert_str_eq;
     use rstest::rstest;
 
     #[test]
@@ -227,7 +198,7 @@ mod tests {
         assert_eq!(state.current_song, None);
         assert_eq!(state.repeat_mode, RepeatMode::None);
         assert_eq!(state.runtime, None);
-        assert_eq!(state.status, Status::Stopped);
+        assert_eq!(state.status, PlaybackStatus::Stopped);
         assert_eq!(state.muted, false);
         assert!(
             f32::EPSILON > (state.volume - 1.0).abs(),
@@ -237,30 +208,6 @@ mod tests {
     }
 
     #[rstest]
-    #[case::none(RepeatMode::None, [true, false, false])]
-    #[case::one(RepeatMode::One, [false, true, false])]
-    #[case::all(RepeatMode::All, [false, false, true])]
-    fn test_repeat_mode(#[case] mode: RepeatMode, #[case] expected: [bool; 3]) {
-        assert_eq!(mode.is_none(), expected[0]);
-        assert_eq!(mode.is_one(), expected[1]);
-        assert_eq!(mode.is_all(), expected[2]);
-    }
-
-    #[rstest]
-    #[case::next_none(RepeatMode::None, RepeatMode::All)]
-    #[case::next_all(RepeatMode::All, RepeatMode::One)]
-    #[case::next_one(RepeatMode::One, RepeatMode::None)]
-    fn test_repeat_mode_next(#[case] mode: RepeatMode, #[case] expected: RepeatMode) {
-        assert_eq!(mode.next(), expected);
-    }
-
-    #[rstest]
-    #[case::seek_type(SeekType::Absolute, "Absolute")]
-    #[case::seek_type(SeekType::RelativeForwards, "Forwards")]
-    #[case::seek_type(SeekType::RelativeBackwards, "Backwards")]
-    #[case::repeat_mode(RepeatMode::None, "None")]
-    #[case::repeat_mode(RepeatMode::One, "One")]
-    #[case::repeat_mode(RepeatMode::All, "All")]
     #[case::percent(Percent::new(50.0), "50.00%")]
     #[case::state_runtimme(
         StateRuntime {
@@ -277,7 +224,7 @@ mod tests {
             current_song: None,
             repeat_mode: RepeatMode::None,
             runtime: None,
-            status: Status::Paused,
+            status: PlaybackStatus::Paused,
             muted: false,
             volume: 1.0,
         },
@@ -290,7 +237,7 @@ mod tests {
             current_song: None,
             repeat_mode: RepeatMode::None,
             runtime: None,
-            status: Status::Paused,
+            status: PlaybackStatus::Paused,
             muted: false,
             volume: 1.0,
         },
@@ -335,7 +282,7 @@ mod tests {
                 seek_percent: Percent::new(20.0),
                 duration: Duration::from_secs(100),
             }),
-            status: Status::Playing,
+            status: PlaybackStatus::Playing,
             muted: false,
             volume: 1.0,
         },

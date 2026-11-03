@@ -3379,6 +3379,7 @@ dependencies = [
  "lofty",
  "log",
  "mecomp-analysis",
+ "mecomp-prost",
  "mecomp-storage",
  "mecomp-workspace-hack",
  "object-pool",
@@ -3466,11 +3467,13 @@ name = "mecomp-prost"
 version = "0.7.3"
 dependencies = [
  "log",
- "mecomp-core",
  "mecomp-storage",
  "mecomp-workspace-hack",
+ "pretty_assertions",
  "prost",
  "prost-types",
+ "rstest",
+ "serde",
  "thiserror 2.0.21",
  "tokio",
  "tonic",

@@ -1,7 +1,7 @@
 //! Implementation of the Queue Bar component, a scrollable list of the songs in the queue.
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_core::state::RepeatMode;
+use mecomp_prost::RepeatMode;
 use mecomp_storage::db::schemas::song::SongBrief;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Position, Rect},
@@ -144,7 +144,7 @@ impl Component for QueueBar {
             }
             // set the repeat mode
             KeyCode::Char('r') => {
-                let next_repeat_mode = self.props.repeat_mode.next().into();
+                let next_repeat_mode = self.props.repeat_mode.next();
                 self.action_tx
                     .send(Action::Audio(AudioAction::Queue(
                         QueueAction::SetRepeatMode(next_repeat_mode),

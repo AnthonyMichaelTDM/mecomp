@@ -9,7 +9,7 @@ mod smoke_tests;
 
 use std::{path::PathBuf, str::FromStr};
 
-use clap::{Args, Subcommand, ValueEnum, ValueHint};
+use clap::{Args, Subcommand, ValueEnum, ValueHint, builder::PossibleValue};
 use clap_complete::{ArgValueCandidates, ArgValueCompleter, PathCompleter};
 use complete::CompletableTable;
 use mecomp_storage::db::schemas::dynamic::query::Query;
@@ -314,19 +314,36 @@ pub enum VolumeCommand {
     Unmute,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, ValueEnum)]
-pub enum RepeatMode {
-    None,
-    One,
-    All,
+/// A wrapper around the `mecomp_prost::RepeatMode` enum for use with clap's `ValueEnum` trait.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct RepeatMode(mecomp_prost::RepeatMode);
+
+impl RepeatMode {
+    const VARIANTS: [Self; 3] = [
+        Self(mecomp_prost::RepeatMode::None),
+        Self(mecomp_prost::RepeatMode::One),
+        Self(mecomp_prost::RepeatMode::All),
+    ];
 }
 
-impl From<RepeatMode> for mecomp_core::state::RepeatMode {
-    fn from(mode: RepeatMode) -> Self {
-        match mode {
-            RepeatMode::None => Self::None,
-            RepeatMode::One => Self::One,
-            RepeatMode::All => Self::All,
+impl ValueEnum for RepeatMode {
+    fn value_variants<'a>() -> &'a [Self] {
+        &Self::VARIANTS
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        match self.0 {
+            mecomp_prost::RepeatMode::None => {
+                Some(PossibleValue::new("none").help("Do not repeat"))
+            }
+            mecomp_prost::RepeatMode::One => {
+                Some(PossibleValue::new("one").help("Repeat the current song"))
+            }
+            mecomp_prost::RepeatMode::All => {
+                Some(PossibleValue::new("all").help("Repeat the entire queue"))
+            }
+            mecomp_prost::RepeatMode::Unspecified => None,
         }
     }
 }

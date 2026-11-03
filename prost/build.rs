@@ -1,3 +1,5 @@
+use tonic_prost_build::Config;
+
 const PROTO_FILES: &[&str] = &[
     "proto/daemon.proto",
     "proto/apis/collection.proto",
@@ -14,6 +16,16 @@ const PROTO_FILES: &[&str] = &[
 ];
 
 fn main() {
+    let mut config = Config::new();
+    config.type_attribute(
+        "mecomp.RepeatMode",
+        "#[derive(::serde::Serialize, ::serde::Deserialize)]",
+    );
+    config.type_attribute(
+        "mecomp.PlaybackStatus",
+        "#[derive(::serde::Serialize, ::serde::Deserialize)]",
+    );
+
     tonic_prost_build::configure()
         .compile_well_known_types(false)
         .build_transport(true)
@@ -24,6 +36,6 @@ fn main() {
         .emit_rerun_if_changed(true)
         .use_arc_self(true)
         .protoc_arg("-I ./proto/google/protobuf")
-        .compile_protos(PROTO_FILES, &["proto"])
+        .compile_with_config(config, PROTO_FILES, &["proto"])
         .unwrap_or_else(|e| panic!("Failed to compile protos {e:?}"));
 }

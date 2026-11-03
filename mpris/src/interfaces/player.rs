@@ -5,14 +5,16 @@
 use std::{future::ready, path::PathBuf, str::FromStr, time::Duration};
 
 use futures::executor::block_on;
-use mecomp_core::state::{RepeatMode, SeekType, Status};
 use mecomp_prost::{PlaybackSeekRequest, PlaybackSkipRequest, PlaybackVolumeSetRequest};
 use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Time, TrackId, Volume,
     zbus::{Error as ZbusError, fdo},
 };
 
-use crate::{Mpris, interfaces::root::SUPPORTED_MIME_TYPES, metadata_from_opt_song};
+use crate::{
+    Mpris, convert_playback_status, convert_repeat_mode, interfaces::root::SUPPORTED_MIME_TYPES,
+    metadata_from_opt_song,
+};
 
 impl PlayerInterface for Mpris {
     #[allow(clippy::unused_async_trait_impl)]
@@ -144,28 +146,20 @@ impl PlayerInterface for Mpris {
 
     async fn playback_status(&self) -> fdo::Result<PlaybackStatus> {
         let status = self.state.read().await.status;
-        match status {
-            Status::Stopped => Ok(PlaybackStatus::Stopped),
-            Status::Paused => Ok(PlaybackStatus::Paused),
-            Status::Playing => Ok(PlaybackStatus::Playing),
-        }
+        Ok(convert_playback_status(status))
     }
 
     async fn loop_status(&self) -> fdo::Result<LoopStatus> {
         let repeat_mode = self.state.read().await.repeat_mode;
-        match repeat_mode {
-            RepeatMode::None => Ok(LoopStatus::None),
-            RepeatMode::One => Ok(LoopStatus::Track),
-            RepeatMode::All => Ok(LoopStatus::Playlist),
-        }
+        Ok(convert_repeat_mode(repeat_mode))
     }
 
     #[allow(clippy::unused_async_trait_impl)]
     async fn set_loop_status(&self, loop_status: LoopStatus) -> Result<(), ZbusError> {
         let repeat_mode = match loop_status {
-            LoopStatus::None => RepeatMode::None,
-            LoopStatus::Track => RepeatMode::One,
-            LoopStatus::Playlist => RepeatMode::All,
+            LoopStatus::None => mecomp_prost::RepeatMode::None,
+            LoopStatus::Track => mecomp_prost::RepeatMode::One,
+            LoopStatus::Playlist => mecomp_prost::RepeatMode::All,
         };
 
         let mut daemon = self.daemon.clone();
@@ -242,9 +236,9 @@ impl PlayerInterface for Mpris {
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
         //TODO: if the value passed in would mean seeking beyond the end of the track, act like a call to Next
         let seek_type = if offset.as_micros() > 0 {
-            SeekType::RelativeForwards
+            mecomp_prost::SeekType::RelativeForwards
         } else {
-            SeekType::RelativeBackwards
+            mecomp_prost::SeekType::RelativeBackwards
         };
 
         let offset = Duration::from_micros(offset.as_micros().unsigned_abs());
@@ -270,7 +264,7 @@ impl PlayerInterface for Mpris {
             }
 
             block_on(self.daemon.clone().playback_seek(PlaybackSeekRequest::new(
-                SeekType::Absolute,
+                mecomp_prost::SeekType::Absolute,
                 Duration::from_micros(u64::try_from(position).unwrap_or_default()),
             )))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
@@ -328,6 +322,7 @@ mod tests {
         udp::StateChange,
     };
 
+    use mecomp_prost::{PlaybackStatus as Status, RepeatMode};
     use mecomp_storage::db::schemas::song::SongBrief;
     use one_or_many::OneOrMany;
     use pretty_assertions::{assert_eq, assert_ne};

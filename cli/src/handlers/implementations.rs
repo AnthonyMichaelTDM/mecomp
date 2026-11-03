@@ -11,7 +11,6 @@ use super::{
 };
 
 use anyhow::bail;
-use mecomp_core::state::SeekType;
 use mecomp_prost::{
     CollectionFreezeRequest, DynamicPlaylist, DynamicPlaylistChangeSet,
     DynamicPlaylistCreateRequest, DynamicPlaylistUpdateRequest, LibraryAnalyzeRequest,
@@ -19,7 +18,7 @@ use mecomp_prost::{
     PlaybackVolumeSetRequest, PlaylistAddListRequest, PlaylistExportRequest, PlaylistImportRequest,
     PlaylistName, PlaylistRemoveSongsRequest, PlaylistRenameRequest, QueueRemoveRangeRequest,
     QueueSetIndexRequest, RadioSimilarRequest, RecordId, RecordIdList, SearchRequest, SearchResult,
-    Ulid,
+    SeekType, Ulid,
 };
 use mecomp_storage::db::schemas::dynamic::query::Compile;
 use tonic::{Code, Response};
@@ -496,11 +495,10 @@ impl CommandHandler for super::PlaybackCommand {
             Self::Seek { command } => command.handle(client, stdout, stderr, stdin).await,
             Self::Volume { command } => command.handle(client, stdout, stderr, stdin).await,
             Self::Repeat { mode } => {
-                let mode: mecomp_core::state::RepeatMode = (*mode).into();
                 client
-                    .playback_repeat(PlaybackRepeatRequest::new(mode))
+                    .playback_repeat(PlaybackRepeatRequest::new(mode.0))
                     .await?;
-                writeln!(stdout, "Daemon response:\nrepeat mode set to {mode}")?;
+                writeln!(stdout, "Daemon response:\nrepeat mode set to {}", mode.0)?;
                 Ok(())
             }
             Self::Shuffle => {

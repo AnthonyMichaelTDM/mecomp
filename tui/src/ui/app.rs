@@ -409,7 +409,7 @@ mod tests {
         },
     };
     use crossterm::event::KeyModifiers;
-    use mecomp_core::state::{Percent, RepeatMode, StateAudio, StateRuntime, Status};
+    use mecomp_core::state::{Percent, StateAudio, StateRuntime};
     use mecomp_prost::{LibraryBrief, SearchResult};
     use mecomp_storage::db::schemas::song::{Song, SongBrief};
     use pretty_assertions::assert_eq;
@@ -579,13 +579,13 @@ mod tests {
                 queue: vec![song.clone()].into_boxed_slice(),
                 queue_position: Some(0),
                 current_song: Some(song.clone()),
-                repeat_mode: RepeatMode::One,
+                repeat_mode: mecomp_prost::RepeatMode::One,
                 runtime: Some(StateRuntime {
                     seek_position: Duration::from_secs(0),
                     seek_percent: Percent::new(0.0),
                     duration: song.runtime,
                 }),
-                status: Status::Stopped,
+                status: mecomp_prost::PlaybackStatus::Stopped,
                 muted: false,
                 volume: 1.0,
             },

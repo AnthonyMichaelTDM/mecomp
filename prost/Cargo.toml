@@ -11,22 +11,25 @@ readme.workspace = true
 license.workspace = true
 
 [package.metadata.cargo-machete]
-ignored = ["prost", "prost-types", "tonic-prost"]
+ignored = ["prost", "serde", "tonic-prost"]
 
 [dependencies]
 log.workspace = true
 prost = "0.14.3"
 prost-types = { version = "0.14.3" }
+serde.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["time"] }
 tonic = { workspace = true }
 tonic-prost = "0.14.6"
 tracing.workspace = true
 
-mecomp-core = { workspace = true }
 mecomp-storage.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
+[dev-dependencies]
+rstest.workspace = true
+pretty_assertions.workspace = true
 
 [build-dependencies]
 tonic-prost-build = { version = "0.14.6", default-features = false }

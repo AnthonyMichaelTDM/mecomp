@@ -1,8 +1,8 @@
+use mecomp_prost::RepeatMode;
 use rand::{prelude::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use crate::state::RepeatMode;
 use mecomp_storage::db::schemas::song::SongBrief;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -101,7 +101,7 @@ impl Queue {
             }
             Some(current_index) => {
                 match self.repeat_mode {
-                    RepeatMode::None | RepeatMode::One => {
+                    RepeatMode::Unspecified | RepeatMode::None | RepeatMode::One => {
                         // if we reach this point, then skipping would put us at the end of the queue,
                         // so let's just stop playback
                         self.current_index = None;
@@ -256,7 +256,6 @@ impl Queue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::RepeatMode;
     use crate::test_utils::init;
 
     use mecomp_storage::db::schemas::song::SongChangeSet;

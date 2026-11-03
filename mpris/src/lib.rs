@@ -7,10 +7,12 @@ use std::time::Duration;
 use anyhow::{Context as _, Result, anyhow};
 
 use mecomp_core::{
-    state::{Percent, RepeatMode, StateAudio, Status},
+    state::{Percent, StateAudio},
     udp::{Event, Listener, Message, StateChange},
 };
-use mecomp_prost::{MusicPlayerClient, RegisterListenerRequest};
+use mecomp_prost::{
+    MusicPlayerClient, PlaybackStatus as Status, RegisterListenerRequest, RepeatMode,
+};
 use mecomp_storage::db::schemas::song::SongBrief;
 use mpris_server::{
     LoopStatus, Metadata, PlaybackStatus, Property, Server, Signal, Time, TrackId,
@@ -200,11 +202,7 @@ impl Subscriber {
             Message::StateChange(StateChange::RepeatModeChanged(new_mode)) => {
                 state.repeat_mode = new_mode;
                 Ok(MessageOutcomes::Properties(vec![Property::LoopStatus(
-                    match new_mode {
-                        RepeatMode::None => LoopStatus::None,
-                        RepeatMode::One => LoopStatus::Track,
-                        RepeatMode::All => LoopStatus::Playlist,
-                    },
+                    convert_repeat_mode(new_mode),
                 )]))
             }
             Message::StateChange(StateChange::Seeked(position)) => {
@@ -223,11 +221,7 @@ impl Subscriber {
             Message::StateChange(StateChange::StatusChanged(status)) => {
                 state.status = status;
                 Ok(MessageOutcomes::Properties(vec![Property::PlaybackStatus(
-                    match status {
-                        Status::Stopped => PlaybackStatus::Stopped,
-                        Status::Paused => PlaybackStatus::Paused,
-                        Status::Playing => PlaybackStatus::Playing,
-                    },
+                    convert_playback_status(status),
                 )]))
             }
         }
@@ -255,6 +249,22 @@ pub fn metadata_from_opt_song(song: Option<&SongBrief>) -> Metadata {
 fn object_path_from_thing(thing: &mecomp_storage::db::schemas::RecordId) -> ObjectPath<'_> {
     ObjectPath::try_from(format!("/mecomp/{}/{}", thing.tb, thing.id))
         .unwrap_or_else(|e| panic!("Failed to convert {thing} to ObjectPath: {e}"))
+}
+
+const fn convert_repeat_mode(repeat_mode: RepeatMode) -> LoopStatus {
+    match repeat_mode {
+        RepeatMode::Unspecified | RepeatMode::None => LoopStatus::None,
+        RepeatMode::One => LoopStatus::Track,
+        RepeatMode::All => LoopStatus::Playlist,
+    }
+}
+
+const fn convert_playback_status(status: Status) -> PlaybackStatus {
+    match status {
+        Status::Unspecified | Status::Stopped => PlaybackStatus::Stopped,
+        Status::Paused => PlaybackStatus::Paused,
+        Status::Playing => PlaybackStatus::Playing,
+    }
 }
 
 #[cfg(test)]
@@ -325,6 +335,27 @@ mod subscriber_tests {
 
         // Since the structs from mpris_server don't implement PartialEq, we can't compare them directly, so instead we compare the Debug representations
         assert_str_eq!(format!("{actual:?}"), format!("{expected:?}"));
+    }
+
+    #[rstest]
+    #[case(RepeatMode::None, LoopStatus::None)]
+    #[case(RepeatMode::Unspecified, LoopStatus::None)]
+    #[case(RepeatMode::One, LoopStatus::Track)]
+    #[case(RepeatMode::All, LoopStatus::Playlist)]
+    fn test_convert_repeat_mode(#[case] repeat_mode: RepeatMode, #[case] expected: LoopStatus) {
+        assert_eq!(convert_repeat_mode(repeat_mode), expected);
+    }
+
+    #[rstest]
+    #[case(Status::Stopped, PlaybackStatus::Stopped)]
+    #[case(Status::Unspecified, PlaybackStatus::Stopped)]
+    #[case(Status::Paused, PlaybackStatus::Paused)]
+    #[case(Status::Playing, PlaybackStatus::Playing)]
+    fn test_convert_playback_status(
+        #[case] playback_status: Status,
+        #[case] expected: PlaybackStatus,
+    ) {
+        assert_eq!(convert_playback_status(playback_status), expected);
     }
 }
 
