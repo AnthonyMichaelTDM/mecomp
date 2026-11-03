@@ -25,7 +25,7 @@
 //!
 //! Computes the sum over each column (plane) scaled by a factor
 //!
-//! `out[i] = sum_j(planes[j][i] * scale)`
+//! `out[i] = sum_j(planes[j][i]) * scale`
 //!
 //! ### Lagged cross-correlation
 //!
@@ -154,7 +154,7 @@ fn column_wise_scaled_sum_f32s<S: Simd>(
     let shortest_plane = planes.iter().map(|p| p.len()).min().unwrap_or_default();
     let len = shortest_plane.min(output.len());
 
-    // SIMD implementation goes here
+    // Column-wise sum of the planes
     for plane in planes {
         let mut output_chunks = output[..len].chunks_exact_mut(S::f32s::LEN);
 
@@ -164,9 +164,7 @@ fn column_wise_scaled_sum_f32s<S: Simd>(
         for (output_chunk, plane_chunk) in output_chunks.by_ref().zip(plane_chunks.by_ref()) {
             let output_simd = S::f32s::from_slice(simd, output_chunk);
             let plane_simd = S::f32s::from_slice(simd, plane_chunk);
-            plane_simd
-                .mul_add(scale, output_simd)
-                .store_slice(output_chunk);
+            (plane_simd + output_simd).store_slice(output_chunk);
         }
 
         for (output_sample, &plane_sample) in output_chunks
@@ -174,8 +172,19 @@ fn column_wise_scaled_sum_f32s<S: Simd>(
             .iter_mut()
             .zip(plane_remainder)
         {
-            *output_sample += plane_sample * scale;
+            *output_sample += plane_sample;
         }
+    }
+
+    // scaled by `scale`
+    let mut output_chunks = output[..len].chunks_exact_mut(S::f32s::LEN);
+    for output_chunk in output_chunks.by_ref() {
+        let output_simd = S::f32s::from_slice(simd, output_chunk);
+        (output_simd * S::f32s::splat(simd, scale)).store_slice(output_chunk);
+    }
+
+    for output_sample in output_chunks.into_remainder() {
+        *output_sample *= scale;
     }
 }
 
@@ -183,7 +192,7 @@ fn column_wise_scaled_sum_f32s<S: Simd>(
 ///
 /// Each element of the output array is the sum of the corresponding elements of the input planes, scaled by `scale`.
 ///
-/// `out[i] += sum_j(planes[j][i] * scale)`
+/// `out[i] += sum_j(planes[j][i]) * scale`
 pub fn column_wise_scaled_sum(planes: &[&[f32]], output: &mut [f32], scale: f32) {
     // output.fill(0.0);
 
