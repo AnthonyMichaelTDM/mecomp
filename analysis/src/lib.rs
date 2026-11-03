@@ -17,6 +17,7 @@ pub mod decoder;
 pub mod embeddings;
 pub mod errors;
 pub mod misc;
+mod simd;
 pub mod temporal;
 pub mod timbral;
 pub mod utils;
