@@ -56,11 +56,7 @@ impl CommandHandler for Command {
             Self::Status { command } => command.handle(client, stdout, stderr, stdin).await,
             Self::State => {
                 if let Some(state) = client.state_audio(()).await?.into_inner().state {
-                    Ok(writeln!(
-                        stdout,
-                        "{}",
-                        printing::audio_state(&state.into())?
-                    )?)
+                    Ok(writeln!(stdout, "{}", printing::audio_state(&state)?)?)
                 } else {
                     Ok(writeln!(
                         stdout,

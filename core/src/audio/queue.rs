@@ -206,8 +206,8 @@ impl Queue {
     #[must_use]
     #[instrument]
     #[inline]
-    pub fn queued_songs(&self) -> Box<[SongBrief]> {
-        self.songs.clone().into_boxed_slice()
+    pub fn queued_songs(&self) -> Vec<SongBrief> {
+        self.songs.clone()
     }
 
     /// Sets the current index, clamped to the nearest valid index.
@@ -325,7 +325,7 @@ mod tests {
         let mut queue = Queue::new();
         queue.add_songs(songs.clone());
         assert_eq!(queue.len(), 3);
-        assert_eq!(queue.queued_songs(), songs.into_boxed_slice());
+        assert_eq!(queue.queued_songs(), songs);
         assert_eq!(queue.current_song(), None);
     }
 

@@ -7,7 +7,6 @@ pub mod audio;
 pub mod config;
 pub mod errors;
 pub mod logger;
-pub mod state;
 #[cfg(any(test, feature = "test_utils"))]
 pub mod test_utils;
 #[cfg(feature = "notifications")]

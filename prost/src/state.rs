@@ -85,12 +85,45 @@ impl StateAudio {
     }
 }
 
+impl Display for StateAudio {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "StateAudio {{ queue: {:?}, queue_position: {}, current_song: {}, repeat_mode: {}, runtime: {}, status: {}, muted: {}, volume: {:.0}% }}",
+            self.queue
+                .iter()
+                .map(|song| &song.title)
+                .collect::<Vec<_>>(),
+            self.queue_position
+                .map_or_else(|| "None".to_string(), |pos| pos.to_string()),
+            self.current_song
+                .as_ref()
+                .map_or_else(|| "None".to_string(), |song| format!("\"{}\"", song.title)),
+            self.repeat_mode(),
+            self.runtime
+                .as_ref()
+                .map_or_else(|| "None".to_string(), ToString::to_string),
+            self.status(),
+            self.muted,
+            self.volume * 100.0,
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::{Duration, RecordId, SongBrief};
+
     use super::*;
 
     use pretty_assertions::{assert_eq, assert_str_eq};
     use rstest::rstest;
+
+    fn generate_song_id() -> RecordId {
+        let id = mecomp_storage::db::schemas::song::Song::generate_id();
+        RecordId::from((id.table(), id.key().to_string()))
+    }
 
     #[rstest]
     #[case::unspecified(RepeatMode::Unspecified, [true, false, false])]
@@ -128,6 +161,83 @@ mod tests {
     #[case::repeat_mode(RepeatMode::All, "All")]
     #[case::repeat_mode_unspecified(RepeatMode::Unspecified, "None")]
     #[case::repeat_mode_default(RepeatMode::default(), "None")]
+    #[case::state_runtimme(
+        StateRuntime {
+            seek_position: Duration::from_secs(3),
+            duration: Duration::from_secs(6),
+        },
+        "StateRuntime { seek_position: 0:03.0, duration: 0:06.0 }"
+    )]
+    #[case::state_audio_empty(
+        StateAudio {
+            queue: Vec::new(),
+            queue_position: None,
+            current_song: None,
+            repeat_mode: RepeatMode::None as i32,
+            runtime: None,
+            status: PlaybackStatus::Paused as i32,
+            muted: false,
+            volume: 1.0,
+        },
+        "StateAudio { queue: [], queue_position: None, current_song: None, repeat_mode: None, runtime: None, status: Paused, muted: false, volume: 100% }"
+    )]
+    #[case::state_audio_empty(
+        StateAudio {
+            queue: Vec::new(),
+            queue_position: None,
+            current_song: None,
+            repeat_mode: RepeatMode::None as i32,
+            runtime: None,
+            status: PlaybackStatus::Paused as i32,
+            muted: false,
+            volume: 1.0,
+        },
+        "StateAudio { queue: [], queue_position: None, current_song: None, repeat_mode: None, runtime: None, status: Paused, muted: false, volume: 100% }"
+    )]
+    #[case::state_audio(
+        StateAudio {
+            queue: vec![
+                SongBrief {
+                    id: generate_song_id(),
+                    title: "Song 1".into(),
+                    artists: Vec::new(),
+                    album_artists: Vec::new(),
+                    album: "album".into(),
+                    genres: Vec::new(),
+                    runtime: Duration::from_secs(100).into(),
+                    track: None,
+                    disc: None,
+                    release_year: None,
+                    path: "foo/bar.mp3".into(),
+                }
+            ],
+            queue_position: Some(1),
+            current_song: Some(
+                SongBrief {
+                    id: generate_song_id(),
+                    title: "Song 1".into(),
+                    artists: Vec::new(),
+                    album_artists: Vec::new(),
+                    album: "album".into(),
+                    genres: Vec::new(),
+                    runtime: Duration::from_secs(100).into(),
+                    track: None,
+                    disc: None,
+                    release_year: None,
+                    path: "foo/bar.mp3".into(),
+                }
+            ),
+            repeat_mode: RepeatMode::None as i32,
+            runtime: Some(StateRuntime {
+                seek_position: Duration::from_secs(20),
+                duration: Duration::from_secs(100),
+            }),
+            status: PlaybackStatus::Playing as i32,
+            muted: false,
+            volume: 1.0,
+        },
+        "StateAudio { queue: [\"Song 1\"], queue_position: 1, current_song: \"Song 1\", repeat_mode: None, runtime: StateRuntime { seek_position: 0:20.0, duration: 1:40.0 }, status: Playing, muted: false, volume: 100% }"
+    )]
     // #[case::percent(Percent::new(50.0), "50.00%")]
     fn test_display_impls<T: Display>(#[case] input: T, #[case] expected: &str) {
         assert_str_eq!(input.to_string(), expected);

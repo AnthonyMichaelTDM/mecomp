@@ -3,10 +3,10 @@
 
 use std::{fmt::Display, ops::Range, time::Duration};
 
-use mecomp_prost::{RepeatMode, SeekType, SongBrief};
+use mecomp_prost::{RepeatMode, SeekType, SongBrief, StateAudio};
 use one_or_many::OneOrMany;
 
-use crate::{format_duration, state::StateAudio};
+use crate::format_duration;
 
 /// Commands that can be sent to the audio kernel
 #[derive(Debug)]

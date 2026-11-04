@@ -31,7 +31,7 @@ impl Mpris {
         Self {
             daemon,
             port: 0,
-            state: RwLock::new(StateAudio::from(mecomp_core::state::StateAudio::default())),
+            state: RwLock::new(StateAudio::default()),
         }
     }
 
@@ -393,6 +393,7 @@ pub mod test_utils {
             .unwrap();
 
         let mpris = Mpris::new_with_daemon(daemon);
+        mpris.update_state().await.unwrap();
 
         (mpris, event_rx, tempdir, audio_kernel)
     }

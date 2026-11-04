@@ -716,8 +716,7 @@ impl MusicPlayerTrait for MusicPlayer {
         let state = rx
             .await
             .inspect_err(|e| warn!("Error in state_audio: {e}"))
-            .ok()
-            .map(Into::into);
+            .ok();
 
         Ok(Response::new(StateAudioResponse { state }))
     }
