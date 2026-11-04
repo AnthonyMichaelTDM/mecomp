@@ -109,6 +109,26 @@ impl Duration {
     pub const fn inner(&self) -> &std::time::Duration {
         &self.0
     }
+
+    #[must_use]
+    pub const fn as_secs(&self) -> u64 {
+        self.0.as_secs()
+    }
+
+    #[must_use]
+    pub const fn as_secs_f32(&self) -> f32 {
+        self.0.as_secs_f32()
+    }
+
+    #[must_use]
+    pub const fn as_secs_f64(&self) -> f64 {
+        self.0.as_secs_f64()
+    }
+
+    #[must_use]
+    pub const fn as_micros(&self) -> u128 {
+        self.0.as_micros()
+    }
 }
 
 impl fmt::Display for Duration {
@@ -117,15 +137,15 @@ impl fmt::Display for Duration {
         let hours = total_secs / 3600;
         let minutes = (total_secs % 3600) / 60;
         let seconds = total_secs % 60;
-        let millis = self.0.subsec_millis();
+        let millis = self.0.subsec_millis() / 100; // tenths of a second
 
         if hours != 0 {
-            write!(f, "{hours:02}:{minutes:02}:")?;
+            write!(f, "{hours}:{minutes:02}:")?;
         } else {
             write!(f, "{minutes}:")?;
         }
 
-        write!(f, "{seconds:02}.{millis:02}")
+        write!(f, "{seconds:02}.{millis:01}")
     }
 }
 
@@ -147,6 +167,12 @@ impl From<std::time::Duration> for Duration {
     }
 }
 
+impl std::ops::AddAssign<std::time::Duration> for Duration {
+    fn add_assign(&mut self, rhs: std::time::Duration) {
+        self.0 += rhs;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
@@ -154,18 +180,17 @@ mod tests {
     use super::*;
 
     #[rstest]
-    #[case(Duration(std::time::Duration::new(3661, 0)), "01:01:01.00")]
-    #[case(Duration(std::time::Duration::new(0, 1_500_000_000)), "00:00:01.50")]
-    #[case(Duration(std::time::Duration::new(0, 0)), "00:00:00.00")]
-    #[case(Duration(std::time::Duration::new(1, 1_000_000_000)), "00:00:02.00")]
-    #[case::zero(Duration::from_secs(0), "00:00:00.00")]
-    #[case::sub_second(Duration::from_millis(100), "00:00:00.10")]
-    #[case::sub_second(Duration::from_millis(101), "00:00:00.10")]
-    #[case::one_second(Duration::from_secs(1), "00:00:01.00")]
-    #[case::one_minute(Duration::from_secs(60), "00:01:00.00")]
-    #[case::one_hour(Duration::from_secs(3600), "01:00:00.00")]
-    #[case::one_hour_one_minute_one_second(Duration::from_secs(3661), "01:01:01.00")]
-    #[case(Duration::from_secs(3600 + 120 + 1), "01:02:01.00")]
+    #[case(Duration(std::time::Duration::new(3661, 0)), "1:01:01.0")]
+    #[case(Duration(std::time::Duration::new(0, 1_500_000_000)), "0:01.5")]
+    #[case(Duration(std::time::Duration::new(1, 1_000_000_000)), "0:02.0")]
+    #[case::zero(Duration::from_secs(0), "0:00.0")]
+    #[case::sub_second(Duration::from_millis(100), "0:00.1")]
+    #[case::sub_second(Duration::from_millis(101), "0:00.1")]
+    #[case::one_second(Duration::from_secs(1), "0:01.0")]
+    #[case::one_minute(Duration::from_secs(60), "1:00.0")]
+    #[case::one_hour(Duration::from_secs(3600), "1:00:00.0")]
+    #[case::one_hour_one_minute_one_second(Duration::from_secs(3661), "1:01:01.0")]
+    #[case(Duration::from_secs(3600 + 120 + 1), "1:02:01.0")]
     fn test_display(#[case] input: Duration, #[case] expected: &str) {
         assert_eq!(format!("{}", input), expected);
     }

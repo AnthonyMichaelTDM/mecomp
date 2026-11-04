@@ -7,11 +7,12 @@ use std::time::Duration;
 use anyhow::{Context as _, Result, anyhow};
 
 use mecomp_core::{
-    state::{Percent, StateAudio},
+    state::Percent,
     udp::{Event, Listener, Message, StateChange},
 };
 use mecomp_prost::{
     MusicPlayerClient, PlaybackStatus as Status, RegisterListenerRequest, RepeatMode, SongBrief,
+    StateAudio,
 };
 use mpris_server::{
     LoopStatus, Metadata, PlaybackStatus, Property, Server, Signal, Time, TrackId,
@@ -33,7 +34,7 @@ impl Mpris {
         Self {
             daemon,
             port: 0,
-            state: RwLock::new(StateAudio::default()),
+            state: RwLock::new(StateAudio::from(mecomp_core::state::StateAudio::default())),
         }
     }
 
@@ -51,8 +52,7 @@ impl Mpris {
             .context("Failed to get state from daemon")?
             .into_inner()
             .state
-            .ok_or_else(|| anyhow!("Failed to get state from daemon"))?
-            .into();
+            .ok_or_else(|| anyhow!("Failed to get state from daemon"))?;
 
         *self.state.write().await = new_state;
 
@@ -130,7 +130,7 @@ impl Subscriber {
                     }
                     if let Some(runtime) = &mut state.runtime {
                         runtime.seek_position += TICK_RATE;
-                        runtime.seek_percent = Percent::new(runtime.seek_position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0);
+                        runtime.seek_percent = Percent::new(runtime.seek_position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0).into_inner();
                     }
                 }
             }
@@ -190,8 +190,7 @@ impl Subscriber {
                     .context("Failed to get state from daemon")?
                     .into_inner()
                     .state
-                    .ok_or_else(|| anyhow!("Failed to get state from daemon"))?
-                    .into();
+                    .ok_or_else(|| anyhow!("Failed to get state from daemon"))?;
 
                 let metadata = metadata_from_opt_song(state.current_song.as_ref());
                 Ok(MessageOutcomes::Properties(vec![Property::Metadata(
@@ -199,7 +198,7 @@ impl Subscriber {
                 )]))
             }
             Message::StateChange(StateChange::RepeatModeChanged(new_mode)) => {
-                state.repeat_mode = new_mode;
+                state.set_repeat_mode(new_mode);
                 Ok(MessageOutcomes::Properties(vec![Property::LoopStatus(
                     convert_repeat_mode(new_mode),
                 )]))
@@ -209,7 +208,8 @@ impl Subscriber {
                     runtime.seek_position = position;
                     runtime.seek_percent = Percent::new(
                         position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0,
-                    );
+                    )
+                    .into_inner();
                 }
                 Ok(MessageOutcomes::Signal(Signal::Seeked {
                     position: Time::from_micros(
@@ -218,7 +218,7 @@ impl Subscriber {
                 }))
             }
             Message::StateChange(StateChange::StatusChanged(status)) => {
-                state.status = status;
+                state.set_status(status);
                 Ok(MessageOutcomes::Properties(vec![Property::PlaybackStatus(
                     convert_playback_status(status),
                 )]))
@@ -232,12 +232,11 @@ pub fn metadata_from_opt_song(song: Option<&SongBrief>) -> Metadata {
     song.map_or_else(
         || Metadata::builder().trackid(TrackId::NO_TRACK).build(),
         |song| {
-            #[allow(clippy::cast_possible_truncation)]
-            let rt_micros = song.runtime.inner().as_micros() as i64;
-
             Metadata::builder()
                 .trackid(object_path_from_thing(&song.id.clone().into()))
-                .length(Time::from_micros(rt_micros))
+                .length(Time::from_micros(
+                    i64::try_from(song.runtime.as_micros()).unwrap_or(i64::MAX),
+                ))
                 .artist(song.artists.as_slice())
                 .album(&song.album)
                 .title(&song.title)
@@ -272,12 +271,9 @@ mod subscriber_tests {
     use std::{num::NonZero, sync::Arc};
 
     use super::*;
-    use mecomp_core::{audio::AudioKernelSender, config::Settings};
+    use mecomp_core::{audio::AudioKernelSender, config::Settings, test_utils::generate_song_id};
     use mecomp_daemon::init_test_client_server;
-    use mecomp_storage::{
-        db::schemas::song::Song,
-        test_utils::{arb_song_case, init_test_database_with_state},
-    };
+    use mecomp_storage::test_utils::{arb_song_case, init_test_database_with_state};
     use mpris_server::Metadata;
     use pretty_assertions::assert_str_eq;
     use rstest::rstest;
@@ -295,12 +291,12 @@ mod subscriber_tests {
     #[case::nothing(Message::Event(Event::LibraryRescanFinished), MessageOutcomes::Nothing)]
     #[case::quit(Message::Event(Event::DaemonShutdown), MessageOutcomes::Quit)]
     #[case::muted(Message::StateChange(StateChange::Muted), MessageOutcomes::Properties(vec![Property::Volume(0.0)]))]
-    #[case::unmuted(Message::StateChange(StateChange::Unmuted), MessageOutcomes::Properties(vec![Property::Volume(1.0)]))]
+    #[case::unmuted(Message::StateChange(StateChange::Unmuted), MessageOutcomes::Properties(vec![Property::Volume(0.5)]))]
     #[case::volume_changed(Message::StateChange(StateChange::VolumeChanged(0.75)), MessageOutcomes::Properties(vec![Property::Volume(0.75)]))]
     #[case::track_changed(Message::StateChange(StateChange::TrackChanged(None)), MessageOutcomes::Properties(vec![Property::Metadata(Metadata::builder().trackid(TrackId::NO_TRACK).build())]))]
-    #[case::track_changed(Message::StateChange(StateChange::TrackChanged(Some(Song::generate_id().into()))), MessageOutcomes::Properties(vec![Property::Metadata(Metadata::builder().trackid(TrackId::NO_TRACK).build())]))]
+    #[case::track_changed(Message::StateChange(StateChange::TrackChanged(Some(generate_song_id()))), MessageOutcomes::Properties(vec![Property::Metadata(Metadata::builder().trackid(TrackId::NO_TRACK).build())]))]
     #[case::repeat_mode_changed(Message::StateChange(StateChange::RepeatModeChanged(RepeatMode::One)), MessageOutcomes::Properties(vec![Property::LoopStatus(LoopStatus::Track)]))]
-    #[case::seeked(Message::StateChange(StateChange::Seeked(Duration::from_secs(10))), MessageOutcomes::Signal(Signal::Seeked { position: Time::from_micros(10_000_000) }))]
+    #[case::seeked(Message::StateChange(StateChange::Seeked(Duration::from_secs(10).into())), MessageOutcomes::Signal(Signal::Seeked { position: Time::from_micros(10_000_000) }))]
     #[case::status_changed(Message::StateChange(StateChange::StatusChanged(Status::Playing)), MessageOutcomes::Properties(vec![Property::PlaybackStatus(PlaybackStatus::Playing)]))]
     #[case::status_changed(Message::StateChange(StateChange::StatusChanged(Status::Paused)), MessageOutcomes::Properties(vec![Property::PlaybackStatus(PlaybackStatus::Paused)]))]
     #[case::status_changed(Message::StateChange(StateChange::StatusChanged(Status::Stopped)), MessageOutcomes::Properties(vec![Property::PlaybackStatus(PlaybackStatus::Stopped)]))]
@@ -327,6 +323,7 @@ mod subscriber_tests {
             .unwrap();
 
         let state = &mut StateAudio::default();
+        state.volume = 0.5;
 
         let actual = Subscriber
             .handle_message(message, state, daemon.clone())

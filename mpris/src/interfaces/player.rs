@@ -145,12 +145,12 @@ impl PlayerInterface for Mpris {
     }
 
     async fn playback_status(&self) -> fdo::Result<PlaybackStatus> {
-        let status = self.state.read().await.status;
+        let status = self.state.read().await.status();
         Ok(convert_playback_status(status))
     }
 
     async fn loop_status(&self) -> fdo::Result<LoopStatus> {
-        let repeat_mode = self.state.read().await.repeat_mode;
+        let repeat_mode = self.state.read().await.repeat_mode();
         Ok(convert_repeat_mode(repeat_mode))
     }
 
@@ -438,10 +438,7 @@ mod tests {
 
         // stop playback
         mpris.stop().await.unwrap();
-        assert_eq!(
-            event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(0)))
-        );
+        assert_eq!(event_rx.recv(), Ok(StateChange::Seeked(Default::default())));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::StatusChanged(Status::Stopped))
@@ -565,9 +562,9 @@ mod tests {
             .into_inner()
             .songs;
         assert_eq!(songs.len(), 4);
-        let first_song: mecomp_storage::db::schemas::RecordId = songs[0].id.clone().into();
-        let third_song: mecomp_storage::db::schemas::RecordId = songs[2].id.clone().into();
-        let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
+        let first_song = songs[0].id.clone();
+        let third_song = songs[2].id.clone();
+        let fourth_song = songs[3].id.clone();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
@@ -626,10 +623,10 @@ mod tests {
             .into_inner()
             .songs;
         assert_eq!(songs.len(), 4);
-        let first_song: mecomp_storage::db::schemas::RecordId = songs[0].id.clone().into();
-        let second_song: mecomp_storage::db::schemas::RecordId = songs[1].id.clone().into();
-        let third_song: mecomp_storage::db::schemas::RecordId = songs[2].id.clone().into();
-        let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
+        let first_song = songs[0].id.clone();
+        let second_song = songs[1].id.clone();
+        let third_song = songs[2].id.clone();
+        let fourth_song = songs[3].id.clone();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
@@ -656,10 +653,7 @@ mod tests {
 
         // stop playback
         mpris.stop().await.unwrap();
-        assert_eq!(
-            event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(0)))
-        );
+        assert_eq!(event_rx.recv(), Ok(StateChange::Seeked(Default::default())));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::StatusChanged(Status::Stopped))
@@ -894,10 +888,7 @@ mod tests {
 
         // Play-Pause: If playback is stopped, starts playback. //
         mpris.stop().await.unwrap();
-        assert_eq!(
-            event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(0)))
-        );
+        assert_eq!(event_rx.recv(), Ok(StateChange::Seeked(Default::default())));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::StatusChanged(Status::Stopped))
@@ -910,10 +901,7 @@ mod tests {
 
         // Stop: Stops playback. //
         mpris.stop().await.unwrap();
-        assert_eq!(
-            event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(0)))
-        );
+        assert_eq!(event_rx.recv(), Ok(StateChange::Seeked(Default::default())));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::StatusChanged(Status::Stopped))
@@ -1086,7 +1074,7 @@ mod tests {
                     events[1] = true;
                 }
                 StateChange::StatusChanged(Status::Playing) => {
-                    mpris.state.write().await.status = Status::Playing;
+                    mpris.state.write().await.set_status(Status::Playing);
                     assert_eq!(
                         mpris.playback_status().await.unwrap(),
                         PlaybackStatus::Playing
@@ -1094,7 +1082,7 @@ mod tests {
                     events[2] = true;
                 }
                 StateChange::StatusChanged(Status::Paused) => {
-                    mpris.state.write().await.status = Status::Paused;
+                    mpris.state.write().await.set_status(Status::Paused);
                     assert_eq!(
                         mpris.playback_status().await.unwrap(),
                         PlaybackStatus::Paused
@@ -1142,7 +1130,7 @@ mod tests {
         // set loop status to track
         mpris.set_loop_status(LoopStatus::Track).await.unwrap();
         if event_rx.recv() == Ok(StateChange::RepeatModeChanged(RepeatMode::One)) {
-            mpris.state.write().await.repeat_mode = RepeatMode::One;
+            mpris.state.write().await.set_repeat_mode(RepeatMode::One);
         } else {
             panic!("Expected a RepeatModeChanged event, but got something else");
         }
@@ -1151,7 +1139,7 @@ mod tests {
         // set loop status to playlist
         mpris.set_loop_status(LoopStatus::Playlist).await.unwrap();
         if event_rx.recv() == Ok(StateChange::RepeatModeChanged(RepeatMode::All)) {
-            mpris.state.write().await.repeat_mode = RepeatMode::All;
+            mpris.state.write().await.set_repeat_mode(RepeatMode::All);
         } else {
             panic!("Expected a RepeatModeChanged event, but got something else");
         }
@@ -1160,7 +1148,7 @@ mod tests {
         // set loop status to none
         mpris.set_loop_status(LoopStatus::None).await.unwrap();
         if event_rx.recv() == Ok(StateChange::RepeatModeChanged(RepeatMode::None)) {
-            mpris.state.write().await.repeat_mode = RepeatMode::None;
+            mpris.state.write().await.set_repeat_mode(RepeatMode::None);
         } else {
             panic!("Expected a RepeatModeChanged event, but got something else");
         }
@@ -1454,7 +1442,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(2)))
+            Ok(StateChange::Seeked(Duration::from_secs(2).into()))
         );
 
         // If the Position argument is less than 0, do nothing. //
@@ -1478,13 +1466,13 @@ mod tests {
         mpris.seek(Time::from_secs(1)).await.unwrap();
         assert_eq!(
             event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(3)))
+            Ok(StateChange::Seeked(Duration::from_secs(3).into()))
         );
 
         mpris.seek(Time::from_secs(-1)).await.unwrap();
         assert_eq!(
             event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(2)))
+            Ok(StateChange::Seeked(Duration::from_secs(2).into()))
         );
 
         drop(tempdir);

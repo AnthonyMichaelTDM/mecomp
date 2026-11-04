@@ -508,7 +508,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Dynamic Playlist View sorted by: Artist───────────────────┐",
             "│                       Test Dynamic                       │",
-            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                Songs: 1  Duration: 3:00.0                │",
             "│                    title = \"Test Song\"                   │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire dynamic playlist──────────│",
@@ -539,7 +539,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Dynamic Playlist View sorted by: Artist───────────────────┐",
             "│                       Test Dynamic                       │",
-            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                Songs: 1  Duration: 3:00.0                │",
             "│                    title = \"Test Song\"                   │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire dynamic playlist──────────│",
@@ -562,7 +562,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Dynamic Playlist View sorted by: Artist───────────────────┐",
             "│                       Test Dynamic                       │",
-            "│              Songs: 1  Duration: 00:03:00.00             │",
+            "│                Songs: 1  Duration: 3:00.0                │",
             "│                    title = \"Test Song\"                   │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on checked items────────────────────│",

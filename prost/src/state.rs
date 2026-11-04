@@ -2,7 +2,7 @@
 
 use std::fmt::Display;
 
-use crate::{PlaybackStatus, RepeatMode, SeekType};
+use crate::{PlaybackStatus, RepeatMode, SeekType, StateAudio};
 
 impl Display for RepeatMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -63,6 +63,14 @@ impl Display for SeekType {
             Self::RelativeForwards => write!(f, "Forwards"),
             Self::RelativeBackwards => write!(f, "Backwards"),
         }
+    }
+}
+
+impl StateAudio {
+    #[must_use]
+    #[inline]
+    pub fn paused(&self) -> bool {
+        !matches!(self.status(), PlaybackStatus::Playing)
     }
 }
 

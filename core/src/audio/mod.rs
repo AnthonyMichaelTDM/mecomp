@@ -278,7 +278,7 @@ impl AudioKernel {
                     self.restart_song();
                     let _ = self
                         .event_tx
-                        .send(StateChange::Seeked(Duration::from_secs(0)));
+                        .send(StateChange::Seeked(mecomp_prost::Duration::default()));
                 }
                 AudioCommand::ClearPlayer => self.clear_player(),
                 AudioCommand::Queue(command) => self.queue_control(command),
@@ -302,13 +302,13 @@ impl AudioKernel {
                     self.seek(seek, duration);
                     let _ = self
                         .event_tx
-                        .send(StateChange::Seeked(self.get_time_played()));
+                        .send(StateChange::Seeked(self.get_time_played().into()));
                 }
                 AudioCommand::Stop if prev_status != Status::Stopped => {
                     self.stop();
                     let _ = self
                         .event_tx
-                        .send(StateChange::Seeked(Duration::from_secs(0)));
+                        .send(StateChange::Seeked(mecomp_prost::Duration::default()));
                 }
                 AudioCommand::Stop => {}
             }
@@ -424,7 +424,7 @@ impl AudioKernel {
         if prev_song != new_song {
             let _ = self
                 .event_tx
-                .send(StateChange::TrackChanged(new_song.map(|s| s.id.into())));
+                .send(StateChange::TrackChanged(new_song.map(|s| s.id)));
         }
     }
 

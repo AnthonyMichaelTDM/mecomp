@@ -6,8 +6,7 @@
 use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_core::state::StateRuntime;
-use mecomp_prost::{PlaybackStatus, SeekType};
+use mecomp_prost::{PlaybackStatus, SeekType, StateRuntime};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Position},
     prelude::Rect,
@@ -47,7 +46,7 @@ impl From<&AppState> for Props {
     fn from(value: &AppState) -> Self {
         let value = &value.audio;
         Self {
-            is_playing: value.status == PlaybackStatus::Playing,
+            is_playing: value.status() == PlaybackStatus::Playing,
             muted: value.muted,
             volume: value.volume,
             song_runtime: value.runtime,
@@ -248,15 +247,7 @@ impl Component for ControlPanel {
 fn runtime_string(runtime: Option<StateRuntime>) -> String {
     runtime.map_or_else(
         || String::from("0.0/0.0"),
-        |runtime| {
-            format!(
-                "{}:{:04.1}/{}:{:04.1}",
-                runtime.seek_position.as_secs() / 60,
-                runtime.seek_position.as_secs_f32() % 60.0,
-                runtime.duration.as_secs() / 60,
-                runtime.duration.as_secs_f32() % 60.0
-            )
-        },
+        |runtime| format!("{}/{}", runtime.seek_position, runtime.duration),
     )
 }
 
@@ -405,14 +396,14 @@ mod tests {
     use super::*;
     use crate::{
         state::action::{AudioAction, PlaybackAction, VolumeAction},
-        test_utils::{generate_song_id, setup_test_terminal},
+        test_utils::setup_test_terminal,
         ui::AppState,
     };
     use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
-    use mecomp_core::state::{Percent, StateAudio, StateRuntime};
+    use mecomp_core::test_utils::generate_song_id;
+    use mecomp_prost::{Duration, StateAudio};
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use std::time::Duration;
 
     fn make_panel(
         state: &AppState,
@@ -450,14 +441,14 @@ mod tests {
         KeyCode::Right,
         Action::Audio(AudioAction::Playback(PlaybackAction::Seek(
             SeekType::RelativeForwards,
-            Duration::from_secs(5)
+            std::time::Duration::from_secs(5)
         )))
     )]
     #[case::seek_back(
         KeyCode::Left,
         Action::Audio(AudioAction::Playback(PlaybackAction::Seek(
             SeekType::RelativeBackwards,
-            Duration::from_secs(5)
+            std::time::Duration::from_secs(5)
         )))
     )]
     #[case::vol_up(
@@ -589,13 +580,13 @@ mod tests {
     fn test_props_from_state_playing() {
         let state = AppState {
             audio: StateAudio {
-                status: PlaybackStatus::Playing,
+                status: PlaybackStatus::Playing as i32,
                 muted: false,
                 volume: 0.8,
                 runtime: Some(StateRuntime {
-                    seek_position: Duration::from_secs(30),
-                    seek_percent: Percent::new(0.5),
-                    duration: Duration::from_secs(60),
+                    seek_position: Duration::from_secs(30).into(),
+                    seek_percent: 0.5,
+                    duration: Duration::from_secs(60).into(),
                 }),
                 ..Default::default()
             },
@@ -626,7 +617,7 @@ mod tests {
 
         let new_state = AppState {
             audio: StateAudio {
-                status: PlaybackStatus::Playing,
+                status: PlaybackStatus::Playing as i32,
                 volume: 0.5,
                 ..Default::default()
             },
@@ -647,9 +638,9 @@ mod tests {
     #[test]
     fn test_runtime_string_some() {
         let rt = StateRuntime {
-            seek_position: Duration::from_secs(65),
-            seek_percent: Percent::new(0.5),
-            duration: Duration::from_secs(130),
+            seek_position: Duration::from_secs(65).into(),
+            seek_percent: 0.5,
+            duration: Duration::from_secs(130).into(),
         };
         let s = runtime_string(Some(rt));
         // 65s = 1 min 5s -> "1: 5.0/ 2:10.0" (formatted)
@@ -708,12 +699,12 @@ mod tests {
         };
         let state = AppState {
             audio: StateAudio {
-                status: PlaybackStatus::Playing,
+                status: PlaybackStatus::Playing as i32,
                 current_song: Some(song),
                 runtime: Some(StateRuntime {
-                    seek_position: Duration::from_secs(10),
-                    seek_percent: Percent::new(0.05),
-                    duration: Duration::from_secs(180),
+                    seek_position: Duration::from_secs(10).into(),
+                    seek_percent: 0.05,
+                    duration: Duration::from_secs(180).into(),
                 }),
                 volume: 0.8,
                 ..Default::default()

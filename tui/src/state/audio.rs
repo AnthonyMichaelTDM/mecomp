@@ -10,13 +10,11 @@ use tokio::sync::{
     mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
 
-use mecomp_core::{
-    state::{Percent, StateAudio},
-    udp::StateChange,
-};
+use mecomp_core::{state::Percent, udp::StateChange};
 use mecomp_prost::{
     MusicPlayerClient, PlaybackRepeatRequest, PlaybackSeekRequest, PlaybackSkipRequest,
     PlaybackVolumeAdjustRequest, QueueRemoveRangeRequest, QueueSetIndexRequest, RecordIdList,
+    StateAudio,
 };
 
 use crate::termination::Interrupted;
@@ -81,13 +79,13 @@ impl AudioState {
                                     // force an update when the track changes, "just in case"
                                     update_needed = true;
                                 },
-                                StateChange::RepeatModeChanged(repeat_mode) => state.repeat_mode = repeat_mode,
+                                StateChange::RepeatModeChanged(repeat_mode) => state.set_repeat_mode(repeat_mode),
                                 StateChange::Seeked(seek_position) => if let Some(runtime) = &mut state.runtime {
                                     runtime.seek_percent =
-                                        Percent::new(seek_position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0);
+                                        Percent::new(seek_position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0).into_inner();
                                     runtime.seek_position = seek_position;
                                 },
-                                StateChange::StatusChanged(status) => state.status = status,
+                                StateChange::StatusChanged(status) => state.set_status(status),
                             }
                         }
                     }
@@ -99,9 +97,9 @@ impl AudioState {
                     }
                     if let Some(runtime) = &mut state.runtime {
                         // push the seek position forward by how much time has passed since the last tick
-                        runtime.seek_position+= time_last.elapsed();
+                        runtime.seek_position += time_last.elapsed();
                         runtime.seek_percent =
-                            Percent::new(runtime.seek_position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0);
+                            Percent::new(runtime.seek_position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0).into_inner();
                     }
                 },
                 // Catch and handle interrupt signal to gracefully shutdown
@@ -128,8 +126,7 @@ async fn get_state(daemon: &mut MusicPlayerClient) -> anyhow::Result<StateAudio>
         .await?
         .into_inner()
         .state
-        .unwrap_or_default()
-        .into())
+        .unwrap_or_default())
 }
 
 /// handle a playback action

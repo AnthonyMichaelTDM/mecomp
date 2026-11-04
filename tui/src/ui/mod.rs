@@ -33,8 +33,10 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use mecomp_core::{config::Settings, state::StateAudio};
-use mecomp_prost::{LibraryBrief, MusicPlayerClient, RadioSimilarRequest, SearchResult, Ulid};
+use mecomp_core::config::Settings;
+use mecomp_prost::{
+    LibraryBrief, MusicPlayerClient, RadioSimilarRequest, SearchResult, StateAudio, Ulid,
+};
 use ratatui::prelude::*;
 use tokio::sync::{broadcast, mpsc};
 use tokio_stream::StreamExt;

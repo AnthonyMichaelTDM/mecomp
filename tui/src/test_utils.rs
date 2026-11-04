@@ -43,12 +43,6 @@ pub fn assert_buffer_eq(buffer: &ratatui::buffer::Buffer, expected: &ratatui::bu
     }
 }
 
-/// Generate a new song ID using the `Song::generate_id` method and convert it to a (mecomp_prost) `RecordId`.
-pub fn generate_song_id() -> mecomp_prost::RecordId {
-    let id = mecomp_storage::db::schemas::song::Song::generate_id();
-    mecomp_prost::RecordId::from((id.table(), id.key().to_string()))
-}
-
 /// the id used for all the items in this fake library
 pub fn item_id() -> Ulid {
     Ulid::new("01J1K5B6RJ84WJXCWYJ5WNE12E")

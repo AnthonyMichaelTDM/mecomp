@@ -400,15 +400,15 @@ mod tests {
     use super::*;
     use crate::{
         state::action::PopupAction,
-        test_utils::{generate_song_id, setup_test_terminal},
+        test_utils::setup_test_terminal,
         ui::{
             components::{self, content_view::ActiveView},
             widgets::popups::notification::Notification,
         },
     };
     use crossterm::event::KeyModifiers;
-    use mecomp_core::state::{Percent, StateAudio, StateRuntime};
-    use mecomp_prost::{Duration, LibraryBrief, SearchResult, SongBrief};
+    use mecomp_core::test_utils::generate_song_id;
+    use mecomp_prost::{Duration, LibraryBrief, SearchResult, SongBrief, StateAudio, StateRuntime};
     use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
     use tokio::sync::mpsc::unbounded_channel;
@@ -573,16 +573,16 @@ mod tests {
 
         let state = AppState {
             audio: StateAudio {
-                queue: vec![song.clone()].into_boxed_slice(),
+                queue: vec![song.clone()],
                 queue_position: Some(0),
                 current_song: Some(song.clone()),
-                repeat_mode: mecomp_prost::RepeatMode::One,
+                repeat_mode: mecomp_prost::RepeatMode::One as i32,
                 runtime: Some(StateRuntime {
-                    seek_position: std::time::Duration::from_secs(0),
-                    seek_percent: Percent::new(0.0),
-                    duration: *song.runtime.inner(),
+                    seek_position: Duration::from_secs(0),
+                    seek_percent: 0.0,
+                    duration: song.runtime,
                 }),
-                status: mecomp_prost::PlaybackStatus::Stopped,
+                status: mecomp_prost::PlaybackStatus::Stopped as i32,
                 muted: false,
                 volume: 1.0,
             },
@@ -597,7 +597,7 @@ mod tests {
         } = app.queuebar.props;
         assert_eq!(queue, state.audio.queue);
         assert_eq!(current_position, state.audio.queue_position);
-        assert_eq!(repeat_mode, state.audio.repeat_mode);
+        assert_eq!(repeat_mode, state.audio.repeat_mode());
 
         let components::control_panel::Props {
             is_playing,

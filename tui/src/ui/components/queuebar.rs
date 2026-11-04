@@ -31,8 +31,8 @@ pub struct QueueBar {
 }
 
 pub struct Props {
-    pub(crate) queue: Box<[SongBrief]>,
-    pub(crate) current_position: Option<usize>,
+    pub(crate) queue: Vec<SongBrief>,
+    pub(crate) current_position: Option<u64>,
     pub(crate) repeat_mode: RepeatMode,
 }
 
@@ -40,7 +40,7 @@ impl From<&AppState> for Props {
     fn from(value: &AppState) -> Self {
         Self {
             current_position: value.audio.queue_position,
-            repeat_mode: value.audio.repeat_mode,
+            repeat_mode: value.audio.repeat_mode(),
             queue: value.audio.queue.clone(),
         }
     }
@@ -52,9 +52,11 @@ impl Component for QueueBar {
         Self: Sized,
     {
         let props = Props::from(state);
+        #[allow(clippy::cast_possible_truncation)]
         Self {
             action_tx,
-            list_state: ListState::default().with_selected(props.current_position),
+            list_state: ListState::default()
+                .with_selected(props.current_position.map(|v| v as usize)),
             props,
         }
     }
@@ -69,7 +71,9 @@ impl Component for QueueBar {
         let list_state = if old_current_index == new_current_index {
             self.list_state
         } else {
-            self.list_state.with_selected(new_current_index)
+            #[allow(clippy::cast_possible_truncation)]
+            self.list_state
+                .with_selected(new_current_index.map(|v| v as usize))
         };
 
         Self {
@@ -249,7 +253,7 @@ impl ComponentRender<RenderProps> for QueueBar {
             .iter()
             .enumerate()
             .map(|(index, song)| {
-                let style = if Some(index) == self.props.current_position {
+                let style = if Some(index as u64) == self.props.current_position {
                     Style::default().fg((*TEXT_HIGHLIGHT_ALT).into())
                 } else {
                     Style::default().fg((*TEXT_NORMAL).into())

@@ -4,16 +4,14 @@ use std::{
     fmt::Debug,
     marker::PhantomData,
     net::{Ipv4Addr, SocketAddr},
-    time::Duration,
 };
 
-use mecomp_storage::db::schemas::RecordId;
 use object_pool::Pool;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tokio::{net::UdpSocket, sync::RwLock};
 
 use crate::errors::UdpError;
-use mecomp_prost::{PlaybackStatus, RepeatMode};
+use mecomp_prost::{Duration, PlaybackStatus, RecordId, RepeatMode};
 
 pub type Result<T> = std::result::Result<T, UdpError>;
 
@@ -207,6 +205,8 @@ impl<T: Serialize + Send + Sync> Sender<T> {
 
 #[cfg(test)]
 mod test {
+    use crate::test_utils::generate_song_id;
+
     use super::*;
 
     #[rstest::rstest]
@@ -247,9 +247,7 @@ mod test {
     #[case(Message::StateChange(StateChange::StatusChanged(PlaybackStatus::Paused)))]
     #[case(Message::StateChange(StateChange::StatusChanged(PlaybackStatus::Playing)))]
     #[case(Message::StateChange(StateChange::StatusChanged(PlaybackStatus::Stopped)))]
-    #[case(Message::StateChange(StateChange::TrackChanged(Some(
-        mecomp_storage::db::schemas::song::Song::generate_id().into()
-    ))))]
+    #[case(Message::StateChange(StateChange::TrackChanged(Some(generate_song_id()))))]
     fn test_message_encoding_length(#[case] message: Message) {
         let mut buffer = Vec::new();
         ciborium::into_writer(&message, &mut buffer).unwrap();
