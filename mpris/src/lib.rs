@@ -233,11 +233,12 @@ pub fn metadata_from_opt_song(song: Option<&SongBrief>) -> Metadata {
     song.map_or_else(
         || Metadata::builder().trackid(TrackId::NO_TRACK).build(),
         |song| {
+            #[allow(clippy::cast_possible_truncation)]
+            let rt_micros = song.runtime.as_micros() as i64;
+
             Metadata::builder()
                 .trackid(object_path_from_thing(&song.id.clone().into()))
-                .length(Time::from_micros(
-                    i64::try_from(song.runtime.as_micros()).unwrap_or(i64::MAX),
-                ))
+                .length(Time::from_micros(rt_micros))
                 .artist(song.artist.as_slice())
                 .album(&song.album)
                 .title(&song.title)

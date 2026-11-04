@@ -16,10 +16,7 @@ Some(
         release: Some(
             2021,
         ),
-        runtime: Duration {
-            seconds: 380,
-            nanos: 0,
-        },
+        runtime: 380s,
         song_count: 2,
         discs: 1,
         genres: [

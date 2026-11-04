@@ -1,17 +1,6 @@
 //! Conversions between prost-generated types and core types.
 
-use std::time::Duration;
-
 use mecomp_storage::db::schemas::dynamic::query::Compile;
-
-#[allow(clippy::cast_possible_wrap)]
-#[must_use]
-pub fn convert_std_duration(duration: Duration) -> prost_types::Duration {
-    prost_types::Duration {
-        seconds: duration.as_secs().clamp(0, i64::MAX as u64) as i64,
-        nanos: duration.subsec_nanos().clamp(0, i32::MAX as u32) as i32,
-    }
-}
 
 impl From<crate::Song> for mecomp_storage::db::schemas::song::Song {
     fn from(value: crate::Song) -> Self {
@@ -22,7 +11,7 @@ impl From<crate::Song> for mecomp_storage::db::schemas::song::Song {
             album_artist: value.album_artists.into(),
             album: value.album,
             genre: value.genres.into(),
-            runtime: value.runtime.normalized().try_into().unwrap_or_default(),
+            runtime: *value.runtime.inner(),
             track: value.track,
             disc: value.disc,
             release_year: value.release_year,
@@ -41,7 +30,7 @@ impl From<mecomp_storage::db::schemas::song::Song> for crate::Song {
             album_artists: value.album_artist.into(),
             album: value.album,
             genres: value.genre.into(),
-            runtime: convert_std_duration(value.runtime),
+            runtime: value.runtime.into(),
             track: value.track,
             disc: value.disc,
             release_year: value.release_year,
@@ -60,7 +49,7 @@ impl From<crate::SongBrief> for mecomp_storage::db::schemas::song::SongBrief {
             album_artist: value.album_artists.into(),
             album: value.album,
             genre: value.genres.into(),
-            runtime: value.runtime.normalized().try_into().unwrap_or_default(),
+            runtime: *value.runtime.inner(),
             track: value.track,
             disc: value.disc,
             release_year: value.release_year,
@@ -78,7 +67,7 @@ impl From<mecomp_storage::db::schemas::song::SongBrief> for crate::SongBrief {
             album_artists: value.album_artist.into(),
             album: value.album,
             genres: value.genre.into(),
-            runtime: convert_std_duration(value.runtime),
+            runtime: value.runtime.into(),
             track: value.track,
             disc: value.disc,
             release_year: value.release_year,
@@ -96,7 +85,7 @@ impl From<mecomp_storage::db::schemas::song::Song> for crate::SongBrief {
             album_artists: value.album_artist.into(),
             album: value.album,
             genres: value.genre.into(),
-            runtime: convert_std_duration(value.runtime),
+            runtime: value.runtime.into(),
             track: value.track,
             disc: value.disc,
             release_year: value.release_year,
@@ -161,7 +150,7 @@ impl From<mecomp_storage::db::schemas::artist::Artist> for crate::Artist {
         Self {
             id: crate::RecordId::new(value.id.table(), value.id.key()),
             name: value.name,
-            runtime: convert_std_duration(value.runtime),
+            runtime: value.runtime.into(),
             album_count: value.album_count,
             song_count: value.song_count,
         }
@@ -202,7 +191,7 @@ impl From<mecomp_storage::db::schemas::album::Album> for crate::Album {
             title: value.title,
             artists: value.artist.into(),
             release: value.release,
-            runtime: convert_std_duration(value.runtime),
+            runtime: value.runtime.into(),
             song_count: value.song_count,
             discs: value.discs,
             genres: value.genre.into(),
@@ -254,7 +243,7 @@ impl From<mecomp_storage::db::schemas::playlist::Playlist> for crate::Playlist {
         Self {
             id: crate::RecordId::new(value.id.table(), value.id.key()),
             name: value.name,
-            runtime: convert_std_duration(value.runtime),
+            runtime: value.runtime.into(),
             song_count: value.song_count,
         }
     }
@@ -290,7 +279,7 @@ impl From<mecomp_storage::db::schemas::collection::Collection> for crate::Collec
         Self {
             id: crate::RecordId::new(value.id.table(), value.id.key()),
             name: value.name,
-            runtime: convert_std_duration(value.runtime),
+            runtime: value.runtime.into(),
             song_count: value.song_count,
         }
     }

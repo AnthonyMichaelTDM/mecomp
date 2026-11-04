@@ -13,18 +13,19 @@ mod mecomp {
     #[cfg(not(tarpaulin_include))]
     tonic::include_proto!("mecomp");
 }
+
 #[doc(hidden)]
 mod conversions;
+#[doc(hidden)]
+mod duration;
 pub mod helpers;
 pub mod state;
-
-use std::time::Duration;
 
 use tonic::service::Interceptor;
 use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
 
-pub use conversions::convert_std_duration;
+pub use duration::Duration;
 pub use mecomp::music_player_client as client;
 pub use mecomp::music_player_server as server;
 pub use mecomp::*;
@@ -118,7 +119,7 @@ pub async fn init_client_with_retry<const MAX_RETRIES: u64, const DELAY: u64>(
             Err(e) => {
                 retries += 1;
                 log::warn!("Failed to connect to daemon: {e}");
-                tokio::time::sleep(Duration::from_secs(DELAY * retries)).await;
+                tokio::time::sleep(std::time::Duration::from_secs(DELAY * retries)).await;
             }
         }
     }

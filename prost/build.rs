@@ -3,6 +3,7 @@ use tonic_prost_build::Config;
 const PROTO_FILES: &[&str] = &[
     "proto/daemon.proto",
     "proto/apis/collection.proto",
+    "proto/apis/duration.proto",
     "proto/apis/dynamic.proto",
     "proto/apis/entities.proto",
     "proto/apis/library.proto",
@@ -25,9 +26,18 @@ fn main() {
         "mecomp.PlaybackStatus",
         "#[derive(::serde::Serialize, ::serde::Deserialize)]",
     );
+    config.type_attribute(
+        "mecomp.SongBrief",
+        "#[derive(::serde::Serialize, ::serde::Deserialize)]",
+    );
+    config.type_attribute(
+        "mecomp.RecordId",
+        "#[derive(::serde::Serialize, ::serde::Deserialize)]",
+    );
 
     tonic_prost_build::configure()
         .compile_well_known_types(false)
+        .extern_path(".mecomp.Duration", "crate::Duration")
         .build_transport(true)
         .build_client(true)
         .build_server(true)

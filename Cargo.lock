@@ -3471,7 +3471,6 @@ dependencies = [
  "mecomp-workspace-hack",
  "pretty_assertions",
  "prost",
- "prost-types",
  "rstest",
  "serde",
  "thiserror 2.0.21",

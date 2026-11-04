@@ -1,8 +1,6 @@
 pub mod dynamic;
-use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent};
-use mecomp_core::format_duration;
 use mecomp_prost::RecordId;
 use mecomp_prost::{
     Album, AlbumBrief, Artist, ArtistBrief, Collection, DynamicPlaylist, Playlist, Song, SongBrief,
@@ -86,12 +84,7 @@ impl ItemViewProps for AlbumViewProps {
     }
 
     fn info_widget(&self) -> impl Widget {
-        let duration = self
-            .album
-            .runtime
-            .normalized()
-            .try_into()
-            .unwrap_or_default();
+        let duration = self.album.runtime;
 
         Paragraph::new(vec![
             Line::from(vec![
@@ -113,7 +106,7 @@ impl ItemViewProps for AlbumViewProps {
                 Span::raw("  Songs: "),
                 Span::styled(self.album.song_count.to_string(), Style::default().italic()),
                 Span::raw("  Duration: "),
-                Span::styled(format_duration(&duration), Style::default().italic()),
+                Span::styled(duration.to_string(), Style::default().italic()),
             ]),
         ])
         .alignment(Alignment::Center)
@@ -162,13 +155,6 @@ impl ItemViewProps for ArtistViewProps {
     }
 
     fn info_widget(&self) -> impl Widget {
-        let duration = self
-            .artist
-            .runtime
-            .normalized()
-            .try_into()
-            .unwrap_or_default();
-
         Paragraph::new(vec![
             Line::from(Span::styled(&self.artist.name, Style::default().bold())),
             Line::from(vec![
@@ -183,7 +169,7 @@ impl ItemViewProps for ArtistViewProps {
                     Style::default().italic(),
                 ),
                 Span::raw("  Duration: "),
-                Span::styled(format_duration(&duration), Style::default().italic()),
+                Span::styled(self.artist.runtime.to_string(), Style::default().italic()),
             ]),
         ])
         .alignment(Alignment::Center)
@@ -231,13 +217,6 @@ impl ItemViewProps for CollectionViewProps {
     }
 
     fn info_widget(&self) -> impl Widget {
-        let duration = self
-            .collection
-            .runtime
-            .normalized()
-            .try_into()
-            .unwrap_or_default();
-
         Paragraph::new(vec![
             Line::from(Span::styled(&self.collection.name, Style::default().bold())),
             Line::from(vec![
@@ -247,7 +226,10 @@ impl ItemViewProps for CollectionViewProps {
                     Style::default().italic(),
                 ),
                 Span::raw("  Duration: "),
-                Span::styled(format_duration(&duration), Style::default().italic()),
+                Span::styled(
+                    self.collection.runtime.to_string(),
+                    Style::default().italic(),
+                ),
             ]),
         ])
         .alignment(Alignment::Center)
@@ -328,16 +310,11 @@ impl ItemViewProps for DynamicPlaylistViewProps {
                 Span::styled(self.songs.len().to_string(), Style::default().italic()),
                 Span::raw("  Duration: "),
                 Span::styled(
-                    format_duration(
-                        &self
-                            .songs
-                            .iter()
-                            .map(|s| {
-                                TryInto::<Duration>::try_into(s.runtime.normalized())
-                                    .unwrap_or_default()
-                            })
-                            .sum(),
-                    ),
+                    self.songs
+                        .iter()
+                        .map(|s| s.runtime)
+                        .sum::<mecomp_prost::Duration>()
+                        .to_string(),
                     Style::default().italic(),
                 ),
             ]),
@@ -430,13 +407,6 @@ impl ItemViewProps for PlaylistViewProps {
     }
 
     fn info_widget(&self) -> impl Widget {
-        let duration = self
-            .playlist
-            .runtime
-            .normalized()
-            .try_into()
-            .unwrap_or_default();
-
         Paragraph::new(vec![
             Line::from(Span::styled(&self.playlist.name, Style::default().bold())),
             Line::from(vec![
@@ -446,7 +416,7 @@ impl ItemViewProps for PlaylistViewProps {
                     Style::default().italic(),
                 ),
                 Span::raw("  Duration: "),
-                Span::styled(format_duration(&duration), Style::default().italic()),
+                Span::styled(self.playlist.runtime.to_string(), Style::default().italic()),
             ]),
         ])
         .alignment(Alignment::Center)
@@ -555,13 +525,6 @@ impl ItemViewProps for SongViewProps {
     }
 
     fn info_widget(&self) -> impl Widget {
-        let runtime: Duration = self
-            .song
-            .runtime
-            .normalized()
-            .try_into()
-            .unwrap_or_default();
-
         Paragraph::new(vec![
             Line::from(vec![
                 Span::styled(&self.song.title, Style::default().bold()),
@@ -582,14 +545,7 @@ impl ItemViewProps for SongViewProps {
                     Style::default().italic(),
                 ),
                 Span::raw("  Duration: "),
-                Span::styled(
-                    format!(
-                        "{}:{:04.1}",
-                        runtime.as_secs() / 60,
-                        runtime.as_secs_f32() % 60.0,
-                    ),
-                    Style::default().italic(),
-                ),
+                Span::styled(self.song.runtime.to_string(), Style::default().italic()),
                 Span::raw("  Genre(s): "),
                 Span::styled(
                     self.song.genres.as_slice().join(", "),

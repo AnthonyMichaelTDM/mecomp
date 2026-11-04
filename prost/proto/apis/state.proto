@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package mecomp;
 
-import "google/protobuf/duration.proto";
+import "apis/duration.proto";
 import "apis/entities.proto";
 
 enum SeekType {
@@ -27,9 +27,9 @@ enum PlaybackStatus {
 }
 
 message StateRuntime {
-	required google.protobuf.Duration seek_position = 1;
+	required Duration seek_position = 1;
 	required float seek_percent = 2;
-	required google.protobuf.Duration duration = 3;
+	required Duration duration = 3;
 }
 
 message StateAudio {

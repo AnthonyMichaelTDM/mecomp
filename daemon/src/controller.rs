@@ -1030,9 +1030,7 @@ impl MusicPlayerTrait for MusicPlayer {
         request: Request<PlaybackSeekRequest>,
     ) -> TonicResult<()> {
         let PlaybackSeekRequest { seek, duration } = request.into_inner();
-        let duration: Duration = duration.normalized().try_into().map_err(|e| {
-            tonic::Status::invalid_argument(format!("Invalid duration provided: {e}"))
-        })?;
+        let duration: Duration = *duration.inner();
         let seek = SeekType::try_from(seek).unwrap_or_default();
         info!("Seeking {seek} by {:.2}s", duration.as_secs_f32());
         self.audio_kernel.send(AudioCommand::Seek(seek, duration));

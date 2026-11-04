@@ -10,10 +10,7 @@ Some(
             id: "01J1K5B6RJ84WJXCWYJ5WNE12E",
         },
         name: "Test Artist",
-        runtime: Duration {
-            seconds: 380,
-            nanos: 0,
-        },
+        runtime: 380s,
         album_count: 1,
         song_count: 2,
     },

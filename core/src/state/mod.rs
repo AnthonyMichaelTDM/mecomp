@@ -2,7 +2,7 @@
 use std::fmt::Display;
 use std::time::Duration;
 
-use mecomp_prost::{PlaybackStatus, RepeatMode, convert_std_duration};
+use mecomp_prost::{PlaybackStatus, RepeatMode};
 use mecomp_storage::db::schemas::song::SongBrief;
 use serde::{Deserialize, Serialize};
 
@@ -61,13 +61,9 @@ impl From<mecomp_prost::StateRuntime> for StateRuntime {
     #[inline]
     fn from(value: mecomp_prost::StateRuntime) -> Self {
         Self {
-            seek_position: value
-                .seek_position
-                .normalized()
-                .try_into()
-                .unwrap_or_default(),
+            seek_position: *value.seek_position.inner(),
             seek_percent: Percent::new(value.seek_percent),
-            duration: value.duration.normalized().try_into().unwrap_or_default(),
+            duration: *value.duration.inner(),
         }
     }
 }
@@ -76,9 +72,9 @@ impl From<StateRuntime> for mecomp_prost::StateRuntime {
     #[inline]
     fn from(value: StateRuntime) -> Self {
         Self {
-            seek_position: convert_std_duration(value.seek_position),
+            seek_position: value.seek_position.into(),
             seek_percent: value.seek_percent.into_inner(),
-            duration: convert_std_duration(value.duration),
+            duration: value.duration.into(),
         }
     }
 }

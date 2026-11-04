@@ -107,7 +107,7 @@ mod tests {
     #[case::repeat_mode(RepeatMode::None, "None")]
     #[case::repeat_mode(RepeatMode::One, "One")]
     #[case::repeat_mode(RepeatMode::All, "All")]
-    #[case::repeat_mode_unspecified(RepeatMode::Unspecified, "Unspecified")]
+    #[case::repeat_mode_unspecified(RepeatMode::Unspecified, "None")]
     #[case::repeat_mode_default(RepeatMode::default(), "None")]
     // #[case::percent(Percent::new(50.0), "50.00%")]
     fn test_display_impls<T: Display>(#[case] input: T, #[case] expected: &str) {

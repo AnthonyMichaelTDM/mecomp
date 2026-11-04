@@ -2,8 +2,7 @@ syntax = "proto2";
 
 package mecomp;
 
-import "google/protobuf/duration.proto";
-
+import "apis/duration.proto";
 
 message RecordId {
   required string tb = 1;
@@ -26,7 +25,7 @@ message Song {
   repeated string album_artists = 4;
   required string album = 5;
   repeated string genres = 6;
-  required google.protobuf.Duration runtime = 7;
+  required Duration runtime = 7;
   optional uint32 track = 8;
   optional uint32 disc = 9;
   optional uint32 release_year = 10;
@@ -53,7 +52,7 @@ message SongBrief {
   repeated string album_artists = 4;
   required string album = 5;
   repeated string genres = 6;
-  required google.protobuf.Duration runtime = 7;
+  required Duration runtime = 7;
   optional uint32 track = 8;
   optional uint32 disc = 9;
   optional uint32 release_year = 10;
@@ -75,7 +74,7 @@ message SongBriefListOption {
 message Artist {
   required RecordId id = 1;
   required string name = 2;
-  required google.protobuf.Duration runtime = 3;
+  required Duration runtime = 3;
   required uint64 album_count = 4;
   required uint64 song_count = 5;
 }
@@ -114,7 +113,7 @@ message Album {
   required string title = 2;
   repeated string artists = 3;
   optional uint32 release = 4;
-  required google.protobuf.Duration runtime = 5;
+  required Duration runtime = 5;
   required uint64 song_count = 6;
   required uint32 discs = 7;
   repeated string genres = 8;
@@ -156,7 +155,7 @@ message AlbumBriefListOption {
 message Playlist {
   required RecordId id = 1;
   required string name = 2;
-  required google.protobuf.Duration runtime = 3;
+  required Duration runtime = 3;
   required uint64 song_count = 4;
 }
 
@@ -192,7 +191,7 @@ message PlaylistBriefListOption {
 message Collection {
   required RecordId id = 1;
   required string name = 2;
-  required google.protobuf.Duration runtime = 3;
+  required Duration runtime = 3;
   required uint64 song_count = 4;
 }
 

@@ -115,11 +115,7 @@ impl crate::PlaybackSeekRequest {
     pub fn new(mode: impl Into<crate::SeekType>, duration: std::time::Duration) -> Self {
         Self {
             seek: mode.into() as i32,
-            duration: prost_types::Duration {
-                seconds: duration.as_secs() as i64,
-                nanos: duration.subsec_nanos() as i32,
-            }
-            .normalized(),
+            duration: duration.into(),
         }
     }
 }
