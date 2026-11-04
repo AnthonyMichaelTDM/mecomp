@@ -225,7 +225,7 @@ pub fn metadata_from_opt_song(song: Option<&SongBrief>) -> Metadata {
         || Metadata::builder().trackid(TrackId::NO_TRACK).build(),
         |song| {
             Metadata::builder()
-                .trackid(object_path_from_thing(&song.id.clone().into()))
+                .trackid(object_path_from_thing(&song.id))
                 .length(Time::from_micros(
                     i64::try_from(song.runtime.as_micros()).unwrap_or(i64::MAX),
                 ))
@@ -237,7 +237,7 @@ pub fn metadata_from_opt_song(song: Option<&SongBrief>) -> Metadata {
     )
 }
 
-fn object_path_from_thing(thing: &mecomp_storage::db::schemas::RecordId) -> ObjectPath<'_> {
+fn object_path_from_thing(thing: &mecomp_prost::RecordId) -> ObjectPath<'_> {
     ObjectPath::try_from(format!("/mecomp/{}/{}", thing.tb, thing.id))
         .unwrap_or_else(|e| panic!("Failed to convert {thing} to ObjectPath: {e}"))
 }
@@ -355,13 +355,15 @@ pub mod test_utils {
     use super::*;
     use mecomp_core::{audio::AudioKernelSender, config::Settings};
     use mecomp_daemon::init_test_client_server;
-    use mecomp_storage::test_utils::{arb_song_case, init_test_database_with_state};
+    use mecomp_storage::{
+        Surreal,
+        test_utils::{arb_song_case, init_test_database_with_state},
+    };
     use rstest::fixture;
-    use surrealdb::{Surreal, engine::local::Db};
     use tempfile::TempDir;
 
     // Create a database with some songs, a playlist, and a collection
-    async fn db(tempdir: &TempDir) -> Arc<Surreal<Db>> {
+    async fn db(tempdir: &TempDir) -> Arc<Surreal> {
         init_test_database_with_state(
             NonZero::new(4).unwrap(),
             |i| (arb_song_case()(), i > 1, i > 2),

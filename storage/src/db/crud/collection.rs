@@ -25,7 +25,7 @@ impl Collection {
         db: &Surreal<C>,
         collection: Self,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.create(collection.id.clone()).content(collection).await?)
+        Ok(db.create(&collection.id).content(collection).await?)
     }
 
     #[instrument]

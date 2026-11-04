@@ -2,12 +2,9 @@
 use std::path::PathBuf;
 //--------------------------------------------------------------------------------- other libraries
 use super::Id;
-#[cfg(not(feature = "db"))]
 use super::RecordId;
 use lofty::{config::ParseOptions, file::TaggedFileExt, prelude::*, probe::Probe, tag::Accessor};
 use std::time::Duration;
-#[cfg(feature = "db")]
-use surrealdb::RecordId;
 use tracing::instrument;
 //----------------------------------------------------------------------------------- local modules
 use crate::{errors::SongIOError, util::split_artist_name};

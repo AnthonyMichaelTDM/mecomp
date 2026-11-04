@@ -57,7 +57,7 @@ impl From<(SongId, bool)> for DeleteArgs {
 impl Song {
     #[instrument]
     pub async fn create<C: Connection>(db: &Surreal<C>, song: Self) -> StorageResult<Option<Self>> {
-        Ok(db.create(song.id.clone()).content(song).await?)
+        Ok(db.create(&song.id).content(song).await?)
     }
 
     #[instrument]

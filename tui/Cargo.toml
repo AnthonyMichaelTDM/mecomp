@@ -66,7 +66,6 @@ mecomp-storage = { workspace = true, features = ["serde", "test_utils"] }
 mecomp-daemon = { workspace = true }
 mecomp-core = { workspace = true, features = ["notifications", "test_utils"] }
 tempfile = { workspace = true }
-surrealdb = { workspace = true }
 rstest.workspace = true
 
 [lints.rust]

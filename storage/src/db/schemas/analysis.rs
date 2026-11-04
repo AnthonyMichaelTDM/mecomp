@@ -1,11 +1,8 @@
 #![allow(clippy::module_name_repetitions)]
 
 use super::Id;
-#[cfg(not(feature = "db"))]
 use super::RecordId;
 use mecomp_analysis::NUMBER_FEATURES;
-#[cfg(feature = "db")]
-use surrealdb::RecordId;
 #[cfg(feature = "db")]
 use surrealqlx::{migrations::M, traits::Table};
 

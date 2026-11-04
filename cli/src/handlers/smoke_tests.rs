@@ -3,17 +3,17 @@ use std::{io::Write, sync::Arc, time::Duration};
 use clap::Parser;
 use mecomp_core::{audio::AudioKernelSender, config::Settings};
 use mecomp_daemon::init_test_client_server;
-use mecomp_prost::MusicPlayerClient;
+use mecomp_prost::{MusicPlayerClient, Ulid};
 use mecomp_storage::{
+    Surreal,
     db::schemas::{
-        album::Album, analysis::Analysis, artist::Artist, collection::Collection,
+        RecordId, album::Album, analysis::Analysis, artist::Artist, collection::Collection,
         dynamic::DynamicPlaylist, playlist::Playlist, song::Song,
     },
     test_utils::{arb_feature_array, init_test_database},
 };
 use pretty_assertions::assert_str_eq;
 use rstest::{fixture, rstest};
-use surrealdb::{RecordId, Surreal, engine::local::Db};
 use tempfile::tempdir;
 
 use crate::handlers::{
@@ -86,16 +86,16 @@ fn test_cli_args_parse_query() {
 }
 
 /// the id used for all the items in this fake library
-pub const fn item_id() -> &'static str {
-    "01J1K5B6RJ84WJXCWYJ5WNE12E"
+pub fn item_id() -> Ulid {
+    Ulid::new("01J1K5B6RJ84WJXCWYJ5WNE12E")
 }
 /// another id used for some items in this fake library, used to avoid conflicts
-pub const fn other_item_id() -> &'static str {
-    "03J1K5B6RJ84WJXCWYJ5WNE12E"
+pub fn other_item_id() -> Ulid {
+    Ulid::new("03J1K5B6RJ84WJXCWYJ5WNE12E")
 }
 
 /// Create a test database with a simple state
-async fn db_with_state() -> Arc<Surreal<Db>> {
+async fn db_with_state() -> Arc<Surreal> {
     let db = Arc::new(init_test_database().await.unwrap());
 
     let album_id = RecordId::from_table_key("album", item_id());

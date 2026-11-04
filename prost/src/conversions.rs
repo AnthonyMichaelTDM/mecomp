@@ -108,6 +108,12 @@ impl From<crate::RecordId> for crate::Ulid {
     }
 }
 
+impl From<crate::Ulid> for mecomp_storage::db::schemas::Id {
+    fn from(value: crate::Ulid) -> Self {
+        Self::String(value.id)
+    }
+}
+
 impl From<mecomp_storage::db::schemas::artist::Artist> for crate::Artist {
     fn from(value: mecomp_storage::db::schemas::artist::Artist) -> Self {
         Self {

@@ -3,7 +3,6 @@ use std::{fs::File, path::PathBuf, sync::Arc, time::Duration};
 //--------------------------------------------------------------------------------- other libraries
 use log::{debug, error, info, warn};
 use mecomp_analysis::embeddings::{Environment, ModelConfig};
-use surrealdb::{Surreal, engine::local::Db};
 use tokio::sync::Mutex;
 use tonic::{Code, Request, Response};
 use tracing::{Instrument, instrument};
@@ -31,14 +30,17 @@ use mecomp_prost::{
     SeekType, SongBriefList, SongBriefOption, SongOption, StateAudioResponse, Ulid,
     server::MusicPlayer as MusicPlayerTrait,
 };
-use mecomp_storage::db::schemas::{
-    self,
-    album::Album,
-    artist::Artist,
-    collection::Collection,
-    dynamic::{DynamicPlaylist, DynamicPlaylistChangeSet, query::Query},
-    playlist::{Playlist, PlaylistChangeSet},
-    song::{Song, SongId},
+use mecomp_storage::{
+    Surreal,
+    db::schemas::{
+        self,
+        album::Album,
+        artist::Artist,
+        collection::Collection,
+        dynamic::{DynamicPlaylist, DynamicPlaylistChangeSet, query::Query},
+        playlist::{Playlist, PlaylistChangeSet},
+        song::{Song, SongId},
+    },
 };
 use one_or_many::OneOrMany;
 
@@ -55,7 +57,7 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub struct MusicPlayer {
-    db: Arc<Surreal<Db>>,
+    db: Arc<Surreal>,
     settings: Arc<Settings>,
     audio_kernel: Arc<AudioKernelSender>,
     library_rescan_lock: Arc<Mutex<()>>,
@@ -71,7 +73,7 @@ impl MusicPlayer {
     #[must_use]
     #[inline]
     pub fn new(
-        db: Arc<Surreal<Db>>,
+        db: Arc<Surreal>,
         settings: Arc<Settings>,
         audio_kernel: Arc<AudioKernelSender>,
         event_publisher: Arc<Sender<Message>>,
@@ -421,7 +423,7 @@ impl MusicPlayerTrait for MusicPlayer {
     /// Get a song by its ID.
     #[instrument]
     async fn library_song_get(self: Arc<Self>, request: Request<Ulid>) -> TonicResult<SongOption> {
-        let id = (schemas::song::TABLE_NAME, request.into_inner().id).into();
+        let id = (schemas::song::TABLE_NAME, request.into_inner()).into();
         info!("Getting song by ID: {id}");
         let song = Song::read(&self.db, id)
             .await
@@ -454,7 +456,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<ArtistBriefList> {
-        let id = (schemas::song::TABLE_NAME, request.into_inner().id).into();
+        let id = (schemas::song::TABLE_NAME, request.into_inner()).into();
         info!("Getting artist of: {id}");
         let artists = Song::read_artist(&self.db, id)
             .await
@@ -469,7 +471,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<AlbumBriefOption> {
-        let song_id = (schemas::song::TABLE_NAME, request.into_inner().id).into();
+        let song_id = (schemas::song::TABLE_NAME, request.into_inner()).into();
         info!("Resolving album for song {song_id}");
         let album = Song::read_album(&self.db, song_id)
             .await
@@ -482,7 +484,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<PlaylistList> {
-        let song_id = (schemas::song::TABLE_NAME, request.into_inner().id).into();
+        let song_id = (schemas::song::TABLE_NAME, request.into_inner()).into();
         info!("Collecting playlists containing {song_id}");
         let playlists = Song::read_playlists(&self.db, song_id)
             .await
@@ -499,7 +501,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<CollectionList> {
-        let song_id = (schemas::song::TABLE_NAME, request.into_inner().id).into();
+        let song_id = (schemas::song::TABLE_NAME, request.into_inner()).into();
         info!("Collecting collections containing {song_id}");
         let collections = Song::read_collections(&self.db, song_id)
             .await
@@ -516,7 +518,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<AlbumOption> {
-        let album_id = (schemas::album::TABLE_NAME, request.into_inner().id).into();
+        let album_id = (schemas::album::TABLE_NAME, request.into_inner()).into();
         info!("Fetching album {album_id}");
         let album = Album::read(&self.db, album_id)
             .await
@@ -529,7 +531,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<ArtistBriefList> {
-        let album_id = (schemas::album::TABLE_NAME, request.into_inner().id).into();
+        let album_id = (schemas::album::TABLE_NAME, request.into_inner()).into();
         info!("Fetching contributors for album {album_id}");
         let artists = Album::read_artist(&self.db, album_id)
             .await
@@ -544,7 +546,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<SongBriefList> {
-        let album_id = (schemas::album::TABLE_NAME, request.into_inner().id).into();
+        let album_id = (schemas::album::TABLE_NAME, request.into_inner()).into();
         info!("Listing songs for album {album_id}");
         let songs = Album::read_songs(&self.db, album_id)
             .await
@@ -559,7 +561,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<ArtistOption> {
-        let artist_id = (schemas::artist::TABLE_NAME, request.into_inner().id).into();
+        let artist_id = (schemas::artist::TABLE_NAME, request.into_inner()).into();
         info!("Fetching artist {artist_id}");
         let artist = Artist::read(&self.db, artist_id)
             .await
@@ -572,7 +574,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<SongBriefList> {
-        let artist_id = (schemas::artist::TABLE_NAME, request.into_inner().id).into();
+        let artist_id = (schemas::artist::TABLE_NAME, request.into_inner()).into();
         info!("Listing songs for artist {artist_id}");
         let songs = Artist::read_songs(&self.db, artist_id)
             .await
@@ -587,7 +589,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<AlbumBriefList> {
-        let artist_id = (schemas::artist::TABLE_NAME, request.into_inner().id).into();
+        let artist_id = (schemas::artist::TABLE_NAME, request.into_inner()).into();
         info!("Listing albums for artist {artist_id}");
         let albums = Artist::read_albums(&self.db, artist_id)
             .await
@@ -602,7 +604,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<PlaylistOption> {
-        let playlist_id = (schemas::playlist::TABLE_NAME, request.into_inner().id).into();
+        let playlist_id = (schemas::playlist::TABLE_NAME, request.into_inner()).into();
         info!("Fetching playlist {playlist_id}");
         let playlist = Playlist::read(&self.db, playlist_id)
             .await
@@ -630,7 +632,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<SongBriefList> {
-        let playlist_id = (schemas::playlist::TABLE_NAME, request.into_inner().id).into();
+        let playlist_id = (schemas::playlist::TABLE_NAME, request.into_inner()).into();
         info!("Listing songs for playlist {playlist_id}");
         let songs = Playlist::read_songs(&self.db, playlist_id)
             .await
@@ -647,7 +649,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<CollectionOption> {
-        let collection_id = (schemas::collection::TABLE_NAME, request.into_inner().id).into();
+        let collection_id = (schemas::collection::TABLE_NAME, request.into_inner()).into();
         info!("Fetching collection {collection_id}");
         let collection = Collection::read(&self.db, collection_id)
             .await
@@ -660,7 +662,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<SongBriefList> {
-        let collection_id = (schemas::collection::TABLE_NAME, request.into_inner().id).into();
+        let collection_id = (schemas::collection::TABLE_NAME, request.into_inner()).into();
         info!("Listing songs for collection {collection_id}");
         let songs = Collection::read_songs(&self.db, collection_id)
             .await
@@ -677,7 +679,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<DynamicPlaylistOption> {
-        let dynamic_playlist_id = (schemas::dynamic::TABLE_NAME, request.into_inner().id).into();
+        let dynamic_playlist_id = (schemas::dynamic::TABLE_NAME, request.into_inner()).into();
         info!("Fetching dynamic playlist {dynamic_playlist_id}");
         let playlist = DynamicPlaylist::read(&self.db, dynamic_playlist_id)
             .await
@@ -692,7 +694,7 @@ impl MusicPlayerTrait for MusicPlayer {
         self: Arc<Self>,
         request: Request<Ulid>,
     ) -> TonicResult<SongBriefList> {
-        let dynamic_playlist_id = (schemas::dynamic::TABLE_NAME, request.into_inner().id).into();
+        let dynamic_playlist_id = (schemas::dynamic::TABLE_NAME, request.into_inner()).into();
         info!("Listing songs for dynamic playlist {dynamic_playlist_id}");
         let songs = DynamicPlaylist::run_query_by_id(&self.db, dynamic_playlist_id)
             .await
@@ -736,7 +738,7 @@ impl MusicPlayerTrait for MusicPlayer {
             .ok()
             .and_then(|s| s.current_song)
         {
-            let artists = Song::read_artist(&self.db, SongId::from((song.id.tb, song.id.id)))
+            let artists = Song::read_artist(&self.db, SongId::from(song.id))
                 .await
                 .map_err(|e| {
                     tonic::Status::not_found(format!("Error finding artists of current song: {e}"))
@@ -765,7 +767,7 @@ impl MusicPlayerTrait for MusicPlayer {
             .ok()
             .and_then(|s| s.current_song)
         {
-            let album = Song::read_album(&self.db, SongId::from((song.id.tb, song.id.id)))
+            let album = Song::read_album(&self.db, SongId::from(song.id))
                 .await
                 .map_err(|e| {
                     tonic::Status::not_found(format!("Error finding album of current song: {e}"))
@@ -1224,10 +1226,7 @@ impl MusicPlayerTrait for MusicPlayer {
         // see if a playlist with that name already exists
         match Playlist::read_by_name(&self.db, name.clone()).await {
             Ok(Some(playlist)) => {
-                return Ok(Response::new(RecordId::new(
-                    playlist.id.table(),
-                    playlist.id.key(),
-                )));
+                return Ok(Response::new(RecordId::from(playlist.id)));
             }
             Err(e) => warn!("Error in playlist_new (looking for existing playlist): {e}"),
             _ => {}
@@ -1248,17 +1247,14 @@ impl MusicPlayerTrait for MusicPlayer {
                 "Error in playlist_new (creating new playlist): {e}"
             ))
         })? {
-            Some(playlist) => Ok(Response::new(RecordId::new(
-                playlist.id.table(),
-                playlist.id.key(),
-            ))),
+            Some(playlist) => Ok(Response::new(RecordId::from(playlist.id))),
             None => Err(tonic::Status::not_found("playlist was not created")),
         }
     }
     /// remove a playlist.
     #[instrument]
     async fn playlist_remove(self: Arc<Self>, request: Request<Ulid>) -> TonicResult<()> {
-        let id = (schemas::playlist::TABLE_NAME, request.into_inner().id).into();
+        let id = (schemas::playlist::TABLE_NAME, request.into_inner()).into();
         info!("Removing playlist with id: {id}");
         Playlist::delete(&self.db, id)
             .await
@@ -1271,7 +1267,7 @@ impl MusicPlayerTrait for MusicPlayer {
     /// returns the id of the new playlist
     #[instrument]
     async fn playlist_clone(self: Arc<Self>, request: Request<Ulid>) -> TonicResult<RecordId> {
-        let id = (schemas::playlist::TABLE_NAME, request.into_inner().id).into();
+        let id = (schemas::playlist::TABLE_NAME, request.into_inner()).into();
         info!("Cloning playlist with id: {id}");
 
         let new = Playlist::create_copy(&self.db, id)
@@ -1279,7 +1275,7 @@ impl MusicPlayerTrait for MusicPlayer {
             .map_err(|e| tonic::Status::internal(format!("failed to clone playlist, {e}")))?
             .ok_or_else(|| tonic::Status::not_found("playlist was not found"))?;
 
-        Ok(Response::new(RecordId::new(new.id.table(), new.id.key())))
+        Ok(Response::new(RecordId::from(new.id)))
     }
     /// remove a list of songs from a playlist.
     /// if the songs are not in the playlist, this will do nothing.
@@ -1292,10 +1288,10 @@ impl MusicPlayerTrait for MusicPlayer {
             playlist_id,
             song_ids,
         } = request.into_inner();
-        let playlist = (schemas::playlist::TABLE_NAME, playlist_id.id).into();
+        let playlist = (schemas::playlist::TABLE_NAME, playlist_id).into();
         let songs = song_ids
             .into_iter()
-            .map(|id| (schemas::song::TABLE_NAME, id.id).into())
+            .map(|id| (schemas::song::TABLE_NAME, id).into())
             .collect::<Vec<_>>();
         info!("Removing song from playlist: {playlist} ({songs:?})");
 
@@ -1317,7 +1313,7 @@ impl MusicPlayerTrait for MusicPlayer {
             playlist_id,
             record_id,
         } = request.into_inner();
-        let playlist = (schemas::playlist::TABLE_NAME, playlist_id.id).into();
+        let playlist = (schemas::playlist::TABLE_NAME, playlist_id).into();
         let thing = record_id.into();
         info!("Adding thing to playlist: {playlist} ({thing})");
 
@@ -1348,7 +1344,7 @@ impl MusicPlayerTrait for MusicPlayer {
             playlist_id,
             record_ids,
         } = request.into_inner();
-        let playlist = (schemas::playlist::TABLE_NAME, playlist_id.id).into();
+        let playlist = (schemas::playlist::TABLE_NAME, playlist_id).into();
         let list = record_ids.into_iter().map(Into::into).collect::<Vec<_>>();
         info!(
             "Adding list to playlist: {playlist} ({})",
@@ -1381,7 +1377,7 @@ impl MusicPlayerTrait for MusicPlayer {
         request: Request<PlaylistRenameRequest>,
     ) -> TonicResult<PlaylistBrief> {
         let PlaylistRenameRequest { playlist_id, name } = request.into_inner();
-        let id = (schemas::playlist::TABLE_NAME, playlist_id.id).into();
+        let id = (schemas::playlist::TABLE_NAME, playlist_id).into();
         info!("Renaming playlist: {id} ({name})");
         let updated = Playlist::update(&self.db, id, PlaylistChangeSet::new().name(name))
             .await
@@ -1396,7 +1392,7 @@ impl MusicPlayerTrait for MusicPlayer {
         request: Request<PlaylistExportRequest>,
     ) -> TonicResult<()> {
         let PlaylistExportRequest { playlist_id, path } = request.into_inner();
-        let id = (schemas::playlist::TABLE_NAME, playlist_id.id).into();
+        let id = (schemas::playlist::TABLE_NAME, playlist_id).into();
         info!("Exporting playlist to: {path}");
 
         // validate the path
@@ -1458,10 +1454,7 @@ impl MusicPlayerTrait for MusicPlayer {
         if let Ok(Some(playlist)) = Playlist::read_by_name(&self.db, name.clone()).await {
             // if it does, return the id
             info!("Playlist \"{name}\" already exists, will not import");
-            return Ok(Response::new(RecordId::new(
-                playlist.id.table(),
-                playlist.id.key(),
-            )));
+            return Ok(Response::new(RecordId::from(playlist.id)));
         }
 
         // create the playlist
@@ -1510,10 +1503,7 @@ impl MusicPlayerTrait for MusicPlayer {
             .map_err(|e| tonic::Status::internal(e.to_string()))?;
 
         // return the playlist id
-        Ok(Response::new(RecordId::new(
-            playlist.id.table(),
-            playlist.id.key(),
-        )))
+        Ok(Response::new(RecordId::from(playlist.id)))
     }
 
     /// Collections: freeze a collection (convert it to a playlist).
@@ -1523,15 +1513,12 @@ impl MusicPlayerTrait for MusicPlayer {
         request: Request<CollectionFreezeRequest>,
     ) -> TonicResult<RecordId> {
         let CollectionFreezeRequest { id, name } = request.into_inner();
-        let id = (schemas::collection::TABLE_NAME, id.id).into();
+        let id = (schemas::collection::TABLE_NAME, id).into();
         info!("Freezing collection: {id:?} ({name})");
         let playlist = Collection::freeze(&self.db, id, name)
             .await
             .map_err(|e| tonic::Status::internal(e.to_string()))?;
-        Ok(Response::new(RecordId::new(
-            playlist.id.table(),
-            playlist.id.key(),
-        )))
+        Ok(Response::new(RecordId::from(playlist.id)))
     }
 
     /// Radio: get the `n` most similar songs to the given things.
@@ -1566,7 +1553,7 @@ impl MusicPlayerTrait for MusicPlayer {
             .inspect_err(|e| warn!("Error in radio_get_similar_songs: {e}"))
             .map_err(|e| tonic::Status::internal(e.to_string()))?
             .into_iter()
-            .map(|song| RecordId::new(song.id.table(), song.id.key()))
+            .map(|song| RecordId::from(song.id))
             .collect();
         Ok(Response::new(RecordIdList::new(ids)))
     }
@@ -1589,7 +1576,7 @@ impl MusicPlayerTrait for MusicPlayer {
             .inspect_err(|e| warn!("Error in dynamic_playlist_create: {e}"))
             .map_err(|e| tonic::Status::internal(e.to_string()))?
         {
-            Some(dp) => Ok(Response::new(RecordId::new(dp.id.table(), dp.id.key()))),
+            Some(dp) => Ok(Response::new(RecordId::from(dp.id))),
             None => Err(tonic::Status::not_found(
                 "failed to create dynamic playlist",
             )),
@@ -1611,7 +1598,7 @@ impl MusicPlayerTrait for MusicPlayer {
         } else {
             None
         };
-        let id = (schemas::dynamic::TABLE_NAME, id.id).into();
+        let id = (schemas::dynamic::TABLE_NAME, id).into();
         let changes = DynamicPlaylistChangeSet {
             name: changes.new_name,
             query,
@@ -1628,7 +1615,7 @@ impl MusicPlayerTrait for MusicPlayer {
     /// Dynamic Playlists: remove a DP
     #[instrument]
     async fn dynamic_playlist_remove(self: Arc<Self>, request: Request<Ulid>) -> TonicResult<()> {
-        let id = (schemas::dynamic::TABLE_NAME, request.into_inner().id).into();
+        let id = (schemas::dynamic::TABLE_NAME, request.into_inner()).into();
         info!("Removing DP with id: {id:?}");
         DynamicPlaylist::delete(&self.db, id)
             .await

@@ -1,11 +1,8 @@
 #![allow(clippy::module_name_repetitions)]
 
 use super::Id;
-#[cfg(not(feature = "db"))]
 use super::RecordId;
 use std::time::Duration;
-#[cfg(feature = "db")]
-use surrealdb::RecordId;
 
 use one_or_many::OneOrMany;
 

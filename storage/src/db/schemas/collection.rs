@@ -1,11 +1,8 @@
 //! A collection is an auto curated list of similar songs.
 
 use super::Id;
-#[cfg(not(feature = "db"))]
 use super::RecordId;
 use std::time::Duration;
-#[cfg(feature = "db")]
-use surrealdb::RecordId;
 
 pub type CollectionId = RecordId;
 

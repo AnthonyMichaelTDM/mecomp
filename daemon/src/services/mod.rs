@@ -1,5 +1,6 @@
 use log::warn;
 use mecomp_storage::{
+    Connection, Surreal,
     db::schemas::{
         RecordId,
         album::{Album, TABLE_NAME as ALBUM_TABLE_NAME},
@@ -12,7 +13,6 @@ use mecomp_storage::{
     errors::{Error, StorageResult},
 };
 use one_or_many::OneOrMany;
-use surrealdb::{Connection, Surreal};
 
 pub mod backup;
 pub mod library;
@@ -37,15 +37,15 @@ pub(crate) async fn get_songs_from_things<C: Connection>(
     for thing in things {
         let thing = thing.clone();
         match thing.tb.as_str() {
-            ALBUM_TABLE_NAME => songs.extend(Album::read_songs(db, thing.into()).await?),
-            ARTIST_TABLE_NAME => songs.extend(Artist::read_songs(db, thing.into()).await?),
-            COLLECTION_TABLE_NAME => songs.extend(Collection::read_songs(db, thing.into()).await?),
-            PLAYLIST_TABLE_NAME => songs.extend(Playlist::read_songs(db, thing.into()).await?),
+            ALBUM_TABLE_NAME => songs.extend(Album::read_songs(db, thing).await?),
+            ARTIST_TABLE_NAME => songs.extend(Artist::read_songs(db, thing).await?),
+            COLLECTION_TABLE_NAME => songs.extend(Collection::read_songs(db, thing).await?),
+            PLAYLIST_TABLE_NAME => songs.extend(Playlist::read_songs(db, thing).await?),
             SONG_TABLE_NAME => {
-                songs.push(Song::read(db, thing.into()).await?.ok_or(Error::NotFound)?);
+                songs.push(Song::read(db, thing).await?.ok_or(Error::NotFound)?);
             }
             DYNAMIC_PLAYLIST_TABLE_NAME => {
-                if let Some(new_songs) = DynamicPlaylist::run_query_by_id(db, thing.into()).await? {
+                if let Some(new_songs) = DynamicPlaylist::run_query_by_id(db, thing).await? {
                     songs.extend(new_songs);
                 }
             }

@@ -21,7 +21,7 @@ impl Playlist {
         db: &Surreal<C>,
         playlist: Self,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.create(playlist.id.clone()).content(playlist).await?)
+        Ok(db.create(&playlist.id).content(playlist).await?)
     }
 
     #[instrument]

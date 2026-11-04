@@ -14,11 +14,11 @@ use mecomp_analysis::{
 use mecomp_core::config::{AnalysisKind, AnalysisSettings, ReclusterSettings};
 use mecomp_prost::{LibraryBrief, LibraryFull, LibraryHealth};
 use one_or_many::OneOrMany;
-use surrealdb::{Connection, Surreal};
 use tracing::{Instrument, instrument};
 use walkdir::WalkDir;
 
 use mecomp_storage::{
+    Connection, Surreal,
     db::{
         health::{
             count_albums, count_artists, count_collections, count_dynamic_playlists,

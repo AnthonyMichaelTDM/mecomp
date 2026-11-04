@@ -37,7 +37,7 @@ impl Analysis {
         }
 
         // create the analysis
-        let result: Option<Self> = db.create(analysis.id.clone()).content(analysis).await?;
+        let result: Option<Self> = db.create(&analysis.id).content(analysis).await?;
 
         if let Some(analysis) = result {
             // relate the song to the analysis
@@ -531,7 +531,7 @@ mod test {
             features: [0.; 10],
         };
         // insert a malformed analysis directly
-        let _: Option<MalformedAnalysis> = db.create(analysis.id.clone()).content(analysis).await?;
+        let _: Option<MalformedAnalysis> = db.create(&analysis.id).content(analysis).await?;
         // register a vector index that expects 23-dimensional vectors
         db.query(
             "DEFINE INDEX analysis_features_vector_index ON analysis FIELDS features MTREE DIMENSION 23;",

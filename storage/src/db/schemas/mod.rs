@@ -154,14 +154,11 @@ impl FromStr for RecordId {
                     | collection::TABLE_NAME
                     | dynamic::TABLE_NAME
             ))
-            && parts[1].len() == 26
-            && parts[1]
-                .chars()
-                .all(|c| c.is_ascii_digit() || c.is_ascii_uppercase())
         {
+            let id = Id::from_str(parts[1])?;
             Ok(Self {
                 tb: parts[0].to_owned(),
-                id: Id::String(parts[1].to_owned()),
+                id,
             })
         } else {
             Err(())
@@ -195,6 +192,30 @@ impl std::fmt::Display for Id {
             Self::Number(n) => write!(f, "{n}"),
             Self::String(s) => write!(f, "{s}"),
         }
+    }
+}
+
+impl FromStr for Id {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.chars().all(|c| c.is_ascii_digit()) {
+            s.parse::<i64>().map(Self::Number).map_err(|_| ())
+        } else if s
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+            && s.len() == 26
+        {
+            Ok(Self::String(s.to_owned()))
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl From<&str> for Id {
+    fn from(value: &str) -> Self {
+        Self::String(value.to_string())
     }
 }
 
@@ -249,6 +270,38 @@ impl From<surrealdb::sql::Id> for Id {
             surrealdb::sql::Id::String(s) => Self::String(s),
             _ => unimplemented!(),
         }
+    }
+}
+
+// Implementations to allow our [`RecordId`] type to be used like a normal [`surrealdb::RecordId`] in SurrealDB queries.
+
+#[cfg(feature = "db")]
+impl<R> surrealdb::opt::IntoResource<Option<R>> for RecordId {
+    fn into_resource(self) -> Result<surrealdb::opt::Resource, surrealdb::Error> {
+        let surreal_recid: surrealdb::RecordId = self.into();
+        Ok(surreal_recid.into())
+    }
+}
+#[cfg(feature = "db")]
+impl<R> surrealdb::opt::IntoResource<Option<R>> for &RecordId {
+    fn into_resource(self) -> Result<surrealdb::opt::Resource, surrealdb::Error> {
+        let surreal_recid: surrealdb::RecordId = self.clone().into();
+        Ok(surreal_recid.into())
+    }
+}
+
+#[cfg(feature = "db")]
+impl<R> surrealdb::opt::CreateResource<Option<R>> for RecordId {
+    fn into_resource(self) -> Result<surrealdb::opt::Resource, surrealdb::Error> {
+        let surreal_recid: surrealdb::RecordId = self.into();
+        Ok(surreal_recid.into())
+    }
+}
+#[cfg(feature = "db")]
+impl<R> surrealdb::opt::CreateResource<Option<R>> for &RecordId {
+    fn into_resource(self) -> Result<surrealdb::opt::Resource, surrealdb::Error> {
+        let surreal_recid: surrealdb::RecordId = self.clone().into();
+        Ok(surreal_recid.into())
     }
 }
 

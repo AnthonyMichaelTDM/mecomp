@@ -34,7 +34,7 @@ impl Album {
         db: &Surreal<C>,
         album: Self,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.create(album.id.clone()).content(album).await?)
+        Ok(db.create(&album.id).content(album).await?)
     }
 
     #[instrument()]

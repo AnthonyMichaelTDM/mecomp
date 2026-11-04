@@ -10,7 +10,6 @@ use std::{
 use log::{error, info};
 use mecomp_analysis::embeddings::onnx_test_env;
 use persistence::QueueState;
-use surrealdb::{Surreal, engine::local::Db};
 use tokio::net::TcpListener;
 use tokio::runtime::Handle;
 use tokio_stream::wrappers::TcpListenerStream;
@@ -24,7 +23,10 @@ use mecomp_core::{
     udp::{Message, Sender, StateChange},
 };
 use mecomp_prost::{MusicPlayerClient, TraceInterceptor, server::MusicPlayerServer};
-use mecomp_storage::db::{init_database, set_database_path};
+use mecomp_storage::{
+    Surreal,
+    db::{init_database, set_database_path},
+};
 
 pub mod controller;
 #[cfg(feature = "dynamic_updates")]
@@ -262,7 +264,7 @@ async fn run_daemon(
 /// Errors if the event publisher cannot be created.
 #[inline]
 pub async fn init_test_client_server(
-    db: Arc<Surreal<Db>>,
+    db: Arc<Surreal>,
     settings: Arc<Settings>,
     audio_kernel: Arc<AudioKernelSender>,
 ) -> anyhow::Result<MusicPlayerClient> {
@@ -347,7 +349,7 @@ mod tests {
     use tonic::Code;
 
     #[fixture]
-    async fn db() -> Arc<Surreal<Db>> {
+    async fn db() -> Arc<Surreal> {
         let db = Arc::new(init_test_database().await.unwrap());
 
         // create a test song, add it to a playlist and collection
@@ -433,7 +435,7 @@ mod tests {
     }
 
     #[fixture]
-    async fn client(#[future] db: Arc<Surreal<Db>>) -> MusicPlayerClient {
+    async fn client(#[future] db: Arc<Surreal>) -> MusicPlayerClient {
         let settings = Arc::new(Settings::default());
         let (tx, _) = std::sync::mpsc::channel();
         let audio_kernel = AudioKernelSender::start(tx);

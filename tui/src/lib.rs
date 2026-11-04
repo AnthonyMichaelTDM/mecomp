@@ -92,29 +92,29 @@ mod subscriber_tests {
     use mecomp_core::{audio::AudioKernelSender, config::Settings};
     use mecomp_daemon::init_test_client_server;
     use mecomp_storage::{
+        Surreal,
         db::schemas::{
-            album::Album, analysis::Analysis, artist::Artist, collection::Collection,
+            RecordId, album::Album, analysis::Analysis, artist::Artist, collection::Collection,
             playlist::Playlist, song::Song,
         },
         test_utils::{arb_feature_array, init_test_database},
     };
     use rstest::{fixture, rstest};
-    use surrealdb::{RecordId, Surreal, engine::local::Db};
     use tempfile::tempdir;
     use termination::create_termination;
     use test_utils::item_id;
     use tokio::sync::oneshot;
 
     /// Create a test database with a simple state
-    async fn db_with_state() -> Arc<Surreal<Db>> {
+    async fn db_with_state() -> Arc<Surreal> {
         let db = Arc::new(init_test_database().await.unwrap());
 
-        let album_id = RecordId::from_table_key("album", item_id().to_string());
-        let analysis_id = RecordId::from_table_key("analysis", item_id().to_string());
-        let artist_id = RecordId::from_table_key("artist", item_id().to_string());
-        let collection_id = RecordId::from_table_key("collection", item_id().to_string());
-        let playlist_id = RecordId::from_table_key("playlist", item_id().to_string());
-        let song_id = RecordId::from_table_key("song", item_id().to_string());
+        let album_id = RecordId::from_table_key("album", item_id());
+        let analysis_id = RecordId::from_table_key("analysis", item_id());
+        let artist_id = RecordId::from_table_key("artist", item_id());
+        let collection_id = RecordId::from_table_key("collection", item_id());
+        let playlist_id = RecordId::from_table_key("playlist", item_id());
+        let song_id = RecordId::from_table_key("song", item_id());
 
         // create a song, artist, album, collection, and playlist
         let song = Song {

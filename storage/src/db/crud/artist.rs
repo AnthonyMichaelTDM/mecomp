@@ -33,7 +33,7 @@ impl Artist {
         db: &Surreal<C>,
         artist: Self,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.create(artist.id.clone()).content(artist).await?)
+        Ok(db.create(&artist.id).content(artist).await?)
     }
 
     #[instrument]

@@ -1,11 +1,10 @@
 #![allow(clippy::module_name_repetitions)]
 
 use super::Id;
-#[cfg(not(feature = "db"))]
 use super::RecordId;
 use query::Query;
 #[cfg(feature = "db")]
-use surrealdb::{RecordId, opt::IntoQuery};
+use surrealdb::opt::IntoQuery;
 
 pub mod query;
 
