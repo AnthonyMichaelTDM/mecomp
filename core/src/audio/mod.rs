@@ -27,8 +27,7 @@ use crate::{
     state::{Percent, StateAudio, StateRuntime},
     udp::StateChange,
 };
-use mecomp_prost::{PlaybackStatus as Status, SeekType};
-use mecomp_storage::db::schemas::song::SongBrief;
+use mecomp_prost::{PlaybackStatus as Status, SeekType, SongBrief};
 use one_or_many::OneOrMany;
 
 pub mod commands;
@@ -435,7 +434,7 @@ impl AudioKernel {
         let current_song = self.queue.current_song().cloned();
         let repeat_mode = self.queue.get_repeat_mode();
         let runtime = current_song.as_ref().map(|song| {
-            let duration = song.runtime;
+            let duration = *song.runtime.inner();
             let seek_position = self.get_time_played();
             let seek_percent =
                 Percent::new(seek_position.as_secs_f32() / duration.as_secs_f32() * 100.0);
@@ -929,7 +928,7 @@ mod tests {
             .unwrap();
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-                song.brief().into(),
+                OneOrMany::from(SongBrief::from(song.brief())),
             )));
 
             let state = get_state(sender.clone()).await;
@@ -1160,7 +1159,7 @@ mod tests {
 
             // add the song back to the queue, should be playing
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-                song1.clone().brief().into(),
+                OneOrMany::from(SongBrief::from(song1.clone().brief())),
             )));
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
@@ -1624,7 +1623,7 @@ mod tests {
             // add a song to the queue
             // NOTE: this song has a duration of 10 seconds
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-                song.clone().brief().into(),
+                OneOrMany::from(SongBrief::from(song.clone().brief())),
             )));
             sender.send(AudioCommand::Stop);
             sender.send(AudioCommand::Seek(

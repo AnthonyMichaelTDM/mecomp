@@ -2,25 +2,6 @@
 
 use mecomp_storage::db::schemas::dynamic::query::Compile;
 
-impl From<crate::Song> for mecomp_storage::db::schemas::song::Song {
-    fn from(value: crate::Song) -> Self {
-        Self {
-            id: mecomp_storage::db::schemas::RecordId::from(value.id).into(),
-            title: value.title,
-            artist: value.artists.into(),
-            album_artist: value.album_artists.into(),
-            album: value.album,
-            genre: value.genres.into(),
-            runtime: *value.runtime.inner(),
-            track: value.track,
-            disc: value.disc,
-            release_year: value.release_year,
-            extension: value.extension,
-            path: value.path.into(),
-        }
-    }
-}
-
 impl From<mecomp_storage::db::schemas::song::Song> for crate::Song {
     fn from(value: mecomp_storage::db::schemas::song::Song) -> Self {
         Self {
@@ -36,24 +17,6 @@ impl From<mecomp_storage::db::schemas::song::Song> for crate::Song {
             release_year: value.release_year,
             extension: value.extension,
             path: format!("{}", value.path.display()),
-        }
-    }
-}
-
-impl From<crate::SongBrief> for mecomp_storage::db::schemas::song::SongBrief {
-    fn from(value: crate::SongBrief) -> Self {
-        Self {
-            id: mecomp_storage::db::schemas::RecordId::from(value.id).into(),
-            title: value.title,
-            artist: value.artists.into(),
-            album_artist: value.album_artists.into(),
-            album: value.album,
-            genre: value.genres.into(),
-            runtime: *value.runtime.inner(),
-            track: value.track,
-            disc: value.disc,
-            release_year: value.release_year,
-            path: value.path.into(),
         }
     }
 }

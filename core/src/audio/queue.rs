@@ -1,9 +1,7 @@
-use mecomp_prost::RepeatMode;
+use mecomp_prost::{RepeatMode, SongBrief};
 use rand::{prelude::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
-
-use mecomp_storage::db::schemas::song::SongBrief;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Queue {

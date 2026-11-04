@@ -11,9 +11,8 @@ use mecomp_core::{
     udp::{Event, Listener, Message, StateChange},
 };
 use mecomp_prost::{
-    MusicPlayerClient, PlaybackStatus as Status, RegisterListenerRequest, RepeatMode,
+    MusicPlayerClient, PlaybackStatus as Status, RegisterListenerRequest, RepeatMode, SongBrief,
 };
-use mecomp_storage::db::schemas::song::SongBrief;
 use mpris_server::{
     LoopStatus, Metadata, PlaybackStatus, Property, Server, Signal, Time, TrackId,
     zbus::{Error as ZbusError, zvariant::ObjectPath},
@@ -234,12 +233,12 @@ pub fn metadata_from_opt_song(song: Option<&SongBrief>) -> Metadata {
         || Metadata::builder().trackid(TrackId::NO_TRACK).build(),
         |song| {
             #[allow(clippy::cast_possible_truncation)]
-            let rt_micros = song.runtime.as_micros() as i64;
+            let rt_micros = song.runtime.inner().as_micros() as i64;
 
             Metadata::builder()
                 .trackid(object_path_from_thing(&song.id.clone().into()))
                 .length(Time::from_micros(rt_micros))
-                .artist(song.artist.as_slice())
+                .artist(song.artists.as_slice())
                 .album(&song.album)
                 .title(&song.title)
                 .build()

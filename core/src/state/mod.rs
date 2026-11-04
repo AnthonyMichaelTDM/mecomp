@@ -2,8 +2,8 @@
 use std::fmt::Display;
 use std::time::Duration;
 
-use mecomp_prost::{PlaybackStatus, RepeatMode};
-use mecomp_storage::db::schemas::song::SongBrief;
+use mecomp_prost::{PlaybackStatus, RepeatMode, SongBrief};
+// use mecomp_storage::db::schemas::song::SongBrief;
 use serde::{Deserialize, Serialize};
 
 use crate::format_duration;
@@ -44,6 +44,7 @@ pub struct StateRuntime {
     pub duration: Duration,
 }
 
+// TODO: maybe delete
 impl Display for StateRuntime {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -139,9 +140,9 @@ impl From<mecomp_prost::StateAudio> for StateAudio {
     #[inline]
     fn from(value: mecomp_prost::StateAudio) -> Self {
         Self {
-            queue: value.queue.into_iter().map(Into::into).collect(),
+            queue: value.queue.into_boxed_slice(),
             queue_position: value.queue_position.map(|v| v as usize),
-            current_song: value.current_song.map(Into::into),
+            current_song: value.current_song,
             repeat_mode: RepeatMode::try_from(value.repeat_mode).unwrap_or_default(),
             runtime: value.runtime.map(Into::into),
             status: PlaybackStatus::try_from(value.status).unwrap_or_default(),
@@ -155,9 +156,9 @@ impl From<StateAudio> for mecomp_prost::StateAudio {
     #[inline]
     fn from(value: StateAudio) -> Self {
         Self {
-            queue: value.queue.into_iter().map(Into::into).collect(),
+            queue: value.queue.to_vec(),
             queue_position: value.queue_position.map(|v| v as u64),
-            current_song: value.current_song.map(Into::into),
+            current_song: value.current_song,
             repeat_mode: value.repeat_mode as i32,
             runtime: value.runtime.map(Into::into),
             status: value.status as i32,
@@ -181,7 +182,6 @@ mod tests {
 
     use super::*;
     use mecomp_storage::db::schemas::song::Song;
-    use one_or_many::OneOrMany;
     use pretty_assertions::assert_eq;
     use pretty_assertions::assert_str_eq;
     use rstest::rstest;
@@ -201,6 +201,11 @@ mod tests {
             "{} != 1.0",
             state.volume
         );
+    }
+
+    fn generate_song_id() -> mecomp_prost::RecordId {
+        let id = Song::generate_id();
+        mecomp_prost::RecordId::from((id.table(), id.key().to_string()))
     }
 
     #[rstest]
@@ -243,13 +248,13 @@ mod tests {
         StateAudio {
             queue: Box::new([
                 SongBrief {
-                    id: Song::generate_id(),
+                    id: generate_song_id(),
                     title: "Song 1".into(),
-                    artist: OneOrMany::None,
-                    album_artist: OneOrMany::None,
+                    artists: Vec::new(),
+                    album_artists: Vec::new(),
                     album: "album".into(),
-                    genre: OneOrMany::None,
-                    runtime: Duration::from_secs(100),
+                    genres: Vec::new(),
+                    runtime: Duration::from_secs(100).into(),
                     track: None,
                     disc: None,
                     release_year: None,
@@ -259,13 +264,13 @@ mod tests {
             queue_position: Some(1),
             current_song: Some(
                 SongBrief {
-                    id: Song::generate_id(),
+                    id: generate_song_id(),
                     title: "Song 1".into(),
-                    artist: OneOrMany::None,
-                    album_artist: OneOrMany::None,
+                    artists: Vec::new(),
+                    album_artists: Vec::new(),
                     album: "album".into(),
-                    genre: OneOrMany::None,
-                    runtime: Duration::from_secs(100),
+                    genres: Vec::new(),
+                    runtime: Duration::from_secs(100).into(),
                     track: None,
                     disc: None,
                     release_year: None,

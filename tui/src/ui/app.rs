@@ -397,12 +397,10 @@ impl ComponentRender<Rect> for App {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use super::*;
     use crate::{
         state::action::PopupAction,
-        test_utils::setup_test_terminal,
+        test_utils::{generate_song_id, setup_test_terminal},
         ui::{
             components::{self, content_view::ActiveView},
             widgets::popups::notification::Notification,
@@ -410,8 +408,7 @@ mod tests {
     };
     use crossterm::event::KeyModifiers;
     use mecomp_core::state::{Percent, StateAudio, StateRuntime};
-    use mecomp_prost::{LibraryBrief, SearchResult};
-    use mecomp_storage::db::schemas::song::{Song, SongBrief};
+    use mecomp_prost::{Duration, LibraryBrief, SearchResult, SongBrief};
     use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
     use tokio::sync::mpsc::unbounded_channel;
@@ -419,12 +416,12 @@ mod tests {
     #[fixture]
     fn song() -> SongBrief {
         SongBrief {
-            id: Song::generate_id(),
+            id: generate_song_id(),
             title: "Test Song".into(),
-            artist: "Test Artist".to_string().into(),
-            album_artist: "Test Album Artist".to_string().into(),
+            artists: vec!["Test Artist".to_string()],
+            album_artists: vec!["Test Album Artist".to_string()],
             album: "Test Album".into(),
-            genre: "Test Genre".to_string().into(),
+            genres: vec!["Test Genre".to_string()],
             runtime: Duration::from_secs(180),
             track: Some(0),
             disc: Some(0),
@@ -581,9 +578,9 @@ mod tests {
                 current_song: Some(song.clone()),
                 repeat_mode: mecomp_prost::RepeatMode::One,
                 runtime: Some(StateRuntime {
-                    seek_position: Duration::from_secs(0),
+                    seek_position: std::time::Duration::from_secs(0),
                     seek_percent: Percent::new(0.0),
-                    duration: song.runtime,
+                    duration: *song.runtime.inner(),
                 }),
                 status: mecomp_prost::PlaybackStatus::Stopped,
                 muted: false,
@@ -634,7 +631,7 @@ mod tests {
                 .audio
                 .current_song
                 .as_ref()
-                .map(|song| { song.artist.as_slice().join(", ") })
+                .map(|song| { song.artists.as_slice().join(", ") })
         );
     }
 
@@ -671,7 +668,7 @@ mod tests {
         let mut app = App::new(&state, tx);
 
         let state = AppState {
-            active_view: ActiveView::Song(song.id.key().to_string().into()),
+            active_view: ActiveView::Song(song.id.ulid()),
             ..state
         };
         app = app.move_with_view(&state);

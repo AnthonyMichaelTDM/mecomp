@@ -1,8 +1,7 @@
 //! Implementation of the Queue Bar component, a scrollable list of the songs in the queue.
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use mecomp_prost::RepeatMode;
-use mecomp_storage::db::schemas::song::SongBrief;
+use mecomp_prost::{RepeatMode, SongBrief};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Position, Rect},
     style::{Modifier, Style},

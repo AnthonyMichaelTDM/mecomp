@@ -259,7 +259,9 @@ impl PlayerInterface for Mpris {
         if let Some(song) = self.state.read().await.current_song.as_ref() {
             // if the position not in the range of the song, ignore the call
             let position = position.as_micros();
-            if position < 0 || u128::from(position.unsigned_abs()) > song.runtime.as_micros() {
+            if position < 0
+                || u128::from(position.unsigned_abs()) > song.runtime.inner().as_micros()
+            {
                 return Ok(());
             }
 
@@ -323,7 +325,6 @@ mod tests {
     };
 
     use mecomp_prost::{PlaybackStatus as Status, RepeatMode};
-    use mecomp_storage::db::schemas::song::SongBrief;
     use one_or_many::OneOrMany;
     use pretty_assertions::{assert_eq, assert_ne};
     use rstest::rstest;
@@ -1289,7 +1290,7 @@ mod tests {
             .into_inner()
             .songs;
         assert_eq!(songs.len(), 4);
-        let first_song: SongBrief = songs[0].clone().into();
+        let first_song = songs[0].clone();
 
         // The metadata of the current element. //
         // when there is no current song
@@ -1417,7 +1418,7 @@ mod tests {
             .into_inner()
             .songs;
         assert_eq!(songs.len(), 4);
-        let first_song: SongBrief = songs[0].clone().into();
+        let first_song = songs[0].clone();
 
         // The current track position, between 0 and the [mpris:length] metadata entry. //
         // when there is no current song

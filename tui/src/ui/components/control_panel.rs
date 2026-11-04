@@ -55,7 +55,7 @@ impl From<&AppState> for Props {
             song_artist: value
                 .current_song
                 .as_ref()
-                .map(|song| song.artist.as_slice().join(", ")),
+                .map(|song| song.artists.as_slice().join(", ")),
         }
     }
 }
@@ -405,7 +405,7 @@ mod tests {
     use super::*;
     use crate::{
         state::action::{AudioAction, PlaybackAction, VolumeAction},
-        test_utils::setup_test_terminal,
+        test_utils::{generate_song_id, setup_test_terminal},
         ui::AppState,
     };
     use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
@@ -693,15 +693,14 @@ mod tests {
 
     #[test]
     fn test_render_with_song_and_runtime() {
-        use mecomp_storage::db::schemas::song::{Song, SongBrief};
-        let song = SongBrief {
-            id: Song::generate_id(),
+        let song = mecomp_prost::SongBrief {
+            id: generate_song_id(),
             title: "Test Song".into(),
-            artist: "Test Artist".to_string().into(),
-            album_artist: "Test Album Artist".to_string().into(),
+            artists: vec!["Test Artist".to_string()],
+            album_artists: vec!["Test Album Artist".to_string()],
             album: "Test Album".into(),
-            genre: "Test Genre".to_string().into(),
-            runtime: Duration::from_secs(180),
+            genres: vec!["Test Genre".to_string()],
+            runtime: Duration::from_secs(180).into(),
             track: Some(0),
             disc: Some(0),
             release_year: Some(2021),

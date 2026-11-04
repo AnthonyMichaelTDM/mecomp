@@ -116,9 +116,16 @@ impl fmt::Display for Duration {
         let total_secs = self.0.as_secs();
         let hours = total_secs / 3600;
         let minutes = (total_secs % 3600) / 60;
-        let seconds = self.0.as_secs_f32() % 60.;
+        let seconds = total_secs % 60;
+        let millis = self.0.subsec_millis();
 
-        write!(f, "{hours:02}:{minutes:02}:{seconds:05.2}")
+        if hours != 0 {
+            write!(f, "{hours:02}:{minutes:02}:")?;
+        } else {
+            write!(f, "{minutes}:")?;
+        }
+
+        write!(f, "{seconds:02}.{millis:02}")
     }
 }
 

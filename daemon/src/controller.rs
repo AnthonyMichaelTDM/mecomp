@@ -38,7 +38,7 @@ use mecomp_storage::db::schemas::{
     collection::Collection,
     dynamic::{DynamicPlaylist, DynamicPlaylistChangeSet, query::Query},
     playlist::{Playlist, PlaylistChangeSet},
-    song::Song,
+    song::{Song, SongId},
 };
 use one_or_many::OneOrMany;
 
@@ -737,7 +737,7 @@ impl MusicPlayerTrait for MusicPlayer {
             .ok()
             .and_then(|s| s.current_song)
         {
-            let artists = Song::read_artist(&self.db, song.id)
+            let artists = Song::read_artist(&self.db, SongId::from((song.id.tb, song.id.id)))
                 .await
                 .map_err(|e| {
                     tonic::Status::not_found(format!("Error finding artists of current song: {e}"))
@@ -766,7 +766,7 @@ impl MusicPlayerTrait for MusicPlayer {
             .ok()
             .and_then(|s| s.current_song)
         {
-            let album = Song::read_album(&self.db, song.id)
+            let album = Song::read_album(&self.db, SongId::from((song.id.tb, song.id.id)))
                 .await
                 .map_err(|e| {
                     tonic::Status::not_found(format!("Error finding album of current song: {e}"))
@@ -783,7 +783,7 @@ impl MusicPlayerTrait for MusicPlayer {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         self.audio_kernel.send(AudioCommand::ReportStatus(tx));
-        let song = rx.await.ok().and_then(|s| s.current_song).map(Into::into);
+        let song = rx.await.ok().and_then(|s| s.current_song);
         Ok(Response::new(SongBriefOption { song }))
     }
 

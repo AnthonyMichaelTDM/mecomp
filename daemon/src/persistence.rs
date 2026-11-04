@@ -25,7 +25,6 @@
 use anyhow::{Context, Result};
 use mecomp_core::audio::AudioKernelSender;
 use mecomp_core::audio::commands::{AudioCommand, QueueCommand, VolumeCommand};
-use mecomp_storage::db::schemas::song::SongBrief;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::time::Duration;
@@ -35,7 +34,7 @@ use std::{
 };
 
 use mecomp_core::state::StateAudio;
-use mecomp_prost::{RepeatMode, SeekType};
+use mecomp_prost::{RepeatMode, SeekType, SongBrief};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueueState {
