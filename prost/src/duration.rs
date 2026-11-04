@@ -74,13 +74,18 @@ impl prost::Message for Duration {
             // Decode nanos field
             2 => {
                 let mut nanos = self.0.subsec_nanos();
-                let result = prost::encoding::uint32::merge(wire_type, &mut nanos, buf, ctx)
+                prost::encoding::uint32::merge(wire_type, &mut nanos, buf, ctx)
                     .map_err(|mut error| {
                         error.push(STRUCT_NAME, stringify!(nanos));
                         error
-                    });
+                    })?;
+                if nanos >= 1_000_000_000 {
+                    return Err(prost::DecodeError::new(
+                        "nanos must be less than 1_000_000_000",
+                    ));
+                }
                 self.0 = std::time::Duration::new(self.0.as_secs(), nanos);
-                result
+                Ok(())
             }
             _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
         }
