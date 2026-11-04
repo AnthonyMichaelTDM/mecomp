@@ -63,7 +63,7 @@ impl From<StateAudio> for QueueState {
             volume,
         } = state;
 
-        let seek_position = runtime.map(|r| r.seek_position);
+        let seek_position = runtime.map(|r| *r.seek_position.inner());
 
         Self {
             repeat_mode,

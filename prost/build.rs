@@ -34,6 +34,10 @@ fn main() {
         "mecomp.RecordId",
         "#[derive(::serde::Serialize, ::serde::Deserialize)]",
     );
+    config.type_attribute(
+        "mecomp.StateRuntime",
+        "#[derive(::serde::Serialize, ::serde::Deserialize)]",
+    );
 
     tonic_prost_build::configure()
         .compile_well_known_types(false)

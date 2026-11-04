@@ -21,13 +21,8 @@ use rodio::{
 };
 use tracing::instrument;
 
-use crate::{
-    errors::LibraryError,
-    format_duration,
-    state::{StateAudio, StateRuntime},
-    udp::StateChange,
-};
-use mecomp_prost::{PlaybackStatus as Status, SeekType, SongBrief};
+use crate::{errors::LibraryError, format_duration, state::StateAudio, udp::StateChange};
+use mecomp_prost::{PlaybackStatus as Status, SeekType, SongBrief, StateRuntime};
 use one_or_many::OneOrMany;
 
 pub mod commands;
@@ -434,8 +429,8 @@ impl AudioKernel {
         let current_song = self.queue.current_song().cloned();
         let repeat_mode = self.queue.get_repeat_mode();
         let runtime = current_song.as_ref().map(|song| {
-            let duration = *song.runtime.inner();
-            let seek_position = self.get_time_played();
+            let duration = song.runtime;
+            let seek_position = self.get_time_played().into();
             StateRuntime {
                 seek_position,
                 duration,
@@ -1631,10 +1626,13 @@ mod tests {
             assert_eq!(state.queue_position, Some(0));
             assert_eq!(state.status, Status::Stopped);
             assert_eq!(
-                state.runtime.unwrap().duration,
+                *state.runtime.unwrap().duration.inner(),
                 Duration::from_secs(10) + Duration::from_millis(188)
             );
-            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(0));
+            assert_eq!(
+                *state.runtime.unwrap().seek_position.inner(),
+                Duration::from_secs(0)
+            );
 
             // skip ahead a bit
             sender.send(AudioCommand::Seek(
@@ -1642,7 +1640,10 @@ mod tests {
                 Duration::from_secs(2),
             ));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(2));
+            assert_eq!(
+                *state.runtime.unwrap().seek_position.inner(),
+                Duration::from_secs(2)
+            );
             assert_eq!(state.current_song, Some(song.clone().into()));
             assert_eq!(state.status, Status::Paused);
 
@@ -1652,7 +1653,10 @@ mod tests {
                 Duration::from_secs(1),
             ));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(1));
+            assert_eq!(
+                *state.runtime.unwrap().seek_position.inner(),
+                Duration::from_secs(1)
+            );
             assert_eq!(state.current_song, Some(song.clone().into()));
             assert_eq!(state.status, Status::Paused);
 
@@ -1663,7 +1667,7 @@ mod tests {
             ));
             let state = get_state(sender.clone()).await;
             assert_eq!(
-                state.runtime.unwrap().seek_position,
+                *state.runtime.unwrap().seek_position.inner(),
                 Duration::from_secs(10)
             );
             assert_eq!(state.current_song, Some(song.clone().into()));

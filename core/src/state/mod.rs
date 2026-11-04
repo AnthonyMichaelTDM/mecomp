@@ -1,51 +1,8 @@
 #![allow(clippy::module_name_repetitions)]
 use std::fmt::Display;
-use std::time::Duration;
 
-use mecomp_prost::{PlaybackStatus, RepeatMode, SongBrief};
+use mecomp_prost::{PlaybackStatus, RepeatMode, SongBrief, StateRuntime};
 use serde::{Deserialize, Serialize};
-
-use crate::format_duration;
-
-/// Information about the runtime of the song song
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Default)]
-pub struct StateRuntime {
-    pub seek_position: Duration,
-    pub duration: Duration,
-}
-
-// TODO: maybe delete
-impl Display for StateRuntime {
-    #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "StateRuntime {{ seek_position: {}, duration: {} }}",
-            format_duration(&self.seek_position),
-            format_duration(&self.duration)
-        )
-    }
-}
-
-impl From<mecomp_prost::StateRuntime> for StateRuntime {
-    #[inline]
-    fn from(value: mecomp_prost::StateRuntime) -> Self {
-        Self {
-            seek_position: *value.seek_position.inner(),
-            duration: *value.duration.inner(),
-        }
-    }
-}
-
-impl From<StateRuntime> for mecomp_prost::StateRuntime {
-    #[inline]
-    fn from(value: StateRuntime) -> Self {
-        Self {
-            seek_position: value.seek_position.into(),
-            duration: value.duration.into(),
-        }
-    }
-}
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct StateAudio {
@@ -111,7 +68,7 @@ impl From<mecomp_prost::StateAudio> for StateAudio {
             queue_position: value.queue_position.map(|v| v as usize),
             current_song: value.current_song,
             repeat_mode: RepeatMode::try_from(value.repeat_mode).unwrap_or_default(),
-            runtime: value.runtime.map(Into::into),
+            runtime: value.runtime,
             status: PlaybackStatus::try_from(value.status).unwrap_or_default(),
             muted: value.muted,
             volume: value.volume,
@@ -127,7 +84,7 @@ impl From<StateAudio> for mecomp_prost::StateAudio {
             queue_position: value.queue_position.map(|v| v as u64),
             current_song: value.current_song,
             repeat_mode: value.repeat_mode as i32,
-            runtime: value.runtime.map(Into::into),
+            runtime: value.runtime,
             status: value.status as i32,
             muted: value.muted,
             volume: value.volume,
@@ -145,9 +102,8 @@ impl StateAudio {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use super::*;
+    use mecomp_prost::Duration;
     use mecomp_storage::db::schemas::song::Song;
     use pretty_assertions::assert_eq;
     use pretty_assertions::assert_str_eq;
@@ -181,7 +137,7 @@ mod tests {
             seek_position: Duration::from_secs(3),
             duration: Duration::from_secs(6),
         },
-        "StateRuntime { seek_position: 00:00:03.00, duration: 00:00:06.00 }"
+        "StateRuntime { seek_position: 0:03.0, duration: 0:06.0 }"
     )]
     #[case::state_audio_empty(
         StateAudio {
@@ -251,7 +207,7 @@ mod tests {
             muted: false,
             volume: 1.0,
         },
-        "StateAudio { queue: [\"Song 1\"], queue_position: 1, current_song: \"Song 1\", repeat_mode: None, runtime: StateRuntime { seek_position: 00:00:20.00, seek_percent: 20.00%, duration: 00:01:40.00 }, status: Playing, muted: false, volume: 100% }"
+        "StateAudio { queue: [\"Song 1\"], queue_position: 1, current_song: \"Song 1\", repeat_mode: None, runtime: StateRuntime { seek_position: 0:20.0, seek_percent: 20.00%, duration: 1:40.0 }, status: Playing, muted: false, volume: 100% }"
     )]
     fn test_display_impls<T: Display>(#[case] input: T, #[case] expected: &str) {
         assert_str_eq!(input.to_string(), expected);
