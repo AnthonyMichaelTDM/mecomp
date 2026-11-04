@@ -74,12 +74,17 @@ impl prost::Message for Duration {
             // Decode nanos field
             2 => {
                 let mut nanos = self.0.subsec_nanos();
-                prost::encoding::uint32::merge(wire_type, &mut nanos, buf, ctx)
-                    .map_err(|mut error| {
+                prost::encoding::uint32::merge(wire_type, &mut nanos, buf, ctx).map_err(
+                    |mut error| {
                         error.push(STRUCT_NAME, stringify!(nanos));
                         error
-                    })?;
+                    },
+                )?;
                 if nanos >= 1_000_000_000 {
+                    #[allow(
+                        deprecated,
+                        reason = "there's no other way to create a DecodeError at the moment"
+                    )]
                     return Err(prost::DecodeError::new(
                         "nanos must be less than 1_000_000_000",
                     ));
