@@ -1043,7 +1043,8 @@ impl MusicPlayerTrait for MusicPlayer {
         request: Request<PlaybackRepeatRequest>,
     ) -> TonicResult<()> {
         let PlaybackRepeatRequest { mode } = request.into_inner();
-        let mode = RepeatMode::try_from(mode).unwrap_or_default();
+        let mode = RepeatMode::try_from(mode)
+            .map_err(|e| tonic::Status::invalid_argument(e.to_string()))?;
         info!("Setting repeat mode to: {mode}");
         self.audio_kernel
             .send(AudioCommand::Queue(QueueCommand::SetRepeatMode(mode)));
