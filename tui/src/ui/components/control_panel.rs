@@ -585,7 +585,6 @@ mod tests {
                 volume: 0.8,
                 runtime: Some(StateRuntime {
                     seek_position: Duration::from_secs(30).into(),
-                    seek_percent: 0.5,
                     duration: Duration::from_secs(60).into(),
                 }),
                 ..Default::default()
@@ -639,7 +638,6 @@ mod tests {
     fn test_runtime_string_some() {
         let rt = StateRuntime {
             seek_position: Duration::from_secs(65).into(),
-            seek_percent: 0.5,
             duration: Duration::from_secs(130).into(),
         };
         let s = runtime_string(Some(rt));
@@ -703,7 +701,6 @@ mod tests {
                 current_song: Some(song),
                 runtime: Some(StateRuntime {
                     seek_position: Duration::from_secs(10).into(),
-                    seek_percent: 0.05,
                     duration: Duration::from_secs(180).into(),
                 }),
                 volume: 0.8,

@@ -6,10 +6,7 @@ use std::time::Duration;
 
 use anyhow::{Context as _, Result, anyhow};
 
-use mecomp_core::{
-    state::Percent,
-    udp::{Event, Listener, Message, StateChange},
-};
+use mecomp_core::udp::{Event, Listener, Message, StateChange};
 use mecomp_prost::{
     MusicPlayerClient, PlaybackStatus as Status, RegisterListenerRequest, RepeatMode, SongBrief,
     StateAudio,
@@ -130,7 +127,6 @@ impl Subscriber {
                     }
                     if let Some(runtime) = &mut state.runtime {
                         runtime.seek_position += TICK_RATE;
-                        runtime.seek_percent = Percent::new(runtime.seek_position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0).into_inner();
                     }
                 }
             }
@@ -206,10 +202,6 @@ impl Subscriber {
             Message::StateChange(StateChange::Seeked(position)) => {
                 if let Some(runtime) = &mut state.runtime {
                     runtime.seek_position = position;
-                    runtime.seek_percent = Percent::new(
-                        position.as_secs_f32() / runtime.duration.as_secs_f32() * 100.0,
-                    )
-                    .into_inner();
                 }
                 Ok(MessageOutcomes::Signal(Signal::Seeked {
                     position: Time::from_micros(

@@ -579,7 +579,6 @@ mod tests {
                 repeat_mode: mecomp_prost::RepeatMode::One as i32,
                 runtime: Some(StateRuntime {
                     seek_position: Duration::from_secs(0),
-                    seek_percent: 0.0,
                     duration: song.runtime,
                 }),
                 status: mecomp_prost::PlaybackStatus::Stopped as i32,

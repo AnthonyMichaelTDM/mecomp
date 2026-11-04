@@ -24,7 +24,7 @@ use tracing::instrument;
 use crate::{
     errors::LibraryError,
     format_duration,
-    state::{Percent, StateAudio, StateRuntime},
+    state::{StateAudio, StateRuntime},
     udp::StateChange,
 };
 use mecomp_prost::{PlaybackStatus as Status, SeekType, SongBrief};
@@ -436,11 +436,8 @@ impl AudioKernel {
         let runtime = current_song.as_ref().map(|song| {
             let duration = *song.runtime.inner();
             let seek_position = self.get_time_played();
-            let seek_percent =
-                Percent::new(seek_position.as_secs_f32() / duration.as_secs_f32() * 100.0);
             StateRuntime {
                 seek_position,
-                seek_percent,
                 duration,
             }
         });

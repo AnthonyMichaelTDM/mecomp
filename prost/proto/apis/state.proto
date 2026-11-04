@@ -28,7 +28,6 @@ enum PlaybackStatus {
 
 message StateRuntime {
 	required Duration seek_position = 1;
-	required float seek_percent = 2;
 	required Duration duration = 3;
 }
 

@@ -7,39 +7,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::format_duration;
 
-#[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize, Default)]
-pub struct Percent(f32);
-
-impl Percent {
-    #[must_use]
-    #[inline]
-    pub const fn new(value: f32) -> Self {
-        Self(if value.is_finite() {
-            value.clamp(0.0, 100.0)
-        } else {
-            0.0
-        })
-    }
-
-    #[must_use]
-    #[inline]
-    pub const fn into_inner(self) -> f32 {
-        self.0
-    }
-}
-
-impl Display for Percent {
-    #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:.2}%", self.into_inner())
-    }
-}
-
 /// Information about the runtime of the song song
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Default)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Default)]
 pub struct StateRuntime {
     pub seek_position: Duration,
-    pub seek_percent: Percent,
     pub duration: Duration,
 }
 
@@ -49,9 +20,8 @@ impl Display for StateRuntime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "StateRuntime {{ seek_position: {}, seek_percent: {}, duration: {} }}",
+            "StateRuntime {{ seek_position: {}, duration: {} }}",
             format_duration(&self.seek_position),
-            self.seek_percent,
             format_duration(&self.duration)
         )
     }
@@ -62,7 +32,6 @@ impl From<mecomp_prost::StateRuntime> for StateRuntime {
     fn from(value: mecomp_prost::StateRuntime) -> Self {
         Self {
             seek_position: *value.seek_position.inner(),
-            seek_percent: Percent::new(value.seek_percent),
             duration: *value.duration.inner(),
         }
     }
@@ -73,7 +42,6 @@ impl From<StateRuntime> for mecomp_prost::StateRuntime {
     fn from(value: StateRuntime) -> Self {
         Self {
             seek_position: value.seek_position.into(),
-            seek_percent: value.seek_percent.into_inner(),
             duration: value.duration.into(),
         }
     }
@@ -208,14 +176,12 @@ mod tests {
     }
 
     #[rstest]
-    #[case::percent(Percent::new(50.0), "50.00%")]
     #[case::state_runtimme(
         StateRuntime {
             seek_position: Duration::from_secs(3),
-            seek_percent: Percent::new(50.0),
             duration: Duration::from_secs(6),
         },
-        "StateRuntime { seek_position: 00:00:03.00, seek_percent: 50.00%, duration: 00:00:06.00 }"
+        "StateRuntime { seek_position: 00:00:03.00, duration: 00:00:06.00 }"
     )]
     #[case::state_audio_empty(
         StateAudio {
@@ -279,7 +245,6 @@ mod tests {
             repeat_mode: RepeatMode::None,
             runtime: Some(StateRuntime {
                 seek_position: Duration::from_secs(20),
-                seek_percent: Percent::new(20.0),
                 duration: Duration::from_secs(100),
             }),
             status: PlaybackStatus::Playing,
