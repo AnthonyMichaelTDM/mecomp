@@ -243,10 +243,9 @@ impl ComponentRender<RenderProps> for LibrarySongsView {
 #[cfg(test)]
 mod sort_mode_tests {
     use super::*;
-    use mecomp_prost::{RecordId, convert_std_duration};
+    use mecomp_prost::{Duration, RecordId};
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use std::time::Duration;
 
     #[rstest]
     #[case(SongSort::Title, SongSort::Artist)]
@@ -279,7 +278,7 @@ mod sort_mode_tests {
                 album: "A".into(),
                 album_artists: vec!["C".to_string()],
                 genres: vec!["B".to_string()],
-                runtime: convert_std_duration(Duration::from_secs(180)),
+                runtime: Duration::from_secs(180),
                 track: Some(1),
                 disc: Some(1),
                 release_year: Some(2021),
@@ -293,7 +292,7 @@ mod sort_mode_tests {
                 album: "C".into(),
                 album_artists: vec!["B".to_string()],
                 genres: vec!["A".to_string()],
-                runtime: convert_std_duration(Duration::from_secs(180)),
+                runtime: Duration::from_secs(180),
                 track: Some(1),
                 disc: Some(1),
                 release_year: Some(2021),
@@ -307,7 +306,7 @@ mod sort_mode_tests {
                 album: "B".into(),
                 album_artists: vec!["A".to_string()],
                 genres: vec!["C".to_string()],
-                runtime: convert_std_duration(Duration::from_secs(180)),
+                runtime: Duration::from_secs(180),
                 track: Some(1),
                 disc: Some(1),
                 release_year: Some(2021),

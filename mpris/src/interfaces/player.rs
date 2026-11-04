@@ -5,14 +5,16 @@
 use std::{future::ready, path::PathBuf, str::FromStr, time::Duration};
 
 use futures::executor::block_on;
-use mecomp_core::state::{RepeatMode, SeekType, Status};
 use mecomp_prost::{PlaybackSeekRequest, PlaybackSkipRequest, PlaybackVolumeSetRequest};
 use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Time, TrackId, Volume,
     zbus::{Error as ZbusError, fdo},
 };
 
-use crate::{Mpris, interfaces::root::SUPPORTED_MIME_TYPES, metadata_from_opt_song};
+use crate::{
+    Mpris, convert_playback_status, convert_repeat_mode, interfaces::root::SUPPORTED_MIME_TYPES,
+    metadata_from_opt_song,
+};
 
 impl PlayerInterface for Mpris {
     #[allow(clippy::unused_async_trait_impl)]
@@ -143,29 +145,21 @@ impl PlayerInterface for Mpris {
     }
 
     async fn playback_status(&self) -> fdo::Result<PlaybackStatus> {
-        let status = self.state.read().await.status;
-        match status {
-            Status::Stopped => Ok(PlaybackStatus::Stopped),
-            Status::Paused => Ok(PlaybackStatus::Paused),
-            Status::Playing => Ok(PlaybackStatus::Playing),
-        }
+        let status = self.state.read().await.status();
+        Ok(convert_playback_status(status))
     }
 
     async fn loop_status(&self) -> fdo::Result<LoopStatus> {
-        let repeat_mode = self.state.read().await.repeat_mode;
-        match repeat_mode {
-            RepeatMode::None => Ok(LoopStatus::None),
-            RepeatMode::One => Ok(LoopStatus::Track),
-            RepeatMode::All => Ok(LoopStatus::Playlist),
-        }
+        let repeat_mode = self.state.read().await.repeat_mode();
+        Ok(convert_repeat_mode(repeat_mode))
     }
 
     #[allow(clippy::unused_async_trait_impl)]
     async fn set_loop_status(&self, loop_status: LoopStatus) -> Result<(), ZbusError> {
         let repeat_mode = match loop_status {
-            LoopStatus::None => RepeatMode::None,
-            LoopStatus::Track => RepeatMode::One,
-            LoopStatus::Playlist => RepeatMode::All,
+            LoopStatus::None => mecomp_prost::RepeatMode::None,
+            LoopStatus::Track => mecomp_prost::RepeatMode::One,
+            LoopStatus::Playlist => mecomp_prost::RepeatMode::All,
         };
 
         let mut daemon = self.daemon.clone();
@@ -242,9 +236,9 @@ impl PlayerInterface for Mpris {
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
         //TODO: if the value passed in would mean seeking beyond the end of the track, act like a call to Next
         let seek_type = if offset.as_micros() > 0 {
-            SeekType::RelativeForwards
+            mecomp_prost::SeekType::RelativeForwards
         } else {
-            SeekType::RelativeBackwards
+            mecomp_prost::SeekType::RelativeBackwards
         };
 
         let offset = Duration::from_micros(offset.as_micros().unsigned_abs());
@@ -265,12 +259,14 @@ impl PlayerInterface for Mpris {
         if let Some(song) = self.state.read().await.current_song.as_ref() {
             // if the position not in the range of the song, ignore the call
             let position = position.as_micros();
-            if position < 0 || u128::from(position.unsigned_abs()) > song.runtime.as_micros() {
+            if position < 0
+                || u128::from(position.unsigned_abs()) > song.runtime.inner().as_micros()
+            {
                 return Ok(());
             }
 
             block_on(self.daemon.clone().playback_seek(PlaybackSeekRequest::new(
-                SeekType::Absolute,
+                mecomp_prost::SeekType::Absolute,
                 Duration::from_micros(u64::try_from(position).unwrap_or_default()),
             )))
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
@@ -328,7 +324,7 @@ mod tests {
         udp::StateChange,
     };
 
-    use mecomp_storage::db::schemas::song::SongBrief;
+    use mecomp_prost::{PlaybackStatus as Status, RepeatMode};
     use one_or_many::OneOrMany;
     use pretty_assertions::{assert_eq, assert_ne};
     use rstest::rstest;
@@ -442,10 +438,7 @@ mod tests {
 
         // stop playback
         mpris.stop().await.unwrap();
-        assert_eq!(
-            event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(0)))
-        );
+        assert_eq!(event_rx.recv(), Ok(StateChange::Seeked(Default::default())));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::StatusChanged(Status::Stopped))
@@ -569,9 +562,9 @@ mod tests {
             .into_inner()
             .songs;
         assert_eq!(songs.len(), 4);
-        let first_song: mecomp_storage::db::schemas::RecordId = songs[0].id.clone().into();
-        let third_song: mecomp_storage::db::schemas::RecordId = songs[2].id.clone().into();
-        let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
+        let first_song = songs[0].id.clone();
+        let third_song = songs[2].id.clone();
+        let fourth_song = songs[3].id.clone();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
@@ -630,10 +623,10 @@ mod tests {
             .into_inner()
             .songs;
         assert_eq!(songs.len(), 4);
-        let first_song: mecomp_storage::db::schemas::RecordId = songs[0].id.clone().into();
-        let second_song: mecomp_storage::db::schemas::RecordId = songs[1].id.clone().into();
-        let third_song: mecomp_storage::db::schemas::RecordId = songs[2].id.clone().into();
-        let fourth_song: mecomp_storage::db::schemas::RecordId = songs[3].id.clone().into();
+        let first_song = songs[0].id.clone();
+        let second_song = songs[1].id.clone();
+        let third_song = songs[2].id.clone();
+        let fourth_song = songs[3].id.clone();
 
         // send all the songs to the audio kernel (adding them to the queue and starting playback)
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
@@ -660,10 +653,7 @@ mod tests {
 
         // stop playback
         mpris.stop().await.unwrap();
-        assert_eq!(
-            event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(0)))
-        );
+        assert_eq!(event_rx.recv(), Ok(StateChange::Seeked(Default::default())));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::StatusChanged(Status::Stopped))
@@ -898,10 +888,7 @@ mod tests {
 
         // Play-Pause: If playback is stopped, starts playback. //
         mpris.stop().await.unwrap();
-        assert_eq!(
-            event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(0)))
-        );
+        assert_eq!(event_rx.recv(), Ok(StateChange::Seeked(Default::default())));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::StatusChanged(Status::Stopped))
@@ -914,10 +901,7 @@ mod tests {
 
         // Stop: Stops playback. //
         mpris.stop().await.unwrap();
-        assert_eq!(
-            event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(0)))
-        );
+        assert_eq!(event_rx.recv(), Ok(StateChange::Seeked(Default::default())));
         assert_eq!(
             event_rx.recv(),
             Ok(StateChange::StatusChanged(Status::Stopped))
@@ -1090,7 +1074,7 @@ mod tests {
                     events[1] = true;
                 }
                 StateChange::StatusChanged(Status::Playing) => {
-                    mpris.state.write().await.status = Status::Playing;
+                    mpris.state.write().await.set_status(Status::Playing);
                     assert_eq!(
                         mpris.playback_status().await.unwrap(),
                         PlaybackStatus::Playing
@@ -1098,7 +1082,7 @@ mod tests {
                     events[2] = true;
                 }
                 StateChange::StatusChanged(Status::Paused) => {
-                    mpris.state.write().await.status = Status::Paused;
+                    mpris.state.write().await.set_status(Status::Paused);
                     assert_eq!(
                         mpris.playback_status().await.unwrap(),
                         PlaybackStatus::Paused
@@ -1146,7 +1130,7 @@ mod tests {
         // set loop status to track
         mpris.set_loop_status(LoopStatus::Track).await.unwrap();
         if event_rx.recv() == Ok(StateChange::RepeatModeChanged(RepeatMode::One)) {
-            mpris.state.write().await.repeat_mode = RepeatMode::One;
+            mpris.state.write().await.set_repeat_mode(RepeatMode::One);
         } else {
             panic!("Expected a RepeatModeChanged event, but got something else");
         }
@@ -1155,7 +1139,7 @@ mod tests {
         // set loop status to playlist
         mpris.set_loop_status(LoopStatus::Playlist).await.unwrap();
         if event_rx.recv() == Ok(StateChange::RepeatModeChanged(RepeatMode::All)) {
-            mpris.state.write().await.repeat_mode = RepeatMode::All;
+            mpris.state.write().await.set_repeat_mode(RepeatMode::All);
         } else {
             panic!("Expected a RepeatModeChanged event, but got something else");
         }
@@ -1164,7 +1148,7 @@ mod tests {
         // set loop status to none
         mpris.set_loop_status(LoopStatus::None).await.unwrap();
         if event_rx.recv() == Ok(StateChange::RepeatModeChanged(RepeatMode::None)) {
-            mpris.state.write().await.repeat_mode = RepeatMode::None;
+            mpris.state.write().await.set_repeat_mode(RepeatMode::None);
         } else {
             panic!("Expected a RepeatModeChanged event, but got something else");
         }
@@ -1294,7 +1278,7 @@ mod tests {
             .into_inner()
             .songs;
         assert_eq!(songs.len(), 4);
-        let first_song: SongBrief = songs[0].clone().into();
+        let first_song = songs[0].clone();
 
         // The metadata of the current element. //
         // when there is no current song
@@ -1422,7 +1406,7 @@ mod tests {
             .into_inner()
             .songs;
         assert_eq!(songs.len(), 4);
-        let first_song: SongBrief = songs[0].clone().into();
+        let first_song = songs[0].clone();
 
         // The current track position, between 0 and the [mpris:length] metadata entry. //
         // when there is no current song
@@ -1458,7 +1442,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(2)))
+            Ok(StateChange::Seeked(Duration::from_secs(2).into()))
         );
 
         // If the Position argument is less than 0, do nothing. //
@@ -1482,13 +1466,13 @@ mod tests {
         mpris.seek(Time::from_secs(1)).await.unwrap();
         assert_eq!(
             event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(3)))
+            Ok(StateChange::Seeked(Duration::from_secs(3).into()))
         );
 
         mpris.seek(Time::from_secs(-1)).await.unwrap();
         assert_eq!(
             event_rx.recv(),
-            Ok(StateChange::Seeked(Duration::from_secs(2)))
+            Ok(StateChange::Seeked(Duration::from_secs(2).into()))
         );
 
         drop(tempdir);

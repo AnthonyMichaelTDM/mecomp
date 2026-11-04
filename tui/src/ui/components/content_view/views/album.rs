@@ -383,7 +383,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Album View────────────────────────────────────────────────┐",
             "│                  Test Album Test Artist                  │",
-            "│    Release Year: 2021  Songs: 1  Duration: 00:03:00.00   │",
+            "│      Release Year: 2021  Songs: 1  Duration: 3:00.0      │",
             "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire album─────────────────────│",
@@ -412,7 +412,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Album View────────────────────────────────────────────────┐",
             "│                  Test Album Test Artist                  │",
-            "│    Release Year: 2021  Songs: 1  Duration: 00:03:00.00   │",
+            "│      Release Year: 2021  Songs: 1  Duration: 3:00.0      │",
             "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire album─────────────────────│",
@@ -438,7 +438,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Album View────────────────────────────────────────────────┐",
             "│                  Test Album Test Artist                  │",
-            "│    Release Year: 2021  Songs: 1  Duration: 00:03:00.00   │",
+            "│      Release Year: 2021  Songs: 1  Duration: 3:00.0      │",
             "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on checked items────────────────────│",
@@ -566,7 +566,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Album View────────────────────────────────────────────────┐",
             "│                  Test Album Test Artist                  │",
-            "│    Release Year: 2021  Songs: 1  Duration: 00:03:00.00   │",
+            "│      Release Year: 2021  Songs: 1  Duration: 3:00.0      │",
             "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire album─────────────────────│",
@@ -594,7 +594,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Album View────────────────────────────────────────────────┐",
             "│                  Test Album Test Artist                  │",
-            "│    Release Year: 2021  Songs: 1  Duration: 00:03:00.00   │",
+            "│      Release Year: 2021  Songs: 1  Duration: 3:00.0      │",
             "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire album─────────────────────│",
@@ -639,7 +639,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Album View────────────────────────────────────────────────┐",
             "│                  Test Album Test Artist                  │",
-            "│    Release Year: 2021  Songs: 1  Duration: 00:03:00.00   │",
+            "│      Release Year: 2021  Songs: 1  Duration: 3:00.0      │",
             "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on checked items────────────────────│",

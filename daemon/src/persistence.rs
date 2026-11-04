@@ -25,7 +25,7 @@
 use anyhow::{Context, Result};
 use mecomp_core::audio::AudioKernelSender;
 use mecomp_core::audio::commands::{AudioCommand, QueueCommand, VolumeCommand};
-use mecomp_storage::db::schemas::song::SongBrief;
+use one_or_many::OneOrMany;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::time::Duration;
@@ -34,15 +34,15 @@ use std::{
     io::{BufReader, BufWriter},
 };
 
-use mecomp_core::state::{RepeatMode, SeekType, StateAudio};
+use mecomp_prost::{RepeatMode, SeekType, SongBrief, StateAudio};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QueueState {
     pub repeat_mode: RepeatMode,
     pub muted: bool,
     pub volume: f32,
-    pub queue: Box<[SongBrief]>,
-    pub queue_position: Option<usize>,
+    pub queue: Vec<SongBrief>,
+    pub queue_position: Option<u64>,
     pub seek_position: Option<Duration>,
 }
 
@@ -52,18 +52,19 @@ impl From<StateAudio> for QueueState {
         // I unpack `state` this way so that any change to the `StateAudio` struct
         // will cause an error here so I know to update the `QueueState` struct
         // as well
+        let repeat_mode = state.repeat_mode();
         let StateAudio {
             queue,
             queue_position,
             current_song: _,
-            repeat_mode,
+            repeat_mode: _,
             runtime,
             status: _,
             muted,
             volume,
         } = state;
 
-        let seek_position = runtime.map(|r| r.seek_position);
+        let seek_position = runtime.map(|r| *r.seek_position.inner());
 
         Self {
             repeat_mode,
@@ -114,13 +115,16 @@ impl QueueState {
         audio_kernel.send(AudioCommand::Volume(VolumeCommand::Set(self.volume)));
         // load songs into queue
         audio_kernel.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-            self.queue.as_ref().into(),
+            OneOrMany::from(self.queue.as_ref()),
         )));
         // pause playback
         audio_kernel.send(AudioCommand::Pause);
         // skip to correct song
         if let Some(position) = self.queue_position {
-            audio_kernel.send(AudioCommand::Queue(QueueCommand::SetPosition(position)));
+            #[allow(clippy::cast_possible_truncation)]
+            audio_kernel.send(AudioCommand::Queue(QueueCommand::SetPosition(
+                position as usize,
+            )));
         }
         // seek to the correct position
         if let Some(seek) = self.seek_position {
@@ -191,7 +195,12 @@ mod tests {
     fn test_retrieve_plain(kernel: (Arc<AudioKernelSender>, mpsc::Receiver<StateChange>)) {
         let (audio_kernel, _event_rx) = kernel;
         let state = QueueState::retrieve_blocking(&audio_kernel).unwrap();
-        assert_eq!(state, StateAudio::default().into());
+
+        let mut expected = StateAudio::default();
+        expected.set_repeat_mode(RepeatMode::None);
+        expected.volume = 1.0;
+
+        assert_eq!(state, expected.into());
     }
 
     #[rstest]
@@ -221,8 +230,8 @@ mod tests {
             repeat_mode,
             volume,
             muted: is_muted,
-            queue: songs.into_boxed_slice(),
-            queue_position: Some(index),
+            queue: songs,
+            queue_position: Some(index as u64),
             seek_position: Some(Duration::from_secs(5)),
         };
 
@@ -295,8 +304,8 @@ mod tests {
             repeat_mode,
             volume,
             muted: is_muted,
-            queue: songs.into_boxed_slice(),
-            queue_position: Some(index),
+            queue: songs,
+            queue_position: Some(index as u64),
             seek_position: Some(Duration::from_secs(10)),
         };
 

@@ -15,7 +15,6 @@ use mecomp_core::{
     },
     config::Settings,
     errors::BackupError,
-    state::{RepeatMode, SeekType},
     udp::{Event, Message, Sender},
 };
 use mecomp_prost::{
@@ -28,8 +27,9 @@ use mecomp_prost::{
     PlaylistAddListRequest, PlaylistAddRequest, PlaylistBrief, PlaylistExportRequest,
     PlaylistImportRequest, PlaylistList, PlaylistName, PlaylistOption, PlaylistRemoveSongsRequest,
     PlaylistRenameRequest, QueueRemoveRangeRequest, QueueSetIndexRequest, RadioSimilarRequest,
-    RecordId, RecordIdList, RegisterListenerRequest, SearchRequest, SearchResult, SongBriefList,
-    SongBriefOption, SongOption, StateAudioResponse, Ulid, server::MusicPlayer as MusicPlayerTrait,
+    RecordId, RecordIdList, RegisterListenerRequest, RepeatMode, SearchRequest, SearchResult,
+    SeekType, SongBriefList, SongBriefOption, SongOption, StateAudioResponse, Ulid,
+    server::MusicPlayer as MusicPlayerTrait,
 };
 use mecomp_storage::db::schemas::{
     self,
@@ -38,7 +38,7 @@ use mecomp_storage::db::schemas::{
     collection::Collection,
     dynamic::{DynamicPlaylist, DynamicPlaylistChangeSet, query::Query},
     playlist::{Playlist, PlaylistChangeSet},
-    song::Song,
+    song::{Song, SongId},
 };
 use one_or_many::OneOrMany;
 
@@ -716,8 +716,7 @@ impl MusicPlayerTrait for MusicPlayer {
         let state = rx
             .await
             .inspect_err(|e| warn!("Error in state_audio: {e}"))
-            .ok()
-            .map(Into::into);
+            .ok();
 
         Ok(Response::new(StateAudioResponse { state }))
     }
@@ -737,7 +736,7 @@ impl MusicPlayerTrait for MusicPlayer {
             .ok()
             .and_then(|s| s.current_song)
         {
-            let artists = Song::read_artist(&self.db, song.id)
+            let artists = Song::read_artist(&self.db, SongId::from((song.id.tb, song.id.id)))
                 .await
                 .map_err(|e| {
                     tonic::Status::not_found(format!("Error finding artists of current song: {e}"))
@@ -766,7 +765,7 @@ impl MusicPlayerTrait for MusicPlayer {
             .ok()
             .and_then(|s| s.current_song)
         {
-            let album = Song::read_album(&self.db, song.id)
+            let album = Song::read_album(&self.db, SongId::from((song.id.tb, song.id.id)))
                 .await
                 .map_err(|e| {
                     tonic::Status::not_found(format!("Error finding album of current song: {e}"))
@@ -783,7 +782,7 @@ impl MusicPlayerTrait for MusicPlayer {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         self.audio_kernel.send(AudioCommand::ReportStatus(tx));
-        let song = rx.await.ok().and_then(|s| s.current_song).map(Into::into);
+        let song = rx.await.ok().and_then(|s| s.current_song);
         Ok(Response::new(SongBriefOption { song }))
     }
 
@@ -1030,12 +1029,9 @@ impl MusicPlayerTrait for MusicPlayer {
         request: Request<PlaybackSeekRequest>,
     ) -> TonicResult<()> {
         let PlaybackSeekRequest { seek, duration } = request.into_inner();
-        let duration: Duration = duration.normalized().try_into().map_err(|e| {
-            tonic::Status::invalid_argument(format!("Invalid duration provided: {e}"))
-        })?;
-        let seek: SeekType = mecomp_prost::SeekType::try_from(seek)
-            .map_err(|e| tonic::Status::invalid_argument(e.to_string()))?
-            .into();
+        let duration: Duration = *duration.inner();
+        let seek =
+            SeekType::try_from(seek).map_err(|e| tonic::Status::invalid_argument(e.to_string()))?;
         info!("Seeking {seek} by {:.2}s", duration.as_secs_f32());
         self.audio_kernel.send(AudioCommand::Seek(seek, duration));
         Ok(Response::new(()))
@@ -1047,9 +1043,8 @@ impl MusicPlayerTrait for MusicPlayer {
         request: Request<PlaybackRepeatRequest>,
     ) -> TonicResult<()> {
         let PlaybackRepeatRequest { mode } = request.into_inner();
-        let mode: RepeatMode = mecomp_prost::RepeatMode::try_from(mode)
-            .map_err(|e| tonic::Status::invalid_argument(e.to_string()))?
-            .into();
+        let mode = RepeatMode::try_from(mode)
+            .map_err(|e| tonic::Status::invalid_argument(e.to_string()))?;
         info!("Setting repeat mode to: {mode}");
         self.audio_kernel
             .send(AudioCommand::Queue(QueueCommand::SetRepeatMode(mode)));

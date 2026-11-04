@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package mecomp;
+// A Duration represents a signed, fixed-length span of time represented
+// as a count of seconds and fractions of seconds at nanosecond
+// resolution. It is independent of any calendar and concepts like "day"
+// or "month".
+// Range is approximately 0-20,000 years.
+//
+// # JSON Mapping
+//
+// In JSON format, the Duration type is encoded as a string rather than an
+// object, where the string ends in the suffix "s" (indicating seconds) and
+// is preceded by the number of seconds, with nanoseconds expressed as
+// fractional seconds. For example, 3 seconds with 0 nanoseconds should be
+// encoded in JSON format as "3s", while 3 seconds and 1 nanosecond should
+// be expressed in JSON format as "3.000000001s", and 3 seconds and 1
+// microsecond should be expressed in JSON format as "3.000001s".
+//
+message Duration {
+  // Unsigned seconds of the span of time. Must be from 0
+  // to +631,152,000,000 inclusive. Note: these bounds are computed from:
+  // 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 20000 years
+  uint64 seconds = 1;
+
+  // Signed fractions of a second at nanosecond resolution of the span
+  // of time. Durations less than one second are represented with a 0
+  // `seconds` field and a positive `nanos` field. Must be from 0
+  // to +999,999,999 inclusive.
+  uint32 nanos = 2;
+}

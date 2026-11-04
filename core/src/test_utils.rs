@@ -1,7 +1,8 @@
 //! utilitites used for testing
 //!
-//! NOTE: most of the stuff related to setting up database state is in the `mecomp_storage` crate
+//! NOTE: most of the stuff related to setting up database state is in the [`mecomp_storage`] crate
 //! behind the `test_utils` feature flag.
+#![allow(clippy::missing_inline_in_public_items)]
 
 use std::sync::OnceLock;
 
@@ -14,7 +15,6 @@ static INIT: OnceLock<()> = OnceLock::new();
 /// # Panics
 ///
 /// Panics if the logger or tracing subscriber cannot be initialized.
-#[allow(clippy::missing_inline_in_public_items)]
 pub fn init() {
     INIT.get_or_init(|| {
         init_logger(log::LevelFilter::Warn, None);
@@ -22,4 +22,11 @@ pub fn init() {
             panic!("Error setting global default tracing subscriber: {e:?}")
         }
     });
+}
+
+/// Generate a new song ID using the [`mecomp_storage::db::schemas::song::Song::generate_id`] method and convert it to a [`mecomp_prost::RecordId`].
+#[must_use]
+pub fn generate_song_id() -> mecomp_prost::RecordId {
+    let id = mecomp_storage::db::schemas::song::Song::generate_id();
+    mecomp_prost::RecordId::from((id.table(), id.key().to_string()))
 }

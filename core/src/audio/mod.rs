@@ -21,13 +21,8 @@ use rodio::{
 };
 use tracing::instrument;
 
-use crate::{
-    errors::LibraryError,
-    format_duration,
-    state::{Percent, SeekType, StateAudio, StateRuntime, Status},
-    udp::StateChange,
-};
-use mecomp_storage::db::schemas::song::SongBrief;
+use crate::{errors::LibraryError, format_duration, udp::StateChange};
+use mecomp_prost::{PlaybackStatus as Status, SeekType, SongBrief, StateAudio, StateRuntime};
 use one_or_many::OneOrMany;
 
 pub mod commands;
@@ -278,7 +273,7 @@ impl AudioKernel {
                     self.restart_song();
                     let _ = self
                         .event_tx
-                        .send(StateChange::Seeked(Duration::from_secs(0)));
+                        .send(StateChange::Seeked(mecomp_prost::Duration::default()));
                 }
                 AudioCommand::ClearPlayer => self.clear_player(),
                 AudioCommand::Queue(command) => self.queue_control(command),
@@ -302,13 +297,13 @@ impl AudioKernel {
                     self.seek(seek, duration);
                     let _ = self
                         .event_tx
-                        .send(StateChange::Seeked(self.get_time_played()));
+                        .send(StateChange::Seeked(self.get_time_played().into()));
                 }
                 AudioCommand::Stop if prev_status != Status::Stopped => {
                     self.stop();
                     let _ = self
                         .event_tx
-                        .send(StateChange::Seeked(Duration::from_secs(0)));
+                        .send(StateChange::Seeked(mecomp_prost::Duration::default()));
                 }
                 AudioCommand::Stop => {}
             }
@@ -364,7 +359,7 @@ impl AudioKernel {
 
             match status {
                 // if it was previously stopped, we don't need to do anything here
-                Status::Stopped => {}
+                Status::Unspecified | Status::Stopped => {}
                 // if it was previously paused, we need to re-pause
                 Status::Paused => self.pause(),
                 // if it was previously playing, we need to play
@@ -424,23 +419,20 @@ impl AudioKernel {
         if prev_song != new_song {
             let _ = self
                 .event_tx
-                .send(StateChange::TrackChanged(new_song.map(|s| s.id.into())));
+                .send(StateChange::TrackChanged(new_song.map(|s| s.id)));
         }
     }
 
     #[instrument(skip(self))]
     fn state(&self) -> StateAudio {
-        let queue_position = self.queue.current_index();
+        let queue_position = self.queue.current_index().map(|idx| idx as u64);
         let current_song = self.queue.current_song().cloned();
         let repeat_mode = self.queue.get_repeat_mode();
         let runtime = current_song.as_ref().map(|song| {
             let duration = song.runtime;
-            let seek_position = self.get_time_played();
-            let seek_percent =
-                Percent::new(seek_position.as_secs_f32() / duration.as_secs_f32() * 100.0);
+            let seek_position = self.get_time_played().into();
             StateRuntime {
                 seek_position,
-                seek_percent,
                 duration,
             }
         });
@@ -462,9 +454,9 @@ impl AudioKernel {
             queue: queued_songs,
             queue_position,
             current_song,
-            repeat_mode,
+            repeat_mode: repeat_mode as i32,
             runtime,
-            status,
+            status: status as i32,
             muted,
             volume,
         }
@@ -534,7 +526,7 @@ impl AudioKernel {
                 error!("Failed to append song to player: {e}");
             }
             match status {
-                Status::Stopped => {}
+                Status::Unspecified | Status::Stopped => {}
                 Status::Paused => self.pause(),
                 Status::Playing => self.play(),
             }
@@ -555,7 +547,7 @@ impl AudioKernel {
             }
 
             match status {
-                Status::Stopped => {}
+                Status::Unspecified | Status::Stopped => {}
                 Status::Paused => self.pause(),
                 Status::Playing => self.play(),
             }
@@ -727,7 +719,7 @@ impl AudioKernel {
     fn seek(&mut self, seek: SeekType, duration: Duration) {
         // calculate the new time based on the seek type
         let new_time = match seek {
-            SeekType::Absolute => duration,
+            SeekType::Unspecified | SeekType::Absolute => duration,
             SeekType::RelativeForwards => self.get_time_played().saturating_add(duration),
             SeekType::RelativeBackwards => self.get_time_played().saturating_sub(duration),
         };
@@ -754,10 +746,10 @@ impl AudioKernel {
 
 #[cfg(test)]
 mod tests {
+    use mecomp_prost::RepeatMode;
     use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
 
-    use crate::state::RepeatMode;
     use crate::test_utils::init;
 
     use super::*;
@@ -928,32 +920,32 @@ mod tests {
             .unwrap();
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-                song.brief().into(),
+                OneOrMany::from(SongBrief::from(song.brief())),
             )));
 
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Pause);
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.status, Status::Paused);
+            assert_eq!(state.status(), Status::Paused);
 
             sender.send(AudioCommand::Play);
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::RestartSong);
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.status, Status::Playing); // Note, unlike adding a song to the queue, RestartSong does not affect whether the player is paused
+            assert_eq!(state.status(), Status::Playing); // Note, unlike adding a song to the queue, RestartSong does not affect whether the player is paused
 
             sender.send(AudioCommand::TogglePlayback);
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.status, Status::Paused);
+            assert_eq!(state.status(), Status::Paused);
 
             sender.send(AudioCommand::RestartSong);
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.status, Status::Paused); // Note, unlike adding a song to the queue, RestartSong does not affect whether the player is paused
+            assert_eq!(state.status(), Status::Paused); // Note, unlike adding a song to the queue, RestartSong does not affect whether the player is paused
 
             sender.send(AudioCommand::Exit);
         }
@@ -981,7 +973,7 @@ mod tests {
             let state = audio_kernel.state();
             assert_eq!(state.queue_position, None);
             assert!(state.paused());
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
 
             audio_kernel.queue_control(QueueCommand::AddToQueue(OneOrMany::Many(vec![
                 Song::try_load_into_db(
@@ -1011,7 +1003,7 @@ mod tests {
             let state = audio_kernel.state();
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             audio_kernel.queue_control(QueueCommand::SkipForward(1));
 
@@ -1019,7 +1011,7 @@ mod tests {
             let state = audio_kernel.state();
             assert_eq!(state.queue_position, Some(1));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             audio_kernel.queue_control(QueueCommand::SkipForward(1));
 
@@ -1027,7 +1019,7 @@ mod tests {
             let state = audio_kernel.state();
             assert_eq!(state.queue_position, Some(2));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             audio_kernel.queue_control(QueueCommand::SkipForward(1));
 
@@ -1036,7 +1028,7 @@ mod tests {
             let state = audio_kernel.state();
             assert_eq!(state.queue_position, None);
             assert!(state.paused());
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
         }
 
         #[rstest]
@@ -1054,7 +1046,7 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
             assert!(state.paused());
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
                 OneOrMany::Many(vec![
@@ -1085,28 +1077,28 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
             // the second song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(1));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
             // the third song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(2));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
             // we were at the end of the queue and tried to skip forward, so the player should be paused and the queue position should be None
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
             assert!(state.paused());
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
 
             sender.send(AudioCommand::Exit);
         }
@@ -1140,7 +1132,7 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             // pause the player
             sender.send(AudioCommand::Pause);
@@ -1150,7 +1142,7 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(state.paused());
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
             assert_eq!(state.queue.len(), 1);
             assert_eq!(state.queue[0], song2.clone().into());
 
@@ -1159,12 +1151,12 @@ mod tests {
 
             // add the song back to the queue, should be playing
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-                song1.clone().brief().into(),
+                OneOrMany::from(SongBrief::from(song1.clone().brief())),
             )));
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
             assert_eq!(state.queue.len(), 2);
             assert_eq!(state.queue[0], song2.clone().into());
             assert_eq!(state.queue[1], song1.into());
@@ -1174,7 +1166,7 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
             assert_eq!(state.queue.len(), 1);
             assert_eq!(state.queue[0], song2.into());
 
@@ -1194,7 +1186,7 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
             assert!(state.paused());
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
                 OneOrMany::Many(vec![
@@ -1226,7 +1218,7 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Queue(QueueCommand::SkipForward(2)));
 
@@ -1234,7 +1226,7 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(2));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Queue(QueueCommand::SkipBackward(1)));
 
@@ -1242,7 +1234,7 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(1));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Queue(QueueCommand::SkipBackward(1)));
 
@@ -1257,7 +1249,7 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
             assert!(state.paused());
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
 
             sender.send(AudioCommand::Exit);
         }
@@ -1275,7 +1267,7 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
             assert!(state.paused());
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
                 OneOrMany::Many(vec![
@@ -1306,35 +1298,35 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Queue(QueueCommand::SetPosition(1)));
             // the second song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(1));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Queue(QueueCommand::SetPosition(2)));
             // the third song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(2));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Queue(QueueCommand::SetPosition(0)));
             // the first song should start playing
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Queue(QueueCommand::SetPosition(3)));
             // we tried to set the position to an index that's out of pounds, so the player should be at the nearest valid index
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(2));
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Exit);
         }
@@ -1352,7 +1344,7 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
             assert!(state.paused());
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
                 OneOrMany::Many(vec![
@@ -1384,7 +1376,7 @@ mod tests {
             assert_eq!(state.queue_position, Some(0));
             assert_eq!(state.queue.len(), 3);
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::ClearPlayer);
             // we only cleared the audio player, so the queue should still have the songs
@@ -1392,7 +1384,7 @@ mod tests {
             assert_eq!(state.queue_position, Some(0));
             assert_eq!(state.queue.len(), 3);
             assert!(state.paused());
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
 
             sender.send(AudioCommand::Queue(QueueCommand::Clear));
             // we cleared the queue, so the player should be paused and the queue should be empty
@@ -1400,7 +1392,7 @@ mod tests {
             assert_eq!(state.queue_position, None);
             assert_eq!(state.queue.len(), 0);
             assert!(state.paused());
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
 
             sender.send(AudioCommand::Exit);
         }
@@ -1418,7 +1410,7 @@ mod tests {
             let state = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, None);
             assert!(state.paused());
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
 
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
                 OneOrMany::Many(vec![
@@ -1450,7 +1442,7 @@ mod tests {
             assert_eq!(state.queue_position, Some(0));
             assert_eq!(state.queue.len(), 3);
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             // lets go to the second song
             sender.send(AudioCommand::Queue(QueueCommand::SkipForward(1)));
@@ -1458,7 +1450,7 @@ mod tests {
             assert_eq!(state.queue_position, Some(1));
             assert_eq!(state.queue.len(), 3);
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             // lets shuffle the queue
             sender.send(AudioCommand::Queue(QueueCommand::Shuffle));
@@ -1467,7 +1459,7 @@ mod tests {
             assert_eq!(state.queue_position, Some(0));
             assert_eq!(state.queue.len(), 3);
             assert!(!state.paused());
-            assert_eq!(state.status, Status::Playing);
+            assert_eq!(state.status(), Status::Playing);
 
             sender.send(AudioCommand::Exit);
         }
@@ -1623,7 +1615,7 @@ mod tests {
             // add a song to the queue
             // NOTE: this song has a duration of 10 seconds
             sender.send(AudioCommand::Queue(QueueCommand::AddToQueue(
-                song.clone().brief().into(),
+                OneOrMany::from(SongBrief::from(song.clone().brief())),
             )));
             sender.send(AudioCommand::Stop);
             sender.send(AudioCommand::Seek(
@@ -1632,12 +1624,15 @@ mod tests {
             ));
             let state: StateAudio = get_state(sender.clone()).await;
             assert_eq!(state.queue_position, Some(0));
-            assert_eq!(state.status, Status::Stopped);
+            assert_eq!(state.status(), Status::Stopped);
             assert_eq!(
-                state.runtime.unwrap().duration,
+                *state.runtime.unwrap().duration.inner(),
                 Duration::from_secs(10) + Duration::from_millis(188)
             );
-            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(0));
+            assert_eq!(
+                *state.runtime.unwrap().seek_position.inner(),
+                Duration::from_secs(0)
+            );
 
             // skip ahead a bit
             sender.send(AudioCommand::Seek(
@@ -1645,9 +1640,12 @@ mod tests {
                 Duration::from_secs(2),
             ));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(2));
+            assert_eq!(
+                *state.runtime.unwrap().seek_position.inner(),
+                Duration::from_secs(2)
+            );
             assert_eq!(state.current_song, Some(song.clone().into()));
-            assert_eq!(state.status, Status::Paused);
+            assert_eq!(state.status(), Status::Paused);
 
             // skip back a bit
             sender.send(AudioCommand::Seek(
@@ -1655,9 +1653,12 @@ mod tests {
                 Duration::from_secs(1),
             ));
             let state = get_state(sender.clone()).await;
-            assert_eq!(state.runtime.unwrap().seek_position, Duration::from_secs(1));
+            assert_eq!(
+                *state.runtime.unwrap().seek_position.inner(),
+                Duration::from_secs(1)
+            );
             assert_eq!(state.current_song, Some(song.clone().into()));
-            assert_eq!(state.status, Status::Paused);
+            assert_eq!(state.status(), Status::Paused);
 
             // skip to 10 seconds
             sender.send(AudioCommand::Seek(
@@ -1666,11 +1667,11 @@ mod tests {
             ));
             let state = get_state(sender.clone()).await;
             assert_eq!(
-                state.runtime.unwrap().seek_position,
+                *state.runtime.unwrap().seek_position.inner(),
                 Duration::from_secs(10)
             );
             assert_eq!(state.current_song, Some(song.clone().into()));
-            assert_eq!(state.status, Status::Paused);
+            assert_eq!(state.status(), Status::Paused);
 
             // now we unpause, wait a bit, and check that the song has ended
             sender.send(AudioCommand::Play);
@@ -1693,7 +1694,7 @@ mod tests {
                 }
             } else {
                 // this is the ideal case, but timing issues can cause the queue position to still be Some(0) for a while even though the song has ended, so we allow for both cases
-                assert_eq!(state.status, Status::Stopped);
+                assert_eq!(state.status(), Status::Stopped);
             }
 
             sender.send(AudioCommand::Exit);

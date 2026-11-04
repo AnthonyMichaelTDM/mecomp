@@ -1,9 +1,8 @@
 //! Handles displaying the output of various commands in a human and machine readable format.
 
-use std::{fmt::Write, time::Duration};
+use std::fmt::Write;
 
-use mecomp_core::state::StateAudio;
-use mecomp_prost::{AlbumBrief, ArtistBrief, Playlist, RecordId, SongBrief};
+use mecomp_prost::{AlbumBrief, ArtistBrief, Playlist, RecordId, SongBrief, StateAudio};
 
 pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
     let mut output = String::new();
@@ -13,31 +12,25 @@ pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
     // when printing the queue, print the previous 3 songs (index, name, id, and path), the current song, and the next 4 songs
     writeln!(output, "\tQueue: [")?;
     let mut queue_lines: Vec<String> = Vec::new();
+    #[allow(clippy::cast_possible_truncation)]
+    let queue_position = state.queue_position.unwrap_or_default() as usize;
     // print the previous 3 songs, if they exist
-    let start_index = if state.queue_position.unwrap_or_default() > 3 {
-        state.queue_position.unwrap_or_default() - 3
-    } else {
-        0
-    };
-    for i in start_index..state.queue_position.unwrap_or_default() {
+    let start_index = queue_position.saturating_sub(3);
+    for i in start_index..queue_position {
         let song = &state.queue[i];
         queue_lines.push(format!("\t\t{}: \"{}\" (id: {}),", i, song.title, song.id));
     }
     // print the current song
     if let Some(current_index) = state.queue_position {
-        let song = &state.queue[current_index];
+        #[allow(clippy::cast_possible_truncation)]
+        let song = &state.queue[current_index as usize];
         queue_lines.push(format!(
             "\t\t{}: \"{}\" (id: {}), <--- Current Song",
             current_index, song.title, song.id
         ));
     }
     // print the next 4 songs
-    for i in state.queue_position.unwrap_or_default() + 1
-        ..state
-            .queue
-            .len()
-            .min(state.queue_position.unwrap_or_default() + 5)
-    {
+    for i in queue_position + 1..state.queue.len().min(queue_position + 5) {
         let song = &state.queue[i];
         queue_lines.push(format!("\t\t{}: \"{}\" (id: {}),", i, song.title, song.id));
     }
@@ -50,9 +43,9 @@ pub fn audio_state(state: &StateAudio) -> Result<String, std::fmt::Error> {
         writeln!(output, "\tRuntime: {runtime}")?;
     }
 
-    writeln!(output, "\tRepeat Mode: {:?}", state.repeat_mode)?;
+    writeln!(output, "\tRepeat Mode: {:?}", state.repeat_mode())?;
 
-    writeln!(output, "\tStatus: {:?}", state.status)?;
+    writeln!(output, "\tStatus: {:?}", state.status())?;
 
     writeln!(output, "\tMuted: {:?}", state.muted)?;
 
@@ -175,10 +168,7 @@ pub fn playlist_list(
         writeln!(
             output,
             "\t{}: \"{}\" ({} songs, {:?})",
-            playlist.id,
-            playlist.name,
-            playlist.song_count,
-            Duration::try_from(playlist.runtime).unwrap_or_default()
+            playlist.id, playlist.name, playlist.song_count, playlist.runtime
         )?;
     }
 
@@ -220,10 +210,7 @@ pub fn collection_list(
         writeln!(
             output,
             "\t{}: \"{}\" ({} songs, {:?})",
-            collection.id,
-            collection.name,
-            collection.song_count,
-            Duration::try_from(collection.runtime).unwrap_or_default()
+            collection.id, collection.name, collection.song_count, collection.runtime
         )?;
     }
 

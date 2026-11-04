@@ -28,6 +28,7 @@
 //!
 //! We will use this grammar as a reference to implement the parser, which we will do using the `pom` crate.
 
+#[cfg(any(test, feature = "serde"))]
 use std::str::FromStr;
 
 /// Contexts where the query can be used.

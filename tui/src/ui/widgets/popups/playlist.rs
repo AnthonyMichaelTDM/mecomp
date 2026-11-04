@@ -474,8 +474,8 @@ mod selector_tests {
         ui::components::content_view::{ActiveView, views::ViewData},
     };
     use anyhow::Result;
-    use mecomp_core::{config::Settings, state::StateAudio};
-    use mecomp_prost::{LibraryBrief, PlaylistBrief, SearchResult};
+    use mecomp_core::config::Settings;
+    use mecomp_prost::{LibraryBrief, PlaylistBrief, SearchResult, StateAudio};
     use mecomp_storage::db::schemas::playlist::TABLE_NAME;
     use pretty_assertions::assert_eq;
     use ratatui::{
@@ -664,8 +664,8 @@ mod editor_tests {
         ui::components::content_view::{ActiveView, views::ViewData},
     };
     use anyhow::Result;
-    use mecomp_core::{config::Settings, state::StateAudio};
-    use mecomp_prost::{LibraryBrief, PlaylistBrief, SearchResult};
+    use mecomp_core::config::Settings;
+    use mecomp_prost::{LibraryBrief, PlaylistBrief, SearchResult, StateAudio};
     use mecomp_storage::db::schemas::playlist::TABLE_NAME;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;

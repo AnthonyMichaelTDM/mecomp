@@ -50,6 +50,7 @@ async fn main() {
 
     // create the Mpris instance
     let mpris = Mpris::new_with_daemon(daemon);
+    mpris.update_state().await.unwrap();
 
     let bus_name_suffix = format!("mecomp.mpris.port{}.pid{}", mpris.port, std::process::id());
 

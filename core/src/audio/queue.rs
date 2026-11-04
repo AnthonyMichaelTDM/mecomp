@@ -1,9 +1,7 @@
+use mecomp_prost::{RepeatMode, SongBrief};
 use rand::{prelude::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
-
-use crate::state::RepeatMode;
-use mecomp_storage::db::schemas::song::SongBrief;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Queue {
@@ -101,7 +99,7 @@ impl Queue {
             }
             Some(current_index) => {
                 match self.repeat_mode {
-                    RepeatMode::None | RepeatMode::One => {
+                    RepeatMode::Unspecified | RepeatMode::None | RepeatMode::One => {
                         // if we reach this point, then skipping would put us at the end of the queue,
                         // so let's just stop playback
                         self.current_index = None;
@@ -208,8 +206,8 @@ impl Queue {
     #[must_use]
     #[instrument]
     #[inline]
-    pub fn queued_songs(&self) -> Box<[SongBrief]> {
-        self.songs.clone().into_boxed_slice()
+    pub fn queued_songs(&self) -> Vec<SongBrief> {
+        self.songs.clone()
     }
 
     /// Sets the current index, clamped to the nearest valid index.
@@ -256,7 +254,6 @@ impl Queue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::RepeatMode;
     use crate::test_utils::init;
 
     use mecomp_storage::db::schemas::song::SongChangeSet;
@@ -328,7 +325,7 @@ mod tests {
         let mut queue = Queue::new();
         queue.add_songs(songs.clone());
         assert_eq!(queue.len(), 3);
-        assert_eq!(queue.queued_songs(), songs.into_boxed_slice());
+        assert_eq!(queue.queued_songs(), songs);
         assert_eq!(queue.current_song(), None);
     }
 

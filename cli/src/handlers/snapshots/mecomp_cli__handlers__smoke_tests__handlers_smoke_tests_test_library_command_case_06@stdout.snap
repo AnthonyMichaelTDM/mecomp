@@ -49,10 +49,7 @@ LibraryBriefResponse {
             genres: [
                 "Test Genre",
             ],
-            runtime: Duration {
-                seconds: 180,
-                nanos: 0,
-            },
+            runtime: 180s,
             track: Some(
                 0,
             ),
@@ -80,10 +77,7 @@ LibraryBriefResponse {
             genres: [
                 "Test Genre",
             ],
-            runtime: Duration {
-                seconds: 200,
-                nanos: 0,
-            },
+            runtime: 200s,
             track: Some(
                 0,
             ),

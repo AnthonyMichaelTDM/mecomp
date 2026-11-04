@@ -397,8 +397,6 @@ impl ComponentRender<Rect> for App {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use super::*;
     use crate::{
         state::action::PopupAction,
@@ -409,9 +407,8 @@ mod tests {
         },
     };
     use crossterm::event::KeyModifiers;
-    use mecomp_core::state::{Percent, RepeatMode, StateAudio, StateRuntime, Status};
-    use mecomp_prost::{LibraryBrief, SearchResult};
-    use mecomp_storage::db::schemas::song::{Song, SongBrief};
+    use mecomp_core::test_utils::generate_song_id;
+    use mecomp_prost::{Duration, LibraryBrief, SearchResult, SongBrief, StateAudio, StateRuntime};
     use pretty_assertions::assert_eq;
     use rstest::{fixture, rstest};
     use tokio::sync::mpsc::unbounded_channel;
@@ -419,12 +416,12 @@ mod tests {
     #[fixture]
     fn song() -> SongBrief {
         SongBrief {
-            id: Song::generate_id(),
+            id: generate_song_id(),
             title: "Test Song".into(),
-            artist: "Test Artist".to_string().into(),
-            album_artist: "Test Album Artist".to_string().into(),
+            artists: vec!["Test Artist".to_string()],
+            album_artists: vec!["Test Album Artist".to_string()],
             album: "Test Album".into(),
-            genre: "Test Genre".to_string().into(),
+            genres: vec!["Test Genre".to_string()],
             runtime: Duration::from_secs(180),
             track: Some(0),
             disc: Some(0),
@@ -576,16 +573,15 @@ mod tests {
 
         let state = AppState {
             audio: StateAudio {
-                queue: vec![song.clone()].into_boxed_slice(),
+                queue: vec![song.clone()],
                 queue_position: Some(0),
                 current_song: Some(song.clone()),
-                repeat_mode: RepeatMode::One,
+                repeat_mode: mecomp_prost::RepeatMode::One as i32,
                 runtime: Some(StateRuntime {
                     seek_position: Duration::from_secs(0),
-                    seek_percent: Percent::new(0.0),
                     duration: song.runtime,
                 }),
-                status: Status::Stopped,
+                status: mecomp_prost::PlaybackStatus::Stopped as i32,
                 muted: false,
                 volume: 1.0,
             },
@@ -600,7 +596,7 @@ mod tests {
         } = app.queuebar.props;
         assert_eq!(queue, state.audio.queue);
         assert_eq!(current_position, state.audio.queue_position);
-        assert_eq!(repeat_mode, state.audio.repeat_mode);
+        assert_eq!(repeat_mode, state.audio.repeat_mode());
 
         let components::control_panel::Props {
             is_playing,
@@ -634,7 +630,7 @@ mod tests {
                 .audio
                 .current_song
                 .as_ref()
-                .map(|song| { song.artist.as_slice().join(", ") })
+                .map(|song| { song.artists.as_slice().join(", ") })
         );
     }
 
@@ -671,7 +667,7 @@ mod tests {
         let mut app = App::new(&state, tx);
 
         let state = AppState {
-            active_view: ActiveView::Song(song.id.key().to_string().into()),
+            active_view: ActiveView::Song(song.id.ulid()),
             ..state
         };
         app = app.move_with_view(&state);

@@ -64,6 +64,7 @@ crossterm = { version = "0.29.0", features = [
 pretty_assertions.workspace = true
 mecomp-storage = { workspace = true, features = ["serde", "test_utils"] }
 mecomp-daemon = { workspace = true }
+mecomp-core = { workspace = true, features = ["notifications", "test_utils"] }
 tempfile = { workspace = true }
 surrealdb = { workspace = true }
 rstest.workspace = true

@@ -359,7 +359,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Artist View───────────────────────────────────────────────┐",
             "│                        Test Artist                       │",
-            "│        Albums: 1  Songs: 1  Duration: 00:03:00.00        │",
+            "│           Albums: 1  Songs: 1  Duration: 3:00.0          │",
             "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire artist────────────────────│",
@@ -388,7 +388,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Artist View───────────────────────────────────────────────┐",
             "│                        Test Artist                       │",
-            "│        Albums: 1  Songs: 1  Duration: 00:03:00.00        │",
+            "│           Albums: 1  Songs: 1  Duration: 3:00.0          │",
             "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire artist────────────────────│",
@@ -414,7 +414,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Artist View───────────────────────────────────────────────┐",
             "│                        Test Artist                       │",
-            "│        Albums: 1  Songs: 1  Duration: 00:03:00.00        │",
+            "│           Albums: 1  Songs: 1  Duration: 3:00.0          │",
             "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on checked items────────────────────│",
@@ -542,7 +542,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Artist View───────────────────────────────────────────────┐",
             "│                        Test Artist                       │",
-            "│        Albums: 1  Songs: 1  Duration: 00:03:00.00        │",
+            "│           Albums: 1  Songs: 1  Duration: 3:00.0          │",
             "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire artist────────────────────│",
@@ -570,7 +570,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Artist View───────────────────────────────────────────────┐",
             "│                        Test Artist                       │",
-            "│        Albums: 1  Songs: 1  Duration: 00:03:00.00        │",
+            "│           Albums: 1  Songs: 1  Duration: 3:00.0          │",
             "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on entire artist────────────────────│",
@@ -615,7 +615,7 @@ mod item_view_tests {
         let expected = Buffer::with_lines([
             "┌Artist View───────────────────────────────────────────────┐",
             "│                        Test Artist                       │",
-            "│        Albums: 1  Songs: 1  Duration: 00:03:00.00        │",
+            "│           Albums: 1  Songs: 1  Duration: 3:00.0          │",
             "│                                                          │",
             "│q: add to queue | r: start radio | p: add to playlist─────│",
             "│Performing operations on checked items────────────────────│",

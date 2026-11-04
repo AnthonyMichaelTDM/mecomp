@@ -528,9 +528,9 @@ async fn test_search_command(
 #[case(PlaybackCommand::Toggle)]
 #[case(PlaybackCommand::Restart)]
 #[case(PlaybackCommand::Shuffle)]
-#[case(PlaybackCommand::Repeat { mode: RepeatMode::None })]
-#[case(PlaybackCommand::Repeat { mode: RepeatMode::One })]
-#[case(PlaybackCommand::Repeat { mode: RepeatMode::All })]
+#[case(PlaybackCommand::Repeat { mode: RepeatMode(mecomp_prost::RepeatMode::None) })]
+#[case(PlaybackCommand::Repeat { mode: RepeatMode(mecomp_prost::RepeatMode::One) })]
+#[case(PlaybackCommand::Repeat { mode: RepeatMode(mecomp_prost::RepeatMode::All) })]
 #[tokio::test]
 async fn test_playback_command(
     #[future] client: MusicPlayerClient,

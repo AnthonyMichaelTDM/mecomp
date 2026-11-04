@@ -3,13 +3,10 @@
 
 use std::{fmt::Display, ops::Range, time::Duration};
 
-use mecomp_storage::db::schemas::song::SongBrief;
+use mecomp_prost::{RepeatMode, SeekType, SongBrief, StateAudio};
 use one_or_many::OneOrMany;
 
-use crate::{
-    format_duration,
-    state::{RepeatMode, SeekType, StateAudio},
-};
+use crate::format_duration;
 
 /// Commands that can be sent to the audio kernel
 #[derive(Debug)]
@@ -337,7 +334,7 @@ mod tests {
 
     // dummy song used for display tests, makes the tests more readable
     fn dummy_song() -> SongBrief {
-        SongBrief {
+        mecomp_storage::db::schemas::song::SongBrief {
             id: Song::generate_id(),
             title: "Song 1".into(),
             artist: OneOrMany::None,
@@ -350,6 +347,7 @@ mod tests {
             release_year: None,
             path: "foo/bar.mp3".into(),
         }
+        .into()
     }
 
     #[rstest]

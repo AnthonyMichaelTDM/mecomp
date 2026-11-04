@@ -1,7 +1,6 @@
 use mecomp_prost::{
     Album, AlbumBrief, Artist, ArtistBrief, Collection, CollectionBrief, DynamicPlaylist,
     LibraryBrief, Playlist, PlaylistBrief, RecordId, SearchResult, Song, SongBrief, Ulid,
-    convert_std_duration,
 };
 use ratatui::{Terminal, backend::TestBackend, layout::Rect};
 
@@ -67,7 +66,7 @@ pub fn state_with_everything() -> AppState {
         album_artists: vec!["Test Artist".to_string()],
         album: "Test Album".into(),
         genres: vec!["Test Genre".to_string()],
-        runtime: convert_std_duration(std::time::Duration::from_secs(180)),
+        runtime: std::time::Duration::from_secs(180).into(),
         track: Some(0),
         disc: Some(0),
         release_year: Some(2021),

@@ -1,7 +1,6 @@
 use action::Action;
 
-use mecomp_core::state::StateAudio;
-use mecomp_prost::{LibraryBrief, MusicPlayerClient, SearchResult};
+use mecomp_prost::{LibraryBrief, MusicPlayerClient, SearchResult, StateAudio};
 use tokio::sync::{
     broadcast,
     mpsc::{self, UnboundedReceiver, UnboundedSender},

@@ -7,15 +7,13 @@ pub mod audio;
 pub mod config;
 pub mod errors;
 pub mod logger;
-pub mod state;
 #[cfg(any(test, feature = "test_utils"))]
 pub mod test_utils;
 #[cfg(feature = "notifications")]
 pub mod udp;
 
 #[must_use]
-#[inline]
-pub fn format_duration(duration: &std::time::Duration) -> String {
+pub(crate) fn format_duration(duration: &std::time::Duration) -> String {
     let total_seconds = duration.as_secs();
     let hours = total_seconds / 3600;
     let minutes = (total_seconds % 3600) / 60;
