@@ -447,11 +447,17 @@ impl ItemViewProps for PlaylistViewProps {
         match key.code {
             // if there are checked items, remove them from the playlist, otherwise remove the whole playlist
             KeyCode::Char('d') => {
-                let checked_things = tree_state.get_checked_things();
+                let checked_things = tree_state
+                    .get_checked_things()
+                    .iter()
+                    .map(RecordId::ulid)
+                    .collect::<Vec<_>>();
                 let id = self.id.ulid();
 
                 let to_remove = if checked_things.is_empty() {
-                    tree_state.get_selected_thing().map(|thing| vec![thing])
+                    tree_state
+                        .get_selected_thing()
+                        .map(|thing| vec![thing.ulid()])
                 } else {
                     Some(checked_things)
                 };

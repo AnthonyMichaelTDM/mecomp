@@ -33,7 +33,7 @@ impl Artist {
         db: &Surreal<C>,
         artist: Self,
     ) -> StorageResult<Option<Self>> {
-        Ok(db.create(artist.id.clone()).content(artist).await?)
+        Ok(db.create(&artist.id).content(artist).await?)
     }
 
     #[instrument]
@@ -163,7 +163,10 @@ impl Artist {
     }
 
     #[instrument]
-    pub async fn read<C: Connection>(db: &Surreal<C>, id: ArtistId) -> StorageResult<Option<Self>> {
+    pub async fn read<C: Connection>(
+        db: &Surreal<C>,
+        id: &ArtistId,
+    ) -> StorageResult<Option<Self>> {
         Ok(db.select(id).await?)
     }
 
@@ -173,7 +176,7 @@ impl Artist {
         ids: OneOrMany<ArtistId>,
     ) -> StorageResult<OneOrMany<Self>> {
         match ids {
-            OneOrMany::One(id) => Ok(Self::read(db, *id).await?.into()),
+            OneOrMany::One(id) => Ok(Self::read(db, &id).await?.into()),
             OneOrMany::Many(ids) => Self::read_many(db, ids).await.map(std::convert::Into::into),
             OneOrMany::None => Ok(OneOrMany::None),
         }
@@ -219,7 +222,7 @@ impl Artist {
     #[instrument]
     pub async fn update<C: Connection>(
         db: &Surreal<C>,
-        id: ArtistId,
+        id: &ArtistId,
         changes: ArtistChangeSet,
     ) -> StorageResult<Option<Self>> {
         Ok(db.update(id).merge(changes).await?)
@@ -228,7 +231,7 @@ impl Artist {
     #[instrument]
     pub async fn delete<C: Connection>(
         db: &Surreal<C>,
-        id: ArtistId,
+        id: &ArtistId,
     ) -> StorageResult<Option<Self>> {
         Ok(db.delete(id).await?)
     }
@@ -365,7 +368,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
-        let read = Artist::read(&db, artist.id.clone())
+        let read = Artist::read(&db, &artist.id)
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
         assert_eq!(artist, read);
@@ -494,8 +497,8 @@ mod tests {
             name: Some("New Name".to_string()),
         };
 
-        let updated = Artist::update(&db, artist.id.clone(), changes).await?;
-        let read = Artist::read(&db, artist.id.clone())
+        let updated = Artist::update(&db, &artist.id, changes).await?;
+        let read = Artist::read(&db, &artist.id)
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
 
@@ -513,8 +516,8 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
-        let deleted = Artist::delete(&db, artist.id.clone()).await?;
-        let read = Artist::read(&db, artist.id.clone()).await?;
+        let deleted = Artist::delete(&db, &artist.id).await?;
+        let read = Artist::read(&db, &artist.id).await?;
 
         assert_eq!(deleted, Some(artist));
         assert_eq!(read, None);
@@ -524,14 +527,14 @@ mod tests {
     #[tokio::test]
     async fn test_read_by_name() -> Result<()> {
         let db = init_test_database().await?;
-        let album = create_artist();
+        let artist = create_artist();
 
-        let _ = Artist::create(&db, album.clone())
+        let _ = Artist::create(&db, artist.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
         let read = Artist::read_by_name(&db, "Test Artist").await?;
-        assert_eq!(read, Some(album));
+        assert_eq!(read, Some(artist));
         Ok(())
     }
 
@@ -552,14 +555,14 @@ mod tests {
     #[tokio::test]
     async fn test_read_by_names() -> Result<()> {
         let db = init_test_database().await?;
-        let album = create_artist();
-        let mut album2 = create_artist();
-        album2.name = "Test Artist 2".into();
+        let artist = create_artist();
+        let mut artist2 = create_artist();
+        artist2.name = "Test Artist 2".into();
 
-        let _ = Artist::create(&db, album.clone())
+        let _ = Artist::create(&db, artist.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
-        let _ = Artist::create(&db, album2.clone())
+        let _ = Artist::create(&db, artist2.clone())
             .await?
             .ok_or_else(|| anyhow!("Failed to create artist"))?;
 
@@ -568,12 +571,12 @@ mod tests {
 
         assert_eq!(read.len(), 2);
 
-        if read[0].name == album.name {
-            assert_eq!(read[0], album);
-            assert_eq!(read[1], album2);
+        if read[0].name == artist.name {
+            assert_eq!(read[0], artist);
+            assert_eq!(read[1], artist2);
         } else {
-            assert_eq!(read[1], album);
-            assert_eq!(read[0], album2);
+            assert_eq!(read[1], artist);
+            assert_eq!(read[0], artist2);
         }
 
         Ok(())
@@ -711,7 +714,7 @@ mod tests {
         Album::add_song(&db, album.id.clone(), song.id.clone()).await?;
         Artist::add_album(&db, artist.id.clone(), album.id.clone()).await?;
 
-        let read = Artist::read(&db, artist.id.clone())
+        let read = Artist::read(&db, &artist.id)
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
 
@@ -814,7 +817,7 @@ mod tests {
 
         Artist::add_song(&db, artist.id.clone(), song.id.clone()).await?;
 
-        let read = Artist::read(&db, artist.id.clone())
+        let read = Artist::read(&db, &artist.id)
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
 
@@ -851,14 +854,14 @@ mod tests {
             .ok_or_else(|| anyhow!("Failed to create song"))?;
 
         Artist::add_song(&db, artist.id.clone(), song.id.clone()).await?;
-        let read = Artist::read(&db, artist.id.clone())
+        let read = Artist::read(&db, &artist.id)
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
         assert_eq!(read.song_count, 1);
         assert_eq!(read.runtime, song.runtime);
 
         Artist::remove_song(&db, artist.id.clone(), song.id.clone()).await?;
-        let read = Artist::read(&db, artist.id.clone())
+        let read = Artist::read(&db, &artist.id)
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
         assert_eq!(read.runtime, Duration::from_secs(0));

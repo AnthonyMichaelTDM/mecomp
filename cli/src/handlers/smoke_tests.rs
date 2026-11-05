@@ -3,17 +3,17 @@ use std::{io::Write, sync::Arc, time::Duration};
 use clap::Parser;
 use mecomp_core::{audio::AudioKernelSender, config::Settings};
 use mecomp_daemon::init_test_client_server;
-use mecomp_prost::MusicPlayerClient;
+use mecomp_prost::{MusicPlayerClient, Ulid};
 use mecomp_storage::{
+    Surreal,
     db::schemas::{
-        album::Album, analysis::Analysis, artist::Artist, collection::Collection,
+        RecordId, album::Album, analysis::Analysis, artist::Artist, collection::Collection,
         dynamic::DynamicPlaylist, playlist::Playlist, song::Song,
     },
     test_utils::{arb_feature_array, init_test_database},
 };
 use pretty_assertions::assert_str_eq;
 use rstest::{fixture, rstest};
-use surrealdb::{RecordId, Surreal, engine::local::Db};
 use tempfile::tempdir;
 
 use crate::handlers::{
@@ -86,16 +86,16 @@ fn test_cli_args_parse_query() {
 }
 
 /// the id used for all the items in this fake library
-pub const fn item_id() -> &'static str {
-    "01J1K5B6RJ84WJXCWYJ5WNE12E"
+pub fn item_id() -> Ulid {
+    Ulid::new("01J1K5B6RJ84WJXCWYJ5WNE12E")
 }
 /// another id used for some items in this fake library, used to avoid conflicts
-pub const fn other_item_id() -> &'static str {
-    "03J1K5B6RJ84WJXCWYJ5WNE12E"
+pub fn other_item_id() -> Ulid {
+    Ulid::new("03J1K5B6RJ84WJXCWYJ5WNE12E")
 }
 
 /// Create a test database with a simple state
-async fn db_with_state() -> Arc<Surreal<Db>> {
+async fn db_with_state() -> Arc<Surreal> {
     let db = Arc::new(init_test_database().await.unwrap());
 
     let album_id = RecordId::from_table_key("album", item_id());
@@ -192,12 +192,8 @@ async fn db_with_state() -> Arc<Surreal<Db>> {
     // insert the items into the database
     Song::create(&db, song).await.unwrap();
     Song::create(&db, song2).await.unwrap();
-    Analysis::create(&db, song_id1.clone(), analysis1)
-        .await
-        .unwrap();
-    Analysis::create(&db, song_id2.clone(), analysis2)
-        .await
-        .unwrap();
+    Analysis::create(&db, &song_id1, analysis1).await.unwrap();
+    Analysis::create(&db, &song_id2, analysis2).await.unwrap();
     Artist::create(&db, artist).await.unwrap();
     Album::create(&db, album).await.unwrap();
     Collection::create(&db, collection).await.unwrap();
@@ -353,22 +349,22 @@ async fn test_stop_command(#[future] client: MusicPlayerClient) {
     target: LibraryListTarget::Collections,
 })]
 #[case(LibraryCommand::Get {
-    command: LibraryGetCommand::Artist {id: item_id().to_string()},
+    command: LibraryGetCommand::Artist {id: item_id()},
 })]
 #[case(LibraryCommand::Get {
-    command: LibraryGetCommand::Album {id: item_id().to_string()},
+    command: LibraryGetCommand::Album {id: item_id()},
 })]
 #[case(LibraryCommand::Get {
-    command: LibraryGetCommand::Song {id: item_id().to_string()},
+    command: LibraryGetCommand::Song {id: item_id()},
 })]
 #[case(LibraryCommand::Get {
-    command: LibraryGetCommand::Playlist {id: item_id().to_string()},
+    command: LibraryGetCommand::Playlist {id: item_id()},
 })]
 #[case(LibraryCommand::Get {
-    command: LibraryGetCommand::Dynamic {id: item_id().to_string()},
+    command: LibraryGetCommand::Dynamic {id: item_id()},
 })]
 #[case(LibraryCommand::Get {
-    command: LibraryGetCommand::Collection {id: item_id().to_string()},
+    command: LibraryGetCommand::Collection {id: item_id()},
 })]
 #[tokio::test]
 async fn test_library_command(
@@ -552,12 +548,12 @@ async fn test_playback_command(
 }
 
 #[rstest]
-#[case(QueueCommand::Add {items: vec![format!("album:{}", item_id())] })]
-#[case(QueueCommand::Add {items: vec![format!("artist:{}", item_id())] })]
-#[case(QueueCommand::Add {items: vec![format!("song:{}", item_id())] })]
-#[case(QueueCommand::Add {items: vec![format!("playlist:{}", item_id())] })]
-#[case(QueueCommand::Add {items: vec![format!("collection:{}", item_id())] })]
-#[case(QueueCommand::Add {items: vec![format!("dynamic:{}", item_id())] })]
+#[case(QueueCommand::Add {items: vec![format!("album:{}", item_id()).parse().unwrap()] })]
+#[case(QueueCommand::Add {items: vec![format!("artist:{}", item_id()).parse().unwrap()] })]
+#[case(QueueCommand::Add {items: vec![format!("song:{}", item_id()).parse().unwrap()] })]
+#[case(QueueCommand::Add {items: vec![format!("playlist:{}", item_id()).parse().unwrap()] })]
+#[case(QueueCommand::Add {items: vec![format!("collection:{}", item_id()).parse().unwrap()] })]
+#[case(QueueCommand::Add {items: vec![format!("dynamic:{}", item_id()).parse().unwrap()] })]
 #[case(QueueCommand::Remove { start: 0, end: 1 })]
 #[case(QueueCommand::Clear)]
 #[case(QueueCommand::List { quiet: false })]
@@ -581,11 +577,11 @@ async fn test_queue_command(#[future] client: MusicPlayerClient, #[case] command
 }
 
 #[rstest]
-#[case::mixed(QueueCommand::Add {items: vec![format!("song:{}", item_id())] }, vec![format!("song:{}", other_item_id())])]
-#[case::args_only(QueueCommand::Add {items: vec![format!("song:{}", item_id())] }, vec![])]
-#[case::pipe_only(QueueCommand::Add {items: vec![] }, vec![format!("song:{}", item_id())])]
+#[case::mixed(QueueCommand::Add {items: vec![mecomp_prost::RecordId::from(("song", item_id()))] }, vec![format!("song:{}", other_item_id())])]
+#[case::args_only(QueueCommand::Add {items: vec![mecomp_prost::RecordId::from(("song", item_id()))] }, vec![])]
+#[case::pipe_only(QueueCommand::Add {items: vec![] }, vec![format!("song:{}", item_id()).parse().unwrap()])]
 /// invalid record ids that are piped in get ignored
-#[case::pipe_invalid(QueueCommand::Add {items: vec![] }, vec![format!("song:{}", other_item_id()), "invalid:id".to_string()])]
+#[case::pipe_invalid(QueueCommand::Add {items: vec![] }, vec![format!("song:{}", other_item_id()).parse().unwrap(), "invalid:id".to_string()])]
 #[tokio::test]
 async fn test_queue_add_pipe(
     #[future] client: MusicPlayerClient,
@@ -608,38 +604,17 @@ async fn test_queue_add_pipe(
 }
 
 #[rstest]
-#[tokio::test]
-async fn test_queue_add_invalid(#[future] client: MusicPlayerClient) {
-    let command = Command::Queue {
-        command: QueueCommand::Add {
-            items: vec![format!("invalid:{}", item_id())],
-        },
-    };
-
-    let stdout = &mut WriteAdapter(Vec::new());
-    let stderr = &mut WriteAdapter(Vec::new());
-    let stdin = &StdInMock::new(vec![], false);
-
-    let result = command.handle(client.await, stdout, stderr, stdin).await;
-    assert!(result.is_err());
-    assert_str_eq!(
-        result.unwrap_err().to_string(),
-        "One or more provided IDs are invalid"
-    );
-}
-
-#[rstest]
-#[case(PlaylistCommand::Add (PlaylistAddCommand { id: item_id().to_string(), items: vec![format!("song:{}", item_id())] } ))]
-#[case(PlaylistCommand::Add (PlaylistAddCommand { id: item_id().to_string(), items: vec![format!("album:{}", item_id())] } ))]
-#[case(PlaylistCommand::Add (PlaylistAddCommand { id: item_id().to_string(), items: vec![format!("artist:{}", item_id())] } ))]
-#[case(PlaylistCommand::Remove { id: item_id().to_string(), item_ids: vec![item_id().to_string()] })]
+#[case(PlaylistCommand::Add (PlaylistAddCommand { id: item_id(), items: vec![mecomp_prost::RecordId::from(("song", item_id()))] } ))]
+#[case(PlaylistCommand::Add (PlaylistAddCommand { id: item_id(), items: vec![mecomp_prost::RecordId::from(("album", item_id()))] } ))]
+#[case(PlaylistCommand::Add (PlaylistAddCommand { id: item_id(), items: vec![mecomp_prost::RecordId::from(("artist", item_id()))] } ))]
+#[case(PlaylistCommand::Remove { id: item_id(), item_ids: vec![item_id()] })]
 #[case(PlaylistCommand::List)]
 #[case(PlaylistCommand::Get { method: PlaylistGetMethod::Name, target: "Test Playlist".to_string() })]
 #[case(PlaylistCommand::Get { method: PlaylistGetMethod::Id, target: item_id().to_string() })]
-#[case(PlaylistCommand::Update { id: item_id().to_string(), name: "Updated Test Playlist".to_string() })]
-#[case(PlaylistCommand::Songs { id: item_id().to_string() })]
-#[case(PlaylistCommand::Delete { id: item_id().to_string() })]
-#[case(PlaylistCommand::Add (PlaylistAddCommand { id: item_id().to_string(), items: vec![format!("song:{}", other_item_id()), format!("song:{}", item_id())] } ))]
+#[case(PlaylistCommand::Update { id: item_id(), name: "Updated Test Playlist".to_string() })]
+#[case(PlaylistCommand::Songs { id: item_id() })]
+#[case(PlaylistCommand::Delete { id: item_id() })]
+#[case(PlaylistCommand::Add (PlaylistAddCommand { id: item_id(), items: vec![mecomp_prost::RecordId::from(("song", other_item_id())), mecomp_prost::RecordId::from(("song", item_id()))] } ))]
 #[tokio::test]
 async fn test_playlist_command(
     #[future] client: MusicPlayerClient,
@@ -661,11 +636,11 @@ async fn test_playlist_command(
 }
 
 #[rstest]
-#[case::mixed(PlaylistAddCommand { id: item_id().to_string(), items: vec![format!("album:{}", item_id())] }, vec![format!("song:{}", other_item_id())])]
-#[case::args_only(PlaylistAddCommand { id: other_item_id().to_string(), items: vec![format!("song:{}", item_id())] }, vec![])]
-#[case::pipe_only(PlaylistAddCommand { id: other_item_id().to_string(), items: vec![] }, vec![format!("song:{}", item_id())])]
+#[case::mixed(PlaylistAddCommand { id: item_id(), items: vec![mecomp_prost::RecordId::from(("album", item_id()))] }, vec![format!("song:{}", other_item_id())])]
+#[case::args_only(PlaylistAddCommand { id: other_item_id(), items: vec![mecomp_prost::RecordId::from(("song", item_id()))] }, vec![])]
+#[case::pipe_only(PlaylistAddCommand { id: other_item_id(), items: vec![] }, vec![format!("song:{}", item_id())])]
 /// invalid record ids that are piped in get ignored
-#[case::pipe_invalid(PlaylistAddCommand { id: other_item_id().to_string(), items: vec![] }, vec![format!("song:{}", other_item_id()), "invalid:id".to_string()])]
+#[case::pipe_invalid(PlaylistAddCommand { id: other_item_id(), items: vec![] }, vec![format!("song:{}", other_item_id()), "invalid:id".to_string()])]
 #[tokio::test]
 async fn test_playlist_add_pipe(
     #[future] client: MusicPlayerClient,
@@ -702,32 +677,10 @@ async fn test_playlist_add_pipe(
 
 #[rstest]
 #[tokio::test]
-async fn test_playlist_add_invalid(#[future] client: MusicPlayerClient) {
-    let command = Command::Playlist {
-        command: PlaylistCommand::Add(PlaylistAddCommand {
-            id: item_id().to_string(),
-            items: vec![format!("invalid:{}", item_id())],
-        }),
-    };
-
-    let stdout = &mut WriteAdapter(Vec::new());
-    let stderr = &mut WriteAdapter(Vec::new());
-    let stdin = &StdInMock::new(vec![], false);
-
-    let result = command.handle(client.await, stdout, stderr, stdin).await;
-    assert!(result.is_err());
-    assert_str_eq!(
-        result.unwrap_err().to_string(),
-        "One or more provided IDs are invalid"
-    );
-}
-
-#[rstest]
-#[tokio::test]
 async fn test_playlist_add_empty(#[future] client: MusicPlayerClient) {
     let command = Command::Playlist {
         command: PlaylistCommand::Add(PlaylistAddCommand {
-            id: item_id().to_string(),
+            id: item_id(),
             items: vec![],
         }),
     };
@@ -782,7 +735,7 @@ async fn test_playlist_export_path_canonicalize_falls_back(#[future] client: Mus
 
     let command = Command::Playlist {
         command: PlaylistCommand::Export {
-            id: item_id().to_string(),
+            id: item_id(),
             path: path.clone(),
         },
     };
@@ -885,7 +838,7 @@ async fn test_playlist_export_existing_file(#[future] client: MusicPlayerClient)
 
     let command = Command::Playlist {
         command: PlaylistCommand::Export {
-            id: item_id().to_string(),
+            id: item_id(),
             path: path.clone(),
         },
     };
@@ -1055,25 +1008,25 @@ async fn test_dynamic_playlist_import_nonexistent_path_reports_error(
 
 #[rstest]
 #[case(DynamicCommand::List)]
-#[case(DynamicCommand::Get { id: item_id().to_string() })]
-#[case(DynamicCommand::Songs { id: item_id().to_string() })]
-#[case(DynamicCommand::Delete { id: item_id().to_string() })]
+#[case(DynamicCommand::Get { id: item_id() })]
+#[case(DynamicCommand::Songs { id: item_id() })]
+#[case(DynamicCommand::Delete { id: item_id() })]
 #[case(DynamicCommand::Update {
-    id: item_id().to_string(),
+    id: item_id(),
     update: DynamicUpdate {
         name: Some("Updated Dynamic Playlist".to_string()),
         query: None,
     },
 })]
 #[case(DynamicCommand::Update {
-    id: item_id().to_string(),
+    id: item_id(),
     update: DynamicUpdate {
         name: None,
         query: Some("title = \"Test Song\"".parse().unwrap()),
     },
 })]
 #[case(DynamicCommand::Update {
-    id: item_id().to_string(),
+    id: item_id(),
     update: DynamicUpdate {
         name: Some("Updated Dynamic Playlist".to_string()),
         query: Some("title = \"Test Song\"".parse().unwrap()),
@@ -1128,8 +1081,8 @@ async fn test_dynamic_playlist_create(#[future] client: MusicPlayerClient) {
 
 #[rstest]
 #[case(CollectionCommand::List)]
-#[case(CollectionCommand::Get { id: item_id().to_string() })]
-#[case(CollectionCommand::Songs { id: item_id().to_string() })]
+#[case(CollectionCommand::Get { id: item_id() })]
+#[case(CollectionCommand::Songs { id: item_id() })]
 #[case(CollectionCommand::Recluster)]
 #[tokio::test]
 async fn test_collection_command(
@@ -1158,7 +1111,7 @@ async fn test_collection_command(
 async fn test_collection_freeze(#[future] client: MusicPlayerClient) {
     let command = Command::Collection {
         command: CollectionCommand::Freeze {
-            id: item_id().to_string(),
+            id: item_id(),
             name: "Test Collection".to_string(),
         },
     };
@@ -1177,13 +1130,13 @@ async fn test_collection_freeze(#[future] client: MusicPlayerClient) {
 }
 
 #[rstest]
-#[case( RadioCommand { items: vec![format!("song:{}", item_id())], n: 1 } )]
-#[case( RadioCommand { items: vec![format!("album:{}", item_id())], n: 1 } )]
-#[case( RadioCommand { items: vec![format!("artist:{}", item_id())], n: 1 } )]
-#[case( RadioCommand { items: vec![format!("playlist:{}", item_id())], n: 1 } )]
-#[case( RadioCommand { items: vec![format!("dynamic:{}", item_id())], n: 1 } )]
-#[case( RadioCommand { items: vec![format!("playlist:{}", item_id()), format!("song:{}", item_id())], n: 1 } )]
-#[case( RadioCommand { items: vec![format!("song:{}", other_item_id())], n: 1 } )]
+#[case( RadioCommand { items: vec![mecomp_prost::RecordId::from(("song", item_id()))], n: 1 } )]
+#[case( RadioCommand { items: vec![mecomp_prost::RecordId::from(("album", item_id()))], n: 1 } )]
+#[case( RadioCommand { items: vec![mecomp_prost::RecordId::from(("artist", item_id()))], n: 1 } )]
+#[case( RadioCommand { items: vec![mecomp_prost::RecordId::from(("playlist", item_id()))], n: 1 } )]
+#[case( RadioCommand { items: vec![mecomp_prost::RecordId::from(("dynamic", item_id()))], n: 1 } )]
+#[case( RadioCommand { items: vec![mecomp_prost::RecordId::from(("playlist", item_id())), mecomp_prost::RecordId::from(("song", item_id()))], n: 1 } )]
+#[case( RadioCommand { items: vec![mecomp_prost::RecordId::from(("song", other_item_id()))], n: 1 } )]
 #[tokio::test]
 async fn test_radio_command(#[future] client: MusicPlayerClient, #[case] command: RadioCommand) {
     let command = Command::Radio(command);

@@ -29,12 +29,11 @@ default = []
 clap = { workspace = true }
 clap_complete = { workspace = true }
 anyhow = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio = { workspace = true }
 tonic = { workspace = true }
 
 # MECOMP dependencies
-mecomp-core.workspace = true
-mecomp-storage = { workspace = true, features = ["serde", "analysis"] }
+mecomp-storage = { workspace = true }
 mecomp-prost.workspace = true
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
 
@@ -48,7 +47,6 @@ mecomp-storage = { workspace = true, features = [
     "analysis",
     "test_utils",
 ] }
-surrealdb = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }
 mecomp-daemon = { workspace = true }

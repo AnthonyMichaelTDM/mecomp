@@ -55,7 +55,7 @@ fn benchmark_recluster(c: &mut Criterion) {
     for song in &songs {
         rt.block_on(Analysis::create(
             &db,
-            song.id.clone(),
+            &song.id,
             Analysis {
                 id: Analysis::generate_id(),
                 features: arb_feature_array()(),

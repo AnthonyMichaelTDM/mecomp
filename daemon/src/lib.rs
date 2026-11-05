@@ -10,7 +10,6 @@ use std::{
 use log::{error, info};
 use mecomp_analysis::embeddings::onnx_test_env;
 use persistence::QueueState;
-use surrealdb::{Surreal, engine::local::Db};
 use tokio::net::TcpListener;
 use tokio::runtime::Handle;
 use tokio_stream::wrappers::TcpListenerStream;
@@ -24,7 +23,10 @@ use mecomp_core::{
     udp::{Message, Sender, StateChange},
 };
 use mecomp_prost::{MusicPlayerClient, TraceInterceptor, server::MusicPlayerServer};
-use mecomp_storage::db::{init_database, set_database_path};
+use mecomp_storage::{
+    Surreal,
+    db::{init_database, set_database_path},
+};
 
 pub mod controller;
 #[cfg(feature = "dynamic_updates")]
@@ -262,7 +264,7 @@ async fn run_daemon(
 /// Errors if the event publisher cannot be created.
 #[inline]
 pub async fn init_test_client_server(
-    db: Arc<Surreal<Db>>,
+    db: Arc<Surreal>,
     settings: Arc<Settings>,
     audio_kernel: Arc<AudioKernelSender>,
 ) -> anyhow::Result<MusicPlayerClient> {
@@ -347,7 +349,7 @@ mod tests {
     use tonic::Code;
 
     #[fixture]
-    async fn db() -> Arc<Surreal<Db>> {
+    async fn db() -> Arc<Surreal> {
         let db = Arc::new(init_test_database().await.unwrap());
 
         // create a test song, add it to a playlist and collection
@@ -426,14 +428,14 @@ mod tests {
             features: arb_feature_array()(),
             embedding: arb_feature_array()(),
         };
-        Analysis::create(&db, song.id, analysis1).await.unwrap();
-        Analysis::create(&db, song2.id, analysis2).await.unwrap();
+        Analysis::create(&db, &song.id, analysis1).await.unwrap();
+        Analysis::create(&db, &song2.id, analysis2).await.unwrap();
 
         return db;
     }
 
     #[fixture]
-    async fn client(#[future] db: Arc<Surreal<Db>>) -> MusicPlayerClient {
+    async fn client(#[future] db: Arc<Surreal>) -> MusicPlayerClient {
         let settings = Arc::new(Settings::default());
         let (tx, _) = std::sync::mpsc::channel();
         let audio_kernel = AudioKernelSender::start(tx);
@@ -649,7 +651,7 @@ mod tests {
             .into_inner();
 
         client
-            .playlist_add(PlaylistAddRequest::new(playlist_id.id.clone(), song_id))
+            .playlist_add(PlaylistAddRequest::new(playlist_id.ulid(), song_id))
             .await?;
 
         let songs = client
@@ -909,7 +911,7 @@ mod tests {
         let target = library_full.playlists.first().unwrap();
 
         let response = client
-            .playlist_rename(PlaylistRenameRequest::new(target.id.id.clone(), "New Name"))
+            .playlist_rename(PlaylistRenameRequest::new(target.id.ulid(), "New Name"))
             .await
             .unwrap()
             .into_inner();
@@ -1014,7 +1016,7 @@ mod tests {
 
         let response = client
             .dynamic_playlist_update(DynamicPlaylistUpdateRequest::new(
-                dynamic_playlist_id.id.clone(),
+                dynamic_playlist_id.ulid(),
                 DynamicPlaylistChangeSet::new().name("Dynamic Playlist 1"),
             ))
             .await?

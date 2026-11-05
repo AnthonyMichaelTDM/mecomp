@@ -615,7 +615,7 @@ mod item_view_tests {
             rx.blocking_recv().unwrap(),
             Action::Library(LibraryAction::RemoveSongsFromPlaylist(
                 item_id(),
-                vec![("song", item_id()).into()]
+                vec![item_id()]
             ))
         );
     }

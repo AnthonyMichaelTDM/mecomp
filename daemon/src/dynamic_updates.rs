@@ -6,7 +6,10 @@
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use log::{debug, error, info, trace, warn};
-use mecomp_storage::db::schemas::song::{Song, SongChangeSet, SongMetadata};
+use mecomp_storage::{
+    Surreal,
+    db::schemas::song::{Song, SongChangeSet, SongMetadata},
+};
 #[cfg(target_os = "macos")]
 use notify::FsEventWatcher;
 #[cfg(target_os = "linux")]
@@ -20,7 +23,6 @@ use notify::{
 use notify_debouncer_full::RecommendedCache;
 use notify_debouncer_full::{DebouncedEvent, Debouncer, new_debouncer};
 use one_or_many::OneOrMany;
-use surrealdb::{Surreal, engine::local::Db};
 use tokio::sync::Mutex;
 
 use crate::termination::InterruptReceiver;
@@ -57,7 +59,7 @@ pub const MAX_DEBOUNCE_TIME: Duration = Duration::from_millis(500);
 /// If the watcher could not be started, an error is returned.
 #[allow(clippy::missing_inline_in_public_items)]
 pub fn init_music_library_watcher(
-    db: Arc<Surreal<Db>>,
+    db: Arc<Surreal>,
     library_paths: &[PathBuf],
     artist_name_separator: OneOrMany<String>,
     protected_artist_names: OneOrMany<String>,
@@ -146,7 +148,7 @@ impl MusicLibEventHandlerGuard {
 
 /// Handles incoming file Events.
 struct MusicLibEventHandler {
-    db: Arc<Surreal<Db>>,
+    db: Arc<Surreal>,
     artist_name_separator: OneOrMany<String>,
     protected_artist_names: OneOrMany<String>,
     genre_separator: Option<String>,
@@ -155,7 +157,7 @@ struct MusicLibEventHandler {
 impl MusicLibEventHandler {
     /// Creates a new `MusicLibEventHandler`.
     pub const fn new(
-        db: Arc<Surreal<Db>>,
+        db: Arc<Surreal>,
         artist_name_separator: OneOrMany<String>,
         protected_artist_names: OneOrMany<String>,
         genre_separator: Option<String>,
@@ -218,7 +220,7 @@ impl MusicLibEventHandler {
                             info!("file removed: {:?}. removing from db", event.paths);
                             let song = Song::read_by_path(&self.db, path.clone()).await?;
                             if let Some(song) = song {
-                                Song::delete(&self.db, song.id).await?;
+                                Song::delete(&self.db, &song.id).await?;
                             }
                         }
                         _ => {
@@ -317,7 +319,7 @@ impl MusicLibEventHandler {
 
                         let changeset = new_metadata.merge_with_song(&song);
 
-                        Song::update(&self.db, song.id, changeset).await?;
+                        Song::update(&self.db, &song.id, changeset).await?;
                     }
                     _ => {
                         debug!("file data modified ({kind:?}): {:?}.  not a song, no action needed", event.paths);
@@ -337,7 +339,7 @@ impl MusicLibEventHandler {
                             // NOTE: if this fails, the song may just not've been added previously, may want to handle that in the future
                             let song = Song::read_by_path(&self.db, from_path.clone()).await?.ok_or(mecomp_storage::errors::Error::NotFound)?;
 
-                            Song::update(&self.db, song.id, SongChangeSet{
+                            Song::update(&self.db, &song.id, SongChangeSet{
                                 path: Some(to_path.clone()),
                                 ..Default::default()
                             }).await?;
@@ -420,7 +422,7 @@ mod tests {
     };
 
     #[fixture]
-    async fn setup() -> (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard) {
+    async fn setup() -> (TempDir, Arc<Surreal>, MusicLibEventHandlerGuard) {
         init();
         let music_lib = tempdir().expect("Failed to create temporary directory");
         let db = Arc::new(init_test_database().await.unwrap());
@@ -441,9 +443,7 @@ mod tests {
     #[rstest]
     #[timeout(Duration::from_secs(5))]
     #[tokio::test]
-    async fn test_create_song(
-        #[future] setup: (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard),
-    ) {
+    async fn test_create_song(#[future] setup: (TempDir, Arc<Surreal>, MusicLibEventHandlerGuard)) {
         let (music_lib, db, handler) = setup.await;
 
         // let's call create_song_metadata to create a new song in our temporary music library, and get the metadata of that song
@@ -468,9 +468,7 @@ mod tests {
     #[rstest]
     #[timeout(Duration::from_secs(10))]
     #[tokio::test]
-    async fn test_rename_song(
-        #[future] setup: (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard),
-    ) {
+    async fn test_rename_song(#[future] setup: (TempDir, Arc<Surreal>, MusicLibEventHandlerGuard)) {
         let (music_lib, db, handler) = setup.await;
 
         // let's call create_song_metadata to create a new song in our temporary music library, and get the metadata of that song
@@ -528,9 +526,7 @@ mod tests {
     #[rstest]
     #[timeout(Duration::from_secs(10))]
     #[tokio::test]
-    async fn test_modify_song(
-        #[future] setup: (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard),
-    ) {
+    async fn test_modify_song(#[future] setup: (TempDir, Arc<Surreal>, MusicLibEventHandlerGuard)) {
         let (music_lib, db, handler) = setup.await;
 
         // let's call create_song_metadata to create a new song in our temporary music library, and get the metadata of that song
@@ -571,9 +567,7 @@ mod tests {
     #[rstest]
     #[timeout(Duration::from_secs(10))]
     #[tokio::test]
-    async fn test_remove_song(
-        #[future] setup: (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard),
-    ) {
+    async fn test_remove_song(#[future] setup: (TempDir, Arc<Surreal>, MusicLibEventHandlerGuard)) {
         let (music_lib, db, handler) = setup.await;
 
         // let's call create_song_metadata to create a new song in our temporary music library, and get the metadata of that song
@@ -612,7 +606,7 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_remove_empty_folder(
-        #[future] setup: (TempDir, Arc<Surreal<Db>>, MusicLibEventHandlerGuard),
+        #[future] setup: (TempDir, Arc<Surreal>, MusicLibEventHandlerGuard),
     ) {
         let (music_lib, _, handler) = setup.await;
 

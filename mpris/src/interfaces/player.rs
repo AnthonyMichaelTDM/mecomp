@@ -4,12 +4,12 @@
 
 use std::{future::ready, path::PathBuf, str::FromStr, time::Duration};
 
-use futures::executor::block_on;
 use mecomp_prost::{PlaybackSeekRequest, PlaybackSkipRequest, PlaybackVolumeSetRequest};
 use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Time, TrackId, Volume,
     zbus::{Error as ZbusError, fdo},
 };
+use sync_wrapper::SyncFuture;
 
 use crate::{
     Mpris, convert_playback_status, convert_repeat_mode, interfaces::root::SUPPORTED_MIME_TYPES,
@@ -19,51 +19,54 @@ use crate::{
 impl PlayerInterface for Mpris {
     #[allow(clippy::unused_async_trait_impl)]
     async fn next(&self) -> fdo::Result<()> {
-        block_on(
-            self.daemon
-                .clone()
-                .playback_skip_forward(PlaybackSkipRequest::new(1)),
-        )
-        .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        let mut daemon = self.daemon.clone();
+        SyncFuture::new(daemon.playback_skip_forward(PlaybackSkipRequest::new(1)))
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     #[allow(clippy::unused_async_trait_impl)]
     async fn previous(&self) -> fdo::Result<()> {
-        block_on(
-            self.daemon
-                .clone()
-                .playback_skip_backward(PlaybackSkipRequest::new(1)),
-        )
-        .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        let mut daemon = self.daemon.clone();
+        SyncFuture::new(daemon.playback_skip_backward(PlaybackSkipRequest::new(1)))
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     #[allow(clippy::unused_async_trait_impl)]
     async fn pause(&self) -> fdo::Result<()> {
-        block_on(self.daemon.clone().playback_pause(()))
+        let mut daemon = self.daemon.clone();
+        SyncFuture::new(daemon.playback_pause(()))
+            .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
-
         Ok(())
     }
 
     #[allow(clippy::unused_async_trait_impl)]
     async fn play_pause(&self) -> fdo::Result<()> {
-        block_on(self.daemon.clone().playback_toggle(()))
+        let mut daemon = self.daemon.clone();
+        SyncFuture::new(daemon.playback_toggle(()))
+            .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     #[allow(clippy::unused_async_trait_impl)]
     async fn stop(&self) -> fdo::Result<()> {
-        block_on(self.daemon.clone().playback_stop(()))
+        let mut daemon = self.daemon.clone();
+        SyncFuture::new(daemon.playback_stop(()))
+            .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
 
     #[allow(clippy::unused_async_trait_impl)]
     async fn play(&self) -> fdo::Result<()> {
-        block_on(self.daemon.clone().playback_play(()))
+        let mut daemon = self.daemon.clone();
+        SyncFuture::new(daemon.playback_play(()))
+            .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
@@ -129,12 +132,16 @@ impl PlayerInterface for Mpris {
 
         // add the song to the queue
         let mut daemon = self.daemon.clone();
-        if let Some(song) = block_on(daemon.library_song_get_by_path(mecomp_prost::Path::new(path)))
-            .map_err(|e| fdo::Error::Failed(e.to_string()))?
-            .into_inner()
-            .song
+        if let Some(song) =
+            SyncFuture::new(daemon.library_song_get_by_path(mecomp_prost::Path::new(path)))
+                .await
+                .map_err(|e| fdo::Error::Failed(e.to_string()))?
+                .into_inner()
+                .song
         {
-            block_on(daemon.queue_add(song.id)).map_err(|e| fdo::Error::Failed(e.to_string()))?;
+            SyncFuture::new(daemon.queue_add(song.id))
+                .await
+                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         } else {
             return Err(fdo::Error::Failed(
                 "Failed to find song in database".to_string(),
@@ -163,8 +170,11 @@ impl PlayerInterface for Mpris {
         };
 
         let mut daemon = self.daemon.clone();
-        block_on(daemon.playback_repeat(mecomp_prost::PlaybackRepeatRequest::new(repeat_mode)))
-            .map_err(|e| fdo::Error::Failed(e.to_string()))?;
+        SyncFuture::new(
+            daemon.playback_repeat(mecomp_prost::PlaybackRepeatRequest::new(repeat_mode)),
+        )
+        .await
+        .map_err(|e| fdo::Error::Failed(e.to_string()))?;
 
         Ok(())
     }
@@ -190,7 +200,9 @@ impl PlayerInterface for Mpris {
         if shuffle {
             let mut daemon = self.daemon.clone();
 
-            block_on(daemon.playback_shuffle(())).map_err(|e| fdo::Error::Failed(e.to_string()))?;
+            SyncFuture::new(daemon.playback_shuffle(()))
+                .await
+                .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         }
 
         Ok(())
@@ -215,7 +227,8 @@ impl PlayerInterface for Mpris {
     async fn set_volume(&self, volume: Volume) -> Result<(), ZbusError> {
         let mut daemon = self.daemon.clone();
         #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-        block_on(daemon.playback_volume(PlaybackVolumeSetRequest::new(volume as f32)))
+        SyncFuture::new(daemon.playback_volume(PlaybackVolumeSetRequest::new(volume as f32)))
+            .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
 
         Ok(())
@@ -245,7 +258,8 @@ impl PlayerInterface for Mpris {
 
         let mut daemon = self.daemon.clone();
 
-        block_on(daemon.playback_seek(PlaybackSeekRequest::new(seek_type, offset)))
+        SyncFuture::new(daemon.playback_seek(PlaybackSeekRequest::new(seek_type, offset)))
+            .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
@@ -265,10 +279,11 @@ impl PlayerInterface for Mpris {
                 return Ok(());
             }
 
-            block_on(self.daemon.clone().playback_seek(PlaybackSeekRequest::new(
+            SyncFuture::new(self.daemon.clone().playback_seek(PlaybackSeekRequest::new(
                 mecomp_prost::SeekType::Absolute,
                 Duration::from_micros(u64::try_from(position).unwrap_or_default()),
             )))
+            .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         }
 
@@ -345,7 +360,7 @@ mod tests {
     /// the last case is irrelevant here, as we always return true for [CanGoNext]
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+    #[tokio::test]
     async fn test_next(
         #[future] fixtures: (
             Mpris,
@@ -397,7 +412,7 @@ mod tests {
 
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_next_maintains_status(
         #[future] fixtures: (
             Mpris,
@@ -478,7 +493,7 @@ mod tests {
 
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_next_no_next_track(
         #[future] fixtures: (
             Mpris,
@@ -538,7 +553,7 @@ mod tests {
     /// the last case is irrelevant here, as we always return true for [CanGoPrevious]
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_prev(
         #[future] fixtures: (
             Mpris,
@@ -599,7 +614,7 @@ mod tests {
     }
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_prev_maintains_state(
         #[future] fixtures: (
             Mpris,
@@ -690,7 +705,7 @@ mod tests {
 
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_prev_no_prev_track(
         #[future] fixtures: (
             Mpris,
@@ -781,7 +796,7 @@ mod tests {
     /// the last case is irrelevant here, as we always return true for [CanControl]
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_play_pause_stop(
         #[future] fixtures: (
             Mpris,
@@ -938,7 +953,7 @@ mod tests {
     /// Mecomp does not currently implement the [TrackList interface], so the last case is irrelevant here.
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_open_uri(
         #[future] fixtures: (
             Mpris,
@@ -1021,7 +1036,7 @@ mod tests {
     /// Mecomp supports returning the playback status.
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_playback_status(
         #[future] fixtures: (
             Mpris,
@@ -1111,7 +1126,7 @@ mod tests {
     /// Mecomp supports setting the loop status.
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_loop_status(
         #[future] fixtures: (
             Mpris,
@@ -1172,7 +1187,7 @@ mod tests {
     /// Mecomp supports returning the playback rate, but does not support changing it.
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_rate(
         #[future] fixtures: (
             Mpris,
@@ -1220,7 +1235,7 @@ mod tests {
     /// and is instead a no-op.
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_shuffle(
         #[future] fixtures: (
             Mpris,
@@ -1256,7 +1271,7 @@ mod tests {
     /// """
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_metadata(
         #[future] fixtures: (
             Mpris,
@@ -1328,7 +1343,7 @@ mod tests {
     /// """
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_volume(
         #[future] fixtures: (
             Mpris,
@@ -1382,7 +1397,7 @@ mod tests {
     /// """
     #[rstest]
     #[timeout(Duration::from_secs(20))]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn test_position(
         #[future] fixtures: (
             Mpris,

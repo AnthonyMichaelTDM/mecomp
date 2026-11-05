@@ -4,11 +4,11 @@
 
 use std::future::ready;
 
-use futures::executor::block_on;
 use mpris_server::{
     RootInterface,
     zbus::{Error as ZbusError, fdo},
 };
+use sync_wrapper::SyncFuture;
 
 use crate::Mpris;
 
@@ -21,7 +21,8 @@ impl RootInterface for Mpris {
 
     #[allow(clippy::unused_async_trait_impl)]
     async fn quit(&self) -> fdo::Result<()> {
-        block_on(self.daemon.clone().daemon_shutdown(()))
+        SyncFuture::new(self.daemon.clone().daemon_shutdown(()))
+            .await
             .map_err(|e| fdo::Error::Failed(e.to_string()))?;
         Ok(())
     }
@@ -97,7 +98,7 @@ mod tests {
         assert_eq!(result, Ok(()));
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     /// """
     /// The media player may refuse to allow clients to shut it down. In this case, the [CanQuit] property is false and this method does nothing.
     /// Note: Media players which can be D-Bus activated, or for which there is no sensibly easy way to terminate a running instance

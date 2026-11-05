@@ -31,14 +31,13 @@ clap.workspace = true
 clap_complete.workspace = true
 log.workspace = true
 mecomp-core = { workspace = true, features = ["notifications"] }
-mecomp-storage = { workspace = true }
 mpris-server.workspace = true
 percent-encoding.workspace = true
 shellexpand.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio = { workspace = true }
 mecomp-prost.workspace = true
-futures = "0.3.32"
 mecomp-workspace-hack = { version = "0.1", path = "../mecomp-workspace-hack" }
+sync_wrapper = "1.0.2"
 
 [dev-dependencies]
 one-or-many = { workspace = true }

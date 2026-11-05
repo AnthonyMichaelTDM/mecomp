@@ -1,4 +1,5 @@
 use mecomp_storage::{
+    Connection, Surreal,
     db::schemas::{
         RecordId,
         analysis::Analysis,
@@ -6,7 +7,6 @@ use mecomp_storage::{
     },
     errors::StorageResult,
 };
-use surrealdb::{Connection, Surreal};
 
 use super::get_songs_from_things;
 

@@ -1,6 +1,8 @@
 #![allow(clippy::module_name_repetitions)]
 use std::str::FromStr;
 
+use crate::errors::InvalidId;
+
 pub mod album;
 #[cfg(feature = "analysis")]
 pub mod analysis;
@@ -68,6 +70,7 @@ where
 /// Implement a version of the `surrealdb` `RecordId` type that we can use when the `db` feature is not enabled.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename = "$surrealdb::private::sql::Thing"))]
 pub struct RecordId {
     /// Table name
     pub tb: String,
@@ -130,7 +133,7 @@ impl RecordId {
 }
 
 impl FromStr for RecordId {
-    type Err = ();
+    type Err = InvalidId;
 
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -154,17 +157,14 @@ impl FromStr for RecordId {
                     | collection::TABLE_NAME
                     | dynamic::TABLE_NAME
             ))
-            && parts[1].len() == 26
-            && parts[1]
-                .chars()
-                .all(|c| c.is_ascii_digit() || c.is_ascii_uppercase())
         {
+            let id = Id::from_str(parts[1])?;
             Ok(Self {
                 tb: parts[0].to_owned(),
-                id: Id::String(parts[1].to_owned()),
+                id,
             })
         } else {
-            Err(())
+            Err(InvalidId)
         }
     }
 }
@@ -198,15 +198,24 @@ impl std::fmt::Display for Id {
     }
 }
 
-#[cfg(feature = "db")]
-impl From<surrealdb::RecordIdKey> for Id {
-    #[inline]
-    fn from(value: surrealdb::RecordIdKey) -> Self {
-        match value.into_inner() {
-            surrealdb::sql::Id::Number(n) => Self::Number(n),
-            surrealdb::sql::Id::String(s) => Self::String(s),
-            _ => unimplemented!(),
+impl FromStr for Id {
+    type Err = InvalidId;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+            && s.len() == 26
+        {
+            Ok(Self::String(s.to_owned()))
+        } else {
+            Err(InvalidId)
         }
+    }
+}
+
+impl From<&str> for Id {
+    fn from(value: &str) -> Self {
+        Self::String(value.to_string())
     }
 }
 
@@ -229,32 +238,29 @@ impl From<RecordId> for surrealdb::RecordId {
     }
 }
 
+// Implementations to allow our [`RecordId`] type to be used like a normal [`surrealdb::RecordId`] in SurrealDB queries.
+
 #[cfg(feature = "db")]
-impl From<surrealdb::RecordId> for RecordId {
-    #[inline]
-    fn from(record: surrealdb::RecordId) -> Self {
-        Self {
-            tb: record.table().to_string(),
-            id: record.key().to_owned().into(),
-        }
+impl<R> surrealdb::opt::IntoResource<Option<R>> for &RecordId {
+    fn into_resource(self) -> Result<surrealdb::opt::Resource, surrealdb::Error> {
+        let surreal_recid: surrealdb::RecordId = self.clone().into();
+        Ok(surreal_recid.into())
     }
 }
 
 #[cfg(feature = "db")]
-impl From<surrealdb::sql::Id> for Id {
-    #[inline]
-    fn from(id: surrealdb::sql::Id) -> Self {
-        match id {
-            surrealdb::sql::Id::Number(n) => Self::Number(n),
-            surrealdb::sql::Id::String(s) => Self::String(s),
-            _ => unimplemented!(),
-        }
+impl<R> surrealdb::opt::CreateResource<Option<R>> for &RecordId {
+    fn into_resource(self) -> Result<surrealdb::opt::Resource, surrealdb::Error> {
+        let surreal_recid: surrealdb::RecordId = self.clone().into();
+        Ok(surreal_recid.into())
     }
 }
 
 #[cfg(test)]
 mod thing {
     //! tests to ensure that the `RecordId` type is serialized and deserialized just like the `surrealdb` `RecordId` type.
+    use crate::errors::InvalidId;
+
     use super::*;
 
     #[test]
@@ -311,30 +317,31 @@ mod thing {
         assert_eq!(thing, RecordId::from(("song", id.clone())));
 
         // id too short
-        let thing: Result<RecordId, ()> = "song:42".parse();
-        assert!(thing.is_err());
-        let thing: Result<RecordId, ()> = "song:42:extra text:".parse();
-        assert!(thing.is_err());
+        let thing: Result<RecordId, InvalidId> = "song:42".parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
+        let thing: Result<RecordId, InvalidId> = "song:42:extra text:".parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
 
         // id too long
-        let thing: Result<RecordId, ()> = format!("song:{}", "a".repeat(27)).parse();
-        assert!(thing.is_err());
-        let thing: Result<RecordId, ()> = format!("song:{}: extra text", "a".repeat(27)).parse();
-        assert!(thing.is_err());
+        let thing: Result<RecordId, InvalidId> = format!("song:{}", "a".repeat(27)).parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
+        let thing: Result<RecordId, InvalidId> =
+            format!("song:{}: extra text", "a".repeat(27)).parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
 
         // extra text without colon
-        let thing: Result<RecordId, ()> = format!("song:{id} extra text").parse();
-        assert!(thing.is_err());
+        let thing: Result<RecordId, InvalidId> = format!("song:{id} extra text").parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
 
         // invalid table name
-        let thing: Result<RecordId, ()> = format!("table:{id}").parse();
-        assert!(thing.is_err());
-        let thing: Result<RecordId, ()> = format!("table:{id}: extra text").parse();
-        assert!(thing.is_err());
+        let thing: Result<RecordId, InvalidId> = format!("table:{id}").parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
+        let thing: Result<RecordId, InvalidId> = format!("table:{id}: extra text").parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
 
         // text is not a id at all
-        let thing: Result<RecordId, ()> = "hello world!".parse();
-        assert!(thing.is_err());
+        let thing: Result<RecordId, InvalidId> = "hello world!".parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
     }
 }
 

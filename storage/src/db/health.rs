@@ -219,7 +219,7 @@ mod tests {
         assert_eq!(count_orphaned_albums(&db).await.unwrap(), 0);
 
         // if we delete that song, the album will be orphaned again
-        Song::delete(&db, (song.id, false)).await.unwrap();
+        Song::delete(&db, (&song.id, false)).await.unwrap();
         assert_eq!(count_albums(&db).await.unwrap(), 1);
         assert_eq!(count_orphaned_albums(&db).await.unwrap(), 1);
     }
@@ -248,7 +248,7 @@ mod tests {
         assert_eq!(count_orphaned_artists(&db).await.unwrap(), 0);
 
         // if we delete that album, the artist will be orphaned again
-        Album::delete(&db, album.id).await.unwrap();
+        Album::delete(&db, &album.id).await.unwrap();
         assert_eq!(count_artists(&db).await.unwrap(), 1);
         assert_eq!(count_orphaned_artists(&db).await.unwrap(), 1);
 
@@ -267,7 +267,7 @@ mod tests {
         assert_eq!(count_orphaned_artists(&db).await.unwrap(), 0);
 
         // if we delete that song, the artist will be orphaned again
-        Song::delete(&db, (song.id, false)).await.unwrap();
+        Song::delete(&db, (&song.id, false)).await.unwrap();
         assert_eq!(count_artists(&db).await.unwrap(), 1);
         assert_eq!(count_orphaned_artists(&db).await.unwrap(), 1);
     }
@@ -297,7 +297,7 @@ mod tests {
         assert_eq!(count_orphaned_collections(&db).await.unwrap(), 0);
 
         // if we delete that song, the collection will be orphaned again
-        Song::delete(&db, (song.id, false)).await.unwrap();
+        Song::delete(&db, (&song.id, false)).await.unwrap();
         assert_eq!(count_collections(&db).await.unwrap(), 1);
         assert_eq!(count_orphaned_collections(&db).await.unwrap(), 1);
     }
@@ -327,7 +327,7 @@ mod tests {
         assert_eq!(count_orphaned_playlists(&db).await.unwrap(), 0);
 
         // if we delete that song, the playlist will be orphaned again
-        Song::delete(&db, song.id).await.unwrap();
+        Song::delete(&db, &song.id).await.unwrap();
         assert_eq!(count_playlists(&db).await.unwrap(), 1);
         assert_eq!(count_orphaned_playlists(&db).await.unwrap(), 1);
     }
@@ -352,9 +352,9 @@ mod tests {
         assert_eq!(count_songs(&db).await.unwrap(), 2);
 
         // if we start deleting songs, the count will decrease
-        Song::delete(&db, song2.id).await.unwrap();
+        Song::delete(&db, &song2.id).await.unwrap();
         assert_eq!(count_songs(&db).await.unwrap(), 1);
-        Song::delete(&db, song.id).await.unwrap();
+        Song::delete(&db, &song.id).await.unwrap();
         assert_eq!(count_songs(&db).await.unwrap(), 0);
     }
 }
