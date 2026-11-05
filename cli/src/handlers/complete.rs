@@ -29,6 +29,7 @@ pub fn thing_completer(current: &OsStr) -> Vec<CompletionCandidate> {
     if let Some(colon_pos) = input.find(':') {
         let table_str = &input[..colon_pos];
         let id_prefix = &input[colon_pos + 1..];
+        let id_prefix = id_prefix.to_ascii_uppercase();
 
         // Determine the table
         let table = match table_str {
@@ -48,18 +49,19 @@ pub fn thing_completer(current: &OsStr) -> Vec<CompletionCandidate> {
         // Filter candidates based on the ID prefix
         candidates
             .into_iter()
-            .filter(|candidate| {
-                candidate
-                    .get_value()
-                    .to_string_lossy()
-                    .starts_with(id_prefix)
+            .filter_map(|candidate| {
+                let id = candidate.get_value().to_string_lossy().to_ascii_uppercase();
+                id.starts_with(&id_prefix).then(|| {
+                    CompletionCandidate::new(format!("{table_str}:{id}"))
+                        .help(candidate.get_help().cloned())
+                })
             })
             .collect()
     } else {
         // No colon found, suggest table names
         get_tables()
             .into_iter()
-            .map(|(name, help)| CompletionCandidate::new(name).help(Some(help)))
+            .map(|(name, help)| CompletionCandidate::new(format!("{name}:...")).help(Some(help)))
             .collect()
     }
 }
@@ -128,7 +130,7 @@ fn get_song_candidates(
         .into_iter()
         .map(|song| {
             (
-                song.id.to_string(),
+                song.id.id,
                 StyledStr::from(format!(
                     "\"{}\" (by: {:?}, album: {})",
                     song.title, song.artists, song.album
@@ -153,7 +155,7 @@ fn get_album_candidates(
         .into_iter()
         .map(|album| {
             (
-                album.id.to_string(),
+                album.id.id,
                 StyledStr::from(format!("\"{}\" (by: {:?})", album.title, album.artists)),
             )
         })
@@ -175,7 +177,7 @@ fn get_artist_candidates(
         .into_iter()
         .map(|artist| {
             (
-                artist.id.to_string(),
+                artist.id.id,
                 StyledStr::from(format!("\"{}\"", artist.name)),
             )
         })
@@ -219,7 +221,7 @@ fn get_dynamic_playlist_candidates(
         .into_iter()
         .map(|playlist| {
             (
-                playlist.id.to_string(),
+                playlist.id.id,
                 StyledStr::from(format!("\"{}\" ({})", playlist.name, playlist.query)),
             )
         })
@@ -241,7 +243,7 @@ fn get_collection_candidates(
         .into_iter()
         .map(|collection| {
             (
-                collection.id.to_string(),
+                collection.id.id,
                 StyledStr::from(format!("\"{}\"", collection.name)),
             )
         })
