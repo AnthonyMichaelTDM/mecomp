@@ -1,5 +1,25 @@
 # Mecomp Changelog
 
+## v0.8.0
+
+This release introduces several new features, optimizations, and refactors, including SIMD improvements, memory management enhancements, and updates to the analysis and embeddings pipelines.
+
+Technically, this is api-breaking due to changes in the core prost types and the removal of mecomp_core::state, hence the version bump to 0.8.0.
+
+### v0.8.0 What's Changed
+* feat(benchmarks): add analysis and decoder pipeline benchmarks by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/483
+* feat(aubio): port over aubio functions to remove C dependency by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/484
+* feat(aubio): optimize hot-loops for SIMD and run analysis in 2 threads instead of 3 by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/486
+* feat(analysis): mimic Mahalanobis distance by applying weights in generation by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/487
+* feat(embeddings/CUDA): mitigate memory exhaustion by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/488
+* feat(analysis/simd): use fearless_simd crate to write portable SIMD k… by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/489
+* refactor(core/prost): remove mecomp_core::state in favor of the mecomp_prost types by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/490
+* refactor: remove direct dependency on surrealdb for clients by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/491
+* refactor(player, root): replace block_on with SyncFuture for async ops w/o needing to block the runtime by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/492
+* fix(cli): fix completions, improve ID handling, and add input validation by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/494
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.7.3...v0.8.0
+
 ## v0.7.3
 
 This release has some minor code maintenance, and the addition of a proper dynamic query editor to the TUI (a long term goal)
