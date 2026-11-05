@@ -31,7 +31,7 @@ pub enum StateChange {
     Unmuted,
     /// The player volume has changed
     VolumeChanged(f32),
-    /// The current track has changed
+    /// The current track has changed.
     /// If something causes both the queue and current track to change, then this event is sent after `QueueChanged`
     TrackChanged(Option<RecordId>),
     /// The repeat mode has changed

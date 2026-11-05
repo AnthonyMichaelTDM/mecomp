@@ -3430,7 +3430,6 @@ dependencies = [
  "anyhow",
  "clap",
  "clap_complete",
- "futures",
  "log",
  "mecomp-core",
  "mecomp-daemon",
@@ -3444,6 +3443,7 @@ dependencies = [
  "rstest",
  "shellexpand",
  "surrealdb",
+ "sync_wrapper",
  "tempfile",
  "tokio",
 ]
@@ -8028,6 +8028,7 @@ dependencies = [
  "rustix",
  "serde",
  "serde_repr",
+ "tokio",
  "tracing",
  "uds_windows",
  "uuid",
