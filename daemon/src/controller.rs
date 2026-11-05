@@ -425,7 +425,7 @@ impl MusicPlayerTrait for MusicPlayer {
     async fn library_song_get(self: Arc<Self>, request: Request<Ulid>) -> TonicResult<SongOption> {
         let id = (schemas::song::TABLE_NAME, request.into_inner()).into();
         info!("Getting song by ID: {id}");
-        let song = Song::read(&self.db, id)
+        let song = Song::read(&self.db, &id)
             .await
             .map_err(|e| tonic::Status::internal(format!("Error in library_song_get: {e}")))?
             .map(Into::into);
@@ -520,7 +520,7 @@ impl MusicPlayerTrait for MusicPlayer {
     ) -> TonicResult<AlbumOption> {
         let album_id = (schemas::album::TABLE_NAME, request.into_inner()).into();
         info!("Fetching album {album_id}");
-        let album = Album::read(&self.db, album_id)
+        let album = Album::read(&self.db, &album_id)
             .await
             .map_err(|e| tonic::Status::internal(format!("library_album_get failed: {e}")))?
             .map(Into::into);
@@ -563,7 +563,7 @@ impl MusicPlayerTrait for MusicPlayer {
     ) -> TonicResult<ArtistOption> {
         let artist_id = (schemas::artist::TABLE_NAME, request.into_inner()).into();
         info!("Fetching artist {artist_id}");
-        let artist = Artist::read(&self.db, artist_id)
+        let artist = Artist::read(&self.db, &artist_id)
             .await
             .map_err(|e| tonic::Status::internal(format!("library_artist_get failed: {e}")))?
             .map(Into::into);
@@ -606,7 +606,7 @@ impl MusicPlayerTrait for MusicPlayer {
     ) -> TonicResult<PlaylistOption> {
         let playlist_id = (schemas::playlist::TABLE_NAME, request.into_inner()).into();
         info!("Fetching playlist {playlist_id}");
-        let playlist = Playlist::read(&self.db, playlist_id)
+        let playlist = Playlist::read(&self.db, &playlist_id)
             .await
             .map_err(|e| tonic::Status::internal(format!("library_playlist_get failed: {e}")))?
             .map(Into::into);
@@ -651,7 +651,7 @@ impl MusicPlayerTrait for MusicPlayer {
     ) -> TonicResult<CollectionOption> {
         let collection_id = (schemas::collection::TABLE_NAME, request.into_inner()).into();
         info!("Fetching collection {collection_id}");
-        let collection = Collection::read(&self.db, collection_id)
+        let collection = Collection::read(&self.db, &collection_id)
             .await
             .map_err(|e| tonic::Status::internal(format!("library_collection_get failed: {e}")))?
             .map(Into::into);
@@ -681,7 +681,7 @@ impl MusicPlayerTrait for MusicPlayer {
     ) -> TonicResult<DynamicPlaylistOption> {
         let dynamic_playlist_id = (schemas::dynamic::TABLE_NAME, request.into_inner()).into();
         info!("Fetching dynamic playlist {dynamic_playlist_id}");
-        let playlist = DynamicPlaylist::read(&self.db, dynamic_playlist_id)
+        let playlist = DynamicPlaylist::read(&self.db, &dynamic_playlist_id)
             .await
             .map_err(|e| {
                 tonic::Status::internal(format!("library_dynamic_playlist_get failed: {e}"))
@@ -696,7 +696,7 @@ impl MusicPlayerTrait for MusicPlayer {
     ) -> TonicResult<SongBriefList> {
         let dynamic_playlist_id = (schemas::dynamic::TABLE_NAME, request.into_inner()).into();
         info!("Listing songs for dynamic playlist {dynamic_playlist_id}");
-        let songs = DynamicPlaylist::run_query_by_id(&self.db, dynamic_playlist_id)
+        let songs = DynamicPlaylist::run_query_by_id(&self.db, &dynamic_playlist_id)
             .await
             .map_err(|e| {
                 tonic::Status::internal(format!("library_dynamic_playlist_get_songs failed: {e}"))
@@ -1256,7 +1256,7 @@ impl MusicPlayerTrait for MusicPlayer {
     async fn playlist_remove(self: Arc<Self>, request: Request<Ulid>) -> TonicResult<()> {
         let id = (schemas::playlist::TABLE_NAME, request.into_inner()).into();
         info!("Removing playlist with id: {id}");
-        Playlist::delete(&self.db, id)
+        Playlist::delete(&self.db, &id)
             .await
             .map_err(|e| tonic::Status::internal(format!("failed to delete playlist, {e}")))?
             .ok_or_else(|| tonic::Status::not_found("playlist was not found"))?;
@@ -1379,7 +1379,7 @@ impl MusicPlayerTrait for MusicPlayer {
         let PlaylistRenameRequest { playlist_id, name } = request.into_inner();
         let id = (schemas::playlist::TABLE_NAME, playlist_id).into();
         info!("Renaming playlist: {id} ({name})");
-        let updated = Playlist::update(&self.db, id, PlaylistChangeSet::new().name(name))
+        let updated = Playlist::update(&self.db, &id, PlaylistChangeSet::new().name(name))
             .await
             .map_err(|e| tonic::Status::internal(format!("failed to rename playlist, {e}")))?
             .ok_or_else(|| tonic::Status::not_found("playlist not found"))?;
@@ -1400,7 +1400,7 @@ impl MusicPlayerTrait for MusicPlayer {
             .map_err(|e| tonic::Status::invalid_argument(format!("invalid file path: {e}")))?;
 
         // read the playlist
-        let playlist = Playlist::read(&self.db, id)
+        let playlist = Playlist::read(&self.db, &id)
             .await
             .inspect_err(|e| warn!("Error in playlist_export: {e}"))
             .ok()
@@ -1604,7 +1604,7 @@ impl MusicPlayerTrait for MusicPlayer {
             query,
         };
         info!("Updating DP: {id:?}, {changes:?}");
-        let updated = DynamicPlaylist::update(&self.db, id, changes)
+        let updated = DynamicPlaylist::update(&self.db, &id, changes)
             .await
             .inspect_err(|e| warn!("Error in dynamic_playlist_update: {e}"))
             .map_err(|e| tonic::Status::internal(e.to_string()))?
@@ -1617,7 +1617,7 @@ impl MusicPlayerTrait for MusicPlayer {
     async fn dynamic_playlist_remove(self: Arc<Self>, request: Request<Ulid>) -> TonicResult<()> {
         let id = (schemas::dynamic::TABLE_NAME, request.into_inner()).into();
         info!("Removing DP with id: {id:?}");
-        DynamicPlaylist::delete(&self.db, id)
+        DynamicPlaylist::delete(&self.db, &id)
             .await
             .map_err(|e| tonic::Status::internal(e.to_string()))?
             .ok_or_else(|| tonic::Status::not_found("Dynamic Playlist not found"))?;

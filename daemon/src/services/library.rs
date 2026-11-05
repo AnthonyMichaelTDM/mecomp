@@ -115,7 +115,7 @@ async fn check_library<C: Connection>(
         if !path.exists() {
             // remove the song from the library
             warn!("Song {} no longer exists, deleting", path.display());
-            Song::delete(db, song.id).await?;
+            Song::delete(db, &song.id).await?;
             continue;
         }
 
@@ -143,7 +143,7 @@ async fn check_library<C: Connection>(
                     // ... we are in "overwrite" mode, update the song's metadata
                     MetadataConflictResolution::Overwrite => {
                         // if the file has been modified, update the song's metadata
-                        Song::update(db, song.id.clone(), metadata.merge_with_song(&song)).await?;
+                        Song::update(db, &song.id, metadata.merge_with_song(&song)).await?;
                     }
                     // ... we are in "skip" mode, do nothing
                     MetadataConflictResolution::Skip => {}
@@ -155,7 +155,7 @@ async fn check_library<C: Connection>(
                 info!(
                     "assuming the file isn't a song or doesn't exist anymore, removing from library"
                 );
-                Song::delete(db, song.id).await?;
+                Song::delete(db, &song.id).await?;
             }
             // if the metadata is the same, do nothing
             _ => {}
@@ -374,7 +374,7 @@ pub async fn analyze<C: Connection>(
 
             if let Err(e) = Analysis::create(
                 db,
-                song_id.clone(),
+                song_id,
                 Analysis {
                     id: Analysis::generate_id(),
                     features,
@@ -510,7 +510,7 @@ pub async fn recluster<C: Connection>(
         // NOTE: For some reason, if a collection has too many songs, it will fail to delete with "DbError(Db(Tx("Max transaction entries limit exceeded")))"
         // (this was happening with 892 songs in a collection)
         for collection in Collection::read_all(db).await? {
-            Collection::delete(db, collection.id.clone()).await?;
+            Collection::delete(db, &collection.id).await?;
         }
 
         <Result<(), Error>>::Ok(())
@@ -753,21 +753,21 @@ mod tests {
         // check that everything was done correctly
         // - `song_with_nonexistent_path` was deleted
         assert_eq!(
-            Song::read(&db, song_with_nonexistent_path.id)
+            Song::read(&db, &song_with_nonexistent_path.id)
                 .await
                 .unwrap(),
             None
         );
         // - `song_with_invalid_metadata` was deleted
         assert_eq!(
-            Song::read(&db, song_with_invalid_metadata.id)
+            Song::read(&db, &song_with_invalid_metadata.id)
                 .await
                 .unwrap(),
             None
         );
         // - `song_with_outdated_metadata` was updated
         assert!(
-            Song::read(&db, song_with_outdated_metadata.id)
+            Song::read(&db, &song_with_outdated_metadata.id)
                 .await
                 .unwrap()
                 .unwrap()
@@ -865,7 +865,7 @@ mod tests {
 
         // delete the song, leaving orphaned artist and album
         std::fs::remove_file(&song.path).unwrap();
-        Song::delete(&db, (song.id.clone(), false)).await.unwrap();
+        Song::delete(&db, (&song.id, false)).await.unwrap();
 
         // rescan the library
         rescan(
@@ -929,8 +929,8 @@ mod tests {
         .unwrap();
 
         // check that the artist and album were deleted
-        assert_eq!(Artist::read(&db, artist.id.clone()).await.unwrap(), None);
-        assert_eq!(Album::read(&db, album.id.clone()).await.unwrap(), None);
+        assert_eq!(Artist::read(&db, &artist.id).await.unwrap(), None);
+        assert_eq!(Album::read(&db, &album.id).await.unwrap(), None);
     }
 
     #[tokio::test]
@@ -1044,7 +1044,7 @@ mod tests {
         for song in &songs {
             Analysis::create(
                 &db,
-                song.id.clone(),
+                &song.id,
                 Analysis {
                     id: Analysis::generate_id(),
                     features: arb_feature_array()(),

@@ -428,8 +428,8 @@ mod tests {
             features: arb_feature_array()(),
             embedding: arb_feature_array()(),
         };
-        Analysis::create(&db, song.id, analysis1).await.unwrap();
-        Analysis::create(&db, song2.id, analysis2).await.unwrap();
+        Analysis::create(&db, &song.id, analysis1).await.unwrap();
+        Analysis::create(&db, &song2.id, analysis2).await.unwrap();
 
         return db;
     }

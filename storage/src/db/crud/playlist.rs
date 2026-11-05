@@ -30,7 +30,7 @@ impl Playlist {
         id: PlaylistId,
     ) -> StorageResult<Option<Self>> {
         // first we get the playlist we're copying
-        let Some(playlist) = Self::read(db, id.clone()).await? else {
+        let Some(playlist) = Self::read(db, &id).await? else {
             return Ok(None);
         };
 
@@ -60,7 +60,7 @@ impl Playlist {
         )
         .await?;
 
-        Self::read(db, new_playlist.id).await
+        Self::read(db, &new_playlist.id).await
     }
 
     #[instrument]
@@ -85,7 +85,7 @@ impl Playlist {
     #[instrument]
     pub async fn read<C: Connection>(
         db: &Surreal<C>,
-        id: PlaylistId,
+        id: &PlaylistId,
     ) -> StorageResult<Option<Self>> {
         Ok(db.select(id).await?)
     }
@@ -105,7 +105,7 @@ impl Playlist {
     #[instrument]
     pub async fn update<C: Connection>(
         db: &Surreal<C>,
-        id: PlaylistId,
+        id: &PlaylistId,
         changes: PlaylistChangeSet,
     ) -> StorageResult<Option<Self>> {
         Ok(db.update(id).merge(changes).await?)
@@ -114,7 +114,7 @@ impl Playlist {
     #[instrument]
     pub async fn delete<C: Connection>(
         db: &Surreal<C>,
-        id: PlaylistId,
+        id: &PlaylistId,
     ) -> StorageResult<Option<Self>> {
         Ok(db.delete(id).await?)
     }
@@ -262,7 +262,7 @@ mod tests {
         let db = init_test_database().await?;
         let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
-        let result = Playlist::read(&db, playlist.id.clone()).await?;
+        let result = Playlist::read(&db, &playlist.id).await?;
         assert_eq!(result, Some(playlist));
         Ok(())
     }
@@ -276,8 +276,8 @@ mod tests {
             name: Some("Updated Name".into()),
         };
 
-        let updated = Playlist::update(&db, playlist.id.clone(), changes).await?;
-        let read = Playlist::read(&db, playlist.id.clone())
+        let updated = Playlist::update(&db, &playlist.id, changes).await?;
+        let read = Playlist::read(&db, &playlist.id)
             .await?
             .ok_or_else(|| anyhow!("Playlist not found"))?;
 
@@ -291,9 +291,9 @@ mod tests {
         let db = init_test_database().await?;
         let playlist = create_playlist();
         Playlist::create(&db, playlist.clone()).await?;
-        let result = Playlist::delete(&db, playlist.id.clone()).await?;
+        let result = Playlist::delete(&db, &playlist.id).await?;
         assert_eq!(result, Some(playlist.clone()));
-        let result = Playlist::read(&db, playlist.id).await?;
+        let result = Playlist::read(&db, &playlist.id).await?;
         assert_eq!(result, None);
         Ok(())
     }
@@ -311,7 +311,7 @@ mod tests {
         let result = Playlist::read_songs(&db, playlist.id.clone()).await?;
         assert_eq!(result, vec![song.clone()]);
 
-        let read = Playlist::read(&db, playlist.id.clone())
+        let read = Playlist::read(&db, &playlist.id)
             .await?
             .ok_or_else(|| anyhow!("Playlist not found"))?;
         assert_eq!(read.song_count, 1);
@@ -350,7 +350,7 @@ mod tests {
             "Playlist should contain song2, but it doesn't: {result:?}"
         );
 
-        let read = Playlist::read(&db, playlist.id.clone())
+        let read = Playlist::read(&db, &playlist.id)
             .await?
             .ok_or_else(|| anyhow!("Playlist not found"))?;
         assert_eq!(read.song_count, 2);
@@ -374,7 +374,7 @@ mod tests {
         let result = Playlist::read_songs(&db, playlist.id.clone()).await?;
         assert_eq!(result, vec![]);
 
-        let read = Playlist::read(&db, playlist.id.clone())
+        let read = Playlist::read(&db, &playlist.id)
             .await?
             .ok_or_else(|| anyhow!("Playlist not found"))?;
         assert_eq!(read.song_count, 0);

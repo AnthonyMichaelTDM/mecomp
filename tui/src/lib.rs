@@ -168,9 +168,7 @@ mod subscriber_tests {
 
         // insert the items into the database
         Song::create(&db, song).await.unwrap();
-        Analysis::create(&db, song_id.clone(), analysis)
-            .await
-            .unwrap();
+        Analysis::create(&db, &song_id, analysis).await.unwrap();
         Artist::create(&db, artist).await.unwrap();
         Album::create(&db, album).await.unwrap();
         Collection::create(&db, collection).await.unwrap();

@@ -133,7 +133,7 @@ mod tests {
         };
         let expected_features = FEATURE_WEIGHTS;
         let created: Option<Analysis> = db
-            .create(test_analysis.id.clone())
+            .create(&test_analysis.id)
             .content(test_analysis.clone())
             .await
             .unwrap();
@@ -143,7 +143,7 @@ mod tests {
         migrations.to_version(&db, 8).await.unwrap();
 
         // read that test analysis back and make sure it matches what we expect
-        let row: Option<Analysis> = db.select(test_analysis.id).await.unwrap();
+        let row: Option<Analysis> = db.select(&test_analysis.id).await.unwrap();
         let row = row.expect("Expected analysis row to exist");
         assert_eq!(row.features, expected_features);
     }

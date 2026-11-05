@@ -220,9 +220,9 @@ pub async fn create_song_with_overrides<C: Connection>(
 
     Song::create(db, song.clone()).await?;
     if overrides != SongChangeSet::default() {
-        Song::update(db, song.id.clone(), overrides).await?;
+        Song::update(db, &song.id, overrides).await?;
     }
-    let song = Song::read(db, song.id).await?.expect("Song should exist");
+    let song = Song::read(db, &song.id).await?.expect("Song should exist");
     Ok(song)
 }
 
@@ -507,7 +507,7 @@ mod tests {
         let song = result.unwrap();
 
         // Assert that we can get the song from the database
-        let song_from_db = Song::read(&db, song.id.clone()).await.unwrap().unwrap();
+        let song_from_db = Song::read(&db, &song.id).await.unwrap().unwrap();
 
         // Assert that the song from the database is the same as the song we created
         assert_eq!(song, song_from_db);

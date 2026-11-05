@@ -218,18 +218,6 @@ impl From<&str> for Id {
 }
 
 #[cfg(feature = "db")]
-impl From<surrealdb::RecordIdKey> for Id {
-    #[inline]
-    fn from(value: surrealdb::RecordIdKey) -> Self {
-        match value.into_inner() {
-            surrealdb::sql::Id::Number(n) => Self::Number(n),
-            surrealdb::sql::Id::String(s) => Self::String(s),
-            _ => unimplemented!(),
-        }
-    }
-}
-
-#[cfg(feature = "db")]
 impl From<Id> for surrealdb::RecordIdKey {
     #[inline]
     fn from(id: Id) -> Self {
@@ -248,38 +236,8 @@ impl From<RecordId> for surrealdb::RecordId {
     }
 }
 
-#[cfg(feature = "db")]
-impl From<surrealdb::RecordId> for RecordId {
-    #[inline]
-    fn from(record: surrealdb::RecordId) -> Self {
-        Self {
-            tb: record.table().to_string(),
-            id: record.key().to_owned().into(),
-        }
-    }
-}
-
-#[cfg(feature = "db")]
-impl From<surrealdb::sql::Id> for Id {
-    #[inline]
-    fn from(id: surrealdb::sql::Id) -> Self {
-        match id {
-            surrealdb::sql::Id::Number(n) => Self::Number(n),
-            surrealdb::sql::Id::String(s) => Self::String(s),
-            _ => unimplemented!(),
-        }
-    }
-}
-
 // Implementations to allow our [`RecordId`] type to be used like a normal [`surrealdb::RecordId`] in SurrealDB queries.
 
-#[cfg(feature = "db")]
-impl<R> surrealdb::opt::IntoResource<Option<R>> for RecordId {
-    fn into_resource(self) -> Result<surrealdb::opt::Resource, surrealdb::Error> {
-        let surreal_recid: surrealdb::RecordId = self.into();
-        Ok(surreal_recid.into())
-    }
-}
 #[cfg(feature = "db")]
 impl<R> surrealdb::opt::IntoResource<Option<R>> for &RecordId {
     fn into_resource(self) -> Result<surrealdb::opt::Resource, surrealdb::Error> {
@@ -288,13 +246,6 @@ impl<R> surrealdb::opt::IntoResource<Option<R>> for &RecordId {
     }
 }
 
-#[cfg(feature = "db")]
-impl<R> surrealdb::opt::CreateResource<Option<R>> for RecordId {
-    fn into_resource(self) -> Result<surrealdb::opt::Resource, surrealdb::Error> {
-        let surreal_recid: surrealdb::RecordId = self.into();
-        Ok(surreal_recid.into())
-    }
-}
 #[cfg(feature = "db")]
 impl<R> surrealdb::opt::CreateResource<Option<R>> for &RecordId {
     fn into_resource(self) -> Result<surrealdb::opt::Resource, surrealdb::Error> {

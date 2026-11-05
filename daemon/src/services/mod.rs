@@ -42,10 +42,10 @@ pub(crate) async fn get_songs_from_things<C: Connection>(
             COLLECTION_TABLE_NAME => songs.extend(Collection::read_songs(db, thing).await?),
             PLAYLIST_TABLE_NAME => songs.extend(Playlist::read_songs(db, thing).await?),
             SONG_TABLE_NAME => {
-                songs.push(Song::read(db, thing).await?.ok_or(Error::NotFound)?);
+                songs.push(Song::read(db, &thing).await?.ok_or(Error::NotFound)?);
             }
             DYNAMIC_PLAYLIST_TABLE_NAME => {
-                if let Some(new_songs) = DynamicPlaylist::run_query_by_id(db, thing).await? {
+                if let Some(new_songs) = DynamicPlaylist::run_query_by_id(db, &thing).await? {
                     songs.extend(new_songs);
                 }
             }

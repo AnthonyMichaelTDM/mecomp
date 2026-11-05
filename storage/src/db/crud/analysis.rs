@@ -29,7 +29,7 @@ impl Analysis {
     #[instrument]
     pub async fn create<C: Connection>(
         db: &Surreal<C>,
-        song_id: SongId,
+        song_id: &SongId,
         analysis: Self,
     ) -> StorageResult<Option<Self>> {
         if Self::read_for_song(db, song_id.clone()).await?.is_some() {
@@ -43,7 +43,7 @@ impl Analysis {
             // relate the song to the analysis
             db.query(add_to_song())
                 .bind(("id", analysis.id.clone()))
-                .bind(("song", song_id))
+                .bind(("song", song_id.clone()))
                 .await?;
 
             // return the analysis
@@ -56,7 +56,7 @@ impl Analysis {
     #[instrument]
     pub async fn read<C: Connection>(
         db: &Surreal<C>,
-        id: AnalysisId,
+        id: &AnalysisId,
     ) -> StorageResult<Option<Self>> {
         Ok(db.select(id).await?)
     }
@@ -131,7 +131,7 @@ impl Analysis {
     #[instrument]
     pub async fn delete<C: Connection>(
         db: &Surreal<C>,
-        id: AnalysisId,
+        id: &AnalysisId,
     ) -> StorageResult<Option<Self>> {
         Ok(db.delete(id).await?)
     }
@@ -153,10 +153,7 @@ impl Analysis {
         id: AnalysisId,
         n: u32,
     ) -> StorageResult<Vec<Self>> {
-        let features = Self::read(db, id.clone())
-            .await?
-            .ok_or(Error::NotFound)?
-            .features;
+        let features = Self::read(db, &id).await?.ok_or(Error::NotFound)?.features;
 
         Ok(db
             .query(nearest_neighbors(n))
@@ -262,13 +259,13 @@ mod test {
         let analysis = analysis_zeroes();
 
         // create the analysis
-        let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
+        let result = Analysis::create(&db, &song.id, analysis.clone()).await?;
         assert_eq!(result, Some(analysis.clone()));
 
         // if we try to create another analysis for the same song, we get Ok(None)
         let analysis = analysis_ones();
 
-        let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
+        let result = Analysis::create(&db, &song.id, analysis.clone()).await?;
         assert_eq!(result, None);
 
         Ok(())
@@ -288,11 +285,11 @@ mod test {
         };
 
         // create the analysis
-        let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
+        let result = Analysis::create(&db, &song.id, analysis.clone()).await?;
         assert_eq!(result, Some(analysis.clone()));
 
         // read the analysis
-        let result = Analysis::read(&db, analysis.id.clone()).await?;
+        let result = Analysis::read(&db, &analysis.id).await?;
         assert_eq!(result, Some(analysis));
 
         Ok(())
@@ -308,7 +305,7 @@ mod test {
         let analysis = analysis_zeroes();
 
         // create the analysis
-        let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
+        let result = Analysis::create(&db, &song.id, analysis.clone()).await?;
         assert_eq!(result, Some(analysis.clone()));
 
         // read all the analyses
@@ -332,7 +329,7 @@ mod test {
         assert_eq!(result, None);
 
         // create the analysis
-        let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
+        let result = Analysis::create(&db, &song.id, analysis.clone()).await?;
         assert_eq!(result, Some(analysis.clone()));
 
         // read the analysis for the song
@@ -357,9 +354,9 @@ mod test {
         let analysis2 = analysis_ones();
 
         // create the analyses
-        let result = Analysis::create(&db, song1.id.clone(), analysis1.clone()).await?;
+        let result = Analysis::create(&db, &song1.id, analysis1.clone()).await?;
         assert_eq!(result, Some(analysis1.clone()));
-        let result = Analysis::create(&db, song2.id.clone(), analysis2.clone()).await?;
+        let result = Analysis::create(&db, &song2.id, analysis2.clone()).await?;
         assert_eq!(result, Some(analysis2.clone()));
 
         // read the analyses for the songs
@@ -383,7 +380,7 @@ mod test {
         let analysis = analysis_zeroes();
 
         // create the analysis
-        let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
+        let result = Analysis::create(&db, &song.id, analysis.clone()).await?;
         assert_eq!(result, Some(analysis.clone()));
 
         // read the song for the analysis
@@ -406,9 +403,9 @@ mod test {
         let analysis2 = analysis_ones();
 
         // create the analyses
-        let result = Analysis::create(&db, song1.id.clone(), analysis1.clone()).await?;
+        let result = Analysis::create(&db, &song1.id, analysis1.clone()).await?;
         assert_eq!(result, Some(analysis1.clone()));
-        let result = Analysis::create(&db, song2.id.clone(), analysis2.clone()).await?;
+        let result = Analysis::create(&db, &song2.id, analysis2.clone()).await?;
         assert_eq!(result, Some(analysis2.clone()));
 
         // read the songs for the analyses
@@ -464,7 +461,7 @@ mod test {
         let analysis2 = analysis_ones();
 
         // create the analysis
-        let result = Analysis::create(&db, song1.id.clone(), analysis1.clone()).await?;
+        let result = Analysis::create(&db, &song1.id, analysis1.clone()).await?;
         assert_eq!(result, Some(analysis1.clone()));
 
         // read the songs without an analysis
@@ -472,7 +469,7 @@ mod test {
         assert_eq!(result, vec![song2.clone()]);
 
         // create the analysis
-        let result = Analysis::create(&db, song2.id.clone(), analysis2.clone()).await?;
+        let result = Analysis::create(&db, &song2.id, analysis2.clone()).await?;
         assert_eq!(result, Some(analysis2.clone()));
 
         // read the songs without an analysis
@@ -492,15 +489,15 @@ mod test {
         let analysis = analysis_zeroes();
 
         // create the analysis
-        let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
+        let result = Analysis::create(&db, &song.id, analysis.clone()).await?;
         assert_eq!(result, Some(analysis.clone()));
 
         // delete the analysis
-        let result = Analysis::delete(&db, analysis.id.clone()).await?;
+        let result = Analysis::delete(&db, &analysis.id).await?;
         assert_eq!(result, Some(analysis.clone()));
 
         // if we try to read the analysis, we get None
-        let result = Analysis::read(&db, analysis.id.clone()).await?;
+        let result = Analysis::read(&db, &analysis.id).await?;
         assert_eq!(result, None);
 
         // if we try to read the analysis for the song, we get None
@@ -562,11 +559,11 @@ mod test {
         let analysis3 = analysis_ones();
 
         // create the analyses
-        let result1 = Analysis::create(&db, song1.id.clone(), analysis1.clone()).await?;
+        let result1 = Analysis::create(&db, &song1.id, analysis1.clone()).await?;
         assert_eq!(result1, Some(analysis1.clone()));
-        let result2 = Analysis::create(&db, song2.id.clone(), analysis2.clone()).await?;
+        let result2 = Analysis::create(&db, &song2.id, analysis2.clone()).await?;
         assert_eq!(result2, Some(analysis2.clone()));
-        let result3 = Analysis::create(&db, song3.id.clone(), analysis3.clone()).await?;
+        let result3 = Analysis::create(&db, &song3.id, analysis3.clone()).await?;
         assert_eq!(result3, Some(analysis3.clone()));
 
         // find the nearest neighbor to analysis1
@@ -598,13 +595,13 @@ mod test {
         let analysis4 = analysis_ones();
 
         // create the analyses
-        let result1 = Analysis::create(&db, song1.id.clone(), analysis1.clone()).await?;
+        let result1 = Analysis::create(&db, &song1.id, analysis1.clone()).await?;
         assert_eq!(result1, Some(analysis1.clone()));
-        let result2 = Analysis::create(&db, song2.id.clone(), analysis2.clone()).await?;
+        let result2 = Analysis::create(&db, &song2.id, analysis2.clone()).await?;
         assert_eq!(result2, Some(analysis2.clone()));
-        let result3 = Analysis::create(&db, song3.id.clone(), analysis3.clone()).await?;
+        let result3 = Analysis::create(&db, &song3.id, analysis3.clone()).await?;
         assert_eq!(result3, Some(analysis3.clone()));
-        let result4 = Analysis::create(&db, song4.id.clone(), analysis4.clone()).await?;
+        let result4 = Analysis::create(&db, &song4.id, analysis4.clone()).await?;
         assert_eq!(result4, Some(analysis4.clone()));
 
         // find the nearest neighbor to analysis1 and analysis2
@@ -679,19 +676,19 @@ mod test {
         let analysis = analysis_zeroes();
 
         // create the analysis
-        let result = Analysis::create(&db, song.id.clone(), analysis.clone()).await?;
+        let result = Analysis::create(&db, &song.id, analysis.clone()).await?;
         assert_eq!(result, Some(analysis.clone()));
 
         // delete the song
-        let result = Song::delete(&db, song.id.clone()).await?;
+        let result = Song::delete(&db, &song.id).await?;
         assert_eq!(result, Some(song.clone()));
 
         // if we try to read the song, we get None
-        let result = Song::read(&db, song.id.clone()).await?;
+        let result = Song::read(&db, &song.id).await?;
         assert_eq!(result, None);
 
         // if we try to read the analysis, we get None
-        let result = Analysis::read(&db, analysis.id.clone()).await?;
+        let result = Analysis::read(&db, &analysis.id).await?;
         assert_eq!(result, None);
 
         // if we try to read the analysis for the song, we get None

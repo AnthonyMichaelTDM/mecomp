@@ -220,7 +220,7 @@ impl MusicLibEventHandler {
                             info!("file removed: {:?}. removing from db", event.paths);
                             let song = Song::read_by_path(&self.db, path.clone()).await?;
                             if let Some(song) = song {
-                                Song::delete(&self.db, song.id).await?;
+                                Song::delete(&self.db, &song.id).await?;
                             }
                         }
                         _ => {
@@ -319,7 +319,7 @@ impl MusicLibEventHandler {
 
                         let changeset = new_metadata.merge_with_song(&song);
 
-                        Song::update(&self.db, song.id, changeset).await?;
+                        Song::update(&self.db, &song.id, changeset).await?;
                     }
                     _ => {
                         debug!("file data modified ({kind:?}): {:?}.  not a song, no action needed", event.paths);
@@ -339,7 +339,7 @@ impl MusicLibEventHandler {
                             // NOTE: if this fails, the song may just not've been added previously, may want to handle that in the future
                             let song = Song::read_by_path(&self.db, from_path.clone()).await?.ok_or(mecomp_storage::errors::Error::NotFound)?;
 
-                            Song::update(&self.db, song.id, SongChangeSet{
+                            Song::update(&self.db, &song.id, SongChangeSet{
                                 path: Some(to_path.clone()),
                                 ..Default::default()
                             }).await?;

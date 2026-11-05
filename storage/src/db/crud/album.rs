@@ -63,14 +63,14 @@ impl Album {
     }
 
     #[instrument()]
-    pub async fn read<C: Connection>(db: &Surreal<C>, id: AlbumId) -> StorageResult<Option<Self>> {
+    pub async fn read<C: Connection>(db: &Surreal<C>, id: &AlbumId) -> StorageResult<Option<Self>> {
         Ok(db.select(id).await?)
     }
 
     #[instrument]
     pub async fn delete<C: Connection>(
         db: &Surreal<C>,
-        id: AlbumId,
+        id: &AlbumId,
     ) -> StorageResult<Option<Self>> {
         Ok(db.delete(id).await?)
     }
@@ -119,7 +119,7 @@ impl Album {
     #[instrument()]
     pub async fn update<C: Connection>(
         db: &Surreal<C>,
-        id: AlbumId,
+        id: &AlbumId,
         changes: AlbumChangeSet,
     ) -> StorageResult<Option<Self>> {
         Ok(db.update(id).merge(changes).await?)
@@ -350,7 +350,7 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create album"))?;
 
-        let read = Album::read(&db, album.id.clone())
+        let read = Album::read(&db, &album.id)
             .await?
             .ok_or_else(|| anyhow!("Failed to read album"))?;
         assert_eq!(album, read);
@@ -372,8 +372,8 @@ mod tests {
             ..Default::default()
         };
 
-        let updated = Album::update(&db, album.id.clone(), changes).await?;
-        let read = Album::read(&db, album.id.clone())
+        let updated = Album::update(&db, &album.id, changes).await?;
+        let read = Album::read(&db, &album.id)
             .await?
             .ok_or_else(|| anyhow!("Failed to read album"))?;
 
@@ -391,8 +391,8 @@ mod tests {
             .await?
             .ok_or_else(|| anyhow!("Failed to create album"))?;
 
-        let deleted = Album::delete(&db, album.id.clone()).await?;
-        let read = Album::read(&db, album.id.clone()).await?;
+        let deleted = Album::delete(&db, &album.id).await?;
+        let read = Album::read(&db, &album.id).await?;
 
         assert_eq!(Some(album), deleted);
         assert_eq!(read, None);
@@ -588,7 +588,7 @@ mod tests {
         for ((title, artist), album_id) in result {
             assert!(title == "1" || title == "2" || title == "3");
             assert_eq!(artist, OneOrMany::One(Box::new(title.clone())).into());
-            let read = Album::read(&db, album_id.clone()).await?;
+            let read = Album::read(&db, &album_id).await?;
             assert!(read.is_some());
             let read = Album::read_artist(&db, album_id).await?;
             assert!(read.is_one());
@@ -650,7 +650,7 @@ mod tests {
 
         Album::add_song(&db, album.id.clone(), song.id.clone()).await?;
 
-        let read = Album::read(&db, album.id.clone())
+        let read = Album::read(&db, &album.id)
             .await?
             .ok_or_else(|| anyhow!("Failed to read album"))?;
         assert_eq!(read.song_count, 1);
@@ -755,7 +755,7 @@ mod tests {
             .ok_or_else(|| anyhow!("Failed to create album"))?;
 
         Artist::add_album(&db, artist.id.clone(), album.id.clone()).await?;
-        let artist = Artist::read(&db, artist.id.clone())
+        let artist = Artist::read(&db, &artist.id)
             .await?
             .ok_or_else(|| anyhow!("Failed to read artist"))?;
 

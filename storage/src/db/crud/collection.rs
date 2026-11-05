@@ -50,7 +50,7 @@ impl Collection {
     #[instrument]
     pub async fn read<C: Connection>(
         db: &Surreal<C>,
-        id: CollectionId,
+        id: &CollectionId,
     ) -> StorageResult<Option<Self>> {
         Ok(db.select(id).await?)
     }
@@ -58,7 +58,7 @@ impl Collection {
     #[instrument]
     pub async fn update<C: Connection>(
         db: &Surreal<C>,
-        id: CollectionId,
+        id: &CollectionId,
         changes: CollectionChangeSet,
     ) -> StorageResult<Option<Self>> {
         Ok(db.update(id).merge(changes).await?)
@@ -67,7 +67,7 @@ impl Collection {
     #[instrument]
     pub async fn delete<C: Connection>(
         db: &Surreal<C>,
-        id: CollectionId,
+        id: &CollectionId,
     ) -> StorageResult<Option<Self>> {
         // first remove all the songs from the collection
         let songs = Self::read_songs(db, id.clone())
@@ -160,7 +160,7 @@ impl Collection {
         Playlist::add_songs(db, playlist.id.clone(), song_ids).await?;
 
         // get the playlist
-        let playlist = Playlist::read(db, playlist.id)
+        let playlist = Playlist::read(db, &playlist.id)
             .await?
             .ok_or(Error::NotFound)?;
 
@@ -219,7 +219,7 @@ mod tests {
         let db = init_test_database().await?;
         let collection = create_collection();
         Collection::create(&db, collection.clone()).await?;
-        let result = Collection::read(&db, collection.id.clone()).await?;
+        let result = Collection::read(&db, &collection.id).await?;
         assert_eq!(result, Some(collection));
         Ok(())
     }
@@ -233,8 +233,8 @@ mod tests {
             name: Some("Updated Name".into()),
         };
 
-        let updated = Collection::update(&db, collection.id.clone(), changes).await?;
-        let read = Collection::read(&db, collection.id.clone())
+        let updated = Collection::update(&db, &collection.id, changes).await?;
+        let read = Collection::read(&db, &collection.id)
             .await?
             .ok_or_else(|| anyhow!("Collection not found"))?;
 
@@ -248,9 +248,9 @@ mod tests {
         let db = init_test_database().await?;
         let collection = create_collection();
         Collection::create(&db, collection.clone()).await?;
-        let result = Collection::delete(&db, collection.id.clone()).await?;
+        let result = Collection::delete(&db, &collection.id).await?;
         assert_eq!(result, Some(collection.clone()));
-        let result = Collection::read(&db, collection.id).await?;
+        let result = Collection::read(&db, &collection.id).await?;
         assert_eq!(result, None);
         Ok(())
     }
@@ -268,7 +268,7 @@ mod tests {
         let result = Collection::read_songs(&db, collection.id.clone()).await?;
         assert_eq!(result, vec![song.clone()]);
 
-        let read = Collection::read(&db, collection.id.clone())
+        let read = Collection::read(&db, &collection.id)
             .await?
             .ok_or_else(|| anyhow!("Collection not found"))?;
         assert_eq!(read.song_count, 1);
@@ -293,7 +293,7 @@ mod tests {
         let result = Collection::read_songs(&db, collection.id.clone()).await?;
         assert_eq!(result, vec![]);
 
-        let read = Collection::read(&db, collection.id.clone())
+        let read = Collection::read(&db, &collection.id)
             .await?
             .ok_or_else(|| anyhow!("Collection not found"))?;
         assert_eq!(read.song_count, 0);

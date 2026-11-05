@@ -192,12 +192,8 @@ async fn db_with_state() -> Arc<Surreal> {
     // insert the items into the database
     Song::create(&db, song).await.unwrap();
     Song::create(&db, song2).await.unwrap();
-    Analysis::create(&db, song_id1.clone(), analysis1)
-        .await
-        .unwrap();
-    Analysis::create(&db, song_id2.clone(), analysis2)
-        .await
-        .unwrap();
+    Analysis::create(&db, &song_id1, analysis1).await.unwrap();
+    Analysis::create(&db, &song_id2, analysis2).await.unwrap();
     Artist::create(&db, artist).await.unwrap();
     Album::create(&db, album).await.unwrap();
     Collection::create(&db, collection).await.unwrap();
