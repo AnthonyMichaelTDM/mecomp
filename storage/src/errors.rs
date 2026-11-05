@@ -17,7 +17,13 @@ pub enum Error {
     SongIOError(#[from] SongIOError),
     #[error("Item not created.")]
     NotCreated,
+    #[error(transparent)]
+    InvalidId(#[from] InvalidId),
 }
+
+#[derive(Error, Debug, PartialEq, Eq)]
+#[error("Invalid ID")]
+pub struct InvalidId;
 
 #[cfg(feature = "db")]
 impl From<surrealdb::Error> for Error {

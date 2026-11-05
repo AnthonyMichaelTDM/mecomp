@@ -28,5 +28,5 @@ pub fn init() {
 #[must_use]
 pub fn generate_song_id() -> mecomp_prost::RecordId {
     let id = mecomp_storage::db::schemas::song::Song::generate_id();
-    mecomp_prost::RecordId::from((id.table(), id.key().to_string()))
+    mecomp_prost::RecordId::from(id)
 }

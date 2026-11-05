@@ -122,7 +122,7 @@ mod tests {
 
     fn generate_song_id() -> RecordId {
         let id = mecomp_storage::db::schemas::song::Song::generate_id();
-        RecordId::from((id.table(), id.key().to_string()))
+        RecordId::from(id)
     }
 
     #[rstest]

@@ -1,6 +1,8 @@
 #![allow(clippy::module_name_repetitions)]
 use std::str::FromStr;
 
+use crate::errors::InvalidId;
+
 pub mod album;
 #[cfg(feature = "analysis")]
 pub mod analysis;
@@ -131,7 +133,7 @@ impl RecordId {
 }
 
 impl FromStr for RecordId {
-    type Err = ();
+    type Err = InvalidId;
 
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -162,7 +164,7 @@ impl FromStr for RecordId {
                 id,
             })
         } else {
-            Err(())
+            Err(InvalidId)
         }
     }
 }
@@ -197,7 +199,7 @@ impl std::fmt::Display for Id {
 }
 
 impl FromStr for Id {
-    type Err = ();
+    type Err = InvalidId;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.chars()
@@ -206,7 +208,7 @@ impl FromStr for Id {
         {
             Ok(Self::String(s.to_owned()))
         } else {
-            Err(())
+            Err(InvalidId)
         }
     }
 }
@@ -257,6 +259,8 @@ impl<R> surrealdb::opt::CreateResource<Option<R>> for &RecordId {
 #[cfg(test)]
 mod thing {
     //! tests to ensure that the `RecordId` type is serialized and deserialized just like the `surrealdb` `RecordId` type.
+    use crate::errors::InvalidId;
+
     use super::*;
 
     #[test]
@@ -313,30 +317,31 @@ mod thing {
         assert_eq!(thing, RecordId::from(("song", id.clone())));
 
         // id too short
-        let thing: Result<RecordId, ()> = "song:42".parse();
-        assert!(thing.is_err());
-        let thing: Result<RecordId, ()> = "song:42:extra text:".parse();
-        assert!(thing.is_err());
+        let thing: Result<RecordId, InvalidId> = "song:42".parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
+        let thing: Result<RecordId, InvalidId> = "song:42:extra text:".parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
 
         // id too long
-        let thing: Result<RecordId, ()> = format!("song:{}", "a".repeat(27)).parse();
-        assert!(thing.is_err());
-        let thing: Result<RecordId, ()> = format!("song:{}: extra text", "a".repeat(27)).parse();
-        assert!(thing.is_err());
+        let thing: Result<RecordId, InvalidId> = format!("song:{}", "a".repeat(27)).parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
+        let thing: Result<RecordId, InvalidId> =
+            format!("song:{}: extra text", "a".repeat(27)).parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
 
         // extra text without colon
-        let thing: Result<RecordId, ()> = format!("song:{id} extra text").parse();
-        assert!(thing.is_err());
+        let thing: Result<RecordId, InvalidId> = format!("song:{id} extra text").parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
 
         // invalid table name
-        let thing: Result<RecordId, ()> = format!("table:{id}").parse();
-        assert!(thing.is_err());
-        let thing: Result<RecordId, ()> = format!("table:{id}: extra text").parse();
-        assert!(thing.is_err());
+        let thing: Result<RecordId, InvalidId> = format!("table:{id}").parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
+        let thing: Result<RecordId, InvalidId> = format!("table:{id}: extra text").parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
 
         // text is not a id at all
-        let thing: Result<RecordId, ()> = "hello world!".parse();
-        assert!(thing.is_err());
+        let thing: Result<RecordId, InvalidId> = "hello world!".parse();
+        assert_eq!(thing.unwrap_err(), InvalidId);
     }
 }
 

@@ -106,7 +106,8 @@ async fn handle_action(
             let playlist = daemon
                 .playlist_get_or_create(PlaylistName::new(name))
                 .await?
-                .into_inner();
+                .into_inner()
+                .ulid();
             daemon
                 .playlist_add_list(PlaylistAddListRequest::new(playlist, things))
                 .await?

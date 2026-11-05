@@ -111,9 +111,9 @@ pub enum LibraryAction {
     /// Rename a playlist by id
     RenamePlaylist(Ulid, String),
     /// Remove a song from a playlist (`PlaylistId`, Vec<`SongId`>)
-    RemoveSongsFromPlaylist(Ulid, Vec<RecordId>),
+    RemoveSongsFromPlaylist(Ulid, Vec<Ulid>),
     /// Add a list of things to a playlist (`PlaylistId`, Vec<`SongId`>)
-    AddThingsToPlaylist(RecordId, Vec<RecordId>),
+    AddThingsToPlaylist(Ulid, Vec<RecordId>),
     /// Create a new playlist with the given name (if it doesn't exist) and add the songs to it
     /// (`PlaylistName`, Vec<`SongId`>)
     CreatePlaylistAndAddThings(String, Vec<RecordId>),

@@ -180,7 +180,7 @@ impl Popup for PlaylistSelector {
                         // add the items to the selected playlist
                         self.action_tx
                             .send(Action::Library(LibraryAction::AddThingsToPlaylist(
-                                thing,
+                                thing.ulid(),
                                 self.items.clone(),
                             )))
                             .unwrap();

@@ -3,6 +3,8 @@
 use core::fmt;
 use std::str::FromStr;
 
+use mecomp_storage::errors::InvalidId;
+
 impl crate::SearchResult {
     #[must_use]
     pub const fn len(&self) -> usize {
@@ -49,18 +51,17 @@ impl crate::RecordId {
     }
 }
 
-impl<S, U> From<(S, U)> for crate::RecordId
+impl<S> From<(S, crate::Ulid)> for crate::RecordId
 where
     S: ToString,
-    U: Into<crate::Ulid>,
 {
-    fn from((tb, id): (S, U)) -> Self {
-        Self::new(tb, id.into())
+    fn from((tb, id): (S, crate::Ulid)) -> Self {
+        Self::new(tb, id)
     }
 }
 
 impl FromStr for crate::RecordId {
-    type Err = ();
+    type Err = InvalidId;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         mecomp_storage::db::schemas::RecordId::from_str(s).map(Into::into)
@@ -83,6 +84,21 @@ impl crate::Ulid {
 impl fmt::Display for crate::Ulid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.id.fmt(f)
+    }
+}
+
+impl FromStr for crate::Ulid {
+    type Err = InvalidId;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+            && s.len() == 26
+        {
+            Ok(Self::new(s.to_owned()))
+        } else {
+            Err(InvalidId)
+        }
     }
 }
 
@@ -136,9 +152,9 @@ impl crate::PlaybackVolumeAdjustRequest {
 
 impl crate::PlaylistAddRequest {
     #[must_use]
-    pub fn new(playlist_id: impl Into<crate::Ulid>, record_id: crate::RecordId) -> Self {
+    pub const fn new(playlist_id: crate::Ulid, record_id: crate::RecordId) -> Self {
         Self {
-            playlist_id: playlist_id.into(),
+            playlist_id,
             record_id,
         }
     }
@@ -146,9 +162,9 @@ impl crate::PlaylistAddRequest {
 
 impl crate::PlaylistAddListRequest {
     #[must_use]
-    pub fn new(playlist_id: impl Into<crate::Ulid>, record_ids: Vec<crate::RecordId>) -> Self {
+    pub const fn new(playlist_id: crate::Ulid, record_ids: Vec<crate::RecordId>) -> Self {
         Self {
-            playlist_id: playlist_id.into(),
+            playlist_id,
             record_ids,
         }
     }
@@ -156,9 +172,9 @@ impl crate::PlaylistAddListRequest {
 
 impl crate::PlaylistRenameRequest {
     #[must_use]
-    pub fn new(playlist_id: impl Into<crate::Ulid>, new_name: impl Into<String>) -> Self {
+    pub fn new(playlist_id: crate::Ulid, new_name: impl Into<String>) -> Self {
         Self {
-            playlist_id: playlist_id.into(),
+            playlist_id,
             name: new_name.into(),
         }
     }
@@ -166,10 +182,10 @@ impl crate::PlaylistRenameRequest {
 
 impl crate::PlaylistRemoveSongsRequest {
     #[must_use]
-    pub fn new(playlist_id: impl Into<crate::Ulid>, song_ids: Vec<impl Into<crate::Ulid>>) -> Self {
+    pub const fn new(playlist_id: crate::Ulid, song_ids: Vec<crate::Ulid>) -> Self {
         Self {
-            playlist_id: playlist_id.into(),
-            song_ids: song_ids.into_iter().map(Into::into).collect(),
+            playlist_id,
+            song_ids,
         }
     }
 }
@@ -201,11 +217,8 @@ impl crate::DynamicPlaylistCreateRequest {
 
 impl crate::DynamicPlaylistUpdateRequest {
     #[must_use]
-    pub fn new(id: impl Into<crate::Ulid>, changes: crate::DynamicPlaylistChangeSet) -> Self {
-        Self {
-            id: id.into(),
-            changes,
-        }
+    pub const fn new(id: crate::Ulid, changes: crate::DynamicPlaylistChangeSet) -> Self {
+        Self { id, changes }
     }
 }
 
@@ -239,9 +252,9 @@ impl crate::RadioSimilarRequest {
 }
 
 impl crate::CollectionFreezeRequest {
-    pub fn new(id: impl ToString, name: impl Into<String>) -> Self {
+    pub fn new(id: crate::Ulid, name: impl Into<String>) -> Self {
         Self {
-            id: crate::Ulid::new(id),
+            id,
             name: name.into(),
         }
     }

@@ -321,7 +321,7 @@ impl CommandHandler for LibraryCommand {
                 match command {
                     LibraryGetCommand::Artist { id } => {
                         let resp = client
-                            .library_artist_get(Ulid::new(id))
+                            .library_artist_get(id.clone())
                             .await?
                             .into_inner()
                             .artist;
@@ -329,23 +329,19 @@ impl CommandHandler for LibraryCommand {
                     }
                     LibraryGetCommand::Album { id } => {
                         let resp = client
-                            .library_album_get(Ulid::new(id))
+                            .library_album_get(id.clone())
                             .await?
                             .into_inner()
                             .album;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
                     LibraryGetCommand::Song { id } => {
-                        let resp = client
-                            .library_song_get(Ulid::new(id))
-                            .await?
-                            .into_inner()
-                            .song;
+                        let resp = client.library_song_get(id.clone()).await?.into_inner().song;
                         writeln!(stdout, "Daemon response:\n{resp:#?}")?;
                     }
                     LibraryGetCommand::Playlist { id } => {
                         let resp = client
-                            .library_playlist_get(Ulid::new(id))
+                            .library_playlist_get(id.clone())
                             .await?
                             .into_inner()
                             .playlist;
@@ -353,7 +349,7 @@ impl CommandHandler for LibraryCommand {
                     }
                     LibraryGetCommand::Dynamic { id } => {
                         let resp = client
-                            .library_dynamic_playlist_get(Ulid::new(id))
+                            .library_dynamic_playlist_get(id.clone())
                             .await?
                             .into_inner()
                             .playlist;
@@ -361,7 +357,7 @@ impl CommandHandler for LibraryCommand {
                     }
                     LibraryGetCommand::Collection { id } => {
                         let resp = client
-                            .library_collection_get(Ulid::new(id))
+                            .library_collection_get(id.clone())
                             .await?
                             .into_inner()
                             .collection;
@@ -645,15 +641,7 @@ impl CommandHandler for QueueCommand {
                 }
             }
             Self::Add { items } => {
-                let Ok(ids) = items
-                    .iter()
-                    .map(|id| id.parse())
-                    .collect::<Result<Vec<RecordId>, _>>()
-                else {
-                    bail!("One or more provided IDs are invalid");
-                };
-
-                let list = utils::extend_from_stdin(ids, stdin, stderr)?;
+                let list = utils::extend_from_stdin(items.clone(), stdin, stderr)?;
 
                 client.queue_add_list(RecordIdList { ids: list }).await?;
                 writeln!(stdout, "Daemon response:\nitems added to queue")?;
@@ -703,7 +691,7 @@ impl CommandHandler for super::PlaylistCommand {
                 let resp = match method {
                     PlaylistGetMethod::Id => {
                         client
-                            .library_playlist_get(Ulid::new(target))
+                            .library_playlist_get(target.parse::<Ulid>()?)
                             .await?
                             .into_inner()
                             .playlist
@@ -730,7 +718,7 @@ impl CommandHandler for super::PlaylistCommand {
             }
             Self::Update { id, name } => {
                 match client
-                    .playlist_rename(PlaylistRenameRequest::new(id, name))
+                    .playlist_rename(PlaylistRenameRequest::new(id.clone(), name))
                     .await
                     .map(Response::into_inner)
                 {
@@ -750,7 +738,7 @@ impl CommandHandler for super::PlaylistCommand {
             }
             Self::Songs { id } => {
                 match client
-                    .library_playlist_get_songs(Ulid::new(id))
+                    .library_playlist_get_songs(id.clone())
                     .await
                     .map(|r| r.into_inner().songs)
                 {
@@ -770,7 +758,7 @@ impl CommandHandler for super::PlaylistCommand {
             }
 
             Self::Delete { id } => {
-                client.playlist_remove(Ulid::new(id)).await?;
+                client.playlist_remove(id.clone()).await?;
                 writeln!(stdout, "Daemon response:\nplaylist deleted")?;
                 Ok(())
             }
@@ -778,8 +766,8 @@ impl CommandHandler for super::PlaylistCommand {
             Self::Remove { id, item_ids } => {
                 client
                     .playlist_remove_songs(PlaylistRemoveSongsRequest {
-                        playlist_id: Ulid::new(id),
-                        song_ids: item_ids.iter().map(Ulid::new).collect(),
+                        playlist_id: id.clone(),
+                        song_ids: item_ids.clone(),
                     })
                     .await?;
                 writeln!(stdout, "Daemon response:\nsongs removed from playlist")?;
@@ -804,7 +792,7 @@ impl CommandHandler for super::PlaylistCommand {
 
                 client
                     .playlist_export(PlaylistExportRequest {
-                        playlist_id: Ulid::new(id),
+                        playlist_id: id.clone(),
                         path: format!("{}", path.display()),
                     })
                     .await?;
@@ -850,16 +838,7 @@ impl CommandHandler for super::PlaylistAddCommand {
         stderr: &mut W2,
         stdin: &R,
     ) -> Self::Output {
-        let Ok(ids) = self
-            .items
-            .iter()
-            .map(|id| id.parse())
-            .collect::<Result<Vec<RecordId>, _>>()
-        else {
-            bail!("One or more provided IDs are invalid");
-        };
-
-        let list = utils::extend_from_stdin(ids, stdin, stderr)?;
+        let list = utils::extend_from_stdin(self.items.clone(), stdin, stderr)?;
 
         client
             .playlist_add_list(PlaylistAddListRequest::new(self.id.clone(), list))
@@ -924,7 +903,7 @@ impl CommandHandler for super::DynamicCommand {
             }
             Self::Get { id } => {
                 let resp: Option<DynamicPlaylist> = client
-                    .library_dynamic_playlist_get(Ulid::new(id))
+                    .library_dynamic_playlist_get(id.clone())
                     .await?
                     .into_inner()
                     .playlist;
@@ -932,7 +911,7 @@ impl CommandHandler for super::DynamicCommand {
             }
             Self::Songs { id } => {
                 match client
-                    .library_dynamic_playlist_get_songs(Ulid::new(id))
+                    .library_dynamic_playlist_get_songs(id.clone())
                     .await
                     .map(|r| r.into_inner().songs)
                 {
@@ -960,7 +939,7 @@ impl CommandHandler for super::DynamicCommand {
                 writeln!(stdout, "Daemon response:\n{resp:#?}")?;
             }
             Self::Delete { id } => {
-                client.dynamic_playlist_remove(Ulid::new(id)).await?;
+                client.dynamic_playlist_remove(id.clone()).await?;
                 writeln!(stdout, "Daemon response:\nDynamic playlist deleted")?;
             }
             Self::Update { id, update } => {
@@ -973,7 +952,7 @@ impl CommandHandler for super::DynamicCommand {
                 }
 
                 if let Ok(resp) = client
-                    .dynamic_playlist_update(DynamicPlaylistUpdateRequest::new(id, changes))
+                    .dynamic_playlist_update(DynamicPlaylistUpdateRequest::new(id.clone(), changes))
                     .await
                     .map(Response::into_inner)
                 {
@@ -1058,7 +1037,7 @@ impl CommandHandler for super::CollectionCommand {
             }
             Self::Get { id } => {
                 let resp = client
-                    .library_collection_get(Ulid::new(id))
+                    .library_collection_get(id.clone())
                     .await?
                     .into_inner()
                     .collection;
@@ -1066,7 +1045,7 @@ impl CommandHandler for super::CollectionCommand {
             }
             Self::Songs { id } => {
                 match client
-                    .library_collection_get_songs(Ulid::new(id))
+                    .library_collection_get_songs(id.clone())
                     .await
                     .map(|r| r.into_inner().songs)
                 {
@@ -1093,7 +1072,7 @@ impl CommandHandler for super::CollectionCommand {
             }
             Self::Freeze { id, name } => {
                 let resp: RecordId = client
-                    .collection_freeze(CollectionFreezeRequest::new(id, name))
+                    .collection_freeze(CollectionFreezeRequest::new(id.clone(), name))
                     .await?
                     .into_inner();
                 writeln!(stdout, "Daemon response:\n{resp}")?;
@@ -1113,16 +1092,7 @@ impl CommandHandler for super::RadioCommand {
         stderr: &mut W2,
         stdin: &R,
     ) -> Self::Output {
-        let Ok(ids) = self
-            .items
-            .iter()
-            .map(|id| id.parse())
-            .collect::<Result<Vec<RecordId>, _>>()
-        else {
-            bail!("One or more provided IDs are invalid");
-        };
-
-        let list = utils::extend_from_stdin(ids, stdin, stderr)?;
+        let list = utils::extend_from_stdin(self.items.clone(), stdin, stderr)?;
 
         let resp = client
             .radio_get_similar_ids(RadioSimilarRequest::new(list, self.n))

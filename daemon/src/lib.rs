@@ -651,7 +651,7 @@ mod tests {
             .into_inner();
 
         client
-            .playlist_add(PlaylistAddRequest::new(playlist_id.id.clone(), song_id))
+            .playlist_add(PlaylistAddRequest::new(playlist_id.ulid(), song_id))
             .await?;
 
         let songs = client
@@ -911,7 +911,7 @@ mod tests {
         let target = library_full.playlists.first().unwrap();
 
         let response = client
-            .playlist_rename(PlaylistRenameRequest::new(target.id.id.clone(), "New Name"))
+            .playlist_rename(PlaylistRenameRequest::new(target.id.ulid(), "New Name"))
             .await
             .unwrap()
             .into_inner();
@@ -1016,7 +1016,7 @@ mod tests {
 
         let response = client
             .dynamic_playlist_update(DynamicPlaylistUpdateRequest::new(
-                dynamic_playlist_id.id.clone(),
+                dynamic_playlist_id.ulid(),
                 DynamicPlaylistChangeSet::new().name("Dynamic Playlist 1"),
             ))
             .await?
