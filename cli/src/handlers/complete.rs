@@ -61,7 +61,7 @@ pub fn thing_completer(current: &OsStr) -> Vec<CompletionCandidate> {
         // No colon found, suggest table names
         get_tables()
             .into_iter()
-            .map(|(name, help)| CompletionCandidate::new(format!("{name}:...")).help(Some(help)))
+            .map(|(name, help)| CompletionCandidate::new(format!("{name}:")).help(Some(help)))
             .collect()
     }
 }
@@ -73,24 +73,22 @@ pub fn thing_candidates(table: CompletableTable) -> impl Fn() -> Vec<CompletionC
     move || {
         // needs to be a multi-threaded runtime or else it will hang when trying to connect
         // to the daemon
-        let rt = tokio::runtime::Builder::new_multi_thread()
+        let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("Failed to create Tokio runtime");
 
         let g = rt.enter();
 
-        let handle = tokio::runtime::Handle::current();
-
         let mut client: MusicPlayerClient = mecomp_prost::lazy_init_client(6600);
 
         let candidates = match table {
-            CompletableTable::Song => get_song_candidates(&handle, &mut client),
-            CompletableTable::Album => get_album_candidates(&handle, &mut client),
-            CompletableTable::Artist => get_artist_candidates(&handle, &mut client),
-            CompletableTable::Playlist => get_playlist_candidates(&handle, &mut client),
-            CompletableTable::Dynamic => get_dynamic_playlist_candidates(&handle, &mut client),
-            CompletableTable::Collection => get_collection_candidates(&handle, &mut client),
+            CompletableTable::Song => rt.block_on(get_song_candidates(&mut client)),
+            CompletableTable::Album => rt.block_on(get_album_candidates(&mut client)),
+            CompletableTable::Artist => rt.block_on(get_artist_candidates(&mut client)),
+            CompletableTable::Playlist => rt.block_on(get_playlist_candidates(&mut client)),
+            CompletableTable::Dynamic => rt.block_on(get_dynamic_playlist_candidates(&mut client)),
+            CompletableTable::Collection => rt.block_on(get_collection_candidates(&mut client)),
         };
         drop(g); // Exit the Tokio runtime context
 
@@ -115,11 +113,8 @@ fn get_tables() -> Vec<(String, StyledStr)> {
     ]
 }
 
-fn get_song_candidates(
-    rt: &tokio::runtime::Handle,
-    client: &mut MusicPlayerClient,
-) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.library_songs(()));
+async fn get_song_candidates(client: &mut MusicPlayerClient) -> Vec<(String, StyledStr)> {
+    let response = client.library_songs(()).await;
     if let Err(e) = response {
         eprintln!("Failed to fetch songs: {e}");
         return vec![];
@@ -140,11 +135,8 @@ fn get_song_candidates(
         .collect()
 }
 
-fn get_album_candidates(
-    rt: &tokio::runtime::Handle,
-    client: &mut MusicPlayerClient,
-) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.library_albums(()));
+async fn get_album_candidates(client: &mut MusicPlayerClient) -> Vec<(String, StyledStr)> {
+    let response = client.library_albums(()).await;
     if let Err(e) = response {
         eprintln!("Failed to fetch albums: {e}");
         return vec![];
@@ -162,11 +154,8 @@ fn get_album_candidates(
         .collect()
 }
 
-fn get_artist_candidates(
-    rt: &tokio::runtime::Handle,
-    client: &mut MusicPlayerClient,
-) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.library_artists(()));
+async fn get_artist_candidates(client: &mut MusicPlayerClient) -> Vec<(String, StyledStr)> {
+    let response = client.library_artists(()).await;
     if let Err(e) = response {
         eprintln!("Failed to fetch artists: {e}");
         return vec![];
@@ -184,11 +173,8 @@ fn get_artist_candidates(
         .collect()
 }
 
-fn get_playlist_candidates(
-    rt: &tokio::runtime::Handle,
-    client: &mut MusicPlayerClient,
-) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.library_playlists(()));
+async fn get_playlist_candidates(client: &mut MusicPlayerClient) -> Vec<(String, StyledStr)> {
+    let response = client.library_playlists(()).await;
     if let Err(e) = response {
         eprintln!("Failed to fetch playlists: {e}");
         return vec![];
@@ -206,11 +192,10 @@ fn get_playlist_candidates(
         .collect()
 }
 
-fn get_dynamic_playlist_candidates(
-    rt: &tokio::runtime::Handle,
+async fn get_dynamic_playlist_candidates(
     client: &mut MusicPlayerClient,
 ) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.library_dynamic_playlists(()));
+    let response = client.library_dynamic_playlists(()).await;
     if let Err(e) = response {
         eprintln!("Failed to fetch dynamic playlists: {e}");
         return vec![];
@@ -228,11 +213,8 @@ fn get_dynamic_playlist_candidates(
         .collect()
 }
 
-fn get_collection_candidates(
-    rt: &tokio::runtime::Handle,
-    client: &mut MusicPlayerClient,
-) -> Vec<(String, StyledStr)> {
-    let response = rt.block_on(client.library_collections(()));
+async fn get_collection_candidates(client: &mut MusicPlayerClient) -> Vec<(String, StyledStr)> {
+    let response = client.library_collections(()).await;
     if let Err(e) = response {
         eprintln!("Failed to fetch collections: {e}");
         return vec![];
