@@ -68,6 +68,7 @@ where
 /// Implement a version of the `surrealdb` `RecordId` type that we can use when the `db` feature is not enabled.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename = "$surrealdb::private::sql::Thing"))]
 pub struct RecordId {
     /// Table name
     pub tb: String,
@@ -199,10 +200,7 @@ impl FromStr for Id {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.chars().all(|c| c.is_ascii_digit()) {
-            s.parse::<i64>().map(Self::Number).map_err(|_| ())
-        } else if s
-            .chars()
+        if s.chars()
             .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
             && s.len() == 26
         {
