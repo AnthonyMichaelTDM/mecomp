@@ -539,6 +539,31 @@ mod tests {
     }
 
     #[test]
+    fn group_header_space_opens_kind_overlay() {
+        let mut state = QueryBuilderState::default();
+        // Convert to group
+        state.add_leaf_at(&[]);
+
+        // Move cursor to group header (index 0)
+        state.cursor.flat_index = 0;
+
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Char(' '),
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
+
+        assert!(matches!(
+            result,
+            Some(Action::Overlay(OverlayAction::Open(_)))
+        ));
+    }
+
+    #[test]
     fn group_header_enter_opens_kind_overlay() {
         let mut state = QueryBuilderState::default();
         // Convert to group

@@ -95,7 +95,7 @@ impl Popup for DynamicPlaylistEditor {
     }
 
     fn instructions(&self) -> Line<'static> {
-        Line::from(" \u{23CE} : Save | Esc : Cancel ")
+        Line::from(" ctrl+\u{23CE} : Save | Esc : Cancel ")
     }
 
     fn area(&self, terminal_area: Rect) -> Rect {
