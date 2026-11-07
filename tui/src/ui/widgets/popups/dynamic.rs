@@ -95,7 +95,7 @@ impl Popup for DynamicPlaylistEditor {
     }
 
     fn instructions(&self) -> Line<'static> {
-        Line::from(" ctrl+\u{23CE} : Save | Esc : Cancel ")
+        Line::from(" \u{2303}\u{23CE} : Save | Esc : Cancel ")
     }
 
     fn area(&self, terminal_area: Rect) -> Rect {
@@ -318,11 +318,14 @@ mod tests {
         editor.inner_handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::CONTROL));
 
         let action = action_rx.try_recv().expect("expected first action");
-        assert!(matches!(action, Action::Library(_)));
+        assert!(matches!(
+            action,
+            Action::Library(LibraryAction::CreateDynamicPlaylist(_, _))
+        ));
         let action = action_rx.try_recv().expect("expected overlay action");
-        assert!(matches!(action, Action::Overlay(_)));
+        assert!(matches!(action, Action::Overlay(OverlayAction::Close)));
         let action = action_rx.try_recv().expect("expected popup action");
-        assert!(matches!(action, Action::Popup(_)));
+        assert!(matches!(action, Action::Popup(PopupAction::Close)));
     }
 
     #[test]
@@ -430,11 +433,11 @@ mod tests {
     }
 
     #[rstest]
-    #[ignore = "TODO: update expected buffer for new query builder rendering"]
     fn test_render(playlist: DynamicPlaylist) {
-        let (mut terminal, _) = setup_test_terminal(30, 8);
+        let (mut terminal, _) = setup_test_terminal(66, 8);
         let (tx, _) = tokio::sync::mpsc::unbounded_channel();
         let mut editor = DynamicPlaylistEditor::new_editor(tx, playlist);
+        editor.query_builder.state.mode = BuilderMode::RawText;
         let buffer = terminal
             .draw(|frame| editor.render_popup(frame))
             .unwrap()
@@ -442,14 +445,14 @@ mod tests {
             .clone();
 
         let expected = Buffer::with_lines([
-            "┌Edit Dynamic Playlist───────┐",
-            "│┌Enter Name:───────────────┐│",
-            "││Test                      ││",
-            "│└──────────────────────────┘│",
-            "│┌Enter Query:──────────────┐│",
-            "││title = \"foo \"            ││",
-            "│└──────────────────────────┘│",
-            "└ ⏎ : Save | Esc : Cancel ───┘",
+            "                 ┌Edit Dynamic Playlist──────────┐                ",
+            "                 │┌Enter Name:──────────────────┐│                ",
+            "                 ││Test                         ││                ",
+            "                 │└─────────────────────────────┘│                ",
+            "                 │┌Query Builder  Raw(Shift+Tab:┐│                ",
+            "                 ││title = \"foo \"               ││                ",
+            "                 │└Enter Query──────────────────┘│                ",
+            "                 └ ⌃⏎ : Save | Esc : Cancel ─────┘                ",
         ]);
 
         assert_buffer_eq(&buffer, &expected);
