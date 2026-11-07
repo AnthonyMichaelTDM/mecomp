@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{
     Frame,
-    layout::{Constraint, Rect},
+    layout::{Constraint, Position, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, List, ListItem, ListState},
@@ -48,7 +48,7 @@ impl DropdownOverlay {
         let last = self.options.len().saturating_sub(1);
         self.selected_index = (self.selected_index + 1).min(last);
 
-        let visible_rows = usize::from(self.size.height.max(1));
+        let visible_rows = usize::from(self.size.height.saturating_sub(2).max(1)); // -2 from border
         let max_visible_index = self.scroll_offset + visible_rows.saturating_sub(1);
         if self.selected_index > max_visible_index {
             self.scroll_offset = self.selected_index + 1 - visible_rows;
@@ -91,8 +91,14 @@ impl Overlay for DropdownOverlay {
         area: Rect,
         action_tx: UnboundedSender<Action>,
     ) {
+        // calculate the inner area (excluding border)
+        // same way as in render_border
+        let area = Block::bordered().inner(area);
+
         match mouse.kind {
-            MouseEventKind::Down(MouseButton::Left) => {
+            MouseEventKind::Down(MouseButton::Left)
+                if area.contains(Position::new(mouse.column, mouse.row)) =>
+            {
                 let y = mouse.row.saturating_sub(area.y);
                 let clicked_index = self.scroll_offset + usize::from(y);
                 if clicked_index < self.options.len() {
@@ -115,8 +121,10 @@ impl Overlay for DropdownOverlay {
 }
 
 impl ComponentRender<Rect> for DropdownOverlay {
-    fn render_border(&mut self, _frame: &mut Frame<'_>, area: Rect) -> Rect {
-        area
+    fn render_border(&mut self, frame: &mut Frame<'_>, area: Rect) -> Rect {
+        let border = Block::bordered();
+        frame.render_widget(&border, area);
+        border.inner(area)
     }
 
     fn render_content(&mut self, frame: &mut Frame<'_>, area: Rect) {
@@ -137,7 +145,7 @@ impl ComponentRender<Rect> for DropdownOverlay {
             })
             .collect::<Vec<_>>();
 
-        let list = List::new(items).block(Block::bordered());
+        let list = List::new(items);
         let mut state = ListState::default();
         if self.selected_index >= self.scroll_offset {
             let rel = self.selected_index - self.scroll_offset;
@@ -255,7 +263,7 @@ mod tests {
         let mut o = make_overlay(&["A", "B", "C", "D", "E"], 3, 0);
         o.move_down();
         assert_eq!(o.selected_index, 4);
-        assert_eq!(o.scroll_offset, 1);
+        assert_eq!(o.scroll_offset, 3);
     }
 
     #[test]
@@ -358,7 +366,7 @@ mod tests {
         let options: Arc<[String]> = Arc::from(vec!["A".to_string(), "B".to_string()]);
         let mut overlay = DropdownOverlay {
             target_id: 3,
-            size: Rect::new(10, 10, 8, 3),
+            size: Rect::new(10, 10, 8, 5),
             options,
             selected_index: 0,
             scroll_offset: 0,
@@ -367,8 +375,8 @@ mod tests {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let click = MouseEvent {
             kind: MouseEventKind::Down(MouseButton::Left),
-            column: 11,
-            row: 11,
+            column: 11, // 1 pixel into the overlay's width
+            row: 12,
             modifiers: crossterm::event::KeyModifiers::empty(),
         };
 
@@ -381,6 +389,34 @@ mod tests {
                 target_id: 3,
                 selected_index: 1,
             }))
+        );
+    }
+
+    #[test]
+    fn click_on_border_does_nothing() {
+        let options: Arc<[String]> = Arc::from(vec!["A".to_string(), "B".to_string()]);
+        let mut overlay = DropdownOverlay {
+            target_id: 3,
+            size: Rect::new(10, 10, 8, 5),
+            options,
+            selected_index: 0,
+            scroll_offset: 0,
+        };
+
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let click = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 11, // 1 pixel into the overlay's width
+            row: 10,
+            modifiers: crossterm::event::KeyModifiers::empty(),
+        };
+
+        overlay.inner_handle_mouse_event(click, overlay.size, tx);
+
+        assert_eq!(
+            rx.try_recv(),
+            Err(tokio::sync::mpsc::error::TryRecvError::Disconnected),
+            "expected no action for click on border"
         );
     }
 
@@ -460,11 +496,11 @@ mod tests {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let terminal_area = Rect::new(0, 0, 80, 24);
         let overlay_area = o.area(terminal_area);
-        // Click row 1 inside overlay (area.y + 1) -> clicked_index = scroll_offset(0) + 1 = 1
+        // Click row 1 inside overlay (area.y + 2) -> clicked_index = scroll_offset(0) + 1 = 1
         let click = mouse(
             MouseEventKind::Down(MouseButton::Left),
             overlay_area.x + 1,
-            overlay_area.y + 1,
+            overlay_area.y + 2,
         );
         Overlay::handle_mouse_event(&mut o, click, overlay_area, tx);
         let action = rx.blocking_recv().expect("expected commit action");
@@ -510,7 +546,7 @@ mod tests {
         // Use a 10x4 terminal so the area matches size exactly
         let (mut terminal, area) = setup_test_terminal(10, 4);
         let buffer = terminal
-            .draw(|frame| o.render_content(frame, area))
+            .draw(|frame| o.render(frame, area))
             .unwrap()
             .buffer
             .clone();
@@ -536,7 +572,7 @@ mod tests {
         let mut o = make_overlay(&["Alpha", "Beta", "Gamma"], 1, 1);
         let (mut terminal, area) = setup_test_terminal(10, 4);
         let buffer = terminal
-            .draw(|frame| o.render_content(frame, area))
+            .draw(|frame| o.render(frame, area))
             .unwrap()
             .buffer
             .clone();
@@ -552,7 +588,7 @@ mod tests {
     }
 
     #[test]
-    fn render_content_has_border() {
+    fn render_content_has_no_border() {
         let mut o = make_overlay(&["A"], 0, 0);
         let (mut terminal, area) = setup_test_terminal(10, 4);
         terminal
@@ -560,23 +596,21 @@ mod tests {
             .unwrap();
 
         let buf = terminal.backend().buffer().clone();
-        // Top-left corner should be the border character '┌'
-        assert_eq!(buf.cell((0, 0)).unwrap().symbol(), "┌");
+        // Top-left corner should NOT be the border character '┌'
+        assert_ne!(buf.cell((0, 0)).unwrap().symbol(), "┌");
         // Top-right corner
-        assert_eq!(buf.cell((9, 0)).unwrap().symbol(), "┐");
+        assert_ne!(buf.cell((9, 0)).unwrap().symbol(), "┐");
         // Bottom-left corner
-        assert_eq!(buf.cell((0, 3)).unwrap().symbol(), "└");
+        assert_ne!(buf.cell((0, 3)).unwrap().symbol(), "└");
         // Bottom-right corner
-        assert_eq!(buf.cell((9, 3)).unwrap().symbol(), "┘");
+        assert_eq!(buf.cell((9, 3)).unwrap().symbol(), " ");
     }
 
     #[test]
     fn render_selected_item_has_reversed_modifier() {
         let mut o = make_overlay(&["Alpha", "Beta"], 0, 0);
         let (mut terminal, area) = setup_test_terminal(10, 4);
-        terminal
-            .draw(|frame| o.render_content(frame, area))
-            .unwrap();
+        terminal.draw(|frame| o.render(frame, area)).unwrap();
 
         let buf = terminal.backend().buffer().clone();
         // Row 1 is the first option (selected_index=0), col 1 is inside the border

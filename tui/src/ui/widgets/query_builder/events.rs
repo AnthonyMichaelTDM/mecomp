@@ -156,8 +156,16 @@ fn handle_add_group_key(
 pub fn handle_mouse_event(
     state: &mut QueryBuilderState,
     mouse: MouseEvent,
-    _area: Rect,
+    area: Rect,
 ) -> Option<Action> {
+    let click_pos = Position::new(mouse.column, mouse.row);
+
+    // If we're in raw-text mode, forward the mouse event to the raw-text editor
+    if state.mode == BuilderMode::RawText {
+        state.raw_input.handle_mouse_event(mouse, area);
+        return None;
+    }
+
     // Handle scroll wheel first
     match mouse.kind {
         MouseEventKind::ScrollUp => {
@@ -175,8 +183,6 @@ pub fn handle_mouse_event(
     if mouse.kind != MouseEventKind::Down(MouseButton::Left) {
         return None;
     }
-
-    let click_pos = Position::new(mouse.column, mouse.row);
 
     // Find which clickable region was clicked and clone the data we need
     let region_data = state
@@ -539,6 +545,31 @@ mod tests {
     }
 
     #[test]
+    fn group_header_space_opens_kind_overlay() {
+        let mut state = QueryBuilderState::default();
+        // Convert to group
+        state.add_leaf_at(&[]);
+
+        // Move cursor to group header (index 0)
+        state.cursor.flat_index = 0;
+
+        let result = handle_key_event(
+            &mut state,
+            KeyEvent {
+                code: KeyCode::Char(' '),
+                modifiers: KeyModifiers::empty(),
+                kind: KeyEventKind::Press,
+                state: crossterm::event::KeyEventState::empty(),
+            },
+        );
+
+        assert!(matches!(
+            result,
+            Some(Action::Overlay(OverlayAction::Open(_)))
+        ));
+    }
+
+    #[test]
     fn group_header_enter_opens_kind_overlay() {
         let mut state = QueryBuilderState::default();
         // Convert to group
@@ -764,6 +795,37 @@ mod tests {
                 assert_eq!(leaf.leaf_focus, LeafFocus::Operator);
             }
         }
+    }
+
+    #[test]
+    fn mouse_click_forwards_to_raw_text_editor() {
+        let mut state = QueryBuilderState::default();
+        state.add_leaf_at(&[]);
+
+        let region = ClickableRegion {
+            area: Rect::new(10, 5, 20, 1),
+            action: ClickableAction::LeafOperator,
+            path: vec![0],
+            flat_index: 1,
+            leaf_focus: Some(LeafFocus::Operator),
+        };
+        state.clickable_regions.push(region);
+
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 15,
+            row: 5,
+            modifiers: KeyModifiers::empty(),
+        };
+        let area = Rect::new(0, 0, 80, 20);
+
+        // set to RawText mode
+        state.mode = BuilderMode::RawText;
+
+        let result = handle_mouse_event(&mut state, mouse, area);
+
+        // If we were in visual mode, this would be Some like in the test above
+        assert_eq!(result, None);
     }
 
     #[test]

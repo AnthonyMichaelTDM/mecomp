@@ -30,6 +30,30 @@ impl Display for UiCompoundKind {
     }
 }
 
+/// Macro to build a static array by concatenating multiple other
+/// static arrays. Usage: `array_concat!(arr1, arr2, arr3)`.
+macro_rules! array_concat {
+    ($filler:expr, $($s:expr),+) => {{
+        const LEN: usize = $( $s.len() + )* 0;
+        & {
+            let mut arr = [$filler; LEN];
+            let mut base: usize = 0;
+            $({
+                let mut i = 0;
+                while i < $s.len() {
+                    arr[base + i] = $s[i];
+                    i += 1;
+                }
+                base += $s.len();
+            })*
+            if base != LEN {
+                panic!("array_concat: length mismatch");
+            }
+            arr
+        }
+    }}
+}
+
 const SCALAR_SCALAR_OPS: &[Operator] = &[
     Operator::Equal,
     Operator::NotEqual,
@@ -39,12 +63,18 @@ const SCALAR_SCALAR_OPS: &[Operator] = &[
     Operator::LessThanOrEqual,
     Operator::GreaterThan,
     Operator::GreaterThanOrEqual,
+];
+// additional ops for when both scalars are strings
+const STRING_COMPARISON_OPS: &[Operator] = &[
     Operator::Contains,
     Operator::ContainsNot,
-    Operator::Inside,
-    Operator::NotInside,
-    Operator::In,
-    Operator::NotIn,
+    // the below are also technically allowed,
+    // but collide with SCALAR_SET_OPS in a way
+    // that makes it ambiguous which RHS value is intended.
+    // Operator::Inside,
+    // Operator::NotInside,
+    // Operator::In,
+    // Operator::NotIn,
 ];
 const SCALAR_SET_OPS: &[Operator] = &[
     Operator::Inside,
@@ -61,7 +91,7 @@ const SET_SCALAR_OPS: &[Operator] = &[
     Operator::AllLike,
 ];
 const SET_SET_OPS: &[Operator] = &[
-    Operator::Contains,
+    // Operator::Contains, technically valid, but causes ambiguity with SET_SCALAR_OPS
     Operator::ContainsAll,
     Operator::ContainsAny,
     Operator::ContainsNone,
@@ -70,26 +100,56 @@ const SET_SET_OPS: &[Operator] = &[
     Operator::NoneInside,
 ];
 
+const INT_SCALAR_OPS: &[Operator] =
+    array_concat!(Operator::Equal, SCALAR_SCALAR_OPS, SCALAR_SET_OPS);
+const STRING_SCALAR_OPS: &[Operator] = array_concat!(
+    Operator::Equal,
+    SCALAR_SCALAR_OPS,
+    STRING_COMPARISON_OPS,
+    SCALAR_SET_OPS
+);
+const STRING_SET_OPS: &[Operator] = array_concat!(Operator::Contains, SET_SCALAR_OPS, SET_SET_OPS);
+
 /// Returns the valid operators for a given field, given whether the right-hand value is a set.
 #[must_use]
-pub fn operators_for_field(field: Field, right_is_set: bool) -> Vec<Operator> {
-    let ops: &[Operator] = match (field_is_set(field), right_is_set) {
-        // scalar ↔ scalar
-        (false, false) => SCALAR_SCALAR_OPS,
-        // scalar → set  (value INSIDE set_field)
-        (false, true) => SCALAR_SET_OPS,
-        // set field → scalar
-        (true, false) => SET_SCALAR_OPS,
-        // set ↔ set
-        (true, true) => SET_SET_OPS,
-    };
-    ops.to_vec()
+pub const fn operators_for_field(field: Field) -> &'static [Operator] {
+    match field {
+        // Album and Title are string scalars
+        Field::Title | Field::Album => STRING_SCALAR_OPS,
+        // ReleaseYear is an integer scalar
+        Field::ReleaseYear => INT_SCALAR_OPS,
+        // Artists, Genre, and AlbumArtists are sets of strings
+        Field::Artists | Field::AlbumArtists | Field::Genre => STRING_SET_OPS,
+    }
 }
 
-/// Returns `true` if `field` holds an array value `(artists, album_artists, genre)`.
-#[must_use]
-pub const fn field_is_set(field: Field) -> bool {
-    matches!(field, Field::Artists | Field::AlbumArtists | Field::Genre)
+/// Returns the default value for the given (Field, Operator) pair
+pub fn default_value_for_field_operator(field: Field, operator: Operator) -> UiValue {
+    const STRING_STRING_OPS: &[Operator] =
+        array_concat!(Operator::Equal, SCALAR_SCALAR_OPS, STRING_COMPARISON_OPS);
+
+    let default_text = UiValue::Text("value".to_string());
+    let default_integer = UiValue::Integer("2000".to_string());
+    let default_set = UiValue::Set(vec!["value1".to_string(), "value2".to_string()]);
+    let default_integer_set = UiValue::Set(vec!["2000".to_string(), "2001".to_string()]);
+
+    match field {
+        Field::Title | Field::Album if STRING_STRING_OPS.contains(&operator) => default_text,
+        Field::Title | Field::Album if SCALAR_SET_OPS.contains(&operator) => default_set,
+        Field::ReleaseYear if SCALAR_SCALAR_OPS.contains(&operator) => default_integer,
+        Field::ReleaseYear if SCALAR_SET_OPS.contains(&operator) => default_integer_set,
+        Field::Artists | Field::AlbumArtists | Field::Genre if SET_SET_OPS.contains(&operator) => {
+            default_set
+        }
+        Field::Artists | Field::AlbumArtists | Field::Genre
+            if SET_SCALAR_OPS.contains(&operator) =>
+        {
+            default_text
+        }
+        _ => {
+            panic!("Unhandled (Field, Operator) pair: ({field:?}, {operator:?})");
+        }
+    }
 }
 
 /// The right-hand value of a leaf clause, as editable interactive state.
@@ -195,7 +255,7 @@ impl UiValue {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiLeafClause {
     pub field_dd: DropdownState<Field>,
-    pub operator_dd: DropdownState<Operator>,
+    pub operator_dd: DropdownState<&'static Operator>,
     pub value: UiValue,
     /// Which sub-part of the leaf is currently focused (for Tab cycling).
     pub leaf_focus: LeafFocus,
@@ -231,11 +291,12 @@ impl UiLeafClause {
     #[must_use]
     pub fn new() -> Self {
         let field = Field::Title;
-        let operators = operators_for_field(field, false);
+        let operators = operators_for_field(field);
+        let value = default_value_for_field_operator(field, operators[0]);
         Self {
             field_dd: DropdownState::new(1, Field::iter()),
             operator_dd: DropdownState::new(2, operators),
-            value: UiValue::Text(String::from("value")),
+            value,
             leaf_focus: LeafFocus::default(),
         }
     }
@@ -243,10 +304,10 @@ impl UiLeafClause {
     /// The currently selected `Field`.
     #[must_use]
     pub fn field(&self) -> Field {
-        let Some(selected) = self.field_dd.selected() else {
-            return Field::Title;
+        let Some(Ok(selected)) = self.field_dd.selected().map(Field::from_str) else {
+            panic!("field dropdown has no or invalid selection");
         };
-        Field::from_str(selected).unwrap_or(Field::Title)
+        selected
     }
 
     /// The currently selected `Operator`.
@@ -256,28 +317,23 @@ impl UiLeafClause {
     }
 
     /// Rebuild operator options after the field (or value type) changes.
-    pub fn refresh_operators(&mut self) {
+    pub fn refresh_operators_and_value(&mut self) {
+        // refresh the operator options based on the current field
         let field = self.field();
-        let right_is_set = self.value.is_set();
-        let ops = operators_for_field(field, right_is_set);
+        let ops = operators_for_field(field);
         self.operator_dd = DropdownState::new(self.operator_dd.control_id(), ops);
+        // refresh the value based on the new operator options
+        self.refresh_value();
     }
 
     /// Set the appropriate `UiValue` variant for the current field + operator combo
     pub fn refresh_value(&mut self) {
         let field = self.field();
-        let Some(op) = self.operator() else { return };
+        let op = self
+            .operator()
+            .unwrap_or_else(|| operators_for_field(field)[0]);
 
-        let field_is_set = field_is_set(field);
-        let rhs_is_set = (field_is_set && SET_SET_OPS.contains(&op))
-            || (!field_is_set && SCALAR_SET_OPS.contains(&op));
-        self.value = if rhs_is_set {
-            UiValue::Set(vec!["value1".to_string(), "value2".to_string()])
-        } else if field == Field::ReleaseYear {
-            UiValue::Integer("year".to_string())
-        } else {
-            UiValue::Text("value".to_string())
-        };
+        self.value = default_value_for_field_operator(field, op);
     }
 
     /// Try to compile to a storage `LeafClause`.
@@ -305,8 +361,7 @@ impl UiLeafClause {
         }
         // Rebuild operators for that field
         let field = self.field();
-        let right_is_set = matches!(leaf.right, Value::Set(_));
-        let ops = operators_for_field(field, right_is_set);
+        let ops = operators_for_field(field);
         self.operator_dd = DropdownState::new(self.operator_dd.control_id(), ops);
         let _ = self
             .operator_dd
@@ -582,7 +637,8 @@ impl CursorPath {
 
 #[cfg(test)]
 mod tests {
-    use pretty_assertions::assert_str_eq;
+    use pretty_assertions::{assert_eq, assert_ne, assert_str_eq};
+    use rstest::rstest;
 
     use crate::ui::widgets::query_builder::QueryBuilderState;
 
@@ -633,14 +689,14 @@ mod tests {
 
     #[test]
     fn test_operators_for_scalar_field() {
-        let ops = operators_for_field(Field::Title, false);
+        let ops = operators_for_field(Field::Title);
         assert!(ops.iter().any(|o| *o == Operator::Equal));
         assert!(ops.iter().any(|o| *o == Operator::Like));
     }
 
     #[test]
     fn test_operators_for_set_field() {
-        let ops = operators_for_field(Field::Artists, false);
+        let ops = operators_for_field(Field::Artists);
         assert!(ops.iter().any(|o| *o == Operator::Contains));
         // scalar-only operators should not appear
         assert!(!ops.iter().any(|o| *o == Operator::Equal));
@@ -651,23 +707,6 @@ mod tests {
         assert_eq!(parent_path_of(&[0, 1, 2]), &[0, 1]);
         assert_eq!(parent_path_of(&[0]), &[] as &[usize]);
         assert_eq!(parent_path_of(&[]), &[] as &[usize]);
-    }
-
-    #[test]
-    fn refresh_operators_for_set_value_updates_operator_dropdown() {
-        let mut leaf = UiLeafClause::new();
-        leaf.value = UiValue::Set(vec!["one".to_string(), "two".to_string()]);
-        let _ = leaf
-            .field_dd
-            .select_by_text(Field::Title.compile_for_storage().as_str());
-
-        leaf.refresh_operators();
-
-        assert!(leaf.operator_dd.selected().is_some());
-        assert!(
-            leaf.operator_dd.selected().unwrap().contains("IN")
-                || leaf.operator_dd.selected().unwrap().contains("CONTAINS")
-        );
     }
 
     #[test]
@@ -682,17 +721,79 @@ mod tests {
 
         leaf.refresh_value();
 
-        assert_eq!(leaf.value, UiValue::Integer("year".to_string()));
+        assert_eq!(leaf.value, UiValue::Integer("2000".to_string()));
     }
 
     #[test]
     fn refresh_value_sets_set_when_operator_requires_set() {
         let mut leaf = UiLeafClause::new();
         leaf.field_dd = DropdownState::new(1, vec![Field::Title]);
-        leaf.operator_dd = DropdownState::new(2, vec![Operator::In]);
+        leaf.operator_dd = DropdownState::new(2, vec![&Operator::In]);
 
         leaf.refresh_value();
 
         assert!(matches!(leaf.value, UiValue::Set(_)));
+    }
+
+    #[rstest]
+    #[case(Field::Title, STRING_SCALAR_OPS, 14)]
+    #[case(Field::Album, STRING_SCALAR_OPS, 14)]
+    #[case(Field::ReleaseYear, INT_SCALAR_OPS, 12)]
+    #[case(Field::Artists, STRING_SET_OPS, 12)]
+    #[case(Field::AlbumArtists, STRING_SET_OPS, 12)]
+    #[case(Field::Genre, STRING_SET_OPS, 12)]
+    fn test_operators_for_field(
+        #[case] field: Field,
+        #[case] expected_ops: &[Operator],
+        #[case] expected_len: usize,
+    ) {
+        let ops = operators_for_field(field);
+        assert_eq!(ops, expected_ops);
+        assert_eq!(ops.len(), expected_len);
+
+        // ensure that no duplicate operators are present
+        let mut seen = std::collections::HashSet::new();
+        for &op in ops {
+            assert!(seen.insert(op), "Duplicate operator found: {:?}", op);
+        }
+    }
+
+    #[rstest]
+    #[case(&[Field::ReleaseYear], 0, 8, UiValue::Integer("2000".to_string()))]
+    #[case(&[Field::ReleaseYear], 8, 12, UiValue::Set(vec!["2000".to_string(), "2001".to_string()]))]
+    #[case(&[Field::Title, Field::Album], 0, 10, UiValue::Text("value".to_string()))]
+    #[case(&[Field::Title, Field::Album], 10, 14, UiValue::Set(vec!["value1".to_string(), "value2".to_string()]))]
+    #[case(&[Field::Artists, Field::AlbumArtists, Field::Genre], 0, 6, UiValue::Text("value".to_string()))]
+    #[case(&[Field::Artists, Field::AlbumArtists, Field::Genre], 6, 12, UiValue::Set(vec!["value1".to_string(), "value2".to_string()]))]
+    fn test_default_values_for_field_operator(
+        #[case] fields: &[Field],
+        #[case] start: usize,
+        #[case] end: usize,
+        #[case] expected_value: UiValue,
+    ) {
+        for &field in fields {
+            let ops = operators_for_field(field);
+            let should_match = &ops[start..end];
+            let shouldnt_match = ops[..start].iter().chain(&ops[end..]);
+
+            for &op in should_match {
+                assert_eq!(
+                    default_value_for_field_operator(field, op),
+                    expected_value,
+                    "Field: {:?}, Operator: {:?}",
+                    field,
+                    op
+                );
+            }
+            for &op in shouldnt_match {
+                assert_ne!(
+                    default_value_for_field_operator(field, op),
+                    expected_value,
+                    "Field: {:?}, Operator: {:?}",
+                    field,
+                    op
+                );
+            }
+        }
     }
 }
