@@ -20,6 +20,7 @@ use crate::{
         widgets::{
             input_box::{InputBox, InputBoxState},
             overlay::OverlayResult,
+            popups::PopupType::Notification,
             query_builder::state::BuilderMode,
         },
     },
@@ -158,7 +159,16 @@ impl Popup for DynamicPlaylistEditor {
                     BuilderMode::Visual => self.focus = Focus::Name,
                 },
             },
-            (KeyCode::Enter, KeyModifiers::CONTROL, Some(query)) => {
+            (KeyCode::Enter, KeyModifiers::CONTROL, query) => {
+                let Some(query) = query else {
+                    self.action_tx
+                        .send(Action::Popup(PopupAction::Open(Notification(
+                            "The current query is invalid".into(),
+                        ))))
+                        .ok();
+                    return;
+                };
+
                 let name = self.name_input.text().into();
                 let action = match &self.kind {
                     PopupType::Edit(id) => {
