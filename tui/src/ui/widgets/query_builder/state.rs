@@ -143,13 +143,16 @@ impl QueryBuilderState {
                     };
                     match target_id {
                         1 => {
-                            leaf.refresh_operators();
-                            leaf.refresh_value();
-                            leaf.field_dd.apply_overlay_result(result)
+                            // field changed, need to update operators and value
+                            leaf.field_dd.apply_overlay_result(result);
+                            leaf.refresh_operators_and_value();
+                            true
                         }
                         2 => {
+                            // operator changed, need to update value
+                            leaf.operator_dd.apply_overlay_result(result);
                             leaf.refresh_value();
-                            leaf.operator_dd.apply_overlay_result(result)
+                            true
                         }
                         _ => false,
                     }
@@ -572,6 +575,10 @@ mod tests {
             _ => panic!("Expected root to be a leaf clause"),
         };
         let initial_field = leaf.field_dd.selected().unwrap().to_string();
+        assert_eq!(
+            state.try_to_query().unwrap().compile_for_storage(),
+            "title = \"value\""
+        );
 
         // Get the field options to select a different one
         let field_options = Field::iter().map(|f| f.to_string()).collect::<Vec<_>>();
@@ -605,8 +612,13 @@ mod tests {
                 UiClause::Leaf(leaf) => Some(leaf),
                 _ => None,
             })
-            .unwrap();
+            .unwrap()
+            .clone();
         let new_field = leaf_after.field_dd.selected().unwrap();
+        assert_eq!(
+            state.try_to_query().unwrap().compile_for_storage(),
+            "artist CONTAINS \"value\""
+        );
 
         assert_eq!(
             new_field,

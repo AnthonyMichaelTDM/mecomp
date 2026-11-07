@@ -133,7 +133,7 @@ impl Popup for DynamicPlaylistEditor {
     fn inner_handle_key_event(&mut self, key: KeyEvent) {
         let query = self.query_builder.query();
 
-        match (key.code, key.modifiers, query) {
+        match (key.code, key.modifiers & KeyModifiers::CONTROL, query) {
             (KeyCode::Tab, _, _) => match self.focus {
                 Focus::Name => {
                     self.focus = Focus::Query;
