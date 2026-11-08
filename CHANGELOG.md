@@ -1,5 +1,15 @@
 # Mecomp Changelog
 
+## v0.8.1
+
+This release fixes multiple bugs with the TUIs query builder that otherwise rendered it unusable in certain scenarios.
+
+### v0.8.1 What's Changed
+* fix(tui): multiple bugs with query builder by @AnthonyMichaelTDM in https://github.com/AnthonyMichaelTDM/mecomp/pull/496
+
+
+**Full Changelog**: https://github.com/AnthonyMichaelTDM/mecomp/compare/v0.8.0...v0.8.1
+
 ## v0.8.0
 
 This release introduces several new features, optimizations, and refactors, including SIMD improvements, memory management enhancements, and updates to the analysis and embeddings pipelines.
